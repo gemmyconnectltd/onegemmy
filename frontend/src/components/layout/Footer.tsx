@@ -89,7 +89,7 @@ export function Footer() {
           <p className="text-white/40 text-sm">
             &copy; {new Date().getFullYear()} {siteConfig.company}. All rights reserved.
           </p>
-          <p className="text-white/40 text-sm">Built with care in Ghana</p>
+          <p className="text-white/40 text-sm">Built with care in Rwanda</p>
         </div>
       </div>
     </footer>
