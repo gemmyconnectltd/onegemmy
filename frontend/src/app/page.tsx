@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { DashboardMockup } from "@/components/ui/DashboardMockup";
 
 export default function Home() {
   return (
@@ -29,7 +30,7 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-primary to-[#c4a77a]">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-[#3d2f22] to-primary">
         <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
             <Zap size={16} />
@@ -60,7 +61,7 @@ export default function Home() {
               Watch Demo
             </a>
           </div>
-          <div className="mt-16 flex flex-wrap justify-center gap-8 text-white/70 text-sm">
+          <div className="mt-10 flex flex-wrap justify-center gap-8 text-white/70 text-sm">
             <div className="flex items-center gap-2">
               <Check size={18} className="text-emerald-400" />
               No credit card required
@@ -74,6 +75,7 @@ export default function Home() {
               Setup in 30 minutes
             </div>
           </div>
+          <DashboardMockup />
         </div>
       </section>
 
