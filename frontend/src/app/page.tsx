@@ -30,52 +30,59 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-[#3d2f22] to-primary">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Zap size={16} />
-            All-in-One Business Management Platform
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-            Run Your Business
-            <br />
-            <span className="text-white/80">From One Place</span>
-          </h1>
-          <p className="text-xl text-white/70 max-w-3xl mx-auto mb-10">
-            OneGemmy brings sales, inventory, finance, HR, projects, and CRM
-            together in a single powerful platform. Stop juggling multiple tools
-            — manage everything with OneGemmy.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
-              href="/register"
-              className="bg-white text-accent px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
-            >
-              Start Free Trial
-              <ArrowRight size={20} />
-            </a>
-            <a
-              href="#demo"
-              className="border-2 border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors"
-            >
-              Watch Demo
-            </a>
-          </div>
-          <div className="mt-10 flex flex-wrap justify-center gap-8 text-white/70 text-sm">
-            <div className="flex items-center gap-2">
-              <Check size={18} className="text-emerald-400" />
-              No credit card required
+      <section className="pt-28 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-[#3d2f22] to-primary overflow-hidden">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12">
+          {/* Left - Text */}
+          <div className="flex-1 text-left">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <Zap size={16} />
+              All-in-One Business Management Platform
             </div>
-            <div className="flex items-center gap-2">
-              <Check size={18} className="text-emerald-400" />
-              Free for small teams
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+              Run Your Business
+              <br />
+              <span className="text-white/80">From One Place</span>
+            </h1>
+            <p className="text-lg text-white/70 max-w-xl mb-8">
+              OneGemmy brings sales, inventory, finance, HR, projects, and CRM
+              together in a single powerful platform. Stop juggling multiple tools
+              — manage everything with OneGemmy.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <a
+                href="/register"
+                className="bg-white text-accent px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
+              >
+                Start Free Trial
+                <ArrowRight size={20} />
+              </a>
+              <a
+                href="#demo"
+                className="border-2 border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors"
+              >
+                Watch Demo
+              </a>
             </div>
-            <div className="flex items-center gap-2">
-              <Check size={18} className="text-emerald-400" />
-              Setup in 30 minutes
+            <div className="flex flex-wrap gap-6 text-white/70 text-sm">
+              <div className="flex items-center gap-2">
+                <Check size={18} className="text-emerald-400" />
+                No credit card required
+              </div>
+              <div className="flex items-center gap-2">
+                <Check size={18} className="text-emerald-400" />
+                Free for small teams
+              </div>
+              <div className="flex items-center gap-2">
+                <Check size={18} className="text-emerald-400" />
+                Setup in 30 minutes
+              </div>
             </div>
           </div>
-          <DashboardMockup />
+
+          {/* Right - Dashboard Mockup */}
+          <div className="flex-1 w-full">
+            <DashboardMockup />
+          </div>
         </div>
       </section>
 
