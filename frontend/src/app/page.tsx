@@ -48,7 +48,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="/register"
-              className="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
+              className="bg-white text-accent px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
             >
               Start Free Trial
               <ArrowRight size={20} />
@@ -198,7 +198,7 @@ export default function Home() {
                 }`}
               >
                 {size.featured && (
-                  <div className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
+                  <div className="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
                     MOST POPULAR
                   </div>
                 )}
@@ -252,7 +252,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="/register"
-              className="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-white text-accent px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2"
             >
               Start Your Free Trial
               <ArrowRight size={20} />

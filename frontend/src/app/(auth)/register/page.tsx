@@ -68,7 +68,7 @@ export default function RegisterPage() {
             </label>
             <button
               type="submit"
-              className="w-full bg-primary text-white py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
+              className="w-full bg-accent text-white py-2.5 text-sm font-medium hover:bg-accent/90 transition-colors"
             >
               Create Account
             </button>

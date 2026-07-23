@@ -16,7 +16,7 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-foreground">Reports</h1>
           <p className="text-sm text-muted mt-1">Generate and download business reports</p>
         </div>
-        <button className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity">
+        <button className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-medium hover:bg-accent/90 transition-colors">
           <BarChart3 size={16} />
           Generate Report
         </button>

@@ -72,7 +72,7 @@ export default function SettingsPage() {
                 className="w-full px-3 py-2.5 border border-border text-sm text-muted bg-surface"
               />
             </div>
-            <button className="bg-primary text-white px-5 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity">
+            <button className="bg-accent text-white px-5 py-2.5 text-sm font-medium hover:bg-accent/90 transition-colors">
               Save Changes
             </button>
           </div>

@@ -16,7 +16,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold text-foreground">Projects</h1>
           <p className="text-sm text-muted mt-1">Track projects, tasks, and milestones</p>
         </div>
-        <button className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors">
+        <button className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-medium hover:bg-accent/90 transition-colors">
           <Plus size={16} />
           New Project
         </button>

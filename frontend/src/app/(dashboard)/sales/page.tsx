@@ -27,7 +27,7 @@ export default function SalesPage() {
         </div>
         <Link
           href="/sales/new"
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+          className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-medium hover:bg-accent/90 transition-colors"
         >
           <Plus size={16} />
           New Deal
