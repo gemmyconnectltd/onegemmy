@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Layers, LayoutDashboard, TrendingUp, Package, DollarSign, Users, FolderKanban, Contact, BarChart3, Settings, LogOut, Menu, X } from "lucide-react";
+import { Layers, LayoutDashboard, TrendingUp, Package, DollarSign, Users, FolderKanban, Contact, BarChart3, Settings, Shield, LogOut, Menu, X } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -15,6 +15,7 @@ const navigation = [
   { name: "CRM", href: "/crm", icon: Contact },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Roles & Permissions", href: "/settings/roles", icon: Shield },
 ];
 
 export function Sidebar() {
