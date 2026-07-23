@@ -125,23 +125,30 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 p-4 bg-surface border border-border">
-            <p className="text-xs text-muted text-center mb-2 font-medium">Demo Accounts</p>
-            <div className="grid grid-cols-3 gap-2 text-xs text-center">
-              <div className="bg-white border border-border p-2 rounded-lg">
-                <p className="font-bold text-foreground">Owner</p>
-                <p className="text-muted mt-1">admin@onegemmy.com</p>
-                <p className="text-muted">admin123</p>
-              </div>
-              <div className="bg-white border border-border p-2 rounded-lg">
-                <p className="font-bold text-foreground">Manager</p>
-                <p className="text-muted mt-1">manager@onegemmy.com</p>
-                <p className="text-muted">manager123</p>
-              </div>
-              <div className="bg-white border border-border p-2 rounded-lg">
-                <p className="font-bold text-foreground">Sales</p>
-                <p className="text-muted mt-1">sales@onegemmy.com</p>
-                <p className="text-muted">sales123</p>
-              </div>
+            <p className="text-xs text-muted text-center mb-3 font-medium">Quick Login - Click to sign in</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Owner", email: "admin@onegemmy.com", password: "admin123" },
+                { label: "Manager", email: "manager@onegemmy.com", password: "manager123" },
+                { label: "Sales", email: "sales@onegemmy.com", password: "sales123" },
+              ].map((demo) => (
+                <button
+                  key={demo.label}
+                  type="button"
+                  onClick={async () => {
+                    setEmail(demo.email);
+                    setPassword(demo.password);
+                    setLoading(true);
+                    const success = await login(demo.email, demo.password);
+                    if (success) router.push("/dashboard");
+                    setLoading(false);
+                  }}
+                  className="bg-white border border-border p-3 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left cursor-pointer group"
+                >
+                  <p className="text-xs font-bold text-foreground group-hover:text-primary">{demo.label}</p>
+                  <p className="text-[10px] text-muted mt-1 truncate">{demo.email}</p>
+                </button>
+              ))}
             </div>
           </div>
 
