@@ -29,7 +29,7 @@ export default function Home() {
       <Navbar />
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#0F1D33] via-[#1E3A5F] to-[#2D5A8E]">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-primary to-[#c4a77a]">
         <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
             <Zap size={16} />
@@ -38,9 +38,9 @@ export default function Home() {
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
             Run Your Business
             <br />
-            <span className="text-[#0EA5E9]">From One Place</span>
+            <span className="text-white/80">From One Place</span>
           </h1>
-          <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-10">
+          <p className="text-xl text-white/70 max-w-3xl mx-auto mb-10">
             OneGemmy brings sales, inventory, finance, HR, projects, and CRM
             together in a single powerful platform. Stop juggling multiple tools
             — manage everything with OneGemmy.
@@ -48,7 +48,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="/register"
-              className="bg-white text-[#1E3A5F] px-8 py-4 rounded-lg font-bold text-lg hover:bg-slate-50 transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
+              className="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
             >
               Start Free Trial
               <ArrowRight size={20} />
@@ -60,17 +60,17 @@ export default function Home() {
               Watch Demo
             </a>
           </div>
-          <div className="mt-16 flex flex-wrap justify-center gap-8 text-slate-300 text-sm">
+          <div className="mt-16 flex flex-wrap justify-center gap-8 text-white/70 text-sm">
             <div className="flex items-center gap-2">
-              <Check size={18} className="text-[#10B981]" />
+              <Check size={18} className="text-emerald-400" />
               No credit card required
             </div>
             <div className="flex items-center gap-2">
-              <Check size={18} className="text-[#10B981]" />
+              <Check size={18} className="text-emerald-400" />
               Free for small teams
             </div>
             <div className="flex items-center gap-2">
-              <Check size={18} className="text-[#10B981]" />
+              <Check size={18} className="text-emerald-400" />
               Setup in 30 minutes
             </div>
           </div>
@@ -81,14 +81,14 @@ export default function Home() {
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-[#0EA5E9]/10 text-[#0EA5E9] px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Zap size={16} />
               Powerful Features
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0F172A] mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Everything You Need to Run Your Business
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted max-w-2xl mx-auto">
               One powerful platform replaces multiple tools. Save time, reduce
               errors, and get a complete view of your business.
             </p>
@@ -98,18 +98,18 @@ export default function Home() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="p-6 rounded-xl border border-slate-200 hover:border-[#1E3A5F]/30 hover:shadow-lg transition-all group"
+                className="p-6 rounded-xl border border-border hover:border-primary/30 hover:shadow-lg transition-all group"
               >
-                <div className="w-12 h-12 bg-[#1E3A5F]/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-[#1E3A5F] transition-colors">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary transition-colors">
                   <feature.icon
                     size={24}
-                    className="text-[#1E3A5F] group-hover:text-white transition-colors"
+                    className="text-primary group-hover:text-white transition-colors"
                   />
                 </div>
-                <h3 className="text-xl font-bold text-[#0F172A] mb-2">
+                <h3 className="text-xl font-bold text-foreground mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
+                <p className="text-muted text-sm leading-relaxed">
                   {feature.description}
                 </p>
               </div>
@@ -119,17 +119,17 @@ export default function Home() {
       </section>
 
       {/* Modules Section */}
-      <section id="modules" className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50">
+      <section id="modules" className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-[#1E3A5F]/10 text-[#1E3A5F] px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Layers size={16} />
               Complete Modules
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0F172A] mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Powerful Modules for Every Department
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted max-w-2xl mx-auto">
               Each module is designed to handle a specific area of your business
               with depth and simplicity.
             </p>
@@ -139,24 +139,24 @@ export default function Home() {
             {modules.map((module) => (
               <div
                 key={module.title}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-slate-100"
+                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-border"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#1E3A5F] to-[#2D5A8E] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center flex-shrink-0">
                     <module.icon size={24} className="text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-[#0F172A] mb-2">
+                    <h3 className="text-lg font-bold text-foreground mb-2">
                       {module.title}
                     </h3>
-                    <p className="text-slate-600 text-sm mb-4 leading-relaxed">
+                    <p className="text-muted text-sm mb-4 leading-relaxed">
                       {module.description}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {module.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full"
+                          className="text-xs bg-surface text-foreground/70 px-3 py-1"
                         >
                           {tag}
                         </span>
@@ -174,14 +174,14 @@ export default function Home() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-[#10B981]/10 text-[#10B981] px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Globe size={16} />
               Scalable Solutions
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-[#0F172A] mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Built for Every Business Size
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted max-w-2xl mx-auto">
               Whether you&apos;re a solo entrepreneur or a large enterprise,
               OneGemmy scales with you.
             </p>
@@ -193,26 +193,26 @@ export default function Home() {
                 key={size.title}
                 className={`rounded-xl p-6 border-2 transition-all ${
                   size.featured
-                    ? "border-[#1E3A5F] bg-[#1E3A5F]/5 shadow-lg scale-105"
-                    : "border-slate-200 hover:border-[#1E3A5F]/30"
+                    ? "border-primary bg-primary/5 shadow-lg scale-105"
+                    : "border-border hover:border-primary/30"
                 }`}
               >
                 {size.featured && (
-                  <div className="bg-[#1E3A5F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
+                  <div className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
                     MOST POPULAR
                   </div>
                 )}
-                <h3 className="text-2xl font-bold text-[#0F172A] mb-2">
+                <h3 className="text-2xl font-bold text-foreground mb-2">
                   {size.title}
                 </h3>
-                <p className="text-slate-500 text-sm mb-4">{size.subtitle}</p>
+                <p className="text-muted text-sm mb-4">{size.subtitle}</p>
                 <ul className="space-y-3">
                   {size.features.map((f) => (
                     <li
                       key={f}
-                      className="flex items-center gap-2 text-slate-700 text-sm"
+                      className="flex items-center gap-2 text-foreground/70 text-sm"
                     >
-                      <Check size={16} className="text-[#10B981] flex-shrink-0" />
+                      <Check size={16} className="text-emerald-500 flex-shrink-0" />
                       {f}
                     </li>
                   ))}
@@ -224,7 +224,7 @@ export default function Home() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#0F172A]">
+      <section className="py-20 px-4 sm:px-6 lg:px-8" style={{ background: "var(--sidebar)" }}>
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {stats.map((stat) => (
@@ -232,7 +232,7 @@ export default function Home() {
                 <div className="text-4xl md:text-5xl font-bold text-white mb-2">
                   {stat.value}
                 </div>
-                <div className="text-slate-400 text-sm">{stat.label}</div>
+                <div className="text-white/50 text-sm">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -240,19 +240,19 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#0F1D33] to-[#1E3A5F]">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] to-primary">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Ready to Transform Your Business?
           </h2>
-          <p className="text-xl text-slate-300 mb-10">
+          <p className="text-xl text-white/70 mb-10">
             Join thousands of businesses already using OneGemmy to manage their
             operations, boost sales, and grow faster.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
               href="/register"
-              className="bg-white text-[#1E3A5F] px-8 py-4 rounded-lg font-bold text-lg hover:bg-slate-50 transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2"
             >
               Start Your Free Trial
               <ArrowRight size={20} />

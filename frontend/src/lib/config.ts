@@ -1,51 +1,36 @@
 export const siteConfig = {
   name: "OneGemmy",
-  description: "All-in-one business management platform by Gemmy Connect Ltd",
-  url: "https://onegemmy.com",
+  title: "OneGemmy — All-in-One Business Management Platform",
+  description:
+    "Manage sales, inventory, finance, HR, projects, and CRM from one powerful platform. Built by Gemmy Connect Ltd.",
   company: "Gemmy Connect Ltd",
-  brand: {
-    primary: "#1E3A5F",
-    primaryLight: "#2D5A8E",
-    primaryDark: "#0F1D33",
-    secondary: "#0EA5E9",
-    accent: "#10B981",
-    success: "#10B981",
-    warning: "#F59E0B",
-    danger: "#EF4444",
-  },
+  url: "https://onegemmy.com",
   links: {
-    github: "https://github.com/gemmyconnectltd/onegemmy",
-    twitter: "#",
-    linkedin: "#",
+    github: "https://github.com/gemmyconnectltd",
+    linkedin: "https://linkedin.com/company/gemmyconnectltd",
+  },
+  colors: {
+    primary: "#af9164",
+    secondary: "#6f5a3a",
+    accent: "#6f1a07",
+    success: "#10B981",
+    background: "#ffffff",
+    surface: "#f8f8f6",
+    foreground: "#2b2118",
+    muted: "#b3b6b7",
+    border: "#e8e4de",
+    sidebar: "#111111",
   },
 };
 
-export const navigation = {
-  main: [
-    { name: "Features", href: "#features" },
-    { name: "Modules", href: "#modules" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "About", href: "#about" },
-  ],
-  auth: [
-    { name: "Sign In", href: "/login" },
-    { name: "Get Started", href: "/register" },
-  ],
-  product: [
-    { name: "Features", href: "#features" },
-    { name: "Modules", href: "#modules" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Documentation", href: "/docs" },
-  ],
-  company: [
-    { name: "About Us", href: "#about" },
-    { name: "Contact", href: "/contact" },
-    { name: "Careers", href: "/careers" },
-    { name: "Blog", href: "/blog" },
-  ],
-  legal: [
-    { name: "Privacy Policy", href: "/privacy" },
-    { name: "Terms of Service", href: "/terms" },
-    { name: "Security", href: "/security" },
-  ],
-};
+export const navigation = [
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "Sales", href: "/sales" },
+  { name: "Stock", href: "/stock" },
+  { name: "Finance", href: "/finance" },
+  { name: "HR", href: "/hr" },
+  { name: "Projects", href: "/projects" },
+  { name: "CRM", href: "/crm" },
+  { name: "Reports", href: "/reports" },
+  { name: "Settings", href: "/settings" },
+];
