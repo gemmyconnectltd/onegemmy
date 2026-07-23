@@ -21,21 +21,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-border z-50 flex items-center px-4 gap-4">
-      {/* Left: Toggle + Logo */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onToggleSidebar}
-          className="w-8 h-8 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
-        >
-          <Menu size={18} />
-        </button>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-foreground rounded-lg flex items-center justify-center">
-            <span className="text-white text-xs font-bold">O</span>
-          </div>
-          <span className="text-base font-bold text-foreground hidden sm:block">OneGemmy</span>
-        </div>
-      </div>
+      {/* Left: Toggle */}
+      <button
+        onClick={onToggleSidebar}
+        className="w-8 h-8 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
+      >
+        <Menu size={18} />
+      </button>
 
       {/* Center: Search */}
       <div className="flex-1 max-w-md mx-auto hidden md:block">
