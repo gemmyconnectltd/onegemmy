@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { defaultRoles, permissions, type Role } from "./roles";
 
 // --- Types ---
@@ -269,30 +269,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("onegemmy_user", JSON.stringify(updated));
   }, [user]);
 
+  const value = useMemo(() => ({
+    user,
+    companies,
+    shops,
+    roles,
+    login,
+    register,
+    logout,
+    isLoading,
+    hasPermission,
+    hasAnyPermission,
+    hasModuleAccess,
+    isSuperAdmin,
+    isAdmin,
+    canManageUsers,
+    canManageRoles,
+    canManageCompany,
+    getRole,
+    switchShop,
+    switchCompany,
+  }), [
+    user, companies, shops, roles, isLoading,
+    login, register, logout,
+    hasPermission, hasAnyPermission, hasModuleAccess,
+    isSuperAdmin, isAdmin, canManageUsers, canManageRoles, canManageCompany,
+    getRole, switchShop, switchCompany,
+  ]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        companies,
-        shops,
-        roles,
-        login,
-        register,
-        logout,
-        isLoading,
-        hasPermission,
-        hasAnyPermission,
-        hasModuleAccess,
-        isSuperAdmin,
-        isAdmin,
-        canManageUsers,
-        canManageRoles,
-        canManageCompany,
-        getRole,
-        switchShop,
-        switchCompany,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
