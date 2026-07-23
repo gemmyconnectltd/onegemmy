@@ -220,7 +220,7 @@ function SecurityTab() {
 }
 
 function NotificationsTab() {
-  const [prefs, setPrefs] = useState({
+  const [prefs, setPrefs] = useState<Record<string, boolean>>({
     emailSales: true,
     emailStock: true,
     emailFinance: false,
@@ -243,13 +243,13 @@ function NotificationsTab() {
               <p className="text-xs text-muted">{item.desc}</p>
             </div>
             <button
-              onClick={() => setPrefs((p) => ({ ...p, [item.key]: !p[item.key as keyof typeof p] }))}
+              onClick={() => setPrefs((p) => ({ ...p, [item.key]: !p[item.key] }))}
               className={`relative w-10 h-5 rounded-full transition-colors ${
-                prefs[item.key as keyof typeof p] ? "bg-[#6f1a07]" : "bg-gray-200"
+                prefs[item.key] ? "bg-[#6f1a07]" : "bg-gray-200"
               }`}
             >
               <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                prefs[item.key as keyof typeof p] ? "left-5.5 translate-x-0" : "left-0.5"
+                prefs[item.key] ? "left-5.5 translate-x-0" : "left-0.5"
               }`} />
             </button>
           </label>
