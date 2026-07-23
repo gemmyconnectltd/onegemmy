@@ -31,9 +31,9 @@ export default function Home() {
 
       {/* Hero Section */}
       <section className="pt-28 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-[#3d2f22] to-primary overflow-hidden">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-8">
           {/* Left - Text */}
-          <div className="flex-1 text-left">
+          <div className="w-full lg:w-1/2 text-left">
             <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
               <Zap size={16} />
               All-in-One Business Management Platform
@@ -80,7 +80,7 @@ export default function Home() {
           </div>
 
           {/* Right - Dashboard Mockup */}
-          <div className="flex-1 w-full">
+          <div className="w-full lg:w-1/2">
             <DashboardMockup />
           </div>
         </div>
