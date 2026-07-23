@@ -20,7 +20,7 @@ export function Logo({ size = "md" }: LogoProps) {
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`${containerSizes[size]} bg-primary flex items-center justify-center`}
+        className={`${containerSizes[size]} bg-foreground flex items-center justify-center`}
       >
         <Layers className="text-white" size={size === "sm" ? 14 : size === "md" ? 18 : 22} />
       </div>

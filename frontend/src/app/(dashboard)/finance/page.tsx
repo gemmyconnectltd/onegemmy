@@ -38,7 +38,7 @@ export default function FinancePage() {
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-foreground/5 flex items-center justify-center">
                 <stat.icon size={20} className={stat.color} />
               </div>
               <span className={`flex items-center gap-1 text-xs font-medium ${stat.up ? "text-emerald-600" : "text-red-500"}`}>

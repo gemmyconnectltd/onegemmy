@@ -33,7 +33,7 @@ export default function HRPage() {
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl p-5 border border-border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-foreground/5 flex items-center justify-center">
                 <stat.icon size={20} className={stat.color} />
               </div>
               <div>
@@ -64,7 +64,7 @@ export default function HRPage() {
               <tr key={i} className="hover:bg-surface/50 transition-colors">
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                    <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold text-foreground">
                       {emp.name.split(" ").map(n => n[0]).join("")}
                     </div>
                     <span className="text-sm font-medium text-foreground">{emp.name}</span>

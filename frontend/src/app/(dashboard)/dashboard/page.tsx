@@ -35,7 +35,7 @@ export default function DashboardPage() {
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl p-5 border border-border">
             <div className="flex items-center justify-between mb-3">
-              <div className={`w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center ${stat.color}`}>
+              <div className={`w-10 h-10 rounded-lg bg-foreground/5 flex items-center justify-center ${stat.color}`}>
                 <stat.icon size={20} />
               </div>
               <span className={`flex items-center gap-1 text-xs font-medium ${stat.up ? "text-emerald-600" : "text-red-500"}`}>
@@ -85,7 +85,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="w-full bg-surface rounded-full h-1.5">
                   <div
-                    className="bg-primary rounded-full h-1.5"
+                    className="bg-foreground rounded-full h-1.5"
                     style={{ width: `${(product.sold / 342) * 100}%` }}
                   />
                 </div>

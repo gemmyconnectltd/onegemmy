@@ -26,7 +26,7 @@ export default function ReportsPage() {
         {reports.map((report, i) => (
           <div key={i} className="bg-white border border-border p-5 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 bg-foreground/5 flex items-center justify-center">
                 <BarChart3 size={20} className="text-primary" />
               </div>
               <div>

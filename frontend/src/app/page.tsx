@@ -81,7 +81,7 @@ export default function Home() {
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-foreground/5 text-foreground px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Zap size={16} />
               Powerful Features
             </div>
@@ -100,10 +100,10 @@ export default function Home() {
                 key={feature.title}
                 className="p-6 rounded-xl border border-border hover:border-primary/30 hover:shadow-lg transition-all group"
               >
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary transition-colors">
+                <div className="w-12 h-12 bg-foreground/5 rounded-xl flex items-center justify-center mb-4 group-hover:bg-foreground transition-colors">
                   <feature.icon
                     size={24}
-                    className="text-primary group-hover:text-white transition-colors"
+                    className="text-foreground group-hover:text-white transition-colors"
                   />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-2">
@@ -122,7 +122,7 @@ export default function Home() {
       <section id="modules" className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 bg-foreground/5 text-foreground px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Layers size={16} />
               Complete Modules
             </div>
@@ -142,7 +142,7 @@ export default function Home() {
                 className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-border"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center flex-shrink-0">
                     <module.icon size={24} className="text-white" />
                   </div>
                   <div className="flex-1">
@@ -193,7 +193,7 @@ export default function Home() {
                 key={size.title}
                 className={`rounded-xl p-6 border-2 transition-all ${
                   size.featured
-                    ? "border-primary bg-primary/5 shadow-lg scale-105"
+                    ? "border-foreground bg-foreground/5 shadow-lg scale-105"
                     : "border-border hover:border-primary/30"
                 }`}
               >

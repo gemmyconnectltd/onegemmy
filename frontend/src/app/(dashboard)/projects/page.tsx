@@ -31,7 +31,7 @@ export default function ProjectsPage() {
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl p-5 border border-border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-foreground/5 flex items-center justify-center">
                 <stat.icon size={20} className={stat.color} />
               </div>
               <div>
@@ -53,7 +53,7 @@ export default function ProjectsPage() {
               </div>
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                 project.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
-                project.status === "In Progress" ? "bg-primary/10 text-primary" :
+                project.status === "In Progress" ? "bg-foreground/10 text-foreground" :
                 "bg-surface text-muted"
               }`}>
                 {project.status}
@@ -71,7 +71,7 @@ export default function ProjectsPage() {
               <div className="w-full bg-surface rounded-full h-2">
                 <div
                   className={`rounded-full h-2 transition-all ${
-                    project.progress === 100 ? "bg-emerald-500" : "bg-primary"
+                    project.progress === 100 ? "bg-emerald-500" : "bg-foreground"
                   }`}
                   style={{ width: `${project.progress}%` }}
                 />

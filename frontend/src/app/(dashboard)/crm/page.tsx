@@ -31,7 +31,7 @@ export default function CRMPage() {
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl p-5 border border-border">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg bg-foreground/5 flex items-center justify-center">
                 <stat.icon size={20} className={stat.color} />
               </div>
               <div>
@@ -63,7 +63,7 @@ export default function CRMPage() {
               <tr key={i} className="hover:bg-surface/50 transition-colors">
                 <td className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                    <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold text-foreground">
                       {contact.name.split(" ").map(n => n[0]).join("")}
                     </div>
                     <span className="text-sm font-medium text-foreground">{contact.name}</span>
@@ -75,7 +75,7 @@ export default function CRMPage() {
                 <td className="p-4">
                   <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
                     contact.status === "Active" ? "bg-emerald-50 text-emerald-600" :
-                    contact.status === "Lead" ? "bg-primary/10 text-primary" :
+                    contact.status === "Lead" ? "bg-foreground/10 text-foreground" :
                     "bg-surface text-muted"
                   }`}>
                     {contact.status}

@@ -24,7 +24,7 @@ export default function SettingsPage() {
                 key={section.name}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
                   section.active
-                    ? "bg-primary/10 text-primary font-medium"
+                    ? "bg-foreground/10 text-foreground font-medium"
                     : "text-foreground/60 hover:bg-surface"
                 }`}
               >
@@ -42,7 +42,7 @@ export default function SettingsPage() {
           <h2 className="text-lg font-bold text-foreground mb-6">Profile Settings</h2>
           <div className="space-y-5 max-w-xl">
             <div className="flex items-center gap-5">
-              <div className="w-16 h-16 bg-primary/15 flex items-center justify-center text-xl font-bold text-primary">
+              <div className="w-16 h-16 bg-foreground/10 flex items-center justify-center text-xl font-bold text-foreground">
                 JD
               </div>
               <button className="text-sm font-medium text-primary hover:underline">Change avatar</button>

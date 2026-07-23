@@ -7,7 +7,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white border border-border p-8">
           <div className="flex items-center justify-center gap-2.5 mb-8">
-            <div className="w-10 h-10 bg-primary flex items-center justify-center">
+            <div className="w-10 h-10 bg-foreground flex items-center justify-center">
               <Layers className="text-white" size={20} />
             </div>
             <div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 const stages = [
   { name: "Leads", count: 24, color: "bg-muted" },
-  { name: "Qualified", count: 18, color: "bg-primary" },
+  { name: "Qualified", count: 18, color: "bg-foreground" },
   { name: "Proposal", count: 12, color: "bg-secondary" },
   { name: "Negotiation", count: 8, color: "bg-accent" },
   { name: "Closed Won", count: 15, color: "bg-emerald-500" },
@@ -82,13 +82,13 @@ export default function SalesPage() {
                 </td>
                 <td className="p-4 text-sm font-semibold text-foreground">{deal.value}</td>
                 <td className="p-4">
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">{deal.stage}</span>
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-foreground/10 text-foreground">{deal.stage}</span>
                 </td>
                 <td className="p-4 text-sm text-foreground/70">{deal.owner}</td>
                 <td className="p-4">
                   <div className="flex items-center gap-2">
                     <div className="w-16 bg-surface rounded-full h-1.5">
-                      <div className="bg-primary rounded-full h-1.5" style={{ width: `${deal.probability}%` }} />
+                      <div className="bg-foreground rounded-full h-1.5" style={{ width: `${deal.probability}%` }} />
                     </div>
                     <span className="text-xs text-muted">{deal.probability}%</span>
                   </div>
