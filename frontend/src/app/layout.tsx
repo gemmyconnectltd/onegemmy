@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
@@ -12,6 +12,14 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#6f1a07",
+};
 
 export const metadata: Metadata = {
   title: "OneGemmy - Business Management Tool | Gemmy Connect Ltd",
@@ -30,13 +38,6 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Gemmy Connect Ltd" }],
   manifest: "/manifest.json",
-  themeColor: "#6f1a07",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

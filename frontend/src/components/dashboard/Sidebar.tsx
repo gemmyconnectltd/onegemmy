@@ -51,7 +51,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
   const isOpen = expanded || hovered;
 
   const visibleNav = useMemo(() => {
-    if (!user) return [];
+    if (!user) return navigation;
     return navigation.filter((item) => {
       if (isSuperAdmin()) return true;
       if (item.permission) return hasPermission(item.permission);
