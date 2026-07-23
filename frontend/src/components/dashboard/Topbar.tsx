@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Bell, LogOut, Menu, ChevronDown, HelpCircle } from "lucide-react";
+import { Search, Bell, LogOut, Menu, ChevronDown, HelpCircle, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -11,14 +11,21 @@ interface TopbarProps {
 }
 
 export function Topbar({ onToggleSidebar, sidebarExpanded }: TopbarProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, getRole, isSuperAdmin, isAdmin } = useAuth();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  const role = getRole();
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
+
+  const platformBadge = isSuperAdmin()
+    ? { label: "Super Admin", color: "bg-red-50 text-red-600 border-red-200" }
+    : isAdmin()
+    ? { label: "Admin", color: "bg-primary/10 text-primary border-primary/20" }
+    : null;
 
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-border z-50 flex items-center px-4 gap-4">
@@ -80,9 +87,19 @@ export function Topbar({ onToggleSidebar, sidebarExpanded }: TopbarProps) {
                 <div className="px-3 py-2.5 border-b border-border">
                   <p className="text-sm font-medium text-foreground">{user?.name}</p>
                   <p className="text-xs text-muted truncate">{user?.email}</p>
-                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full mt-1.5 inline-block font-medium">
-                    {user?.role}
-                  </span>
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    {platformBadge && (
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 border ${platformBadge.color}`}>
+                        {platformBadge.label}
+                      </span>
+                    )}
+                    {role && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 border bg-surface text-foreground/70 border-border flex items-center gap-1">
+                        <Shield size={10} />
+                        {role.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={handleLogout}

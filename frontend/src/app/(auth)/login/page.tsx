@@ -29,16 +29,6 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleDemoLogin = async (demoEmail: string, demoPassword: string) => {
-    setError("");
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setLoading(true);
-    const success = await login(demoEmail, demoPassword);
-    if (success) router.push("/dashboard");
-    setLoading(false);
-  };
-
   return (
     <div className="min-h-screen flex">
       {/* Left - Branding */}
@@ -195,26 +185,30 @@ export default function LoginPage() {
           </div>
 
           {/* Demo accounts */}
-          <div className="grid grid-cols-3 gap-2.5">
-            {[
-              { label: "Owner", email: "admin@onegemmy.com", password: "admin123", role: "Full access" },
-              { label: "Manager", email: "manager@onegemmy.com", password: "manager123", role: "Team lead" },
-              { label: "Sales", email: "sales@onegemmy.com", password: "sales123", role: "Sales rep" },
-            ].map((demo) => (
-              <button
-                key={demo.label}
-                type="button"
-                disabled={loading}
-                onClick={() => {
-                  setEmail(demo.email);
-                  setPassword(demo.password);
-                }}
-                className="border border-border p-3 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
-              >
-                <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
-                <p className="text-[10px] text-muted/70 mt-1">{demo.role}</p>
-              </button>
-            ))}
+          <div className="space-y-2.5">
+            <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "Super Admin", email: "super@onegemmy.com", password: "super123", desc: "Platform owner" },
+                { label: "Company Admin", email: "admin@onegemmy.com", password: "admin123", desc: "Company owner" },
+                { label: "Manager", email: "manager@onegemmy.com", password: "manager123", desc: "Shop manager" },
+                { label: "Sales Rep", email: "sales@onegemmy.com", password: "sales123", desc: "Sales team" },
+              ].map((demo) => (
+                <button
+                  key={demo.label}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setEmail(demo.email);
+                    setPassword(demo.password);
+                  }}
+                  className="border border-border p-3 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
+                >
+                  <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
+                  <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           <p className="text-sm text-muted text-center mt-8">
