@@ -205,7 +205,10 @@ export default function LoginPage() {
                 key={demo.label}
                 type="button"
                 disabled={loading}
-                onClick={() => handleDemoLogin(demo.email, demo.password)}
+                onClick={() => {
+                  setEmail(demo.email);
+                  setPassword(demo.password);
+                }}
                 className="border border-border p-3 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
               >
                 <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
