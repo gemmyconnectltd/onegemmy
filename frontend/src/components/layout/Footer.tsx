@@ -1,25 +1,66 @@
-import { Logo } from "../ui/Logo";
+import { Layers, Github, Twitter, Linkedin, Mail } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 
 export function Footer() {
   return (
-    <footer className="bg-[#002B5C] text-white py-16 px-4 sm:px-6 lg:px-8">
+    <footer className="bg-[#0F172A] text-white py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-[#0070C0] rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">O</span>
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-10 h-10 bg-[#1E3A5F] rounded-xl flex items-center justify-center">
+                <Layers className="text-white" size={20} />
               </div>
-              <span className="text-xl font-bold">{siteConfig.name}</span>
+              <div>
+                <span className="text-xl font-bold block leading-none">
+                  OneGemmy
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium tracking-wider uppercase">
+                  by Gemmy Connect
+                </span>
+              </div>
             </div>
-            <p className="text-white/70">
+            <p className="text-slate-400 text-sm leading-relaxed">
               All-in-one business management platform by {siteConfig.company}.
             </p>
+            <div className="flex items-center gap-4 mt-6">
+              <a
+                href={siteConfig.links.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <Github size={20} />
+              </a>
+              <a
+                href={siteConfig.links.twitter}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <Twitter size={20} />
+              </a>
+              <a
+                href={siteConfig.links.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <Linkedin size={20} />
+              </a>
+              <a
+                href="mailto:info@gemmyconnect.com"
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <Mail size={20} />
+              </a>
+            </div>
           </div>
           <div>
-            <h4 className="font-bold mb-4">Product</h4>
-            <ul className="space-y-2 text-white/70">
+            <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">
+              Product
+            </h4>
+            <ul className="space-y-3 text-slate-400 text-sm">
               <li>
                 <a
                   href="#features"
@@ -52,8 +93,10 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="font-bold mb-4">Company</h4>
-            <ul className="space-y-2 text-white/70">
+            <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">
+              Company
+            </h4>
+            <ul className="space-y-3 text-slate-400 text-sm">
               <li>
                 <a href="#about" className="hover:text-white transition-colors">
                   About Us
@@ -83,8 +126,10 @@ export function Footer() {
             </ul>
           </div>
           <div>
-            <h4 className="font-bold mb-4">Legal</h4>
-            <ul className="space-y-2 text-white/70">
+            <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">
+              Legal
+            </h4>
+            <ul className="space-y-3 text-slate-400 text-sm">
               <li>
                 <a
                   href="/privacy"
@@ -94,7 +139,10 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a href="/terms" className="hover:text-white transition-colors">
+                <a
+                  href="/terms"
+                  className="hover:text-white transition-colors"
+                >
                   Terms of Service
                 </a>
               </li>
@@ -109,10 +157,13 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="border-t border-white/20 pt-8 text-center text-white/50 text-sm">
-          <p>
+        <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-slate-500 text-sm">
             &copy; {new Date().getFullYear()} {siteConfig.company}. All rights
             reserved.
+          </p>
+          <p className="text-slate-500 text-sm">
+            Built with care in Ghana
           </p>
         </div>
       </div>
