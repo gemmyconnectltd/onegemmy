@@ -2,7 +2,7 @@ export const siteConfig = {
   name: "OneGemmy",
   title: "OneGemmy — All-in-One Business Management Platform",
   description:
-    "Manage sales, inventory, finance, HR, projects, and CRM from one powerful platform. Built by Gemmy Connect Ltd.",
+    "Manage sales, inventory, finance, HR, projects, and CRM from one powerful platform.",
   company: "Gemmy Connect Ltd",
   url: "https://onegemmy.com",
   links: {

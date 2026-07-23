@@ -15,9 +15,7 @@ export function Footer() {
                 <span className="text-xl font-bold block leading-none">
                   OneGemmy
                 </span>
-                <span className="text-[10px] text-white/50 font-medium tracking-wider uppercase">
-                  by Gemmy Connect
-                </span>
+
               </div>
             </div>
             <p className="text-white/50 text-sm leading-relaxed">

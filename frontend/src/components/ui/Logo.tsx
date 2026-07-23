@@ -28,9 +28,7 @@ export function Logo({ size = "md" }: LogoProps) {
         <span className={`${textSizes[size]} font-bold block leading-none text-foreground`}>
           OneGemmy
         </span>
-        <span className="text-[10px] text-muted font-medium tracking-wider uppercase">
-          by Gemmy Connect
-        </span>
+
       </div>
     </div>
   );
