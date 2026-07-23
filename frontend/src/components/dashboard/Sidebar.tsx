@@ -45,16 +45,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* Logo */}
-        <div className="h-12 flex items-center px-3 border-b border-border">
-          <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center flex-shrink-0">
-            <Layers className="text-white" size={16} />
-          </div>
-          {expanded && (
-            <span className="ml-2.5 text-sm font-bold text-foreground whitespace-nowrap">OneGemmy</span>
-          )}
-        </div>
-
         {/* Nav */}
         <nav className="p-2 space-y-0.5">
           {navigation.map((item) => {
