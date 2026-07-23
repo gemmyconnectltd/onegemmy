@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, TrendingUp, Package, DollarSign, Users, FolderKanban, Contact, BarChart3, Settings, Shield } from "lucide-react";
+import { Layers, LayoutDashboard, TrendingUp, Package, DollarSign, Users, FolderKanban, Contact, BarChart3, Settings, Shield } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -24,6 +25,9 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [hovered, setHovered] = useState(false);
+
+  const expanded = open || hovered;
 
   return (
     <>
@@ -36,10 +40,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed top-14 left-0 h-[calc(100vh-56px)] bg-white border-r border-border z-40 transition-all duration-200 ${
-          open ? "w-60" : "w-0 overflow-hidden"
-        }`}
+        className="fixed top-14 left-0 h-[calc(100vh-56px)] bg-white border-r border-border z-40 transition-all duration-200"
+        style={{ width: expanded ? "240px" : "56px" }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
+        {/* Logo */}
+        <div className="h-12 flex items-center px-3 border-b border-border">
+          <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center flex-shrink-0">
+            <Layers className="text-white" size={16} />
+          </div>
+          {expanded && (
+            <span className="ml-2.5 text-sm font-bold text-foreground whitespace-nowrap">OneGemmy</span>
+          )}
+        </div>
+
+        {/* Nav */}
         <nav className="p-2 space-y-0.5">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -53,9 +69,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     ? "bg-primary/10 text-primary"
                     : "text-foreground/60 hover:bg-surface hover:text-foreground"
                 }`}
+                title={!expanded ? item.name : undefined}
               >
-                <item.icon size={18} />
-                {item.name}
+                <item.icon size={18} className="flex-shrink-0" />
+                {expanded && <span className="whitespace-nowrap">{item.name}</span>}
               </Link>
             );
           })}
