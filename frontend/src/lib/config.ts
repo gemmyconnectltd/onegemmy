@@ -1,8 +1,8 @@
 export const siteConfig = {
   name: "OneGemmy",
-  title: "OneGemmy — All-in-One Business Management Platform",
+  title: "OneGemmy — Simple Shop Management",
   description:
-    "Manage sales, inventory, finance, HR, projects, and CRM from one powerful platform.",
+    "Manage sales, inventory, expenses, and profits for your one-person shop.",
   company: "Gemmy Connect Ltd",
   url: "https://onegemmy.com",
   links: {
@@ -26,11 +26,24 @@ export const siteConfig = {
 export const navigation = [
   { name: "Dashboard", href: "/dashboard" },
   { name: "Sales", href: "/sales" },
-  { name: "Stock", href: "/stock" },
-  { name: "Finance", href: "/finance" },
-  { name: "HR", href: "/hr" },
-  { name: "Projects", href: "/projects" },
-  { name: "CRM", href: "/crm" },
+  { name: "Products", href: "/products" },
+  { name: "Inventory", href: "/inventory" },
+  { name: "Expenses", href: "/expenses" },
+  { name: "Customers", href: "/customers" },
   { name: "Reports", href: "/reports" },
   { name: "Settings", href: "/settings" },
 ];
+
+export const expenseCategories = [
+  "Rent",
+  "Utilities",
+  "Inventory Purchase",
+  "Transport",
+  "Packaging",
+  "Marketing",
+  "Maintenance",
+  "Other",
+];
+
+export const CURRENCY = "RWF";
+export const CURRENCY_SYMBOL = "RWF";

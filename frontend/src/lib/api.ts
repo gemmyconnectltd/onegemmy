@@ -81,22 +81,64 @@ export interface ApiUserResponse {
   } | null;
 }
 
-export interface ApiShopResponse {
+export interface ApiProductResponse {
   id: number;
-  company_id: number;
   name: string;
-  location: string;
-  status: string;
+  sku: string;
+  price: number;
+  cost: number;
+  stock_quantity: number;
+  min_stock: number;
+  category: string;
+  is_active: boolean;
 }
 
-export interface ApiRoleResponse {
+export interface ApiSaleResponse {
   id: number;
-  company_id: number | null;
+  items: {
+    product_id: number;
+    product_name: string;
+    quantity: number;
+    price: number;
+    discount: number;
+    total: number;
+  }[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  payment_method: string;
+  customer_id: number | null;
+  customer_name: string | null;
+  created_at: string;
+}
+
+export interface ApiExpenseResponse {
+  id: number;
+  description: string;
+  amount: number;
+  category: string;
+  date: string;
+  created_at: string;
+}
+
+export interface ApiCustomerResponse {
+  id: number;
   name: string;
-  description: string | null;
-  color: string;
-  is_system: boolean;
-  permissions: string[];
+  phone: string;
+  email: string | null;
+  total_purchases: number;
+  last_purchase_at: string | null;
+  created_at: string;
+}
+
+export interface ApiDashboardResponse {
+  today_sales: number;
+  today_expenses: number;
+  today_profit: number;
+  cash_available: number;
+  low_stock_count: number;
+  total_products: number;
+  total_customers: number;
 }
 
 export const api = {
@@ -113,9 +155,39 @@ export const api = {
       }),
     me: () => request<ApiUserResponse>("/auth/me"),
   },
-  admin: {
-    users: () => request<ApiUserResponse[]>("/admin/users/"),
-    roles: () => request<ApiRoleResponse[]>("/admin/roles/"),
-    shops: () => request<ApiShopResponse[]>("/admin/shops/"),
+  dashboard: {
+    summary: () => request<ApiDashboardResponse>("/dashboard/summary"),
+  },
+  products: {
+    list: () => request<ApiProductResponse[]>("/products/"),
+    create: (data: { name: string; sku: string; price: number; cost: number; stock: number; min_stock: number; category: string }) =>
+      request<ApiProductResponse>("/products/", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: Partial<{ name: string; sku: string; price: number; cost: number; min_stock: number; category: string }>) =>
+      request<ApiProductResponse>(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  },
+  sales: {
+    list: (date?: string) => request<ApiSaleResponse[]>(`/sales/${date ? `?date=${date}` : ""}`),
+    create: (data: { items: { product_id: number; quantity: number; price: number; discount: number }[]; payment_method: string; customer_id?: number }) =>
+      request<ApiSaleResponse>("/sales/", { method: "POST", body: JSON.stringify(data) }),
+  },
+  expenses: {
+    list: (date?: string) => request<ApiExpenseResponse[]>(`/expenses/${date ? `?date=${date}` : ""}`),
+    create: (data: { description: string; amount: number; category: string; date: string }) =>
+      request<ApiExpenseResponse>("/expenses/", { method: "POST", body: JSON.stringify(data) }),
+  },
+  customers: {
+    list: () => request<ApiCustomerResponse[]>("/customers/"),
+    create: (data: { name: string; phone: string; email?: string }) =>
+      request<ApiCustomerResponse>("/customers/", { method: "POST", body: JSON.stringify(data) }),
+  },
+  inventory: {
+    addStock: (productId: number, quantity: number, notes?: string) =>
+      request<{ message: string }>(`/inventory/${productId}/add-stock`, { method: "POST", body: JSON.stringify({ quantity, notes }) }),
+  },
+  settings: {
+    get: () => request<{ shop_name: string; currency: string; phone: string; address: string }>("/settings/"),
+    update: (data: { shop_name?: string; currency?: string; phone?: string; address?: string }) =>
+      request<{ message: string }>("/settings/", { method: "PUT", body: JSON.stringify(data) }),
+    backup: () => request<{ download_url: string }>("/settings/backup"),
   },
 };
