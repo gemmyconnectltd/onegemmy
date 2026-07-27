@@ -1,0 +1,44 @@
+import uuid
+
+from pydantic import BaseModel, ConfigDict, EmailStr
+
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    role: str = "member"
+    role_id: uuid.UUID | None = None
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    email: EmailStr
+    full_name: str
+    role: str
+    role_id: uuid.UUID | None
+    is_active: bool
+    is_superuser: bool
+    permissions: list[str] = []
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class UserUpdate(BaseModel):
+    full_name: str | None = None
+    role: str | None = None
+    role_id: uuid.UUID | None = None
+    is_active: bool | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str

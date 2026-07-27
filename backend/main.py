@@ -1,8 +1,3 @@
-from fastapi import FastAPI
+from app.main import app
 
-app = FastAPI()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
+__all__ = ["app"]
