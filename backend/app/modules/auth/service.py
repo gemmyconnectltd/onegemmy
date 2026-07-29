@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, UnauthorizedError
+from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.core.logging import get_logger
 from app.core.security import (
     create_access_token,
@@ -12,11 +12,17 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.modules.auth.models import Permission, Role
+from app.modules.auth.repository import PermissionRepository, RoleRepository
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     LoginRequest,
+    PermissionCreate,
+    PermissionUpdate,
     RegisterRequest,
     ResetPasswordRequest,
+    RoleCreate,
+    RoleUpdate,
     TokenResponse,
     TokenUserInfo,
 )
@@ -26,6 +32,94 @@ from app.modules.users.models import User
 from app.modules.users.repository import UserRepository
 
 log = get_logger("auth")
+
+
+async def get_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> Role:
+    role = await RoleRepository(db).get_by_id_for_tenant(tenant_id, role_id)
+    if role is None:
+        raise NotFoundError("Role not found")
+    return role
+
+
+async def get_role_by_name(db: AsyncSession, tenant_id: uuid.UUID, name: str) -> Role | None:
+    return await RoleRepository(db).get_by_name_for_tenant(tenant_id, name)
+
+
+async def create_role(db: AsyncSession, tenant_id: uuid.UUID, data: RoleCreate) -> Role:
+    existing = await get_role_by_name(db, tenant_id, data.name)
+    if existing:
+        raise ConflictError("Role with this name already exists")
+    role = Role(tenant_id=tenant_id, name=data.name, description=data.description)
+    return await RoleRepository(db).save(role)
+
+
+async def list_roles(db: AsyncSession, tenant_id: uuid.UUID, offset: int, limit: int) -> list[Role]:
+    return await RoleRepository(db).list_for_tenant(tenant_id, offset, limit)
+
+
+async def count_roles(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    return await RoleRepository(db).count_for_tenant(tenant_id)
+
+
+async def update_role(db: AsyncSession, role: Role, data: RoleUpdate) -> Role:
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(role, field, value)
+    return await RoleRepository(db).save(role)
+
+
+async def delete_role(db: AsyncSession, role: Role) -> None:
+    await RoleRepository(db).delete(role)
+
+
+async def get_permission(db: AsyncSession, permission_id: uuid.UUID) -> Permission:
+    perm = await PermissionRepository(db).get(permission_id)
+    if perm is None:
+        raise NotFoundError("Permission not found")
+    return perm
+
+
+async def get_permission_by_name(db: AsyncSession, name: str) -> Permission | None:
+    return await PermissionRepository(db).get_by_name(name)
+
+
+async def create_permission(db: AsyncSession, data: PermissionCreate) -> Permission:
+    existing = await get_permission_by_name(db, data.name)
+    if existing:
+        raise ConflictError("Permission with this name already exists")
+    perm = Permission(name=data.name, description=data.description, resource=data.resource, action=data.action)
+    return await PermissionRepository(db).save(perm)
+
+
+async def list_permissions(db: AsyncSession, offset: int = 0, limit: int = 100) -> list[Permission]:
+    return await PermissionRepository(db).list_all(offset, limit)
+
+
+async def count_permissions(db: AsyncSession) -> int:
+    return await PermissionRepository(db).count_all()
+
+
+async def update_permission(db: AsyncSession, perm: Permission, data: PermissionUpdate) -> Permission:
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(perm, field, value)
+    return await PermissionRepository(db).save(perm)
+
+
+async def delete_permission(db: AsyncSession, perm: Permission) -> None:
+    await PermissionRepository(db).delete(perm)
+
+
+async def assign_perm_to_role(db: AsyncSession, role_id: uuid.UUID, permission_ids: list[uuid.UUID]) -> None:
+    for pid in permission_ids:
+        await get_permission(db, pid)
+    await PermissionRepository(db).assign_permissions_to_role(role_id, permission_ids)
+
+
+async def get_role_permissions(db: AsyncSession, role_id: uuid.UUID) -> list[Permission]:
+    return await PermissionRepository(db).get_permissions_for_role(role_id)
+
+
+async def get_user_permissions(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> list[Permission]:
+    return await PermissionRepository(db).get_permissions_for_user(tenant_id, role_id)
 
 
 def _build_user_info(user: User, permission_names: list[str] | None = None) -> TokenUserInfo:

@@ -8,12 +8,9 @@ from app.core.config import settings
 from app.core.database import Base
 
 # Import all models so they register on Base.metadata before autogenerate runs.
-from app.modules.tenants.models import Tenant  # noqa: F401
+from app.modules.auth.models import Permission, Role  # noqa: F401
+from app.modules.tenants.models import Department, Shop, Tenant  # noqa: F401
 from app.modules.users.models import User  # noqa: F401
-from app.modules.roles.models import Role  # noqa: F401
-from app.modules.permissions.models import Permission  # noqa: F401
-from app.modules.departments.models import Department  # noqa: F401
-from app.modules.shops.models import Shop  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
