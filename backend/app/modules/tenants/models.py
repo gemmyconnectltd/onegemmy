@@ -24,3 +24,5 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
 
     users = relationship("User", back_populates="tenant", lazy="selectin")
     roles = relationship("Role", back_populates="tenant", lazy="selectin")
+    departments = relationship("Department", back_populates="tenant", lazy="selectin")
+    shops = relationship("Shop", back_populates="tenant", lazy="selectin")

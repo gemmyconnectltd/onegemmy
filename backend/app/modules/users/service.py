@@ -51,6 +51,8 @@ async def create(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) -> Us
         full_name=data.full_name,
         role=data.role,
         role_id=data.role_id,
+        shop_id=data.shop_id,
+        department_id=data.department_id,
     )
     user = await UserRepository(db).save(user)
     log.info("users.create.success", extra={"_extra_fields": {"user_id": str(user.id)}})
