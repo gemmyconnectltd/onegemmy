@@ -9,7 +9,7 @@ class UserCreate(BaseModel):
     full_name: str
     role: str = "member"
     role_id: uuid.UUID | None = None
-    shop_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
 
 
@@ -22,7 +22,7 @@ class UserRead(BaseModel):
     full_name: str
     role: str
     role_id: uuid.UUID | None
-    shop_id: uuid.UUID | None
+    branch_id: uuid.UUID | None
     department_id: uuid.UUID | None
     is_active: bool
     is_superuser: bool
@@ -35,7 +35,7 @@ class UserUpdate(BaseModel):
     full_name: str | None = None
     role: str | None = None
     role_id: uuid.UUID | None = None
-    shop_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
     is_active: bool | None = None
 

@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import func, select
 
 from app.core.repository import BaseRepository
-from app.modules.users.models import User
+from app.modules.tenants.models import User
 
 
 class UserRepository(BaseRepository[User]):

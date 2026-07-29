@@ -1,16 +1,13 @@
 import uuid
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import ConflictError
 
 
 class BaseRepository[ModelT]:
-    """Base for per-module repositories: owns all direct DB access for one model.
-
-    Services call repositories instead of building queries themselves, so
-    query logic stays out of business logic and is easy to find/reuse.
-    """
-
     model: type[ModelT]
 
     def __init__(self, db: AsyncSession):
@@ -20,14 +17,17 @@ class BaseRepository[ModelT]:
         return await self.db.get(self.model, id)
 
     async def save(self, obj: ModelT) -> ModelT:
-        self.db.add(obj)
-        await self.db.commit()
-        await self.db.refresh(obj)
-        return obj
+        try:
+            self.db.add(obj)
+            await self.db.flush()
+            await self.db.refresh(obj)
+            return obj
+        except IntegrityError as e:
+            raise ConflictError("Resource already exists") from e
 
     async def delete(self, obj: ModelT) -> None:
         await self.db.delete(obj)
-        await self.db.commit()
+        await self.db.flush()
 
     async def count(self, *filters) -> int:
         stmt = select(func.count()).select_from(self.model)

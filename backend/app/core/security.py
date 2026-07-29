@@ -44,7 +44,7 @@ def create_refresh_token(subject: str, extra_claims: dict[str, Any] | None = Non
 
 
 def create_password_reset_token(subject: str, extra_claims: dict[str, Any] | None = None) -> str:
-    expire = datetime.now(UTC) + timedelta(minutes=30)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
     payload: dict[str, Any] = {
         "sub": subject,
         "exp": expire,

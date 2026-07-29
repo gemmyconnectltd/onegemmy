@@ -3,39 +3,7 @@ import uuid
 from sqlalchemy import func, select
 
 from app.core.repository import BaseRepository
-from app.modules.auth.models import Permission, Role, role_permissions
-
-
-class RoleRepository(BaseRepository[Role]):
-    model = Role
-
-    async def get_by_id_for_tenant(self, tenant_id: uuid.UUID, role_id: uuid.UUID) -> Role | None:
-        result = await self.db.execute(
-            select(Role).where(Role.id == role_id, Role.tenant_id == tenant_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def get_by_name_for_tenant(self, tenant_id: uuid.UUID, name: str) -> Role | None:
-        result = await self.db.execute(
-            select(Role).where(Role.name == name, Role.tenant_id == tenant_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int, limit: int) -> list[Role]:
-        result = await self.db.execute(
-            select(Role)
-            .where(Role.tenant_id == tenant_id)
-            .order_by(Role.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
-        result = await self.db.execute(
-            select(func.count()).select_from(Role).where(Role.tenant_id == tenant_id)
-        )
-        return result.scalar_one()
+from app.modules.tenants.models import Permission, Role, role_permissions
 
 
 class PermissionRepository(BaseRepository[Permission]):
@@ -73,7 +41,7 @@ class PermissionRepository(BaseRepository[Permission]):
         await self.db.execute(role_permissions.delete().where(role_permissions.c.role_id == role_id))
         for pid in permission_ids:
             await self.db.execute(role_permissions.insert().values(role_id=role_id, permission_id=pid))
-        await self.db.commit()
+        await self.db.flush()
 
     async def get_permissions_for_user(self, tenant_id: uuid.UUID, role_id: uuid.UUID) -> list[Permission]:
         result = await self.db.execute(

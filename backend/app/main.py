@@ -10,6 +10,8 @@ from app.core.exceptions import AppError, app_error_handler
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import RequestLoggingMiddleware
 
+UPLOADS_DIR = Path(settings.UPLOAD_DIR).resolve()
+
 log = get_logger("app")
 
 
@@ -28,9 +30,8 @@ def create_app() -> FastAPI:
 
     app.add_exception_handler(AppError, app_error_handler)
 
-    uploads_dir = Path(__file__).resolve().parent.parent / "uploads"
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
     app.include_router(api_router)
 

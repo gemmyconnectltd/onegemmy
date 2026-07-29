@@ -12,15 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
 from app.core.security import hash_password
-from app.modules.auth.models import Permission, Role
-from app.modules.tenants.models import Department, Shop, Tenant  # noqa: F401
-from app.modules.users.models import User
+from app.modules.tenants.models import Branch, Department, Permission, Role, Tenant, User
 
 log = get_logger("seed")
 
 RESOURCES = [
     "tenants", "users", "roles", "permissions",
-    "departments", "shops",
+    "departments", "branches",
     "items", "warehouses", "stock", "orders", "pricing", "returns",
     "invoices", "pos",
     "chart_of_accounts", "journal_entries", "accounts_payable",

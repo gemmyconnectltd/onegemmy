@@ -1,12 +1,12 @@
 import uuid
 from pathlib import Path
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent.parent / "uploads"
+from app.integrations.storage import StorageBackend
 
 
-class LocalStorage:
-    def __init__(self, base_dir: Path = UPLOAD_DIR):
-        self.base_dir = base_dir
+class LocalStorage(StorageBackend):
+    def __init__(self, base_dir: str | Path):
+        self.base_dir = Path(base_dir).resolve()
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     async def save(self, subdir: str, filename: str, content: bytes) -> str:

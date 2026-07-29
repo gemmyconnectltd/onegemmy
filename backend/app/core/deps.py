@@ -9,8 +9,8 @@ from app.core.database import get_db
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.logging import get_logger
 from app.core.security import decode_token
-from app.modules.users import service as users_service
-from app.modules.users.models import User
+from app.modules.tenants.models import User
+from app.modules.tenants.service import get_user_by_id_raw
 
 log = get_logger("deps")
 
@@ -33,7 +33,7 @@ async def get_current_user(
         log.warning("auth.invalid_payload")
         raise UnauthorizedError("Invalid token payload")
 
-    user = await users_service.get_by_id(db, uuid.UUID(tenant_id), uuid.UUID(user_id))
+    user = await get_user_by_id_raw(db, uuid.UUID(tenant_id), uuid.UUID(user_id))
     if not user.is_active:
         log.warning("auth.inactive_user", extra={"_extra_fields": {"user_id": user_id}})
         raise UnauthorizedError("User is inactive")

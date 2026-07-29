@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.models import TimestampMixin, UUIDPKMixin
-from app.tenancy.models import TenantScopedMixin
+from app.modules.tenants.models.mixins import TenantScopedMixin
 
 
 class User(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
@@ -20,8 +20,8 @@ class User(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     role_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("roles.id", ondelete="SET NULL"), nullable=True
     )
-    shop_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("shops.id", ondelete="SET NULL"), nullable=True
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True
     )
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
@@ -31,7 +31,7 @@ class User(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     tenant = relationship("Tenant", back_populates="users", lazy="joined")
     role_rel = relationship("Role", back_populates="users", lazy="joined", foreign_keys=[role_id])
-    shop_rel = relationship("Shop", back_populates="users", lazy="joined", foreign_keys=[shop_id])
+    branch_rel = relationship("Branch", back_populates="users", lazy="joined", foreign_keys=[branch_id])
     department_rel = relationship("Department", back_populates="users", lazy="joined", foreign_keys=[department_id])
 
     @property

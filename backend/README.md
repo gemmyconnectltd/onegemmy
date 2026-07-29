@@ -4,20 +4,21 @@ FastAPI SaaS backend. Modular-monolith layout: each business domain owns its
 own models, schemas, repository, service, and routes under
 `app/modules/<domain>/`, with shared plumbing in `app/core/`. Multi-tenancy is
 row-level (`tenant_id` on every tenant-owned table) via
-`app.tenancy.models.TenantScopedMixin` — see `app/modules/users/models.py` for
-an example.
+`TenantScopedMixin` in `app/modules/tenants/models.py` — see
+`app/modules/users/models.py` for an example.
 
 ## Layout
 
 ```
 app/
   core/        # config, db session, security, deps, exceptions, pagination, BaseRepository
-  tenancy/     # TenantScopedMixin for tenant-owned tables
   modules/
-    auth/      # register / login / refresh
+    auth/      # register / login / refresh + roles + permissions
     users/     # per-tenant users
-    tenants/   # tenant model
-    crm/, inventory/, finance/, dashboard/, projects/   # stubs, build out per domain
+    tenants/   # Tenant, Department, Shop + TenantScopedMixin
+    ...        # inventory, finance, hr, procurement, crm, manufacturing — TBD
+  shared/      # enums, utils, validators, pagination
+  integrations/# storage, email, payments
   api_router.py  # mounts every module's router under /api/v1
   main.py        # app factory
 alembic/         # migrations
