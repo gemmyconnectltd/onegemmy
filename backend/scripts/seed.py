@@ -9,6 +9,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
 from app.core.security import hash_password
@@ -81,7 +82,7 @@ async def seed(session: AsyncSession) -> None:
     admin = User(
         tenant_id=tenant.id,
         email="admin@onegemmy.com",
-        hashed_password=hash_password("admin123"),
+        hashed_password=hash_password(settings.SEED_ADMIN_PASSWORD),
         full_name="OneGemmy Admin",
         role="admin",
         role_id=admin_role.id,
@@ -93,7 +94,7 @@ async def seed(session: AsyncSession) -> None:
     user = User(
         tenant_id=tenant.id,
         email="user@onegemmy.com",
-        hashed_password=hash_password("user123"),
+        hashed_password=hash_password(settings.SEED_USER_PASSWORD),
         full_name="OneGemmy User",
         role="user",
         role_id=user_role.id,
@@ -107,7 +108,7 @@ async def seed(session: AsyncSession) -> None:
     superadmin = User(
         tenant_id=None,
         email="superadmin@onegemmy.com",
-        hashed_password=hash_password("superadmin123"),
+        hashed_password=hash_password(settings.SEED_SUPER_ADMIN_PASSWORD),
         full_name="Global Super Admin",
         role="superadmin",
         is_active=True,

@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     LOG_FILE: str | None = None
     LOG_FORMAT: str = "console"
 
+    SEED_ADMIN_PASSWORD: str = "admin123"
+    SEED_USER_PASSWORD: str = "user123"
+    SEED_SUPER_ADMIN_PASSWORD: str = "superadmin123"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
