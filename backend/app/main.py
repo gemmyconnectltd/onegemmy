@@ -1,50 +1,57 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-from app.config import settings
-from app.database import engine, Base, SessionLocal
-from app.api.v1.router import router as v1_router
-from app.seed import seed_all
-from app.middleware import RequestLoggingMiddleware, setup_logging
+from fastapi.staticfiles import StaticFiles
 
-setup_logging()
+from app.api_router import api_router
+from app.core.config import settings
+from app.core.exceptions import AppError, app_error_handler
+from app.core.logging import get_logger, setup_logging
+from app.core.middleware import RequestLoggingMiddleware
 
+UPLOADS_DIR = Path(settings.UPLOAD_DIR).resolve()
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        seed_all(db)
-    finally:
-        db.close()
-    yield
+log = get_logger("app")
 
 
-app = FastAPI(
-    title="OneGemmy API",
-    description="All-in-One Business Management Platform API",
-    version="1.0.0",
-    lifespan=lifespan,
-)
+def create_app() -> FastAPI:
+    setup_logging()
 
-app.add_middleware(CORSMiddleware, **{
-    "allow_origins": settings.cors_origins_list,
-    "allow_credentials": True,
-    "allow_methods": ["*"],
-    "allow_headers": ["*"],
-})
+    app = FastAPI(title="OneGemmy API", debug=settings.DEBUG)
 
-app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(RequestLoggingMiddleware)
 
-app.include_router(v1_router, prefix="/api/v1")
+    app.add_exception_handler(AppError, app_error_handler)
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+
+    app.include_router(api_router)
+
+    @app.on_event("startup")
+    async def on_startup():
+        log.info("app.startup", extra={"_extra_fields": {
+            "environment": settings.ENVIRONMENT,
+            "debug": settings.DEBUG,
+            "log_level": settings.LOG_LEVEL,
+        }})
+
+    @app.on_event("shutdown")
+    async def on_shutdown():
+        log.info("app.shutdown")
+
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return app
 
 
-@app.get("/api/health")
-def health_check():
-    return {"status": "ok", "app": "OneGemmy", "version": "1.0.0"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+app = create_app()
