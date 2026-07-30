@@ -12,7 +12,6 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    tenant_slug: str
     email: EmailStr
     password: str
 
@@ -42,7 +41,6 @@ class TokenResponse(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    tenant_slug: str
     email: EmailStr
 
 

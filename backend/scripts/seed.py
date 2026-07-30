@@ -62,6 +62,7 @@ async def seed(session: AsyncSession) -> None:
             permissions.append(perm)
 
     admin_role = Role(
+        id=uuid.UUID(int=2),
         name="Admin",
         tenant_id=tenant.id,
         description="Full system access",
@@ -69,6 +70,7 @@ async def seed(session: AsyncSession) -> None:
     session.add(admin_role)
 
     user_role = Role(
+        id=uuid.UUID(int=3),
         name="User",
         tenant_id=tenant.id,
         description="Standard user access",
@@ -99,7 +101,6 @@ async def seed(session: AsyncSession) -> None:
     )
     session.add(user)
 
-    await session.flush()
     admin_role.permissions = permissions
     await session.commit()
     log.info("seed.complete", extra={"_extra_fields": {

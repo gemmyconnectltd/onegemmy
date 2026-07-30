@@ -3,8 +3,8 @@ import uuid
 from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, DbSession
-from app.core.pagination import PageQuery, paginated_response
-from app.core.response import success_response
+from app.core.pagination import PageQuery
+from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
 from app.modules.tenants.schemas import BranchCreate, BranchUpdate
 

@@ -8,7 +8,7 @@ from app.integrations.storage import storage
 from app.modules.tenants.models import Tenant
 from app.modules.tenants.repository import TenantRepository
 from app.modules.tenants.schemas import TenantCreate, TenantRead, TenantUpdate
-from app.shared.utils import slugify
+from app.shared.utils import slugify, unique_slug
 
 log = get_logger("tenants")
 
@@ -26,17 +26,15 @@ async def get_by_slug(db: AsyncSession, slug: str) -> Tenant | None:
 
 
 async def create_tenant(db: AsyncSession, data: TenantCreate) -> TenantRead:
-    slug = data.slug or slugify(data.name)
-    if not data.slug:
-        existing = await get_by_slug(db, slug)
-        if existing:
-            slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+    async def _slug_exists(s: str) -> bool:
+        return await get_by_slug(db, s) is not None
+    if data.slug:
+        slug = f"TEN-{slugify(data.slug)}".upper()
+        if await _slug_exists(slug):
+            raise ConflictError("Company with this slug already exists")
+    else:
+        slug = await unique_slug("TEN", _slug_exists)
     log.info("tenants.create_tenant.attempt", extra={"_extra_fields": {"name": data.name, "slug": slug}})
-
-    existing = await get_by_slug(db, slug)
-    if existing:
-        log.warning("tenants.create_tenant.conflict", extra={"_extra_fields": {"slug": slug}})
-        raise ConflictError("Company with this slug already exists")
 
     tenant = Tenant(name=data.name, slug=slug, **data.model_dump(exclude={"name", "slug"}, exclude_unset=True))
     tenant = await TenantRepository(db).save(tenant)

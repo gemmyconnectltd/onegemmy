@@ -1,5 +1,6 @@
 from typing import Any
 
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 
@@ -10,11 +11,11 @@ def success_response(
 ):
     return JSONResponse(
         status_code=status_code,
-        content={
+        content=jsonable_encoder({
             "success": True,
             "message": message,
             "data": data
-        }
+        })
     )
 
 
@@ -27,7 +28,7 @@ def paginated_response(
 ):
     return JSONResponse(
         status_code=200,
-        content={
+        content=jsonable_encoder({
             "success": True,
             "message": message,
             "data": {
@@ -37,7 +38,7 @@ def paginated_response(
                 "page_size": page_size,
                 "total_pages": -(-total // page_size) if page_size else 0,
             }
-        }
+        })
     )
 
 
@@ -48,9 +49,9 @@ def error_response(
 ):
     return JSONResponse(
         status_code=status_code,
-        content={
+        content=jsonable_encoder({
             "success": False,
             "message": message,
             "errors": errors
-        }
+        })
     )

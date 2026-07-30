@@ -1,47 +1,78 @@
 # OneGemmy Backend
 
-FastAPI SaaS backend. Modular-monolith layout: each business domain owns its
-own models, schemas, repository, service, and routes under
-`app/modules/<domain>/`, with shared plumbing in `app/core/`. Multi-tenancy is
-row-level (`tenant_id` on every tenant-owned table) via
-`TenantScopedMixin` in `app/modules/tenants/models.py` — see
-`app/modules/users/models.py` for an example.
+FastAPI SaaS backend for a 6-module ERP system following a Domain-Driven Modular
+Monolith with Clean Architecture.
+
+Each business domain owns its own models, schemas, repository, service, and
+routes under `app/modules/<domain>/`. Shared plumbing lives in `app/core/`.
+
+Multi-tenancy uses a shared-table pattern: every tenant-scoped entity carries a
+`tenant_id` column via `TenantScopedMixin`
+(`app/modules/tenants/models/mixins.py`). **Permissions are global** — they have
+no `tenant_id` and are managed under the `/global/permissions` prefix.
+
+## Quick start (first time)
+
+```bash
+uv sync                          # install dependencies
+alembic upgrade head             # create tables
+python -m scripts.seed           # seed base tenant, admin user, roles, permissions
+uv run fastapi dev app/main.py   # start server at http://localhost:8000
+```
+
+Login at `/docs` with `admin@onegemmy.com` / `admin123`.
 
 ## Layout
 
 ```
 app/
-  core/        # config, db session, security, deps, exceptions, pagination, BaseRepository
+  core/                      # config, db session, security, deps, exceptions,
+  │                          # pagination, BaseRepository
   modules/
-    auth/      # register / login / refresh + roles + permissions
-    users/     # per-tenant users
-    tenants/   # Tenant, Department, Shop + TenantScopedMixin
-    ...        # inventory, finance, hr, procurement, crm, manufacturing — TBD
-  shared/      # enums, utils, validators, pagination
-  integrations/# storage, email, payments
-  api_router.py  # mounts every module's router under /api/v1
-  main.py        # app factory
-alembic/         # migrations
+    auth/                    # register / login / refresh / change-password
+    │                        # Pure auth — no models, no repository
+    tenants/
+      models/                # Tenant, Department, Branch, User, Role,
+      │                      # Permission, role_permissions, TenantScopedMixin
+      schemas/               # Pydantic request/response schemas per entity
+      repository/            # SQL queries per entity, extend BaseRepository
+      service/               # Business rules, validation, orchestration
+      routes/                # HTTP layer (FastAPI routers, one per entity)
+    ...                      # inventory, finance, hr, procurement,
+                             # crm, manufacturing — TBD
+  integrations/
+    storage/                 # StorageBackend ABC + LocalStorage
+  api_router.py              # Mounts auth_router, tenants_router, global_router
+  main.py                    # App factory
+alembic/                     # Migrations
+scripts/
+  seed.py                    # Creates base tenant, permissions, roles, users
 ```
 
-### Layering, within a module
+### Within a module
 
 ```
-routes.py      # HTTP layer only: parse request, call service, return response
-service.py     # business rules, validation, orchestration — no SQL here
-repository.py  # all DB queries for this module's model(s), extends BaseRepository
-models.py / schemas.py
+routes.py      # HTTP: parse request, call service, return response
+service.py     # Business rules, validation — no SQL here
+repository.py  # DB queries, extends BaseRepository — no business rules
+models.py /
+schemas.py     #
 ```
 
-Routes never touch the DB session's `select()` directly, and repositories never
-contain business rules — they just fetch/persist. This keeps merge conflicts
-and reasoning scoped to one layer at a time. See `users/` for the reference
-implementation. Add a module-local `utils.py` only once there's real
-cross-cutting logic to extract (e.g. slug generation) — don't create an empty
-one up front.
+Routes never call `select()` directly. Repositories never contain business
+rules. This keeps reasoning and merge conflicts scoped to one layer.
 
-Adding a new domain: create `app/modules/<name>/{models,schemas,repository,service,routes}.py`
-following the `users` module, then register its router in `app/api_router.py`.
+### Route prefixes
+
+| Prefix | Contents | Scope |
+|--------|----------|-------|
+| `/api/v1/auth` | register, login, refresh, change-password, forgot/reset password | Public |
+| `/api/v1/tenants` | departments, branches, tenants, users, roles | Tenant-scoped |
+| `/api/v1/global` | permissions CRUD | Global |
+
+Role-permission assignment and current-user permissions live under
+`/api/v1/tenants/roles/{id}/permissions` and
+`/api/v1/tenants/users/me/permissions` respectively.
 
 ## Local setup
 
@@ -49,16 +80,54 @@ following the `users` module, then register its router in `app/api_router.py`.
 2. Start Postgres (either `docker compose up db` or your own instance).
 3. Install deps: `uv sync`
 4. Run migrations: `uv run alembic upgrade head`
-5. Start the API: `uv run fastapi dev app/main.py`
+5. Seed: `python -m scripts.seed`
+6. Start the API: `uv run fastapi dev app/main.py`
 
 API docs at `http://localhost:8000/docs`.
 
+Login with `admin@onegemmy.com` / `admin123` after seeding.
+
 ## Migrations
 
-```
+### Basic commands
+
+```bash
 uv run alembic revision --autogenerate -m "message"
 uv run alembic upgrade head
 ```
+
+### Team workflow
+
+When you pull code from another developer who added a migration:
+
+```bash
+git pull
+alembic upgrade head       # apply any new migrations
+```
+
+**Do not** run `revision --autogenerate` after pulling — the migration file
+already exists. Just run `upgrade head` to apply it to your local database.
+
+### Multiple heads (merge conflicts)
+
+If two developers both created migrations numbered `004_*` at the same time,
+Git will merge both files, and Alembic will report **two heads**:
+
+```bash
+alembic heads
+# → abc123_create_products
+# → xyz789_create_employees
+```
+
+Fix by creating a **merge migration** (do not delete migration files):
+
+```bash
+alembic merge -m "merge inventory and hr" abc123 xyz789
+alembic upgrade head
+```
+
+This creates an empty migration that joins the two histories into one. Now
+there is a single head again.
 
 ## Docker
 

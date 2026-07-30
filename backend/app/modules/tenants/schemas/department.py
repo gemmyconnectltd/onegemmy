@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -20,5 +21,5 @@ class DepartmentRead(BaseModel):
     tenant_id: uuid.UUID
     name: str
     description: str | None
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

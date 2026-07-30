@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -43,5 +44,5 @@ class TenantRead(BaseModel):
     country: str | None
     subscription_plan: str
     subscription_status: str
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

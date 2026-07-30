@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,15 +14,15 @@ from app.modules.tenants.service import get_user_by_id_raw
 
 log = get_logger("deps")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = HTTPBearer()
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 async def get_current_user(
-    db: DbSession, token: Annotated[str, Depends(oauth2_scheme)]
+    db: DbSession, credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ) -> User:
-    payload = decode_token(token)
+    payload = decode_token(credentials.credentials)
     if payload is None or payload.get("type") != "access":
         log.warning("auth.invalid_token")
         raise UnauthorizedError("Invalid or expired token")

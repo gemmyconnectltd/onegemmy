@@ -40,7 +40,7 @@ def _build_user_info(user: User, permission_names: list[str] | None = None) -> T
     )
 
 
-def _build_token_claims(user: User, permission_names: list[str] | None = None) -> dict:
+def _build_token_claims(user: User) -> dict:
     return {
         "tenant_id": str(user.tenant_id),
         "email": user.email,
@@ -48,7 +48,6 @@ def _build_token_claims(user: User, permission_names: list[str] | None = None) -
         "role": user.role,
         "role_id": str(user.role_id) if user.role_id else None,
         "is_superuser": user.is_superuser,
-        "permissions": permission_names or [],
     }
 
 
@@ -60,7 +59,7 @@ def _get_permission_names(user: User) -> list[str]:
 
 def _issue_tokens(user: User) -> TokenResponse:
     permission_names = _get_permission_names(user)
-    claims = _build_token_claims(user, permission_names)
+    claims = _build_token_claims(user)
     user_info = _build_user_info(user, permission_names)
 
     return TokenResponse(
@@ -77,6 +76,11 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
     if existing_tenant is not None:
         log.warning("auth.register.conflict", extra={"_extra_fields": {"tenant_slug": data.tenant_slug}})
         raise ConflictError("Tenant slug already taken")
+
+    existing_user = await UserRepository(db).get_by_email_global(data.email)
+    if existing_user is not None:
+        log.warning("auth.register.email_conflict", extra={"_extra_fields": {"email": data.email}})
+        raise ConflictError("Email already registered")
 
     tenant = Tenant(name=data.tenant_name, slug=data.tenant_slug)
     tenant = await TenantRepository(db).save(tenant)
@@ -98,14 +102,9 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
 
 
 async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
-    log.info("auth.login.attempt", extra={"_extra_fields": {"email": data.email, "tenant_slug": data.tenant_slug}})
+    log.info("auth.login.attempt", extra={"_extra_fields": {"email": data.email}})
 
-    tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
-    if tenant is None:
-        log.warning("auth.login.invalid_tenant", extra={"_extra_fields": {"tenant_slug": data.tenant_slug}})
-        raise UnauthorizedError("Invalid credentials")
-
-    user = await UserRepository(db).get_by_email(tenant.id, data.email)
+    user = await UserRepository(db).get_by_email_global(data.email)
     if user is None or not verify_password(data.password, user.hashed_password):
         log.warning("auth.login.invalid_credentials", extra={"_extra_fields": {"email": data.email}})
         raise UnauthorizedError("Invalid credentials")
@@ -142,13 +141,9 @@ async def refresh(db: AsyncSession, refresh_token: str) -> TokenResponse:
 
 
 async def forgot_password(db: AsyncSession, data: ForgotPasswordRequest) -> dict:
-    log.info("auth.forgot_password.attempt", extra={"_extra_fields": {"email": data.email, "tenant_slug": data.tenant_slug}})
+    log.info("auth.forgot_password.attempt", extra={"_extra_fields": {"email": data.email}})
 
-    tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
-    if tenant is None:
-        return {"message": "If the email exists, a password reset link has been sent"}
-
-    user = await UserRepository(db).get_by_email(tenant.id, data.email)
+    user = await UserRepository(db).get_by_email_global(data.email)
     if user is None:
         return {"message": "If the email exists, a password reset link has been sent"}
 

@@ -1,5 +1,5 @@
 import re
-import uuid
+from datetime import UTC, datetime
 
 
 def slugify(value: str) -> str:
@@ -10,9 +10,17 @@ def slugify(value: str) -> str:
     return value.strip("-")
 
 
-def unique_slug(base: str, exists_fn) -> str:
-    slug = slugify(base)
-    candidate = slug
-    while exists_fn(candidate):
-        candidate = f"{slug}-{uuid.uuid4().hex[:4]}"
-    return candidate
+def _hex_ts() -> str:
+    micros = int(datetime.now(UTC).timestamp() * 1_000_000)
+    return format(micros, "x")[-8:].upper()
+
+
+async def unique_slug(prefix: str, exists_fn) -> str:
+    prefix = prefix.upper()
+    counter = 0
+    while True:
+        suffix = _hex_ts()
+        slug = f"{prefix}-{suffix}" if counter == 0 else f"{prefix}-{suffix}-{counter}"
+        if not await exists_fn(slug):
+            return slug
+        counter += 1
