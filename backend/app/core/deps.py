@@ -14,7 +14,7 @@ from app.modules.tenants.service import get_user_by_id_global, get_user_by_id_ra
 
 log = get_logger("deps")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 

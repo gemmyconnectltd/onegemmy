@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.response import success_response
@@ -23,6 +24,17 @@ async def register(data: RegisterRequest, db: DbSession):
         message="Registration successful",
         status_code=201,
     )
+
+
+@router.post("/token", response_model=None)
+async def token(db: DbSession, form: OAuth2PasswordRequestForm = Depends()):
+    data = LoginRequest(email=form.username, password=form.password)
+    result = await service.login(db, data)
+    return {
+        "access_token": result.access_token,
+        "refresh_token": result.refresh_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post("/login")
