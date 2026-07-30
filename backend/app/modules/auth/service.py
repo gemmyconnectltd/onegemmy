@@ -108,7 +108,6 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
 async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
     log.info("auth.login.attempt", extra={"_extra_fields": {"email": data.email}})
 
-<<<<<<< HEAD
     if data.tenant_slug:
         tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
         if tenant is None:
@@ -118,9 +117,6 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
     else:
         user = await UserRepository(db).get_by_email_global(data.email)
 
-=======
-    user = await UserRepository(db).get_by_email_global(data.email)
->>>>>>> feature/full-crud-rbac
     if user is None or not verify_password(data.password, user.hashed_password):
         log.warning("auth.login.invalid_credentials", extra={"_extra_fields": {"email": data.email}})
         raise UnauthorizedError("Invalid credentials")
