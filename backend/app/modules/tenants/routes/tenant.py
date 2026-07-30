@@ -3,15 +3,16 @@ import uuid
 from fastapi import APIRouter, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
-from app.core.pagination import PageQuery, paginated_response
+from app.core.pagination import PageQuery
+from app.core.response import paginated_response
 from app.core.response import success_response
 from app.modules.tenants import service
 from app.modules.tenants.schemas import TenantCreate, TenantUpdate
 
-router = APIRouter()
+router = APIRouter(tags=["Tenants"])
 
 
-@router.get("")
+@router.get("/")
 async def list_tenants(db: DbSession, current_user: CurrentUser, page_params: PageQuery):
     tenants = await service.list_all(db, page_params.offset, page_params.limit)
     total = await service.count_all(db)
@@ -24,7 +25,7 @@ async def list_tenants(db: DbSession, current_user: CurrentUser, page_params: Pa
     )
 
 
-@router.post("")
+@router.post("/")
 async def create_tenant(data: TenantCreate, db: DbSession, current_user: CurrentUser):
     tenant = await service.create_tenant(db, data)
     return success_response(
