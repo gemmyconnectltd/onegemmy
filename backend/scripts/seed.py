@@ -102,7 +102,6 @@ async def seed(session: AsyncSession) -> None:
     )
     session.add(user)
 
-<<<<<<< HEAD
     await session.flush()
 
     superadmin = User(
@@ -116,9 +115,7 @@ async def seed(session: AsyncSession) -> None:
     )
     session.add(superadmin)
 
-=======
     admin_role.permissions = permissions
->>>>>>> feature/full-crud-rbac
     await session.commit()
     log.info("seed.complete", extra={"_extra_fields": {
         "tenant_id": str(tenant.id),

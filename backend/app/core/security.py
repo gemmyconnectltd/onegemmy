@@ -3,10 +3,6 @@ from typing import Any
 
 import bcrypt
 from jose import JWTError, jwt
-<<<<<<< HEAD
-import bcrypt
-=======
->>>>>>> feature/full-crud-rbac
 
 from app.core.config import settings
 
