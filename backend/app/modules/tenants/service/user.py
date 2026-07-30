@@ -48,10 +48,10 @@ async def count_users(db: AsyncSession, tenant_id: uuid.UUID) -> int:
 async def create_user(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) -> UserRead:
     log.info("users.create.attempt", extra={"_extra_fields": {"email": data.email, "tenant_id": str(tenant_id)}})
 
-    existing = await get_user_by_email(db, tenant_id, data.email)
+    existing = await get_user_by_email_global(db, data.email)
     if existing:
         log.warning("users.create.conflict", extra={"_extra_fields": {"email": data.email}})
-        raise ConflictError("User with this email already exists in this tenant")
+        raise ConflictError("User with this email already exists")
 
     user = User(
         tenant_id=tenant_id,

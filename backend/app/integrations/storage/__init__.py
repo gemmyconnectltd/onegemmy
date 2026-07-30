@@ -11,6 +11,10 @@ class StorageBackend(ABC):
     async def delete(self, url_path: str) -> None: ...
 
 
+<<<<<<< HEAD
 from app.integrations.storage.local import LocalStorage  # noqa: E402
+=======
+from app.integrations.storage.local import LocalStorage
+>>>>>>> feature/full-crud-rbac
 
 storage: StorageBackend = LocalStorage(base_dir=settings.UPLOAD_DIR)

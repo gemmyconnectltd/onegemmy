@@ -12,7 +12,10 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
+<<<<<<< HEAD
     tenant_slug: str | None = None
+=======
+>>>>>>> feature/full-crud-rbac
     email: EmailStr
     password: str
 
@@ -42,7 +45,6 @@ class TokenResponse(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    tenant_slug: str
     email: EmailStr
 
 
