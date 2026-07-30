@@ -12,7 +12,7 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    tenant_slug: str
+    tenant_slug: str | None = None
     email: EmailStr
     password: str
 
@@ -28,9 +28,9 @@ class TokenUserInfo(BaseModel):
     role: str
     role_id: uuid.UUID | None
     is_superuser: bool
-    tenant_id: uuid.UUID
-    tenant_name: str
-    tenant_slug: str
+    tenant_id: uuid.UUID | None = None
+    tenant_name: str | None = None
+    tenant_slug: str | None = None
     permissions: list[str]
 
 

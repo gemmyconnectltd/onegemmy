@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -17,7 +18,7 @@ class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    tenant_id: uuid.UUID
+    tenant_id: uuid.UUID | None = None
     email: EmailStr
     full_name: str
     role: str
@@ -27,8 +28,8 @@ class UserRead(BaseModel):
     is_active: bool
     is_superuser: bool
     permissions: list[str] = []
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class UserUpdate(BaseModel):

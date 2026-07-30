@@ -34,7 +34,7 @@ ACTIONS = ["create", "read", "update", "delete", "approve"]
 
 
 async def seed(session: AsyncSession) -> None:
-    tenant = await session.get(Tenant, uuid.UUID(int=0))
+    tenant = await TenantRepository(session).get_by_slug("onegemmy")
     if tenant:
         log.info("seed.already_seeded")
         return
@@ -65,6 +65,7 @@ async def seed(session: AsyncSession) -> None:
         name="Admin",
         tenant_id=tenant.id,
         description="Full system access",
+        permissions=permissions,
     )
     session.add(admin_role)
 
@@ -100,12 +101,24 @@ async def seed(session: AsyncSession) -> None:
     session.add(user)
 
     await session.flush()
-    admin_role.permissions = permissions
+
+    superadmin = User(
+        tenant_id=None,
+        email="superadmin@onegemmy.com",
+        hashed_password=hash_password("superadmin123"),
+        full_name="Global Super Admin",
+        role="superadmin",
+        is_active=True,
+        is_superuser=True,
+    )
+    session.add(superadmin)
+
     await session.commit()
     log.info("seed.complete", extra={"_extra_fields": {
         "tenant_id": str(tenant.id),
         "admin_email": "admin@onegemmy.com",
         "user_email": "user@onegemmy.com",
+        "super_admin_email": "superadmin@onegemmy.com",
         "permissions_count": len(permissions),
     }})
 

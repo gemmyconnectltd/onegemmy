@@ -6,10 +6,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.models import TimestampMixin, UUIDPKMixin
-from app.modules.tenants.models.mixins import TenantScopedMixin
 
 
-class User(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class User(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "users"
     __table_args__ = (UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),)
 
@@ -17,6 +16,9 @@ class User(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="member")
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     role_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("roles.id", ondelete="SET NULL"), nullable=True
     )

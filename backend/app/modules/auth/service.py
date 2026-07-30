@@ -34,15 +34,15 @@ def _build_user_info(user: User, permission_names: list[str] | None = None) -> T
         role_id=user.role_id,
         is_superuser=user.is_superuser,
         tenant_id=user.tenant_id,
-        tenant_name=user.tenant.name if user.tenant else "",
-        tenant_slug=user.tenant.slug if user.tenant else "",
+        tenant_name=user.tenant.name if user.tenant else None,
+        tenant_slug=user.tenant.slug if user.tenant else None,
         permissions=permission_names or [],
     )
 
 
 def _build_token_claims(user: User, permission_names: list[str] | None = None) -> dict:
     return {
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": str(user.tenant_id) if user.tenant_id else None,
         "email": user.email,
         "full_name": user.full_name,
         "role": user.role,
@@ -63,9 +63,13 @@ def _issue_tokens(user: User) -> TokenResponse:
     claims = _build_token_claims(user, permission_names)
     user_info = _build_user_info(user, permission_names)
 
+    refresh_claims = {}
+    if user.tenant_id:
+        refresh_claims["tenant_id"] = str(user.tenant_id)
+
     return TokenResponse(
         access_token=create_access_token(str(user.id), claims),
-        refresh_token=create_refresh_token(str(user.id), {"tenant_id": str(user.tenant_id)}),
+        refresh_token=create_refresh_token(str(user.id), refresh_claims),
         user=user_info,
     )
 
@@ -100,12 +104,15 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
 async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
     log.info("auth.login.attempt", extra={"_extra_fields": {"email": data.email, "tenant_slug": data.tenant_slug}})
 
-    tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
-    if tenant is None:
-        log.warning("auth.login.invalid_tenant", extra={"_extra_fields": {"tenant_slug": data.tenant_slug}})
-        raise UnauthorizedError("Invalid credentials")
+    if data.tenant_slug:
+        tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
+        if tenant is None:
+            log.warning("auth.login.invalid_tenant", extra={"_extra_fields": {"tenant_slug": data.tenant_slug}})
+            raise UnauthorizedError("Invalid credentials")
+        user = await UserRepository(db).get_by_email(tenant.id, data.email)
+    else:
+        user = await UserRepository(db).get_by_email_global(data.email)
 
-    user = await UserRepository(db).get_by_email(tenant.id, data.email)
     if user is None or not verify_password(data.password, user.hashed_password):
         log.warning("auth.login.invalid_credentials", extra={"_extra_fields": {"email": data.email}})
         raise UnauthorizedError("Invalid credentials")

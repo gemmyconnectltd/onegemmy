@@ -10,7 +10,7 @@ from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.logging import get_logger
 from app.core.security import decode_token
 from app.modules.tenants.models import User
-from app.modules.tenants.service import get_user_by_id_raw
+from app.modules.tenants.service import get_user_by_id_global, get_user_by_id_raw
 
 log = get_logger("deps")
 
@@ -29,12 +29,16 @@ async def get_current_user(
 
     user_id = payload.get("sub")
     tenant_id = payload.get("tenant_id")
-    if user_id is None or tenant_id is None:
+    if user_id is None:
         log.warning("auth.invalid_payload")
         raise UnauthorizedError("Invalid token payload")
 
-    user = await get_user_by_id_raw(db, uuid.UUID(tenant_id), uuid.UUID(user_id))
-    if not user.is_active:
+    if tenant_id:
+        user = await get_user_by_id_raw(db, uuid.UUID(tenant_id), uuid.UUID(user_id))
+    else:
+        user = await get_user_by_id_global(db, uuid.UUID(user_id))
+
+    if not user or not user.is_active:
         log.warning("auth.inactive_user", extra={"_extra_fields": {"user_id": user_id}})
         raise UnauthorizedError("User is inactive")
 
@@ -55,6 +59,9 @@ async def get_current_active_superuser(user: CurrentUser) -> User:
         log.warning("auth.forbidden_not_superuser", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise ForbiddenError("Superuser privileges required")
     return user
+
+
+SuperUser = Annotated[User, Depends(get_current_active_superuser)]
 
 
 def require_permission(permission_name: str):

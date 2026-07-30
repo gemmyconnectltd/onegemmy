@@ -24,6 +24,10 @@ async def get_user_by_id_raw(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
     return await UserRepository(db).get_by_id_for_tenant(tenant_id, user_id)
 
 
+async def get_user_by_id_global(db: AsyncSession, user_id: uuid.UUID) -> User | None:
+    return await UserRepository(db).get(user_id)
+
+
 async def get_user_by_email(db: AsyncSession, tenant_id: uuid.UUID, email: str) -> User | None:
     return await UserRepository(db).get_by_email(tenant_id, email)
 
