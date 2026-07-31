@@ -36,6 +36,8 @@ const LOCALE_LANG_MAP: Record<LocaleCode, string> = {
 
 const VALID_LOCALES: LocaleCode[] = ["en", "rw", "sw"];
 const VALID_BUSINESS_TYPES: BusinessType[] = ["retail", "restaurant", "service"];
+export type NavOrientation = "top" | "left";
+const VALID_ORIENTATIONS: NavOrientation[] = ["top", "left"];
 
 async function fetchTranslations(targetLang: string): Promise<Record<string, string>> {
   const cacheKey = `translations_${targetLang}`;
@@ -90,12 +92,14 @@ interface AppConfig {
   locale: LocaleCode;
   businessType: BusinessType;
   theme: Theme;
+  navOrientation: NavOrientation;
   translating: boolean;
   t: (key: string) => string;
   setCurrency: (code: string) => void;
   setLocale: (code: LocaleCode) => void;
   setBusinessType: (type: BusinessType) => void;
   setTheme: (theme: Theme) => void;
+  setNavOrientation: (orientation: NavOrientation) => void;
   currencies: typeof currencies;
   locales: typeof locales;
   businessTypes: typeof businessTypes;
@@ -116,6 +120,10 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const t = getStored("app_theme", "light");
     return t === "dark" ? "dark" : "light";
+  });
+  const [navOrientation, setNavOrientationState] = useState<NavOrientation>(() => {
+    const o = getStored("app_nav_orientation", "left");
+    return (VALID_ORIENTATIONS.includes(o as NavOrientation) ? o : "left") as NavOrientation;
   });
   const [strings, setStrings] = useState<Record<string, string>>(BASE_STRINGS);
   const [translating, setTranslating] = useState(false);
@@ -166,13 +174,18 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("app_theme", next);
   };
 
+  const setNavOrientation = (next: NavOrientation) => {
+    setNavOrientationState(next);
+    localStorage.setItem("app_nav_orientation", next);
+  };
+
   const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? currency;
   const t = (key: string) => strings[key] ?? BASE_STRINGS[key] ?? key;
 
   return (
     <AppConfigContext.Provider value={{
-      currency, currencySymbol, locale, businessType, theme, translating,
-      t, setCurrency, setLocale, setBusinessType, setTheme,
+      currency, currencySymbol, locale, businessType, theme, navOrientation, translating,
+      t, setCurrency, setLocale, setBusinessType, setTheme, setNavOrientation,
       currencies, locales, businessTypes,
     }}>
       {children}
