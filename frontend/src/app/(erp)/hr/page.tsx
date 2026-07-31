@@ -23,9 +23,10 @@ export default function HRPage() {
           { label: "Active",   value: active,           icon: UserCheck, color: "#10B981" },
           { label: "On Leave", value: employees.length - active, icon: Clock, color: "#f59e0b" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border p-4 flex items-center gap-3">
-            <div className="w-10 h-10 flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}><s.icon size={18} style={{ color: s.color }} /></div>
-            <div><p className="text-2xl font-extrabold text-foreground">{s.value}</p><p className="text-xs text-muted">{s.label}</p></div>
+          <div key={s.label} className="bg-card p-4">
+            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}><s.icon size={16} style={{ color: s.color }} /></div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>

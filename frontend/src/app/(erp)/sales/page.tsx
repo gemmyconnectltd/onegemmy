@@ -1,5 +1,7 @@
-import { Plus, Search, Filter, TrendingUp, ArrowUpRight, MoreHorizontal } from "lucide-react";
+"use client";
+import { Plus, Search, Filter, TrendingUp, ShoppingCart, Target, ArrowUpRight, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { useAppConfig } from "@/lib/appConfig";
 
 const stages = [
   { name: "Leads", count: 24, color: "bg-muted" },
@@ -18,6 +20,16 @@ const deals = [
 ];
 
 export default function SalesPage() {
+  const { currencySymbol } = useAppConfig();
+  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const revenue = 356000;
+  const avgOrder = Math.round(revenue / 77);
+  const resolvedStats = [
+    { label: "Total Orders",    value: "77",          icon: ShoppingCart, color: "#6f1a07", change: null,   up: true },
+    { label: "Revenue",         value: fmt(revenue),  icon: TrendingUp,   color: "#10B981", change: "+12%", up: true },
+    { label: "Closed Won",      value: "15",          icon: Target,       color: "#3b82f6", change: null,   up: true },
+    { label: "Avg Order Value", value: fmt(avgOrder), icon: ArrowUpRight, color: "#af9164", change: null,   up: true },
+  ];
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -34,9 +46,28 @@ export default function SalesPage() {
         </Link>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {resolvedStats.map((s) => (
+          <div key={s.label} className="bg-card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
+                <s.icon size={16} style={{ color: s.color }} />
+              </div>
+              {s.change && (
+                <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600">
+                  <ArrowUpRight size={11} />{s.change}
+                </span>
+              )}
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
       <div className="grid grid-cols-5 gap-3">
         {stages.map((stage) => (
-          <div key={stage.name} className="bg-card rounded-xl border border-border p-4">
+          <div key={stage.name} className="bg-card border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${stage.color}`} />
@@ -48,17 +79,17 @@ export default function SalesPage() {
         ))}
       </div>
 
-      <div className="bg-card rounded-xl border border-border">
+      <div className="bg-card border border-border">
         <div className="p-4 border-b border-border flex items-center gap-3">
           <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="text"
               placeholder="Search deals..."
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+              className="w-full pl-9 pr-4 py-2 border border-border text-sm focus:border-primary focus:outline-none"
             />
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm text-foreground hover:bg-surface transition-colors">
+          <button className="flex items-center gap-2 px-3 py-2 border border-border text-sm text-foreground hover:bg-surface transition-colors">
             <Filter size={14} />
             Filter
           </button>

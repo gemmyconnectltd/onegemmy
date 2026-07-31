@@ -34,11 +34,12 @@ export default function CRMPage() {
           { label: "Closed Won",     value: "15",      icon: Target,        color: "#3b82f6" },
           { label: "Emails Sent",    value: "142",     icon: Mail,          color: "#af9164" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
-            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}15` }}><s.icon size={16} style={{ color: s.color }} /></div>
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.label}</p>
+          <div key={s.label} className="bg-card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}><s.icon size={16} style={{ color: s.color }} /></div>
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>

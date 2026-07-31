@@ -81,11 +81,10 @@ export default function InventoryOverviewPage() {
           { label: "Low Stock",        value: String(lowCount),         sub: "Need reorder",       icon: AlertTriangle, color: "#f59e0b", change: null },
           { label: "Out of Stock",     value: String(outCount),         sub: "Immediate action",   icon: XCircle,       color: "#ef4444", change: null },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border p-5 relative overflow-hidden group hover:shadow-sm transition-shadow">
-            <div className="absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: s.color }} />
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-9 h-9 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${s.color}12` }}>
-                <s.icon size={17} style={{ color: s.color }} />
+          <div key={s.label} className="bg-card p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
+                <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && (
                 <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600">
@@ -93,9 +92,8 @@ export default function InventoryOverviewPage() {
                 </span>
               )}
             </div>
-            <p className="text-2xl font-extrabold text-foreground tracking-tight">{s.value}</p>
-            <p className="text-[11px] font-semibold text-foreground/70 mt-0.5">{s.label}</p>
-            <p className="text-[10px] text-muted mt-0.5">{s.sub}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>

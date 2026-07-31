@@ -113,10 +113,9 @@ export default function FinancePage() {
           { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: "#3b82f6", change: null,   up: true },
         ].map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
+          <div key={s.label} className="bg-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && (
@@ -125,8 +124,8 @@ export default function FinancePage() {
                 </span>
               )}
             </div>
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.label}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
