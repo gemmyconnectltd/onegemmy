@@ -30,7 +30,6 @@ export default function POSPage() {
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
   const [bumpId, setBumpId] = useState<string | null>(null);
-  const [discountPercent, setDiscountPercent] = useState(0);
   const [customerName, setCustomerName] = useState("");
 
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
@@ -74,7 +73,6 @@ export default function POSPage() {
 
   const clearCart = () => {
     setCart([]);
-    setDiscountPercent(0);
     setCustomerName("");
     setCashGiven("");
   };
@@ -86,19 +84,12 @@ export default function POSPage() {
   };
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const discountAmount = Math.round((subtotal * discountPercent) / 100);
-  const taxableBase = subtotal - discountAmount;
-  const tax = Math.round(taxableBase * TAX_RATE);
-  const total = taxableBase + tax;
+  const tax = Math.round(subtotal * TAX_RATE);
+  const total = subtotal + tax;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
   const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;
 
   const fmt = (v: number) => v.toLocaleString();
-
-  const handleDiscount = (pct: number) => {
-    setDiscountPercent(pct);
-    setCashGiven("");
-  };
 
   const handlePaymentChange = (m: PaymentMethod) => {
     setPayment(m);
@@ -109,7 +100,6 @@ export default function POSPage() {
     setCart([]);
     setCategory("All");
     setSearch("");
-    setDiscountPercent(0);
     setCustomerName("");
     setCashGiven("");
     setHeldOrders([]);
@@ -124,7 +114,6 @@ export default function POSPage() {
       label: customerName.trim() || `Parked ${timeLabel()}`,
       time: timeLabel(),
       cart,
-      discountPercent,
       customerName,
     };
     setHeldOrders((prev) => [held, ...prev]);
@@ -135,7 +124,6 @@ export default function POSPage() {
     const held = heldOrders.find((h) => h.id === id);
     if (!held) return;
     setCart(held.cart);
-    setDiscountPercent(held.discountPercent);
     setCustomerName(held.customerName);
     setHeldOrders((prev) => prev.filter((h) => h.id !== id));
     setShowHeld(false);
@@ -155,8 +143,6 @@ export default function POSPage() {
       customerName: customerName.trim(),
       items: cart,
       subtotal,
-      discountPercent,
-      discountAmount,
       tax,
       total,
       cashGiven,
@@ -272,15 +258,12 @@ export default function POSPage() {
           <CartPanel
             cart={cart}
             customerName={customerName}
-            discountPercent={discountPercent}
-            discountAmount={discountAmount}
             currencySymbol={currencySymbol}
             fmt={fmt}
             onCustomerChange={setCustomerName}
             onUpdateQty={updateQty}
             onRemoveItem={removeItem}
             onClear={clearCart}
-            onDiscount={handleDiscount}
             onHold={holdSale}
           />
           <div className="border-t border-border p-4">
@@ -288,7 +271,6 @@ export default function POSPage() {
               payment={payment}
               cashGiven={cashGiven}
               subtotal={subtotal}
-              discountAmount={discountAmount}
               tax={tax}
               total={total}
               change={change}

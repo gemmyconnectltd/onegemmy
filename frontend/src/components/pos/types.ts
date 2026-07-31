@@ -30,7 +30,6 @@ export type HeldOrder = {
   label: string;
   time: string;
   cart: CartItem[];
-  discountPercent: number;
   customerName: string;
 };
 
@@ -44,8 +43,6 @@ export type SaleResult = {
   customerName: string;
   items: CartItem[];
   subtotal: number;
-  discountPercent: number;
-  discountAmount: number;
   tax: number;
   total: number;
   cashGiven: string;

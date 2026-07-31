@@ -14,7 +14,6 @@ interface PaymentPanelProps {
   payment: PaymentMethod;
   cashGiven: string;
   subtotal: number;
-  discountAmount: number;
   tax: number;
   total: number;
   change: number;
@@ -29,7 +28,7 @@ interface PaymentPanelProps {
 }
 
 export function PaymentPanel({
-  payment, cashGiven, subtotal, discountAmount, tax, total, change, cashShort,
+  payment, cashGiven, subtotal, tax, total, change, cashShort,
   cartCount, hasCustomer, currencySymbol, fmt, onPaymentChange, onCashChange, onCharge,
 }: PaymentPanelProps) {
   const isInvoice = payment === "invoice";
@@ -39,9 +38,6 @@ export function PaymentPanel({
     <div className="space-y-3.5">
       <div className="space-y-1.5 font-mono">
         <div className="flex justify-between text-[13px] text-muted"><span>Subtotal</span><span>{currencySymbol} {fmt(subtotal)}</span></div>
-        {discountAmount > 0 && (
-          <div className="flex justify-between text-[13px] text-accent"><span>Discount</span><span>-{currencySymbol} {fmt(discountAmount)}</span></div>
-        )}
         <div className="flex justify-between text-[13px] text-muted"><span>Tax (18%)</span><span>{currencySymbol} {fmt(tax)}</span></div>
         <div className="flex justify-between text-[16px] font-bold text-foreground border-t border-border pt-2">
           <span>{isInvoice ? "Amount due" : "Total"}</span>

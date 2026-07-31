@@ -97,11 +97,6 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale, newSaleLabel = "
             <div className="flex justify-between text-[13px] text-muted">
               <span>Subtotal</span><span>{currencySymbol} {fmt(sale.subtotal)}</span>
             </div>
-            {sale.discountPercent > 0 && (
-              <div className="flex justify-between text-[13px] text-accent">
-                <span>Discount ({sale.discountPercent}%)</span><span>-{currencySymbol} {fmt(sale.discountAmount)}</span>
-              </div>
-            )}
             <div className="flex justify-between text-[13px] text-muted">
               <span>Tax (18%)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
             </div>

@@ -1,27 +1,23 @@
 import { Minus, Pause, Plus, ShoppingCart, Trash2, UserRound } from "lucide-react";
 
-import { DISCOUNT_PRESETS } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
 import type { CartItem } from "./types";
 
 interface CartPanelProps {
   cart: CartItem[];
   customerName: string;
-  discountPercent: number;
-  discountAmount: number;
   currencySymbol: string;
   fmt: (v: number) => string;
   onCustomerChange: (v: string) => void;
   onUpdateQty: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
   onClear: () => void;
-  onDiscount: (pct: number) => void;
   onHold: () => void;
 }
 
 export function CartPanel({
-  cart, customerName, discountPercent, discountAmount, currencySymbol, fmt,
-  onCustomerChange, onUpdateQty, onRemoveItem, onClear, onDiscount, onHold,
+  cart, customerName, currencySymbol, fmt,
+  onCustomerChange, onUpdateQty, onRemoveItem, onClear, onHold,
 }: CartPanelProps) {
   return (
     <div className="w-full flex-1 min-h-0 bg-white border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
@@ -107,32 +103,6 @@ export function CartPanel({
       </div>
 
       <div className="border-t border-border p-4 space-y-3.5 flex-shrink-0">
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[12px] font-medium text-muted">Discount</span>
-            {discountPercent > 0 && (
-              <span className="text-[12px] font-semibold text-accent">
-                -{currencySymbol} {fmt(discountAmount)}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {DISCOUNT_PRESETS.map((d) => (
-              <button
-                key={d}
-                onClick={() => onDiscount(d)}
-                className={`py-1.5 text-[11px] font-semibold border rounded-lg transition-colors ${
-                  discountPercent === d
-                    ? "border-accent bg-accent text-white"
-                    : "border-border text-foreground/70 hover:border-accent hover:text-accent"
-                }`}
-              >
-                {d === 0 ? "None" : `${d}%`}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <button
           onClick={onHold}
           disabled={cart.length === 0}

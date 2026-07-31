@@ -6,7 +6,6 @@ export const PAYMENT_METHODS = [
 ] as const;
 
 export const CASH_PRESETS = [0, 1000, 5000, 10000];
-export const DISCOUNT_PRESETS = [0, 5, 10, 15];
 export const LOW_STOCK_THRESHOLD = 5;
 export const TAX_RATE = 0.18;
 

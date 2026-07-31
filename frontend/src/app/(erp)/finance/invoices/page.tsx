@@ -323,11 +323,6 @@ export default function InvoicesPage() {
               <div className="flex justify-between text-[13px] text-muted">
                 <span>Subtotal</span><span>{currencySymbol} {fmt(viewing.subtotal)}</span>
               </div>
-              {viewing.discountPercent > 0 && (
-                <div className="flex justify-between text-[13px] text-accent">
-                  <span>Discount ({viewing.discountPercent}%)</span><span>-{currencySymbol} {fmt(viewing.discountAmount)}</span>
-                </div>
-              )}
               <div className="flex justify-between text-[13px] text-muted">
                 <span>Tax (18%)</span><span>{currencySymbol} {fmt(viewing.tax)}</span>
               </div>
