@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Layers, Plus, Search, Edit2, Trash2, Package, Loader2, Check, X } from "lucide-react";
 import { inventoryApi, type ApiCategory } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+
+const INV_COLOR = "#059669";
 
 const COLORS = [
   "bg-violet-100 text-violet-600", "bg-blue-100 text-blue-600",
@@ -24,15 +27,12 @@ export default function CategoriesPage() {
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listCategories();
-      setCategories(res.data.items);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
+useEffect(() => {
+    inventoryApi.listCategories()
+      .then((res) => setCategories(res.data.items))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const filtered = categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -79,10 +79,9 @@ export default function CategoriesPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Categories</h1>
           <p className="text-sm text-muted mt-0.5">{categories.length} categories</p>
         </div>
-        <button onClick={() => setAdding(!adding)}
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors rounded-lg">
+        <Button onClick={() => setAdding(!adding)} color={INV_COLOR} className="rounded-lg">
           <Plus size={15} /> Add Category
-        </button>
+        </Button>
       </div>
 
       {adding && (
@@ -104,11 +103,10 @@ export default function CategoriesPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} disabled={saving || !newName.trim()}
-              className="px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50">
+            <Button onClick={handleAdd} disabled={saving || !newName.trim()} color={INV_COLOR} className="rounded-lg">
               {saving ? "Saving…" : "Save Category"}
-            </button>
-            <button onClick={() => setAdding(false)} className="px-4 py-2 border border-border text-sm text-muted rounded-lg hover:text-foreground transition-colors">Cancel</button>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setAdding(false)} className="rounded-lg">Cancel</Button>
           </div>
         </div>
       )}
@@ -129,14 +127,12 @@ export default function CategoriesPage() {
                 <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description"
                   className="w-full px-2.5 py-1.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none" />
                 <div className="flex gap-1.5">
-                  <button onClick={() => handleEdit(c.id)} disabled={saving}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded-lg hover:bg-accent/90 disabled:opacity-50">
+                  <Button size="sm" onClick={() => handleEdit(c.id)} disabled={saving} color={INV_COLOR} className="rounded-lg">
                     <Check size={12} /> Save
-                  </button>
-                  <button onClick={() => setEditingId(null)}
-                    className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs text-muted rounded-lg hover:text-foreground">
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setEditingId(null)} className="rounded-lg">
                     <X size={12} /> Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (

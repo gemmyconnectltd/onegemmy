@@ -1,5 +1,5 @@
 "use client";
-
+import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useSyncExternalStore, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Clock, ArrowRight, Plus } from "lucide-react";
@@ -36,7 +36,7 @@ export default function FinancePage() {
   const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
   const outstanding = sales.filter((s) => s.isInvoice && !s.paid);
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [transactions, setTransactions] = useState<Tx[]>(INITIAL_TX);
   const [showIncome, setShowIncome] = useState(false);
@@ -62,19 +62,20 @@ export default function FinancePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Finance Overview</h1>
+          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Finance Overview</h1>
           <p className="text-sm text-muted mt-1">Track your income, expenses and profit</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowExpense(true)}
-            className="flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium hover:bg-surface transition-colors"
+            className="flex items-center gap-2 border border-border px-4 py-2.5 text-sm font-semibold hover:bg-surface transition-colors rounded-lg"
           >
-            <Plus size={16} className="text-red-500" />Add Expense
+            <Plus size={15} className="text-red-500" />Add Expense
           </button>
           <button
             onClick={() => setShowIncome(true)}
-            className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"
+            className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
+            style={{ backgroundColor: "#b45309" }}
           >
             <Plus size={16} />Add Income
           </button>
@@ -103,8 +104,7 @@ export default function FinancePage() {
         </div>
         <span className="flex items-center gap-1 text-[12px] font-semibold text-accent">
           View invoices <ArrowRight size={13} />
-        </span>
-      </Link>
+        </span>      </Link>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
@@ -113,9 +113,9 @@ export default function FinancePage() {
           { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: "#3b82f6", change: null,   up: true },
         ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
+              <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${s.color}15` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && (
@@ -130,7 +130,7 @@ export default function FinancePage() {
         ))}
       </div>
 
-      <div className="bg-card border border-border p-5">
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <h2 className="text-sm font-bold text-foreground mb-4">Income vs Expenses (6 months)</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -156,7 +156,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      <div className="bg-card border border-border">
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="text-sm font-bold text-foreground">Recent Transactions</h2>
         </div>
@@ -164,7 +164,7 @@ export default function FinancePage() {
           {transactions.map((t) => (
             <div key={t.id} className="px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 flex items-center justify-center ${t.type === "income" ? "bg-emerald-50" : "bg-red-50"}`}>
+                <div className={`w-8 h-8 flex items-center justify-center rounded-xl ${t.type === "income" ? "bg-emerald-50" : "bg-red-50"}`}>
                   {t.type === "income" ? <TrendingUp size={14} className="text-emerald-600" /> : <TrendingDown size={14} className="text-red-500" />}
                 </div>
                 <div>

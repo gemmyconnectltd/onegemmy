@@ -78,7 +78,7 @@ export default function PurchaseRequestsPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90 transition-colors"
+          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: "#0e7490" }}
         >
           <Plus size={16} /> New Request
         </button>
@@ -90,9 +90,10 @@ export default function PurchaseRequestsPage() {
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors ${
-                filter === s ? "bg-accent text-white" : "text-foreground/50 hover:text-foreground"
+              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
+                filter === s ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
+              style={filter === s ? { backgroundColor: "#0e7490" } : undefined}
             >
               {s} <span className="opacity-70">({s === "All" ? reqs.length : reqs.filter((r) => r.status === s).length})</span>
             </button>

@@ -30,8 +30,9 @@ interface ProductFormDrawerProps {
   open: boolean;
   onClose: () => void;
   initial?: ProductFormValues | null;
-  onSubmit: (values: ProductFormValues) => Promise<void>;
+  onSubmit: (values: ProductFormValues, imageFile?: File) => Promise<void>;
   onBulkSubmit?: (values: ProductFormValues[]) => void;
+  color?: string;
 }
 
 function toForm(initial?: ProductFormValues | null) {
@@ -74,7 +75,7 @@ function parseForm(f: Record<string, string>): ProductFormValues {
 
 // ── Single form ──────────────────────────────────────────────────────────────
 
-function SingleForm({ initial, onClose, onSubmit }: { initial?: ProductFormValues | null; onClose: () => void; onSubmit: (v: ProductFormValues) => Promise<void> }) {
+function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFormValues | null; onClose: () => void; onSubmit: (v: ProductFormValues, imageFile?: File) => Promise<void>; color?: string }) {
   const [form, setForm] = useState(() => toForm(initial));
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [brands, setBrands] = useState<ApiBrand[]>([]);
@@ -82,7 +83,7 @@ function SingleForm({ initial, onClose, onSubmit }: { initial?: ProductFormValue
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(initial?.image_url ?? null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const valid = Boolean(isValid(form));
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -138,7 +139,7 @@ function SingleForm({ initial, onClose, onSubmit }: { initial?: ProductFormValue
       title={initial ? "Edit Product" : "Add Product"}
       description={initial ? `Update ${initial.name}` : "Create a new product in your inventory"}
       size="md"
-      footer={<form onSubmit={submit}><FormFooter submitLabel={submitting ? "Saving…" : initial ? "Save Changes" : "Add Product"} onCancel={onClose} disabled={!valid || submitting} /></form>}
+      footer={<form onSubmit={submit}><FormFooter submitLabel={submitting ? "Saving…" : initial ? "Save Changes" : "Add Product"} onCancel={onClose} disabled={!valid || submitting} color={color} /></form>}
     >
       <div className="p-5 space-y-4">
         {error && (
@@ -284,7 +285,7 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function BulkImport({ onClose, onBulkSubmit }: { onClose: () => void; onBulkSubmit: (v: ProductFormValues[]) => void }) {
+function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductFormValues[]) => void; color?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<ParsedRow[] | null>(null);
   const [fileName, setFileName] = useState("");
@@ -327,6 +328,7 @@ function BulkImport({ onClose, onBulkSubmit }: { onClose: () => void; onBulkSubm
               submitLabel={`Import ${validRows.length} Product${validRows.length !== 1 ? "s" : ""}`}
               onCancel={onClose}
               disabled={validRows.length === 0}
+              color={color}
             />
           </form>
         )
@@ -340,8 +342,8 @@ function BulkImport({ onClose, onBulkSubmit }: { onClose: () => void; onBulkSubm
           onClick={downloadTemplate}
           className="w-full flex items-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-surface transition-colors text-left"
         >
-          <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Download size={15} className="text-accent" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color ? `${color}15` : "var(--accent-10)" }}>
+            <Download size={15} style={{ color: color ?? "var(--accent)" }} />
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Download CSV template</p>
@@ -439,10 +441,9 @@ function BulkImport({ onClose, onBulkSubmit }: { onClose: () => void; onBulkSubm
 
 // ── Public component ─────────────────────────────────────────────────────────
 
-export function ProductFormDrawer({ open, onClose, initial, onSubmit }: Omit<ProductFormDrawerProps, "onBulkSubmit">) {
-
+export function ProductFormDrawer({ open, onClose, initial, onSubmit, onBulkSubmit, color }: ProductFormDrawerProps) {
   if (!open) return null;
-  if (initial) return <SingleForm initial={initial} onClose={onClose} onSubmit={onSubmit} />;
-
-  return <SingleForm onClose={onClose} onSubmit={onSubmit} initial={null} />;
+  if (initial) return <SingleForm initial={initial} onClose={onClose} onSubmit={onSubmit} color={color} />;
+  if (onBulkSubmit) return <BulkImport onClose={onClose} onBulkSubmit={onBulkSubmit} color={color} />;
+  return <SingleForm onClose={onClose} onSubmit={onSubmit} initial={null} color={color} />;
 }

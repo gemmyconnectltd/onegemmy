@@ -1,5 +1,5 @@
 "use client";
-
+import { fmtMoney } from "@/lib/config";
 import { useSyncExternalStore, useState } from "react";
 import Link from "next/link";
 import {
@@ -37,7 +37,7 @@ export default function InvoicesPage() {
   const [printSale, setPrintSale] = useState<SaleResult | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const invoices = sales.filter((s) => s.isInvoice);
   const outstanding = invoices.filter((s) => !s.paid);
@@ -101,14 +101,15 @@ export default function InvoicesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
+          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Invoices</h1>
           <p className="text-sm text-muted mt-1">
             Sales issued at the POS appear here automatically.
           </p>
         </div>
         <Link
           href="/pos"
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90 transition-colors"
+          className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
+          style={{ backgroundColor: "#b45309" }}
         >
           <ShoppingCart size={16} /> Open POS
         </Link>
@@ -116,35 +117,35 @@ export default function InvoicesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${s.color}15` }}>
-                <s.icon size={15} style={{ color: s.color }} />
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${s.color}15` }}>
+                <s.icon size={16} style={{ color: s.color }} />
               </div>
-              <p className="text-[11px] text-muted font-medium">{s.label}</p>
             </div>
-            <p className="text-xl font-extrabold text-foreground mt-2">{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.sub}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
+            <p className="text-[11px] text-muted/60 mt-0.5">{s.sub}</p>
           </div>
         ))}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1 bg-card border border-border p-1">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors ${
-                tab === t.key ? "bg-accent text-white" : "text-foreground/50 hover:text-foreground"
+              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
+                tab === t.key ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
+              style={tab === t.key ? { backgroundColor: "#b45309" } : undefined}
             >
               {t.label} <span className="opacity-70">({t.count})</span>
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 bg-card border border-border px-3 py-2 w-56">
+        <div className="ml-auto flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-56">
           <Search size={14} className="text-muted flex-shrink-0" />
           <input
             value={search}
@@ -156,9 +157,9 @@ export default function InvoicesPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-card border border-border p-12 flex flex-col items-center justify-center text-center gap-3">
-          <div className="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-full">
-            <FileText size={20} className="text-accent" />
+        <div className="bg-card border border-border rounded-xl p-12 flex flex-col items-center justify-center text-center gap-3">
+          <div className="w-12 h-12 flex items-center justify-center rounded-full" style={{ backgroundColor: "#b4530915" }}>
+            <FileText size={20} style={{ color: "#b45309" }} />
           </div>
           <p className="text-sm font-semibold text-foreground">
             {sales.length === 0 ? "No sales yet" : "Nothing matches your filters"}
@@ -169,13 +170,13 @@ export default function InvoicesPage() {
               : "Try a different search term or filter."}
           </p>
           {sales.length === 0 && (
-            <Link href="/pos" className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium mt-2 hover:bg-accent/90 transition-colors">
+            <Link href="/pos" className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold mt-2 transition-colors rounded-lg" style={{ backgroundColor: "#b45309" }}>
               <ShoppingCart size={16} /> Open POS <ArrowRight size={14} />
             </Link>
           )}
         </div>
       ) : (
-        <div className="bg-card border border-border overflow-x-auto">
+        <div className="bg-card border border-border rounded-xl overflow-x-auto shadow-sm">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
@@ -234,7 +235,7 @@ export default function InvoicesPage() {
                         <button
                           onClick={() => setViewing(s)}
                           title="View invoice"
-                          className="w-8 h-8 flex items-center justify-center border border-border text-foreground/50 hover:text-foreground hover:border-accent/40 transition-colors"
+                          className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-foreground/50 hover:text-foreground hover:border-accent/40 transition-colors"
                         >
                           <Eye size={14} />
                         </button>
@@ -242,7 +243,7 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => handleMarkPaid(ref)}
                             title="Mark as paid"
-                            className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                            className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors rounded-lg"
                           >
                             <BadgeCheck size={13} /> Mark paid
                           </button>
@@ -250,7 +251,7 @@ export default function InvoicesPage() {
                         {confirmDeleteId === ref ? (
                           <button
                             onClick={() => handleDelete(ref)}
-                            className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
+                            className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors rounded-lg"
                           >
                             Confirm
                           </button>
@@ -258,7 +259,7 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => setConfirmDeleteId(ref)}
                             title="Delete"
-                            className="w-8 h-8 flex items-center justify-center border border-border text-foreground/50 hover:text-red-600 hover:border-red-200 transition-colors"
+                            className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-foreground/50 hover:text-red-600 hover:border-red-200 transition-colors"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -295,7 +296,8 @@ export default function InvoicesPage() {
               )}
               <button
                 onClick={() => setPrintSale(viewing)}
-                className="flex-1 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2.5 text-[13px] font-bold hover:bg-accent/90 transition-colors rounded-lg"
+                className="flex-1 flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg"
+                style={{ backgroundColor: "#b45309" }}
               >
                 <Printer size={15} /> Print
               </button>

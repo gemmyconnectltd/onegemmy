@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Ruler, Plus, Edit2, Trash2, Loader2, Check, X } from "lucide-react";
 import { inventoryApi, type ApiUnit } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+
+const INV_COLOR = "#059669";
 
 export default function UnitsPage() {
   const [units, setUnits] = useState<ApiUnit[]>([]);
@@ -15,15 +18,12 @@ export default function UnitsPage() {
   const [editName, setEditName] = useState("");
   const [editAbbr, setEditAbbr] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listUnits();
-      setUnits(res.data.items);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
+  useEffect(() => {
+    inventoryApi.listUnits()
+      .then((res) => setUnits(res.data.items))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   async function handleAdd() {
     if (!newName.trim() || saving) return;
@@ -68,9 +68,9 @@ export default function UnitsPage() {
           <h1 className="text-xl font-bold text-foreground">Units of Measure</h1>
           <p className="text-xs text-muted mt-0.5">{units.length} units defined</p>
         </div>
-        <button onClick={() => setAdding(true)} className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90 transition-colors">
+        <Button onClick={() => setAdding(true)} color={INV_COLOR}>
           <Plus size={15} /> Add Unit
-        </button>
+        </Button>
       </div>
 
       {adding && (
@@ -86,11 +86,10 @@ export default function UnitsPage() {
               className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} disabled={saving || !newName.trim()}
-              className="px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50">
+            <Button onClick={handleAdd} disabled={saving || !newName.trim()} color={INV_COLOR}>
               {saving ? "Saving…" : "Save"}
-            </button>
-            <button onClick={() => setAdding(false)} className="px-4 py-2 border border-border text-sm text-muted hover:text-foreground transition-colors">Cancel</button>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -103,8 +102,8 @@ export default function UnitsPage() {
         <div className="divide-y divide-border">
           {units.map((u) => (
             <div key={u.id} className="px-4 py-3 flex items-center gap-4 hover:bg-surface/40 transition-colors">
-              <div className="w-10 h-10 bg-accent/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-accent">{u.abbreviation || u.name[0]}</span>
+              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${INV_COLOR}15` }}>
+                <span className="text-xs font-bold" style={{ color: INV_COLOR }}>{u.abbreviation || u.name[0]}</span>
               </div>
               {editingId === u.id ? (
                 <div className="flex-1 flex items-center gap-2">
@@ -113,7 +112,8 @@ export default function UnitsPage() {
                   <input value={editAbbr} onChange={(e) => setEditAbbr(e.target.value)} placeholder="Abbr"
                     className="w-20 px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   <button onClick={() => handleEdit(u.id)} disabled={saving}
-                    className="w-6 h-6 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded transition-colors disabled:opacity-50">
+                    className="w-6 h-6 flex items-center justify-center rounded transition-colors disabled:opacity-50"
+                    style={{ color: INV_COLOR }}>
                     <Check size={13} />
                   </button>
                   <button onClick={() => setEditingId(null)}

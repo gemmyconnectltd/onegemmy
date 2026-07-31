@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PackagePlus, SlidersHorizontal, XCircle } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
+import { Button } from "@/components/ui/Button";
 
 export type RestockMode = "restock" | "adjust";
 
@@ -21,12 +22,13 @@ interface RestockDrawerProps {
   productName: string;
   currentStock: number;
   onSubmit: (values: RestockValues) => Promise<void>;
+  color?: string;
 }
 
 const RESTOCK_REASONS = ["Purchase from supplier", "Return from customer", "Found in warehouse", "Other"];
 const ADJUST_REASONS  = ["Damaged goods", "Theft / loss", "Miscounted", "Expired", "Other"];
 
-export function RestockDrawer({ open, onClose, productName, currentStock, onSubmit }: RestockDrawerProps) {
+export function RestockDrawer({ open, onClose, productName, currentStock, onSubmit, color }: RestockDrawerProps) {
   const [mode, setMode]         = useState<RestockMode>("restock");
   const [qty, setQty]           = useState("");
   const [reason, setReason]     = useState(RESTOCK_REASONS[0]);
@@ -80,6 +82,7 @@ export function RestockDrawer({ open, onClose, productName, currentStock, onSubm
             submitLabel={submitting ? "Saving…" : mode === "restock" ? "Add Stock" : "Apply Adjustment"}
             onCancel={handleClose}
             disabled={!valid || submitting}
+            color={color}
           />
         </form>
       }
@@ -100,23 +103,21 @@ export function RestockDrawer({ open, onClose, productName, currentStock, onSubm
             { key: "restock", label: "Restock", icon: PackagePlus },
             { key: "adjust",  label: "Adjust",  icon: SlidersHorizontal },
           ] as const).map(({ key, label, icon: Icon }) => (
-            <button
+            <Button
               key={key}
               type="button"
+              variant={mode === key ? "primary" : "secondary"}
+              color={mode === key ? color : undefined}
               onClick={() => {
                 setMode(key);
                 setReason(key === "restock" ? RESTOCK_REASONS[0] : ADJUST_REASONS[0]);
                 setQty("");
                 setError(null);
               }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold border transition-colors rounded-lg ${
-                mode === key
-                  ? "bg-accent text-white border-accent"
-                  : "border-border text-muted hover:text-foreground hover:border-foreground/30"
-              }`}
+              className="flex-1 rounded-lg py-2.5 text-[13px]"
             >
               <Icon size={14} /> {label}
-            </button>
+            </Button>
           ))}
         </div>
 

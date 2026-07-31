@@ -11,6 +11,7 @@ import { PaymentPanel } from "@/components/pos/PaymentPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
 import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult } from "@/components/pos/types";
+import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
 
@@ -162,15 +163,22 @@ export default function POSPage() {
     setPayment("cash");
   };
 
-  if (completedSale) {
-    return <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} />;
-  }
-
   return (
     <div
       className="h-screen flex flex-col overflow-hidden bg-surface"
       style={{ ["--accent" as string]: business.accent }}
     >
+      <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="lg">
+        {completedSale && (
+          <Receipt
+            sale={completedSale}
+            currencySymbol={currencySymbol}
+            fmt={fmt}
+            onNewSale={startNewSale}
+          />
+        )}
+      </Drawer>
+
       <POSHeader
         business={business}
         showBizPicker={showBizPicker}

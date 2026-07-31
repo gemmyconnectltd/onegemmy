@@ -1,140 +1,88 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import {
-  Settings,
-  Store,
-  Phone,
-  MapPin,
-  Download,
-  Shield,
-  Info,
-  Save,
-  Check,
-} from "lucide-react"
+import { useState } from "react";
+import { Settings, Store, Phone, MapPin, Download, Shield, Info, Save, Check } from "lucide-react";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
+
+const C = "#4f46e5";
 
 export default function SettingsPage() {
-  const [shopName, setShopName] = useState("My Shop")
-  const [phone, setPhone] = useState("")
-  const [address, setAddress] = useState("")
-  const [saved, setSaved] = useState(false)
+  const [shopName, setShopName] = useState("My Shop");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-  }
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Settings className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h1 className="text-[22px] font-bold text-foreground tracking-tight">General Settings</h1>
+        <p className="text-sm text-muted mt-0.5">Manage your shop information and preferences</p>
       </div>
 
-      {/* Shop Information */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <div className="flex items-center gap-2 text-foreground">
-          <Store className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">Shop Information</h2>
+      <form onSubmit={handleSave} className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
+            <Store size={15} style={{ color: C }} />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">Shop Information</h2>
         </div>
-
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted">Shop Name</label>
-            <input
-              type="text"
-              value={shopName}
-              onChange={(e) => setShopName(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-muted">
-              <Phone className="h-3 w-3" />
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+250 7XX XXX XXX"
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-xs font-medium text-muted">
-              <MapPin className="h-3 w-3" />
-              Address
-            </label>
-            <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Kigali, Rwanda"
-              rows={2}
-              className="w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-accent/90"
-        >
-          {saved ? (
-            <>
-              <Check className="h-3.5 w-3.5" />
-              Saved!
-            </>
-          ) : (
-            <>
-              <Save className="h-3.5 w-3.5" />
-              Save Changes
-            </>
-          )}
+        <Field label="Shop Name" required>
+          <Input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="My Shop" />
+        </Field>
+        <Field label="Phone">
+          <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250 7XX XXX XXX" />
+        </Field>
+        <Field label="Address">
+          <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Kigali, Rwanda" />
+        </Field>
+        <button type="submit" className="flex items-center gap-1.5 text-white px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors" style={{ backgroundColor: C }}>
+          {saved ? <><Check size={14} /> Saved!</> : <><Save size={14} /> Save Changes</>}
         </button>
+      </form>
+
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
+            <Info size={15} style={{ color: C }} />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">Currency</h2>
+        </div>
+        <div className="flex items-center justify-between py-2 border-b border-border">
+          <span className="text-sm font-medium text-foreground">RWF (Frw)</span>
+          <span className="text-xs font-semibold text-muted bg-surface px-2.5 py-1 rounded-full">Locked</span>
+        </div>
+        <p className="text-xs text-muted">Contact support to change your currency.</p>
       </div>
 
-      {/* Currency */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-        <div className="flex items-center gap-2 text-foreground">
-          <Info className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">Currency</h2>
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
+            <Download size={15} style={{ color: C }} />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">Data Backup</h2>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-foreground font-medium">RWF (Frw)</span>
-          <span className="text-xs text-muted">Locked</span>
-        </div>
-        <p className="text-xs text-muted">
-          Contact support to change currency.
-        </p>
-      </div>
-
-      {/* Data Backup */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-        <div className="flex items-center gap-2 text-foreground">
-          <Download className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">Data Backup</h2>
-        </div>
-        <button className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-xs font-medium text-foreground transition-colors hover:bg-border">
-          <Download className="h-3.5 w-3.5" />
-          Download Backup
+        <button className="flex items-center gap-2 border border-border rounded-lg px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-surface transition-colors">
+          <Download size={14} /> Download Backup
         </button>
         <p className="text-xs text-muted">Last backup: Never</p>
       </div>
 
-      {/* About */}
-      <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-        <div className="flex items-center gap-2 text-foreground">
-          <Shield className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">About</h2>
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
+            <Shield size={15} style={{ color: C }} />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">About</h2>
         </div>
-        <p className="text-xs text-muted">Version v0.1.0</p>
-        <p className="text-xs text-muted">
-          Built by Gemmy Connect Ltd
-        </p>
+        <p className="text-sm text-muted">Version <span className="font-semibold text-foreground">v0.1.0</span></p>
+        <p className="text-sm text-muted">Built by <span className="font-semibold text-foreground">Gemmy Connect Ltd</span></p>
       </div>
     </div>
-  )
+  );
 }

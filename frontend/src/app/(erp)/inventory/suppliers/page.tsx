@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Loader2, Check, X } from "lucide-react";
 import { inventoryApi, type ApiSupplier } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+
+const INV_COLOR = "#059669";
 
 type SupplierForm = { name: string; email: string; phone: string; address: string };
 const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "" });
@@ -86,9 +89,9 @@ export default function SuppliersPage() {
           <h1 className="text-xl font-bold text-foreground">Suppliers</h1>
           <p className="text-xs text-muted mt-0.5">{suppliers.length} suppliers</p>
         </div>
-        <button onClick={() => setAdding(true)} className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90 transition-colors">
+        <Button onClick={() => setAdding(true)} color={INV_COLOR}>
           <Plus size={15} /> Add Supplier
-        </button>
+        </Button>
       </div>
 
       {adding && (
@@ -102,11 +105,10 @@ export default function SuppliersPage() {
             ))}
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} disabled={saving || !form.name.trim()}
-              className="px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50">
+            <Button onClick={handleAdd} disabled={saving || !form.name.trim()} color={INV_COLOR}>
               {saving ? "Saving…" : "Save"}
-            </button>
-            <button onClick={() => setAdding(false)} className="px-4 py-2 border border-border text-sm text-muted hover:text-foreground transition-colors">Cancel</button>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
         </div>
       )}
@@ -136,7 +138,7 @@ export default function SuppliersPage() {
         <div className="divide-y divide-border">
           {filtered.map((s) => (
             <div key={s.id} className="px-4 py-4 flex items-start gap-4 hover:bg-surface/40 transition-colors">
-              <div className="w-10 h-10 bg-accent/10 flex items-center justify-center flex-shrink-0 text-sm font-bold text-accent">
+              <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 text-sm font-bold" style={{ backgroundColor: `${INV_COLOR}15`, color: INV_COLOR }}>
                 {s.name[0]}
               </div>
               {editingId === s.id ? (
@@ -147,14 +149,12 @@ export default function SuppliersPage() {
                       className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   ))}
                   <div className="col-span-2 lg:col-span-4 flex gap-2">
-                    <button onClick={() => handleEdit(s.id)} disabled={saving}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded hover:bg-accent/90 disabled:opacity-50">
+                    <Button onClick={() => handleEdit(s.id)} disabled={saving} size="sm" color={INV_COLOR} className="rounded">
                       <Check size={12} /> Save
-                    </button>
-                    <button onClick={() => setEditingId(null)}
-                      className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs text-muted rounded hover:text-foreground">
+                    </Button>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setEditingId(null)} className="rounded">
                       <X size={12} /> Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (

@@ -1,5 +1,5 @@
 "use client";
-
+import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { RotateCcw, Search } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -34,7 +34,7 @@ export default function PurchaseReturnsPage() {
   const { currencySymbol } = useAppConfig();
   const [search, setSearch] = useState("");
 
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const filtered = INITIAL_RETURNS.filter((r) => {
     const q = search.trim().toLowerCase();
@@ -56,10 +56,12 @@ export default function PurchaseReturnsPage() {
           { label: "Refunded", value: fmt(totalRefunded), color: "#059669" },
           { label: "Processing", value: INITIAL_RETURNS.filter((r) => r.status === "Processing").length, color: "#b45309" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.label}</p>
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { Button } from "./Button";
 
 export function Field({
   label,
@@ -53,28 +54,22 @@ export function FormFooter({
   onCancel,
   disabled,
   cancelLabel = "Cancel",
+  color,
 }: {
   submitLabel?: string;
   onCancel: () => void;
   disabled?: boolean;
   cancelLabel?: string;
+  color?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={onCancel}
-        className="flex-1 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-      >
+      <Button type="button" variant="secondary" onClick={onCancel} className="flex-1 rounded-lg text-[13px]">
         {cancelLabel}
-      </button>
-      <button
-        type="submit"
-        disabled={disabled}
-        className="flex-1 px-4 py-2.5 text-[13px] font-bold bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
+      </Button>
+      <Button type="submit" variant="primary" color={color} disabled={disabled} className="flex-1 rounded-lg text-[13px] font-bold">
         {submitLabel}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useAuth } from "@/lib/auth";
-import { CURRENCY_SYMBOL } from "@/lib/config";
+import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 
 const weeklyData = [
   { day: "Mon", sales: 45000, expenses: 12000 },
@@ -46,7 +46,7 @@ const quickActions = [
 ];
 
 function fmtRWF(val: number) {
-  return `${CURRENCY_SYMBOL} ${val.toLocaleString()}`;
+  return fmtMoney(val);
 }
 
 export default function DashboardPage() {
@@ -147,7 +147,7 @@ export default function DashboardPage() {
                   <Tooltip
                     contentStyle={{ backgroundColor: "#fff", border: "1px solid #e8e4de", borderRadius: 0, fontSize: 12, padding: "8px 12px" }}
                     formatter={(value, name) => [
-                      `${CURRENCY_SYMBOL} ${Number(value).toLocaleString()}`,
+                      fmtMoney(Number(value)),
                       name === "sales" ? "Sales" : "Expenses",
                     ]}
                   />

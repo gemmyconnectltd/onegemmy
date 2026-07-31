@@ -117,9 +117,10 @@ export default function AppearancePage() {
             <button
               key={l.code}
               onClick={() => setLocale(l.code)}
-              className={`px-4 py-2 text-[13px] font-semibold border transition-colors ${
-                locale === l.code ? "bg-accent text-white border-accent" : "border-border text-foreground/60 hover:text-foreground"
+              className={`px-4 py-2 text-[13px] font-semibold border rounded-lg transition-colors ${
+                locale === l.code ? "text-white border-transparent" : "border-border text-foreground/60 hover:text-foreground"
               }`}
+              style={locale === l.code ? { backgroundColor: "#4f46e5" } : undefined}
             >
               {l.name}
             </button>

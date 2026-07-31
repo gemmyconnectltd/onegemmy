@@ -1,5 +1,5 @@
 "use client";
-
+import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { ArrowRight, ClipboardList, Plus, RotateCcw, ShoppingBag, Truck, Users } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -19,7 +19,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function ProcurementPage() {
   const { currencySymbol } = useAppConfig();
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const stats = [
     { label: "Pending orders", value: 2, sub: "awaiting delivery", icon: Truck, color: "#0284c7", href: "/procurement/orders" },
@@ -46,7 +46,7 @@ export default function ProcurementPage() {
           <Link href="/procurement/requests" className="flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium hover:bg-surface transition-colors">
             <Plus size={16} />New Request
           </Link>
-          <Link href="/procurement/orders" className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90">
+          <Link href="/procurement/orders" className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium rounded-lg" style={{ backgroundColor: "#0e7490" }}>
             <Plus size={16} />New Purchase Order
           </Link>
         </div>
@@ -54,11 +54,9 @@ export default function ProcurementPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-card p-4 hover:bg-surface/50 transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
-                <s.icon size={15} style={{ color: s.color }} />
-              </div>
+          <Link key={s.label} href={s.href} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
+              <s.icon size={15} style={{ color: s.color }} />
             </div>
             <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>

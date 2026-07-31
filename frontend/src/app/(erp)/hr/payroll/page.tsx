@@ -1,4 +1,5 @@
 "use client";
+import { fmtMoney } from "@/lib/config";
 import { DollarSign } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -11,7 +12,7 @@ const payroll = [
 
 export default function PayrollPage() {
   const { currencySymbol } = useAppConfig();
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const totalNet = payroll.reduce((s, p) => s + (p.salary + p.bonus - p.deductions), 0);
   return (
     <div className="space-y-5">

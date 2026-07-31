@@ -1,5 +1,5 @@
 "use client";
-
+import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { Ban, CheckCircle2, FileText, Plus, Search, Truck, X } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -48,7 +48,7 @@ export default function PurchaseOrdersPage() {
   const [newQty, setNewQty] = useState("1");
   const [newPrice, setNewPrice] = useState("");
 
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const filtered = pos.filter((p) => {
     const q = search.trim().toLowerCase();
@@ -95,7 +95,7 @@ export default function PurchaseOrdersPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90 transition-colors"
+          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: "#0e7490" }}
         >
           <Plus size={16} /> New Purchase Order
         </button>
@@ -103,10 +103,12 @@ export default function PurchaseOrdersPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.label}</p>
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
@@ -117,9 +119,10 @@ export default function PurchaseOrdersPage() {
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors ${
-                filter === s ? "bg-accent text-white" : "text-foreground/50 hover:text-foreground"
+              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
+                filter === s ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
+              style={filter === s ? { backgroundColor: "#0e7490" } : undefined}
             >
               {s} <span className="opacity-70">({s === "All" ? pos.length : pos.filter((p) => p.status === s).length})</span>
             </button>

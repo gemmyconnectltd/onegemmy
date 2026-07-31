@@ -2,14 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Loader2 } from "lucide-react";
-import { CURRENCY_SYMBOL } from "@/lib/config";
+import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
+import { Button } from "@/components/ui/Button";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { inventoryApi, type ApiProduct } from "@/lib/api";
 
-function fmt(v: number) { return `${CURRENCY_SYMBOL} ${v.toLocaleString()}`; }
+const INV_COLOR = "#059669";
+
+const fmt = (v: number) => fmtMoney(v);
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
 
 function toFormValues(p: ApiProduct): ProductFormValues {
@@ -116,12 +119,9 @@ export default function ProductsPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
           <p className="text-sm text-muted mt-0.5">{products.length} products · {products.filter((p) => p.is_active).length} active</p>
         </div>
-        <button
-          onClick={() => { setEditing(null); setFormKey((k) => k + 1); setShowForm(true); }}
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors rounded-lg"
-        >
+        <Button onClick={() => { setEditing(null); setFormKey((k) => k + 1); setShowForm(true); }} color={INV_COLOR} className="rounded-lg">
           <Plus size={15} /> Add Product
-        </button>
+        </Button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
@@ -134,7 +134,8 @@ export default function ProductsPage() {
           <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
             {(["all", "active", "inactive"] as const).map((f) => (
               <button key={f} onClick={() => setStatusFilter(f)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${statusFilter === f ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}>
+                style={statusFilter === f ? { backgroundColor: INV_COLOR } : {}}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${statusFilter === f ? "text-white" : "text-muted hover:text-foreground"}`}>
                 {f}
               </button>
             ))}
@@ -196,7 +197,7 @@ export default function ProductsPage() {
                           </button>
                           <button onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
-                            <PackagePlus size={13} className="text-muted" /> Restock
+                            <PackagePlus size={13} style={{ color: INV_COLOR }} /> Restock
                           </button>
                           <button onClick={() => { setOpenMenu(null); setDeleteTarget(p); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
@@ -233,6 +234,7 @@ export default function ProductsPage() {
         initial={editing ? toFormValues(editing) : null}
         onSubmit={handleSubmit}
         onBulkSubmit={handleBulkSubmit}
+        color={INV_COLOR}
       />
 
       <RestockDrawer
@@ -241,6 +243,7 @@ export default function ProductsPage() {
         productName={restockTarget?.name ?? ""}
         currentStock={restockTarget?.stock ?? 0}
         onSubmit={handleRestock}
+        color={INV_COLOR}
       />
 
       <Drawer
@@ -252,14 +255,12 @@ export default function ProductsPage() {
         size="sm"
         footer={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setDeleteTarget(null)}
-              className="flex-1 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
+            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg text-[13px]">
               Cancel
-            </button>
-            <button type="button" onClick={confirmDelete}
-              className="flex-1 px-4 py-2.5 text-[13px] font-bold text-white rounded-lg bg-red-600 hover:bg-red-700 transition-colors">
+            </Button>
+            <Button type="button" variant="danger" onClick={confirmDelete} className="flex-1 rounded-lg text-[13px] font-bold">
               Delete
-            </button>
+            </Button>
           </div>
         }
       >

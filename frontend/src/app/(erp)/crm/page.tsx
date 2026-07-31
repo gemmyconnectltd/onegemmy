@@ -1,4 +1,5 @@
 "use client";
+import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { TrendingUp, Users, Mail, Target, Plus } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -13,7 +14,7 @@ const pipeline = [
 
 export default function CRMPage() {
   const { currencySymbol } = useAppConfig();
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">

@@ -5,11 +5,14 @@ import {
   Package, AlertTriangle, XCircle,
   Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Loader2,
 } from "lucide-react";
-import { CURRENCY_SYMBOL } from "@/lib/config";
+import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { inventoryApi, type ApiProduct } from "@/lib/api";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
+import { Button } from "@/components/ui/Button";
+
+const INV_COLOR = "#059669";
 
 function getStatus(stock: number, min: number) {
   if (stock === 0) return "out";
@@ -23,7 +26,7 @@ const statusCfg = {
   out:      { label: "Out",       bg: "bg-red-50",     text: "text-red-600",     dot: "bg-red-500"     },
 };
 
-function fmt(v: number) { return `${CURRENCY_SYMBOL} ${v.toLocaleString()}`; }
+const fmt = (v: number) => fmtMoney(v);
 
 function toRow(p: ApiProduct) {
   return {
@@ -122,12 +125,12 @@ export default function InventoryOverviewPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Inventory Overview</h1>
           <p className="text-sm text-muted mt-0.5">Monitor stock levels, value, and alerts across all products</p>
         </div>
-        <button
+        <Button
           onClick={() => { setFormKey((k) => k + 1); setShowForm(true); }}
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors"
+          color={INV_COLOR}
         >
           <Plus size={15} /> Add Product
-        </button>
+        </Button>
       </div>
 
       {/* KPI cards */}
@@ -204,7 +207,7 @@ export default function InventoryOverviewPage() {
                         <span className="text-xs font-bold text-foreground ml-2 flex-shrink-0">{fmt(value)}</span>
                       </div>
                       <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                        <div className="h-full bg-accent/60 rounded-full" style={{ width: `${pct}%` }} />
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: `${INV_COLOR}66` }} />
                       </div>
                     </div>
                   </div>
@@ -244,8 +247,9 @@ export default function InventoryOverviewPage() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
+                style={filter === f ? { backgroundColor: INV_COLOR } : {}}
                 className={`px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                  filter === f ? "bg-foreground text-white" : "text-muted hover:text-foreground"
+                  filter === f ? "text-white" : "text-muted hover:text-foreground"
                 }`}
               >
                 {f === "all" ? "All" : f === "low" ? "Low" : "Out"}
@@ -300,7 +304,8 @@ export default function InventoryOverviewPage() {
                       {(s === "low" || s === "out") && (
                         <button
                           onClick={() => setRestockTarget(item)}
-                          className="flex items-center gap-1.5 text-[11px] font-semibold text-accent hover:underline whitespace-nowrap"
+                          className="flex items-center gap-1.5 text-[11px] font-semibold hover:underline whitespace-nowrap"
+                          style={{ color: INV_COLOR }}
                         >
                           <PackagePlus size={12} /> Restock
                         </button>
@@ -333,6 +338,7 @@ export default function InventoryOverviewPage() {
         onClose={() => setShowForm(false)}
         onSubmit={handleCreate}
         onBulkSubmit={handleBulkCreate}
+        color={INV_COLOR}
       />
 
       <RestockDrawer
@@ -341,6 +347,7 @@ export default function InventoryOverviewPage() {
         productName={restockTarget?.name ?? ""}
         currentStock={restockTarget?.stock ?? 0}
         onSubmit={handleRestock}
+        color={INV_COLOR}
       />
     </div>
   );

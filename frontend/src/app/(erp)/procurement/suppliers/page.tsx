@@ -1,5 +1,5 @@
 "use client";
-
+import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { Mail, MapPin, Phone, Plus, Search, Truck } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -32,7 +32,7 @@ export default function SuppliersPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: "", category: "", phone: "", location: "" });
 
-  const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const filtered = suppliers.filter((s) => {
     const q = search.trim().toLowerCase();
@@ -70,7 +70,7 @@ export default function SuppliersPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90 transition-colors"
+          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: "#0e7490" }}
         >
           <Plus size={16} /> Add Supplier
         </button>
@@ -82,10 +82,12 @@ export default function SuppliersPage() {
           { label: "Total orders", value: totalOrders, color: "#0284c7" },
           { label: "Outstanding balance", value: fmt(totalOutstanding), color: "#b45309" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5">{s.label}</p>
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+            </div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
