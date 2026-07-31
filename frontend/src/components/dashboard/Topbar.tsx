@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Menu, ChevronDown, Search, Loader2, Globe } from "lucide-react";
+import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, LifeBuoy, BookOpen, Mail, MessagesSquare } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
@@ -20,8 +21,8 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { user } = useAuth();
   const { translating, locale, setLocale, locales } = useAppConfig();
   const pathname = usePathname();
-  const [showSearch, setShowSearch] = useState(false);
   const [showLang, setShowLang] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
   const breadcrumb = getBreadcrumb(pathname);
 
   return (
@@ -55,6 +56,56 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       )}
 
       <div className="flex-1" />
+
+      {/* POS */}
+      <Link
+        href="/pos"
+        className={`flex items-center gap-2 px-3.5 h-8 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
+          pathname === "/pos"
+            ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/30"
+            : "bg-accent text-white hover:bg-accent/90"
+        }`}
+      >
+        <Store size={15} />
+        <span className="hidden sm:inline">POS</span>
+      </Link>
+
+      {/* Support */}
+      <div className="relative">
+        <button
+          onClick={() => setShowSupport((v) => !v)}
+          className="flex items-center gap-2 px-3.5 h-8 text-[13px] font-bold rounded-lg border border-border text-foreground/70 hover:text-foreground hover:border-foreground/30 hover:bg-surface transition-colors flex-shrink-0"
+        >
+          <LifeBuoy size={15} />
+          <span className="hidden sm:inline">Support</span>
+        </button>
+        {showSupport && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowSupport(false)} aria-hidden="true" />
+            <div className="absolute right-0 top-full mt-1.5 bg-white border border-border shadow-lg z-50 min-w-[220px]">
+              <p className="px-4 pt-3 pb-1 text-[11px] uppercase tracking-wide font-bold text-muted">Need a hand?</p>
+              <a
+                href="mailto:support@onegemmy.com"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors"
+              >
+                <Mail size={14} className="text-foreground/40" /> Contact support
+              </a>
+              <button
+                onClick={() => { setShowSupport(false); window.alert("Help Center is coming soon."); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors text-left"
+              >
+                <BookOpen size={14} className="text-foreground/40" /> Help Center
+              </button>
+              <button
+                onClick={() => { setShowSupport(false); window.alert("Chat is coming soon."); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors text-left border-t border-border"
+              >
+                <MessagesSquare size={14} className="text-foreground/40" /> Live chat
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Search */}
       <div className="hidden md:flex items-center gap-2 border border-border px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-colors cursor-pointer w-52">

@@ -9,12 +9,11 @@ import {
   LayoutDashboard, ShoppingCart, Warehouse,
   Users, BarChart3, Settings, LogOut,
   UserCog, Layers, Briefcase, HandCoins,
-  Factory, ShoppingBag, ChevronRight, Store,
+  Factory, ShoppingBag, ChevronRight,
 } from "lucide-react";
 
 const navItems = [
   { name: "Dashboard",   href: "/dashboard",     icon: LayoutDashboard, color: "#4f46e5" },
-  { name: "POS",         href: "/pos",           icon: Store,           color: "#0f766e" },
   { name: "Sales",       href: "/sales",         icon: ShoppingCart,    color: "#0284c7" },
   { name: "Inventory",   href: "/inventory",     icon: Warehouse,       color: "#059669" },
   { name: "Finance",     href: "/finance",       icon: HandCoins,       color: "#b45309" },
@@ -88,7 +87,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
           aria-hidden="true"
         />
       )}
-
       <aside
         className={`fixed top-0 left-0 h-screen w-[88px] bg-white border-r border-border z-50 flex flex-col select-none transition-transform duration-200 ${
           expanded ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -100,7 +98,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
             <Layers size={20} className="text-white" strokeWidth={2.5} />
           </div>
         </div>
-
         {/* Nav */}
         <nav
           aria-label="Main navigation"
@@ -139,13 +136,11 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
                     {item.name}
                   </span>
                 </Link>
-
                 {tooltip === item.name && !isActive && <Tooltip label={item.name} />}
               </div>
             );
           })}
         </nav>
-
         <div className="mx-4 border-t border-border" />
 
         {/* Bottom */}
@@ -179,7 +174,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
               <Tooltip label="Settings" />
             )}
           </div>
-
           {/* User avatar */}
           <div
             className="relative w-full flex justify-center"
@@ -201,7 +195,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
                 {user?.name?.split(" ")[0]}
               </span>
             </button>
-
             {/* User card */}
             {tooltip === "user" && (
               <div className="absolute left-[80px] bottom-0 z-50">
