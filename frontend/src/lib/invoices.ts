@@ -1,20 +1,13 @@
-import { BUSINESS_TYPES } from "@/components/pos/catalog";
-import type { BusinessType, SaleResult } from "@/components/pos/types";
+import type { SaleResult } from "@/components/pos/types";
 
 const STORAGE_KEY = "onegemmy.sales.v1";
 const UPDATED_EVENT = "onegemmy:sales-updated";
 
 const EMPTY: SaleResult[] = [];
-
 let salesCache: SaleResult[] | null = null;
 
-type StoredBusiness = Pick<BusinessType, "id" | "label" | "accent">;
-
-type StoredSale = Omit<SaleResult, "business" | "timestamp" | "paidAt"> & {
-  business: StoredBusiness;
+type StoredSale = Omit<SaleResult, "timestamp"> & {
   timestamp: string;
-  paid?: boolean;
-  paidAt?: string | null;
 };
 
 function readStorage(): StoredSale[] {
@@ -34,20 +27,13 @@ function writeStorage(sales: StoredSale[]) {
 }
 
 function rehydrate(s: StoredSale): SaleResult {
-  const full = BUSINESS_TYPES.find((b) => b.id === s.business.id);
-  const business: BusinessType = full ?? {
-    ...s.business,
-    icon: "",
-    tagline: "",
-    categories: [],
-    products: [],
-  };
   return {
     ...s,
-    business,
     timestamp: new Date(s.timestamp),
     paid: s.paid ?? false,
     paidAt: s.paidAt ?? null,
+    discount: s.discount ?? 0,
+    notes: s.notes ?? "",
   };
 }
 
@@ -55,7 +41,6 @@ export function saveSale(sale: SaleResult) {
   const sales = readStorage();
   const entry: StoredSale = {
     ...sale,
-    business: { id: sale.business.id, label: sale.business.label, accent: sale.business.accent },
     timestamp: sale.timestamp.toISOString(),
     paid: false,
     paidAt: null,
@@ -89,10 +74,7 @@ export function deleteSale(id: string) {
 
 export function subscribeSales(callback: () => void): () => void {
   if (typeof window === "undefined") return () => {};
-  const onChange = () => {
-    salesCache = null;
-    callback();
-  };
+  const onChange = () => { salesCache = null; callback(); };
   window.addEventListener(UPDATED_EVENT, onChange);
   window.addEventListener("storage", onChange);
   return () => {

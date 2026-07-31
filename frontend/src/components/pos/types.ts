@@ -5,16 +5,8 @@ export type Product = {
   category: string;
   emoji: string;
   stock: number;
-};
-
-export type BusinessType = {
-  id: string;
-  label: string;
-  icon: string;
-  tagline: string;
-  accent: string;
-  categories: string[];
-  products: Product[];
+  image_url?: string | null;
+  sku?: string | null;
 };
 
 export type CartItem = {
@@ -23,6 +15,9 @@ export type CartItem = {
   price: number;
   qty: number;
   emoji: string;
+  discount: number;
+  image_url?: string | null;
+  sku?: string | null;
 };
 
 export type HeldOrder = {
@@ -31,6 +26,7 @@ export type HeldOrder = {
   time: string;
   cart: CartItem[];
   customerName: string;
+  notes: string;
 };
 
 export type PaymentMethod = "cash" | "mobile" | "card" | "invoice";
@@ -41,13 +37,14 @@ export type SaleResult = {
   isInvoice: boolean;
   payment: PaymentMethod;
   customerName: string;
+  notes: string;
   items: CartItem[];
   subtotal: number;
+  discount: number;
   tax: number;
   total: number;
   cashGiven: string;
   change: number;
-  business: BusinessType;
   timestamp: Date;
   paid?: boolean;
   paidAt?: string | null;

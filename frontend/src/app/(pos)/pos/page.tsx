@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
-import { BUSINESS_TYPES } from "@/components/pos/catalog";
 import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { PaymentPanel } from "@/components/pos/PaymentPanel";
@@ -14,60 +13,120 @@ import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult } from "@/
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
-import { salesApi } from "@/lib/api";
+import { inventoryApi, salesApi } from "@/lib/api";
+import type { ApiProduct } from "@/lib/api";
+
+function apiToProduct(p: ApiProduct): Product {
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    category: p.category?.name ?? "Uncategorized",
+    emoji: "📦",
+    stock: p.stock,
+    image_url: p.image_url,
+    sku: p.sku,
+  };
+}
 
 export default function POSPage() {
-  const { currencySymbol, locale, setLocale, locales } = useAppConfig();
+  const { currencySymbol, locale, setLocale, locales, theme, setTheme } = useAppConfig();
 
-  const [businessId, setBusinessId] = useState(BUSINESS_TYPES[0].id);
-  const business = useMemo(
-    () => BUSINESS_TYPES.find((b) => b.id === businessId) ?? BUSINESS_TYPES[0],
-    [businessId]
+  // ── inventory ────────────────────────────────────────────────────────────
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadInventory = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await inventoryApi.listProducts(1, 500);
+      setProducts(
+        res.data.items.filter((p) => p.is_active).map(apiToProduct)
+      );
+    } catch {
+      setError("Failed to load inventory. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadInventory(); }, [loadInventory]);
+
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(products.map((p) => p.category)))],
+    [products]
   );
-  const [showBizPicker, setShowBizPicker] = useState(false);
 
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // ── ui state ─────────────────────────────────────────────────────────────
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
+  const [showLang, setShowLang] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // ── cart ─────────────────────────────────────────────────────────────────
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [customerName, setCustomerName] = useState("");
+  const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
   const [bumpId, setBumpId] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState("");
 
+  // ── held / session ───────────────────────────────────────────────────────
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [showHeld, setShowHeld] = useState(false);
-  const [showLang, setShowLang] = useState(false);
-
   const [todayCount, setTodayCount] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [completedSale, setCompletedSale] = useState<SaleResult | null>(null);
 
-  const categories = ["All", ...business.categories];
+  // ── keyboard shortcut: / → focus search ─────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
-  const filtered = business.products.filter(
-    (p) =>
-      (category === "All" || p.category === category) &&
-      p.name.toLowerCase().includes(search.toLowerCase())
+  // ── filtered products ────────────────────────────────────────────────────
+  const filtered = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          (category === "All" || p.category === category) &&
+          (p.name.toLowerCase().includes(search.toLowerCase()) ||
+            (p.sku ?? "").toLowerCase().includes(search.toLowerCase()))
+      ),
+    [products, category, search]
   );
 
+  // ── cart actions ─────────────────────────────────────────────────────────
   const addToCart = (p: Product) => {
     if (p.stock <= 0) return;
     setCart((prev) => {
       const existing = prev.find((i) => i.id === p.id);
-      if (existing) return prev.map((i) => (i.id === p.id ? { ...i, qty: i.qty + 1 } : i));
-      return [...prev, { id: p.id, name: p.name, price: p.price, qty: 1, emoji: p.emoji }];
+      if (existing) return prev.map((i) => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { id: p.id, name: p.name, price: p.price, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku }];
     });
     setCashGiven("");
     setBumpId(p.id);
-    window.setTimeout(() => setBumpId((current) => (current === p.id ? null : current)), 220);
+    window.setTimeout(() => setBumpId((c) => (c === p.id ? null : c)), 220);
   };
 
   const updateQty = (id: string, delta: number) => {
     setCart((prev) =>
-      prev
-        .map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
-        .filter((i) => i.qty > 0)
+      prev.map((i) => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i).filter((i) => i.qty > 0)
     );
+    setCashGiven("");
+  };
+
+  const updateDiscount = (id: string, discount: number) => {
+    setCart((prev) => prev.map((i) => i.id === id ? { ...i, discount: Math.max(0, discount) } : i));
     setCashGiven("");
   };
 
@@ -76,6 +135,7 @@ export default function POSPage() {
   const clearCart = () => {
     setCart([]);
     setCustomerName("");
+    setNotes("");
     setCashGiven("");
   };
 
@@ -85,40 +145,23 @@ export default function POSPage() {
     setSearch("");
   };
 
+  // ── totals ───────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const tax = Math.round(subtotal * TAX_RATE);
-  const total = subtotal + tax;
+  const discount = cart.reduce((s, i) => s + i.discount, 0);
+  const taxable = subtotal - discount;
+  const tax = Math.round(taxable * TAX_RATE);
+  const total = taxable + tax;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
   const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;
-
   const fmt = (v: number) => v.toLocaleString();
 
-  const handlePaymentChange = (m: PaymentMethod) => {
-    setPayment(m);
-    setCashGiven("");
-  };
-
-  const selectBusiness = (id: string) => {
-    setCart([]);
-    setCategory("All");
-    setSearch("");
-    setCustomerName("");
-    setCashGiven("");
-    setHeldOrders([]);
-    setShowHeld(false);
-    setBusinessId(id);
-  };
-
+  // ── hold / resume ────────────────────────────────────────────────────────
   const holdSale = () => {
     if (cart.length === 0) return;
-    const held: HeldOrder = {
-      id: `H-${Date.now()}`,
-      label: customerName.trim() || `Parked ${timeLabel()}`,
-      time: timeLabel(),
-      cart,
-      customerName,
-    };
-    setHeldOrders((prev) => [held, ...prev]);
+    setHeldOrders((prev) => [
+      { id: `H-${Date.now()}`, label: customerName.trim() || `Parked ${timeLabel()}`, time: timeLabel(), cart, customerName, notes },
+      ...prev,
+    ]);
     clearCart();
   };
 
@@ -127,14 +170,14 @@ export default function POSPage() {
     if (!held) return;
     setCart(held.cart);
     setCustomerName(held.customerName);
+    setNotes(held.notes);
     setHeldOrders((prev) => prev.filter((h) => h.id !== id));
     setShowHeld(false);
   };
 
-  const deleteHeld = (id: string) => {
-    setHeldOrders((prev) => prev.filter((h) => h.id !== id));
-  };
+  const deleteHeld = (id: string) => setHeldOrders((prev) => prev.filter((h) => h.id !== id));
 
+  // ── complete sale ────────────────────────────────────────────────────────
   const completeSale = async () => {
     const isInvoice = payment === "invoice";
     const sale: SaleResult = {
@@ -143,13 +186,14 @@ export default function POSPage() {
       isInvoice,
       payment,
       customerName: customerName.trim(),
+      notes: notes.trim(),
       items: cart,
       subtotal,
+      discount,
       tax,
       total,
       cashGiven,
       change,
-      business,
       timestamp: new Date(),
     };
     setCompletedSale(sale);
@@ -157,20 +201,20 @@ export default function POSPage() {
     setTodayCount((c) => c + 1);
     setTodayRevenue((r) => r + total);
 
-    // persist to sales orders (fire-and-forget — don't block the receipt)
     salesApi.createOrder({
       status: "Completed",
-      notes: `POS sale — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}`,
-      discount: 0,
+      notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
+      discount,
       tax,
       items: cart.map((i) => ({
+        product_id: i.id,
         product_name: i.name,
         unit_price: i.price,
         quantity: i.qty,
-        discount: 0,
-        line_total: i.price * i.qty,
+        discount: i.discount,
+        line_total: i.price * i.qty - i.discount,
       })),
-    }).catch(() => { /* silent — POS must never block on API failure */ });
+    }).catch(() => {});
   };
 
   const startNewSale = () => {
@@ -179,25 +223,18 @@ export default function POSPage() {
     setPayment("cash");
   };
 
+  // ── render ───────────────────────────────────────────────────────────────
   return (
-    <div
-      className="h-screen flex flex-col overflow-hidden bg-surface"
-      style={{ ["--accent" as string]: business.accent }}
-    >
-      <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="lg">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
+      {/* Receipt modal */}
+      <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
-          <Receipt
-            sale={completedSale}
-            currencySymbol={currencySymbol}
-            fmt={fmt}
-            onNewSale={startNewSale}
-          />
+          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} />
         )}
       </Drawer>
 
+      {/* Header */}
       <POSHeader
-        business={business}
-        showBizPicker={showBizPicker}
         heldCount={heldOrders.length}
         heldOrders={heldOrders}
         showHeld={showHeld}
@@ -207,40 +244,73 @@ export default function POSPage() {
         locales={locales}
         currencySymbol={currencySymbol}
         fmt={fmt}
-        onToggleBizPicker={() => setShowBizPicker((v) => !v)}
-        onSelectBusiness={selectBusiness}
+        theme={theme}
         onToggleHeld={() => setShowHeld((v) => !v)}
         onResumeHeld={resumeHeld}
         onDeleteHeld={deleteHeld}
         onToggleLang={() => setShowLang((v) => !v)}
         showLang={showLang}
         onSetLocale={(c) => setLocale(c)}
+        onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
       />
 
-      <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
-        <div className="flex-1 flex flex-col overflow-hidden p-4 gap-3 min-h-0">
-          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
-            <Search size={15} className="text-muted flex-shrink-0" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder={`Search ${business.label.toLowerCase()} or press Enter to scan the top match...`}
-              className="flex-1 text-[14px] outline-none bg-transparent text-foreground placeholder:text-muted"
-            />
-            {search && (
-              <button onClick={() => setSearch("")} aria-label="Clear search" className="text-muted hover:text-foreground transition-colors">
-                <X size={13} />
-              </button>
+      {/* Body */}
+      <div className="flex-1 flex overflow-hidden flex-col lg:flex-row min-h-0">
+
+        {/* ── Left: catalog ── */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+
+          {/* Status bar */}
+          <div className="flex items-center gap-2 px-4 pt-3 flex-shrink-0">
+            {loading ? (
+              <span className="flex items-center gap-1.5 text-[11px] text-muted">
+                <Loader2 size={11} className="animate-spin" /> Loading products…
+              </span>
+            ) : error ? (
+              <span className="flex items-center gap-2 text-[11px] text-red-500">
+                {error}
+                <button onClick={loadInventory} className="flex items-center gap-1 underline">
+                  <RefreshCw size={11} /> Retry
+                </button>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                {products.length} products loaded
+                <button onClick={loadInventory} className="ml-1 text-muted hover:text-foreground">
+                  <RefreshCw size={11} />
+                </button>
+              </span>
             )}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-0.5 flex-shrink-0">
+          {/* Search */}
+          <div className="px-4 pt-2 flex-shrink-0">
+            <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
+              <Search size={14} className="text-muted flex-shrink-0" />
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Search by name or SKU… (press / or Enter to add top match)"
+                className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="text-muted hover:text-foreground transition-colors">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category tabs */}
+          <div className="flex gap-1.5 overflow-x-auto px-4 pt-2 flex-shrink-0">
             {categories.map((c) => (
               <button
                 key={c}
                 onClick={() => setCategory(c)}
-                className={`px-4 py-2 text-[13px] font-semibold whitespace-nowrap rounded-full transition-all flex-shrink-0 ${
+                className={`px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap rounded-full transition-all flex-shrink-0 ${
                   category === c
                     ? "bg-accent text-white shadow-sm"
                     : "bg-card border border-border text-foreground/60 hover:text-foreground hover:border-accent/40"
@@ -251,14 +321,23 @@ export default function POSPage() {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto -mx-1 px-1">
-            {filtered.length === 0 ? (
+          {/* Product grid */}
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 min-h-0">
+            {loading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="bg-card border border-border rounded-2xl animate-pulse aspect-[3/4]" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted gap-2 py-16">
                 <Search size={28} strokeWidth={1.5} />
-                <p className="text-[14px]">Nothing here matches &quot;{search}&quot;. Try a different word or category.</p>
+                <p className="text-[13px]">
+                  {search ? `No results for "${search}"` : "No products in this category"}
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
                 {filtered.map((p) => {
                   const inCart = cart.find((i) => i.id === p.id);
                   return (
@@ -278,35 +357,46 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
-          <CartPanel
-            cart={cart}
-            customerName={customerName}
-            currencySymbol={currencySymbol}
-            fmt={fmt}
-            onCustomerChange={setCustomerName}
-            onUpdateQty={updateQty}
-            onRemoveItem={removeItem}
-            onClear={clearCart}
-            onHold={holdSale}
-          />
-          <div className="border-t border-border p-4">
-            <PaymentPanel
-              payment={payment}
-              cashGiven={cashGiven}
-              subtotal={subtotal}
-              tax={tax}
-              total={total}
-              change={change}
-              cashShort={cashShort}
-              cartCount={cart.length}
-              hasCustomer={customerName.trim().length > 0}
+        {/* Right: cart + payment */}
+        <div className="w-full lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden">
+          {/* Cart — flex-1 so it fills space and scrolls its own items */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CartPanel
+              cart={cart}
+              customerName={customerName}
+              notes={notes}
               currencySymbol={currencySymbol}
               fmt={fmt}
-              onPaymentChange={handlePaymentChange}
-              onCashChange={setCashGiven}
-              onCharge={completeSale}
+              onCustomerChange={setCustomerName}
+              onNotesChange={setNotes}
+              onUpdateQty={updateQty}
+              onUpdateDiscount={updateDiscount}
+              onRemoveItem={removeItem}
+              onClear={clearCart}
+              onHold={holdSale}
             />
+          </div>
+          {/* Payment — never grows, scrolls its own content if needed */}
+          <div className="flex-shrink-0 border-t border-border overflow-y-auto max-h-[52vh] lg:max-h-[48vh]">
+            <div className="p-3">
+              <PaymentPanel
+                payment={payment}
+                cashGiven={cashGiven}
+                subtotal={subtotal}
+                discount={discount}
+                tax={tax}
+                total={total}
+                change={change}
+                cashShort={cashShort}
+                cartCount={cart.length}
+                hasCustomer={customerName.trim().length > 0}
+                currencySymbol={currencySymbol}
+                fmt={fmt}
+                onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
+                onCashChange={setCashGiven}
+                onCharge={completeSale}
+              />
+            </div>
           </div>
         </div>
       </div>

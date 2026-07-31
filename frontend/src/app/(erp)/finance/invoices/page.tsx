@@ -4,10 +4,9 @@ import { useSyncExternalStore, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, BadgeCheck, CircleDollarSign, Clock, Eye, FileText, Printer,
-  Search, ShoppingCart, Trash2,
+  Search, ShoppingCart, Store, Trash2,
 } from "lucide-react";
 
-import { IconBadge, getBusinessIcon } from "@/components/pos/icons";
 import { Receipt } from "@/components/pos/Receipt";
 import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
@@ -66,7 +65,6 @@ export default function InvoicesPage() {
         sale={printSale}
         currencySymbol={currencySymbol}
         fmt={fmt}
-        newSaleLabel="Back to Invoices"
         onNewSale={() => setPrintSale(null)}
       />
     );
@@ -183,8 +181,7 @@ export default function InvoicesPage() {
                 <th className="p-4 font-medium">Reference</th>
                 <th className="p-4 font-medium">Date</th>
                 <th className="p-4 font-medium">Customer</th>
-                <th className="p-4 font-medium">Business</th>
-                <th className="p-4 font-medium">Items</th>
+                  <th className="p-4 font-medium">Items</th>
                 <th className="p-4 font-medium text-right">Total</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="p-4 font-medium text-right">Actions</th>
@@ -196,24 +193,15 @@ export default function InvoicesPage() {
                 return (
                   <tr key={ref} className="hover:bg-surface/50">
                     <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <IconBadge
-                          Icon={getBusinessIcon(s.business)}
-                          size={13}
-                          color={s.business.accent}
-                          className="w-7 h-7"
-                          rounded="rounded-lg"
-                        />
-                        <span className={`text-[13px] font-bold ${s.isInvoice ? "text-foreground" : "text-foreground/60"}`}>
-                          {ref}
-                        </span>
-                      </div>
+                      <span className={`text-[13px] font-bold font-mono ${s.isInvoice ? "text-foreground" : "text-foreground/60"}`}>
+                        {ref}
+                      </span>
                     </td>
                     <td className="p-4 text-[13px] text-muted whitespace-nowrap">
                       {s.timestamp.toLocaleDateString()} <span className="text-muted/60">{s.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                     </td>
                     <td className="p-4 text-[13px] text-foreground">{s.customerName || "Walk-in"}</td>
-                    <td className="p-4 text-[13px] text-muted">{s.business.label}</td>
+                    <td className="p-4 text-[13px] text-muted">POS</td>
                     <td className="p-4 text-[13px] text-muted">{s.items.reduce((n, i) => n + i.qty, 0)}</td>
                     <td className="p-4 text-right text-[13px] font-bold text-foreground tabular-nums">{fmt(s.total)}</td>
                     <td className="p-4">
@@ -316,10 +304,10 @@ export default function InvoicesPage() {
             <div className="p-5 border-b border-border">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <IconBadge Icon={getBusinessIcon(viewing.business)} size={14} color={viewing.business.accent} className="w-8 h-8" />
-                  <div>
-                    <p className="text-sm font-bold text-foreground">{viewing.business.label}</p>
+                  <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-accent/10">
+                    <Store size={14} className="text-accent" />
                   </div>
+                  <p className="text-sm font-bold text-foreground">Point of Sale</p>
                 </div>
                 {viewing.isInvoice && (
                   <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full flex-shrink-0 ${

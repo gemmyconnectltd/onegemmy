@@ -10,7 +10,7 @@ import {
   Stethoscope, StickyNote, Syringe, Volume2, Wheat, Wine, Wrench,
 } from "lucide-react";
 
-import type { BusinessType, Product } from "./types";
+import type { Product } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PICKABLE = [
@@ -54,30 +54,8 @@ const EMOJI_ICON: Record<string, IconComponent> = {
   "🪣": Container, "🍟": Soup, "🥗": Salad,
 };
 
-export function getProductIcon(product: Product): IconComponent {
-  return EMOJI_ICON[product.emoji] ?? Package;
-}
-
-export const BUSINESS_ICONS: Record<string, IconComponent> = {
-  supermarket: ShoppingBasket,
-  grocery: Apple,
-  electronics: Plug,
-  clothing: Shirt,
-  shoes: Footprints,
-  hardware: Hammer,
-  pharmacy: Pill,
-  bookstore: BookOpen,
-  furniture: Armchair,
-  cosmetics: Sparkles,
-  mobile: Smartphone,
-  pet: PawPrint,
-  bakery: Croissant,
-  liquor: Wine,
-  chicken: Drumstick,
-};
-
-export function getBusinessIcon(business: BusinessType): IconComponent {
-  return BUSINESS_ICONS[business.id] ?? Package;
+export function getProductIcon(product: Pick<Product, "emoji">): IconComponent {
+  return EMOJI_ICON[product.emoji ?? ""] ?? Package;
 }
 
 const TILE_COLORS = [
