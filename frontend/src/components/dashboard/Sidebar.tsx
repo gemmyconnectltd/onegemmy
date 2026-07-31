@@ -106,7 +106,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
-              <div key={item.name} className={`relative w-full flex justify-center ${isActive ? "px-2" : ""}`}>
+              <div key={item.name} className={`relative w-full flex justify-center ${isActive ? "px-" : ""}`}>
                 {/* {isActive && <ActiveIndicator color={item.color} />} */}
                 <Link
                   href={item.href}
@@ -119,7 +119,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
                   className={`group relative flex flex-col items-center justify-center gap-[6px] py-[11px]  transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     isActive
                       ? "w-full"
-                      : "hover:bg-surface w-[66px]"
+                      : "hover:bg-surfac w-[66px]"
                   }`}
                   style={isActive ? { backgroundColor: `${item.color}` } : undefined}
                 >

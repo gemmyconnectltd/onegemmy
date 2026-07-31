@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -26,6 +27,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <Topbar onToggleSidebar={() => setSidebarExpanded(!sidebarExpanded)} sidebarExpanded={sidebarExpanded} />
         <main className="flex-1 px-8 py-6">{children}</main>
       </div>
+      <SupportFab />
     </div>
   );
 }
