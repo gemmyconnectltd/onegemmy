@@ -15,6 +15,7 @@ class Product(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     sku: Mapped[str | None] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(500))
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     stock: Mapped[int] = mapped_column(Integer, default=0)

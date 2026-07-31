@@ -1,10 +1,10 @@
 "use client";
 
-import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, Moon, Sun } from "lucide-react";
+import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, Moon, Sun, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAppConfig } from "@/lib/appConfig";
 
 interface TopbarProps {
@@ -22,7 +22,16 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
   const [showLang, setShowLang] = useState(false);
+  const [showUser, setShowUser] = useState(false);
+  const router = useRouter();
+  const { logout } = useAuth();
   const breadcrumb = getBreadcrumb(pathname);
+
+  const handleLogout = () => {
+    setShowUser(false);
+    logout();
+    router.push("/login");
+  };
 
   return (
     <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-4 sticky top-0 z-30">
@@ -94,39 +103,71 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       {/* Language switcher */}
       <div className="relative">
         <button
-          onClick={() => setShowLang((v) => !v)}
+          onClick={() => { setShowLang((v) => !v); setShowUser(false); }}
           className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
           title="Change language"
         >
           <Globe size={16} />
         </button>
         {showLang && (
-          <div className="absolute right-0 top-full mt-1 bg-card border border-border shadow-lg z-50 min-w-[150px]">
-            {locales.map((l) => (
-              <button
-                key={l.code}
-                onClick={() => { setLocale(l.code); setShowLang(false); }}
-                className={`w-full text-left px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                  locale === l.code ? "bg-accent/10 text-accent" : "hover:bg-surface text-foreground"
-                }`}
-              >
-                {l.name}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowLang(false)} />
+            <div className="absolute right-0 top-full mt-1 bg-card border border-border shadow-lg z-50 min-w-[150px]">
+              {locales.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => { setLocale(l.code); setShowLang(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-[13px] font-medium transition-colors ${
+                    locale === l.code ? "bg-accent/10 text-accent" : "hover:bg-surface text-foreground"
+                  }`}
+                >
+                  {l.name}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {/* User */}
-      <div className="flex items-center gap-2 pl-2 border-l border-border">
-        <div className="w-7 h-7 bg-accent rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-          {user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
-        </div>
-        <div className="hidden sm:block">
-          <p className="text-[13px] font-semibold text-foreground leading-tight max-w-[100px] truncate">{user?.name}</p>
-          <p className="text-[11px] text-muted leading-tight capitalize">{user?.role}</p>
-        </div>
-        <ChevronDown size={12} className="text-muted hidden sm:block" />
+      <div className="relative">
+        <button
+          onClick={() => { setShowUser((v) => !v); setShowLang(false); }}
+          className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
+        >
+          <div className="w-7 h-7 bg-accent rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+            {user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
+          </div>
+          <div className="hidden sm:block text-left">
+            <p className="text-[13px] font-semibold text-foreground leading-tight max-w-[100px] truncate">{user?.name}</p>
+            <p className="text-[11px] text-muted leading-tight capitalize">{user?.role}</p>
+          </div>
+          <ChevronDown size={12} className="text-muted hidden sm:block" />
+        </button>
+        {showUser && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowUser(false)} />
+            <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border shadow-xl z-50 py-1">
+              <div className="px-4 py-2.5 border-b border-border">
+                <p className="text-[13px] font-semibold text-foreground truncate">{user?.name}</p>
+                <p className="text-[11px] text-muted capitalize">{user?.role}</p>
+              </div>
+              <Link
+                href="/settings"
+                onClick={() => setShowUser(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-foreground hover:bg-surface transition-colors"
+              >
+                Settings
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <LogOut size={13} /> Sign out
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </header>
   );

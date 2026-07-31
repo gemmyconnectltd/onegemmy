@@ -35,7 +35,7 @@ function Tooltip({ label, bottom = false }: { label: string; bottom?: boolean })
   return (
     <div
       role="tooltip"
-      className={`absolute left-[80px] z-50 pointer-events-none animate-in fade-in slide-in-from-left-1 duration-150 ${
+      className={`absolute left-[80px] z-[51] pointer-events-none animate-in fade-in slide-in-from-left-1 duration-150 ${
         bottom ? "bottom-0" : "top-1/2 -translate-y-1/2"
       }`}
     >
@@ -179,8 +179,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
             className="relative w-full flex justify-center"
             onMouseEnter={showTooltip("user")}
             onMouseLeave={hideTooltip}
-            onFocus={showTooltip("user")}
-            onBlur={hideTooltip}
           >
             <button
               type="button"
@@ -197,7 +195,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
             </button>
             {/* User card */}
             {tooltip === "user" && (
-              <div className="absolute left-[80px] bottom-0 z-50">
+              <div className="absolute left-[80px] bottom-0 z-[51] pointer-events-auto">
                 <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-48">
                   <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">

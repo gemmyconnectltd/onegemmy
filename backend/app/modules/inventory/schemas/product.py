@@ -13,6 +13,7 @@ class ProductCreate(BaseModel):
     name: str
     sku: str | None = None
     description: str | None = None
+    image_url: str | None = None
     price: float = 0
     cost: float = 0
     stock: int = 0
@@ -24,10 +25,21 @@ class ProductCreate(BaseModel):
     supplier_id: uuid.UUID | None = None
 
 
+class ProductBulkCreate(BaseModel):
+    items: list[ProductCreate]
+
+
+class ProductBulkResult(BaseModel):
+    created: int
+    failed: int
+    errors: list[str] = []
+
+
 class ProductUpdate(BaseModel):
     name: str | None = None
     sku: str | None = None
     description: str | None = None
+    image_url: str | None = None
     price: float | None = None
     cost: float | None = None
     stock: int | None = None
@@ -39,6 +51,13 @@ class ProductUpdate(BaseModel):
     supplier_id: uuid.UUID | None = None
 
 
+class RestockRequest(BaseModel):
+    qty: int
+    mode: str = "restock"  # "restock" | "adjust"
+    reason: str | None = None
+    notes: str | None = None
+
+
 class ProductRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -47,6 +66,7 @@ class ProductRead(BaseModel):
     name: str
     sku: str | None
     description: str | None
+    image_url: str | None
     price: float
     cost: float
     stock: int

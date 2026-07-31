@@ -8,6 +8,7 @@ import {
 
 // All English base strings — single source of truth
 const BASE_STRINGS: Record<string, string> = {
+  // ── Nav ──
   dashboard: "Dashboard", sales: "Sales", inventory: "Inventory",
   finance: "Finance", procurement: "Procurement", hr: "HR",
   customers: "Customers", crm: "CRM", manufacturing: "Mfg",
@@ -26,7 +27,85 @@ const BASE_STRINGS: Record<string, string> = {
   signOut: "Sign out", language: "Language", currency: "Currency",
   search: "Search", filter: "Filter", newDeal: "New Deal",
   pos: "Point of Sale", collapse: "Collapse",
+
+  // ── Common actions ──
+  addProduct: "Add Product", edit: "Edit", delete: "Delete", cancel: "Cancel",
+  save: "Save Changes", restock: "Restock", adjust: "Adjust",
+  import: "Import", export: "Export", download: "Download",
+  confirm: "Confirm", close: "Close", viewAll: "View all",
+  active: "Active", inactive: "Inactive", all: "All",
+  noResults: "No products found", tryAdjusting: "Try adjusting your search or filters",
+
+  // ── Common labels ──
+  name: "Name", sku: "SKU", category: "Category", brand: "Brand", unitLabel: "Unit",
+  costPrice: "Cost price", sellingPrice: "Selling price", stock: "Stock",
+  minStock: "Min stock", margin: "Margin", status: "Status", value: "Value",
+  product: "Product", quantity: "Quantity", reason: "Reason", notes: "Notes",
+  optional: "optional",
+
+  // ── Inventory overview ──
+  inventoryOverview: "Inventory Overview",
+  inventoryOverviewSub: "Monitor stock levels, value, and alerts across all products",
+  totalProducts: "Total Products", skusTracked: "SKUs tracked",
+  stockValue: "Stock Value", atCostPrice: "At cost price",
+  lowStock: "Low Stock", needReorder: "Need reorder",
+  outOfStock: "Out of Stock", immediateAction: "Immediate action",
+  stockHealth: "Stock Health", inStock: "In Stock",
+  overallHealthScore: "Overall health score",
+  topProductsByValue: "Top Products by Value",
+  searchByNameOrSku: "Search by name or SKU...",
+  low: "Low", out: "Out",
+  reviewReorderSoon: "review and reorder soon.",
+  productsOutOfStock: "product(s) out of stock", runningLow: "running low",
+  totalValue: "Total value",
+
+  // ── Products page ──
+  productsPageSub: "products", activeCount: "active",
+  searchProducts: "Search products...", results: "results",
+  cost: "Cost", price: "Price", avgMargin: "Avg margin",
+  deleteProduct: "Delete Product", deleteWarning: "This action cannot be undone.",
+  deleteConfirmMsg: "Are you sure you want to delete", deleteConfirmMsg2: "This will remove it from your inventory.",
+
+  // ── Restock drawer ──
+  restockProduct: "Restock Product", adjustStock: "Adjust Stock",
+  currentStock: "Current stock", stockUnits: "units",
+  qtyToAdd: "Quantity to add", newStockCount: "New stock count",
+  newTotalWillBe: "New total will be", stockAfterAction: "Stock after this action",
+  addStock: "Add Stock", applyAdjustment: "Apply Adjustment",
+  purchaseFromSupplier: "Purchase from supplier", returnFromCustomer: "Return from customer",
+  foundInWarehouse: "Found in warehouse", other: "Other",
+  damagedGoods: "Damaged goods", theftLoss: "Theft / loss",
+  miscounted: "Miscounted", expired: "Expired",
+  additionalDetails: "Any additional details...",
+
+  // ── Product form ──
+  addProductTitle: "Add Product", editProductTitle: "Edit Product",
+  createProductSub: "Create a new product in your inventory",
+  productNamePlaceholder: "e.g. Phone Case - iPhone",
+  skuPlaceholder: "e.g. PC-001", brandPlaceholder: "e.g. Anker",
+  singleProduct: "Single", bulkImport: "Bulk Import",
+  importProducts: "Import Products", uploadCsv: "Upload a CSV file",
+  downloadTemplate: "Download CSV template",
+  downloadTemplateSub: "Fill it in Excel or Google Sheets, then upload",
+  dropCsvHere: "Drop your CSV here or click to browse", onlyCsv: "Only .csv files",
+  previewRows: "rows", clearPreview: "Clear",
+  rowsHaveErrors: "row(s) have errors and will be skipped on import.",
+  noRowsFound: "No rows found. Make sure the file has a header row and data rows.",
+  incompleteRowsSkipped: "Fill in each row. Incomplete rows are skipped.",
+  addAnotherRow: "Add another row",
+
+  // ── Dashboard ──
+  helloOwner: "Owner", hereIsYourShop: "Here's your shop today.",
+  todaysSales: "Today's Sales", todaysExpenses: "Today's Expenses",
+  todaysProfit: "Today's Profit", cashAvailable: "Cash Available",
+  productsRunningLow: "products are running low on stock.",
+  salesThisWeek: "Sales This Week", dailyRevenueVsExpenses: "Daily revenue vs expenses",
+  quickActions: "Quick Actions", recordSale: "Record Sale",
+  addStockAction: "Add Stock", recordExpense: "Record Expense",
+  recentSales: "Recent Sales", customer: "Customer", items: "Items",
+  total: "Total", method: "Method", time: "Time",
 };
+
 
 const LOCALE_LANG_MAP: Record<LocaleCode, string> = {
   en: "en",

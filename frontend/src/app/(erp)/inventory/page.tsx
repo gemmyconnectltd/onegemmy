@@ -3,10 +3,12 @@
 import { useState } from "react";
 import {
   Package, AlertTriangle, XCircle,
-  Search, Plus, ArrowUpRight, BarChart3,
+  Search, Plus, ArrowUpRight, BarChart3, PackagePlus,
 } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
+import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
+import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 
 const INITIAL_INVENTORY = [
   { id: "1", name: "Phone Case - iPhone",  sku: "PC-001", category: "Accessories", stock: 45,  minStock: 10, price: 5000,  cost: 2500  },
@@ -39,6 +41,14 @@ export default function InventoryOverviewPage() {
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [restockTarget, setRestockTarget] = useState<typeof INITIAL_INVENTORY[0] | null>(null);
+
+  const handleRestock = (v: RestockValues) => {
+    if (!restockTarget) return;
+    setInventory((prev) =>
+      prev.map((i) => i.id === restockTarget.id ? { ...i, stock: v.newStock ?? i.stock } : i)
+    );
+  };
 
   const filtered = inventory.filter((i) => {
     const match = i.name.toLowerCase().includes(search.toLowerCase()) || i.sku.toLowerCase().includes(search.toLowerCase());
@@ -208,6 +218,7 @@ export default function InventoryOverviewPage() {
                 <th className="px-5 py-3 text-right">Min</th>
                 <th className="px-5 py-3 text-center">Status</th>
                 <th className="px-5 py-3 text-right">Value</th>
+                <th className="px-5 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -218,9 +229,7 @@ export default function InventoryOverviewPage() {
                   <tr key={item.id} className="hover:bg-surface/40 transition-colors group">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-surface border border-border flex items-center justify-center flex-shrink-0 group-hover:border-foreground/20 transition-colors">
-                          <Package size={13} className="text-muted" />
-                        </div>
+                        <ProductAvatar name={item.name} size={32} />
                         <span className="text-sm font-medium text-foreground">{item.name}</span>
                       </div>
                     </td>
@@ -241,12 +250,22 @@ export default function InventoryOverviewPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-right text-sm font-semibold text-foreground tabular-nums">{fmt(item.stock * item.cost)}</td>
+                    <td className="px-5 py-3.5">
+                      {(s === "low" || s === "out") && (
+                        <button
+                          onClick={() => setRestockTarget(item)}
+                          className="flex items-center gap-1.5 text-[11px] font-semibold text-accent hover:underline whitespace-nowrap"
+                        >
+                          <PackagePlus size={12} /> Restock
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center">
+                  <td colSpan={8} className="px-5 py-16 text-center">
                     <Package size={32} className="text-border mx-auto mb-3" />
                     <p className="text-sm font-medium text-muted">No products found</p>
                     <p className="text-xs text-muted/60 mt-1">Try adjusting your search or filter</p>
@@ -272,6 +291,20 @@ export default function InventoryOverviewPage() {
             ...prev,
           ]);
         }}
+        onBulkSubmit={(items) => {
+          setInventory((prev) => [
+            ...items.map((v) => ({ id: String(Date.now() + Math.random()), name: v.name, sku: v.sku, category: v.category, stock: v.stock, minStock: v.minStock, price: v.price, cost: v.cost })),
+            ...prev,
+          ]);
+        }}
+      />
+
+      <RestockDrawer
+        open={!!restockTarget}
+        onClose={() => setRestockTarget(null)}
+        productName={restockTarget?.name ?? ""}
+        currentStock={restockTarget?.stock ?? 0}
+        onSubmit={handleRestock}
       />
     </div>
   );

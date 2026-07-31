@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical } from "lucide-react";
+import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
+import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
+import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 
 interface Product {
   id: string;
@@ -48,6 +50,7 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [restockTarget, setRestockTarget] = useState<Product | null>(null);
   const [formKey, setFormKey] = useState(0);
 
   const filtered = products.filter((p) => {
@@ -72,6 +75,20 @@ export default function ProductsPage() {
         ...prev,
       ]);
     }
+  };
+
+  const handleBulkSubmit = (items: ProductFormValues[]) => {
+    setProducts((prev) => [
+      ...items.map((v) => ({ id: String(Date.now() + Math.random()), ...v, status: "active" as const })),
+      ...prev,
+    ]);
+  };
+
+  const handleRestock = (v: RestockValues) => {
+    if (!restockTarget) return;
+    setProducts((prev) =>
+      prev.map((p) => p.id === restockTarget.id ? { ...p, stock: v.newStock ?? p.stock } : p)
+    );
   };
 
   const confirmDelete = () => {
@@ -148,9 +165,7 @@ export default function ProductsPage() {
                 <tr key={p.id} className="hover:bg-surface/40 transition-colors group">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0">
-                        <Package size={14} className="text-muted" />
-                      </div>
+                      <ProductAvatar name={p.name} size={32} className="rounded-lg" />
                       <div>
                         <p className="text-sm font-semibold text-foreground">{p.name}</p>
                         <p className="text-[11px] text-muted font-mono">{p.sku}</p>
@@ -198,6 +213,12 @@ export default function ProductsPage() {
                             <Edit2 size={13} className="text-muted" /> Edit
                           </button>
                           <button
+                            onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors"
+                          >
+                            <PackagePlus size={13} className="text-muted" /> Restock
+                          </button>
+                          <button
                             onClick={() => {
                               setOpenMenu(null);
                               setDeleteTarget(p);
@@ -233,9 +254,18 @@ export default function ProductsPage() {
       <ProductFormDrawer
         key={formKey}
         open={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={() => { setShowForm(false); setEditing(null); }}
         initial={editing}
         onSubmit={handleSubmit}
+        onBulkSubmit={handleBulkSubmit}
+      />
+
+      <RestockDrawer
+        open={!!restockTarget}
+        onClose={() => setRestockTarget(null)}
+        productName={restockTarget?.name ?? ""}
+        currentStock={restockTarget?.stock ?? 0}
+        onSubmit={handleRestock}
       />
 
       <Drawer
