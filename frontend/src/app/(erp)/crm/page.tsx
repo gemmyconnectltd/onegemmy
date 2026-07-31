@@ -23,7 +23,7 @@ export default function CRMPage() {
           { label: "Closed Won",     value: "15",      icon: Target,        color: "#3b82f6" },
           { label: "Emails Sent",    value: "142",     icon: Mail,          color: "#af9164" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}15` }}><s.icon size={16} style={{ color: s.color }} /></div>
             <p className="text-xl font-extrabold text-foreground">{s.value}</p>

@@ -89,7 +89,7 @@ export default function DashboardPage() {
           { label: "Today's Profit", value: fmtRWF(todayProfit), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Available", value: fmtRWF(cashAvailable), icon: DollarSign, color: "#3b82f6", change: null, up: true },
         ].map((stat) => (
-          <div key={stat.label} className="bg-card border border-border p-4 relative overflow-hidden">
+          <div key={stat.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: stat.color }} />
             <div className="flex items-center justify-between mb-2">
               <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${stat.color}10` }}>

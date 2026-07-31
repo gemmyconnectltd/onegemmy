@@ -77,7 +77,7 @@ export default function SuppliersPage() {
           { label: "Active",           value: suppliers.filter((s) => s.status === "active").length,     color: "#10B981" },
           { label: "Outstanding Balance", value: `RWF ${suppliers.reduce((s, x) => s + x.balance, 0).toLocaleString()}`, color: "#ef4444" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <p className="text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>

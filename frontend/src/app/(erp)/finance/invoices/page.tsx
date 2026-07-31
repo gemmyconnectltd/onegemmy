@@ -115,7 +115,7 @@ export default function InvoicesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${s.color}15` }}>

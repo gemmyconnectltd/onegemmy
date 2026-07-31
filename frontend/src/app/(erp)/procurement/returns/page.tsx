@@ -56,7 +56,7 @@ export default function PurchaseReturnsPage() {
           { label: "Refunded", value: fmt(totalRefunded), color: "#059669" },
           { label: "Processing", value: INITIAL_RETURNS.filter((r) => r.status === "Processing").length, color: "#b45309" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <p className="text-xl font-extrabold text-foreground">{s.value}</p>
             <p className="text-[11px] text-muted mt-0.5">{s.label}</p>

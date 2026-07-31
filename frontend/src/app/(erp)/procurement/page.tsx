@@ -44,7 +44,7 @@ export default function ProcurementPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-card border border-border p-4 relative overflow-hidden hover:border-accent/40 transition-colors">
+          <Link key={s.label} href={s.href} className="bg-card border-y border-border p-4 relative overflow-hidden hover:border-accent/40 transition-colors">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <div className="flex items-center justify-between mb-2">
               <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
