@@ -1,37 +1,83 @@
 "use client";
 
-import { useState } from "react";
-import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Package } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Loader2, Check, X } from "lucide-react";
+import { inventoryApi, type ApiSupplier } from "@/lib/api";
 
-const initialSuppliers = [
-  { id: "1", name: "TechHub Rwanda",    contact: "Jean Bosco",   phone: "+250 788 123 456", email: "info@techhub.rw",    location: "Kigali, Rwanda",    products: 5, status: "active",   balance: 250000 },
-  { id: "2", name: "Shenzhen Imports",  contact: "Li Wei",       phone: "+86 755 1234 5678",email: "sales@shenzhen.cn",  location: "Shenzhen, China",   products: 3, status: "active",   balance: 0      },
-  { id: "3", name: "Anker Distributor", contact: "Alice Mutoni", phone: "+250 722 987 654", email: "alice@ankerdist.com",location: "Nairobi, Kenya",    products: 2, status: "active",   balance: 80000  },
-  { id: "4", name: "JBL East Africa",   contact: "David Osei",   phone: "+254 700 111 222", email: "david@jbleastafrica.com", location: "Nairobi, Kenya", products: 1, status: "active", balance: 0      },
-  { id: "5", name: "Mobile World",      contact: "Grace Uwase",  phone: "+250 733 456 789", email: "grace@mobileworld.rw", location: "Kigali, Rwanda",  products: 2, status: "inactive", balance: 15000 },
-];
-
-function fmt(v: number) { return v > 0 ? `RWF ${v.toLocaleString()}` : "—"; }
+type SupplierForm = { name: string; email: string; phone: string; address: string };
+const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "" });
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState(initialSuppliers);
+  const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", contact: "", phone: "", email: "", location: "" });
+  const [form, setForm] = useState<SupplierForm>(emptyForm());
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<SupplierForm>(emptyForm());
 
-  const filtered = suppliers.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.contact.toLowerCase().includes(search.toLowerCase()) ||
-      s.location.toLowerCase().includes(search.toLowerCase())
+  const load = useCallback(async () => {
+    try {
+      const res = await inventoryApi.listSuppliers();
+      setSuppliers(res.data.items);
+    } catch { /* keep existing */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = suppliers.filter((s) =>
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    (s.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (s.address ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
-  function handleAdd() {
-    if (!form.name.trim()) return;
-    setSuppliers((prev) => [...prev, { id: String(Date.now()), ...form, products: 0, status: "active", balance: 0 }]);
-    setForm({ name: "", contact: "", phone: "", email: "", location: "" });
-    setAdding(false);
+  async function handleAdd() {
+    if (!form.name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await inventoryApi.createSupplier({
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+      });
+      setSuppliers((prev) => [...prev, res.data]);
+      setForm(emptyForm()); setAdding(false);
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
   }
+
+  async function handleEdit(id: string) {
+    if (!editForm.name.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await inventoryApi.updateSupplier(id, {
+        name: editForm.name.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        address: editForm.address.trim() || null,
+      });
+      setSuppliers((prev) => prev.map((s) => s.id === id ? res.data : s));
+      setEditingId(null);
+    } catch { /* ignore */ }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this supplier?")) return;
+    try {
+      await inventoryApi.deleteSupplier(id);
+      setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    } catch { /* ignore */ }
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 size={24} className="animate-spin text-muted" />
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -48,36 +94,30 @@ export default function SuppliersPage() {
       {adding && (
         <div className="bg-card border border-border p-4 space-y-3">
           <p className="text-sm font-semibold text-foreground">New Supplier</p>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              { key: "name",     placeholder: "Company name" },
-              { key: "contact",  placeholder: "Contact person" },
-              { key: "phone",    placeholder: "Phone number" },
-              { key: "email",    placeholder: "Email address" },
-              { key: "location", placeholder: "Location / City" },
-            ].map((f) => (
-              <input key={f.key} type="text" placeholder={f.placeholder}
-                value={form[f.key as keyof typeof form]}
-                onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none"
-              />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {(["name", "email", "phone", "address"] as const).map((key) => (
+              <input key={key} type="text" placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
             ))}
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} className="px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors">Save</button>
+            <button onClick={handleAdd} disabled={saving || !form.name.trim()}
+              className="px-4 py-2 bg-accent text-white text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50">
+              {saving ? "Saving…" : "Save"}
+            </button>
             <button onClick={() => setAdding(false)} className="px-4 py-2 border border-border text-sm text-muted hover:text-foreground transition-colors">Cancel</button>
           </div>
         </div>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
-          { label: "Total Suppliers",  value: suppliers.length,                                          color: "#af9164" },
-          { label: "Active",           value: suppliers.filter((s) => s.status === "active").length,     color: "#10B981" },
-          { label: "Outstanding Balance", value: `RWF ${suppliers.reduce((s, x) => s + x.balance, 0).toLocaleString()}`, color: "#ef4444" },
+          { label: "Total Suppliers", value: suppliers.length, color: "#af9164" },
+          { label: "Active", value: suppliers.filter((s) => s.is_active).length, color: "#10B981" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <p className="text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
@@ -99,36 +139,60 @@ export default function SuppliersPage() {
               <div className="w-10 h-10 bg-accent/10 flex items-center justify-center flex-shrink-0 text-sm font-bold text-accent">
                 {s.name[0]}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-semibold text-foreground">{s.name}</p>
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 ${s.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
-                    {s.status}
-                  </span>
+              {editingId === s.id ? (
+                <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  {(["name", "email", "phone", "address"] as const).map((key) => (
+                    <input key={key} value={editForm[key]} placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                      onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
+                      className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
+                  ))}
+                  <div className="col-span-2 lg:col-span-4 flex gap-2">
+                    <button onClick={() => handleEdit(s.id)} disabled={saving}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded hover:bg-accent/90 disabled:opacity-50">
+                      <Check size={12} /> Save
+                    </button>
+                    <button onClick={() => setEditingId(null)}
+                      className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs text-muted rounded hover:text-foreground">
+                      <X size={12} /> Cancel
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                  <span className="flex items-center gap-1"><Phone size={10} /> {s.phone}</span>
-                  <span className="flex items-center gap-1"><Mail size={10} /> {s.email}</span>
-                  <span className="flex items-center gap-1"><MapPin size={10} /> {s.location}</span>
-                  <span className="flex items-center gap-1"><Package size={10} /> {s.products} products</span>
-                </div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className={`text-sm font-bold ${s.balance > 0 ? "text-red-600" : "text-muted"}`}>{fmt(s.balance)}</p>
-                <p className="text-[10px] text-muted mt-0.5">Outstanding</p>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded transition-colors">
-                  <Edit2 size={13} />
-                </button>
-                <button className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded transition-colors">
-                  <Trash2 size={13} />
-                </button>
-              </div>
+              ) : (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm font-semibold text-foreground">{s.name}</p>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 ${s.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
+                        {s.is_active ? "active" : "inactive"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                      {s.phone && <span className="flex items-center gap-1"><Phone size={10} /> {s.phone}</span>}
+                      {s.email && <span className="flex items-center gap-1"><Mail size={10} /> {s.email}</span>}
+                      {s.address && <span className="flex items-center gap-1"><MapPin size={10} /> {s.address}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => {
+                      setEditingId(s.id);
+                      setEditForm({ name: s.name, email: s.email ?? "", phone: s.phone ?? "", address: s.address ?? "" });
+                    }} className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded transition-colors">
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => handleDelete(s.id)}
+                      className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="px-4 py-10 text-center text-sm text-muted">No suppliers found.</div>
+            <div className="px-4 py-10 text-center">
+              <Truck size={32} className="text-border mx-auto mb-3" />
+              <p className="text-sm text-muted">No suppliers found.</p>
+            </div>
           )}
         </div>
       </div>

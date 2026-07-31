@@ -24,7 +24,7 @@ export function ModuleLayout({ module, children }: { module: ModuleKey; children
         orientation={navOrientation}
         onOrientationChange={setNavOrientation}
       />
-      <div className="flex-1 p-6">{children}</div>
+      <div className="flex-1 p-6 min-w-0">{children}</div>
     </div>
   );
 }

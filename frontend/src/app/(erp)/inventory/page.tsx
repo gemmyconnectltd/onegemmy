@@ -1,25 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Package, AlertTriangle, XCircle,
-  Search, Plus, ArrowUpRight, BarChart3, PackagePlus,
+  Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Loader2,
 } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
+import { inventoryApi, type ApiProduct } from "@/lib/api";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
-
-const INITIAL_INVENTORY = [
-  { id: "1", name: "Phone Case - iPhone",  sku: "PC-001", category: "Accessories", stock: 45,  minStock: 10, price: 5000,  cost: 2500  },
-  { id: "2", name: "USB-C Cable 1m",        sku: "UC-002", category: "Cables",      stock: 120, minStock: 20, price: 3000,  cost: 1200  },
-  { id: "3", name: "Screen Protector",      sku: "SP-003", category: "Accessories", stock: 200, minStock: 30, price: 2000,  cost: 800   },
-  { id: "4", name: "Wireless Earbuds",      sku: "WE-004", category: "Audio",       stock: 25,  minStock: 5,  price: 15000, cost: 8000  },
-  { id: "5", name: "Phone Charger 20W",     sku: "CH-005", category: "Chargers",    stock: 35,  minStock: 10, price: 8000,  cost: 4000  },
-  { id: "6", name: "Bluetooth Speaker",     sku: "BS-006", category: "Audio",       stock: 12,  minStock: 5,  price: 25000, cost: 15000 },
-  { id: "7", name: "Phone Cases - Samsung", sku: "PC-007", category: "Accessories", stock: 3,   minStock: 10, price: 4000,  cost: 2000  },
-  { id: "8", name: "HDMI Cable 2m",         sku: "HC-008", category: "Cables",      stock: 0,   minStock: 15, price: 6000,  cost: 3000  },
-];
 
 function getStatus(stock: number, min: number) {
   if (stock === 0) return "out";
@@ -35,19 +25,72 @@ const statusCfg = {
 
 function fmt(v: number) { return `${CURRENCY_SYMBOL} ${v.toLocaleString()}`; }
 
+function toRow(p: ApiProduct) {
+  return {
+    id: p.id,
+    name: p.name,
+    sku: p.sku ?? "",
+    category: p.category?.name ?? "",
+    stock: p.stock,
+    minStock: p.min_stock,
+    price: p.price,
+    cost: p.cost,
+  };
+}
+
 export default function InventoryOverviewPage() {
-  const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+  const [inventory, setInventory] = useState<ReturnType<typeof toRow>[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);
   const [formKey, setFormKey] = useState(0);
-  const [restockTarget, setRestockTarget] = useState<typeof INITIAL_INVENTORY[0] | null>(null);
+  const [restockTarget, setRestockTarget] = useState<ReturnType<typeof toRow> | null>(null);
 
-  const handleRestock = (v: RestockValues) => {
+  const load = useCallback(async () => {
+    try {
+      const res = await inventoryApi.listProducts(1, 200);
+      setInventory(res.data.items.map(toRow));
+    } catch {
+      // keep existing data on error
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async (v: ProductFormValues) => {
+    const res = await inventoryApi.createProduct({
+      name: v.name, sku: v.sku,
+      category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
+      brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
+      unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
+      price: v.price, cost: v.cost,
+      stock: v.stock, min_stock: v.minStock,
+    });
+    setInventory((prev) => [toRow(res.data), ...prev]);
+  };
+
+  const handleBulkCreate = async (items: ProductFormValues[]) => {
+    await inventoryApi.bulkCreateProducts(items.map((v) => ({
+      name: v.name, sku: v.sku,
+      category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
+      brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
+      unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
+      price: v.price, cost: v.cost,
+      stock: v.stock, min_stock: v.minStock,
+    })));
+    await load();
+  };
+
+  const handleRestock = async (v: RestockValues) => {
     if (!restockTarget) return;
-    setInventory((prev) =>
-      prev.map((i) => i.id === restockTarget.id ? { ...i, stock: v.newStock ?? i.stock } : i)
-    );
+    const res = await inventoryApi.restockProduct(restockTarget.id, {
+      qty: v.qty, mode: v.mode, reason: v.reason, notes: v.notes,
+    });
+    setInventory((prev) => prev.map((i) => i.id === restockTarget.id ? toRow(res.data) : i));
+    setRestockTarget(null);
   };
 
   const filtered = inventory.filter((i) => {
@@ -60,8 +103,15 @@ export default function InventoryOverviewPage() {
   const lowCount   = inventory.filter((i) => getStatus(i.stock, i.minStock) === "low").length;
   const outCount   = inventory.filter((i) => getStatus(i.stock, i.minStock) === "out").length;
   const inCount    = inventory.filter((i) => getStatus(i.stock, i.minStock) === "in_stock").length;
-
   const topByValue = [...inventory].sort((a, b) => (b.stock * b.cost) - (a.stock * a.cost)).slice(0, 4);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 size={24} className="animate-spin text-muted" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -73,10 +123,7 @@ export default function InventoryOverviewPage() {
           <p className="text-sm text-muted mt-0.5">Monitor stock levels, value, and alerts across all products</p>
         </div>
         <button
-          onClick={() => {
-            setFormKey((k) => k + 1);
-            setShowForm(true);
-          }}
+          onClick={() => { setFormKey((k) => k + 1); setShowForm(true); }}
           className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors"
         >
           <Plus size={15} /> Add Product
@@ -86,10 +133,10 @@ export default function InventoryOverviewPage() {
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Products",   value: String(inventory.length), sub: "SKUs tracked",       icon: Package,       color: "#af9164", change: null },
-          { label: "Stock Value",      value: fmt(totalValue),          sub: "At cost price",      icon: BarChart3,     color: "#6f1a07", change: "+4.2%" },
-          { label: "Low Stock",        value: String(lowCount),         sub: "Need reorder",       icon: AlertTriangle, color: "#f59e0b", change: null },
-          { label: "Out of Stock",     value: String(outCount),         sub: "Immediate action",   icon: XCircle,       color: "#ef4444", change: null },
+          { label: "Total Products", value: String(inventory.length), sub: "SKUs tracked",     icon: Package,       color: "#af9164", change: null },
+          { label: "Stock Value",    value: fmt(totalValue),          sub: "At cost price",    icon: BarChart3,     color: "#6f1a07", change: "+4.2%" },
+          { label: "Low Stock",      value: String(lowCount),         sub: "Need reorder",     icon: AlertTriangle, color: "#f59e0b", change: null },
+          { label: "Out of Stock",   value: String(outCount),         sub: "Immediate action", icon: XCircle,       color: "#ef4444", change: null },
         ].map((s) => (
           <div key={s.label} className="bg-card p-4">
             <div className="flex items-start justify-between mb-2">
@@ -109,65 +156,64 @@ export default function InventoryOverviewPage() {
       </div>
 
       {/* Stock health + top products */}
-      <div className="grid lg:grid-cols-3 gap-4">
-
-        {/* Stock health */}
-        <div className="bg-card border border-border p-5">
-          <p className="text-sm font-bold text-foreground mb-4">Stock Health</p>
-          <div className="space-y-3">
-            {[
-              { label: "In Stock",   count: inCount,   total: inventory.length, color: "bg-emerald-500" },
-              { label: "Low Stock",  count: lowCount,  total: inventory.length, color: "bg-amber-400"   },
-              { label: "Out of Stock", count: outCount, total: inventory.length, color: "bg-red-500"    },
-            ].map((r) => (
-              <div key={r.label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-muted font-medium">{r.label}</span>
-                  <span className="text-xs font-bold text-foreground">{r.count} <span className="text-muted font-normal">/ {r.total}</span></span>
-                </div>
-                <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${r.color}`} style={{ width: `${(r.count / r.total) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 pt-4 border-t border-border">
-            <p className="text-xs text-muted">Overall health score</p>
-            <p className="text-2xl font-extrabold text-foreground mt-1">
-              {Math.round((inCount / inventory.length) * 100)}<span className="text-sm font-medium text-muted">%</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Top products by value */}
-        <div className="lg:col-span-2 bg-card border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-bold text-foreground">Top Products by Value</p>
-            <span className="text-[11px] text-muted">At cost price</span>
-          </div>
-          <div className="space-y-3">
-            {topByValue.map((item, i) => {
-              const value = item.stock * item.cost;
-              const maxValue = topByValue[0].stock * topByValue[0].cost;
-              const pct = (value / maxValue) * 100;
-              return (
-                <div key={item.id} className="flex items-center gap-3">
-                  <span className="text-[11px] font-bold text-muted w-4">{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
-                      <span className="text-xs font-bold text-foreground ml-2 flex-shrink-0">{fmt(value)}</span>
-                    </div>
-                    <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                      <div className="h-full bg-accent/60 rounded-full" style={{ width: `${pct}%` }} />
-                    </div>
+      {inventory.length > 0 && (
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="bg-card border border-border p-5">
+            <p className="text-sm font-bold text-foreground mb-4">Stock Health</p>
+            <div className="space-y-3">
+              {[
+                { label: "In Stock",    count: inCount,  total: inventory.length, color: "bg-emerald-500" },
+                { label: "Low Stock",   count: lowCount, total: inventory.length, color: "bg-amber-400"   },
+                { label: "Out of Stock",count: outCount, total: inventory.length, color: "bg-red-500"     },
+              ].map((r) => (
+                <div key={r.label}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-muted font-medium">{r.label}</span>
+                    <span className="text-xs font-bold text-foreground">{r.count} <span className="text-muted font-normal">/ {r.total}</span></span>
+                  </div>
+                  <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${r.color}`} style={{ width: `${(r.count / r.total) * 100}%` }} />
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+            <div className="mt-5 pt-4 border-t border-border">
+              <p className="text-xs text-muted">Overall health score</p>
+              <p className="text-2xl font-extrabold text-foreground mt-1">
+                {Math.round((inCount / inventory.length) * 100)}<span className="text-sm font-medium text-muted">%</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 bg-card border border-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-foreground">Top Products by Value</p>
+              <span className="text-[11px] text-muted">At cost price</span>
+            </div>
+            <div className="space-y-3">
+              {topByValue.map((item, i) => {
+                const value = item.stock * item.cost;
+                const maxValue = topByValue[0].stock * topByValue[0].cost;
+                const pct = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                return (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <span className="text-[11px] font-bold text-muted w-4">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
+                        <span className="text-xs font-bold text-foreground ml-2 flex-shrink-0">{fmt(value)}</span>
+                      </div>
+                      <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                        <div className="h-full bg-accent/60 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Alerts */}
       {(lowCount > 0 || outCount > 0) && (
@@ -285,18 +331,8 @@ export default function InventoryOverviewPage() {
         key={formKey}
         open={showForm}
         onClose={() => setShowForm(false)}
-        onSubmit={(v: ProductFormValues) => {
-          setInventory((prev) => [
-            { id: String(Date.now()), name: v.name, sku: v.sku, category: v.category, stock: v.stock, minStock: v.minStock, price: v.price, cost: v.cost },
-            ...prev,
-          ]);
-        }}
-        onBulkSubmit={(items) => {
-          setInventory((prev) => [
-            ...items.map((v) => ({ id: String(Date.now() + Math.random()), name: v.name, sku: v.sku, category: v.category, stock: v.stock, minStock: v.minStock, price: v.price, cost: v.cost })),
-            ...prev,
-          ]);
-        }}
+        onSubmit={handleCreate}
+        onBulkSubmit={handleBulkCreate}
       />
 
       <RestockDrawer

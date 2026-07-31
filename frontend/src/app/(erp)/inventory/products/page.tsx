@@ -1,145 +1,142 @@
 "use client";
 
-import { useState } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Loader2 } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  category: string;
-  brand: string;
-  unit: string;
-  price: number;
-  cost: number;
-  stock: number;
-  minStock: number;
-  status: "active" | "inactive";
-}
-
-const initialProducts: Product[] = [
-  { id: "1", name: "Phone Case - iPhone",  sku: "PC-001", category: "Accessories", brand: "Generic", unit: "Piece", price: 5000,  cost: 2500,  stock: 45,  minStock: 10, status: "active"   },
-  { id: "2", name: "USB-C Cable 1m",        sku: "UC-002", category: "Cables",      brand: "Anker",   unit: "Piece", price: 3000,  cost: 1200,  stock: 120, minStock: 20, status: "active"   },
-  { id: "3", name: "Screen Protector",      sku: "SP-003", category: "Accessories", brand: "Generic", unit: "Piece", price: 2000,  cost: 800,   stock: 200, minStock: 30, status: "active"   },
-  { id: "4", name: "Wireless Earbuds",      sku: "WE-004", category: "Audio",       brand: "Samsung", unit: "Piece", price: 15000, cost: 8000,  stock: 25,  minStock: 5,  status: "active"   },
-  { id: "5", name: "Phone Charger 20W",     sku: "CH-005", category: "Chargers",    brand: "Xiaomi",  unit: "Piece", price: 8000,  cost: 4000,  stock: 35,  minStock: 10, status: "active"   },
-  { id: "6", name: "Bluetooth Speaker",     sku: "BS-006", category: "Audio",       brand: "JBL",     unit: "Piece", price: 25000, cost: 15000, stock: 12,  minStock: 5,  status: "active"   },
-  { id: "7", name: "Phone Cases - Samsung", sku: "PC-007", category: "Accessories", brand: "Generic", unit: "Piece", price: 4000,  cost: 2000,  stock: 3,   minStock: 10, status: "active"   },
-  { id: "8", name: "HDMI Cable 2m",         sku: "HC-008", category: "Cables",      brand: "Ugreen",  unit: "Piece", price: 6000,  cost: 3000,  stock: 0,   minStock: 15, status: "inactive" },
-];
-
-const categoryColors: Record<string, string> = {
-  Accessories: "bg-violet-50 text-violet-700",
-  Cables:      "bg-blue-50 text-blue-700",
-  Audio:       "bg-emerald-50 text-emerald-700",
-  Chargers:    "bg-amber-50 text-amber-700",
-};
+import { inventoryApi, type ApiProduct } from "@/lib/api";
 
 function fmt(v: number) { return `${CURRENCY_SYMBOL} ${v.toLocaleString()}`; }
+function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
+
+function toFormValues(p: ApiProduct): ProductFormValues {
+  return {
+    name: p.name,
+    sku: p.sku ?? "",
+    category: p.category?.name ?? "",
+    category_id: p.category_id ?? "",
+    brand: p.brand?.name ?? "",
+    brand_id: p.brand_id ?? "",
+    unit: p.unit?.name ?? "",
+    unit_id: p.unit_id ?? "",
+    price: p.price,
+    cost: p.cost,
+    stock: p.stock,
+    minStock: p.min_stock,
+  };
+}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [restockTarget, setRestockTarget] = useState<Product | null>(null);
+  const [editing, setEditing] = useState<ApiProduct | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null);
+  const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await inventoryApi.listProducts(1, 200);
+      setProducts(res.data.items);
+    } catch { /* keep existing */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const filtered = products.filter((p) => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || p.status === statusFilter;
+    const matchSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (p.category?.name ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchStatus = statusFilter === "all" || (statusFilter === "active" ? p.is_active : !p.is_active);
     return matchSearch && matchStatus;
   });
 
-  const margin = (p: typeof products[0]) => Math.round(((p.price - p.cost) / p.price) * 100);
-
-  const handleSubmit = (v: ProductFormValues) => {
+  const handleSubmit = async (v: ProductFormValues) => {
+    const payload = {
+      name: v.name, sku: v.sku,
+      category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
+      brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
+      unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
+      price: v.price, cost: v.cost, stock: v.stock, min_stock: v.minStock,
+    };
     if (editing) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === editing.id ? { ...p, ...v } : p))
-      );
+      const res = await inventoryApi.updateProduct(editing.id, payload);
+      setProducts((prev) => prev.map((p) => p.id === editing.id ? res.data : p));
       setEditing(null);
     } else {
-      setProducts((prev) => [
-        { id: String(Date.now()), ...v, status: "active" },
-        ...prev,
-      ]);
+      const res = await inventoryApi.createProduct(payload);
+      setProducts((prev) => [res.data, ...prev]);
     }
   };
 
-  const handleBulkSubmit = (items: ProductFormValues[]) => {
-    setProducts((prev) => [
-      ...items.map((v) => ({ id: String(Date.now() + Math.random()), ...v, status: "active" as const })),
-      ...prev,
-    ]);
+  const handleBulkSubmit = async (items: ProductFormValues[]) => {
+    await inventoryApi.bulkCreateProducts(items.map((v) => ({
+      name: v.name, sku: v.sku,
+      category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
+      brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
+      unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
+      price: v.price, cost: v.cost, stock: v.stock, min_stock: v.minStock,
+    })));
+    await load();
   };
 
-  const handleRestock = (v: RestockValues) => {
+  const handleRestock = async (v: RestockValues) => {
     if (!restockTarget) return;
-    setProducts((prev) =>
-      prev.map((p) => p.id === restockTarget.id ? { ...p, stock: v.newStock ?? p.stock } : p)
-    );
+    const res = await inventoryApi.restockProduct(restockTarget.id, { qty: v.qty, mode: v.mode, reason: v.reason, notes: v.notes });
+    setProducts((prev) => prev.map((p) => p.id === restockTarget.id ? res.data : p));
+    setRestockTarget(null);
   };
 
-  const confirmDelete = () => {
-    if (deleteTarget) {
-      setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    }
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await inventoryApi.deleteProduct(deleteTarget.id);
+    setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    setDeleteTarget(null);
   };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 size={24} className="animate-spin text-muted" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
-          <p className="text-sm text-muted mt-0.5">{products.length} products · {products.filter(p => p.status === "active").length} active</p>
+          <p className="text-sm text-muted mt-0.5">{products.length} products · {products.filter((p) => p.is_active).length} active</p>
         </div>
         <button
-          onClick={() => {
-            setEditing(null);
-            setFormKey((k) => k + 1);
-            setShowForm(true);
-          }}
+          onClick={() => { setEditing(null); setFormKey((k) => k + 1); setShowForm(true); }}
           className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors rounded-lg"
         >
           <Plus size={15} /> Add Product
         </button>
       </div>
 
-      {/* Table card */}
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        {/* Toolbar */}
         <div className="px-5 py-4 border-b border-border flex items-center gap-3">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-surface/50"
-            />
+            <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-surface/50" />
           </div>
           <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
             {(["all", "active", "inactive"] as const).map((f) => (
               <button key={f} onClick={() => setStatusFilter(f)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${
-                  statusFilter === f ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"
-                }`}
-              >{f}</button>
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${statusFilter === f ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}>
+                {f}
+              </button>
             ))}
           </div>
           <span className="text-xs text-muted ml-auto">{filtered.length} results</span>
@@ -149,15 +146,9 @@ export default function ProductsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider">Product</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider">Category</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider">Brand</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider text-right">Cost</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider text-right">Price</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider text-right">Margin</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider text-right">Stock</th>
-                <th className="px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider text-center">Status</th>
-                <th className="px-5 py-3 w-10" />
+                {["Product", "Category", "Brand", "Cost", "Price", "Margin", "Stock", "Status", ""].map((h, i) => (
+                  <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -165,7 +156,7 @@ export default function ProductsPage() {
                 <tr key={p.id} className="hover:bg-surface/40 transition-colors group">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <ProductAvatar name={p.name} size={32} className="rounded-lg" />
+                      <ProductAvatar name={p.name} imageUrl={p.image_url ?? undefined} size={32} className="rounded-lg" />
                       <div>
                         <p className="text-sm font-semibold text-foreground">{p.name}</p>
                         <p className="text-[11px] text-muted font-mono">{p.sku}</p>
@@ -173,11 +164,11 @@ export default function ProductsPage() {
                     </div>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${categoryColors[p.category] ?? "bg-surface text-muted"}`}>
-                      {p.category}
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface text-muted">
+                      {p.category?.name ?? "—"}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-muted">{p.brand}</td>
+                  <td className="px-5 py-3.5 text-sm text-muted">{p.brand?.name ?? "—"}</td>
                   <td className="px-5 py-3.5 text-right text-sm text-muted tabular-nums">{fmt(p.cost)}</td>
                   <td className="px-5 py-3.5 text-right text-sm font-semibold text-foreground tabular-nums">{fmt(p.price)}</td>
                   <td className="px-5 py-3.5 text-right">
@@ -185,11 +176,9 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-5 py-3.5 text-right text-sm font-bold text-foreground tabular-nums">{p.stock}</td>
                   <td className="px-5 py-3.5 text-center">
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                      p.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${p.status === "active" ? "bg-emerald-500" : "bg-muted"}`} />
-                      {p.status === "active" ? "Active" : "Inactive"}
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${p.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${p.is_active ? "bg-emerald-500" : "bg-muted"}`} />
+                      {p.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="px-5 py-3.5 relative">
@@ -201,30 +190,16 @@ export default function ProductsPage() {
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
                         <div className="absolute right-4 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
-                          <button
-                            onClick={() => {
-                              setOpenMenu(null);
-                              setEditing(p);
-                              setFormKey((k) => k + 1);
-                              setShowForm(true);
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors"
-                          >
+                          <button onClick={() => { setOpenMenu(null); setEditing(p); setFormKey((k) => k + 1); setShowForm(true); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <Edit2 size={13} className="text-muted" /> Edit
                           </button>
-                          <button
-                            onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors"
-                          >
+                          <button onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <PackagePlus size={13} className="text-muted" /> Restock
                           </button>
-                          <button
-                            onClick={() => {
-                              setOpenMenu(null);
-                              setDeleteTarget(p);
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                          >
+                          <button onClick={() => { setOpenMenu(null); setDeleteTarget(p); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
                             <Trash2 size={13} /> Delete
                           </button>
                         </div>
@@ -255,7 +230,7 @@ export default function ProductsPage() {
         key={formKey}
         open={showForm}
         onClose={() => { setShowForm(false); setEditing(null); }}
-        initial={editing}
+        initial={editing ? toFormValues(editing) : null}
         onSubmit={handleSubmit}
         onBulkSubmit={handleBulkSubmit}
       />
@@ -277,18 +252,12 @@ export default function ProductsPage() {
         size="sm"
         footer={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setDeleteTarget(null)}
-              className="flex-1 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-            >
+            <button type="button" onClick={() => setDeleteTarget(null)}
+              className="flex-1 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              className="flex-1 px-4 py-2.5 text-[13px] font-bold text-white rounded-lg bg-red-600 hover:bg-red-700 transition-colors"
-            >
+            <button type="button" onClick={confirmDelete}
+              className="flex-1 px-4 py-2.5 text-[13px] font-bold text-white rounded-lg bg-red-600 hover:bg-red-700 transition-colors">
               Delete
             </button>
           </div>

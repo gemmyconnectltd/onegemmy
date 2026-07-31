@@ -189,9 +189,18 @@ export default function LoginPage() {
             <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Global super admin" },
-                { label: "Admin", email: "admin@onegemmy.com", password: "admin123", desc: "OneGemmy admin" },
-                { label: "User", email: "user@onegemmy.com", password: "user123", desc: "Standard user" },
+                { label: "Super Admin",  email: "superadmin@onegemmy.com",         password: "superadmin123", desc: "Global super admin" },
+                { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123",      desc: "Full system access" },
+                { label: "User",         email: "user@onegemmy.com",                password: "user123",       desc: "Standard user" },
+                { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",       desc: "Inventory manager" },
+                { label: "Inv. Staff",   email: "inventory.staff@onegemmy.com",     password: "user123",       desc: "Inventory staff" },
+                { label: "Finance Mgr", email: "finance.manager@onegemmy.com",     password: "user123",       desc: "Finance manager" },
+                { label: "Finance",      email: "finance.staff@onegemmy.com",       password: "user123",       desc: "Finance staff" },
+                { label: "HR Manager",   email: "hr.manager@onegemmy.com",          password: "user123",       desc: "HR manager" },
+                { label: "HR Staff",     email: "hr.staff@onegemmy.com",            password: "user123",       desc: "HR staff" },
+                { label: "Sales Mgr",    email: "sales.manager@onegemmy.com",       password: "user123",       desc: "Sales manager" },
+                { label: "Sales Staff",  email: "sales.staff@onegemmy.com",         password: "user123",       desc: "Sales staff" },
+                { label: "Procurement",  email: "procurement.manager@onegemmy.com", password: "user123",       desc: "Procurement mgr" },
               ].map((demo) => (
                 <button
                   key={demo.label}

@@ -32,6 +32,7 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
     obj = Product(tenant_id=tenant_id, **data.model_dump())
     obj = await ProductRepository(db).save(obj)
     await db.commit()
+    obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, obj.id)
     return ProductRead.model_validate(obj)
 
 
@@ -60,6 +61,7 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
         setattr(obj, field, value)
     obj = await ProductRepository(db).save(obj)
     await db.commit()
+    obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     return ProductRead.model_validate(obj)
 
 
@@ -108,4 +110,5 @@ async def restock_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         obj.stock = obj.stock + data.qty
     obj = await ProductRepository(db).save(obj)
     await db.commit()
+    obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     return ProductRead.model_validate(obj)

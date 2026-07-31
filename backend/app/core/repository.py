@@ -23,6 +23,9 @@ class BaseRepository[ModelT]:
             await self.db.refresh(obj)
             return obj
         except IntegrityError as e:
+            err_str = str(e.orig).lower()
+            if "sku" in err_str:
+                raise ConflictError("A product with this SKU already exists") from e
             raise ConflictError("Resource already exists") from e
 
     async def delete(self, obj: ModelT) -> None:

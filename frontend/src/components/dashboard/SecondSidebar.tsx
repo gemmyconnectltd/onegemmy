@@ -132,8 +132,8 @@ export function SecondSidebar({
     <nav
       className={
         isLeft
-          ? "flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto"
-          : "flex items-center border-b border-border bg-surface px-2 overflow-x-auto flex-shrink-0"
+          ? "flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]"
+          : "flex items-center border-b border-border bg-surface px-2 overflow-x-auto flex-shrink-0 sticky top-14 z-10"
       }
     >
       {/* Toggle + module header */}
