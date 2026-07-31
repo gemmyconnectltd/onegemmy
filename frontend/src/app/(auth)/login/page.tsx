@@ -187,12 +187,11 @@ export default function LoginPage() {
           {/* Demo accounts */}
           <div className="space-y-2.5">
             <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { label: "Super Admin", email: "super@onegemmy.com", password: "super123", desc: "Platform owner" },
-                { label: "Company Admin", email: "admin@onegemmy.com", password: "admin123", desc: "Company owner" },
-                { label: "Manager", email: "manager@onegemmy.com", password: "manager123", desc: "Shop manager" },
-                { label: "Sales Rep", email: "sales@onegemmy.com", password: "sales123", desc: "Sales team" },
+                { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Global super admin" },
+                { label: "Admin", email: "admin@onegemmy.com", password: "admin123", desc: "OneGemmy admin" },
+                { label: "User", email: "user@onegemmy.com", password: "user123", desc: "Standard user" },
               ].map((demo) => (
                 <button
                   key={demo.label}

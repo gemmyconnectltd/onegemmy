@@ -22,7 +22,13 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const success = await register(name, email, password, company);
+    const success = await register({
+      fullName: name,
+      email,
+      password,
+      tenantName: company,
+      tenantSlug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+    });
     if (success) {
       router.push("/dashboard");
     } else {

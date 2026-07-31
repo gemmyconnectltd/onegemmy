@@ -29,7 +29,7 @@ export function PermissionGuard({
 
   if (isSuperAdmin()) return <>{children}</>;
 
-  if (role && !role.includes(user.platformRole) && !role.includes(user.roleId)) {
+  if (role && !role.includes(user.role) && !role.includes(user.roleId ?? "")) {
     return fallback ?? <AccessDenied reason="Insufficient role" />;
   }
 

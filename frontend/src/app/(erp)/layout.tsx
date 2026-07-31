@@ -18,20 +18,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-surface">
-      <Topbar
-        onToggleSidebar={() => setSidebarExpanded(!sidebarExpanded)}
-        sidebarExpanded={sidebarExpanded}
-      />
-      <Sidebar
-        expanded={isMobile ? false : sidebarExpanded}
-        onExpandChange={setSidebarExpanded}
-      />
-      <main
-        className="pt-14 transition-all duration-200 ease-in-out min-h-screen"
-        style={{ marginLeft: isMobile ? 0 : sidebarExpanded ? 240 : 56 }}
+      <Sidebar expanded={isMobile ? false : sidebarExpanded} onExpandChange={setSidebarExpanded} />
+      <div
+        className="flex flex-col min-h-screen transition-all duration-200"
+        style={{ marginLeft: isMobile ? 0 : 88 }}
       >
-        <div className="p-5 lg:p-6">{children}</div>
-      </main>
+        <Topbar onToggleSidebar={() => setSidebarExpanded(!sidebarExpanded)} sidebarExpanded={sidebarExpanded} />
+        <main className="flex-1 px-8 py-6">{children}</main>
+      </div>
     </div>
   );
 }
