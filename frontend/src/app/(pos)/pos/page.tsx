@@ -12,6 +12,7 @@ import { ProductCard } from "@/components/pos/ProductCard";
 import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult } from "@/components/pos/types";
 import { useAppConfig } from "@/lib/appConfig";
+import { saveSale } from "@/lib/invoices";
 
 export default function POSPage() {
   const { currencySymbol, locale, setLocale, locales } = useAppConfig();
@@ -146,7 +147,7 @@ export default function POSPage() {
 
   const completeSale = () => {
     const isInvoice = payment === "invoice";
-    setCompletedSale({
+    const sale: SaleResult = {
       orderId: generateOrderId(),
       invoiceNumber: isInvoice ? generateInvoiceId() : null,
       isInvoice,
@@ -162,7 +163,9 @@ export default function POSPage() {
       change,
       business,
       timestamp: new Date(),
-    });
+    };
+    setCompletedSale(sale);
+    saveSale(sale);
     setTodayCount((c) => c + 1);
     setTodayRevenue((r) => r + total);
   };

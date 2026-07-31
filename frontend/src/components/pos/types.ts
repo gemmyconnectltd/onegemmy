@@ -52,4 +52,6 @@ export type SaleResult = {
   change: number;
   business: BusinessType;
   timestamp: Date;
+  paid?: boolean;
+  paidAt?: string | null;
 };

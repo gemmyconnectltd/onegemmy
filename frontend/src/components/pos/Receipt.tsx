@@ -9,9 +9,10 @@ interface ReceiptProps {
   currencySymbol: string;
   fmt: (v: number) => string;
   onNewSale: () => void;
+  newSaleLabel?: string;
 }
 
-export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) {
+export function Receipt({ sale, currencySymbol, fmt, onNewSale, newSaleLabel = "New Sale" }: ReceiptProps) {
   const handlePrint = () => window.print();
 
   return (
@@ -24,8 +25,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
           onClick={onNewSale}
           className="flex items-center gap-2 text-[13px] font-medium text-muted hover:text-foreground transition-colors"
         >
-          <ArrowLeft size={15} /> New Sale
-        </button>
+          <ArrowLeft size={15} /> {newSaleLabel}        </button>
         <span className="ml-auto text-[13px] text-muted">{sale.timestamp.toLocaleString()}</span>
       </div>
 
@@ -56,8 +56,12 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
               </p>
             )}
             {sale.isInvoice && (
-              <p className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">
-                <BadgeCheck size={12} /> Awaiting payment
+              <p
+                className={`mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
+                  sale.paid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                <BadgeCheck size={12} /> {sale.paid ? "Paid" : "Awaiting payment"}
               </p>
             )}
           </div>
@@ -115,7 +119,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
             )}
             {sale.isInvoice && (
               <div className="flex justify-between text-[13px] font-semibold text-amber-600">
-                <span>Status</span><span>Unpaid</span>
+                <span>Status</span><span>{sale.paid ? "Paid" : "Unpaid"}</span>
               </div>
             )}
           </div>
@@ -133,8 +137,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
               onClick={onNewSale}
               className="py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition"
             >
-              New Sale
-            </button>
+              {newSaleLabel}             </button>
             <button
               onClick={handlePrint}
               aria-label="Print receipt"

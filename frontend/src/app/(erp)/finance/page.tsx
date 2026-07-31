@@ -1,8 +1,14 @@
 "use client";
 
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import Link from "next/link";
+import { useSyncExternalStore } from "react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Clock, ArrowRight } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAppConfig } from "@/lib/appConfig";
+import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
+import type { SaleResult } from "@/components/pos/types";
+
+const EMPTY_SALES: SaleResult[] = [];
 
 const monthly = [
   { month: "Jan", income: 1200000, expenses: 380000 },
@@ -23,6 +29,9 @@ const transactions = [
 
 export default function FinancePage() {
   const { currencySymbol } = useAppConfig();
+  const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
+  const outstanding = sales.filter((s) => s.isInvoice && !s.paid);
+  const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
 
   return (
@@ -31,6 +40,31 @@ export default function FinancePage() {
         <h1 className="text-2xl font-bold text-foreground">Finance Overview</h1>
         <p className="text-sm text-muted mt-1">Track your income, expenses and profit</p>
       </div>
+
+      <Link
+        href="/finance/invoices"
+        className="flex items-center gap-3 bg-white border border-border border-l-4 px-4 py-3 hover:bg-surface/50 transition-colors"
+        style={{ borderLeftColor: "#b45309" }}
+      >
+        <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#b4530915" }}>
+          <Clock size={15} className="text-[#b45309]" />
+        </div>
+        <div className="flex-1">
+          <p className="text-[13px] font-bold text-foreground">
+            {outstanding.length > 0
+              ? `${outstanding.length} outstanding invoice${outstanding.length > 1 ? "s" : ""} — ${fmt(outstandingTotal)}`
+              : "No outstanding invoices"}
+          </p>
+          <p className="text-[11px] text-muted">
+            {outstanding.length > 0
+              ? "Awaiting payment from POS invoice sales."
+              : "All POS invoices have been settled."}
+          </p>
+        </div>
+        <span className="flex items-center gap-1 text-[12px] font-semibold text-accent">
+          View invoices <ArrowRight size={13} />
+        </span>
+      </Link>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[

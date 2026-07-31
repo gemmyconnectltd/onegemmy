@@ -28,10 +28,11 @@ const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React
   ],
   finance: [
     { nameKey: "overview",  href: "/finance",          icon: LayoutDashboard, color: "#4f46e5", exact: true },
+    { nameKey: "invoices",  href: "/finance/invoices", icon: FileText,        color: "#6f1a07" },
     { nameKey: "income",    href: "/finance/income",   icon: TrendingUp,      color: "#059669" },
     { nameKey: "expenses",  href: "/finance/expenses", icon: TrendingDown,    color: "#b45309" },
     { nameKey: "accounts",  href: "/finance/accounts", icon: CreditCard,      color: "#0284c7" },
-    { nameKey: "reports",   href: "/finance/reports",  icon: FileText,        color: "#0e7490" },
+    { nameKey: "reports",   href: "/finance/reports",  icon: BarChart2,       color: "#0e7490" },
   ],
   hr: [
     { nameKey: "employees",  href: "/hr",             icon: Users,      color: "#4f46e5", exact: true },
@@ -160,7 +161,6 @@ export function SecondSidebar({
         const isActive = item.exact
           ? pathname === item.href
           : pathname === item.href || pathname.startsWith(item.href + "/");
-        const iconColor = isActive ? item.color : undefined;
         return (
           <Link
             key={item.nameKey}
