@@ -195,7 +195,7 @@ export default function POSPage() {
 
       <div className="flex-1 flex overflow-hidden flex-col lg:flex-row">
         <div className="flex-1 flex flex-col overflow-hidden p-4 gap-3 min-h-0">
-          <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
             <Search size={15} className="text-muted flex-shrink-0" />
             <input
               value={search}
@@ -219,7 +219,7 @@ export default function POSPage() {
                 className={`px-4 py-2 text-[13px] font-semibold whitespace-nowrap rounded-full transition-all flex-shrink-0 ${
                   category === c
                     ? "bg-accent text-white shadow-sm"
-                    : "bg-white border border-border text-foreground/60 hover:text-foreground hover:border-accent/40"
+                    : "bg-card border border-border text-foreground/60 hover:text-foreground hover:border-accent/40"
                 }`}
               >
                 {c}
@@ -254,7 +254,7 @@ export default function POSPage() {
           </div>
         </div>
 
-        <div className="w-full lg:w-[360px] flex-shrink-0 bg-white border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
+        <div className="w-full lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
           <CartPanel
             cart={cart}
             customerName={customerName}

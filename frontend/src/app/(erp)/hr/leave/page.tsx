@@ -20,7 +20,7 @@ export default function LeavePage() {
         <h1 className="text-2xl font-bold text-foreground">Leave Management</h1>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />Request Leave</button>
       </div>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Employee</th><th className="p-4 font-medium">Type</th><th className="p-4 font-medium">From</th><th className="p-4 font-medium">To</th><th className="p-4 font-medium">Days</th><th className="p-4 font-medium">Status</th>

@@ -17,7 +17,7 @@ export default function FinanceReportsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Finance Reports</h1>
-      <div className="bg-white border border-border p-5">
+      <div className="bg-card border border-border p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Monthly P&L</h2>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -33,7 +33,7 @@ export default function FinanceReportsPage() {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <div className="px-5 py-4 border-b border-border"><h2 className="text-sm font-bold text-foreground">Monthly Summary</h2></div>
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">

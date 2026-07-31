@@ -45,7 +45,7 @@ export default function CategoriesPage() {
 
       {/* Add form */}
       {adding && (
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <p className="text-sm font-bold text-foreground mb-4">New Category</p>
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
@@ -70,13 +70,13 @@ export default function CategoriesPage() {
       <div className="relative max-w-sm">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <input type="text" placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-white" />
+          className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-card" />
       </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((c) => (
-          <div key={c.id} className="bg-white border border-border rounded-xl p-5 hover:shadow-md hover:border-foreground/15 transition-all group">
+          <div key={c.id} className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-foreground/15 transition-all group">
             <div className="flex items-start justify-between mb-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.color}`}>
                 <Layers size={18} />

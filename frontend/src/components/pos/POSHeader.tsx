@@ -100,7 +100,7 @@ export function POSHeader({
               <ChevronDown size={12} className={`text-muted transition-transform ${showLang ? "rotate-180" : ""}`} />
             </button>
             {showLang && (
-              <div className="absolute right-0 top-full mt-1.5 bg-white border border-border shadow-lg rounded-xl overflow-hidden z-50 min-w-[140px]">
+              <div className="absolute right-0 top-full mt-1.5 bg-card border border-border shadow-lg rounded-xl overflow-hidden z-50 min-w-[140px]">
                 {locales.map((l) => (
                   <button
                     key={l.code}

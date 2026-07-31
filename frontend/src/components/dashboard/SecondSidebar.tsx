@@ -170,7 +170,7 @@ export function SecondSidebar({
               isLeft
                 ? `flex items-center gap-3 px-4 py-3 text-[14px] font-medium rounded-none transition-all border-l-[3px] ${
                     isActive
-                      ? "border-l-[3px] bg-white text-foreground"
+                      ? "border-l-[3px] bg-card text-foreground"
                       : "border-transparent text-foreground/50 hover:text-foreground hover:bg-white/70"
                   }`
                 : `flex items-center gap-2 px-3 py-3.5 text-[14px] font-medium whitespace-nowrap border-b-2 transition-all ${

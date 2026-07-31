@@ -23,7 +23,7 @@ export default function AttendancePage() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold text-foreground">Attendance</h1>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Employee</th><th className="p-4 font-medium">Date</th><th className="p-4 font-medium">Check In</th><th className="p-4 font-medium">Check Out</th><th className="p-4 font-medium">Status</th>

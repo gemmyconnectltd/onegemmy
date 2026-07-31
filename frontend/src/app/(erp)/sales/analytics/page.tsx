@@ -20,7 +20,7 @@ export default function SalesAnalyticsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Sales Analytics</h1>
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-border p-5">
+        <div className="bg-card border border-border p-5">
           <h2 className="text-sm font-bold text-foreground mb-4">Monthly Sales Trend</h2>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">
@@ -34,7 +34,7 @@ export default function SalesAnalyticsPage() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="bg-white border border-border p-5">
+        <div className="bg-card border border-border p-5">
           <h2 className="text-sm font-bold text-foreground mb-4">Top Sales Reps</h2>
           <div className="h-60">
             <ResponsiveContainer width="100%" height="100%">

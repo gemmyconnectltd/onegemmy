@@ -82,7 +82,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right - Form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-card">
         <div className="w-full max-w-[380px]">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2.5 mb-10">
@@ -180,7 +180,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-muted">Quick login</span>
+              <span className="bg-card px-3 text-xs text-muted">Quick login</span>
             </div>
           </div>
 

@@ -72,7 +72,7 @@ export default function ExpensesPage() {
           <p className="text-sm text-muted mt-1">Track and manage your shop expenses</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-white border border-border rounded-xl px-5 py-3 flex items-center gap-3">
+          <div className="bg-card border border-border rounded-xl px-5 py-3 flex items-center gap-3">
             <DollarSign size={18} className="text-accent" />
             <div>
               <p className="text-xs text-muted">Today&apos;s Expenses</p>
@@ -83,7 +83,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Quick Expense Form */}
-      <div className="bg-white rounded-xl border border-border p-5">
+      <div className="bg-card rounded-xl border border-border p-5">
         <div className="flex items-center gap-2 mb-4">
           <Receipt size={18} className="text-accent" />
           <h2 className="font-semibold text-foreground">Record Expense</h2>
@@ -114,7 +114,7 @@ export default function ExpensesPage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 bg-white"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 bg-card"
             >
               {expenseCategories.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -146,7 +146,7 @@ export default function ExpensesPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Expense History */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-border">
+        <div className="lg:col-span-2 bg-card rounded-xl border border-border">
           <div className="p-5 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Expense History</h2>
             <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function ExpensesPage() {
               <select
                 value={filterCategory ?? ""}
                 onChange={(e) => setFilterCategory(e.target.value || null)}
-                className="text-xs border border-border rounded-lg px-2 py-1.5 focus:border-primary focus:outline-none bg-white"
+                className="text-xs border border-border rounded-lg px-2 py-1.5 focus:border-primary focus:outline-none bg-card"
               >
                 <option value="">All Categories</option>
                 {expenseCategories.map((cat) => (
@@ -204,7 +204,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white rounded-xl border border-border p-5">
+        <div className="bg-card rounded-xl border border-border p-5">
           <h2 className="font-semibold text-foreground mb-4">Category Breakdown</h2>
           <div className="space-y-3">
             {categoryBreakdown.map((item) => (

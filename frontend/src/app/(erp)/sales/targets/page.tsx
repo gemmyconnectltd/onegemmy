@@ -19,7 +19,7 @@ export default function SalesTargetsPage() {
           const pct = Math.min(100, Math.round((t.achieved / t.target) * 100));
           const fmt = (v: number) => typeof v === "number" && v > 999 ? `${currencySymbol} ${v.toLocaleString()}` : v.toString();
           return (
-            <div key={t.id} className="bg-white border border-border p-5 space-y-3">
+            <div key={t.id} className="bg-card border border-border p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2"><Target size={16} className="text-accent" /><span className="text-sm font-bold text-foreground">{t.name}</span></div>
                 <span className="text-xs text-muted">{t.period}</span>

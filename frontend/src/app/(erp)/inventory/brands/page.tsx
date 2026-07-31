@@ -47,7 +47,7 @@ export default function BrandsPage() {
       </div>
 
       {adding && (
-        <div className="bg-white border border-border p-4 space-y-3">
+        <div className="bg-card border border-border p-4 space-y-3">
           <p className="text-sm font-semibold text-foreground">New Brand</p>
           <div className="grid grid-cols-2 gap-3">
             <input autoFocus type="text" placeholder="Brand name" value={newName} onChange={(e) => setNewName(e.target.value)}
@@ -62,7 +62,7 @@ export default function BrandsPage() {
         </div>
       )}
 
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <div className="p-4 border-b border-border">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -72,7 +72,7 @@ export default function BrandsPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
           {filtered.map((b) => (
-            <div key={b.id} className="bg-white p-4 flex items-center gap-3 hover:bg-surface/40 transition-colors">
+            <div key={b.id} className="bg-card p-4 flex items-center gap-3 hover:bg-surface/40 transition-colors">
               <div className="w-10 h-10 bg-foreground/5 flex items-center justify-center flex-shrink-0 text-sm font-bold text-foreground/40">
                 {b.name[0]}
               </div>

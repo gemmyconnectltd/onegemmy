@@ -21,7 +21,7 @@ export default function PayrollPage() {
         </div>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><DollarSign size={16} />Run Payroll</button>
       </div>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Employee</th><th className="p-4 font-medium text-right">Salary</th><th className="p-4 font-medium text-right">Bonus</th><th className="p-4 font-medium text-right">Deductions</th><th className="p-4 font-medium text-right">Net Pay</th><th className="p-4 font-medium">Status</th>

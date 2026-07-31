@@ -20,7 +20,7 @@ export default function SalesReturnsPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold text-foreground">Sales Returns</h1>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Return ID</th><th className="p-4 font-medium">Order</th><th className="p-4 font-medium">Customer</th><th className="p-4 font-medium">Reason</th><th className="p-4 font-medium">Date</th><th className="p-4 font-medium">Status</th><th className="p-4 font-medium text-right">Amount</th>

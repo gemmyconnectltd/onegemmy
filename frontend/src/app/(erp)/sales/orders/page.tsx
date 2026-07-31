@@ -28,12 +28,12 @@ export default function SalesOrdersPage() {
         <h1 className="text-2xl font-bold text-foreground">Orders</h1>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />New Order</button>
       </div>
-      <div className="bg-white border border-border p-3">
+      <div className="bg-card border border-border p-3">
         <div className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search orders..." className="w-full pl-9 pr-4 py-2 border border-border text-sm focus:border-accent focus:outline-none" />
         </div>
       </div>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Order ID</th><th className="p-4 font-medium">Customer</th><th className="p-4 font-medium">Items</th><th className="p-4 font-medium">Date</th><th className="p-4 font-medium">Status</th><th className="p-4 font-medium text-right">Total</th>

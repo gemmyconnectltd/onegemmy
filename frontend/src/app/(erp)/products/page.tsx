@@ -126,7 +126,7 @@ export default function ProductsPage() {
       </div>
 
       <div
-        className="bg-white rounded-xl p-4"
+        className="bg-card rounded-xl p-4"
         style={{ border: "1px solid #e8e4de" }}
       >
         <div className="relative max-w-md">
@@ -149,7 +149,7 @@ export default function ProductsPage() {
       </div>
 
       <div
-        className="bg-white rounded-xl overflow-hidden"
+        className="bg-card rounded-xl overflow-hidden"
         style={{ border: "1px solid #e8e4de" }}
       >
         <div className="overflow-x-auto">
@@ -323,7 +323,7 @@ export default function ProductsPage() {
         >
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="relative bg-white rounded-xl w-full max-w-lg mx-4 p-6 shadow-xl"
+            className="relative bg-card rounded-xl w-full max-w-lg mx-4 p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
@@ -438,7 +438,7 @@ export default function ProductsPage() {
                         category: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none bg-white"
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none bg-card"
                     style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
                   >
                     <option value="">Select category</option>
@@ -521,7 +521,7 @@ export default function ProductsPage() {
         >
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="relative bg-white rounded-xl w-full max-w-sm mx-4 p-6 shadow-xl"
+            className="relative bg-card rounded-xl w-full max-w-sm mx-4 p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h2

@@ -115,7 +115,7 @@ export default function InvoicesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-white border border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${s.color}15` }}>
@@ -130,7 +130,7 @@ export default function InvoicesPage() {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-1 bg-white border border-border p-1">
+        <div className="flex items-center gap-1 bg-card border border-border p-1">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -143,7 +143,7 @@ export default function InvoicesPage() {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 bg-white border border-border px-3 py-2 w-56">
+        <div className="ml-auto flex items-center gap-2 bg-card border border-border px-3 py-2 w-56">
           <Search size={14} className="text-muted flex-shrink-0" />
           <input
             value={search}
@@ -155,7 +155,7 @@ export default function InvoicesPage() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-border p-12 flex flex-col items-center justify-center text-center gap-3">
+        <div className="bg-card border border-border p-12 flex flex-col items-center justify-center text-center gap-3">
           <div className="w-12 h-12 flex items-center justify-center bg-accent/10 rounded-full">
             <FileText size={20} className="text-accent" />
           </div>
@@ -174,7 +174,7 @@ export default function InvoicesPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white border border-border overflow-x-auto">
+        <div className="bg-card border border-border overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
@@ -276,7 +276,7 @@ export default function InvoicesPage() {
 
       {viewing && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setViewing(null)}>
-          <div className="bg-white border border-border w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-border">
               <div className="flex items-start justify-between gap-3">
                 <div>

@@ -71,7 +71,7 @@ export default function InventoryOverviewPage() {
           { label: "Low Stock",        value: String(lowCount),         sub: "Need reorder",       icon: AlertTriangle, color: "#f59e0b", change: null },
           { label: "Out of Stock",     value: String(outCount),         sub: "Immediate action",   icon: XCircle,       color: "#ef4444", change: null },
         ].map((s) => (
-          <div key={s.label} className="bg-white border border-border p-5 relative overflow-hidden group hover:shadow-sm transition-shadow">
+          <div key={s.label} className="bg-card border border-border p-5 relative overflow-hidden group hover:shadow-sm transition-shadow">
             <div className="absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: s.color }} />
             <div className="flex items-start justify-between mb-3">
               <div className="w-9 h-9 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${s.color}12` }}>
@@ -94,7 +94,7 @@ export default function InventoryOverviewPage() {
       <div className="grid lg:grid-cols-3 gap-4">
 
         {/* Stock health */}
-        <div className="bg-white border border-border p-5">
+        <div className="bg-card border border-border p-5">
           <p className="text-sm font-bold text-foreground mb-4">Stock Health</p>
           <div className="space-y-3">
             {[
@@ -122,7 +122,7 @@ export default function InventoryOverviewPage() {
         </div>
 
         {/* Top products by value */}
-        <div className="lg:col-span-2 bg-white border border-border p-5">
+        <div className="lg:col-span-2 bg-card border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm font-bold text-foreground">Top Products by Value</p>
             <span className="text-[11px] text-muted">At cost price</span>
@@ -163,7 +163,7 @@ export default function InventoryOverviewPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3">
           <div className="flex-1 relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />

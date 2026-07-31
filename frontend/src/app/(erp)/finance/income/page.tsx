@@ -23,7 +23,7 @@ export default function IncomePage() {
         </div>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />Add Income</button>
       </div>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Source</th><th className="p-4 font-medium">Category</th><th className="p-4 font-medium">Date</th><th className="p-4 font-medium text-right">Amount</th>

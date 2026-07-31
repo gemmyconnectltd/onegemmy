@@ -17,7 +17,7 @@ export function InventorySidebar() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center gap-1 border-b border-border bg-white px-4 overflow-x-auto">
+    <nav className="flex items-center gap-1 border-b border-border bg-card px-4 overflow-x-auto">
       {sections.map((s) => {
         const isActive = s.exact
           ? pathname === s.href

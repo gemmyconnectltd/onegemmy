@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { AppConfigProvider } from "@/lib/appConfig";
@@ -80,7 +81,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <Script id="theme-init" strategy="beforeInteractive">
+        {`(function(){try{if(localStorage.getItem("app_theme")==="dark")document.documentElement.classList.add("dark");}catch(e){}})();`}
+      </Script>
       <body className="min-h-full flex flex-col">
         <AppConfigProvider><AuthProvider>{children}</AuthProvider></AppConfigProvider>
       </body>

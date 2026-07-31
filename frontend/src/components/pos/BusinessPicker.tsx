@@ -12,7 +12,7 @@ interface BusinessPickerProps {
 
 export function BusinessPicker({ current, onSelect, onClose }: BusinessPickerProps) {
   return (
-    <div className="border-t border-border bg-white px-4 py-3">
+    <div className="border-t border-border bg-card px-4 py-3">
       <div className="flex items-center gap-1.5 mb-2.5 text-[11px] font-semibold text-muted uppercase tracking-wide">
         <Store size={12} /> Switch business type
       </div>

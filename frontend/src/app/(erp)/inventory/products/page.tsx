@@ -54,7 +54,7 @@ export default function ProductsPage() {
       </div>
 
       {/* Table card */}
-      <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         {/* Toolbar */}
         <div className="px-5 py-4 border-b border-border flex items-center gap-3">
           <div className="relative flex-1 max-w-xs">
@@ -71,7 +71,7 @@ export default function ProductsPage() {
             {(["all", "active", "inactive"] as const).map((f) => (
               <button key={f} onClick={() => setStatusFilter(f)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${
-                  statusFilter === f ? "bg-white text-foreground shadow-sm" : "text-muted hover:text-foreground"
+                  statusFilter === f ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"
                 }`}
               >{f}</button>
             ))}
@@ -139,7 +139,7 @@ export default function ProductsPage() {
                     {openMenu === p.id && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
-                        <div className="absolute right-4 top-full mt-1 w-36 bg-white border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
+                        <div className="absolute right-4 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
                           <button className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <Edit2 size={13} className="text-muted" /> Edit
                           </button>

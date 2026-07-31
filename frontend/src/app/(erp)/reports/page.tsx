@@ -85,13 +85,13 @@ export default function ReportsPage() {
           <BarChart3 className="h-6 w-6 text-accent" />
           <h1 className="text-2xl font-bold text-foreground">Reports</h1>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50">
+        <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50">
           <Download className="h-4 w-4" />
           Export
         </button>
       </div>
 
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1">
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
         {periods.map((period) => (
           <button
             key={period}
@@ -109,7 +109,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted">Total Sales</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50">
@@ -121,7 +121,7 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted">
               Total Expenses
@@ -135,7 +135,7 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted">Net Profit</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
@@ -147,7 +147,7 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted">
               Profit Margin
@@ -163,7 +163,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-white p-5 lg:col-span-2">
+        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
           <h2 className="mb-4 text-lg font-semibold text-foreground">
             Sales by Day
           </h2>
@@ -201,7 +201,7 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-white p-5">
+        <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="mb-4 text-lg font-semibold text-foreground">
             Expenses by Category
           </h2>
@@ -228,7 +228,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-white p-5">
+      <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="mb-4 text-lg font-semibold text-foreground">
           Top Selling Products
         </h2>

@@ -17,7 +17,7 @@ export default function EmailsPage() {
         <h1 className="text-2xl font-bold text-foreground">Emails</h1>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />Compose</button>
       </div>
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">To</th><th className="p-4 font-medium">Subject</th><th className="p-4 font-medium">Date</th><th className="p-4 font-medium">Status</th>

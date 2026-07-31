@@ -1,7 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import { currencies, locales, businessTypes, businessThemes, type LocaleCode, type BusinessType } from "./config";
+import {
+  currencies, locales, businessTypes, businessThemes, businessThemesDark,
+  type LocaleCode, type BusinessType, type Theme,
+} from "./config";
 
 // All English base strings — single source of truth
 const BASE_STRINGS: Record<string, string> = {
@@ -30,6 +33,9 @@ const LOCALE_LANG_MAP: Record<LocaleCode, string> = {
   rw: "rw",
   sw: "sw",
 };
+
+const VALID_LOCALES: LocaleCode[] = ["en", "rw", "sw"];
+const VALID_BUSINESS_TYPES: BusinessType[] = ["retail", "restaurant", "service"];
 
 async function fetchTranslations(targetLang: string): Promise<Record<string, string>> {
   const cacheKey = `translations_${targetLang}`;
@@ -61,16 +67,21 @@ async function fetchTranslations(targetLang: string): Promise<Record<string, str
   }
 }
 
-function applyTheme(type: BusinessType) {
-  const theme = businessThemes[type];
+function getStored(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  return window.localStorage.getItem(key) ?? fallback;
+}
+
+function applyTheme(type: BusinessType, theme: Theme) {
+  const palette = theme === "dark" ? businessThemesDark[type] : businessThemes[type];
   const root = document.documentElement;
-  root.style.setProperty("--background", theme.background);
-  root.style.setProperty("--surface", theme.surface);
-  root.style.setProperty("--border", theme.border);
-  root.style.setProperty("--accent", theme.accent);
-  root.style.setProperty("--primary", theme.primary);
-  root.style.setProperty("--foreground", theme.foreground);
-  root.style.setProperty("--muted", theme.muted);
+  root.style.setProperty("--background", palette.background);
+  root.style.setProperty("--surface", palette.surface);
+  root.style.setProperty("--border", palette.border);
+  root.style.setProperty("--accent", palette.accent);
+  root.style.setProperty("--primary", palette.primary);
+  root.style.setProperty("--foreground", palette.foreground);
+  root.style.setProperty("--muted", palette.muted);
 }
 
 interface AppConfig {
@@ -78,11 +89,13 @@ interface AppConfig {
   currencySymbol: string;
   locale: LocaleCode;
   businessType: BusinessType;
+  theme: Theme;
   translating: boolean;
   t: (key: string) => string;
   setCurrency: (code: string) => void;
   setLocale: (code: LocaleCode) => void;
   setBusinessType: (type: BusinessType) => void;
+  setTheme: (theme: Theme) => void;
   currencies: typeof currencies;
   locales: typeof locales;
   businessTypes: typeof businessTypes;
@@ -91,33 +104,47 @@ interface AppConfig {
 const AppConfigContext = createContext<AppConfig | null>(null);
 
 export function AppConfigProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState("RWF");
-  const [locale, setLocaleState] = useState<LocaleCode>("en");
-  const [businessType, setBusinessTypeState] = useState<BusinessType>("retail");
+  const [currency, setCurrencyState] = useState(() => getStored("app_currency", "RWF"));
+  const [locale, setLocaleState] = useState<LocaleCode>(() => {
+    const l = getStored("app_locale", "en");
+    return (VALID_LOCALES.includes(l as LocaleCode) ? l : "en") as LocaleCode;
+  });
+  const [businessType, setBusinessTypeState] = useState<BusinessType>(() => {
+    const b = getStored("app_business_type", "retail");
+    return (VALID_BUSINESS_TYPES.includes(b as BusinessType) ? b : "retail") as BusinessType;
+  });
+  const [theme, setThemeState] = useState<Theme>(() => {
+    const t = getStored("app_theme", "light");
+    return t === "dark" ? "dark" : "light";
+  });
   const [strings, setStrings] = useState<Record<string, string>>(BASE_STRINGS);
   const [translating, setTranslating] = useState(false);
 
   const loadTranslations = useCallback(async (loc: LocaleCode) => {
-    if (loc === "en") { setStrings(BASE_STRINGS); return; }
+    if (loc === "en") {
+      setStrings(BASE_STRINGS);
+      return;
+    }
     setTranslating(true);
     const result = await fetchTranslations(LOCALE_LANG_MAP[loc]);
     setStrings(result);
     setTranslating(false);
   }, []);
 
+  // Apply the theme palette (DOM side effects only — no setState).
   useEffect(() => {
-    const c = localStorage.getItem("app_currency");
-    const l = localStorage.getItem("app_locale") as LocaleCode | null;
-    const b = localStorage.getItem("app_business_type") as BusinessType | null;
-    if (c) setCurrencyState(c);
-    if (b && ["retail", "restaurant", "service"].includes(b)) {
-      setBusinessTypeState(b);
-      applyTheme(b);
-    }
-    const initLocale = (l && ["en", "rw", "sw"].includes(l)) ? l as LocaleCode : "en";
-    setLocaleState(initLocale);
-    loadTranslations(initLocale);
-  }, [loadTranslations]);
+    applyTheme(businessType, theme);
+  }, [businessType, theme]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
+
+  // Load translations after mount (deferred so no synchronous setState in effect).
+  useEffect(() => {
+    const id = window.setTimeout(() => { loadTranslations(locale); }, 0);
+    return () => window.clearTimeout(id);
+  }, [locale, loadTranslations]);
 
   const setCurrency = (code: string) => {
     setCurrencyState(code);
@@ -127,13 +154,16 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   const setLocale = (code: LocaleCode) => {
     setLocaleState(code);
     localStorage.setItem("app_locale", code);
-    loadTranslations(code);
   };
 
   const setBusinessType = (type: BusinessType) => {
     setBusinessTypeState(type);
     localStorage.setItem("app_business_type", type);
-    applyTheme(type);
+  };
+
+  const setTheme = (next: Theme) => {
+    setThemeState(next);
+    localStorage.setItem("app_theme", next);
   };
 
   const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? currency;
@@ -141,8 +171,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppConfigContext.Provider value={{
-      currency, currencySymbol, locale, businessType, translating,
-      t, setCurrency, setLocale, setBusinessType,
+      currency, currencySymbol, locale, businessType, theme, translating,
+      t, setCurrency, setLocale, setBusinessType, setTheme,
       currencies, locales, businessTypes,
     }}>
       {children}

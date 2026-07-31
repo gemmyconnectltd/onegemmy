@@ -24,7 +24,7 @@ export default function AccountsPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {accounts.map((a) => (
-          <div key={a.id} className="bg-white border border-border p-5 space-y-3">
+          <div key={a.id} className="bg-card border border-border p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="w-9 h-9 bg-accent/10 flex items-center justify-center"><CreditCard size={16} className="text-accent" /></div>
               <span className="text-xs font-medium text-muted bg-surface px-2 py-0.5">{a.type}</span>

@@ -9,7 +9,7 @@ export function SupportFab() {
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
       {open && (
-        <div className="bg-white border border-border shadow-2xl rounded-2xl w-72 overflow-hidden">
+        <div className="bg-card border border-border shadow-2xl rounded-2xl w-72 overflow-hidden">
           <div className="px-4 py-3 bg-accent text-white flex items-center gap-2.5">
             <LifeBuoy size={16} className="flex-shrink-0" />
             <div>

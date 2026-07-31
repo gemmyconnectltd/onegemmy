@@ -46,7 +46,7 @@ export default function UnitsPage() {
       </div>
 
       {adding && (
-        <div className="bg-white border border-border p-4 space-y-3">
+        <div className="bg-card border border-border p-4 space-y-3">
           <p className="text-sm font-semibold text-foreground">New Unit</p>
           <div className="grid grid-cols-3 gap-3">
             <input autoFocus type="text" placeholder="Unit name (e.g. Piece)" value={newName} onChange={(e) => setNewName(e.target.value)}
@@ -54,7 +54,7 @@ export default function UnitsPage() {
             <input type="text" placeholder="Abbreviation (e.g. pcs)" value={newAbbr} onChange={(e) => setNewAbbr(e.target.value)}
               className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
             <select value={newType} onChange={(e) => setNewType(e.target.value)}
-              className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none bg-white">
+              className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none bg-card">
               {types.map((t) => <option key={t}>{t}</option>)}
             </select>
           </div>
@@ -67,7 +67,7 @@ export default function UnitsPage() {
 
       <div className="space-y-4">
         {grouped.map((g) => (
-          <div key={g.type} className="bg-white border border-border">
+          <div key={g.type} className="bg-card border border-border">
             <div className="px-4 py-3 border-b border-border flex items-center gap-2">
               <Ruler size={14} className="text-muted" />
               <p className="text-xs font-semibold text-muted uppercase tracking-wider">{g.type}</p>

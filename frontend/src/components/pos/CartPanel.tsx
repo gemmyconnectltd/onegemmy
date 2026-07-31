@@ -20,7 +20,7 @@ export function CartPanel({
   onCustomerChange, onUpdateQty, onRemoveItem, onClear, onHold,
 }: CartPanelProps) {
   return (
-    <div className="w-full flex-1 min-h-0 bg-white border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
+    <div className="w-full flex-1 min-h-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col max-h-[55vh] lg:max-h-none">
       <div className="px-5 py-3.5 border-b border-border flex items-center gap-2 flex-shrink-0">
         <ShoppingCart size={16} className="text-accent" />
         <span className="font-bold text-[15px] text-foreground">Order</span>

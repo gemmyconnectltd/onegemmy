@@ -89,7 +89,7 @@ export default function DashboardPage() {
           { label: "Today's Profit", value: fmtRWF(todayProfit), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Available", value: fmtRWF(cashAvailable), icon: DollarSign, color: "#3b82f6", change: null, up: true },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white border border-border p-4 relative overflow-hidden">
+          <div key={stat.label} className="bg-card border border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: stat.color }} />
             <div className="flex items-center justify-between mb-2">
               <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${stat.color}10` }}>
@@ -121,7 +121,7 @@ export default function DashboardPage() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white border border-border">
+        <div className="lg:col-span-2 bg-card border border-border">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-foreground">Sales This Week</h2>
@@ -171,7 +171,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white border border-border">
+          <div className="bg-card border border-border">
             <div className="px-5 py-4 border-b border-border">
               <h2 className="text-sm font-bold text-foreground">Quick Actions</h2>
             </div>
@@ -193,7 +193,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-white border border-border">
+          <div className="bg-card border border-border">
             <div className="px-5 py-4 border-b border-border">
               <h2 className="text-sm font-bold text-foreground">Low Stock</h2>
             </div>
@@ -212,7 +212,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground">Recent Sales</h2>
           <a href="/sales" className="text-[11px] font-semibold text-accent hover:underline">View all</a>

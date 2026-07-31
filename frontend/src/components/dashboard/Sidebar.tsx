@@ -88,7 +88,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
         />
       )}
       <aside
-        className={`fixed top-0 left-0 h-screen w-[88px] bg-white border-r border-border z-50 flex flex-col select-none transition-transform duration-200 ${
+        className={`fixed top-0 left-0 h-screen w-[88px] bg-card border-r border-border z-50 flex flex-col select-none transition-transform duration-200 ${
           expanded ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
@@ -198,7 +198,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
             {/* User card */}
             {tooltip === "user" && (
               <div className="absolute left-[80px] bottom-0 z-50">
-                <div className="bg-white border border-border shadow-xl rounded-xl p-3 w-48">
+                <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-48">
                   <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
                       {initials}
@@ -216,7 +216,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
                     Sign out
                   </button>
                 </div>
-                <div className="absolute left-0 bottom-4 -translate-x-1 w-1.5 h-1.5 bg-white border-l border-b border-border rotate-45" />
+                <div className="absolute left-0 bottom-4 -translate-x-1 w-1.5 h-1.5 bg-card border-l border-b border-border rotate-45" />
               </div>
             )}
           </div>

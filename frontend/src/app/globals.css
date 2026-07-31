@@ -13,6 +13,7 @@
   --accent: #6f1a07;
   --foreground: #2b2118;
   --border: #e8e4de;
+  --card: #ffffff;
   --sidebar: #111111;
   --sidebar-hover: #1e1e1e;
   --sidebar-text: rgba(255,255,255,0.55);
@@ -25,6 +26,7 @@
   --foreground: #ededed;
   --muted: #6b6b6b;
   --border: #262626;
+  --card: #1f1e1b;
   --sidebar: #0a0a0a;
   --sidebar-hover: #1a1a1a;
   --sidebar-text: rgba(255,255,255,0.45);
@@ -39,6 +41,7 @@
   --color-accent: var(--accent);
   --color-foreground: var(--foreground);
   --color-border: var(--border);
+  --color-card: var(--card);
   --color-sidebar: var(--sidebar);
   --color-sidebar-hover: var(--sidebar-hover);
   --font-sans: var(--font-geist-sans);

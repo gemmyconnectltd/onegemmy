@@ -130,7 +130,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Search */}
-      <div className="bg-white border border-border p-3">
+      <div className="bg-card border border-border p-3">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
@@ -144,7 +144,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Customer Table */}
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <table className="w-full">
           <thead>
             <tr className="text-left text-xs text-muted border-b border-border">
@@ -203,7 +203,7 @@ export default function CustomersPage() {
 
       {/* Expanded Purchase History */}
       {selectedCustomer && selectedCustomer.purchases.length > 0 && (
-        <div className="bg-white border border-border p-4">
+        <div className="bg-card border border-border p-4">
           <div className="flex items-center gap-2 mb-3">
             <ShoppingCart size={16} className="text-primary" />
             <h2 className="text-sm font-bold text-foreground">
@@ -239,7 +239,7 @@ export default function CustomersPage() {
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddForm(false)} />
-          <div className="relative bg-white border border-border w-full max-w-md p-6 space-y-4">
+          <div className="relative bg-card border border-border w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users size={18} className="text-primary" />

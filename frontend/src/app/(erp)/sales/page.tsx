@@ -36,7 +36,7 @@ export default function SalesPage() {
 
       <div className="grid grid-cols-5 gap-3">
         {stages.map((stage) => (
-          <div key={stage.name} className="bg-white rounded-xl border border-border p-4">
+          <div key={stage.name} className="bg-card rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${stage.color}`} />
@@ -48,7 +48,7 @@ export default function SalesPage() {
         ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-border">
+      <div className="bg-card rounded-xl border border-border">
         <div className="p-4 border-b border-border flex items-center gap-3">
           <div className="flex-1 relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />

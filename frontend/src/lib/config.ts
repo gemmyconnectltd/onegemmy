@@ -1,4 +1,5 @@
 export type BusinessType = "retail" | "restaurant" | "service";
+export type Theme = "light" | "dark";
 
 export const businessTypes: { code: BusinessType; name: string; icon: string }[] = [
   { code: "retail",     name: "Retail Shop",   icon: "🛍️" },
@@ -6,10 +7,12 @@ export const businessTypes: { code: BusinessType; name: string; icon: string }[]
   { code: "service",    name: "Service",        icon: "🔧" },
 ];
 
-export const businessThemes: Record<BusinessType, {
+export type BusinessTheme = {
   background: string; surface: string; border: string;
   accent: string; primary: string; foreground: string; muted: string;
-}> = {
+};
+
+export const businessThemes: Record<BusinessType, BusinessTheme> = {
   retail: {
     background: "#ffffff", surface: "#f8f8f6", border: "#e8e4de",
     accent: "#6f1a07",    primary: "#af9164",  foreground: "#2b2118", muted: "#7a7d7e",
@@ -21,6 +24,21 @@ export const businessThemes: Record<BusinessType, {
   service: {
     background: "#f8faff", surface: "#eef2ff", border: "#dde3f5",
     accent: "#1d4ed8",    primary: "#3b82f6",  foreground: "#0f172a", muted: "#64748b",
+  },
+};
+
+export const businessThemesDark: Record<BusinessType, BusinessTheme> = {
+  retail: {
+    background: "#141412", surface: "#1e1d1a", border: "#302d28",
+    accent: "#d0704f",    primary: "#d8b98a",  foreground: "#ededed", muted: "#8f8f8f",
+  },
+  restaurant: {
+    background: "#171310", surface: "#211a14", border: "#3a2d21",
+    accent: "#f2a13c",    primary: "#e8c884",  foreground: "#f5efe7", muted: "#9c8f7f",
+  },
+  service: {
+    background: "#0f1420", surface: "#171e2e", border: "#2a3752",
+    accent: "#5f8dff",    primary: "#7aa2ff",  foreground: "#e8edf7", muted: "#7d8aa3",
   },
 };
 

@@ -91,7 +91,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Right - Form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-white">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-card">
         <div className="w-full max-w-[380px]">
           <div className="lg:hidden flex items-center gap-2.5 mb-10">
             <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">

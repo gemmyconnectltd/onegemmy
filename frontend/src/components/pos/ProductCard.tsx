@@ -22,7 +22,7 @@ export function ProductCard({ product, inCartQty, bumping, currencySymbol, fmt, 
     <button
       onClick={() => onAdd(product)}
       disabled={outOfStock}
-      className={`bg-white border-2 rounded-2xl p-4 text-left transition-all group relative hover:shadow-md active:scale-[0.97] ${
+      className={`bg-card border-2 rounded-2xl p-4 text-left transition-all group relative hover:shadow-md active:scale-[0.97] ${
         outOfStock
           ? "opacity-40 cursor-not-allowed"
           : inCartQty > 0

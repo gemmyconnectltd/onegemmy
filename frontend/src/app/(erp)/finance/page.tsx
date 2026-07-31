@@ -43,7 +43,7 @@ export default function FinancePage() {
 
       <Link
         href="/finance/invoices"
-        className="flex items-center gap-3 bg-white border border-border border-l-4 px-4 py-3 hover:bg-surface/50 transition-colors"
+        className="flex items-center gap-3 bg-card border border-border border-l-4 px-4 py-3 hover:bg-surface/50 transition-colors"
         style={{ borderLeftColor: "#b45309" }}
       >
         <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#b4530915" }}>
@@ -73,7 +73,7 @@ export default function FinancePage() {
           { label: "Net Profit",     value: fmt(870000),  icon: DollarSign,   color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: "#3b82f6", change: null,   up: true },
         ].map((s) => (
-          <div key={s.label} className="bg-white border border-border p-4 relative overflow-hidden">
+          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
             <div className="flex items-center justify-between mb-2">
               <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -91,7 +91,7 @@ export default function FinancePage() {
         ))}
       </div>
 
-      <div className="bg-white border border-border p-5">
+      <div className="bg-card border border-border p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Income vs Expenses (6 months)</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -117,7 +117,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      <div className="bg-white border border-border">
+      <div className="bg-card border border-border">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="text-sm font-bold text-foreground">Recent Transactions</h2>
         </div>

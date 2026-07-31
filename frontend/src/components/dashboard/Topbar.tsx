@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store } from "lucide-react";
+import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
@@ -19,13 +19,13 @@ function getBreadcrumb(pathname: string) {
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { user } = useAuth();
-  const { translating, locale, setLocale, locales } = useAppConfig();
+  const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
   const [showLang, setShowLang] = useState(false);
   const breadcrumb = getBreadcrumb(pathname);
 
   return (
-    <header className="h-14 bg-white border-b border-border flex items-center px-4 gap-4 sticky top-0 z-30">
+    <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-4 sticky top-0 z-30">
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
@@ -82,6 +82,15 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-accent rounded-full" />
       </button>
 
+      {/* Theme toggle */}
+      <button
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
+      >
+        {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+      </button>
+
       {/* Language switcher */}
       <div className="relative">
         <button
@@ -92,7 +101,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <Globe size={16} />
         </button>
         {showLang && (
-          <div className="absolute right-0 top-full mt-1 bg-white border border-border shadow-lg z-50 min-w-[150px]">
+          <div className="absolute right-0 top-full mt-1 bg-card border border-border shadow-lg z-50 min-w-[150px]">
             {locales.map((l) => (
               <button
                 key={l.code}

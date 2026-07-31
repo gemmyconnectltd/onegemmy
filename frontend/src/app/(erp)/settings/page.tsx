@@ -32,7 +32,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Shop Information */}
-      <div className="rounded-xl border border-border bg-white p-5 space-y-4">
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2 text-foreground">
           <Store className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">Shop Information</h2>
@@ -97,7 +97,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Currency */}
-      <div className="rounded-xl border border-border bg-white p-5 space-y-3">
+      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
         <div className="flex items-center gap-2 text-foreground">
           <Info className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">Currency</h2>
@@ -112,7 +112,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Data Backup */}
-      <div className="rounded-xl border border-border bg-white p-5 space-y-3">
+      <div className="rounded-xl border border-border bg-card p-5 space-y-3">
         <div className="flex items-center gap-2 text-foreground">
           <Download className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">Data Backup</h2>
@@ -125,7 +125,7 @@ export default function SettingsPage() {
       </div>
 
       {/* About */}
-      <div className="rounded-xl border border-border bg-white p-5 space-y-2">
+      <div className="rounded-xl border border-border bg-card p-5 space-y-2">
         <div className="flex items-center gap-2 text-foreground">
           <Shield className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">About</h2>
