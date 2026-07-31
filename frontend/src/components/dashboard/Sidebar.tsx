@@ -107,7 +107,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <div key={item.name} className={`relative w-full flex justify-center ${isActive ? "px-2" : ""}`}>
-                {isActive && <ActiveIndicator color={item.color} />}
+                {/* {isActive && <ActiveIndicator color={item.color} />} */}
                 <Link
                   href={item.href}
                   onClick={handleNavClick}
@@ -116,22 +116,22 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
                   onFocus={showTooltip(item.name)}
                   onBlur={hideTooltip}
                   aria-current={isActive ? "page" : undefined}
-                  className={`group relative flex flex-col items-center justify-center gap-[6px] py-[11px] rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                  className={`group relative flex flex-col items-center justify-center gap-[6px] py-[11px]  transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     isActive
                       ? "w-full"
                       : "hover:bg-surface w-[66px]"
                   }`}
-                  style={isActive ? { backgroundColor: `${item.color}15` } : undefined}
+                  style={isActive ? { backgroundColor: `${item.color}` } : undefined}
                 >
                   <item.icon
                     size={22}
                     strokeWidth={isActive ? 2.2 : 1.6}
-                    style={{ color: item.color }}
+                    style={{ color: isActive ? "#fff" : item.color }}
                     className="transition-transform duration-150 group-hover:scale-110"
                   />
                   <span
                     className="text-[12px] font-semibold leading-none tracking-wide"
-                    style={{ color: isActive ? item.color : "#94a3b8" }}
+                    style={{ color: isActive ? "#fff" : "#94a3b8" }}
                   >
                     {item.name}
                   </span>
@@ -160,15 +160,15 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
                   ? "w-full"
                   : "hover:bg-surface w-[66px]"
               }`}
-              style={pathname.startsWith("/settings") ? { backgroundColor: "#4f46e515" } : undefined}
+              style={pathname.startsWith("/settings") ? { backgroundColor: "#4f46e5" } : undefined}
             >
               <Settings
                 size={22}
                 strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.6}
-                style={{ color: "#4f46e5" }}
+                style={{ color: pathname.startsWith("/settings") ? "#fff" : "#4f46e5" }}
                 className="transition-transform duration-150 group-hover:scale-110"
               />
-              <span className="text-[12px] font-semibold leading-none tracking-wide" style={{ color: pathname.startsWith("/settings") ? "#4f46e5" : "#94a3b8" }}>Settings</span>
+              <span className="text-[12px] font-semibold leading-none tracking-wide" style={{ color: pathname.startsWith("/settings") ? "#fff" : "#94a3b8" }}>Settings</span>
             </Link>
             {tooltip === "Settings" && !pathname.startsWith("/settings") && (
               <Tooltip label="Settings" />
@@ -188,7 +188,7 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
               aria-haspopup="true"
               aria-expanded={tooltip === "user"}
             >
-              <div className="w-9 h-9 rounded-full bg-accent/15 border-2 border-accent/20 flex items-center justify-center text-[12px] font-bold text-accent">
+              <div className="w-9 h-9 rounded-full bg-accent border-2 border-accent/20 flex items-center justify-center text-[12px] font-bold text-accent">
                 {initials}
               </div>
               <span className="text-[11px] font-semibold leading-none text-foreground/40 tracking-wide max-w-[64px] truncate text-center">
