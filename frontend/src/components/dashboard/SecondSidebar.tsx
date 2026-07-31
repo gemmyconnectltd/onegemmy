@@ -132,28 +132,52 @@ export function SecondSidebar({
     <nav
       className={
         isLeft
-          ? "flex flex-col w-56 flex-shrink-0 border-r border-border bg-surface overflow-y-auto"
-          : "flex items-center border-b border-border bg-surface px-3 overflow-x-auto flex-shrink-0"
+          ? "flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto"
+          : "flex items-center border-b border-border bg-surface px-2 overflow-x-auto flex-shrink-0"
       }
     >
-      {/* Toggle button */}
+      {/* Toggle + module header */}
       {showToggle && (
         <>
-          <button
-            type="button"
-            onClick={toggle}
-            title={toggleLabel}
-            aria-label={toggleLabel}
-            className={
-              isLeft
-                ? "flex items-center gap-2.5 px-4 py-3 text-[12px] font-medium text-foreground/40 hover:text-foreground hover:bg-surface transition-colors w-full flex-shrink-0"
-                : "flex items-center justify-center flex-shrink-0 w-9 h-9 mr-1 rounded-lg text-foreground/35 hover:text-foreground hover:bg-surface transition-colors"
-            }
-          >
-            <ToggleIcon size={14} strokeWidth={1.8} />
-            {isLeft && <span>Collapse</span>}
-          </button>
-          <div className={isLeft ? "mx-4 mb-1 border-t border-border" : "w-px h-5 bg-border mx-1 flex-shrink-0"} />
+          {isLeft ? (
+            <>
+              <div className="hidden lg:flex items-center justify-between h-[46px] px-3 flex-shrink-0 border-b border-border">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground/50">{t(module)}</span>
+                <button
+                  type="button"
+                  onClick={toggle}
+                  title={toggleLabel}
+                  aria-label={toggleLabel}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
+                >
+                  <PanelTop size={14} strokeWidth={1.8} />
+                </button>
+              </div>
+              <div className="hidden lg:block mx-3 mb-1 border-t border-border" />
+              <button
+                type="button"
+                onClick={toggle}
+                title={toggleLabel}
+                aria-label={toggleLabel}
+                className="lg:hidden flex items-center justify-center w-9 h-9 m-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
+              >
+                <ToggleIcon size={14} strokeWidth={1.8} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={toggle}
+                title={toggleLabel}
+                aria-label={toggleLabel}
+                className="flex items-center justify-center flex-shrink-0 w-9 h-9 mr-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
+              >
+                <ToggleIcon size={14} strokeWidth={1.8} />
+              </button>
+              <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+            </>
+          )}
         </>
       )}
 
@@ -168,34 +192,26 @@ export function SecondSidebar({
             aria-current={isActive ? "page" : undefined}
             className={
               isLeft
-                ? `flex items-center gap-3 px-4 py-3 text-[14px] font-medium rounded-none transition-all border-l-[3px] ${
+                ? `flex items-center gap-2.5 px-3 py-2 lg:mx-2 lg:px-2.5 text-sm font-semibold whitespace-nowrap lg:whitespace-normal rounded-lg transition-all flex-shrink-0 lg:flex-shrink ${
                     isActive
-                      ? "border-l-[3px] bg-card text-foreground"
-                      : "border-transparent text-foreground/50 hover:text-foreground hover:bg-white/70"
+                      ? "text-white shadow-sm"
+                      : "text-foreground/55 hover:bg-surface hover:text-foreground"
                   }`
-                : `flex items-center gap-2 px-3 py-3.5 text-[14px] font-medium whitespace-nowrap border-b-2 transition-all ${
+                : `flex items-center gap-2 px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-lg transition-all flex-shrink-0 ${
                     isActive
-                      ? "border-b-2 text-foreground"
-                      : "border-transparent text-foreground/50 hover:text-foreground hover:border-border"
+                      ? "text-white shadow-sm"
+                      : "text-foreground/55 hover:bg-surface hover:text-foreground"
                   }`
             }
-            style={isActive ? { borderColor: item.color } : undefined}
+            style={isActive ? { backgroundColor: item.color } : undefined}
           >
-            <span
-              className={
-                isLeft
-                  ? "flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 transition-colors"
-                  : "flex-shrink-0"
-              }
-              style={isLeft ? { backgroundColor: isActive ? `${item.color}15` : `${item.color}10` } : undefined}
-            >
-              <item.icon
-                size={16}
-                strokeWidth={isActive ? 2.2 : 1.8}
-                style={{ color: item.color }}
-              />
-            </span>
-            <span className="whitespace-nowrap">{t(item.nameKey)}</span>
+            <item.icon
+              size={15}
+              strokeWidth={isActive ? 2.2 : 1.8}
+              style={{ color: isActive ? "#fff" : item.color }}
+              className="flex-shrink-0"
+            />
+            <span className={isActive ? "" : "text-foreground/55"}>{t(item.nameKey)}</span>
           </Link>
         );
       })}

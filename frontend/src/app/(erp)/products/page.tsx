@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Plus, Search, Edit, Trash2, X } from "lucide-react";
+import { Package, Plus, Search, Edit, Trash2 } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 
 interface Product {
   id: string;
@@ -316,243 +318,97 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={() => setModalOpen(false)}
-        >
-          <div className="absolute inset-0 bg-black/40" />
-          <div
-            className="relative bg-card rounded-xl w-full max-w-lg mx-4 p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+      <Drawer
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Edit Product" : "Add Product"}
+        description={editing ? `Update ${editing.name}` : "Create a new product in your catalog."}
+        side="right"
+        footer={
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: "#2b2118" }}
-              >
-                {editing ? "Edit Product" : "Add Product"}
-              </h2>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-1 rounded-md transition-colors"
-                style={{ color: "#b3b6b7" }}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: "#2b2118" }}
-                >
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-                />
-              </div>
-
-              <div>
-                <label
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: "#2b2118" }}
-                >
-                  SKU
-                </label>
-                <input
-                  type="text"
-                  value={form.sku}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, sku: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                  style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    style={{ color: "#2b2118" }}
-                  >
-                    Price ({CURRENCY_SYMBOL})
-                  </label>
-                  <input
-                    type="number"
-                    value={form.price}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        price: Number(e.target.value),
-                      }))
-                    }
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    style={{ color: "#2b2118" }}
-                  >
-                    Cost ({CURRENCY_SYMBOL})
-                  </label>
-                  <input
-                    type="number"
-                    value={form.cost}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        cost: Number(e.target.value),
-                      }))
-                    }
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    style={{ color: "#2b2118" }}
-                  >
-                    Category
-                  </label>
-                  <select
-                    value={form.category}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        category: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none bg-card"
-                    style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    style={{ color: "#2b2118" }}
-                  >
-                    Min Stock
-                  </label>
-                  <input
-                    type="number"
-                    value={form.minStock}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        minStock: Number(e.target.value),
-                      }))
-                    }
-                    className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={form.isActive}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      isActive: e.target.checked,
-                    }))
-                  }
-                  className="rounded"
-                />
-                <label
-                  htmlFor="isActive"
-                  className="text-sm"
-                  style={{ color: "#2b2118" }}
-                >
-                  Active
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: "#6f1a07" }}
-              >
-                {editing ? "Update" : "Add Product"}
-              </button>
-            </div>
+            <FormFooter submitLabel={editing ? "Update" : "Add Product"} onCancel={() => setModalOpen(false)} disabled={!form.name || !form.sku || !form.category} />
+          </form>
+        }
+      >
+        <div className="p-5 space-y-4">
+          <Field label="Name" required>
+            <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="e.g. Phone Case - iPhone" autoFocus />
+          </Field>
+          <Field label="SKU" required>
+            <Input value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} placeholder="e.g. PC-001" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={`Price (${CURRENCY_SYMBOL})`}>
+              <Input type="number" value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: Number(e.target.value) }))} className="font-mono" />
+            </Field>
+            <Field label={`Cost (${CURRENCY_SYMBOL})`}>
+              <Input type="number" value={form.cost} onChange={(e) => setForm((prev) => ({ ...prev, cost: Number(e.target.value) }))} className="font-mono" />
+            </Field>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Category" required>
+              <Select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}>
+                <option value="">Select category</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Min stock">
+              <Input type="number" value={form.minStock} onChange={(e) => setForm((prev) => ({ ...prev, minStock: Number(e.target.value) }))} />
+            </Field>
+          </div>
+          <Field label="Status">
+            <label className="flex items-center gap-2 text-[13px] text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                className="rounded accent-accent"
+              />
+              Active product
+            </label>
+          </Field>
         </div>
-      )}
+      </Drawer>
 
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div className="absolute inset-0 bg-black/40" />
-          <div
-            className="relative bg-card rounded-xl w-full max-w-sm mx-4 p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              className="text-lg font-semibold mb-2"
-              style={{ color: "#2b2118" }}
+      <Drawer
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Product"
+        description="This action cannot be undone."
+        side="center"
+        size="sm"
+        footer={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="flex-1 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
             >
-              Delete Product
-            </h2>
-            <p className="text-sm mb-6" style={{ color: "#b3b6b7" }}>
-              Are you sure you want to delete &quot;{deleteTarget.name}&quot;? This
-              action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{ border: "1px solid #e8e4de", color: "#2b2118" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: "#dc2626" }}
-              >
-                Delete
-              </button>
-            </div>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              className="flex-1 px-4 py-2.5 text-[13px] font-bold text-white rounded-lg bg-red-600 hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
           </div>
+        }
+      >
+        <div className="p-5">
+          <p className="text-sm text-foreground/70">
+            Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{deleteTarget?.name}&quot;</span>?
+          </p>
         </div>
-      )}
+      </Drawer>
     </div>
   );
 }

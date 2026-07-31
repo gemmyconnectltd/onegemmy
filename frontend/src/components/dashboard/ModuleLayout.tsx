@@ -15,7 +15,7 @@ export function ModuleLayout({ module, children }: { module: ModuleKey; children
     <div
       className={`-m-6 ${
         orientation === "left"
-          ? "flex flex-row min-h-[calc(100vh-60px)]"
+          ? "flex flex-col lg:flex-row min-h-[calc(100vh-60px)]"
           : "flex flex-col min-h-[calc(100vh-60px)]"
       }`}
     >

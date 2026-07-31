@@ -10,6 +10,7 @@ import {
 import { IconBadge, getBusinessIcon } from "@/components/pos/icons";
 import { Receipt } from "@/components/pos/Receipt";
 import type { SaleResult } from "@/components/pos/types";
+import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import {
   deleteSale, getSalesSnapshot, markInvoicePaid, subscribeSales,
@@ -274,25 +275,49 @@ export default function InvoicesPage() {
 
       <p className="text-[11px] text-muted/70">Stored locally on this device.</p>
 
-      {viewing && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setViewing(null)}>
-          <div className="bg-card border border-border w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <Drawer
+        open={!!viewing}
+        onClose={() => setViewing(null)}
+        title={viewing?.isInvoice ? "Invoice" : "Receipt"}
+        description={viewing ? `${viewing.invoiceNumber ?? viewing.orderId} · ${viewing.timestamp.toLocaleString()}` : undefined}
+        side="right"
+        size="lg"
+        footer={
+          viewing && (
+            <div className="flex gap-2">
+              {viewing.isInvoice && !viewing.paid && (
+                <button
+                  onClick={() => handleMarkPaid(viewing.invoiceNumber ?? "")}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 text-[13px] font-bold hover:bg-emerald-700 transition-colors rounded-lg"
+                >
+                  <BadgeCheck size={15} /> Mark as paid
+                </button>
+              )}
+              <button
+                onClick={() => setPrintSale(viewing)}
+                className="flex-1 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2.5 text-[13px] font-bold hover:bg-accent/90 transition-colors rounded-lg"
+              >
+                <Printer size={15} /> Print
+              </button>
+              <button
+                onClick={() => setViewing(null)}
+                className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          )
+        }
+      >
+        {viewing && (
+          <>
             <div className="p-5 border-b border-border">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-wide font-bold text-muted">
-                    {viewing.isInvoice ? "Invoice" : "Receipt"} · {viewing.invoiceNumber ?? viewing.orderId}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <IconBadge Icon={getBusinessIcon(viewing.business)} size={14} color={viewing.business.accent} className="w-8 h-8" />
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{viewing.business.label}</p>
-                      <p className="text-[11px] text-muted">{viewing.timestamp.toLocaleString()}</p>
-                    </div>
+                <div className="flex items-center gap-2">
+                  <IconBadge Icon={getBusinessIcon(viewing.business)} size={14} color={viewing.business.accent} className="w-8 h-8" />
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{viewing.business.label}</p>
                   </div>
-                  {viewing.customerName && (
-                    <p className="text-[13px] text-foreground/80 mt-2">Customer: <span className="font-semibold">{viewing.customerName}</span></p>
-                  )}
                 </div>
                 {viewing.isInvoice && (
                   <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full flex-shrink-0 ${
@@ -303,6 +328,9 @@ export default function InvoicesPage() {
                   </span>
                 )}
               </div>
+              {viewing.customerName && (
+                <p className="text-[13px] text-foreground/80 mt-3">Customer: <span className="font-semibold">{viewing.customerName}</span></p>
+              )}
             </div>
 
             <div className="divide-y divide-border">
@@ -340,32 +368,9 @@ export default function InvoicesPage() {
                 </div>
               )}
             </div>
-
-            <div className="p-4 border-t border-border flex gap-2">
-              {viewing.isInvoice && !viewing.paid && (
-                <button
-                  onClick={() => handleMarkPaid(viewing.invoiceNumber ?? "")}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 text-[13px] font-bold hover:bg-emerald-700 transition-colors"
-                >
-                  <BadgeCheck size={15} /> Mark as paid
-                </button>
-              )}
-              <button
-                onClick={() => setPrintSale(viewing)}
-                className="flex-1 flex items-center justify-center gap-2 bg-accent text-white px-4 py-2.5 text-[13px] font-bold hover:bg-accent/90 transition-colors"
-              >
-                <Printer size={15} /> Print
-              </button>
-              <button
-                onClick={() => setViewing(null)}
-                className="px-4 py-2.5 text-[13px] font-semibold border border-border text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Drawer>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Plus, Search, Phone, Mail, ShoppingCart, X, ChevronDown } from "lucide-react";
+import { Plus, Search, Phone, Mail, ShoppingCart } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
 
 interface Purchase {
   date: string;
@@ -235,63 +237,30 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {/* Add Customer Modal */}
-      {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddForm(false)} />
-          <div className="relative bg-card border border-border w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users size={18} className="text-primary" />
-                <h2 className="text-lg font-bold text-foreground">Add Customer</h2>
-              </div>
-              <button onClick={() => setShowAddForm(false)} className="text-muted hover:text-foreground">
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={handleAddCustomer} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-3 py-2 border border-border text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                  placeholder="e.g. Jean Pierre"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Phone *</label>
-                <input
-                  type="tel"
-                  required
-                  value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
-                  className="w-full px-3 py-2 border border-border text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                  placeholder="e.g. +250 788 123 456"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted mb-1">Email (optional)</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-border text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                  placeholder="e.g. jean@example.com"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-accent text-white py-2 text-sm font-medium hover:bg-accent/90 transition-colors"
-              >
-                Add Customer
-              </button>
-            </form>
-          </div>
+      <Drawer
+        open={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        title="Add Customer"
+        description="Save a customer so you can track their purchases."
+        side="right"
+        footer={
+          <form onSubmit={handleAddCustomer}>
+            <FormFooter submitLabel="Add Customer" onCancel={() => setShowAddForm(false)} disabled={!newName.trim() || !newPhone.trim()} />
+          </form>
+        }
+      >
+        <div className="p-5 space-y-4">
+          <Field label="Name" required>
+            <Input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Jean Pierre" autoFocus />
+          </Field>
+          <Field label="Phone" required>
+            <Input type="tel" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="e.g. +250 788 123 456" />
+          </Field>
+          <Field label="Email" hint="Optional">
+            <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="e.g. jean@example.com" />
+          </Field>
         </div>
-      )}
+      </Drawer>
     </div>
   );
 }

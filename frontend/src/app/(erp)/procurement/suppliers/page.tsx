@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, MapPin, Phone, Plus, Search, Truck, X } from "lucide-react";
+import { Mail, MapPin, Phone, Plus, Search, Truck } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
 
 type Supplier = {
   id: number;
@@ -144,36 +146,55 @@ export default function SuppliersPage() {
         </table>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-card border border-border w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-[15px] font-bold text-foreground">Add Supplier</h2>
-              <button onClick={() => setShowModal(false)} className="text-muted hover:text-foreground"><X size={16} /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              {(["name", "category", "phone", "location"] as const).map((k) => (
-                <div key={k}>
-                  <label className="text-[12px] text-muted font-medium capitalize">{k === "name" ? "Supplier name" : k}</label>
-                  <input
-                    value={form[k]}
-                    onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
-                    placeholder={k === "name" ? "e.g. Rwanda Supply Co" : `e.g. ${k === "category" ? "Groceries" : k === "phone" ? "+250 7xx xxx xxx" : "Kigali"}`}
-                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                  />
-                </div>
-              ))}
-              <button
-                onClick={addSupplier}
-                disabled={!form.name.trim()}
-                className="w-full py-3 bg-accent text-white font-bold text-[14px] rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Add supplier
-              </button>
-            </div>
-          </div>
+      <Drawer
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title="Add Supplier"
+        description="Create a supplier account to start ordering."
+        side="right"
+        footer={
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addSupplier();
+            }}
+          >
+            <FormFooter submitLabel="Add supplier" onCancel={() => setShowModal(false)} disabled={!form.name.trim()} />
+          </form>
+        }
+      >
+        <div className="p-5 space-y-4">
+          <Field label="Supplier name" required>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. Rwanda Supply Co"
+              autoFocus
+            />
+          </Field>
+          <Field label="Category">
+            <Input
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              placeholder="e.g. Groceries"
+            />
+          </Field>
+          <Field label="Phone">
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+250 7xx xxx xxx"
+            />
+          </Field>
+          <Field label="Location">
+            <Input
+              value={form.location}
+              onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+              placeholder="e.g. Kigali"
+            />
+          </Field>
         </div>
-      )}
+      </Drawer>
     </div>
   );
 }

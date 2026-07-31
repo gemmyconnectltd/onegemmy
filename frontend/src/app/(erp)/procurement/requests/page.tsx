@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { CheckCircle2, ClipboardList, Plus, Search, X } from "lucide-react";
-
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
 
 type ReqStatus = "Pending" | "Approved" | "Rejected";
 
@@ -171,62 +172,45 @@ export default function PurchaseRequestsPage() {
 
       <p className="text-[13px] text-muted">{pending} request{pending === 1 ? "" : "s"} awaiting approval.</p>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-card border border-border w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-[15px] font-bold text-foreground">New Purchase Request</h2>
-              <button onClick={() => setShowModal(false)} className="text-muted hover:text-foreground"><X size={16} /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="text-[12px] text-muted font-medium">Item needed</label>
-                <input
-                  value={form.item}
-                  onChange={(e) => setForm((f) => ({ ...f, item: e.target.value }))}
-                  placeholder="e.g. Cooking oil 20L"
-                  className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[12px] text-muted font-medium">Qty</label>
-                  <input
-                    type="number" min="1" value={form.qty}
-                    onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
-                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="text-[12px] text-muted font-medium">Department</label>
-                  <input
-                    value={form.department}
-                    onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-                    placeholder="Kitchen"
-                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[12px] text-muted font-medium">Requested by</label>
-                <input
-                  value={form.requestedBy}
-                  onChange={(e) => setForm((f) => ({ ...f, requestedBy: e.target.value }))}
-                  placeholder="Your name"
-                  className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                />
-              </div>
-              <button
-                onClick={addReq}
-                disabled={!form.item.trim()}
-                className="w-full py-3 bg-accent text-white font-bold text-[14px] rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Submit request
-              </button>
-            </div>
+      <Drawer
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title="New Purchase Request"
+        description="Raise a requisition for your team to approve."
+        side="right"
+        footer={
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addReq();
+            }}
+          >
+            <FormFooter submitLabel="Submit request" onCancel={() => setShowModal(false)} disabled={!form.item.trim()} />
+          </form>
+        }
+      >
+        <div className="p-5 space-y-4">
+          <Field label="Item needed" required>
+            <Input
+              value={form.item}
+              onChange={(e) => setForm((f) => ({ ...f, item: e.target.value }))}
+              placeholder="e.g. Cooking oil 20L"
+              autoFocus
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Qty">
+              <Input type="number" min="1" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} />
+            </Field>
+            <Field label="Department">
+              <Input value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} placeholder="Kitchen" />
+            </Field>
           </div>
+          <Field label="Requested by">
+            <Input value={form.requestedBy} onChange={(e) => setForm((f) => ({ ...f, requestedBy: e.target.value }))} placeholder="Your name" />
+          </Field>
         </div>
-      )}
+      </Drawer>
     </div>
   );
 }

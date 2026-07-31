@@ -25,7 +25,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         style={{ marginLeft: isMobile ? 0 : 88 }}
       >
         <Topbar onToggleSidebar={() => setSidebarExpanded(!sidebarExpanded)} sidebarExpanded={sidebarExpanded} />
-        <main className="flex-1 px-8 py-6">{children}</main>
+        <main className="flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
       <SupportFab />
     </div>

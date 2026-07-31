@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Ban, CheckCircle2, FileText, Plus, Search, Truck, X } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
 
 type PoStatus = "Draft" | "Approved" | "Received" | "Cancelled";
 
@@ -203,61 +205,51 @@ export default function PurchaseOrdersPage() {
         </table>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-card border border-border w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-[15px] font-bold text-foreground">New Purchase Order</h2>
-              <button onClick={() => setShowModal(false)} className="text-muted hover:text-foreground"><X size={16} /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="text-[12px] text-muted font-medium">Supplier</label>
-                <input
-                  value={newSupplier}
-                  onChange={(e) => setNewSupplier(e.target.value)}
-                  placeholder="e.g. Rwanda Supply Co"
-                  className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
-                  <label className="text-[12px] text-muted font-medium">Qty</label>
-                  <input
-                    type="number" min="1" value={newQty}
-                    onChange={(e) => setNewQty(e.target.value)}
-                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-[12px] text-muted font-medium">Item</label>
-                  <input
-                    value={newItem}
-                    onChange={(e) => setNewItem(e.target.value)}
-                    placeholder="e.g. Rice 25kg"
-                    className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[12px] text-muted font-medium">Unit price ({currencySymbol})</label>
-                <input
-                  type="number" min="0" value={newPrice}
-                  onChange={(e) => setNewPrice(e.target.value)}
-                  className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground outline-none focus:border-accent bg-transparent font-mono"
-                />
-              </div>
-              <button
-                onClick={createPo}
-                disabled={!newSupplier.trim()}
-                className="w-full py-3 bg-accent text-white font-bold text-[14px] rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Create draft order
-              </button>
-            </div>
+      <Drawer
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title="New Purchase Order"
+        description="Create a draft order for a supplier."
+        side="right"
+        footer={
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              createPo();
+            }}
+          >
+            <FormFooter submitLabel="Create draft order" onCancel={() => setShowModal(false)} disabled={!newSupplier.trim()} />
+          </form>
+        }
+      >
+        <div className="p-5 space-y-4">
+          <Field label="Supplier" required>
+            <Input
+              value={newSupplier}
+              onChange={(e) => setNewSupplier(e.target.value)}
+              placeholder="e.g. Rwanda Supply Co"
+              autoFocus
+            />
+          </Field>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Qty">
+              <Input type="number" min="1" value={newQty} onChange={(e) => setNewQty(e.target.value)} />
+            </Field>
+            <Field label="Item" className="col-span-2">
+              <Input value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="e.g. Rice 25kg" />
+            </Field>
           </div>
+          <Field label={`Unit price (${currencySymbol})`}>
+            <Input
+              type="number"
+              min="0"
+              value={newPrice}
+              onChange={(e) => setNewPrice(e.target.value)}
+              className="font-mono"
+            />
+          </Field>
         </div>
-      )}
+      </Drawer>
     </div>
   );
 }
