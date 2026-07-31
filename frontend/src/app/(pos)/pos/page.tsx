@@ -14,6 +14,7 @@ import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult } from "@/
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
+import { salesApi } from "@/lib/api";
 
 export default function POSPage() {
   const { currencySymbol, locale, setLocale, locales } = useAppConfig();
@@ -134,7 +135,7 @@ export default function POSPage() {
     setHeldOrders((prev) => prev.filter((h) => h.id !== id));
   };
 
-  const completeSale = () => {
+  const completeSale = async () => {
     const isInvoice = payment === "invoice";
     const sale: SaleResult = {
       orderId: generateOrderId(),
@@ -155,6 +156,21 @@ export default function POSPage() {
     saveSale(sale);
     setTodayCount((c) => c + 1);
     setTodayRevenue((r) => r + total);
+
+    // persist to sales orders (fire-and-forget — don't block the receipt)
+    salesApi.createOrder({
+      status: "Completed",
+      notes: `POS sale — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}`,
+      discount: 0,
+      tax,
+      items: cart.map((i) => ({
+        product_name: i.name,
+        unit_price: i.price,
+        quantity: i.qty,
+        discount: 0,
+        line_total: i.price * i.qty,
+      })),
+    }).catch(() => { /* silent — POS must never block on API failure */ });
   };
 
   const startNewSale = () => {

@@ -1,13 +1,51 @@
 import uuid
+from datetime import date
 
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.inventory.models.product import Product
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
+from app.modules.sales.models.target import Target
 from app.modules.sales.repository import OrderRepository
 from app.modules.sales.schemas import OrderCreate, OrderRead, OrderUpdate
+
+
+def _current_period() -> str:
+    """Returns e.g. 'Jul 2025' — matches the period format used in targets."""
+    months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    d = date.today()
+    return f"{months[d.month - 1]} {d.year}"
+
+
+async def _bump_revenue_targets(db: AsyncSession, tenant_id: uuid.UUID, amount: float) -> None:
+    """Increment achieved_value on all revenue/currency targets for the current period."""
+    period = _current_period()
+    await db.execute(
+        update(Target)
+        .where(
+            Target.tenant_id == tenant_id,
+            Target.period == period,
+            Target.unit == "currency",
+        )
+        .values(achieved_value=Target.achieved_value + amount)
+    )
+
+
+async def _bump_order_targets(db: AsyncSession, tenant_id: uuid.UUID) -> None:
+    """Increment achieved_value on all order-count targets for the current period."""
+    period = _current_period()
+    await db.execute(
+        update(Target)
+        .where(
+            Target.tenant_id == tenant_id,
+            Target.period == period,
+            Target.unit == "number",
+        )
+        .values(achieved_value=Target.achieved_value + 1)
+    )
 
 
 async def list_orders(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[OrderRead]:
@@ -68,6 +106,10 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
             if product:
                 product.stock = max(0, product.stock - item_data.quantity)
 
+    if data.status == "Completed":
+        await _bump_revenue_targets(db, tenant_id, total)
+        await _bump_order_targets(db, tenant_id)
+
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
     return OrderRead.model_validate(obj)
@@ -77,10 +119,14 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
+    was_completed = obj.status == "Completed"
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, field, value)
-    # recompute total if discount or tax changed
     obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
+    # if status just flipped to Completed, bump targets
+    if not was_completed and obj.status == "Completed":
+        await _bump_revenue_targets(db, tenant_id, float(obj.total))
+        await _bump_order_targets(db, tenant_id)
     await OrderRepository(db).save(obj)
     await db.commit()
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
