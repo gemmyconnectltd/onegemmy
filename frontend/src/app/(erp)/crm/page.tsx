@@ -1,5 +1,6 @@
 "use client";
-import { LayoutDashboard, TrendingUp, Users, Mail, Target } from "lucide-react";
+import Link from "next/link";
+import { TrendingUp, Users, Mail, Target, Plus } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
 const pipeline = [
@@ -15,7 +16,17 @@ export default function CRMPage() {
   const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">CRM Overview</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-foreground">CRM Overview</h1>
+        <div className="flex items-center gap-2">
+          <Link href="/crm/campaigns" className="flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium hover:bg-surface transition-colors">
+            <Plus size={16} />New Campaign
+          </Link>
+          <Link href="/crm/contacts" className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90">
+            <Plus size={16} />Add Contact
+          </Link>
+        </div>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Total Leads",    value: "68",      icon: Users,         color: "#6f1a07" },

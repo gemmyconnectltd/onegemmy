@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Clock, ArrowRight } from "lucide-react";
+import { useSyncExternalStore, useState } from "react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Clock, ArrowRight, Plus } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAppConfig } from "@/lib/appConfig";
 import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
 import type { SaleResult } from "@/components/pos/types";
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 
 const EMPTY_SALES: SaleResult[] = [];
 
@@ -19,12 +21,14 @@ const monthly = [
   { month: "Jun", income: 1250000, expenses: 380000 },
 ];
 
-const transactions = [
-  { id: 1, desc: "Sales Revenue",       type: "income",  amount: 450000, date: "2025-07-25" },
-  { id: 2, desc: "Rent Payment",        type: "expense", amount: 80000,  date: "2025-07-24" },
-  { id: 3, desc: "Supplier Payment",    type: "expense", amount: 120000, date: "2025-07-23" },
-  { id: 4, desc: "Sales Revenue",       type: "income",  amount: 320000, date: "2025-07-22" },
-  { id: 5, desc: "Utility Bills",       type: "expense", amount: 45000,  date: "2025-07-21" },
+type Tx = { id: number; desc: string; type: "income" | "expense"; amount: number; category: string; date: string };
+
+const INITIAL_TX: Tx[] = [
+  { id: 1, desc: "Sales Revenue",    type: "income",  amount: 450000, category: "Sales",     date: "2025-07-25" },
+  { id: 2, desc: "Rent Payment",     type: "expense", amount: 80000,  category: "Rent",      date: "2025-07-24" },
+  { id: 3, desc: "Supplier Payment", type: "expense", amount: 120000, category: "Inventory", date: "2025-07-23" },
+  { id: 4, desc: "Sales Revenue",    type: "income",  amount: 320000, category: "Sales",     date: "2025-07-22" },
+  { id: 5, desc: "Utility Bills",    type: "expense", amount: 45000,  category: "Utilities", date: "2025-07-21" },
 ];
 
 export default function FinancePage() {
@@ -34,11 +38,47 @@ export default function FinancePage() {
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => `${currencySymbol} ${v.toLocaleString()}`;
 
+  const [transactions, setTransactions] = useState<Tx[]>(INITIAL_TX);
+  const [showIncome, setShowIncome] = useState(false);
+  const [showExpense, setShowExpense] = useState(false);
+  const [form, setForm] = useState({ desc: "", amount: "", category: "Sales", date: "" });
+
+  const totalIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+
+  const submit = (type: "income" | "expense") => (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!form.desc || !form.amount) return;
+    setTransactions((prev) => [
+      { id: Date.now(), desc: form.desc, type, amount: Number(form.amount), category: form.category, date: form.date || new Date().toISOString().slice(0, 10) },
+      ...prev,
+    ]);
+    setForm({ desc: "", amount: "", category: "Sales", date: "" });
+    if (type === "income") setShowIncome(false);
+    else setShowExpense(false);
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Finance Overview</h1>
-        <p className="text-sm text-muted mt-1">Track your income, expenses and profit</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Finance Overview</h1>
+          <p className="text-sm text-muted mt-1">Track your income, expenses and profit</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowExpense(true)}
+            className="flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium hover:bg-surface transition-colors"
+          >
+            <Plus size={16} className="text-red-500" />Add Expense
+          </button>
+          <button
+            onClick={() => setShowIncome(true)}
+            className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"
+          >
+            <Plus size={16} />Add Income
+          </button>
+        </div>
       </div>
 
       <Link
@@ -68,9 +108,9 @@ export default function FinancePage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Total Income",   value: fmt(1250000), icon: TrendingUp,   color: "#10B981", change: "+12%", up: true },
-          { label: "Total Expenses", value: fmt(380000),  icon: TrendingDown, color: "#ef4444", change: "+5%",  up: false },
-          { label: "Net Profit",     value: fmt(870000),  icon: DollarSign,   color: "#6f1a07", change: "+18%", up: true },
+          { label: "Total Income",   value: fmt(totalIncome),   icon: TrendingUp,   color: "#10B981", change: "+12%", up: true },
+          { label: "Total Expenses", value: fmt(totalExpenses), icon: TrendingDown, color: "#ef4444", change: "+5%",  up: false },
+          { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: "#3b82f6", change: null,   up: true },
         ].map((s) => (
           <div key={s.label} className="bg-card border-y border-border p-4 relative overflow-hidden">
@@ -130,7 +170,7 @@ export default function FinancePage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{t.desc}</p>
-                  <p className="text-[11px] text-muted">{t.date}</p>
+                  <p className="text-[11px] text-muted">{t.date} · {t.category}</p>
                 </div>
               </div>
               <span className={`text-sm font-bold ${t.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
@@ -140,6 +180,54 @@ export default function FinancePage() {
           ))}
         </div>
       </div>
+
+      <Drawer open={showIncome} onClose={() => setShowIncome(false)} title="Add Income" description="Record a new income entry" size="md">
+        <form onSubmit={submit("income")} className="p-5 space-y-4">
+          <Field label="Source" required>
+            <Input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="e.g. Sales Revenue" autoFocus />
+          </Field>
+          <Field label="Amount" required>
+            <Input type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
+          </Field>
+          <Field label="Category">
+            <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              <option>Sales</option>
+              <option>Services</option>
+              <option>Consulting</option>
+              <option>Other</option>
+            </Select>
+          </Field>
+          <Field label="Date">
+            <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          </Field>
+          <FormFooter submitLabel="Add Income" onCancel={() => setShowIncome(false)} disabled={!form.desc || !form.amount} />
+        </form>
+      </Drawer>
+
+      <Drawer open={showExpense} onClose={() => setShowExpense(false)} title="Add Expense" description="Record a new expense entry" size="md">
+        <form onSubmit={submit("expense")} className="p-5 space-y-4">
+          <Field label="Description" required>
+            <Input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="e.g. Rent Payment" autoFocus />
+          </Field>
+          <Field label="Amount" required>
+            <Input type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
+          </Field>
+          <Field label="Category">
+            <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              <option>Rent</option>
+              <option>Inventory</option>
+              <option>Utilities</option>
+              <option>Transport</option>
+              <option>Marketing</option>
+              <option>Other</option>
+            </Select>
+          </Field>
+          <Field label="Date">
+            <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          </Field>
+          <FormFooter submitLabel="Add Expense" onCancel={() => setShowExpense(false)} disabled={!form.desc || !form.amount} />
+        </form>
+      </Drawer>
     </div>
   );
 }
