@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import {
-  Package, AlertTriangle, CheckCircle, XCircle, TrendingUp,
-  Search, Plus, ArrowUpRight, BarChart3, Filter,
+  Package, AlertTriangle, XCircle,
+  Search, Plus, ArrowUpRight, BarChart3,
 } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
+import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 
-const inventory = [
+const INITIAL_INVENTORY = [
   { id: "1", name: "Phone Case - iPhone",  sku: "PC-001", category: "Accessories", stock: 45,  minStock: 10, price: 5000,  cost: 2500  },
   { id: "2", name: "USB-C Cable 1m",        sku: "UC-002", category: "Cables",      stock: 120, minStock: 20, price: 3000,  cost: 1200  },
   { id: "3", name: "Screen Protector",      sku: "SP-003", category: "Accessories", stock: 200, minStock: 30, price: 2000,  cost: 800   },
@@ -33,8 +34,11 @@ const statusCfg = {
 function fmt(v: number) { return `${CURRENCY_SYMBOL} ${v.toLocaleString()}`; }
 
 export default function InventoryOverviewPage() {
+  const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [showForm, setShowForm] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const filtered = inventory.filter((i) => {
     const match = i.name.toLowerCase().includes(search.toLowerCase()) || i.sku.toLowerCase().includes(search.toLowerCase());
@@ -58,7 +62,13 @@ export default function InventoryOverviewPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Inventory Overview</h1>
           <p className="text-sm text-muted mt-0.5">Monitor stock levels, value, and alerts across all products</p>
         </div>
-        <button className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors">
+        <button
+          onClick={() => {
+            setFormKey((k) => k + 1);
+            setShowForm(true);
+          }}
+          className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors"
+        >
           <Plus size={15} /> Add Product
         </button>
       </div>
@@ -188,9 +198,6 @@ export default function InventoryOverviewPage() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted border border-border px-3 py-2 cursor-pointer hover:text-foreground transition-colors">
-            <Filter size={12} /> Filter
-          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -256,6 +263,18 @@ export default function InventoryOverviewPage() {
           <p className="text-xs text-muted">Total value: <span className="font-semibold text-foreground">{fmt(filtered.reduce((s, i) => s + i.stock * i.cost, 0))}</span></p>
         </div>
       </div>
+
+      <ProductFormDrawer
+        key={formKey}
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        onSubmit={(v: ProductFormValues) => {
+          setInventory((prev) => [
+            { id: String(Date.now()), name: v.name, sku: v.sku, category: v.category, stock: v.stock, minStock: v.minStock, price: v.price, cost: v.cost },
+            ...prev,
+          ]);
+        }}
+      />
     </div>
   );
 }

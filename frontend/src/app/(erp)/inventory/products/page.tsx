@@ -1,18 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical, SlidersHorizontal } from "lucide-react";
+import { Package, Plus, Search, Edit2, Trash2, MoreVertical } from "lucide-react";
 import { CURRENCY_SYMBOL } from "@/lib/config";
+import { Drawer } from "@/components/ui/Drawer";
+import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 
-const products = [
-  { id: "1", name: "Phone Case - iPhone",  sku: "PC-001", category: "Accessories", brand: "Generic", unit: "Piece", price: 5000,  cost: 2500,  stock: 45,  status: "active"   },
-  { id: "2", name: "USB-C Cable 1m",        sku: "UC-002", category: "Cables",      brand: "Anker",   unit: "Piece", price: 3000,  cost: 1200,  stock: 120, status: "active"   },
-  { id: "3", name: "Screen Protector",      sku: "SP-003", category: "Accessories", brand: "Generic", unit: "Piece", price: 2000,  cost: 800,   stock: 200, status: "active"   },
-  { id: "4", name: "Wireless Earbuds",      sku: "WE-004", category: "Audio",       brand: "Samsung", unit: "Piece", price: 15000, cost: 8000,  stock: 25,  status: "active"   },
-  { id: "5", name: "Phone Charger 20W",     sku: "CH-005", category: "Chargers",    brand: "Xiaomi",  unit: "Piece", price: 8000,  cost: 4000,  stock: 35,  status: "active"   },
-  { id: "6", name: "Bluetooth Speaker",     sku: "BS-006", category: "Audio",       brand: "JBL",     unit: "Piece", price: 25000, cost: 15000, stock: 12,  status: "active"   },
-  { id: "7", name: "Phone Cases - Samsung", sku: "PC-007", category: "Accessories", brand: "Generic", unit: "Piece", price: 4000,  cost: 2000,  stock: 3,   status: "active"   },
-  { id: "8", name: "HDMI Cable 2m",         sku: "HC-008", category: "Cables",      brand: "Ugreen",  unit: "Piece", price: 6000,  cost: 3000,  stock: 0,   status: "inactive" },
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  brand: string;
+  unit: string;
+  price: number;
+  cost: number;
+  stock: number;
+  minStock: number;
+  status: "active" | "inactive";
+}
+
+const initialProducts: Product[] = [
+  { id: "1", name: "Phone Case - iPhone",  sku: "PC-001", category: "Accessories", brand: "Generic", unit: "Piece", price: 5000,  cost: 2500,  stock: 45,  minStock: 10, status: "active"   },
+  { id: "2", name: "USB-C Cable 1m",        sku: "UC-002", category: "Cables",      brand: "Anker",   unit: "Piece", price: 3000,  cost: 1200,  stock: 120, minStock: 20, status: "active"   },
+  { id: "3", name: "Screen Protector",      sku: "SP-003", category: "Accessories", brand: "Generic", unit: "Piece", price: 2000,  cost: 800,   stock: 200, minStock: 30, status: "active"   },
+  { id: "4", name: "Wireless Earbuds",      sku: "WE-004", category: "Audio",       brand: "Samsung", unit: "Piece", price: 15000, cost: 8000,  stock: 25,  minStock: 5,  status: "active"   },
+  { id: "5", name: "Phone Charger 20W",     sku: "CH-005", category: "Chargers",    brand: "Xiaomi",  unit: "Piece", price: 8000,  cost: 4000,  stock: 35,  minStock: 10, status: "active"   },
+  { id: "6", name: "Bluetooth Speaker",     sku: "BS-006", category: "Audio",       brand: "JBL",     unit: "Piece", price: 25000, cost: 15000, stock: 12,  minStock: 5,  status: "active"   },
+  { id: "7", name: "Phone Cases - Samsung", sku: "PC-007", category: "Accessories", brand: "Generic", unit: "Piece", price: 4000,  cost: 2000,  stock: 3,   minStock: 10, status: "active"   },
+  { id: "8", name: "HDMI Cable 2m",         sku: "HC-008", category: "Cables",      brand: "Ugreen",  unit: "Piece", price: 6000,  cost: 3000,  stock: 0,   minStock: 15, status: "inactive" },
 ];
 
 const categoryColors: Record<string, string> = {
@@ -25,9 +41,14 @@ const categoryColors: Record<string, string> = {
 function fmt(v: number) { return `${CURRENCY_SYMBOL} ${v.toLocaleString()}`; }
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState(initialProducts);
   const [search, setSearch] = useState("");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [formKey, setFormKey] = useState(0);
 
   const filtered = products.filter((p) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -39,6 +60,27 @@ export default function ProductsPage() {
 
   const margin = (p: typeof products[0]) => Math.round(((p.price - p.cost) / p.price) * 100);
 
+  const handleSubmit = (v: ProductFormValues) => {
+    if (editing) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === editing.id ? { ...p, ...v } : p))
+      );
+      setEditing(null);
+    } else {
+      setProducts((prev) => [
+        { id: String(Date.now()), ...v, status: "active" },
+        ...prev,
+      ]);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
 
@@ -48,7 +90,14 @@ export default function ProductsPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
           <p className="text-sm text-muted mt-0.5">{products.length} products · {products.filter(p => p.status === "active").length} active</p>
         </div>
-        <button className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors rounded-lg">
+        <button
+          onClick={() => {
+            setEditing(null);
+            setFormKey((k) => k + 1);
+            setShowForm(true);
+          }}
+          className="flex items-center gap-2 bg-accent text-white px-4 py-2.5 text-sm font-semibold hover:bg-accent/90 transition-colors rounded-lg"
+        >
           <Plus size={15} /> Add Product
         </button>
       </div>
@@ -76,10 +125,7 @@ export default function ProductsPage() {
               >{f}</button>
             ))}
           </div>
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs text-muted hover:text-foreground transition-colors ml-auto">
-            <SlidersHorizontal size={13} /> Filter
-          </button>
-          <span className="text-xs text-muted">{filtered.length} results</span>
+          <span className="text-xs text-muted ml-auto">{filtered.length} results</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -140,10 +186,24 @@ export default function ProductsPage() {
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
                         <div className="absolute right-4 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
-                          <button className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
+                          <button
+                            onClick={() => {
+                              setOpenMenu(null);
+                              setEditing(p);
+                              setFormKey((k) => k + 1);
+                              setShowForm(true);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors"
+                          >
                             <Edit2 size={13} className="text-muted" /> Edit
                           </button>
-                          <button className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                          <button
+                            onClick={() => {
+                              setOpenMenu(null);
+                              setDeleteTarget(p);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
                             <Trash2 size={13} /> Delete
                           </button>
                         </div>
@@ -169,6 +229,47 @@ export default function ProductsPage() {
           <p className="text-xs text-muted">Avg margin: <span className="font-semibold text-foreground">{Math.round(filtered.reduce((s, p) => s + margin(p), 0) / (filtered.length || 1))}%</span></p>
         </div>
       </div>
+
+      <ProductFormDrawer
+        key={formKey}
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        initial={editing}
+        onSubmit={handleSubmit}
+      />
+
+      <Drawer
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Product"
+        description="This action cannot be undone."
+        side="center"
+        size="sm"
+        footer={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="flex-1 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDelete}
+              className="flex-1 px-4 py-2.5 text-[13px] font-bold text-white rounded-lg bg-red-600 hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        }
+      >
+        <div className="p-5">
+          <p className="text-sm text-foreground/70">
+            Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{deleteTarget?.name}&quot;</span>? This will remove it from your inventory.
+          </p>
+        </div>
+      </Drawer>
     </div>
   );
 }
