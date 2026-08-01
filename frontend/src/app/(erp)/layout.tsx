@@ -47,19 +47,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     localStorage.setItem(LAYOUT_KEY, l);
   };
 
-  if (isLoading) return (
+  const isHorizontal = sidebarLayout === "horizontal";
+  const sidebarW = isHorizontal ? 0 : sidebarCollapsed ? 64 : 200;
+
+  if (isLoading || !user) return (
     <div className="min-h-screen bg-surface flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  if (!user) return null;
-
-  const isHorizontal = sidebarLayout === "horizontal";
-  const sidebarW = isHorizontal ? 0 : sidebarCollapsed ? 64 : 200;
-
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen bg-surface" suppressHydrationWarning>
       <Sidebar
         expanded={false}
         onExpandChange={() => {}}

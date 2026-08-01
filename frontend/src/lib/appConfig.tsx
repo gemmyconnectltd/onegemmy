@@ -256,7 +256,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("app_nav_orientation", next);
   };
 
-  const currencySymbol = currencies.find((c) => c.code === currency)?.symbol ?? currency;
+  const currencySymbol = currencies.find((c) => c.code === "RWF")?.symbol ?? "RWF";
   const t = (key: string) => strings[key] ?? BASE_STRINGS[key] ?? key;
 
   return (
