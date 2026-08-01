@@ -131,9 +131,9 @@ export default function SalesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+          <div key={s.label} className="bg-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${s.color}15` }}>
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600"><ArrowUpRight size={11} />live</span>}

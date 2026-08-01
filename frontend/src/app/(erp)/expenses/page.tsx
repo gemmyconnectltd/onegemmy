@@ -72,7 +72,7 @@ export default function ExpensesPage() {
           <p className="text-sm text-muted mt-1">Track and manage your shop expenses</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-card border border-border rounded-xl px-5 py-3 flex items-center gap-3">
+          <div className="bg-card px-5 py-3 flex items-center gap-3">
             <DollarSign size={18} className="text-accent" />
             <div>
               <p className="text-xs text-muted">Today&apos;s Expenses</p>

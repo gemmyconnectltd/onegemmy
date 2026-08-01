@@ -99,8 +99,8 @@ export default function UsersPage() {
           { label: "Inactive",     value: String(users.length - active), icon: Users, color: "#94a3b8" },
           { label: "Roles",        value: String(ROLES.length), icon: Shield,    color: "#f59e0b" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
-            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
+          <div key={s.label} className="bg-card p-4">
+            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
             <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>

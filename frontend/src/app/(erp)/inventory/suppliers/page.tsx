@@ -119,9 +119,8 @@ export default function SuppliersPage() {
           { label: "Total Suppliers", value: suppliers.length, color: "#af9164" },
           { label: "Active", value: suppliers.filter((s) => s.is_active).length, color: "#10B981" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border p-4 relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: s.color }} />
-            <p className="text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+          <div key={s.label} className="bg-card p-4">
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={String(s.value)}>{s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}

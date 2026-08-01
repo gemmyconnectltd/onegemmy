@@ -54,9 +54,9 @@ export default function ProcurementPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
-            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
-              <s.icon size={15} style={{ color: s.color }} />
+          <Link key={s.label} href={s.href} className="bg-card p-4">
+            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
+              <s.icon size={16} style={{ color: s.color }} />
             </div>
             <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>

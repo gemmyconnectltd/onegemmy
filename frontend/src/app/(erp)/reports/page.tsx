@@ -108,58 +108,21 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">Total Sales</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50">
-              <TrendingUp className="h-4 w-4 text-green-600" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Total Sales",    value: formatCurrency(data.sales),    icon: TrendingUp,   color: "#10B981" },
+          { label: "Total Expenses", value: formatCurrency(data.expenses), icon: TrendingDown, color: "#ef4444" },
+          { label: "Net Profit",     value: formatCurrency(data.profit),   icon: DollarSign,   color: "#6f1a07" },
+          { label: "Profit Margin",  value: `${data.margin}%`,             icon: BarChart3,    color: "#af9164" },
+        ].map((s) => (
+          <div key={s.label} className="bg-card p-4">
+            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
+              <s.icon size={16} style={{ color: s.color }} />
             </div>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">
-            {formatCurrency(data.sales)}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">
-              Total Expenses
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </div>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">
-            {formatCurrency(data.expenses)}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">Net Profit</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-              <DollarSign className="h-4 w-4 text-primary" />
-            </div>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">
-            {formatCurrency(data.profit)}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">
-              Profit Margin
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10">
-              <BarChart3 className="h-4 w-4 text-accent" />
-            </div>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-foreground">
-            {data.margin}%
-          </p>
-        </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

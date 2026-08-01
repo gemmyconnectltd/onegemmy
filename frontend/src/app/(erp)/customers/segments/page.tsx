@@ -49,9 +49,9 @@ export default function SegmentsPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {segmentStats.map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all cursor-pointer"
+          <div key={s.label} className="bg-card p-4 cursor-pointer"
             onClick={() => setActive(s.label as Segment)}>
-            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
+            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
             <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>

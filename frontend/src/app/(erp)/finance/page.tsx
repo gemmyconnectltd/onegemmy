@@ -113,9 +113,9 @@ export default function FinancePage() {
           { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
           { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: "#3b82f6", change: null,   up: true },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md hover:border-foreground/15 transition-all">
+          <div key={s.label} className="bg-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${s.color}15` }}>
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && (
@@ -164,7 +164,7 @@ export default function FinancePage() {
           {transactions.map((t) => (
             <div key={t.id} className="px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 flex items-center justify-center rounded-xl ${t.type === "income" ? "bg-emerald-50" : "bg-red-50"}`}>
+                <div className={`w-8 h-8 flex items-center justify-center ${t.type === "income" ? "bg-emerald-50" : "bg-red-50"}`}>
                   {t.type === "income" ? <TrendingUp size={14} className="text-emerald-600" /> : <TrendingDown size={14} className="text-red-500" />}
                 </div>
                 <div>
