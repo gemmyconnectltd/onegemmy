@@ -12,22 +12,16 @@ import { pageTitleForPath } from "@/lib/pageTitles";
 const LAYOUT_KEY = "sidebar_layout";
 const COLLAPSED_KEY = "sidebar_collapsed";
 
-function getInitial<T>(key: string, fallback: T, parse?: (v: string) => T): T {
-  if (typeof window === "undefined") return fallback;
-  const v = localStorage.getItem(key);
-  if (v === null) return fallback;
-  return parse ? parse(v) : v as unknown as T;
-}
-
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
-    getInitial(COLLAPSED_KEY, false, (v) => v === "1")
-  );
-  const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>(() =>
-    getInitial<SidebarLayout>(LAYOUT_KEY, "vertical", (v) =>
-      v === "horizontal" ? "horizontal" : "vertical"
-    )
-  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>("vertical");
+
+  useEffect(() => {
+    const collapsed = localStorage.getItem(COLLAPSED_KEY);
+    if (collapsed !== null) setSidebarCollapsed(collapsed === "1");
+    const layout = localStorage.getItem(LAYOUT_KEY);
+    if (layout === "horizontal" || layout === "vertical") setSidebarLayout(layout);
+  }, []);
   const [isMobile, setIsMobile] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();

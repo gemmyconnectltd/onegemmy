@@ -141,10 +141,14 @@ export const RECENT_SALES = [
 ];
 
 export const TOP_PRODUCTS = [
-  { name: "Phone Case - iPhone", sold: 24, revenue: 48000 },
-  { name: "USB-C Cable 2m",      sold: 18, revenue: 27000 },
-  { name: "Screen Protector",    sold: 15, revenue: 15000 },
-  { name: "Wireless Earbuds",    sold: 9,  revenue: 81000 },
+  { name: "Wireless Earbuds Pro",      sold: 34, revenue: 306000 },
+  { name: "Phone Case - iPhone 15",    sold: 28, revenue: 56000  },
+  { name: "USB-C Cable 2m",            sold: 24, revenue: 36000  },
+  { name: "Screen Protector 6.7\"" ,   sold: 21, revenue: 21000  },
+  { name: "Portable Charger 20000mAh", sold: 17, revenue: 204000 },
+  { name: "Bluetooth Speaker Mini",    sold: 14, revenue: 126000 },
+  { name: "Laptop Stand Aluminium",    sold: 11, revenue: 99000  },
+  { name: "Mechanical Keyboard TKL",   sold: 8,  revenue: 192000 },
 ];
 
 export const METHOD_COLOR: Record<string, string> = {

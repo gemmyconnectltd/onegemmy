@@ -13,6 +13,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [tenantSlug, setTenantSlug] = useState<string | undefined>(undefined);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const success = await login(email, password);
+    const success = await login(email, password, tenantSlug);
     if (success) {
       router.push("/dashboard");
     } else {
@@ -187,38 +188,61 @@ export default function LoginPage() {
           </div>
 
           {/* Demo accounts */}
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: "Super Admin",  email: "superadmin@onegemmy.com",         password: "superadmin123", desc: "Global super admin" },
-                { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123",      desc: "Full system access" },
-                { label: "User",         email: "user@onegemmy.com",                password: "user123",       desc: "Standard user" },
-                { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",       desc: "Inventory manager" },
-                { label: "Inv. Staff",   email: "inventory.staff@onegemmy.com",     password: "user123",       desc: "Inventory staff" },
-                { label: "Finance Mgr", email: "finance.manager@onegemmy.com",     password: "user123",       desc: "Finance manager" },
-                { label: "Finance",      email: "finance.staff@onegemmy.com",       password: "user123",       desc: "Finance staff" },
-                { label: "HR Manager",   email: "hr.manager@onegemmy.com",          password: "user123",       desc: "HR manager" },
-                { label: "HR Staff",     email: "hr.staff@onegemmy.com",            password: "user123",       desc: "HR staff" },
-                { label: "Sales Mgr",    email: "sales.manager@onegemmy.com",       password: "user123",       desc: "Sales manager" },
-                { label: "Sales Staff",  email: "sales.staff@onegemmy.com",         password: "user123",       desc: "Sales staff" },
-                { label: "Procurement",  email: "procurement.manager@onegemmy.com", password: "user123",       desc: "Procurement mgr" },
-              ].map((demo) => (
-                <button
-                  key={demo.label}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => {
-                    setEmail(demo.email);
-                    setPassword(demo.password);
-                  }}
-                  className="border border-border p-3 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
-                >
-                  <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
-                  <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
-                </button>
-              ))}
-            </div>
+            {([
+              {
+                tenant: "Global", slug: undefined,
+                users: [
+                  { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Global super admin" },
+                ],
+              },
+              {
+                tenant: "OneGemmy", slug: "onegemmy",
+                users: [
+                  { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123", desc: "Full access" },
+                  { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",  desc: "Inventory" },
+                  { label: "Inv. Staff",   email: "inventory.staff@onegemmy.com",     password: "user123",  desc: "Inv. staff" },
+                  { label: "Finance Mgr",  email: "finance.manager@onegemmy.com",     password: "user123",  desc: "Finance" },
+                  { label: "Finance",      email: "finance.staff@onegemmy.com",       password: "user123",  desc: "Fin. staff" },
+                  { label: "HR Manager",   email: "hr.manager@onegemmy.com",          password: "user123",  desc: "HR" },
+                  { label: "HR Staff",     email: "hr.staff@onegemmy.com",            password: "user123",  desc: "HR staff" },
+                  { label: "Sales Mgr",    email: "sales.manager@onegemmy.com",       password: "user123",  desc: "Sales" },
+                  { label: "Sales Staff",  email: "sales.staff@onegemmy.com",         password: "user123",  desc: "Sales staff" },
+                  { label: "Procurement",  email: "procurement.manager@onegemmy.com", password: "user123",  desc: "Procurement" },
+                  { label: "Proc. Staff",  email: "procurement.staff@onegemmy.com",   password: "user123",  desc: "Proc. staff" },
+                ],
+              },
+              {
+                tenant: "FreshMart", slug: "freshmart",
+                users: [
+                  { label: "Admin",        email: "admin@freshmart.rw",               password: "admin123", desc: "Full access" },
+                  { label: "Inv. Manager", email: "inventory.manager@freshmart.rw",   password: "user123",  desc: "Inventory" },
+                  { label: "Finance Mgr",  email: "finance.manager@freshmart.rw",     password: "user123",  desc: "Finance" },
+                  { label: "Sales Mgr",    email: "sales.manager@freshmart.rw",       password: "user123",  desc: "Sales" },
+                  { label: "Procurement",  email: "procurement.manager@freshmart.rw", password: "user123",  desc: "Procurement" },
+                  { label: "HR Manager",   email: "hr.manager@freshmart.rw",          password: "user123",  desc: "HR" },
+                ],
+              },
+            ] as { tenant: string; slug: string | undefined; users: { label: string; email: string; password: string; desc: string }[] }[]).map((group) => (
+              <div key={group.tenant}>
+                <p className="text-[10px] text-muted/40 uppercase tracking-wider font-semibold mb-1.5">{group.tenant}</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {group.users.map((demo) => (
+                    <button
+                      key={demo.email}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => { setEmail(demo.email); setPassword(demo.password); setTenantSlug(group.slug); }}
+                      className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
+                    >
+                      <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
+                      <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           <p className="text-sm text-muted text-center mt-8">
