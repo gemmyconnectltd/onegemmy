@@ -2,6 +2,7 @@
 import { fmtMoney } from "@/lib/config";
 import { Users, TrendingUp, ShoppingCart, Repeat } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
+import { chartPalette } from "@/lib/chartColors";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "recharts";
 
 const COLOR = "#0f766e";
@@ -24,14 +25,16 @@ const TOP_CUSTOMERS = [
 ];
 
 export default function CustomerAnalyticsPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, theme } = useAppConfig();
+  const c = chartPalette(theme === "dark");
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
+  const main = theme === "dark" ? "#2dd4bf" : COLOR;
 
   const stats = [
-    { label: "Total Customers",   value: "55",    icon: Users,       color: COLOR },
-    { label: "Avg. Spend",        value: fmt(111800), icon: TrendingUp,  color: "#059669" },
-    { label: "Orders This Month", value: "128",   icon: ShoppingCart, color: "#0284c7" },
-    { label: "Returning Rate",    value: "68%",   icon: Repeat,       color: "#b45309" },
+    { label: "Total Customers",   value: "55",    icon: Users,       color: main },
+    { label: "Avg. Spend",        value: fmt(111800), icon: TrendingUp,  color: theme === "dark" ? "#34d399" : "#059669" },
+    { label: "Orders This Month", value: "128",   icon: ShoppingCart, color: theme === "dark" ? "#38bdf8" : "#0284c7" },
+    { label: "Returning Rate",    value: "68%",   icon: Repeat,       color: theme === "dark" ? "#fbbf24" : "#b45309" },
   ];
 
   return (
@@ -60,15 +63,15 @@ export default function CustomerAnalyticsPage() {
             <AreaChart data={MONTHLY}>
               <defs>
                 <linearGradient id="cGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLOR} stopOpacity={0.15} />
-                  <stop offset="95%" stopColor={COLOR} stopOpacity={0} />
+                  <stop offset="5%" stopColor={main} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={main} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              <Area type="monotone" dataKey="customers" stroke={COLOR} strokeWidth={2} fill="url(#cGrad)" />
+              <CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={c.tooltip} />
+              <Area type="monotone" dataKey="customers" stroke={main} strokeWidth={2} fill="url(#cGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -77,10 +80,10 @@ export default function CustomerAnalyticsPage() {
           <p className="text-[13px] font-bold text-foreground mb-4">Top Customers by Spend</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={TOP_CUSTOMERS} layout="vertical">
-              <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => fmt(v)} />
-              <Bar dataKey="spent" fill={COLOR} radius={[0, 4, 4, 0]} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} width={120} />
+              <Tooltip contentStyle={c.tooltip} formatter={(v) => fmt(Number(v))} />
+              <Bar dataKey="spent" fill={main} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -90,11 +93,11 @@ export default function CustomerAnalyticsPage() {
         <p className="text-[13px] font-bold text-foreground mb-4">Monthly Revenue from Customers</p>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={MONTHLY}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: number) => fmt(v)} />
-            <Bar dataKey="revenue" fill={COLOR} radius={[4, 4, 0, 0]} />
+            <CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+            <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+            <Tooltip contentStyle={c.tooltip} formatter={(v) => fmt(Number(v))} />
+            <Bar dataKey="revenue" fill={main} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
