@@ -162,15 +162,13 @@ export default function DashboardPage() {
 
       {/* ── Low stock alert ── */}
       {lowStock.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400" />
-          </div>
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            <span className="font-bold">{lowStock.length} products</span> are running low on stock.
+        <div className="flex items-center gap-2 px-1">
+          <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
+          <p className="text-[13px] text-muted">
+            <span className="font-semibold text-foreground">{lowStock.length} products</span> are running low on stock.
           </p>
-          <a href="/inventory" className="ml-auto text-xs font-bold text-amber-700 dark:text-amber-300 hover:underline whitespace-nowrap flex items-center gap-0.5">
-            View all <ChevronRight size={12} />
+          <a href="/inventory" className="ml-auto text-[12px] font-semibold text-accent hover:underline whitespace-nowrap flex items-center gap-0.5">
+            View all <ChevronRight size={11} />
           </a>
         </div>
       )}
@@ -359,23 +357,29 @@ export default function DashboardPage() {
 
           {/* Low Stock */}
           {lowStock.length > 0 && (
-            <div className="bg-card border border-amber-200 dark:border-amber-800 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-amber-200 dark:border-amber-800 flex items-center justify-between bg-amber-50/50 dark:bg-amber-900/10">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle size={13} className="text-amber-500" />
-                  <h2 className="text-sm font-bold text-foreground">Low Stock</h2>
-                </div>
-                <a href="/inventory" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">Fix</a>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <h2 className="text-sm font-bold text-foreground">Low Stock</h2>
+                <a href="/inventory" className="text-[11px] font-bold text-accent hover:underline">Restock</a>
               </div>
               <div className="divide-y divide-border">
-                {lowStock.map((item, i) => (
-                  <div key={i} className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="text-[12px] text-foreground truncate max-w-[140px]">{item.name}</span>
-                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex-shrink-0 ml-2">
-                      {item.stock} left
-                    </span>
-                  </div>
-                ))}
+                {lowStock.map((item, i) => {
+                  const pct = item.min > 0 ? Math.min(100, Math.round((item.stock / item.min) * 100)) : 0;
+                  const barColor = item.stock === 0 ? "#ef4444" : pct < 50 ? "#f59e0b" : "#10b981";
+                  return (
+                    <div key={i} className="px-4 py-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[12px] font-medium text-foreground truncate max-w-[130px]">{item.name}</span>
+                        <span className="text-[11px] font-bold flex-shrink-0 ml-2" style={{ color: barColor }}>
+                          {item.stock} / {item.min}
+                        </span>
+                      </div>
+                      <div className="h-1 bg-border rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
