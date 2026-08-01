@@ -344,6 +344,127 @@ Table sales_targets {
 }
 
 // ============================================================
+// FINANCE MODULE
+// ============================================================
+
+// ------------------------------------------------------------
+// Chart of Accounts — double-entry account definitions
+// ------------------------------------------------------------
+Table finance_accounts {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  code varchar(20) [not null, note: "e.g. 1000, 4000 — unique per tenant"]
+  name varchar(255) [not null, note: "e.g. Cash, Accounts Receivable, Sales Revenue"]
+  type varchar(20) [not null, note: "Assets | Liabilities | Equity | Revenue | Expense"]
+  normal_balance varchar(6) [not null, note: "debit | credit"]
+  description text
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, code) [unique]
+    tenant_id
+    (tenant_id, type)
+  }
+}
+
+// ------------------------------------------------------------
+// Transactions — journal entry headers
+// Auto-created when: Order→Completed, Return→Approved, Expense→Approved
+// ------------------------------------------------------------
+Table finance_transactions {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  reference varchar(50) [not null, note: "e.g. TXN-0001 — unique per tenant"]
+  type varchar(20) [not null, note: "sale | return | expense | adjustment | manual"]
+  status varchar(10) [not null, default: "Draft", note: "Draft | Posted | Void"]
+  transaction_date date [not null]
+  description text
+  order_id uuid [ref: > sales_orders.id, note: "SET NULL — auto-linked on sale"]
+  return_id uuid [ref: > sales_returns.id, note: "SET NULL — auto-linked on return"]
+  created_by uuid [ref: > users.id, note: "SET NULL on delete"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, reference) [unique]
+    tenant_id
+    order_id
+    (tenant_id, type, status)
+  }
+}
+
+// ------------------------------------------------------------
+// Transaction Lines — debit/credit legs (min 2 per transaction)
+// Sum of debits must equal sum of credits per transaction
+// ------------------------------------------------------------
+Table finance_transaction_lines {
+  id uuid [primary key]
+  transaction_id uuid [not null, ref: > finance_transactions.id]
+  account_id uuid [not null, ref: > finance_accounts.id]
+  type varchar(6) [not null, note: "debit | credit"]
+  amount numeric(14,2) [not null]
+  description varchar(255)
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    transaction_id
+    account_id
+  }
+}
+
+// ------------------------------------------------------------
+// Expenses — direct expense records
+// Approved expense auto-creates a finance_transaction
+// ------------------------------------------------------------
+Table finance_expenses {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  reference varchar(50) [not null, note: "e.g. EXP-0001 — unique per tenant"]
+  title varchar(255) [not null]
+  amount numeric(14,2) [not null]
+  expense_date date [not null]
+  category varchar(50) [not null, note: "Rent | Utilities | Salaries | Supplies | Other"]
+  status varchar(10) [not null, default: "Pending", note: "Pending | Approved | Rejected"]
+  notes text
+  account_id uuid [ref: > finance_accounts.id, note: "SET NULL — expense account hit"]
+  order_id uuid [ref: > sales_orders.id, note: "SET NULL — optional link to order"]
+  approved_by uuid [ref: > users.id, note: "SET NULL on delete"]
+  created_by uuid [ref: > users.id, note: "SET NULL on delete"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, reference) [unique]
+    tenant_id
+    (tenant_id, status)
+    account_id
+  }
+}
+
+// ------------------------------------------------------------
+// Budgets — period budget per account
+// spent is updated when expense is Approved
+// ------------------------------------------------------------
+Table finance_budgets {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  account_id uuid [not null, ref: > finance_accounts.id]
+  period varchar(20) [not null, note: "e.g. 2025-07 (YYYY-MM)"]
+  amount numeric(14,2) [not null, note: "Budgeted amount"]
+  spent numeric(14,2) [default: 0, note: "Auto-incremented on expense approval"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, account_id, period) [unique]
+    tenant_id
+    account_id
+  }
+}
+
+// ============================================================
 // RELATIONSHIPS SUMMARY
 // ============================================================
 
@@ -408,4 +529,28 @@ Ref: inventory_products.id < sales_return_items.product_id
 
 // --- Sales: Targets ---
 Ref: users.id < sales_targets.assigned_to
+
+// --- Tenant → Finance ---
+Ref: tenants.id < finance_accounts.tenant_id
+Ref: tenants.id < finance_transactions.tenant_id
+Ref: tenants.id < finance_expenses.tenant_id
+Ref: tenants.id < finance_budgets.tenant_id
+
+// --- Finance: Transactions ---
+Ref: sales_orders.id < finance_transactions.order_id
+Ref: sales_returns.id < finance_transactions.return_id
+Ref: users.id < finance_transactions.created_by
+
+// --- Finance: Transaction Lines ---
+Ref: finance_transactions.id < finance_transaction_lines.transaction_id
+Ref: finance_accounts.id < finance_transaction_lines.account_id
+
+// --- Finance: Expenses ---
+Ref: finance_accounts.id < finance_expenses.account_id
+Ref: sales_orders.id < finance_expenses.order_id
+Ref: users.id < finance_expenses.approved_by
+Ref: users.id < finance_expenses.created_by
+
+// --- Finance: Budgets ---
+Ref: finance_accounts.id < finance_budgets.account_id
 ```

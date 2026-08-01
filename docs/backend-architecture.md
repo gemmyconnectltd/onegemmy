@@ -1,5 +1,24 @@
 # Backend Architecture: Folder Structure & Key Decisions
 
+> **Status key:** ✅ Built | 🔨 In Progress | 📋 Planned
+
+## Current State (as of Aug 2025)
+
+```
+✅ tenants module     — Tenant, User, Role, Permission, Branch, Department
+✅ auth module        — JWT login, token refresh
+✅ inventory module   — Product, Category, Brand, Unit, Supplier (full CRUD + image upload + restock)
+✅ sales module       — Customer, Deal, Order, OrderItem, Return, ReturnItem, Target
+🔨 finance module     — Account, Transaction, TransactionLine, Expense, Budget (ERD done, building)
+📋 hr module          — Employees, Payroll, Attendance, Leave
+📋 procurement module — Vendors, PurchaseOrders, GoodsReceipt
+📋 crm module         — Leads, Contacts, Opportunities, Tickets
+📋 manufacturing      — BOM, MRP, WorkOrders
+```
+
+---
+
+
 ## Three Key Architectural Decisions
 
 ### 1. Entity-First Module Layout (Not Flat)
