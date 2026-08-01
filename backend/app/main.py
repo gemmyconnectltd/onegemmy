@@ -21,8 +21,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="OneGemmy API", debug=settings.DEBUG)
 
     app.add_middleware(RequestLoggingMiddleware)
+    cors_origins = settings.cors_origins_list
+    is_wildcard = "*" in cors_origins
     app.add_middleware(CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
+        allow_origins=[] if is_wildcard else cors_origins,
+        allow_origin_regex=r".*" if is_wildcard else None,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
