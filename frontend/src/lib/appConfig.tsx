@@ -191,8 +191,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   // Restore persisted settings client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
-    const c = localStorage.getItem("app_currency");
-    if (c && currencies.find((x) => x.code === c)) setCurrencyState(c);
+    // Always reset currency to RWF — clear any stale non-RWF value
+    localStorage.setItem("app_currency", "RWF");
     const l = localStorage.getItem("app_locale");
     if (l && VALID_LOCALES.includes(l as LocaleCode)) setLocaleState(l as LocaleCode);
     const b = localStorage.getItem("app_business_type");
