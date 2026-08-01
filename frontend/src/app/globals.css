@@ -21,15 +21,15 @@
 }
 
 .dark {
-  --background: #0e0e0e;
-  --surface: #1a1a1a;
-  --foreground: #ededed;
-  --muted: #6b6b6b;
-  --border: #262626;
-  --card: #1f1e1b;
-  --sidebar: #0a0a0a;
-  --sidebar-hover: #1a1a1a;
-  --sidebar-text: rgba(255,255,255,0.45);
+  --background: #0d0d0f;
+  --surface: #151519;
+  --foreground: #f1f1f4;
+  --muted: #a0a2ab;
+  --border: #2c2c33;
+  --card: #1c1c21;
+  --sidebar: #0a0a0d;
+  --sidebar-hover: #191920;
+  --sidebar-text: rgba(255,255,255,0.55);
   --sidebar-text-active: #ffffff;
 }
 

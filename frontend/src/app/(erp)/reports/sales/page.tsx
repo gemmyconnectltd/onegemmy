@@ -5,11 +5,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ShoppingCart, TrendingUp, RotateCcw, Target, Loader2 } from "lucide-react";
 import { salesApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
 import type { ApiOrder, ApiReturn, ApiTarget } from "@/lib/api";
 
 const ACCENT = "#0284c7";
+const ACCENT_DARK = "#38bdf8";
 
 export default function SalesReportPage() {
+  const { theme } = useAppConfig();
+  const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [returns, setReturns] = useState<ApiReturn[]>([]);
   const [targets, setTargets] = useState<ApiTarget[]>([]);
@@ -70,10 +74,10 @@ export default function SalesReportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Revenue", value: fmtMoney(totalRevenue), icon: TrendingUp, color: "#10b981" },
-          { label: "Orders", value: completed.length.toString(), icon: ShoppingCart, color: ACCENT },
-          { label: "Cancelled", value: cancelled.length.toString(), icon: ShoppingCart, color: "#ef4444" },
-          { label: "Refunds", value: fmtMoney(totalRefunds), icon: RotateCcw, color: "#f59e0b" },
+          { label: "Revenue", value: fmtMoney(totalRevenue), icon: TrendingUp, color: theme === "dark" ? "#34d399" : "#10b981" },
+          { label: "Orders", value: completed.length.toString(), icon: ShoppingCart, color: accent },
+          { label: "Cancelled", value: cancelled.length.toString(), icon: ShoppingCart, color: theme === "dark" ? "#f87171" : "#ef4444" },
+          { label: "Refunds", value: fmtMoney(totalRefunds), icon: RotateCcw, color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -94,8 +98,8 @@ export default function SalesReportPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                <Tooltip formatter={(v, name) => [name === "revenue" ? fmtMoney(Number(v)) : v, name === "revenue" ? "Revenue" : "Orders"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
-                <Bar dataKey="revenue" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                <Tooltip formatter={(v, name) => [name === "revenue" ? fmtMoney(Number(v)) : v, name === "revenue" ? "Revenue" : "Orders"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                <Bar dataKey="revenue" fill={accent} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -149,7 +153,7 @@ export default function SalesReportPage() {
                   <td className="py-2.5 font-mono text-xs text-foreground">{o.order_number}</td>
                   <td className="py-2.5 text-foreground">{o.customer?.name ?? "Walk-in"}</td>
                   <td className="py-2.5">
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${o.status === "Completed" ? "bg-emerald-50 text-emerald-700" : o.status === "Cancelled" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${o.status === "Completed" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" : o.status === "Cancelled" ? "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300" : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"}`}>
                       {o.status}
                     </span>
                   </td>

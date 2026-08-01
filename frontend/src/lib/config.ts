@@ -8,37 +8,37 @@ export const businessTypes: { code: BusinessType; name: string; icon: string }[]
 ];
 
 export type BusinessTheme = {
-  background: string; surface: string; border: string;
+  background: string; surface: string; card: string; border: string;
   accent: string; primary: string; foreground: string; muted: string;
 };
 
 export const businessThemes: Record<BusinessType, BusinessTheme> = {
   retail: {
-    background: "#ffffff", surface: "#f8f8f6", border: "#e8e4de",
+    background: "#ffffff", surface: "#f8f8f6", card: "#ffffff", border: "#e8e4de",
     accent: "#6f1a07",    primary: "#af9164",  foreground: "#2b2118", muted: "#7a7d7e",
   },
   restaurant: {
-    background: "#fffbf5", surface: "#fdf3e3", border: "#f0dfc0",
+    background: "#fffbf5", surface: "#fdf3e3", card: "#ffffff", border: "#f0dfc0",
     accent: "#b45309",    primary: "#d97706",  foreground: "#1c1008", muted: "#78716c",
   },
   service: {
-    background: "#f8faff", surface: "#eef2ff", border: "#dde3f5",
+    background: "#f8faff", surface: "#eef2ff", card: "#ffffff", border: "#dde3f5",
     accent: "#1d4ed8",    primary: "#3b82f6",  foreground: "#0f172a", muted: "#64748b",
   },
 };
 
 export const businessThemesDark: Record<BusinessType, BusinessTheme> = {
   retail: {
-    background: "#141412", surface: "#1e1d1a", border: "#302d28",
-    accent: "#d0704f",    primary: "#d8b98a",  foreground: "#ededed", muted: "#8f8f8f",
+    background: "#0d0d0f", surface: "#151519", card: "#1c1c21", border: "#2c2c33",
+    accent: "#d4673f",    primary: "#d8b98a",  foreground: "#f1f1f4", muted: "#a0a2ab",
   },
   restaurant: {
-    background: "#171310", surface: "#211a14", border: "#3a2d21",
-    accent: "#f2a13c",    primary: "#e8c884",  foreground: "#f5efe7", muted: "#9c8f7f",
+    background: "#100d0a", surface: "#181410", card: "#1f1a14", border: "#3a3026",
+    accent: "#ea9030",    primary: "#e8c884",  foreground: "#f5efe7", muted: "#a99c8b",
   },
   service: {
-    background: "#0f1420", surface: "#171e2e", border: "#2a3752",
-    accent: "#5f8dff",    primary: "#7aa2ff",  foreground: "#e8edf7", muted: "#7d8aa3",
+    background: "#0d121e", surface: "#141b2b", card: "#1a2336", border: "#2a3752",
+    accent: "#6a92f4",    primary: "#7aa2ff",  foreground: "#e8edf7", muted: "#94a3b8",
   },
 };
 

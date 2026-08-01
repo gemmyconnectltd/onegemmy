@@ -5,11 +5,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Users, UserCheck, ShoppingCart, TrendingUp, Loader2 } from "lucide-react";
 import { salesApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
 import type { ApiCustomer, ApiOrder } from "@/lib/api";
 
 const ACCENT = "#0f766e";
+const ACCENT_DARK = "#2dd4bf";
 
 export default function CustomersReportPage() {
+  const { theme } = useAppConfig();
+  const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,10 +70,10 @@ export default function CustomersReportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Total Customers", value: customers.length.toString(), icon: Users, color: ACCENT },
-          { label: "Active", value: customers.filter(c => c.is_active).length.toString(), icon: UserCheck, color: "#10b981" },
-          { label: "With Orders", value: withOrders.toString(), icon: ShoppingCart, color: "#6366f1" },
-          { label: "Individual / Business", value: `${individual} / ${business}`, icon: TrendingUp, color: "#f59e0b" },
+          { label: "Total Customers", value: customers.length.toString(), icon: Users, color: accent },
+          { label: "Active", value: customers.filter(c => c.is_active).length.toString(), icon: UserCheck, color: theme === "dark" ? "#34d399" : "#10b981" },
+          { label: "With Orders", value: withOrders.toString(), icon: ShoppingCart, color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Individual / Business", value: `${individual} / ${business}`, icon: TrendingUp, color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -90,8 +94,8 @@ export default function CustomersReportPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip formatter={(v) => [v, "New Customers"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
-                <Bar dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                <Tooltip formatter={(v) => [v, "New Customers"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                <Bar dataKey="count" fill={accent} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -5,6 +5,7 @@ import { useSyncExternalStore, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Clock, ArrowRight, Plus } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAppConfig } from "@/lib/appConfig";
+import { chartPalette } from "@/lib/chartColors";
 import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
 import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
@@ -32,7 +33,8 @@ const INITIAL_TX: Tx[] = [
 ];
 
 export default function FinancePage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, theme } = useAppConfig();
+  const c = chartPalette(theme === "dark");
   const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
   const outstanding = sales.filter((s) => s.isInvoice && !s.paid);
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
@@ -108,18 +110,18 @@ export default function FinancePage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Total Income",   value: fmt(totalIncome),   icon: TrendingUp,   color: "#10B981", change: "+12%", up: true },
-          { label: "Total Expenses", value: fmt(totalExpenses), icon: TrendingDown, color: "#ef4444", change: "+5%",  up: false },
-          { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
-          { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: "#3b82f6", change: null,   up: true },
+          { label: "Total Income",   value: fmt(totalIncome),   icon: TrendingUp,   color: c.income, change: "+12%", up: true },
+          { label: "Total Expenses", value: fmt(totalExpenses), icon: TrendingDown, color: c.expenses, change: "+5%",  up: false },
+          { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: c.profit, change: "+18%", up: true },
+          { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: c.blue, change: null,   up: true },
         ].map((s) => (
           <div key={s.label} className="bg-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}14` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && (
-                <span className={`flex items-center gap-0.5 text-[11px] font-semibold ${s.up ? "text-emerald-600" : "text-red-500"}`}>
+                <span className={`flex items-center gap-0.5 text-[11px] font-semibold ${s.up ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                   {s.up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}{s.change}
                 </span>
               )}
@@ -137,20 +139,20 @@ export default function FinancePage() {
             <AreaChart data={monthly}>
               <defs>
                 <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  <stop offset="5%" stopColor={c.income} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={c.income} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  <stop offset="5%" stopColor={c.expenses} stopOpacity={0.1} />
+                  <stop offset="95%" stopColor={c.expenses} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e8e4de" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#b3b6b7" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#b3b6b7" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v, n) => [fmt(Number(v)), n === "income" ? "Income" : "Expenses"]} contentStyle={{ borderRadius: 8, border: "1px solid #e8e4de", fontSize: 12 }} />
-              <Area type="monotone" dataKey="income"   stroke="#10B981" strokeWidth={2} fill="url(#gIncome)" dot={false} />
-              <Area type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} fill="url(#gExp)"    dot={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v, n) => [fmt(Number(v)), n === "income" ? "Income" : "Expenses"]} contentStyle={c.tooltip} />
+              <Area type="monotone" dataKey="income"   stroke={c.income} strokeWidth={2} fill="url(#gIncome)" dot={false} />
+              <Area type="monotone" dataKey="expenses" stroke={c.expenses} strokeWidth={2} fill="url(#gExp)"    dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -164,8 +166,8 @@ export default function FinancePage() {
           {transactions.map((t) => (
             <div key={t.id} className="px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 flex items-center justify-center ${t.type === "income" ? "bg-emerald-50" : "bg-red-50"}`}>
-                  {t.type === "income" ? <TrendingUp size={14} className="text-emerald-600" /> : <TrendingDown size={14} className="text-red-500" />}
+                <div className={`w-8 h-8 flex items-center justify-center ${t.type === "income" ? "bg-emerald-50 dark:bg-emerald-500/15" : "bg-red-50 dark:bg-red-500/15"}`}>
+                  {t.type === "income" ? <TrendingUp size={14} className="text-emerald-600 dark:text-emerald-400" /> : <TrendingDown size={14} className="text-red-500 dark:text-red-400" />}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{t.desc}</p>

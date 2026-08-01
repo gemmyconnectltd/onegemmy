@@ -5,9 +5,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package, Loader2 } from "lucide-react";
 import { salesApi, inventoryApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
+import { chartPalette } from "@/lib/chartColors";
 import type { ApiOrder, ApiReturn, ApiCustomer, ApiProduct } from "@/lib/api";
-
-const ACCENT = "#af9164";
 
 function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: React.ElementType; color: string }) {
   return (
@@ -23,6 +23,8 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
 }
 
 export default function ReportsPage() {
+  const { theme } = useAppConfig();
+  const c = chartPalette(theme === "dark");
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [returns, setReturns] = useState<ApiReturn[]>([]);
   const [customers, setCustomers] = useState<ApiCustomer[]>([]);
@@ -92,10 +94,10 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Total Revenue" value={fmtMoney(totalRevenue)} sub={`${totalOrders} completed orders`} icon={DollarSign} color="#10b981" />
-        <StatCard label="Avg Order Value" value={fmtMoney(avgOrder)} sub="per completed order" icon={ShoppingCart} color={ACCENT} />
-        <StatCard label="Total Refunds" value={fmtMoney(totalRefunds)} sub={`${returns.filter(r => r.status === "Approved").length} approved returns`} icon={RotateCcw} color="#ef4444" />
-        <StatCard label="Active Customers" value={customers.filter(c => c.is_active).length.toString()} sub={`${lowStock} products low stock`} icon={Users} color="#6366f1" />
+        <StatCard label="Total Revenue" value={fmtMoney(totalRevenue)} sub={`${totalOrders} completed orders`} icon={DollarSign} color={c.income} />
+        <StatCard label="Avg Order Value" value={fmtMoney(avgOrder)} sub="per completed order" icon={ShoppingCart} color={c.primary} />
+        <StatCard label="Total Refunds" value={fmtMoney(totalRefunds)} sub={`${returns.filter(r => r.status === "Approved").length} approved returns`} icon={RotateCcw} color={c.expenses} />
+        <StatCard label="Active Customers" value={customers.filter(c => c.is_active).length.toString()} sub={`${lowStock} products low stock`} icon={Users} color={c.blue} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -108,8 +110,8 @@ export default function ReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
-                  <Bar dataKey="revenue" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Revenue"]} contentStyle={c.tooltip} />
+                  <Bar dataKey="revenue" fill={c.primary} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -122,7 +124,7 @@ export default function ReportsPage() {
           <h2 className="text-sm font-bold text-foreground mb-4">Orders by Status</h2>
           <div className="space-y-3">
             {statusChart.length > 0 ? statusChart.map(({ status, count }) => {
-              const color = status === "Completed" ? "#10b981" : status === "Cancelled" ? "#ef4444" : "#f59e0b";
+              const color = status === "Completed" ? c.income : status === "Cancelled" ? c.expenses : (theme === "dark" ? "#fbbf24" : "#f59e0b");
               const pct = Math.round((count / orders.length) * 100);
               return (
                 <div key={status}>

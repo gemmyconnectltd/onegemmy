@@ -13,6 +13,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { inventoryApi, type ApiProduct } from "@/lib/api";
+import { useAppConfig } from "@/lib/appConfig";
+import { chartPalette } from "@/lib/chartColors";
 
 const weeklyData = [
   { day: "Mon", sales: 45000, expenses: 12000 },
@@ -32,12 +34,12 @@ const recentSales = [
 ];
 
 const quickActions = [
-  { label: "Record Sale", href: "/sales", icon: ShoppingCart, color: "#6f1a07" },
-  { label: "Products", href: "/products", icon: Package, color: "#af9164" },
-  { label: "Add Stock", href: "/inventory", icon: Package, color: "#10B981" },
-  { label: "Record Expense", href: "/expenses", icon: DollarSign, color: "#ef4444" },
-  { label: "Reports", href: "/reports", icon: TrendingUp, color: "#3b82f6" },
-  { label: "Settings", href: "/settings", icon: Package, color: "#6b7280" },
+  { label: "Record Sale", href: "/sales", icon: ShoppingCart },
+  { label: "Products", href: "/products", icon: Package },
+  { label: "Add Stock", href: "/inventory", icon: Package },
+  { label: "Record Expense", href: "/expenses", icon: DollarSign },
+  { label: "Reports", href: "/reports", icon: TrendingUp },
+  { label: "Settings", href: "/settings", icon: Package },
 ];
 
 function fmtRWF(val: number) {
@@ -56,6 +58,8 @@ function variantMinStock(p: ApiProduct) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { theme } = useAppConfig();
+  const c = chartPalette(theme === "dark");
   const [period, setPeriod] = useState<"today" | "week">("today");
   const [inventory, setInventory] = useState<ApiProduct[]>([]);
 
@@ -102,18 +106,18 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Today's Sales", value: fmtRWF(todaySales), icon: TrendingUp, color: "#10B981", change: "+12%", up: true },
-          { label: "Today's Expenses", value: fmtRWF(todayExpenses), icon: TrendingDown, color: "#ef4444", change: "+5%", up: false },
-          { label: "Today's Profit", value: fmtRWF(todayProfit), icon: DollarSign, color: "#6f1a07", change: "+18%", up: true },
-          { label: "Cash Available", value: fmtRWF(cashAvailable), icon: DollarSign, color: "#3b82f6", change: null, up: true },
+          { label: "Today's Sales", value: fmtRWF(todaySales), icon: TrendingUp, color: c.income, change: "+12%", up: true },
+          { label: "Today's Expenses", value: fmtRWF(todayExpenses), icon: TrendingDown, color: c.expenses, change: "+5%", up: false },
+          { label: "Today's Profit", value: fmtRWF(todayProfit), icon: DollarSign, color: c.profit, change: "+18%", up: true },
+          { label: "Cash Available", value: fmtRWF(cashAvailable), icon: DollarSign, color: c.blue, change: null, up: true },
         ].map((stat) => (
           <div key={stat.label} className="bg-card p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${stat.color}10` }}>
+              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${stat.color}14` }}>
                 <stat.icon size={16} style={{ color: stat.color }} />
               </div>
               {stat.change && (
-                <span className={`flex items-center gap-0.5 text-[11px] font-semibold ${stat.up ? "text-emerald-600" : "text-red-500"}`}>
+                <span className={`flex items-center gap-0.5 text-[11px] font-semibold ${stat.up ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                   {stat.up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                   {stat.change}
                 </span>
@@ -126,12 +130,12 @@ export default function DashboardPage() {
       </div>
 
       {lowStockCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 p-3 flex items-center gap-3">
+        <div className="bg-amber-50 border border-amber-200 p-3 flex items-center gap-3 dark:bg-amber-900/20 dark:border-amber-800">
           <AlertTriangle size={16} className="text-amber-500 flex-shrink-0" />
-          <p className="text-sm text-amber-700">
+          <p className="text-sm text-amber-700 dark:text-amber-300">
             <span className="font-bold">{lowStockCount} products</span> are running low on stock.
           </p>
-          <a href="/inventory" className="ml-auto text-xs font-semibold text-amber-700 hover:underline whitespace-nowrap">
+          <a href="/inventory" className="ml-auto text-xs font-semibold text-amber-700 hover:underline whitespace-nowrap dark:text-amber-300">
             View all
           </a>
         </div>
@@ -151,37 +155,37 @@ export default function DashboardPage() {
                 <AreaChart data={weeklyData}>
                   <defs>
                     <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                      <stop offset="5%" stopColor={c.income} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={c.income} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradExp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      <stop offset="5%" stopColor={c.expenses} stopOpacity={0.1} />
+                      <stop offset="95%" stopColor={c.expenses} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8e4de" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#b3b6b7" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#b3b6b7" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: "#fff", border: "1px solid #e8e4de", borderRadius: 0, fontSize: 12, padding: "8px 12px" }}
+                    contentStyle={c.tooltip}
                     formatter={(value, name) => [
                       fmtMoney(Number(value)),
                       name === "sales" ? "Sales" : "Expenses",
                     ]}
                   />
-                  <Area type="monotone" dataKey="sales" stroke="#10B981" strokeWidth={2} fill="url(#gradSales)" dot={false} activeDot={{ r: 4, fill: "#10B981", strokeWidth: 0 }} />
-                  <Area type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} fill="url(#gradExp)" dot={false} activeDot={{ r: 4, fill: "#ef4444", strokeWidth: 0 }} />
+                  <Area type="monotone" dataKey="sales" stroke={c.income} strokeWidth={2} fill="url(#gradSales)" dot={false} activeDot={{ r: 4, fill: c.income, strokeWidth: 0 }} />
+                  <Area type="monotone" dataKey="expenses" stroke={c.expenses} strokeWidth={2} fill="url(#gradExp)" dot={false} activeDot={{ r: 4, fill: c.expenses, strokeWidth: 0 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="px-5 pb-3 flex items-center gap-5 justify-center">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-1.5 bg-[#10B981]" />
+              <div className="w-3 h-1.5 rounded-full" style={{ backgroundColor: c.income }} />
               <span className="text-[11px] text-muted font-medium">Sales</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-1.5 bg-[#ef4444]" />
+              <div className="w-3 h-1.5 rounded-full" style={{ backgroundColor: c.expenses }} />
               <span className="text-[11px] text-muted font-medium">Expenses</span>
             </div>
           </div>
@@ -193,20 +197,24 @@ export default function DashboardPage() {
               <h2 className="text-sm font-bold text-foreground">Quick Actions</h2>
             </div>
             <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {quickActions.map((action) => (
-                <a
-                  key={action.label}
-                  href={action.href}
-                  className="flex items-center gap-2 px-3 py-2.5 bg-surface hover:bg-foreground/5 transition-colors group"
-                >
-                  <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${action.color}10` }}>
-                    <action.icon size={14} style={{ color: action.color }} />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors">
-                    {action.label}
-                  </span>
-                </a>
-              ))}
+              {quickActions.map((action, i) => {
+                const colors = [c.profit, c.gold, c.income, c.expenses, c.blue, c.gray];
+                const color = colors[i % colors.length];
+                return (
+                  <a
+                    key={action.label}
+                    href={action.href}
+                    className="flex items-center gap-2 px-3 py-2.5 bg-surface hover:bg-foreground/5 transition-colors group"
+                  >
+                    <div className="w-7 h-7 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${color}14` }}>
+                      <action.icon size={14} style={{ color }} />
+                    </div>
+                    <span className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors">
+                      {action.label}
+                    </span>
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -221,7 +229,7 @@ export default function DashboardPage() {
                     <AlertTriangle size={12} className="text-amber-500" />
                     <span className="text-sm text-foreground">{item.name}</span>
                   </div>
-                  <span className="text-xs font-bold text-amber-600">{item.stock} left</span>
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{item.stock} left</span>
                 </div>
               ))}
             </div>

@@ -1,5 +1,7 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
+import { chartPalette } from "@/lib/chartColors";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const data = [
@@ -12,10 +14,13 @@ const data = [
 ];
 
 export default function FinanceReportsPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, theme } = useAppConfig();
+  const c = chartPalette(theme === "dark");
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   // axis tick formatter — keep compact K for chart axis
   const axisFmt = (v: number) => fmtMoney(v, currencySymbol);
+  const incomeColor = theme === "dark" ? "text-emerald-400" : "text-emerald-600";
+  const expenseColor = theme === "dark" ? "text-red-400" : "text-red-500";
   return (
     <div className="space-y-6">
       <div>
@@ -27,13 +32,13 @@ export default function FinanceReportsPage() {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e8e4de" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#b3b6b7" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#b3b6b7" }} axisLine={false} tickLine={false} tickFormatter={axisFmt} />
-              <Tooltip formatter={(v) => [fmtMoney(Number(v), currencySymbol)]} contentStyle={{ borderRadius: 8, border: "1px solid #e8e4de", fontSize: 12 }} />
-              <Bar dataKey="income"   fill="#10B981" radius={[4, 4, 0, 0]} name="Income" />
-              <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} name="Expenses" />
-              <Bar dataKey="profit"   fill="#6f1a07" radius={[4, 4, 0, 0]} name="Profit" />
+              <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={axisFmt} />
+              <Tooltip formatter={(v) => [fmtMoney(Number(v), currencySymbol)]} contentStyle={c.tooltip} />
+              <Bar dataKey="income"   fill={c.income} radius={[4, 4, 0, 0]} name="Income" />
+              <Bar dataKey="expenses" fill={c.expenses} radius={[4, 4, 0, 0]} name="Expenses" />
+              <Bar dataKey="profit"   fill={c.profit} radius={[4, 4, 0, 0]} name="Profit" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -55,8 +60,8 @@ export default function FinanceReportsPage() {
             {data.map((r) => (
               <tr key={r.month} className="hover:bg-surface/50 transition-colors">
                 <td className="p-4 text-sm font-medium text-foreground">{r.month}</td>
-                <td className="p-4 text-right text-sm text-emerald-600 font-medium">{fmtMoney(r.income, currencySymbol)}</td>
-                <td className="p-4 text-right text-sm text-red-500 font-medium">{fmtMoney(r.expenses, currencySymbol)}</td>
+                <td className="p-4 text-right text-sm font-medium text-emerald-600 dark:text-emerald-400">{fmtMoney(r.income, currencySymbol)}</td>
+                <td className="p-4 text-right text-sm text-red-500 dark:text-red-400 font-medium">{fmtMoney(r.expenses, currencySymbol)}</td>
                 <td className="p-4 text-right text-sm font-bold text-foreground">{fmtMoney(r.profit, currencySymbol)}</td>
               </tr>
             ))}

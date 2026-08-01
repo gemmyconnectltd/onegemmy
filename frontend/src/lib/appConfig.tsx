@@ -158,6 +158,7 @@ function applyTheme(type: BusinessType, theme: Theme) {
   const root = document.documentElement;
   root.style.setProperty("--background", palette.background);
   root.style.setProperty("--surface", palette.surface);
+  root.style.setProperty("--card", palette.card);
   root.style.setProperty("--border", palette.border);
   root.style.setProperty("--accent", palette.accent);
   root.style.setProperty("--primary", palette.primary);

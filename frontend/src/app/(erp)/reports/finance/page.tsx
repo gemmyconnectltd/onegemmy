@@ -5,11 +5,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { DollarSign, TrendingUp, TrendingDown, CreditCard, Loader2 } from "lucide-react";
 import { salesApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
 import type { ApiOrder, ApiReturn } from "@/lib/api";
 
 const ACCENT = "#b45309";
+const ACCENT_DARK = "#fbbf24";
 
 export default function FinanceReportPage() {
+  const { theme } = useAppConfig();
+  const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [returns, setReturns] = useState<ApiReturn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,10 +79,10 @@ export default function FinanceReportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Gross Revenue", value: fmtMoney(totalRevenue), icon: TrendingUp, color: "#10b981" },
-          { label: "Net Revenue", value: fmtMoney(netRevenue), icon: DollarSign, color: ACCENT },
-          { label: "Tax Collected", value: fmtMoney(totalTax), icon: CreditCard, color: "#6366f1" },
-          { label: "Total Refunds", value: fmtMoney(totalRefunds), icon: TrendingDown, color: "#ef4444" },
+          { label: "Gross Revenue", value: fmtMoney(totalRevenue), icon: TrendingUp, color: theme === "dark" ? "#34d399" : "#10b981" },
+          { label: "Net Revenue", value: fmtMoney(netRevenue), icon: DollarSign, color: accent },
+          { label: "Tax Collected", value: fmtMoney(totalTax), icon: CreditCard, color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Total Refunds", value: fmtMoney(totalRefunds), icon: TrendingDown, color: theme === "dark" ? "#f87171" : "#ef4444" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -100,9 +104,9 @@ export default function FinanceReportPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                  <Tooltip formatter={(v, name) => [fmtMoney(Number(v)), name === "revenue" ? "Revenue" : "Refunds"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
-                  <Bar dataKey="revenue" fill={ACCENT} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="refunds" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Tooltip formatter={(v, name) => [fmtMoney(Number(v)), name === "revenue" ? "Revenue" : "Refunds"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                  <Bar dataKey="revenue" fill={accent} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="refunds" fill={theme === "dark" ? "#f87171" : "#ef4444"} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -118,8 +122,8 @@ export default function FinanceReportPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Tax"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
-                  <Bar dataKey="tax" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Tax"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                  <Bar dataKey="tax" fill={theme === "dark" ? "#818cf8" : "#6366f1"} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

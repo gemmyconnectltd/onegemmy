@@ -5,11 +5,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Package, AlertTriangle, TrendingDown, Layers, Loader2 } from "lucide-react";
 import { inventoryApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
 import type { ApiProduct } from "@/lib/api";
 
 const ACCENT = "#059669";
+const ACCENT_DARK = "#34d399";
 
 export default function InventoryReportPage() {
+  const { theme } = useAppConfig();
+  const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,10 +57,10 @@ export default function InventoryReportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Active Products", value: active.length.toString(), icon: Package, color: ACCENT },
-          { label: "Stock Value (Cost)", value: fmtMoney(totalValue), icon: TrendingDown, color: "#6366f1" },
-          { label: "Retail Value", value: fmtMoney(totalRetailValue), icon: Layers, color: "#0284c7" },
-          { label: "Low / Out of Stock", value: `${lowStock.length} / ${outOfStock.length}`, icon: AlertTriangle, color: "#ef4444" },
+          { label: "Active Products", value: active.length.toString(), icon: Package, color: accent },
+          { label: "Stock Value (Cost)", value: fmtMoney(totalValue), icon: TrendingDown, color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Retail Value", value: fmtMoney(totalRetailValue), icon: Layers, color: theme === "dark" ? "#38bdf8" : "#0284c7" },
+          { label: "Low / Out of Stock", value: `${lowStock.length} / ${outOfStock.length}`, icon: AlertTriangle, color: theme === "dark" ? "#f87171" : "#ef4444" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -78,8 +82,8 @@ export default function InventoryReportPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                   <XAxis type="number" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
                   <YAxis type="category" dataKey="name" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={90} />
-                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Value"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
-                  <Bar dataKey="value" fill={ACCENT} radius={[0, 4, 4, 0]} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Value"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                  <Bar dataKey="value" fill={accent} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -96,7 +100,7 @@ export default function InventoryReportPage() {
                     <p className="text-sm font-semibold text-foreground">{p.name}</p>
                     <p className="text-[11px] text-muted font-mono">{p.sku ?? "No SKU"}</p>
                   </div>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${p._type === "out" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${p._type === "out" ? "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300" : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"}`}>
                     {p._type === "out" ? "Out of stock" : `${p.stock} left`}
                   </span>
                 </div>
@@ -124,7 +128,7 @@ export default function InventoryReportPage() {
                 <td className="py-2.5 text-foreground">{p.stock}</td>
                 <td className="py-2.5 text-muted">{fmtMoney(p.cost)}</td>
                 <td className="py-2.5 font-semibold text-foreground">{fmtMoney(p.cost * p.stock)}</td>
-                <td className="py-2.5 text-emerald-600 font-semibold">{fmtMoney(p.price * p.stock)}</td>
+                <td className="py-2.5 text-emerald-600 dark:text-emerald-400 font-semibold">{fmtMoney(p.price * p.stock)}</td>
               </tr>
             ))}
           </tbody>
