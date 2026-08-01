@@ -1,6 +1,21 @@
 import { request, getStoredToken, API_BASE } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
+export interface ApiVariant {
+  id: string;
+  product_id: string;
+  sku: string | null;
+  attributes: Record<string, string>;
+  price: number;
+  cost: number;
+  stock: number;
+  min_stock: number;
+  image_url: string | null;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export interface ApiProduct {
   id: string;
   name: string;
@@ -12,6 +27,7 @@ export interface ApiProduct {
   stock: number;
   min_stock: number;
   is_active: boolean;
+  has_variants: boolean;
   category_id: string | null;
   brand_id: string | null;
   unit_id: string | null;
@@ -20,6 +36,7 @@ export interface ApiProduct {
   brand: { id: string; name: string } | null;
   unit: { id: string; name: string; abbreviation: string | null } | null;
   supplier: { id: string; name: string } | null;
+  variants: ApiVariant[];
 }
 
 export interface ApiCategory { id: string; name: string; description: string | null; }
@@ -53,6 +70,18 @@ export const inventoryApi = {
       body: form,
     }).then((r) => r.json()) as Promise<SingleResponse<ApiProduct>>;
   },
+
+  // Variants
+  listVariants: (productId: string) =>
+    request<SingleResponse<ApiVariant[]>>(`${BASE}/products/${productId}/variants`),
+  createVariant: (productId: string, data: object) =>
+    request<SingleResponse<ApiVariant>>(`${BASE}/products/${productId}/variants`, { method: "POST", body: JSON.stringify(data) }),
+  updateVariant: (productId: string, id: string, data: object) =>
+    request<SingleResponse<ApiVariant>>(`${BASE}/products/${productId}/variants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  restockVariant: (productId: string, id: string, data: { qty: number; mode: string }) =>
+    request<SingleResponse<ApiVariant>>(`${BASE}/products/${productId}/variants/${id}/restock`, { method: "POST", body: JSON.stringify(data) }),
+  deleteVariant: (productId: string, id: string) =>
+    request<SingleResponse<null>>(`${BASE}/products/${productId}/variants/${id}`, { method: "DELETE" }),
 
   // Categories
   listCategories: () =>

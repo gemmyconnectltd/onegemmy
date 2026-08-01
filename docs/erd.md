@@ -161,11 +161,12 @@ Table inventory_products {
   sku varchar(100) [note: "Stock Keeping Unit — unique per tenant"]
   description text
   image_url varchar(500)
-  price numeric(12,2) [default: 0, note: "Selling price"]
-  cost numeric(12,2) [default: 0, note: "Purchase/cost price"]
-  stock int [default: 0, note: "Current stock quantity"]
-  min_stock int [default: 0, note: "Low stock alert threshold"]
+  price numeric(12,2) [default: 0, note: "Selling price — ignored when has_variants=true"]
+  cost numeric(12,2) [default: 0, note: "Purchase/cost price — ignored when has_variants=true"]
+  stock int [default: 0, note: "Total stock — ignored when has_variants=true"]
+  min_stock int [default: 0, note: "Low stock threshold — ignored when has_variants=true"]
   is_active boolean [default: true]
+  has_variants boolean [default: false, note: "When true, price/stock live on variants"]
   category_id uuid [ref: > inventory_categories.id, note: "SET NULL on delete"]
   brand_id uuid [ref: > inventory_brands.id, note: "SET NULL on delete"]
   unit_id uuid [ref: > inventory_units.id, note: "SET NULL on delete"]
@@ -176,6 +177,30 @@ Table inventory_products {
   indexes {
     (tenant_id, sku) [unique]
     tenant_id
+  }
+}
+
+// ------------------------------------------------------------
+// Product Variants — size/color/etc variations of a product
+// Only used when inventory_products.has_variants = true
+// ------------------------------------------------------------
+Table inventory_product_variants {
+  id uuid [primary key]
+  product_id uuid [not null, ref: > inventory_products.id, note: "CASCADE on delete"]
+  sku varchar(100) [note: "Unique per product — nullable"]
+  attributes json [not null, note: "e.g. {color: Red, size: XL}"]
+  price numeric(12,2) [default: 0]
+  cost numeric(12,2) [default: 0]
+  stock int [default: 0]
+  min_stock int [default: 0]
+  image_url varchar(500)
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    product_id
+    (product_id, sku) [unique, note: "nullable — only enforced when sku is set"]
   }
 }
 
@@ -495,6 +520,9 @@ Ref: inventory_categories.id < inventory_products.category_id
 Ref: inventory_brands.id < inventory_products.brand_id
 Ref: inventory_units.id < inventory_products.unit_id
 Ref: inventory_suppliers.id < inventory_products.supplier_id
+
+// --- Inventory: Product Variants ---
+Ref: inventory_products.id < inventory_product_variants.product_id
 
 // --- Tenant → Sales ---
 Ref: tenants.id < sales_customers.tenant_id

@@ -5,6 +5,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.finance.service.transaction import create_sale_transaction
 from app.modules.inventory.models.product import Product
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
@@ -109,6 +110,7 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     if data.status == "Completed":
         await _bump_revenue_targets(db, tenant_id, total)
         await _bump_order_targets(db, tenant_id)
+        await create_sale_transaction(db, tenant_id, user_id, order.id, total, order_number)
 
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
@@ -127,6 +129,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     if not was_completed and obj.status == "Completed":
         await _bump_revenue_targets(db, tenant_id, float(obj.total))
         await _bump_order_targets(db, tenant_id)
+        await create_sale_transaction(db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number)
     await OrderRepository(db).save(obj)
     await db.commit()
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)

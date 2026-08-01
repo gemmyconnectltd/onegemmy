@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Loader2 } from "lucide-react";
+import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Loader2 } from "lucide-react";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
+import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
 import { inventoryApi, type ApiProduct } from "@/lib/api";
 
 const INV_COLOR = "#059669";
@@ -43,6 +44,7 @@ export default function ProductsPage() {
   const [formKey, setFormKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null);
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
+  const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -199,6 +201,10 @@ export default function ProductsPage() {
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <PackagePlus size={13} style={{ color: INV_COLOR }} /> Restock
                           </button>
+                          <button onClick={() => { setOpenMenu(null); setVariantsTarget(p); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
+                            <Layers size={13} className="text-muted" /> Variants
+                          </button>
                           <button onClick={() => { setOpenMenu(null); setDeleteTarget(p); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
                             <Trash2 size={13} /> Delete
@@ -243,6 +249,19 @@ export default function ProductsPage() {
         productName={restockTarget?.name ?? ""}
         currentStock={restockTarget?.stock ?? 0}
         onSubmit={handleRestock}
+        color={INV_COLOR}
+      />
+
+      <VariantsDrawer
+        open={!!variantsTarget}
+        onClose={() => setVariantsTarget(null)}
+        productId={variantsTarget?.id ?? ""}
+        productName={variantsTarget?.name ?? ""}
+        variants={variantsTarget?.variants ?? []}
+        onChanged={(variants) => {
+          setProducts((prev) => prev.map((p) => p.id === variantsTarget?.id ? { ...p, variants, has_variants: variants.length > 0 } : p));
+          setVariantsTarget((t) => t ? { ...t, variants, has_variants: variants.length > 0 } : null);
+        }}
         color={INV_COLOR}
       />
 

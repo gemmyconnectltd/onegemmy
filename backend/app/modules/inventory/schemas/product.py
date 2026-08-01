@@ -9,6 +9,43 @@ from app.modules.inventory.schemas.supplier import SupplierRead
 from app.modules.inventory.schemas.unit import UnitRead
 
 
+class VariantCreate(BaseModel):
+    sku: str | None = None
+    attributes: dict = {}
+    price: float = 0
+    cost: float = 0
+    stock: int = 0
+    min_stock: int = 0
+    is_active: bool = True
+
+
+class VariantUpdate(BaseModel):
+    sku: str | None = None
+    attributes: dict | None = None
+    price: float | None = None
+    cost: float | None = None
+    stock: int | None = None
+    min_stock: int | None = None
+    is_active: bool | None = None
+
+
+class VariantRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    product_id: uuid.UUID
+    sku: str | None
+    attributes: dict
+    price: float
+    cost: float
+    stock: int
+    min_stock: int
+    image_url: str | None = None
+    is_active: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class ProductCreate(BaseModel):
     name: str
     sku: str | None = None
@@ -19,6 +56,7 @@ class ProductCreate(BaseModel):
     stock: int = 0
     min_stock: int = 0
     is_active: bool = True
+    has_variants: bool = False
     category_id: uuid.UUID | None = None
     brand_id: uuid.UUID | None = None
     unit_id: uuid.UUID | None = None
@@ -45,6 +83,7 @@ class ProductUpdate(BaseModel):
     stock: int | None = None
     min_stock: int | None = None
     is_active: bool | None = None
+    has_variants: bool | None = None
     category_id: uuid.UUID | None = None
     brand_id: uuid.UUID | None = None
     unit_id: uuid.UUID | None = None
@@ -72,6 +111,7 @@ class ProductRead(BaseModel):
     stock: int
     min_stock: int
     is_active: bool
+    has_variants: bool
     category_id: uuid.UUID | None
     brand_id: uuid.UUID | None
     unit_id: uuid.UUID | None
@@ -80,5 +120,6 @@ class ProductRead(BaseModel):
     brand: BrandRead | None = None
     unit: UnitRead | None = None
     supplier: SupplierRead | None = None
+    variants: list[VariantRead] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None

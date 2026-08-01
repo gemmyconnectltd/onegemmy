@@ -14,7 +14,7 @@ export type { ApiTokenUserInfo, ApiTokenResponse, ApiRegisterRequest } from "./a
 export { authApi } from "./auth";
 
 // Inventory
-export type { ApiProduct, ApiCategory, ApiBrand, ApiUnit, ApiSupplier } from "./inventory";
+export type { ApiProduct, ApiVariant, ApiCategory, ApiBrand, ApiUnit, ApiSupplier } from "./inventory";
 export { inventoryApi } from "./inventory";
 
 // Sales

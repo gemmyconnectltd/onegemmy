@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +21,7 @@ class Product(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     stock: Mapped[int] = mapped_column(Integer, default=0)
     min_stock: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(default=True)
+    has_variants: Mapped[bool] = mapped_column(Boolean, default=False)
 
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_categories.id", ondelete="SET NULL"), nullable=True
@@ -39,3 +40,4 @@ class Product(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     brand = relationship("Brand", back_populates="products", lazy="joined")
     unit = relationship("Unit", back_populates="products", lazy="joined")
     supplier = relationship("Supplier", back_populates="products", lazy="joined")
+    variants = relationship("ProductVariant", back_populates="product", lazy="selectin", cascade="all, delete-orphan")
