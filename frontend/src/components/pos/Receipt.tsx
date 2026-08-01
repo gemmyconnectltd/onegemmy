@@ -66,6 +66,11 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
               )}
               <div className="min-w-0">
                 <p className="text-[12px] font-medium text-foreground truncate">{item.name}</p>
+                {item.variant_attributes && Object.keys(item.variant_attributes).length > 0 && (
+                  <p className="text-[10px] text-muted truncate">
+                    {Object.entries(item.variant_attributes).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                  </p>
+                )}
                 <p className="text-[10px] text-muted font-mono">
                   {item.qty} × {currencySymbol} {fmt(item.price)}
                   {item.discount > 0 && <span className="text-emerald-600"> (-{fmt(item.discount)})</span>}

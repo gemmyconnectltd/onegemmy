@@ -71,8 +71,9 @@ const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React
   inventory: [
     { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, color: "#059669", exact: true },
     { nameKey: "products",   href: "/inventory/products",   icon: Package,         color: "#059669" },
-    { nameKey: "categories", href: "/inventory/categories", icon: Layers,          color: "#059669" },
-    { nameKey: "brands",     href: "/inventory/brands",     icon: Tag,             color: "#059669" },
+    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
+    { nameKey: "categories", href: "/inventory/categories", icon: Tag,             color: "#059669" },
+    { nameKey: "brands",     href: "/inventory/brands",     icon: Star,            color: "#059669" },
     { nameKey: "units",      href: "/inventory/units",      icon: Ruler,           color: "#059669" },
     { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck,           color: "#059669" },
   ],

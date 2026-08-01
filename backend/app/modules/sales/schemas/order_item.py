@@ -6,8 +6,10 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 class OrderItemCreate(BaseModel):
     product_id: uuid.UUID | None = None
+    variant_id: uuid.UUID | None = None
     product_name: str
     sku: str | None = None
+    variant_attributes: dict | None = None
     unit_price: float
     quantity: int = 1
     discount: float = 0
@@ -26,8 +28,10 @@ class OrderItemRead(BaseModel):
     id: uuid.UUID
     order_id: uuid.UUID
     product_id: uuid.UUID | None
+    variant_id: uuid.UUID | None
     product_name: str
     sku: str | None
+    variant_attributes: dict | None
     unit_price: float
     quantity: int
     discount: float

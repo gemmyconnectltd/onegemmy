@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Package, AlertTriangle, XCircle,
-  Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Loader2,
+  Package, AlertTriangle, XCircle, Layers,
+  Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Loader2, Upload,
 } from "lucide-react";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { inventoryApi, type ApiProduct } from "@/lib/api";
@@ -28,16 +28,34 @@ const statusCfg = {
 
 const fmt = (v: number) => fmtMoney(v);
 
+function variantStock(p: ApiProduct) {
+  if (!p.has_variants || !p.variants?.length) return p.stock;
+  return p.variants.reduce((s, v) => s + v.stock, 0);
+}
+
+function variantMinStock(p: ApiProduct) {
+  if (!p.has_variants || !p.variants?.length) return p.min_stock;
+  return p.variants.reduce((s, v) => s + v.min_stock, 0);
+}
+
+function variantValue(p: ApiProduct) {
+  if (!p.has_variants || !p.variants?.length) return p.stock * p.cost;
+  return p.variants.reduce((s, v) => s + v.stock * v.cost, 0);
+}
+
 function toRow(p: ApiProduct) {
   return {
     id: p.id,
     name: p.name,
     sku: p.sku ?? "",
     category: p.category?.name ?? "",
-    stock: p.stock,
-    minStock: p.min_stock,
+    stock: variantStock(p),
+    minStock: variantMinStock(p),
     price: p.price,
     cost: p.cost,
+    value: variantValue(p),
+    hasVariants: p.has_variants && (p.variants?.length ?? 0) > 0,
+    variantCount: p.variants?.length ?? 0,
   };
 }
 
@@ -47,6 +65,7 @@ export default function InventoryOverviewPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);
+  const [formMode, setFormMode] = useState<"single" | "bulk">("single");
   const [formKey, setFormKey] = useState(0);
   const [restockTarget, setRestockTarget] = useState<ReturnType<typeof toRow> | null>(null);
 
@@ -63,7 +82,7 @@ export default function InventoryOverviewPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleCreate = async (v: ProductFormValues) => {
+  const handleCreate = async (v: ProductFormValues, imageFile?: File) => {
     const res = await inventoryApi.createProduct({
       name: v.name, sku: v.sku,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
@@ -72,7 +91,9 @@ export default function InventoryOverviewPage() {
       price: v.price, cost: v.cost,
       stock: v.stock, min_stock: v.minStock,
     });
-    setInventory((prev) => [toRow(res.data), ...prev]);
+    let created = res.data;
+    if (imageFile) created = (await inventoryApi.uploadProductImage(created.id, imageFile)).data;
+    setInventory((prev) => [toRow(created), ...prev]);
   };
 
   const handleBulkCreate = async (items: ProductFormValues[]) => {
@@ -102,11 +123,12 @@ export default function InventoryOverviewPage() {
     return match && (filter === "all" || s === filter);
   });
 
-  const totalValue = inventory.reduce((s, i) => s + i.stock * i.cost, 0);
+  const totalValue = inventory.reduce((s, i) => s + i.value, 0);
   const lowCount   = inventory.filter((i) => getStatus(i.stock, i.minStock) === "low").length;
   const outCount   = inventory.filter((i) => getStatus(i.stock, i.minStock) === "out").length;
   const inCount    = inventory.filter((i) => getStatus(i.stock, i.minStock) === "in_stock").length;
-  const topByValue = [...inventory].sort((a, b) => (b.stock * b.cost) - (a.stock * a.cost)).slice(0, 4);
+  const totalVariants = inventory.reduce((s, i) => s + i.variantCount, 0);
+  const topByValue = [...inventory].sort((a, b) => b.value - a.value).slice(0, 4);
 
   if (loading) {
     return (
@@ -125,18 +147,26 @@ export default function InventoryOverviewPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Inventory Overview</h1>
           <p className="text-sm text-muted mt-0.5">Monitor stock levels, value, and alerts across all products</p>
         </div>
-        <Button
-          onClick={() => { setFormKey((k) => k + 1); setShowForm(true); }}
-          color={INV_COLOR}
-        >
-          <Plus size={15} /> Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => { setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }}
+          >
+            <Upload size={15} /> Import
+          </Button>
+          <Button
+            onClick={() => { setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}
+            color={INV_COLOR}
+          >
+            <Plus size={15} /> Add Product
+          </Button>
+        </div>
       </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Products", value: String(inventory.length), sub: "SKUs tracked",     icon: Package,       color: "#af9164", change: null },
+          { label: "Total Products", value: String(inventory.length + totalVariants), sub: "SKUs tracked",     icon: Package,       color: "#af9164", change: null },
           { label: "Stock Value",    value: fmt(totalValue),          sub: "At cost price",    icon: BarChart3,     color: "#6f1a07", change: "+4.2%" },
           { label: "Low Stock",      value: String(lowCount),         sub: "Need reorder",     icon: AlertTriangle, color: "#f59e0b", change: null },
           { label: "Out of Stock",   value: String(outCount),         sub: "Immediate action", icon: XCircle,       color: "#ef4444", change: null },
@@ -195,8 +225,8 @@ export default function InventoryOverviewPage() {
             </div>
             <div className="space-y-3">
               {topByValue.map((item, i) => {
-                const value = item.stock * item.cost;
-                const maxValue = topByValue[0].stock * topByValue[0].cost;
+                const value = item.value;
+                const maxValue = topByValue[0].value;
                 const pct = maxValue > 0 ? (value / maxValue) * 100 : 0;
                 return (
                   <div key={item.id} className="flex items-center gap-3">
@@ -280,7 +310,15 @@ export default function InventoryOverviewPage() {
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <ProductAvatar name={item.name} size={32} />
-                        <span className="text-sm font-medium text-foreground">{item.name}</span>
+                        <div>
+                          <span className="text-sm font-medium text-foreground">{item.name}</span>
+                          {item.hasVariants && (
+                            <a href={`/inventory/variants?q=${encodeURIComponent(item.name)}`}
+                              className="block text-[11px] font-semibold mt-0.5 hover:underline" style={{ color: INV_COLOR }}>
+                              {item.variantCount} variant{item.variantCount !== 1 ? "s" : ""} ›
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs font-mono text-muted">{item.sku}</td>
@@ -299,16 +337,24 @@ export default function InventoryOverviewPage() {
                         {cfg.label}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right text-sm font-semibold text-foreground tabular-nums">{fmt(item.stock * item.cost)}</td>
+                    <td className="px-5 py-3.5 text-right text-sm font-semibold text-foreground tabular-nums">{fmt(item.value)}</td>
                     <td className="px-5 py-3.5">
                       {(s === "low" || s === "out") && (
-                        <button
-                          onClick={() => setRestockTarget(item)}
-                          className="flex items-center gap-1.5 text-[11px] font-semibold hover:underline whitespace-nowrap"
-                          style={{ color: INV_COLOR }}
-                        >
-                          <PackagePlus size={12} /> Restock
-                        </button>
+                        item.hasVariants ? (
+                          <a href={`/inventory/variants?q=${encodeURIComponent(item.name)}`}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold hover:underline whitespace-nowrap"
+                            style={{ color: INV_COLOR }}>
+                            <Layers size={12} /> Manage Variants
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => setRestockTarget(item)}
+                            className="flex items-center gap-1.5 text-[11px] font-semibold hover:underline whitespace-nowrap"
+                            style={{ color: INV_COLOR }}
+                          >
+                            <PackagePlus size={12} /> Restock
+                          </button>
+                        )
                       )}
                     </td>
                   </tr>
@@ -328,13 +374,14 @@ export default function InventoryOverviewPage() {
         </div>
         <div className="px-5 py-3 border-t border-border flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {inventory.length} products</p>
-          <p className="text-xs text-muted">Total value: <span className="font-semibold text-foreground">{fmt(filtered.reduce((s, i) => s + i.stock * i.cost, 0))}</span></p>
+          <p className="text-xs text-muted">Total value: <span className="font-semibold text-foreground">{fmt(filtered.reduce((s, i) => s + i.value, 0))}</span></p>
         </div>
       </div>
 
       <ProductFormDrawer
         key={formKey}
         open={showForm}
+        mode={formMode}
         onClose={() => setShowForm(false)}
         onSubmit={handleCreate}
         onBulkSubmit={handleBulkCreate}

@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { useAuth } from "@/lib/auth";
+import { pageTitleForPath } from "@/lib/pageTitles";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -20,6 +22,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  useEffect(() => {
+    document.title = pageTitleForPath(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace("/login");

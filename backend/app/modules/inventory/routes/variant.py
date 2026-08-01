@@ -4,7 +4,8 @@ from fastapi import APIRouter, File, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
-from app.core.response import success_response
+from app.core.pagination import PageQuery
+from app.core.response import paginated_response, success_response
 from app.modules.inventory import service
 from app.modules.inventory.schemas import VariantCreate, VariantUpdate, RestockRequest
 
@@ -17,6 +18,14 @@ router = APIRouter(tags=["Inventory - Variants"])
 def _require_tenant(tenant_id) -> None:
     if tenant_id is None:
         raise ValidationError("This account has no tenant.")
+
+
+@router.get("/inventory/variants")
+async def list_all_variants(db: DbSession, current_user: CurrentUser, page_params: PageQuery):
+    _require_tenant(current_user.tenant_id)
+    items = await service.list_all_variants(db, current_user.tenant_id, page_params.offset, page_params.limit)
+    total = await service.count_all_variants(db, current_user.tenant_id)
+    return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Variants retrieved successfully")
 
 
 @router.get("/inventory/products/{product_id}/variants")

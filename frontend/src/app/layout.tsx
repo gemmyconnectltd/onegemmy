@@ -83,9 +83,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <Script id="theme-init" strategy="beforeInteractive">
-        {`(function(){try{if(localStorage.getItem("app_theme")==="dark")document.documentElement.classList.add("dark");}catch(e){}})();`}
-      </Script>
+      <head>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`(function(){try{if(localStorage.getItem("app_theme")==="dark")document.documentElement.classList.add("dark");}catch(e){}})();`}
+        </Script>
+      </head>
       <body className="min-h-full flex flex-col">
         <AppConfigProvider><AuthProvider>{children}</AuthProvider></AppConfigProvider>
       </body>

@@ -30,8 +30,10 @@ export interface ApiOrderItem {
   id: string;
   order_id: string;
   product_id: string | null;
+  variant_id: string | null;
   product_name: string;
   sku: string | null;
+  variant_attributes: Record<string, string> | null;
   unit_price: number;
   quantity: number;
   discount: number;

@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useAuth } from "@/lib/auth";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
+import { inventoryApi, type ApiProduct } from "@/lib/api";
 
 const weeklyData = [
   { day: "Mon", sales: 45000, expenses: 12000 },
@@ -30,12 +31,6 @@ const recentSales = [
   { id: 4, customer: "Marie C.", items: 2, total: 6000, time: "2 hrs ago", method: "cash" },
 ];
 
-const lowStock = [
-  { name: "Phone Cases", stock: 3, min: 20 },
-  { name: "USB Cables", stock: 5, min: 30 },
-  { name: "Screen Protectors", stock: 2, min: 25 },
-];
-
 const quickActions = [
   { label: "Record Sale", href: "/sales", icon: ShoppingCart, color: "#6f1a07" },
   { label: "Products", href: "/products", icon: Package, color: "#af9164" },
@@ -49,15 +44,38 @@ function fmtRWF(val: number) {
   return fmtMoney(val);
 }
 
+function variantStock(p: ApiProduct) {
+  if (!p.has_variants || !p.variants?.length) return p.stock;
+  return p.variants.reduce((s, v) => s + v.stock, 0);
+}
+
+function variantMinStock(p: ApiProduct) {
+  if (!p.has_variants || !p.variants?.length) return p.min_stock;
+  return p.variants.reduce((s, v) => s + v.min_stock, 0);
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<"today" | "week">("today");
+  const [inventory, setInventory] = useState<ApiProduct[]>([]);
+
+  useEffect(() => {
+    inventoryApi.listProducts(1, 200)
+      .then((res) => setInventory(res.data.items))
+      .catch(() => { /* keep empty */ });
+  }, []);
+
+  const lowStock = inventory
+    .map((p) => ({ name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
+    .filter((i) => i.stock <= i.min)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, 8);
 
   const todaySales = 156000;
   const todayExpenses = 45000;
   const todayProfit = todaySales - todayExpenses;
   const cashAvailable = 892000;
-  const lowStockCount = 3;
+  const lowStockCount = lowStock.length;
 
   return (
     <div className="space-y-5">

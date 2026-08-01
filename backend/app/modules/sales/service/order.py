@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.finance.service.transaction import create_sale_transaction
 from app.modules.inventory.models.product import Product
+from app.modules.inventory.models.variant import ProductVariant
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
 from app.modules.sales.models.target import Target
@@ -19,6 +20,13 @@ def _current_period() -> str:
     months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
     d = date.today()
     return f"{months[d.month - 1]} {d.year}"
+
+
+def _attr_label(attributes: dict | None) -> str:
+    """Formats a variant attribute dict as e.g. 'Color: Red · Size: M'."""
+    if not attributes:
+        return ""
+    return " · ".join(f"{k}: {v}" for k, v in attributes.items())
 
 
 async def _bump_revenue_targets(db: AsyncSession, tenant_id: uuid.UUID, amount: float) -> None:
@@ -89,11 +97,52 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     order = await repo.save(order)
 
     for item_data in data.items:
+        variant = None
+        product = None
+        variant_attributes = item_data.variant_attributes
+        product_name = item_data.product_name
+        sku = item_data.sku
+
+        if not item_data.variant_id and not item_data.product_id:
+            raise ValidationError(f"Item '{item_data.product_name}' must reference a product or variant")
+
+        if item_data.variant_id:
+            variant = await db.get(ProductVariant, item_data.variant_id)
+            if variant is None:
+                raise ValidationError(f"Variant '{item_data.variant_id}' not found")
+            product = await db.get(Product, variant.product_id)
+            if product is None or product.tenant_id != tenant_id:
+                raise ValidationError(f"Variant '{item_data.variant_id}' not found in this tenant")
+            product_name = product.name
+            sku = variant.sku or product.sku
+            variant_attributes = variant.attributes
+        elif item_data.product_id:
+            product = await db.get(Product, item_data.product_id)
+            if product is None or product.tenant_id != tenant_id:
+                raise ValidationError(f"Product '{item_data.product_id}' not found in this tenant")
+            if product.has_variants:
+                raise ValidationError(f"Product '{product.name}' has variants — pick a specific variant")
+
+        # stock check + decrement for Completed orders
+        if data.status == "Completed":
+            if variant and variant.stock < item_data.quantity:
+                raise ValidationError(
+                    f"Insufficient stock for '{product_name}' ({_attr_label(variant.attributes)}): "
+                    f"{variant.stock} available, {item_data.quantity} requested"
+                )
+            if product and not variant and product.stock < item_data.quantity:
+                raise ValidationError(
+                    f"Insufficient stock for '{product_name}': "
+                    f"{product.stock} available, {item_data.quantity} requested"
+                )
+
         item = OrderItem(
             order_id=order.id,
-            product_id=item_data.product_id,
-            product_name=item_data.product_name,
-            sku=item_data.sku,
+            product_id=variant.product_id if variant else item_data.product_id,
+            variant_id=variant.id if variant else item_data.variant_id,
+            product_name=product_name,
+            sku=sku,
+            variant_attributes=variant_attributes,
             unit_price=item_data.unit_price,
             quantity=item_data.quantity,
             discount=item_data.discount,
@@ -101,10 +150,11 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         )
         db.add(item)
 
-        # deduct stock when order is Completed
-        if data.status == "Completed" and item_data.product_id:
-            product = await db.get(Product, item_data.product_id)
-            if product:
+        # deduct stock when order is Completed — variants decrement variant stock
+        if data.status == "Completed":
+            if variant:
+                variant.stock = max(0, variant.stock - item_data.quantity)
+            elif product:
                 product.stock = max(0, product.stock - item_data.quantity)
 
     if data.status == "Completed":

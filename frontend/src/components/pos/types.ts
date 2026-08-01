@@ -7,10 +7,22 @@ export type Product = {
   stock: number;
   image_url?: string | null;
   sku?: string | null;
+  has_variants?: boolean;
+  variants?: Variant[];
+};
+
+export type Variant = {
+  id: string;
+  sku?: string | null;
+  attributes: Record<string, string>;
+  price: number;
+  stock: number;
 };
 
 export type CartItem = {
   id: string;
+  product_id?: string;
+  variant_id?: string | null;
   name: string;
   price: number;
   qty: number;
@@ -18,6 +30,7 @@ export type CartItem = {
   discount: number;
   image_url?: string | null;
   sku?: string | null;
+  variant_attributes?: Record<string, string> | null;
 };
 
 export type HeldOrder = {

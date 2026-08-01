@@ -1,6 +1,8 @@
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import event
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
@@ -39,6 +41,11 @@ def do_run_migrations(connection) -> None:
 
 async def run_migrations_online() -> None:
     connectable = create_async_engine(settings.DATABASE_URL)
+
+    @event.listens_for(connectable.sync_engine, "begin")
+    def _apply_search_path(conn: Connection) -> None:
+        conn.exec_driver_sql("SET search_path TO public")
+
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

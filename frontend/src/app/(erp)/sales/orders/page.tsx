@@ -9,7 +9,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { salesApi, inventoryApi, type ApiOrder, type ApiCustomer, type ApiProduct } from "@/lib/api";
+import { salesApi, inventoryApi, type ApiOrder, type ApiCustomer, type ApiProduct, type ApiVariant } from "@/lib/api";
 
 const SAL = "#0284c7";
 
@@ -24,15 +24,23 @@ const STATUS_ICON: Record<string, React.ElementType> = {
 
 type ItemRow = {
   product_id: string;       // uuid or ""
+  variant_id: string;       // uuid or ""
   product_name: string;
   sku: string;
   unit_price: string;
   quantity: string;
   discount: string;
+  variant_attributes: Record<string, string> | null;
 };
 
-const EMPTY_ITEM: ItemRow = { product_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0" };
+const EMPTY_ITEM: ItemRow = { product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0", variant_attributes: null };
 const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "" };
+
+function attrLabel(attrs: Record<string, string> | null | undefined) {
+  if (!attrs) return "";
+  const entries = Object.entries(attrs);
+  return entries.length ? entries.map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
+}
 
 // ── Product picker cell ───────────────────────────────────────────────────────
 function ProductPicker({
@@ -44,6 +52,7 @@ function ProductPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [variantsOf, setVariantsOf] = useState<ApiProduct | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   // close on outside click
@@ -58,13 +67,28 @@ function ProductPicker({
     (p.sku ?? "").toLowerCase().includes(q.toLowerCase())
   ).slice(0, 30);
 
-  const pick = (p: ApiProduct) => {
-    onChange({ product_id: p.id, product_name: p.name, sku: p.sku ?? "", unit_price: String(p.price) });
+  const pickProduct = (p: ApiProduct) => {
+    if (p.has_variants && (p.variants?.length ?? 0) > 0) {
+      setVariantsOf(p);
+      return;
+    }
+    onChange({ product_id: p.id, variant_id: "", product_name: p.name, sku: p.sku ?? "", unit_price: String(p.price), variant_attributes: null });
     setOpen(false);
     setQ("");
   };
 
-  const clear = () => onChange({ product_id: "", product_name: "", sku: "", unit_price: "" });
+  const pickVariant = (p: ApiProduct, v: ApiVariant) => {
+    onChange({
+      product_id: p.id, variant_id: v.id, product_name: p.name,
+      sku: v.sku ?? p.sku ?? "", unit_price: String(v.price),
+      variant_attributes: v.attributes,
+    });
+    setOpen(false);
+    setQ("");
+    setVariantsOf(null);
+  };
+
+  const clear = () => onChange({ product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", variant_attributes: null });
 
   return (
     <div ref={ref} className="relative">
@@ -75,13 +99,19 @@ function ProductPicker({
       >
         <span className={item.product_name ? "text-foreground font-medium truncate" : "text-muted/60"}>
           {item.product_name || "Select product…"}
+          {item.variant_attributes && <span className="text-muted"> · {attrLabel(item.variant_attributes)}</span>}
         </span>
         <ChevronDown size={13} className="text-muted flex-shrink-0" />
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 w-72 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-          <div className="p-2 border-b border-border">
+        <div className="absolute z-50 top-full mt-1 left-0 w-80 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-border flex items-center gap-2">
+            {variantsOf && (
+              <button type="button" onClick={() => setVariantsOf(null)} className="text-[12px] font-semibold px-2 py-1 rounded-lg hover:bg-surface transition-colors" style={{ color: SAL }}>
+                ← All products
+              </button>
+            )}
             <input
               autoFocus
               value={q}
@@ -90,41 +120,78 @@ function ProductPicker({
               className="w-full text-[13px] px-3 py-1.5 border border-border rounded-lg outline-none bg-transparent placeholder:text-muted/60"
             />
           </div>
-          <div className="max-h-52 overflow-y-auto">
-            {/* manual entry option */}
-            <button
-              type="button"
-              onClick={() => { onChange({ product_id: "", product_name: q || item.product_name }); setOpen(false); setQ(""); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-muted hover:bg-surface transition-colors border-b border-border"
-            >
-              <Plus size={12} /> Enter manually
-            </button>
-            {filtered.length === 0 && (
-              <p className="px-3 py-4 text-[12px] text-muted text-center">No products found</p>
-            )}
-            {filtered.map((p) => (
+
+          {variantsOf ? (
+            <div className="max-h-60 overflow-y-auto">
+              <div className="px-3 pt-2.5 pb-1 border-b border-border">
+                <p className="text-[13px] font-semibold text-foreground">{variantsOf.name}</p>
+                <p className="text-[11px] text-muted mt-0.5">{variantsOf.variants.length} variants · pick one</p>
+              </div>
               <button
-                key={p.id}
                 type="button"
-                onClick={() => pick(p)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
+                onClick={() => pickProduct(variantsOf)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left border-b border-border"
               >
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-foreground truncate">{p.name}</p>
-                  <p className="text-[11px] text-muted">{p.sku ?? "No SKU"} · Stock: {p.stock}</p>
+                  <p className="text-[13px] font-medium text-foreground truncate">Use the product itself</p>
+                  <p className="text-[11px] text-muted">{variantsOf.sku ?? "No SKU"} · Stock: {variantsOf.stock}</p>
                 </div>
-                <span className="text-[12px] font-bold text-foreground tabular-nums flex-shrink-0">
-                  {fmtMoney(p.price, "")}
-                </span>
+                <span className="text-[12px] font-bold text-foreground tabular-nums flex-shrink-0">{fmtMoney(variantsOf.price, "")}</span>
               </button>
-            ))}
-          </div>
-          {item.product_id && (
-            <div className="p-2 border-t border-border">
-              <button type="button" onClick={clear} className="w-full text-[11px] text-muted hover:text-red-600 transition-colors py-1">
-                Clear selection
-              </button>
+              {variantsOf.variants.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => pickVariant(variantsOf, v)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-foreground truncate">{attrLabel(v.attributes)}</p>
+                    <p className="text-[11px] text-muted">{v.sku ?? "No SKU"} · Stock: {v.stock}</p>
+                  </div>
+                  <span className="text-[12px] font-bold text-foreground tabular-nums flex-shrink-0">{fmtMoney(v.price, "")}</span>
+                </button>
+              ))}
             </div>
+          ) : (
+            <>
+              <div className="max-h-52 overflow-y-auto">
+                {/* manual entry option */}
+                <button
+                  type="button"
+                  onClick={() => { onChange({ product_id: "", variant_id: "", product_name: q || item.product_name, variant_attributes: null }); setOpen(false); setQ(""); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-muted hover:bg-surface transition-colors border-b border-border"
+                >
+                  <Plus size={12} /> Enter manually
+                </button>
+                {filtered.length === 0 && (
+                  <p className="px-3 py-4 text-[12px] text-muted text-center">No products found</p>
+                )}
+                {filtered.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => pickProduct(p)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium text-foreground truncate">{p.name}</p>
+                      <p className="text-[11px] text-muted">{p.sku ?? "No SKU"} · Stock: {p.has_variants && (p.variants?.length ?? 0) > 0 ? `${p.variants.length} variants` : p.stock}</p>
+                    </div>
+                    <span className="text-[12px] font-bold text-foreground tabular-nums flex-shrink-0">
+                      {fmtMoney(p.price, "")}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {item.product_id && (
+                <div className="p-2 border-t border-border">
+                  <button type="button" onClick={clear} className="w-full text-[11px] text-muted hover:text-red-600 transition-colors py-1">
+                    Clear selection
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -195,7 +262,7 @@ export default function SalesOrdersPage() {
     setEditing(o);
     setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "" });
     setItems(o.items.length
-      ? o.items.map((i) => ({ product_id: i.product_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount) }))
+      ? o.items.map((i) => ({ product_id: i.product_id ?? "", variant_id: i.variant_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount), variant_attributes: i.variant_attributes ?? null }))
       : [{ ...EMPTY_ITEM }]);
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
@@ -216,8 +283,10 @@ export default function SalesOrdersPage() {
         notes: form.notes || null,
         items: validItems.map((i) => ({
           product_id: i.product_id || null,
+          variant_id: i.variant_id || null,
           product_name: i.product_name,
           sku: i.sku || null,
+          variant_attributes: i.variant_attributes,
           unit_price: Number(i.unit_price),
           quantity: Number(i.quantity),
           discount: Number(i.discount),
@@ -511,6 +580,7 @@ export default function SalesOrdersPage() {
                         <Package size={13} className="text-muted flex-shrink-0" />
                         <div className="min-w-0">
                           <p className="text-[13px] font-medium text-foreground truncate">{it.product_name}</p>
+                          {it.variant_attributes && <p className="text-[11px] text-muted">{attrLabel(it.variant_attributes)}</p>}
                           {it.sku && <p className="text-[11px] text-muted">SKU: {it.sku}</p>}
                         </div>
                         <span className="text-[11px] text-muted flex-shrink-0">×{it.quantity}</span>

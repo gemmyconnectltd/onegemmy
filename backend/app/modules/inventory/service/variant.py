@@ -6,7 +6,7 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.integrations.storage import storage
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.repository import ProductRepository, VariantRepository
-from app.modules.inventory.schemas import VariantCreate, VariantRead, VariantUpdate
+from app.modules.inventory.schemas import VariantCreate, VariantListRead, VariantRead, VariantUpdate
 
 
 async def _get_product_or_404(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID):
@@ -20,6 +20,21 @@ async def list_variants(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid
     await _get_product_or_404(db, tenant_id, product_id)
     items = await VariantRepository(db).list_for_product(product_id)
     return [VariantRead.model_validate(i) for i in items]
+
+
+async def list_all_variants(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20) -> list[VariantListRead]:
+    items = await VariantRepository(db).list_for_tenant(tenant_id, offset, limit)
+    result = []
+    for item in items:
+        data = VariantRead.model_validate(item).model_dump()
+        data["product_name"] = item.product.name if item.product else None
+        data["product_sku"] = item.product.sku if item.product else None
+        result.append(VariantListRead(**data))
+    return result
+
+
+async def count_all_variants(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    return await VariantRepository(db).count_for_tenant(tenant_id)
 
 
 async def get_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID) -> VariantRead:

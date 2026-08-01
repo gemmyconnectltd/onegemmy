@@ -16,6 +16,11 @@ export interface ApiVariant {
   updated_at: string | null;
 }
 
+export interface ApiVariantListItem extends ApiVariant {
+  product_name: string | null;
+  product_sku: string | null;
+}
+
 export interface ApiProduct {
   id: string;
   name: string;
@@ -72,6 +77,8 @@ export const inventoryApi = {
   },
 
   // Variants
+  listAllVariants: (page = 1, pageSize = 200) =>
+    request<PaginatedResponse<ApiVariantListItem>>(`${BASE}/variants?page=${page}&page_size=${pageSize}`),
   listVariants: (productId: string) =>
     request<SingleResponse<ApiVariant[]>>(`${BASE}/products/${productId}/variants`),
   createVariant: (productId: string, data: object) =>

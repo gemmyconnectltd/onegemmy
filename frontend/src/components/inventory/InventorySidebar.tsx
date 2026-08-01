@@ -7,6 +7,7 @@ import { LayoutDashboard, Package, Layers, Tag, Ruler, Truck } from "lucide-reac
 const sections = [
   { name: "Overview",    href: "/inventory",            icon: LayoutDashboard, exact: true },
   { name: "Products",    href: "/inventory/products",   icon: Package },
+  { name: "Variants",    href: "/inventory/variants",   icon: Layers },
   { name: "Categories",  href: "/inventory/categories", icon: Layers },
   { name: "Brands",      href: "/inventory/brands",     icon: Tag },
   { name: "Units",       href: "/inventory/units",      icon: Ruler },

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   BarChart3,
   Handshake,
@@ -23,6 +24,10 @@ import {
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { DashboardMockup } from "@/components/ui/DashboardMockup";
+
+export const metadata: Metadata = {
+  title: "Home - OneGemmy",
+};
 
 export default function Home() {
   return (

@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { usePageTitle } from "@/lib/pageTitles";
 
 export default function RegisterPage() {
+  usePageTitle("Create Account");
   const router = useRouter();
   const { register } = useAuth();
   const [name, setName] = useState("");

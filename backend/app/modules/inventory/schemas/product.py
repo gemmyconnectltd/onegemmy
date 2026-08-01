@@ -46,6 +46,11 @@ class VariantRead(BaseModel):
     updated_at: datetime | None = None
 
 
+class VariantListRead(VariantRead):
+    product_name: str | None = None
+    product_sku: str | None = None
+
+
 class ProductCreate(BaseModel):
     name: str
     sku: str | None = None

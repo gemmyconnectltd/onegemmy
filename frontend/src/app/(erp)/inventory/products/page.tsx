@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Loader2 } from "lucide-react";
+import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Loader2, Upload } from "lucide-react";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +15,10 @@ const INV_COLOR = "#059669";
 
 const fmt = (v: number) => fmtMoney(v);
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
+function variantStock(p: ApiProduct) {
+  if (!p.has_variants || !p.variants?.length) return p.stock;
+  return p.variants.reduce((s, v) => s + v.stock, 0);
+}
 
 function toFormValues(p: ApiProduct): ProductFormValues {
   return {
@@ -40,6 +44,7 @@ export default function ProductsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [formMode, setFormMode] = useState<"single" | "bulk">("single");
   const [editing, setEditing] = useState<ApiProduct | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null);
@@ -65,7 +70,7 @@ export default function ProductsPage() {
     return matchSearch && matchStatus;
   });
 
-  const handleSubmit = async (v: ProductFormValues) => {
+  const handleSubmit = async (v: ProductFormValues, imageFile?: File) => {
     const payload = {
       name: v.name, sku: v.sku,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
@@ -75,11 +80,15 @@ export default function ProductsPage() {
     };
     if (editing) {
       const res = await inventoryApi.updateProduct(editing.id, payload);
-      setProducts((prev) => prev.map((p) => p.id === editing.id ? res.data : p));
+      let updated = res.data;
+      if (imageFile) updated = (await inventoryApi.uploadProductImage(editing.id, imageFile)).data;
+      setProducts((prev) => prev.map((p) => p.id === editing.id ? updated : p));
       setEditing(null);
     } else {
       const res = await inventoryApi.createProduct(payload);
-      setProducts((prev) => [res.data, ...prev]);
+      let created = res.data;
+      if (imageFile) created = (await inventoryApi.uploadProductImage(created.id, imageFile)).data;
+      setProducts((prev) => [created, ...prev]);
     }
   };
 
@@ -121,9 +130,14 @@ export default function ProductsPage() {
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
           <p className="text-sm text-muted mt-0.5">{products.length} products · {products.filter((p) => p.is_active).length} active</p>
         </div>
-        <Button onClick={() => { setEditing(null); setFormKey((k) => k + 1); setShowForm(true); }} color={INV_COLOR} className="rounded-lg">
-          <Plus size={15} /> Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => { setEditing(null); setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }} className="rounded-lg">
+            <Upload size={15} /> Import
+          </Button>
+          <Button onClick={() => { setEditing(null); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }} color={INV_COLOR} className="rounded-lg">
+            <Plus size={15} /> Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
@@ -163,6 +177,12 @@ export default function ProductsPage() {
                       <div>
                         <p className="text-sm font-semibold text-foreground">{p.name}</p>
                         <p className="text-[11px] text-muted font-mono">{p.sku}</p>
+                        {p.has_variants && (p.variants?.length ?? 0) > 0 && (
+                          <button onClick={() => setVariantsTarget(p)}
+                            className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold hover:underline" style={{ color: INV_COLOR }}>
+                            <Layers size={11} /> {p.variants.length} variant{p.variants.length !== 1 ? "s" : ""}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -177,7 +197,7 @@ export default function ProductsPage() {
                   <td className="px-5 py-3.5 text-right">
                     <span className="text-sm font-bold text-emerald-600 tabular-nums">{margin(p)}%</span>
                   </td>
-                  <td className="px-5 py-3.5 text-right text-sm font-bold text-foreground tabular-nums">{p.stock}</td>
+                  <td className="px-5 py-3.5 text-right text-sm font-bold text-foreground tabular-nums">{variantStock(p)}</td>
                   <td className="px-5 py-3.5 text-center">
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${p.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${p.is_active ? "bg-emerald-500" : "bg-muted"}`} />
@@ -193,7 +213,7 @@ export default function ProductsPage() {
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
                         <div className="absolute right-4 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
-                          <button onClick={() => { setOpenMenu(null); setEditing(p); setFormKey((k) => k + 1); setShowForm(true); }}
+                          <button onClick={() => { setOpenMenu(null); setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <Edit2 size={13} className="text-muted" /> Edit
                           </button>
@@ -236,6 +256,7 @@ export default function ProductsPage() {
       <ProductFormDrawer
         key={formKey}
         open={showForm}
+        mode={formMode}
         onClose={() => { setShowForm(false); setEditing(null); }}
         initial={editing ? toFormValues(editing) : null}
         onSubmit={handleSubmit}

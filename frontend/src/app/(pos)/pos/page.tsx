@@ -9,12 +9,13 @@ import { POSHeader } from "@/components/pos/POSHeader";
 import { PaymentPanel } from "@/components/pos/PaymentPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
 import { Receipt } from "@/components/pos/Receipt";
-import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult } from "@/components/pos/types";
+import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
 import { inventoryApi, salesApi } from "@/lib/api";
 import type { ApiProduct } from "@/lib/api";
+import { usePageTitle } from "@/lib/pageTitles";
 
 function apiToProduct(p: ApiProduct): Product {
   return {
@@ -26,10 +27,18 @@ function apiToProduct(p: ApiProduct): Product {
     stock: p.stock,
     image_url: p.image_url,
     sku: p.sku,
+    has_variants: p.has_variants && (p.variants?.length ?? 0) > 0,
+    variants: p.variants?.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      attributes: v.attributes,
+      price: v.price,
+      stock: v.stock,
+    })),
   };
 }
-
 export default function POSPage() {
+  usePageTitle("Point of Sale");
   const { currencySymbol, locale, setLocale, locales, theme, setTheme } = useAppConfig();
 
   // ── inventory ────────────────────────────────────────────────────────────
@@ -64,6 +73,18 @@ export default function POSPage() {
   const [search, setSearch] = useState("");
   const [showLang, setShowLang] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
 
   // ── cart ─────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -107,15 +128,32 @@ export default function POSPage() {
 
   // ── cart actions ─────────────────────────────────────────────────────────
   const addToCart = (p: Product) => {
-    if (p.stock <= 0) return;
+    if (p.stock <= 0 || p.has_variants) return;
     setCart((prev) => {
       const existing = prev.find((i) => i.id === p.id);
       if (existing) return prev.map((i) => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
-      return [...prev, { id: p.id, name: p.name, price: p.price, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku }];
+      return [...prev, { id: p.id, product_id: p.id, variant_id: null, name: p.name, price: p.price, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null }];
     });
     setCashGiven("");
     setBumpId(p.id);
     window.setTimeout(() => setBumpId((c) => (c === p.id ? null : c)), 220);
+  };
+
+  const addVariantToCart = (p: Product, v: Variant) => {
+    if (v.stock <= 0) return;
+    const id = `${p.id}::${v.id}`;
+    setCart((prev) => {
+      const existing = prev.find((i) => i.id === id);
+      if (existing) return prev.map((i) => i.id === id ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, {
+        id, product_id: p.id, variant_id: v.id, name: p.name, price: v.price,
+        qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url,
+        sku: v.sku ?? p.sku, variant_attributes: v.attributes,
+      }];
+    });
+    setCashGiven("");
+    setBumpId(id);
+    window.setTimeout(() => setBumpId((c) => (c === id ? null : c)), 220);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -207,8 +245,11 @@ export default function POSPage() {
       discount,
       tax,
       items: cart.map((i) => ({
-        product_id: i.id,
+        product_id: i.product_id ?? null,
+        variant_id: i.variant_id ?? null,
         product_name: i.name,
+        sku: i.sku ?? null,
+        variant_attributes: i.variant_attributes ?? null,
         unit_price: i.price,
         quantity: i.qty,
         discount: i.discount,
@@ -346,9 +387,12 @@ export default function POSPage() {
                       product={p}
                       inCartQty={inCart?.qty ?? 0}
                       bumping={bumpId === p.id}
+                      expanded={expanded.has(p.id)}
                       currencySymbol={currencySymbol}
                       fmt={fmt}
                       onAdd={addToCart}
+                      onAddVariant={addVariantToCart}
+                      onToggle={toggleExpanded}
                     />
                   );
                 })}

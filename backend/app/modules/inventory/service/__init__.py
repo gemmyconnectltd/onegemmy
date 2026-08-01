@@ -15,8 +15,8 @@ from app.modules.inventory.service.unit import (
     count_units, create_unit, delete_unit, get_unit, list_units, update_unit,
 )
 from app.modules.inventory.service.variant import (
-    create_variant, delete_variant, get_variant, list_variants,
-    restock_variant, update_variant, upload_variant_image,
+    count_all_variants, create_variant, delete_variant, get_variant, list_all_variants,
+    list_variants, restock_variant, update_variant, upload_variant_image,
 )
 
 __all__ = [
@@ -26,6 +26,6 @@ __all__ = [
     "get_product", "list_products", "restock_product", "update_product", "upload_product_image",
     "count_suppliers", "create_supplier", "delete_supplier", "get_supplier", "list_suppliers", "update_supplier",
     "count_units", "create_unit", "delete_unit", "get_unit", "list_units", "update_unit",
-    "create_variant", "delete_variant", "get_variant", "list_variants",
-    "restock_variant", "update_variant", "upload_variant_image",
+    "count_all_variants", "create_variant", "delete_variant", "get_variant", "list_all_variants",
+    "list_variants", "restock_variant", "update_variant", "upload_variant_image",
 ]

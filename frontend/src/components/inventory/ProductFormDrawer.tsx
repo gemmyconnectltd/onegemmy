@@ -28,6 +28,7 @@ const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price"
 
 interface ProductFormDrawerProps {
   open: boolean;
+  mode?: "single" | "bulk";
   onClose: () => void;
   initial?: ProductFormValues | null;
   onSubmit: (values: ProductFormValues, imageFile?: File) => Promise<void>;
@@ -441,9 +442,8 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
 
 // ── Public component ─────────────────────────────────────────────────────────
 
-export function ProductFormDrawer({ open, onClose, initial, onSubmit, onBulkSubmit, color }: ProductFormDrawerProps) {
+export function ProductFormDrawer({ open, mode = "single", onClose, initial, onSubmit, onBulkSubmit, color }: ProductFormDrawerProps) {
   if (!open) return null;
-  if (initial) return <SingleForm initial={initial} onClose={onClose} onSubmit={onSubmit} color={color} />;
-  if (onBulkSubmit) return <BulkImport onClose={onClose} onBulkSubmit={onBulkSubmit} color={color} />;
-  return <SingleForm onClose={onClose} onSubmit={onSubmit} initial={null} color={color} />;
+  if (mode === "bulk") return <BulkImport onClose={onClose} onBulkSubmit={onBulkSubmit ?? (() => {})} color={color} />;
+  return <SingleForm initial={initial} onClose={onClose} onSubmit={onSubmit} color={color} />;
 }

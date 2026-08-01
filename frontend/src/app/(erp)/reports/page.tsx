@@ -1,240 +1,169 @@
 "use client";
 
-import { useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  BarChart3,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Download,
-  Calendar,
-} from "lucide-react";
-import { CURRENCY_SYMBOL } from "@/lib/config";
+import { useEffect, useState, useCallback } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package, Loader2 } from "lucide-react";
+import { salesApi, inventoryApi } from "@/lib/api";
+import { fmtMoney } from "@/lib/config";
+import type { ApiOrder, ApiReturn, ApiCustomer, ApiProduct } from "@/lib/api";
 
-const periods = ["Today", "This Week", "This Month", "This Year"] as const;
-type Period = (typeof periods)[number];
+const ACCENT = "#af9164";
 
-const mockReportData: Record<
-  Period,
-  { sales: number; expenses: number; profit: number; margin: number }
-> = {
-  Today: { sales: 156000, expenses: 45000, profit: 111000, margin: 71.2 },
-  "This Week": { sales: 345000, expenses: 90000, profit: 255000, margin: 73.9 },
-  "This Month": {
-    sales: 1250000,
-    expenses: 380000,
-    profit: 870000,
-    margin: 69.6,
-  },
-  "This Year": {
-    sales: 15000000,
-    expenses: 4500000,
-    profit: 10500000,
-    margin: 70.0,
-  },
-};
-
-const weeklySales = [
-  { day: "Mon", sales: 45000 },
-  { day: "Tue", sales: 38000 },
-  { day: "Wed", sales: 52000 },
-  { day: "Thu", sales: 41000 },
-  { day: "Fri", sales: 67000 },
-  { day: "Sat", sales: 73000 },
-  { day: "Sun", sales: 29000 },
-];
-
-const expenseByCategory = [
-  { category: "Inventory Purchase", amount: 180000, pct: 47 },
-  { category: "Rent", amount: 80000, pct: 21 },
-  { category: "Utilities", amount: 45000, pct: 12 },
-  { category: "Transport", amount: 30000, pct: 8 },
-  { category: "Marketing", amount: 25000, pct: 7 },
-  { category: "Other", amount: 20000, pct: 5 },
-];
-
-const topProducts = [
-  { name: "Wireless Earbuds", sold: 18, revenue: 270000 },
-  { name: "Bluetooth Speaker", sold: 12, revenue: 300000 },
-  { name: "Phone Charger 20W", sold: 35, revenue: 280000 },
-  { name: "USB-C Cable 1m", sold: 89, revenue: 267000 },
-  { name: "Phone Case - iPhone", sold: 67, revenue: 335000 },
-];
-
-function formatCurrency(value: number) {
-  return `${CURRENCY_SYMBOL} ${value.toLocaleString()}`;
+function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: React.ElementType; color: string }) {
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
+        <Icon size={16} style={{ color }} />
+      </div>
+      <p className="text-xl font-extrabold text-foreground tracking-tight">{value}</p>
+      <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">{label}</p>
+      {sub && <p className="text-[11px] text-muted">{sub}</p>}
+    </div>
+  );
 }
 
 export default function ReportsPage() {
-  const [activePeriod, setActivePeriod] = useState<Period>("This Month");
-  const data = mockReportData[activePeriod];
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [returns, setReturns] = useState<ApiReturn[]>([]);
+  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [o, r, c, p] = await Promise.all([
+        salesApi.listOrders(1, 500),
+        salesApi.listReturns(1, 500),
+        salesApi.listCustomers(1, 500),
+        inventoryApi.listProducts(1, 500),
+      ]);
+      setOrders(o.data.items);
+      setReturns(r.data.items);
+      setCustomers(c.data.items);
+      setProducts(p.data.items);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const completed = orders.filter((o) => o.status === "Completed");
+  const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
+  const totalRefunds = returns.filter((r) => r.status === "Approved").reduce((s, r) => s + r.refund_amount, 0);
+  const totalOrders = completed.length;
+  const avgOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const lowStock = products.filter((p) => p.stock <= p.min_stock && !p.has_variants).length;
+
+  // Revenue by month from real orders
+  const byMonth: Record<string, number> = {};
+  completed.forEach((o) => {
+    const d = new Date(o.ordered_at ?? o.created_at ?? "");
+    if (isNaN(d.getTime())) return;
+    const key = d.toLocaleString("default", { month: "short", year: "2-digit" });
+    byMonth[key] = (byMonth[key] ?? 0) + o.total;
+  });
+  const revenueChart = Object.entries(byMonth).slice(-7).map(([month, revenue]) => ({ month, revenue }));
+
+  // Top products by revenue
+  const productRevMap: Record<string, { name: string; revenue: number; qty: number }> = {};
+  completed.forEach((o) => o.items.forEach((item) => {
+    const k = item.product_id ?? item.product_name;
+    if (!productRevMap[k]) productRevMap[k] = { name: item.product_name, revenue: 0, qty: 0 };
+    productRevMap[k].revenue += item.line_total;
+    productRevMap[k].qty += item.quantity;
+  }));
+  const topProducts = Object.values(productRevMap).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+  // Orders by status
+  const statusCount = orders.reduce((acc, o) => { acc[o.status] = (acc[o.status] ?? 0) + 1; return acc; }, {} as Record<string, number>);
+  const statusChart = Object.entries(statusCount).map(([status, count]) => ({ status, count }));
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 size={24} className="animate-spin text-muted" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <BarChart3 className="h-6 w-6 text-accent" />
-          <h1 className="text-2xl font-bold text-foreground">Reports</h1>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50">
-          <Download className="h-4 w-4" />
-          Export
-        </button>
+      <div>
+        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Reports Overview</h1>
+        <p className="text-sm text-muted mt-0.5">Live data from your business</p>
       </div>
 
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-        {periods.map((period) => (
-          <button
-            key={period}
-            onClick={() => setActivePeriod(period)}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-              activePeriod === period
-                ? "bg-accent text-white"
-                : "text-muted hover:text-foreground"
-            }`}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            {period}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Total Revenue" value={fmtMoney(totalRevenue)} sub={`${totalOrders} completed orders`} icon={DollarSign} color="#10b981" />
+        <StatCard label="Avg Order Value" value={fmtMoney(avgOrder)} sub="per completed order" icon={ShoppingCart} color={ACCENT} />
+        <StatCard label="Total Refunds" value={fmtMoney(totalRefunds)} sub={`${returns.filter(r => r.status === "Approved").length} approved returns`} icon={RotateCcw} color="#ef4444" />
+        <StatCard label="Active Customers" value={customers.filter(c => c.is_active).length.toString()} sub={`${lowStock} products low stock`} icon={Users} color="#6366f1" />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total Sales",    value: formatCurrency(data.sales),    icon: TrendingUp,   color: "#10B981" },
-          { label: "Total Expenses", value: formatCurrency(data.expenses), icon: TrendingDown, color: "#ef4444" },
-          { label: "Net Profit",     value: formatCurrency(data.profit),   icon: DollarSign,   color: "#6f1a07" },
-          { label: "Profit Margin",  value: `${data.margin}%`,             icon: BarChart3,    color: "#af9164" },
-        ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
-              <s.icon size={16} style={{ color: s.color }} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
+          <h2 className="text-sm font-bold text-foreground mb-4">Revenue by Month</h2>
+          {revenueChart.length > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={revenueChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Revenue"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)" }} />
+                  <Bar dataKey="revenue" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
-            Sales by Day
-          </h2>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklySales}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e8e4de"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fill: "#b3b6b7", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#b3b6b7", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  formatter={(value) => [formatCurrency(Number(value)), "Sales"]}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e8e4de",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  }}
-                />
-                <Bar dataKey="sales" fill="#af9164" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-sm text-muted">No completed orders yet</div>
+          )}
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">
-            Expenses by Category
-          </h2>
-          <div className="space-y-4">
-            {expenseByCategory.map((item) => (
-              <div key={item.category}>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    {item.category}
-                  </span>
-                  <span className="text-sm text-muted">
-                    {formatCurrency(item.amount)}
-                  </span>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-sm font-bold text-foreground mb-4">Orders by Status</h2>
+          <div className="space-y-3">
+            {statusChart.length > 0 ? statusChart.map(({ status, count }) => {
+              const color = status === "Completed" ? "#10b981" : status === "Cancelled" ? "#ef4444" : "#f59e0b";
+              const pct = Math.round((count / orders.length) * 100);
+              return (
+                <div key={status}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-foreground">{status}</span>
+                    <span className="text-xs text-muted">{count} ({pct}%)</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-border overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                  </div>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-border">
-                  <div
-                    className="h-full rounded-full bg-accent"
-                    style={{ width: `${item.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            }) : <p className="text-sm text-muted">No orders yet</p>}
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">
-          Top Selling Products
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="text-sm font-bold text-foreground mb-4">Top Products by Revenue</h2>
+        {topProducts.length > 0 ? (
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border">
-                <th className="pb-3 font-medium text-muted">Product</th>
-                <th className="pb-3 text-right font-medium text-muted">
-                  Units Sold
-                </th>
-                <th className="pb-3 text-right font-medium text-muted">
-                  Revenue
-                </th>
+              <tr className="border-b border-border text-left">
+                <th className="pb-3 text-[11px] font-semibold text-muted uppercase tracking-wider">#</th>
+                <th className="pb-3 text-[11px] font-semibold text-muted uppercase tracking-wider">Product</th>
+                <th className="pb-3 text-right text-[11px] font-semibold text-muted uppercase tracking-wider">Units</th>
+                <th className="pb-3 text-right text-[11px] font-semibold text-muted uppercase tracking-wider">Revenue</th>
               </tr>
             </thead>
-            <tbody>
-              {topProducts.map((product, i) => (
-                <tr
-                  key={product.name}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {i + 1}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {product.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3 text-right text-foreground">
-                    {product.sold}
-                  </td>
-                  <td className="py-3 text-right font-medium text-foreground">
-                    {formatCurrency(product.revenue)}
-                  </td>
+            <tbody className="divide-y divide-border">
+              {topProducts.map((p, i) => (
+                <tr key={p.name}>
+                  <td className="py-3 text-muted font-mono text-xs">{i + 1}</td>
+                  <td className="py-3 font-medium text-foreground">{p.name}</td>
+                  <td className="py-3 text-right text-muted">{p.qty}</td>
+                  <td className="py-3 text-right font-semibold text-foreground">{fmtMoney(p.revenue)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        ) : <p className="text-sm text-muted">No sales data yet</p>}
       </div>
     </div>
   );
