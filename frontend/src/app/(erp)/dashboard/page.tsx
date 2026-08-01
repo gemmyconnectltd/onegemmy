@@ -8,7 +8,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
 import { inventoryApi, type ApiProduct } from "@/lib/api";
-import { PERIODS, PERIOD_DATA, RECENT_SALES, TOP_PRODUCTS, METHOD_COLOR, type Period, type PeriodData } from "./data";
+import { PERIODS, PAST_YEARS, getPeriodData, RECENT_SALES, TOP_PRODUCTS, METHOD_COLOR, type Period, type PeriodData } from "./data";
 
 function variantStock(p: ApiProduct) {
   return p.has_variants && p.variants?.length ? p.variants.reduce((s, v) => s + v.stock, 0) : p.stock;
@@ -200,8 +200,8 @@ export default function DashboardPage() {
     inventoryApi.listProducts(1, 200).then((r) => setInventory(r.data.items)).catch(() => {});
   }, []);
 
-  const d = PERIOD_DATA[period];
-  const label = PERIODS.find((p) => p.key === period)!.label;
+  const d = getPeriodData(period);
+  const label = [...PERIODS, ...PAST_YEARS].find((p) => p.key === period)!.label;
   const lowStock = inventory
     .map((p) => ({ name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
     .filter((i) => i.stock <= i.min).sort((a, b) => a.stock - b.stock).slice(0, 6);
@@ -222,6 +222,16 @@ export default function DashboardPage() {
                 {p.label}
               </button>
             ))}
+            <select
+              value={period.startsWith("year_") ? period : ""}
+              onChange={(e) => e.target.value && setPeriod(e.target.value as Period)}
+              className={`px-3 py-1.5 text-[12px] font-semibold rounded-md transition-all bg-card cursor-pointer outline-none border-0 ${period.startsWith("year_") ? "text-foreground shadow-sm" : "text-muted"}`}
+            >
+              <option value="">Past Years</option>
+              {PAST_YEARS.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
           </div>
           <span className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live

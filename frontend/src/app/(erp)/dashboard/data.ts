@@ -1,4 +1,6 @@
-export type Period = "today" | "week" | "month" | "last_month" | "year";
+export type Period = "today" | "week" | "month" | "last_month" | "year" | `year_${number}`;
+
+const THIS_YEAR = new Date().getFullYear();
 
 export const PERIODS: { key: Period; label: string }[] = [
   { key: "today",      label: "Today" },
@@ -7,6 +9,12 @@ export const PERIODS: { key: Period; label: string }[] = [
   { key: "last_month", label: "Last Month" },
   { key: "year",       label: "This Year" },
 ];
+
+// Past 4 years dynamically
+export const PAST_YEARS: { key: Period; label: string }[] = Array.from({ length: 4 }, (_, i) => {
+  const y = THIS_YEAR - 1 - i;
+  return { key: `year_${y}` as Period, label: String(y) };
+});
 
 export type PeriodData = {
   sales: number; expenses: number; profit: number; cash: number;
@@ -17,7 +25,38 @@ export type PeriodData = {
   chart: { label: string; sales: number; expenses: number }[];
 };
 
-export const PERIOD_DATA: Record<Period, PeriodData> = {
+// Mock multiplier per past year (relative to "this year" data)
+const YEAR_SCALE: Record<number, number> = { 1: 0.82, 2: 0.67, 3: 0.51, 4: 0.38 };
+
+function pastYearData(year: number, offset: number): PeriodData {
+  const scale = YEAR_SCALE[offset] ?? 0.3;
+  const sales = Math.round(38500000 * scale);
+  const expenses = Math.round(9200000 * scale);
+  return {
+    sales, expenses, profit: sales - expenses,
+    cash: 892000, customers: Math.round(4820 * scale), target: Math.round(50000000 * scale),
+    salesChange: "-", expChange: "-", profitChange: "-", customersChange: "-",
+    salesUp: false, expUp: false, profitUp: false, customersUp: false,
+    chartTitle: `${year} Sales`, chartSub: "Monthly revenue vs expenses",
+    chart: [
+      "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec",
+    ].map((label, i) => {
+      const base = [2800000,2600000,3100000,3400000,3200000,3600000,3800000,3500000,3300000,3700000,3900000,1600000][i];
+      return { label, sales: Math.round(base * scale), expenses: Math.round(base * scale * 0.24) };
+    }),
+  };
+}
+
+export function getPeriodData(period: Period): PeriodData {
+  if (period.startsWith("year_")) {
+    const year = Number(period.replace("year_", ""));
+    const offset = THIS_YEAR - year;
+    return pastYearData(year, offset);
+  }
+  return PERIOD_DATA[period as keyof typeof PERIOD_DATA];
+}
+
+export const PERIOD_DATA: Record<string, PeriodData> = {
   today: {
     sales: 156000, expenses: 45000, profit: 111000, cash: 892000, customers: 48, target: 200000,
     salesChange: "+12%", expChange: "+5%", profitChange: "+18%", customersChange: "+3",
