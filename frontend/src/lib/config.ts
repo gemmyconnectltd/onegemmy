@@ -93,10 +93,12 @@ export const CURRENCY = "RWF";
 export const CURRENCY_SYMBOL = "RWF";
 
 /** Format a money value. >= 1 000 000 → "RWF 1.2M", >= 1 000 → "RWF 12.5K", else full number. */
-export function fmtMoney(value: number, symbol = CURRENCY_SYMBOL): string {
-  if (value >= 1_000_000) return `${symbol} ${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (value >= 1_000)     return `${symbol} ${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}K`;
-  return `${symbol} ${value.toLocaleString()}`;
+export function fmtMoney(value: number | null | undefined, symbol = CURRENCY_SYMBOL): string {
+  const v = Number(value ?? 0);
+  if (isNaN(v)) return `${symbol} 0`;
+  if (v >= 1_000_000) return `${symbol} ${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (v >= 1_000)     return `${symbol} ${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K`;
+  return `${symbol} ${v.toLocaleString()}`;
 }
 
 export const currencies = [

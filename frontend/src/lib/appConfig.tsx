@@ -148,11 +148,6 @@ async function fetchTranslations(targetLang: string): Promise<Record<string, str
   }
 }
 
-function getStored(key: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  return window.localStorage.getItem(key) ?? fallback;
-}
-
 function applyTheme(type: BusinessType, theme: Theme) {
   const palette = theme === "dark" ? businessThemesDark[type] : businessThemes[type];
   const root = document.documentElement;
@@ -188,23 +183,25 @@ interface AppConfig {
 const AppConfigContext = createContext<AppConfig | null>(null);
 
 export function AppConfigProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState(() => getStored("app_currency", "RWF"));
-  const [locale, setLocaleState] = useState<LocaleCode>(() => {
-    const l = getStored("app_locale", "en");
-    return (VALID_LOCALES.includes(l as LocaleCode) ? l : "en") as LocaleCode;
-  });
-  const [businessType, setBusinessTypeState] = useState<BusinessType>(() => {
-    const b = getStored("app_business_type", "retail");
-    return (VALID_BUSINESS_TYPES.includes(b as BusinessType) ? b : "retail") as BusinessType;
-  });
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const t = getStored("app_theme", "light");
-    return t === "dark" ? "dark" : "light";
-  });
-  const [navOrientation, setNavOrientationState] = useState<NavOrientation>(() => {
-    const o = getStored("app_nav_orientation", "left");
-    return (VALID_ORIENTATIONS.includes(o as NavOrientation) ? o : "left") as NavOrientation;
-  });
+  const [currency, setCurrencyState] = useState("RWF");
+  const [locale, setLocaleState] = useState<LocaleCode>("en");
+  const [businessType, setBusinessTypeState] = useState<BusinessType>("retail");
+  const [theme, setThemeState] = useState<Theme>("light");
+  const [navOrientation, setNavOrientationState] = useState<NavOrientation>("left");
+
+  // Restore persisted settings client-side only (avoids SSR hydration mismatch)
+  useEffect(() => {
+    const c = localStorage.getItem("app_currency");
+    if (c && currencies.find((x) => x.code === c)) setCurrencyState(c);
+    const l = localStorage.getItem("app_locale");
+    if (l && VALID_LOCALES.includes(l as LocaleCode)) setLocaleState(l as LocaleCode);
+    const b = localStorage.getItem("app_business_type");
+    if (b && VALID_BUSINESS_TYPES.includes(b as BusinessType)) setBusinessTypeState(b as BusinessType);
+    const t = localStorage.getItem("app_theme");
+    if (t === "dark" || t === "light") setThemeState(t);
+    const o = localStorage.getItem("app_nav_orientation");
+    if (o && VALID_ORIENTATIONS.includes(o as NavOrientation)) setNavOrientationState(o as NavOrientation);
+  }, []);
   const [strings, setStrings] = useState<Record<string, string>>(BASE_STRINGS);
   const [translating, setTranslating] = useState(false);
 
