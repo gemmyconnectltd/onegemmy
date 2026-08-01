@@ -55,11 +55,43 @@ function mapUser(u: ApiTokenUserInfo): User {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function decodeToken(token: string): (ApiTokenUserInfo & { exp?: number }) | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string): boolean {
+  const payload = decodeToken(token);
+  if (!payload?.exp) return true;
+  return Date.now() / 1000 > payload.exp;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => {
+    // Restore user instantly from stored token — no network call
+    const token = getStoredToken();
+    if (!token || isTokenExpired(token)) return null;
+    const payload = decodeToken(token);
+    if (!payload) return null;
+    return mapUser(payload);
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    // Only show loading if we need to refresh (token missing or expired)
+    const token = getStoredToken();
+    if (!token || isTokenExpired(token)) {
+      const refresh = getStoredRefreshToken();
+      return !!refresh; // loading only if we have a refresh token to try
+    }
+    return false;
+  });
 
   useEffect(() => {
+    const token = getStoredToken();
+    if (token && !isTokenExpired(token)) return; // already restored above, skip
     const tryRefresh = async () => {
       const refreshToken = getStoredRefreshToken();
       if (!refreshToken) { setIsLoading(false); return; }

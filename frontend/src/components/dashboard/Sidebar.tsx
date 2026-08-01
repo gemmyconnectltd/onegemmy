@@ -10,6 +10,7 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, Layers, Briefcase, HandCoins,
   Factory, ShoppingBag, ChevronRight, Menu, X,
+  PanelLeft, PanelTop,
 } from "lucide-react";
 
 const navItems = [
@@ -20,17 +21,21 @@ const navItems = [
   { name: "Procurement", href: "/procurement",   icon: ShoppingBag,     color: "#0e7490" },
   { name: "HR",          href: "/hr",            icon: UserCog,         color: "#7c3aed" },
   { name: "Customers",   href: "/customers",     icon: Users,           color: "#0f766e" },
-  { name: "CRM",         href: "/crm",           icon: Briefcase,       color: "#1d4ed8" },
   { name: "Mfg",         href: "/manufacturing", icon: Factory,         color: "#92400e" },
   { name: "Reports",     href: "/reports",       icon: BarChart3,       color: "#1e40af" },
 ];
 
-// Bottom nav shows only the most important 5 items on mobile
 const mobileNavItems = navItems.slice(0, 5);
+
+export type SidebarLayout = "vertical" | "horizontal";
 
 interface SidebarProps {
   expanded: boolean;
   onExpandChange: (v: boolean) => void;
+  layout: SidebarLayout;
+  onLayoutChange: (l: SidebarLayout) => void;
+  collapsed: boolean;
+  onCollapsedChange: (v: boolean) => void;
 }
 
 function Tooltip({ label }: { label: string }) {
@@ -48,12 +53,17 @@ function Tooltip({ label }: { label: string }) {
   );
 }
 
-export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
+export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, collapsed, onCollapsedChange }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const router = useRouter();
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    onCollapsedChange(next);
+    localStorage.setItem("sidebar_collapsed", next ? "1" : "0");
+  };
 
   const handleNavClick = useCallback(() => {
     onExpandChange(false);
@@ -68,123 +78,238 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
   const initials =
     user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
 
-  // ── Desktop sidebar (always visible, icon-only) ──────────────────────────
-  const desktopSidebar = (
-    <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-[88px] bg-card border-r border-border z-50 flex-col select-none">
-      {/* Logo */}
-      <div className="flex items-center justify-center h-[60px] border-b border-border flex-shrink-0">
-        <div className="w-11 h-11 bg-accent rounded-2xl flex items-center justify-center shadow-sm">
-          <Layers size={20} className="text-white" strokeWidth={2.5} />
-        </div>
-      </div>
+  const toggleLayout = () => onLayoutChange(layout === "vertical" ? "horizontal" : "vertical");
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-clip py-3 flex flex-col items-center gap-0.5">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          return (
-            <div key={item.name} className="relative w-full flex justify-center">
+  // ── HORIZONTAL top nav ───────────────────────────────────────────────────
+  if (layout === "horizontal") {
+    return (
+      <>
+        <header className="hidden lg:flex fixed top-0 left-0 right-0 h-[56px] bg-card border-b border-border z-50 items-center px-4 gap-1 select-none">
+          {/* Logo */}
+          <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 mr-3">
+            <Layers size={18} className="text-white" strokeWidth={2.5} />
+          </div>
+
+          {/* Nav items */}
+          <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0"
+                  style={
+                    isActive
+                      ? { backgroundColor: item.color, color: "#fff" }
+                      : { color: "#64748b" }
+                  }
+                >
+                  <item.icon
+                    size={15}
+                    strokeWidth={isActive ? 2.2 : 1.6}
+                    style={{ color: isActive ? "#fff" : item.color }}
+                  />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Right side: Settings + layout toggle + user */}
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+            <Link
+              href="/settings"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all"
+              style={
+                pathname.startsWith("/settings")
+                  ? { backgroundColor: "#4f46e5", color: "#fff" }
+                  : { color: "#64748b" }
+              }
+            >
+              <Settings size={15} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.6} style={{ color: pathname.startsWith("/settings") ? "#fff" : "#4f46e5" }} />
+              Settings
+            </Link>
+
+            <button
+              onClick={toggleLayout}
+              title="Switch to vertical sidebar"
+              className="w-8 h-8 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors"
+            >
+              <PanelLeft size={16} />
+            </button>
+
+            <div
+              className="relative"
+              onMouseEnter={() => setTooltip("user")}
+              onMouseLeave={() => setTooltip(null)}
+            >
+              <button className="flex items-center gap-2 pl-2 border-l border-border">
+                <div className="w-7 h-7 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent">
+                  {initials}
+                </div>
+              </button>
+              {tooltip === "user" && (
+                <div className="absolute right-0 top-full mt-2 z-[51] pointer-events-auto">
+                  <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-48">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold text-foreground truncate">{user?.name}</p>
+                        <p className="text-[10px] text-muted truncate capitalize">{user?.role}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 text-[12px] text-foreground/60 hover:bg-surface rounded-lg transition-colors font-medium"
+                    >
+                      <LogOut size={13} /> Sign out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile nav (same as vertical) */}
+        {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems, mobileNavItems })}
+      </>
+    );
+  }
+
+  // ── VERTICAL sidebar (default) ───────────────────────────────────────────
+  const w = collapsed ? 64 : 200;
+  return (
+    <>
+      <aside
+        className="hidden lg:flex fixed top-0 left-0 h-screen bg-card border-r border-border z-50 flex-col select-none transition-all duration-200 overflow-hidden"
+        style={{ width: w }}
+      >
+        {/* Logo + collapse toggle */}
+        <div className="flex items-center justify-between h-[60px] border-b border-border flex-shrink-0 px-3">
+          {!collapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-accent rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                <Layers size={16} className="text-white" strokeWidth={2.5} />
+              </div>
+              <span className="text-[14px] font-bold text-foreground truncate">OneGemmy</span>
+            </div>
+          )}
+          <button
+            onClick={toggleCollapse}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg text-muted hover:text-foreground hover:bg-surface transition-colors flex-shrink-0 ${collapsed ? "mx-auto" : ""}`}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <PanelLeft size={16} className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-clip py-2 flex flex-col gap-0.5 px-2">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
               <Link
+                key={item.name}
                 href={item.href}
-                onMouseEnter={() => setTooltip(item.name)}
-                onMouseLeave={() => setTooltip(null)}
                 aria-current={isActive ? "page" : undefined}
-                className="group flex flex-col items-center justify-center gap-[6px] py-[11px] w-full transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                title={collapsed ? item.name : undefined}
+                className="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 style={isActive ? { backgroundColor: item.color } : undefined}
               >
                 <item.icon
-                  size={22}
-                  strokeWidth={isActive ? 2.2 : 1.6}
+                  size={18}
+                  strokeWidth={isActive ? 2.2 : 1.8}
                   style={{ color: isActive ? "#fff" : item.color }}
-                  className="transition-transform duration-150 group-hover:scale-110"
+                  className="flex-shrink-0 transition-transform duration-150 group-hover:scale-110"
                 />
-                <span
-                  className="text-[12px] font-semibold leading-none tracking-wide"
-                  style={{ color: isActive ? "#fff" : "#94a3b8" }}
-                >
-                  {item.name}
-                </span>
+                {!collapsed && (
+                  <span className="text-[13px] font-semibold leading-none" style={{ color: isActive ? "#fff" : "#64748b" }}>
+                    {item.name}
+                  </span>
+                )}
               </Link>
-              {tooltip === item.name && !isActive && <Tooltip label={item.name} />}
-            </div>
-          );
-        })}
-      </nav>
+            );
+          })}
+        </nav>
 
-      <div className="mx-4 border-t border-border" />
+        <div className="mx-4 border-t border-border" />
 
-      {/* Bottom */}
-      <div className="py-3 flex flex-col items-center gap-0.5">
-        {/* Settings */}
-        <div className="relative w-full flex justify-center">
-          <Link
-            href="/settings"
-            onMouseEnter={() => setTooltip("Settings")}
-            onMouseLeave={() => setTooltip(null)}
-            className="group flex flex-col items-center justify-center gap-[6px] py-[11px] w-full transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            style={pathname.startsWith("/settings") ? { backgroundColor: "#4f46e5" } : undefined}
-          >
-            <Settings
-              size={22}
-              strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.6}
-              style={{ color: pathname.startsWith("/settings") ? "#fff" : "#4f46e5" }}
-              className="transition-transform duration-150 group-hover:scale-110"
-            />
-            <span className="text-[12px] font-semibold leading-none tracking-wide" style={{ color: pathname.startsWith("/settings") ? "#fff" : "#94a3b8" }}>
-              Settings
-            </span>
-          </Link>
-          {tooltip === "Settings" && !pathname.startsWith("/settings") && <Tooltip label="Settings" />}
-        </div>
+        {/* Bottom */}
+        <div className="py-3 flex flex-col items-center gap-0.5">
+          {/* Settings */}
+          <div className="px-2 pb-1">
+            <Link
+              href="/settings"
+              title={collapsed ? "Settings" : undefined}
+              className="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none"
+              style={pathname.startsWith("/settings") ? { backgroundColor: "#4f46e5" } : undefined}
+            >
+              <Settings size={18} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.8} style={{ color: pathname.startsWith("/settings") ? "#fff" : "#4f46e5" }} className="flex-shrink-0" />
+              {!collapsed && <span className="text-[13px] font-semibold" style={{ color: pathname.startsWith("/settings") ? "#fff" : "#64748b" }}>Settings</span>}
+            </Link>
+          </div>
 
-        {/* User */}
-        <div
-          className="relative w-full flex justify-center"
-          onMouseEnter={() => setTooltip("user")}
-          onMouseLeave={() => setTooltip(null)}
-        >
-          <button
-            type="button"
-            className="flex flex-col items-center justify-center gap-[5px] w-full py-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <div className="w-9 h-9 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-[12px] font-bold text-accent">
-              {initials}
-            </div>
-            <span className="text-[11px] font-semibold leading-none text-foreground/40 tracking-wide max-w-[64px] truncate text-center">
-              {user?.name?.split(" ")[0]}
-            </span>
-          </button>
-          {tooltip === "user" && (
-            <div className="absolute left-[80px] bottom-0 z-[51] pointer-events-auto">
-              <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-48">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-                    {initials}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-semibold text-foreground truncate">{user?.name}</p>
-                    <p className="text-[10px] text-muted truncate capitalize">{user?.role}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 text-[12px] text-foreground/60 hover:bg-surface rounded-lg transition-colors font-medium"
-                >
-                  <LogOut size={13} /> Sign out
-                </button>
+          {/* User */}
+          <div className="px-2 pb-2 relative" onMouseEnter={() => setTooltip("user")} onMouseLeave={() => setTooltip(null)}>
+            <button type="button" className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl hover:bg-surface transition-colors">
+              <div className="w-7 h-7 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
+                {initials}
               </div>
-              <div className="absolute left-0 bottom-4 -translate-x-1 w-1.5 h-1.5 bg-card border-l border-b border-border rotate-45" />
-            </div>
-          )}
+              {!collapsed && (
+                <div className="text-left min-w-0">
+                  <p className="text-[12px] font-semibold text-foreground truncate">{user?.name?.split(" ")[0]}</p>
+                  <p className="text-[10px] text-muted capitalize truncate">{user?.role}</p>
+                </div>
+              )}
+            </button>
+            {tooltip === "user" && (
+              <div className="absolute left-full bottom-0 ml-2 z-[51] pointer-events-auto">
+                <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-44">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">{initials}</div>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-foreground truncate">{user?.name}</p>
+                      <p className="text-[10px] text-muted truncate capitalize">{user?.role}</p>
+                    </div>
+                  </div>
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-2.5 py-2 text-[12px] text-foreground/60 hover:bg-surface rounded-lg transition-colors font-medium">
+                    <LogOut size={13} /> Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </aside>
-  );
+      </aside>
 
-  // ── Mobile bottom nav ────────────────────────────────────────────────────
-  const mobileNav = (
+      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems, mobileNavItems })}
+    </>
+  );
+}
+
+type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>; color: string };
+
+// ── Shared mobile bottom nav ─────────────────────────────────────────────────
+function mobileBottomNav({
+  mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick,
+  handleLogout, initials, user, navItems, mobileNavItems,
+}: {
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (v: boolean) => void;
+  pathname: string;
+  handleNavClick: () => void;
+  handleLogout: () => void;
+  initials: string;
+  user: { name?: string; role?: string } | null;
+  navItems: NavItem[];
+  mobileNavItems: NavItem[];
+}) {
+  return (
     <>
-      {/* Full-screen drawer for all nav items */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-card">
           <div className="flex items-center justify-between px-5 h-[60px] border-b border-border flex-shrink-0">
@@ -229,7 +354,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
         </div>
       )}
 
-      {/* Bottom tab bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border flex items-stretch h-16">
         {mobileNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -245,7 +369,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
             </Link>
           );
         })}
-        {/* More button */}
         <button
           onClick={() => setMobileMenuOpen(true)}
           className="flex-1 flex flex-col items-center justify-center gap-1 text-muted"
@@ -254,13 +377,6 @@ export function Sidebar({ expanded, onExpandChange }: SidebarProps) {
           <span className="text-[10px] font-semibold">More</span>
         </button>
       </nav>
-    </>
-  );
-
-  return (
-    <>
-      {desktopSidebar}
-      {mobileNav}
     </>
   );
 }

@@ -3,14 +3,31 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Sidebar } from "@/components/dashboard/Sidebar";
+import { Sidebar, type SidebarLayout } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { useAuth } from "@/lib/auth";
 import { pageTitleForPath } from "@/lib/pageTitles";
 
+const LAYOUT_KEY = "sidebar_layout";
+const COLLAPSED_KEY = "sidebar_collapsed";
+
+function getInitial<T>(key: string, fallback: T, parse?: (v: string) => T): T {
+  if (typeof window === "undefined") return fallback;
+  const v = localStorage.getItem(key);
+  if (v === null) return fallback;
+  return parse ? parse(v) : v as unknown as T;
+}
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    getInitial(COLLAPSED_KEY, false, (v) => v === "1")
+  );
+  const [sidebarLayout, setSidebarLayout] = useState<SidebarLayout>(() =>
+    getInitial<SidebarLayout>(LAYOUT_KEY, "vertical", (v) =>
+      v === "horizontal" ? "horizontal" : "vertical"
+    )
+  );
   const [isMobile, setIsMobile] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -31,16 +48,41 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!isLoading && !user) router.replace("/login");
   }, [isLoading, user, router]);
 
-  if (isLoading || !user) return null;
+  const handleLayoutChange = (l: SidebarLayout) => {
+    setSidebarLayout(l);
+    localStorage.setItem(LAYOUT_KEY, l);
+  };
+
+  if (isLoading) return (
+    <div className="min-h-screen bg-surface flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!user) return null;
+
+  const isHorizontal = sidebarLayout === "horizontal";
+  const sidebarW = isHorizontal ? 0 : sidebarCollapsed ? 64 : 200;
 
   return (
     <div className="min-h-screen bg-surface">
-      <Sidebar expanded={sidebarExpanded} onExpandChange={setSidebarExpanded} />
+      <Sidebar
+        expanded={false}
+        onExpandChange={() => {}}
+        layout={sidebarLayout}
+        onLayoutChange={handleLayoutChange}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      />
       <div
         className="flex flex-col min-h-screen transition-all duration-200"
-        style={{ marginLeft: isMobile ? 0 : 88, paddingBottom: isMobile ? 64 : 0 }}
+        style={{
+          marginLeft: isMobile ? 0 : sidebarW,
+          marginTop: isMobile ? 0 : isHorizontal ? 56 : 0,
+          paddingBottom: isMobile ? 64 : 0,
+        }}
       >
-        <Topbar onToggleSidebar={() => setSidebarExpanded(!sidebarExpanded)} sidebarExpanded={sidebarExpanded} />
+        <Topbar onToggleSidebar={() => {}} sidebarExpanded={false} />
         <main className="flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
       <SupportFab />

@@ -13,82 +13,78 @@ import {
 import { useAppConfig } from "@/lib/appConfig";
 
 type ModuleKey =
-  | "sales" | "finance" | "hr" | "crm" | "procurement"
+  | "sales" | "finance" | "hr" | "procurement"
   | "manufacturing" | "customers" | "inventory" | "reports" | "settings";
 
 type Orientation = "top" | "left";
 
 const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React.ElementType; color: string; exact?: boolean }[]> = {
   sales: [
-    { nameKey: "overview",  href: "/sales",           icon: ShoppingCart, color: "#0284c7", exact: true },
-    { nameKey: "orders",    href: "/sales/orders",    icon: FileText,     color: "#0284c7" },
-    { nameKey: "targets",   href: "/sales/targets",   icon: Target,       color: "#0284c7" },
-    { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw,    color: "#0284c7" },
-    { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp,   color: "#0284c7" },
+    { nameKey: "overview",  href: "/sales",           icon: LayoutDashboard, color: "#0284c7", exact: true },
+    { nameKey: "orders",    href: "/sales/orders",    icon: FileText,        color: "#0284c7" },
+    { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw,       color: "#0284c7" },
+    { nameKey: "targets",   href: "/sales/targets",   icon: Target,          color: "#0284c7" },
+    { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp,      color: "#0284c7" },
   ],
   finance: [
     { nameKey: "overview",  href: "/finance",          icon: LayoutDashboard, color: "#b45309", exact: true },
-    { nameKey: "invoices",  href: "/finance/invoices", icon: FileText,        color: "#b45309" },
+    { nameKey: "accounts",  href: "/finance/accounts", icon: CreditCard,      color: "#b45309" },
     { nameKey: "income",    href: "/finance/income",   icon: TrendingUp,      color: "#b45309" },
     { nameKey: "expenses",  href: "/finance/expenses", icon: TrendingDown,    color: "#b45309" },
-    { nameKey: "accounts",  href: "/finance/accounts", icon: CreditCard,      color: "#b45309" },
+    { nameKey: "invoices",  href: "/finance/invoices", icon: FileText,        color: "#b45309" },
     { nameKey: "reports",   href: "/finance/reports",  icon: BarChart2,       color: "#b45309" },
   ],
   hr: [
     { nameKey: "employees",  href: "/hr",             icon: Users,      color: "#7c3aed", exact: true },
-    { nameKey: "recruiting", href: "/hr/recruiting",  icon: UserPlus,   color: "#7c3aed" },
     { nameKey: "attendance", href: "/hr/attendance",  icon: Clock,      color: "#7c3aed" },
-    { nameKey: "payroll",    href: "/hr/payroll",     icon: DollarSign, color: "#7c3aed" },
     { nameKey: "leave",      href: "/hr/leave",       icon: Award,      color: "#7c3aed" },
+    { nameKey: "payroll",    href: "/hr/payroll",     icon: DollarSign, color: "#7c3aed" },
+    { nameKey: "recruiting", href: "/hr/recruiting",  icon: UserPlus,   color: "#7c3aed" },
   ],
-  crm: [
-    { nameKey: "overview",   href: "/crm",            icon: LayoutDashboard, color: "#1d4ed8", exact: true },
-    { nameKey: "contacts",   href: "/crm/contacts",   icon: UserCheck,       color: "#1d4ed8" },
-    { nameKey: "campaigns",  href: "/crm/campaigns",  icon: Megaphone,       color: "#1d4ed8" },
-    { nameKey: "emails",     href: "/crm/emails",     icon: Mail,            color: "#1d4ed8" },
-    { nameKey: "analytics",  href: "/crm/analytics",  icon: BarChart2,       color: "#1d4ed8" },
+  customers: [
+    { nameKey: "allCustomers", href: "/customers",           icon: Users,     color: "#0f766e", exact: true },
+    { nameKey: "contacts",     href: "/crm/contacts",        icon: UserCheck, color: "#0f766e" },
+    { nameKey: "segments",     href: "/customers/segments",  icon: Tag,       color: "#0f766e" },
+    { nameKey: "loyalty",      href: "/customers/loyalty",   icon: Star,      color: "#0f766e" },
+    { nameKey: "campaigns",    href: "/crm/campaigns",       icon: Megaphone, color: "#0f766e" },
+    { nameKey: "emails",       href: "/crm/emails",          icon: Mail,      color: "#0f766e" },
+    { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2, color: "#0f766e" },
   ],
   procurement: [
     { nameKey: "overview",  href: "/procurement",           icon: LayoutDashboard, color: "#0e7490", exact: true },
+    { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList,   color: "#0e7490" },
     { nameKey: "orders",    href: "/procurement/orders",    icon: ShoppingBag,     color: "#0e7490" },
     { nameKey: "suppliers", href: "/procurement/suppliers", icon: Truck,           color: "#0e7490" },
-    { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList,   color: "#0e7490" },
     { nameKey: "returns",   href: "/procurement/returns",   icon: RotateCcw,       color: "#0e7490" },
   ],
   manufacturing: [
     { nameKey: "overview",   href: "/manufacturing",             icon: LayoutDashboard, color: "#92400e", exact: true },
     { nameKey: "workOrders", href: "/manufacturing/work-orders", icon: Hammer,          color: "#92400e" },
-    { nameKey: "bom",        href: "/manufacturing/bom",         icon: ClipboardList,   color: "#92400e" },
     { nameKey: "materials",  href: "/manufacturing/materials",   icon: Package,         color: "#92400e" },
+    { nameKey: "bom",        href: "/manufacturing/bom",         icon: ClipboardList,   color: "#92400e" },
     { nameKey: "analytics",  href: "/manufacturing/analytics",   icon: BarChart2,       color: "#92400e" },
-  ],
-  customers: [
-    { nameKey: "allCustomers", href: "/customers",           icon: Users,     color: "#0f766e", exact: true },
-    { nameKey: "loyalty",      href: "/customers/loyalty",   icon: Star,      color: "#0f766e" },
-    { nameKey: "segments",     href: "/customers/segments",  icon: Tag,       color: "#0f766e" },
-    { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2, color: "#0f766e" },
   ],
   inventory: [
     { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, color: "#059669", exact: true },
     { nameKey: "products",   href: "/inventory/products",   icon: Package,         color: "#059669" },
-    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
     { nameKey: "categories", href: "/inventory/categories", icon: Tag,             color: "#059669" },
     { nameKey: "brands",     href: "/inventory/brands",     icon: Star,            color: "#059669" },
     { nameKey: "units",      href: "/inventory/units",      icon: Ruler,           color: "#059669" },
     { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck,           color: "#059669" },
+    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
   ],
   reports: [
-    { nameKey: "overview",   href: "/reports",           icon: BarChart3,  color: "#1e40af", exact: true },
-    { nameKey: "sales",      href: "/reports/sales",     icon: TrendingUp, color: "#1e40af" },
-    { nameKey: "inventory",  href: "/reports/inventory", icon: Package,    color: "#1e40af" },
-    { nameKey: "customers",  href: "/reports/customers", icon: Users,      color: "#1e40af" },
-    { nameKey: "finance",    href: "/reports/finance",   icon: DollarSign, color: "#1e40af" },
+    { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, color: "#1e40af", exact: true },
+    { nameKey: "sales",      href: "/reports/sales",     icon: TrendingUp,      color: "#1e40af" },
+    { nameKey: "finance",    href: "/reports/finance",   icon: DollarSign,      color: "#1e40af" },
+    { nameKey: "inventory",  href: "/reports/inventory", icon: Package,         color: "#1e40af" },
+    { nameKey: "customers",  href: "/reports/customers", icon: Users,           color: "#1e40af" },
   ],
   settings: [
     { nameKey: "general",       href: "/settings",               icon: Settings, color: "#4f46e5", exact: true },
     { nameKey: "usersRoles",    href: "/settings/users",         icon: Users,    color: "#4f46e5" },
-    { nameKey: "notifications", href: "/settings/notifications", icon: Bell,     color: "#4f46e5" },
     { nameKey: "security",      href: "/settings/security",      icon: Shield,   color: "#4f46e5" },
+    { nameKey: "notifications", href: "/settings/notifications", icon: Bell,     color: "#4f46e5" },
     { nameKey: "appearance",    href: "/settings/appearance",    icon: Palette,  color: "#4f46e5" },
   ],
 };
