@@ -43,9 +43,9 @@ const topProducts = [
 ];
 
 const METHOD_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  cash:   { bg: "bg-emerald-50 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-400", label: "Cash" },
-  mobile: { bg: "bg-blue-50 dark:bg-blue-900/30",    text: "text-blue-700 dark:text-blue-400",    label: "Mobile" },
-  card:   { bg: "bg-purple-50 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-400", label: "Card" },
+  cash:   { bg: "", text: "text-emerald-600 dark:text-emerald-400", label: "Cash" },
+  mobile: { bg: "", text: "text-blue-600 dark:text-blue-400",    label: "Mobile" },
+  card:   { bg: "", text: "text-purple-600 dark:text-purple-400", label: "Card" },
 };
 
 function variantStock(p: ApiProduct) {
@@ -118,7 +118,7 @@ export default function DashboardPage() {
           <p className="text-xs font-medium text-foreground">
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </p>
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Live
           </span>
@@ -141,10 +141,10 @@ export default function DashboardPage() {
               </div>
               {stat.change && (
                 <span
-                  className={`flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
+                  className={`flex items-center gap-0.5 text-[11px] font-bold ${
                     stat.up
-                      ? "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30"
-                      : "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-red-500 dark:text-red-400"
                   }`}
                 >
                   {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
@@ -387,7 +387,7 @@ export default function DashboardPage() {
           {/* If no low stock, show a summary card */}
           {lowStock.length === 0 && (
             <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center flex-shrink-0">
                 <Package size={16} className="text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
