@@ -13,7 +13,7 @@ import {
 import { useAppConfig } from "@/lib/appConfig";
 
 type ModuleKey =
-  | "sales" | "finance" | "hr" | "procurement"
+  | "sales" | "finance" | "hr" | "crm" | "procurement"
   | "manufacturing" | "customers" | "inventory" | "reports" | "settings";
 
 type Orientation = "top" | "left";
@@ -40,6 +40,12 @@ const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React
     { nameKey: "leave",      href: "/hr/leave",       icon: Award,      color: "#7c3aed" },
     { nameKey: "payroll",    href: "/hr/payroll",     icon: DollarSign, color: "#7c3aed" },
     { nameKey: "recruiting", href: "/hr/recruiting",  icon: UserPlus,   color: "#7c3aed" },
+  ],
+  crm: [
+    { nameKey: "overview",   href: "/crm",           icon: LayoutDashboard, color: "#0f766e", exact: true },
+    { nameKey: "contacts",   href: "/crm/contacts",  icon: UserCheck,       color: "#0f766e" },
+    { nameKey: "campaigns",  href: "/crm/campaigns", icon: Megaphone,       color: "#0f766e" },
+    { nameKey: "emails",     href: "/crm/emails",    icon: Mail,            color: "#0f766e" },
   ],
   customers: [
     { nameKey: "allCustomers", href: "/customers",           icon: Users,     color: "#0f766e", exact: true },

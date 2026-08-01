@@ -1,3 +1,13 @@
+export type BusinessType = {
+  id: string;
+  label: string;
+  icon: string;
+  tagline: string;
+  accent: string;
+  categories: string[];
+  products: Product[];
+};
+
 export type Product = {
   id: string;
   name: string;

@@ -58,6 +58,28 @@ export function getProductIcon(product: Pick<Product, "emoji">): IconComponent {
   return EMOJI_ICON[product.emoji ?? ""] ?? Package;
 }
 
+const BUSINESS_ICON_MAP: Record<string, IconComponent> = {
+  "shopping-basket": ShoppingBasket,
+  "apple": Apple,
+  "plug": Plug,
+  "shirt": Shirt,
+  "footprints": Footprints,
+  "hammer": Hammer,
+  "pill": Pill,
+  "book-open": BookOpen,
+  "armchair": Armchair,
+  "sparkles": Sparkles,
+  "smartphone": Smartphone,
+  "paw-print": PawPrint,
+  "croissant": Croissant,
+  "wine": Wine,
+  "drumstick": Drumstick,
+};
+
+export function getBusinessIcon(b: { icon: string }): IconComponent {
+  return BUSINESS_ICON_MAP[b.icon] ?? Package;
+}
+
 const TILE_COLORS = [
   "#6f1a07", "#0f766e", "#b45309", "#1d4ed8", "#be185d", "#7c3aed",
   "#059669", "#b91c1c", "#4338ca", "#0e7490", "#a16207", "#be123c",
