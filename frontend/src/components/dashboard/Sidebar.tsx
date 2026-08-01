@@ -217,9 +217,12 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 title={collapsed ? item.name : undefined}
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 style={isActive ? { backgroundColor: item.color } : undefined}
               >
+                {isActive && !collapsed && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-white/40" />
+                )}
                 <item.icon
                   size={18}
                   strokeWidth={isActive ? 2.2 : 1.8}

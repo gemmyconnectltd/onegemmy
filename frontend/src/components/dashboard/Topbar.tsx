@@ -34,7 +34,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   };
 
   return (
-    <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-4 sticky top-0 z-30">
+    <header className="h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-4 gap-3 sticky top-0 z-30">
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
@@ -79,16 +79,16 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       </Link>
 
       {/* Search */}
-      <div className="hidden md:flex items-center gap-2 border border-border px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-colors cursor-pointer w-52">
-        <Search size={14} />
-        <span className="text-[13px]">Search...</span>
-        <span className="ml-auto text-[11px] bg-surface px-1.5 py-0.5 text-muted/60 font-mono">⌘K</span>
+      <div className="hidden md:flex items-center gap-2 border border-border bg-surface/60 hover:bg-surface px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-all cursor-pointer w-56 rounded-lg">
+        <Search size={13} />
+        <span className="text-[13px] flex-1">Search...</span>
+        <span className="text-[10px] bg-card border border-border px-1.5 py-0.5 text-muted/60 font-mono rounded">⌘K</span>
       </div>
 
       {/* Notifications */}
-      <button className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors relative">
-        <Bell size={17} />
-        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-accent rounded-full" />
+      <button className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors relative" title="Notifications">
+        <Bell size={16} />
+        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
       </button>
 
       {/* Theme toggle */}
@@ -148,7 +148,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowUser(false)} />
             <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border shadow-xl z-50 py-1">
-              <div className="px-4 py-2.5 border-b border-border">
+              <div className="px-4 py-3 border-b border-border">
                 <p className="text-[13px] font-semibold text-foreground truncate">{user?.name}</p>
                 <p className="text-[11px] text-muted capitalize">{user?.role}</p>
               </div>
