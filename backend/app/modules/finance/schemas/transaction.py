@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -28,7 +28,7 @@ class TransactionRead(BaseModel):
     reference: str
     type: str
     status: str
-    transaction_date: str | None = None
+    transaction_date: date | None = None
     description: str | None = None
     order_id: uuid.UUID | None = None
     return_id: uuid.UUID | None = None

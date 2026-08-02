@@ -1,47 +1,217 @@
 "use client";
-import { UserPlus } from "lucide-react";
 
-const applicants = [
-  { id: 1, name: "Frank Mugisha",  role: "Sales Rep",    stage: "Interview", date: "2025-07-25" },
-  { id: 2, name: "Grace Uwase",    role: "Accountant",   stage: "Applied",   date: "2025-07-24" },
-  { id: 3, name: "Henry Niyonzima",role: "Warehouse",    stage: "Offer",     date: "2025-07-22" },
-  { id: 4, name: "Irene Mukasa",   role: "HR Assistant", stage: "Rejected",  date: "2025-07-20" },
-];
+import { useCallback, useEffect, useState } from "react";
+import { UserPlus, Trash2 } from "lucide-react";
+import { hrApi } from "@/lib/api/hr";
+import type { ApiApplicant } from "@/lib/api/hr";
+import { Drawer } from "@/components/ui/Drawer";
+import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
-const stageColor: Record<string, string> = {
-  Applied:   "bg-blue-50 text-blue-700",
-  Interview: "bg-amber-50 text-amber-700",
-  Offer:     "bg-emerald-50 text-emerald-700",
-  Rejected:  "bg-red-50 text-red-600",
-};
+const STAGES = ["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"];
+const FILTERS = ["All", ...STAGES];
 
 export default function RecruitingPage() {
+  const [applicants, setApplicants] = useState<ApiApplicant[]>([]);
+  const [filter, setFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    position: "",
+    stage: "Applied",
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await hrApi.listApplicants(filter === "All" ? undefined : filter);
+      setApplicants(res.data.items);
+    } catch {
+      setError("Could not load applicants.");
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => { load(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [load]);
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!form.name) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      await hrApi.createApplicant({
+        name: form.name,
+        email: form.email || null,
+        phone: form.phone || null,
+        position: form.position || null,
+        stage: form.stage,
+      });
+      setShowForm(false);
+      setForm({ name: "", email: "", phone: "", position: "", stage: "Applied" });
+      await load();
+    } catch {
+      setNotice("Could not add the applicant.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const advance = async (a: ApiApplicant, next: string) => {
+    try {
+      await hrApi.updateApplicant(a.id, { stage: next });
+      await load();
+    } catch {
+      setNotice("Could not update the applicant stage.");
+    }
+  };
+
+  const remove = async (a: ApiApplicant) => {
+    if (!window.confirm(`Remove ${a.name}?`)) return;
+    try {
+      await hrApi.deleteApplicant(a.id);
+      await load();
+    } catch {
+      setNotice("Could not remove the applicant.");
+    }
+  };
+
+  const stageCounts = (stage: string) =>
+    stage === "All" ? applicants.length : applicants.filter((a) => a.stage === stage).length;
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Recruiting</h1>
-        <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><UserPlus size={16} />Add Applicant</button>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Recruiting</h1>
+          <p className="text-sm text-muted mt-0.5">Track candidates through your hiring pipeline</p>
+        </div>
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
+          style={{ backgroundColor: "#b45309" }}
+        >
+          <UserPlus size={15} /> Add Applicant
+        </button>
       </div>
-      <div className="bg-card border border-border">
-        <table className="w-full">
-          <thead><tr className="border-b border-border text-left text-xs text-muted">
-            <th className="p-4 font-medium">Applicant</th><th className="p-4 font-medium">Role</th><th className="p-4 font-medium">Applied</th><th className="p-4 font-medium">Stage</th>
-          </tr></thead>
-          <tbody className="divide-y divide-border">
-            {applicants.map((a) => (
-              <tr key={a.id} className="hover:bg-surface/50">
-                <td className="p-4"><div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent">{a.name.split(" ").map((n)=>n[0]).join("").slice(0,2)}</div>
-                  <span className="text-sm font-medium text-foreground">{a.name}</span>
-                </div></td>
-                <td className="p-4 text-sm text-muted">{a.role}</td>
-                <td className="p-4 text-sm text-muted">{a.date}</td>
-                <td className="p-4"><span className={`text-xs font-medium px-2 py-1 ${stageColor[a.stage]}`}>{a.stage}</span></td>
+
+      {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
+
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            className={`bg-card border p-3 text-left transition-colors ${filter === f ? "border-[#b45309]" : "border-border hover:border-foreground/20"}`}
+          >
+            <p className="text-lg font-extrabold text-foreground tracking-tight">{stageCounts(f)}</p>
+            <p className="text-[11px] text-muted font-medium">{f}</p>
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <Loading />
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : applicants.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl">
+          <EmptyState message="No applicants here yet." />
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 font-semibold">Applicant</th>
+                <th className="p-4 font-semibold">Position</th>
+                <th className="p-4 font-semibold">Applied</th>
+                <th className="p-4 font-semibold">Stage</th>
+                <th className="p-4 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {applicants.map((a) => {
+                const idx = STAGES.indexOf(a.stage);
+                const next = idx >= 0 && idx < STAGES.length - 1 ? STAGES[idx + 1] : null;
+                return (
+                  <tr key={a.id} className="hover:bg-surface/50 transition-colors">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent">
+                          {a.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{a.name}</p>
+                          <p className="text-xs text-muted">{a.email ?? a.phone ?? ""}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-sm text-muted">{a.position ?? "—"}</td>
+                    <td className="p-4 text-sm text-muted">{a.applied_date}</td>
+                    <td className="p-4"><StatusBadge status={a.stage} /></td>
+                    <td className="p-4">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {next && (
+                          <button
+                            type="button"
+                            onClick={() => advance(a, next)}
+                            className="text-xs font-semibold text-[#b45309] hover:bg-[#b4530915] px-2 py-1 rounded-md transition-colors"
+                          >
+                            Move to {next} →
+                          </button>
+                        )}
+                        <button type="button" onClick={() => remove(a)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-50 transition-colors" aria-label="Remove">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Drawer open={showForm} onClose={() => setShowForm(false)} title="Add Applicant" description="Log a new candidate into the pipeline">
+        <form onSubmit={submit} className="space-y-4 p-5">
+          <Field label="Name" required>
+            <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sipho Ndlovu" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Email">
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="sipho@example.com" />
+            </Field>
+            <Field label="Phone">
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+254 700 000 000" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Position">
+              <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} placeholder="Backend Engineer" />
+            </Field>
+            <Field label="Stage">
+              <Select value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })}>
+                {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+          </div>
+          <FormFooter submitLabel={saving ? "Saving…" : "Add Applicant"} onCancel={() => setShowForm(false)} disabled={saving} />
+        </form>
+      </Drawer>
     </div>
   );
 }

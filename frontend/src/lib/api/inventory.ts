@@ -1,6 +1,5 @@
 import { request, getStoredToken, API_BASE } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
-
 export interface ApiVariant {
   id: string;
   product_id: string;
@@ -48,6 +47,55 @@ export interface ApiCategory { id: string; name: string; description: string | n
 export interface ApiBrand    { id: string; name: string; description: string | null; }
 export interface ApiUnit     { id: string; name: string; abbreviation: string | null; }
 export interface ApiSupplier { id: string; name: string; email: string | null; phone: string | null; address: string | null; is_active: boolean; }
+
+export interface ValuationLine {
+  id: string;
+  product_id: string | null;
+  kind: "product" | "variant";
+  name: string;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  unit: string | null;
+  stock: number;
+  min_stock: number;
+  cost: number;
+  price: number;
+  cost_value: number;
+  retail_value: number;
+  margin: number;
+  margin_pct: number | null;
+  status: "out" | "low" | "ok";
+}
+
+export interface CategoryValuation {
+  name: string;
+  units: number;
+  cost_value: number;
+  retail_value: number;
+  margin: number;
+}
+
+export interface ValuationSummary {
+  product_count: number;
+  line_count: number;
+  variant_count: number;
+  total_units: number;
+  cost_value: number;
+  retail_value: number;
+  margin: number;
+  margin_pct: number | null;
+  low_stock_count: number;
+  out_of_stock_count: number;
+}
+
+export interface InventoryValuationReport {
+  generated_at: string;
+  costing_method: string;
+  summary: ValuationSummary;
+  categories: CategoryValuation[];
+  lines: ValuationLine[];
+}
 
 const BASE = "/tenants/inventory";
 
@@ -129,4 +177,24 @@ export const inventoryApi = {
     request<SingleResponse<ApiSupplier>>(`${BASE}/suppliers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteSupplier: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/suppliers/${id}`, { method: "DELETE" }),
+
+  // Reports
+  valuationReport: () =>
+    request<SingleResponse<InventoryValuationReport>>(`${BASE}/reports/valuation`),
+  exportValuationReport: async (format: "csv" | "pdf") => {
+    const token = getStoredToken();
+    const res = await fetch(`${API_BASE}${BASE}/reports/valuation/export?format=${format}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Export failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `inventory-valuation-${new Date().toISOString().slice(0, 10)}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

@@ -5,6 +5,7 @@ from app.modules.inventory.routes.category import router as category_router
 from app.modules.inventory.routes.product import router as product_router
 from app.modules.inventory.routes.supplier import router as supplier_router
 from app.modules.inventory.routes.unit import router as unit_router
+from app.modules.inventory.routes.valuation import router as valuation_router
 from app.modules.inventory.routes.variant import router as variant_router
 
 inventory_router = APIRouter()
@@ -14,3 +15,4 @@ inventory_router.include_router(unit_router)
 inventory_router.include_router(supplier_router)
 inventory_router.include_router(product_router)
 inventory_router.include_router(variant_router)
+inventory_router.include_router(valuation_router)

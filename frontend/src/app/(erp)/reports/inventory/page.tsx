@@ -2,65 +2,97 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Package, AlertTriangle, TrendingDown, Layers, Loader2 } from "lucide-react";
+import { Package, AlertTriangle, TrendingDown, Layers, Boxes, Loader2, Download, FileText } from "lucide-react";
 import { inventoryApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import type { ApiProduct } from "@/lib/api";
+import type { InventoryValuationReport, ValuationLine } from "@/lib/api/inventory";
 
 const ACCENT = "#059669";
 const ACCENT_DARK = "#34d399";
 
+const STATUS_STYLE: Record<ValuationLine["status"], string> = {
+  out: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300",
+  low: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  ok: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+};
+const STATUS_LABEL: Record<ValuationLine["status"], string> = {
+  out: "Out of stock",
+  low: "Low stock",
+  ok: "In stock",
+};
+
 export default function InventoryReportPage() {
   const { theme } = useAppConfig();
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
-  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [report, setReport] = useState<InventoryValuationReport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await inventoryApi.listProducts(1, 500);
-      setProducts(res.data.items);
+      const res = await inventoryApi.valuationReport();
+      setReport(res.data);
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const active = products.filter((p) => p.is_active);
-  const lowStock = products.filter((p) => !p.has_variants && p.stock <= p.min_stock && p.stock > 0);
-  const outOfStock = products.filter((p) => !p.has_variants && p.stock === 0);
-  const totalValue = products.reduce((s, p) => s + p.cost * p.stock, 0);
-  const totalRetailValue = products.reduce((s, p) => s + p.price * p.stock, 0);
-
-  // Stock by category
-  const byCat: Record<string, { name: string; count: number; value: number }> = {};
-  products.forEach((p) => {
-    const k = p.category?.name ?? "Uncategorized";
-    if (!byCat[k]) byCat[k] = { name: k, count: 0, value: 0 };
-    byCat[k].count += p.stock;
-    byCat[k].value += p.cost * p.stock;
-  });
-  const catChart = Object.values(byCat).sort((a, b) => b.value - a.value).slice(0, 8);
-
-  // Top by stock value
-  const topByValue = [...products].sort((a, b) => (b.cost * b.stock) - (a.cost * a.stock)).slice(0, 10);
+  const download = async (format: "csv" | "pdf") => {
+    setExporting(format);
+    try { await inventoryApi.exportValuationReport(format); }
+    catch { /* ignore */ }
+    finally { setExporting(null); }
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  if (!report) return <p className="text-sm text-muted py-10 text-center">Could not load valuation report.</p>;
+
+  const { summary, categories, lines } = report;
+  const filtered = lines.filter((l) => (filter === "all" ? true : l.status === filter));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Inventory Report</h1>
-        <p className="text-sm text-muted mt-0.5">{products.length} products tracked</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-[22px] font-bold text-foreground tracking-tight">Inventory Report</h1>
+            <p className="text-sm text-muted mt-0.5">
+              {summary.product_count} products, {summary.line_count} tracked lines ({summary.variant_count} variants) ·{" "}
+              {summary.total_units.toLocaleString()} units on hand
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={() => download("csv")}
+              disabled={exporting !== null}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-border text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+            >
+              {exporting === "csv" ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+              Export CSV
+            </button>
+            <button
+              onClick={() => download("pdf")}
+              disabled={exporting !== null}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg text-white disabled:opacity-50 transition-colors"
+              style={{ backgroundColor: accent }}
+            >
+              {exporting === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              Export PDF
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: "Active Products", value: active.length.toString(), icon: Package, color: accent },
-          { label: "Stock Value (Cost)", value: fmtMoney(totalValue), icon: TrendingDown, color: theme === "dark" ? "#818cf8" : "#6366f1" },
-          { label: "Retail Value", value: fmtMoney(totalRetailValue), icon: Layers, color: theme === "dark" ? "#38bdf8" : "#0284c7" },
-          { label: "Low / Out of Stock", value: `${lowStock.length} / ${outOfStock.length}`, icon: AlertTriangle, color: theme === "dark" ? "#f87171" : "#ef4444" },
+          { label: "Tracked Lines", value: summary.line_count.toString(), icon: Package, color: accent },
+          { label: "Total Units", value: summary.total_units.toLocaleString(), icon: Boxes, color: theme === "dark" ? "#c084fc" : "#9333ea" },
+          { label: "Stock Value (Cost)", value: fmtMoney(summary.cost_value), icon: TrendingDown, color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Retail Value", value: fmtMoney(summary.retail_value), icon: Layers, color: theme === "dark" ? "#38bdf8" : "#0284c7" },
+          { label: "Low / Out of Stock", value: `${summary.low_stock_count} / ${summary.out_of_stock_count}`, icon: AlertTriangle, color: theme === "dark" ? "#f87171" : "#ef4444" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -72,67 +104,116 @@ export default function InventoryReportPage() {
         ))}
       </div>
 
+      <div className="bg-card border border-border rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <p className="text-xs text-muted">
+          Valuation = on-hand qty × unit cost. Costing method: <span className="font-semibold text-foreground">{report.costing_method}</span>.
+          Per-lot FIFO layers are not tracked yet — add purchase lot costing to value stock at FIFO cost.
+        </p>
+        <span className="text-[11px] text-muted font-mono">{new Date(report.generated_at).toLocaleString()}</span>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-sm font-bold text-foreground mb-4">Stock Value by Category</h2>
-          {catChart.length > 0 ? (
+          {categories.length > 0 ? (
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={catChart} layout="vertical">
+                <BarChart data={categories} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                   <XAxis type="number" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
                   <YAxis type="category" dataKey="name" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={90} />
                   <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Value"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
-                  <Bar dataKey="value" fill={accent} radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="cost_value" fill={accent} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          ) : <p className="text-sm text-muted py-10 text-center">No products yet</p>}
+          ) : <p className="text-sm text-muted py-10 text-center">No inventory yet</p>}
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-sm font-bold text-foreground mb-4">Low / Out of Stock</h2>
-          {outOfStock.length + lowStock.length > 0 ? (
+          {summary.out_of_stock_count + summary.low_stock_count > 0 ? (
             <div className="space-y-2 max-h-56 overflow-y-auto">
-              {[...outOfStock.map(p => ({ ...p, _type: "out" })), ...lowStock.map(p => ({ ...p, _type: "low" }))].map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              {lines.filter((l) => l.status !== "ok").map((l) => (
+                <div key={l.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{p.name}</p>
-                    <p className="text-[11px] text-muted font-mono">{p.sku ?? "No SKU"}</p>
+                    <p className="text-sm font-semibold text-foreground">{l.name}</p>
+                    <p className="text-[11px] text-muted font-mono">{l.sku ?? "No SKU"}</p>
                   </div>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${p._type === "out" ? "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300" : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"}`}>
-                    {p._type === "out" ? "Out of stock" : `${p.stock} left`}
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLE[l.status]}`}>
+                    {l.status === "out" ? "Out of stock" : `${l.stock} left`}
                   </span>
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-muted py-10 text-center">All products are well stocked 🎉</p>}
+          ) : <p className="text-sm text-muted py-10 text-center">All products are well stocked</p>}
         </div>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-sm font-bold text-foreground mb-4">Top Products by Stock Value</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left">
-              {["Product", "SKU", "Stock", "Cost", "Stock Value", "Retail Value"].map((h) => (
-                <th key={h} className="pb-3 text-[11px] font-semibold text-muted uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {topByValue.map((p) => (
-              <tr key={p.id}>
-                <td className="py-2.5 font-medium text-foreground">{p.name}</td>
-                <td className="py-2.5 font-mono text-xs text-muted">{p.sku ?? "—"}</td>
-                <td className="py-2.5 text-foreground">{p.stock}</td>
-                <td className="py-2.5 text-muted">{fmtMoney(p.cost)}</td>
-                <td className="py-2.5 font-semibold text-foreground">{fmtMoney(p.cost * p.stock)}</td>
-                <td className="py-2.5 text-emerald-600 dark:text-emerald-400 font-semibold">{fmtMoney(p.price * p.stock)}</td>
-              </tr>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-foreground">Inventory Valuation</h2>
+          <div className="flex gap-1 bg-muted/40 rounded-lg p-0.5">
+            {([["all", "All"], ["low", "Low"], ["out", "Out"] ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${filter === key ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}
+              >
+                {label}
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
+            <thead>
+              <tr className="border-b border-border text-left">
+                {["Item", "Category", "Qty", "Unit Cost", "Stock Value", "Retail Value", "Margin", "Status"].map((h) => (
+                  <th key={h} className="pb-3 pr-3 text-[11px] font-semibold text-muted uppercase tracking-wider">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((l) => (
+                <tr key={l.id}>
+                  <td className="py-2.5 pr-3">
+                    <p className="font-medium text-foreground">{l.name}</p>
+                    <p className="text-[11px] text-muted font-mono">{l.sku ?? "—"}</p>
+                  </td>
+                  <td className="py-2.5 pr-3 text-muted">{l.category ?? "—"}</td>
+                  <td className="py-2.5 pr-3 text-foreground">{l.stock}</td>
+                  <td className="py-2.5 pr-3 text-muted">{fmtMoney(l.cost)}</td>
+                  <td className="py-2.5 pr-3 font-semibold text-foreground">{fmtMoney(l.cost_value)}</td>
+                  <td className="py-2.5 pr-3 text-emerald-600 dark:text-emerald-400 font-semibold">{fmtMoney(l.retail_value)}</td>
+                  <td className="py-2.5 pr-3">
+                    <span className="text-foreground font-semibold">{fmtMoney(l.margin)}</span>
+                    {l.margin_pct != null && <span className="text-muted text-xs ml-1">({l.margin_pct}%)</span>}
+                  </td>
+                  <td className="py-2.5">
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLE[l.status]}`}>{STATUS_LABEL[l.status]}</span>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="py-8 text-center text-sm text-muted">No items in this filter</td></tr>
+              )}
+            </tbody>
+            {filtered.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-border">
+                  <td colSpan={2} className="py-3 text-sm font-bold text-foreground">Total</td>
+                  <td className="py-3 font-bold text-foreground">{filtered.reduce((s, l) => s + l.stock, 0).toLocaleString()}</td>
+                  <td className="py-3 text-muted">—</td>
+                  <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.cost_value, 0))}</td>
+                  <td className="py-3 font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(filtered.reduce((s, l) => s + l.retail_value, 0))}</td>
+                  <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.margin, 0))}</td>
+                  <td className="py-3">—</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -20,3 +20,24 @@ export { inventoryApi } from "./inventory";
 // Sales
 export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiReturnItem, ApiReturn, ApiTarget } from "./sales";
 export { salesApi } from "./sales";
+
+// Finance
+export type {
+  TrialBalance, TrialBalanceLine,
+  IncomeStatement, StatementLine,
+  BalanceSheet, BalanceSheetSection,
+  CashFlowStatement, CashFlowSection, CashFlowLine,
+  GeneralLedger, LedgerEntry,
+  FinanceAccount, FinanceExpense, FinanceTransaction, FinanceTransactionLine,
+} from "./finance";
+export { financeApi } from "./finance";
+
+// HR
+export type {
+  ApiDepartment, ApiEmployee, EmployeeCreatePayload,
+  ApiAttendance, AttendanceCreatePayload,
+  ApiLeave, LeaveCreatePayload,
+  ApiPayroll, PayrollCreatePayload,
+  ApiApplicant, ApplicantCreatePayload,
+} from "./hr";
+export { hrApi, departmentsApi } from "./hr";

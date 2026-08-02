@@ -51,3 +51,22 @@ async def delete_department(db: AsyncSession, tenant_id: uuid.UUID, dept_id: uui
         raise NotFoundError("Department not found")
     await DepartmentRepository(db).delete(dept)
     await db.commit()
+
+
+DEFAULT_DEPARTMENTS = [
+    "Engineering",
+    "Sales",
+    "Marketing",
+    "Finance",
+    "Human Resources",
+    "Operations",
+]
+
+
+async def seed_default_departments(db: AsyncSession, tenant_id: uuid.UUID) -> None:
+    repo = DepartmentRepository(db)
+    existing = {d.name for d in await repo.list_for_tenant(tenant_id, limit=100)}
+    for name in DEFAULT_DEPARTMENTS:
+        if name not in existing:
+            db.add(Department(tenant_id=tenant_id, name=name))
+    await db.flush()

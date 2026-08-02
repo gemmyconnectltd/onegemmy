@@ -14,6 +14,7 @@ from app.modules.inventory.models import Brand, Category, Product, ProductVarian
 from app.modules.tenants.models import Branch, Department, Permission, Role, Tenant, User  # noqa: F401
 from app.modules.sales.models import Customer, Deal, Order, OrderItem, Return, ReturnItem, Target  # noqa: F401
 from app.modules.finance.models import Account, Transaction, TransactionLine, Budget, Expense  # noqa: F401
+from app.modules.hr.models import Applicant, Attendance, Employee, LeaveRequest, PayrollEntry  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

@@ -1,8 +1,8 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
-import { useSyncExternalStore, useState } from "react";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowUpRight, ArrowDownRight, Clock, ArrowRight, Plus } from "lucide-react";
+import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
@@ -10,27 +10,15 @@ import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
 import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { financeApi } from "@/lib/api/finance";
+import type { FinanceTransaction } from "@/lib/api/finance";
 
 const EMPTY_SALES: SaleResult[] = [];
 
-const monthly = [
-  { month: "Jan", income: 1200000, expenses: 380000 },
-  { month: "Feb", income: 980000,  expenses: 310000 },
-  { month: "Mar", income: 1450000, expenses: 420000 },
-  { month: "Apr", income: 1100000, expenses: 350000 },
-  { month: "May", income: 1680000, expenses: 490000 },
-  { month: "Jun", income: 1250000, expenses: 380000 },
-];
+const toISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-type Tx = { id: number; desc: string; type: "income" | "expense"; amount: number; category: string; date: string };
-
-const INITIAL_TX: Tx[] = [
-  { id: 1, desc: "Sales Revenue",    type: "income",  amount: 450000, category: "Sales",     date: "2025-07-25" },
-  { id: 2, desc: "Rent Payment",     type: "expense", amount: 80000,  category: "Rent",      date: "2025-07-24" },
-  { id: 3, desc: "Supplier Payment", type: "expense", amount: 120000, category: "Inventory", date: "2025-07-23" },
-  { id: 4, desc: "Sales Revenue",    type: "income",  amount: 320000, category: "Sales",     date: "2025-07-22" },
-  { id: 5, desc: "Utility Bills",    type: "expense", amount: 45000,  category: "Utilities", date: "2025-07-21" },
-];
+type Tx = { id: string; desc: string; type: "income" | "expense"; amount: number; category: string; date: string };
 
 export default function FinancePage() {
   const { currencySymbol, theme } = useAppConfig();
@@ -40,24 +28,115 @@ export default function FinancePage() {
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [transactions, setTransactions] = useState<Tx[]>(INITIAL_TX);
+  const today = new Date();
+  const [from, setFrom] = useState(toISO(new Date(today.getFullYear(), 0, 1)));
+  const [to, setTo] = useState(toISO(today));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({ income: 0, expenses: 0, net: 0, cash: 0 });
+  const [monthly, setMonthly] = useState<{ month: string; income: number; expenses: number }[]>([]);
+  const [transactions, setTransactions] = useState<Tx[]>([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [is, cf, tx] = await Promise.all([
+        financeApi.incomeStatement(from, to),
+        financeApi.cashFlow(from, to),
+        financeApi.listTransactions(),
+      ]);
+      const expenses = is.data.total_cogs + is.data.total_operating_expenses;
+      setStats({
+        income: is.data.total_revenue,
+        expenses,
+        net: is.data.net_income,
+        cash: cf.data.ending_cash,
+      });
+      setTransactions(
+        tx.data.items.slice(0, 8).map((t: FinanceTransaction) => {
+          const debits = t.lines.filter((l) => l.type === "debit").reduce((s, l) => s + l.amount, 0);
+          const credits = t.lines.filter((l) => l.type === "credit").reduce((s, l) => s + l.amount, 0);
+          const isIncome = t.type === "sale" || (credits > debits && !/expense|return/i.test(t.type));
+          return {
+            id: t.id,
+            desc: t.description ?? t.reference,
+            type: isIncome ? "income" : "expense",
+            amount: isIncome ? credits : debits,
+            category: t.type,
+            date: t.transaction_date ?? "",
+          };
+        }),
+      );
+
+      const months: { month: string; income: number; expenses: number }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const m = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const mFrom = toISO(m);
+        const mTo = toISO(new Date(today.getFullYear(), today.getMonth() - i + 1, 0));
+        const r = await financeApi.incomeStatement(mFrom, mTo);
+        months.push({
+          month: m.toLocaleString("en", { month: "short" }),
+          income: r.data.total_revenue,
+          expenses: r.data.total_cogs + r.data.total_operating_expenses,
+        });
+      }
+      setMonthly(months);
+    } catch {
+      setError("Could not load the finance overview.");
+    } finally {
+      setLoading(false);
+    }
+  }, [from, to, today]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => { load(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [load]);
+
   const [showIncome, setShowIncome] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({ desc: "", amount: "", category: "Sales", date: "" });
 
-  const totalIncome = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-
-  const submit = (type: "income" | "expense") => (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (type: "income" | "expense") => async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.desc || !form.amount) return;
-    setTransactions((prev) => [
-      { id: Date.now(), desc: form.desc, type, amount: Number(form.amount), category: form.category, date: form.date || new Date().toISOString().slice(0, 10) },
-      ...prev,
-    ]);
-    setForm({ desc: "", amount: "", category: "Sales", date: "" });
-    if (type === "income") setShowIncome(false);
-    else setShowExpense(false);
+    setSaving(true);
+    setNotice(null);
+    const date = form.date || toISO(new Date());
+    try {
+      if (type === "expense") {
+        await financeApi.createExpense({ title: form.desc, amount: Number(form.amount), expense_date: date, category: form.category });
+      } else {
+        const [accRes] = await Promise.all([financeApi.listAccounts()]);
+        const cash = accRes.data.items.find((a) => a.type === "Assets" && /cash|bank/i.test(a.name)) ?? accRes.data.items.find((a) => a.type === "Assets");
+        const revenue = accRes.data.items.find((a) => a.type === "Revenue" && /sales/i.test(a.name)) ?? accRes.data.items.find((a) => a.type === "Revenue");
+        if (!cash || !revenue) {
+          setNotice("Create Asset and Revenue accounts first (Accounts → Seed Defaults).");
+          setSaving(false);
+          return;
+        }
+        await financeApi.createTransaction({
+          type: "manual",
+          transaction_date: date,
+          description: form.desc,
+          lines: [
+            { account_id: cash.id, type: "debit", amount: Number(form.amount) },
+            { account_id: revenue.id, type: "credit", amount: Number(form.amount) },
+          ],
+        });
+      }
+      setForm({ desc: "", amount: "", category: "Sales", date: "" });
+      if (type === "income") setShowIncome(false);
+      else setShowExpense(false);
+      await load();
+    } catch {
+      setNotice(`Could not add ${type}.`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -84,6 +163,8 @@ export default function FinancePage() {
         </div>
       </div>
 
+      {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
+
       <Link
         href="/finance/invoices"
         className="flex items-center gap-3 bg-card border border-border border-l-4 px-4 py-3 hover:bg-surface/50 transition-colors"
@@ -106,127 +187,143 @@ export default function FinancePage() {
         </div>
         <span className="flex items-center gap-1 text-[12px] font-semibold text-accent">
           View invoices <ArrowRight size={13} />
-        </span>      </Link>
+        </span>
+      </Link>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Total Income",   value: fmt(totalIncome),   icon: TrendingUp,   color: c.income, change: "+12%", up: true },
-          { label: "Total Expenses", value: fmt(totalExpenses), icon: TrendingDown, color: c.expenses, change: "+5%",  up: false },
-          { label: "Net Profit",     value: fmt(totalIncome - totalExpenses), icon: DollarSign, color: c.profit, change: "+18%", up: true },
-          { label: "Cash Balance",   value: fmt(2340000), icon: PiggyBank,    color: c.blue, change: null,   up: true },
-        ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}14` }}>
-                <s.icon size={16} style={{ color: s.color }} />
+      {loading ? (
+        <div className="flex items-center justify-center h-64 bg-card border border-border rounded-xl"><Loader2 size={24} className="animate-spin text-muted" /></div>
+      ) : error ? (
+        <div className="bg-card border border-border rounded-xl py-12 px-6 text-center space-y-3">
+          <AlertTriangle size={22} className="mx-auto text-red-500" />
+          <p className="text-sm font-semibold text-foreground">{error}</p>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70">
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: "Total Income", value: fmt(stats.income), icon: TrendingUp, color: c.income },
+              { label: "Total Expenses", value: fmt(stats.expenses), icon: TrendingDown, color: c.expenses },
+              { label: "Net Profit", value: fmt(stats.net), icon: DollarSign, color: c.profit },
+              { label: "Cash Balance", value: fmt(stats.cash), icon: PiggyBank, color: c.blue },
+            ].map((s) => (
+              <div key={s.label} className="bg-card p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}14` }}>
+                    <s.icon size={16} style={{ color: s.color }} />
+                  </div>
+                </div>
+                <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
+                <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
               </div>
-              {s.change && (
-                <span className={`flex items-center gap-0.5 text-[11px] font-semibold ${s.up ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
-                  {s.up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}{s.change}
-                </span>
-              )}
-            </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-        <h2 className="text-sm font-bold text-foreground mb-4">Income vs Expenses (6 months)</h2>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={monthly}>
-              <defs>
-                <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={c.income} stopOpacity={0.15} />
-                  <stop offset="95%" stopColor={c.income} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={c.expenses} stopOpacity={0.1} />
-                  <stop offset="95%" stopColor={c.expenses} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v, n) => [fmt(Number(v)), n === "income" ? "Income" : "Expenses"]} contentStyle={c.tooltip} />
-              <Area type="monotone" dataKey="income"   stroke={c.income} strokeWidth={2} fill="url(#gIncome)" dot={false} />
-              <Area type="monotone" dataKey="expenses" stroke={c.expenses} strokeWidth={2} fill="url(#gExp)"    dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="text-sm font-bold text-foreground">Recent Transactions</h2>
-        </div>
-        <div className="divide-y divide-border">
-          {transactions.map((t) => (
-            <div key={t.id} className="px-5 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 flex items-center justify-center ${t.type === "income" ? "bg-emerald-50 dark:bg-emerald-500/15" : "bg-red-50 dark:bg-red-500/15"}`}>
-                  {t.type === "income" ? <TrendingUp size={14} className="text-emerald-600 dark:text-emerald-400" /> : <TrendingDown size={14} className="text-red-500 dark:text-red-400" />}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t.desc}</p>
-                  <p className="text-[11px] text-muted">{t.date} · {t.category}</p>
-                </div>
-              </div>
-              <span className={`text-sm font-bold ${t.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
-                {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
-              </span>
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-foreground mb-4">Income vs Expenses (6 months)</h2>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthly}>
+                  <defs>
+                    <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={c.income} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={c.income} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={c.expenses} stopOpacity={0.1} />
+                      <stop offset="95%" stopColor={c.expenses} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v, n) => [fmt(Number(v)), n === "income" ? "Income" : "Expenses"]} contentStyle={c.tooltip} />
+                  <Area type="monotone" dataKey="income" stroke={c.income} strokeWidth={2} fill="url(#gIncome)" dot={false} />
+                  <Area type="monotone" dataKey="expenses" stroke={c.expenses} strokeWidth={2} fill="url(#gExp)" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <Drawer open={showIncome} onClose={() => setShowIncome(false)} title="Add Income" description="Record a new income entry" size="md">
-        <form onSubmit={submit("income")} className="p-5 space-y-4">
-          <Field label="Source" required>
-            <Input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="e.g. Sales Revenue" autoFocus />
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+              <h2 className="text-sm font-bold text-foreground">Recent Activity</h2>
+              <Link href="/finance/expenses" className="flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
+                View all <ArrowRight size={13} />
+              </Link>
+            </div>
+            {transactions.length === 0 ? (
+              <p className="text-sm text-muted py-10 text-center">No transactions recorded yet.</p>
+            ) : (
+              <table className="w-full">
+                <tbody className="divide-y divide-border">
+                  {transactions.map((t) => (
+                    <tr key={t.id} className="hover:bg-surface/50 transition-colors">
+                      <td className="p-4">
+                        <p className="text-sm font-medium text-foreground">{t.desc}</p>
+                        <p className="text-[11px] text-muted uppercase tracking-wider">{t.category}</p>
+                      </td>
+                      <td className="p-4 text-sm text-muted hidden sm:table-cell">{t.date}</td>
+                      <td className={`p-4 text-right text-sm font-bold ${t.type === "income" ? "text-emerald-600" : "text-red-500"}`}>
+                        {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </>
+      )}
+
+      <Drawer open={showExpense} onClose={() => setShowExpense(false)} title="Add Expense" description="Record a business expense">
+        <form onSubmit={submit("expense")} className="space-y-4 p-5">
+          <Field label="Description" required>
+            <Input required value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="Rent Payment" />
           </Field>
-          <Field label="Amount" required>
-            <Input type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
-          </Field>
-          <Field label="Category">
-            <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              <option>Sales</option>
-              <option>Services</option>
-              <option>Consulting</option>
-              <option>Other</option>
-            </Select>
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Amount" required>
+              <Input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
+            </Field>
+            <Field label="Category">
+              <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                {["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
           <Field label="Date">
             <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
-          <FormFooter submitLabel="Add Income" onCancel={() => setShowIncome(false)} disabled={!form.desc || !form.amount} />
+          <FormFooter submitLabel={saving ? "Saving…" : "Add Expense"} onCancel={() => setShowExpense(false)} disabled={saving} />
         </form>
       </Drawer>
 
-      <Drawer open={showExpense} onClose={() => setShowExpense(false)} title="Add Expense" description="Record a new expense entry" size="md">
-        <form onSubmit={submit("expense")} className="p-5 space-y-4">
+      <Drawer open={showIncome} onClose={() => setShowIncome(false)} title="Add Income" description="Record a manual income entry">
+        <form onSubmit={submit("income")} className="space-y-4 p-5">
           <Field label="Description" required>
-            <Input value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="e.g. Rent Payment" autoFocus />
+            <Input required value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="Consulting fee" />
           </Field>
-          <Field label="Amount" required>
-            <Input type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
-          </Field>
-          <Field label="Category">
-            <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              <option>Rent</option>
-              <option>Inventory</option>
-              <option>Utilities</option>
-              <option>Transport</option>
-              <option>Marketing</option>
-              <option>Other</option>
-            </Select>
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Amount" required>
+              <Input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
+            </Field>
+            <Field label="Category">
+              <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                {["Sales", "Services", "Other Income"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
           <Field label="Date">
             <Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
-          <FormFooter submitLabel="Add Expense" onCancel={() => setShowExpense(false)} disabled={!form.desc || !form.amount} />
+          <p className="text-xs text-muted">Creates a journal: debit Cash, credit Sales Revenue.</p>
+          <FormFooter submitLabel={saving ? "Saving…" : "Add Income"} onCancel={() => setShowIncome(false)} disabled={saving} />
         </form>
       </Drawer>
     </div>
