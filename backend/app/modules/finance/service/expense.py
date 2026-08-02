@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import update
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
@@ -58,6 +58,9 @@ async def update_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
 
 
 async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID) -> ExpenseRead:
+    # Lock the row to prevent duplicate approvals from concurrent requests
+    await db.execute(text("SELECT 1 FROM finance_expenses WHERE id = :id FOR UPDATE"), {"id": id})
+
     repo = ExpenseRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:

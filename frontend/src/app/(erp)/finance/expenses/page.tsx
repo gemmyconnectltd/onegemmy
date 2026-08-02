@@ -73,13 +73,18 @@ export default function ExpensesPage() {
     }
   };
 
+  const [acting, setActing] = useState<string | null>(null);
+
   const act = async (e: FinanceExpense, action: "approve" | "reject") => {
+    setActing(e.id);
     try {
       if (action === "approve") await financeApi.approveExpense(e.id);
       else await financeApi.rejectExpense(e.id);
       await load();
     } catch {
       setNotice("Could not update the expense.");
+    } finally {
+      setActing(null);
     }
   };
 
@@ -175,7 +180,8 @@ export default function ExpensesPage() {
                           <button
                             type="button"
                             onClick={() => act(e, "approve")}
-                            className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                            disabled={acting === e.id}
+                            className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-40"
                             aria-label="Approve"
                           >
                             <Check size={14} />
@@ -183,7 +189,8 @@ export default function ExpensesPage() {
                           <button
                             type="button"
                             onClick={() => act(e, "reject")}
-                            className="w-7 h-7 rounded-md flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                            disabled={acting === e.id}
+                            className="w-7 h-7 rounded-md flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-40"
                             aria-label="Reject"
                           >
                             <X size={14} />
