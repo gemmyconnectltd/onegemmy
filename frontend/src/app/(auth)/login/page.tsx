@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -25,7 +25,13 @@ export default function LoginPage() {
     setLoading(true);
     const success = await login(email, password, tenantSlug);
     if (success) {
-      router.push("/dashboard");
+      // redirect superadmin to admin dashboard, everyone else to ERP
+      const token = localStorage.getItem("onegemmy_token");
+      let isSuperAdmin = false;
+      if (token) {
+        try { isSuperAdmin = JSON.parse(atob(token.split(".")[1]))?.role === "superadmin"; } catch {}
+      }
+      router.push(isSuperAdmin ? "/admin" : "/dashboard");
     } else {
       setError("Invalid email or password");
     }
@@ -194,7 +200,7 @@ export default function LoginPage() {
               {
                 tenant: "Global", slug: undefined,
                 users: [
-                  { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Global super admin" },
+                  { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Admin dashboard", isSuper: true },
                 ],
               },
               {
@@ -224,21 +230,39 @@ export default function LoginPage() {
                   { label: "HR Manager",   email: "hr.manager@freshmart.rw",          password: "user123",  desc: "HR" },
                 ],
               },
-            ] as { tenant: string; slug: string | undefined; users: { label: string; email: string; password: string; desc: string }[] }[]).map((group) => (
+            ] as { tenant: string; slug: string | undefined; users: { label: string; email: string; password: string; desc: string; isSuper?: boolean }[] }[]).map((group) => (
               <div key={group.tenant}>
                 <p className="text-[10px] text-muted/40 uppercase tracking-wider font-semibold mb-1.5">{group.tenant}</p>
                 <div className="grid grid-cols-3 gap-1.5">
                   {group.users.map((demo) => (
-                    <button
-                      key={demo.email}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => { setEmail(demo.email); setPassword(demo.password); setTenantSlug(group.slug); }}
-                      className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
-                    >
-                      <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
-                      <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
-                    </button>
+                    demo.isSuper ? (
+                      <button
+                        key={demo.email}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => { setEmail(demo.email); setPassword(demo.password); setTenantSlug(group.slug); }}
+                        className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                          <Shield size={14} className="text-violet-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-violet-400">{demo.label}</p>
+                          <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc} → /admin</p>
+                        </div>
+                      </button>
+                    ) : (
+                      <button
+                        key={demo.email}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => { setEmail(demo.email); setPassword(demo.password); setTenantSlug(group.slug); }}
+                        className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
+                      >
+                        <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
+                        <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
+                      </button>
+                    )
                   ))}
                 </div>
               </div>
