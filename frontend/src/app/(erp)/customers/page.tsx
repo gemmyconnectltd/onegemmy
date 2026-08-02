@@ -1,187 +1,430 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
-import { useState } from "react";
-import { Plus, Search, Phone, Mail, Users, ShoppingCart, TrendingUp, Star } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import {
+  Users, Plus, Search, Phone, Mail, MapPin, TrendingUp, Star,
+  Edit2, Trash2, Loader2, AlertCircle, ShoppingCart, CheckCircle2,
+  UserCheck, UserX, Building2,
+} from "lucide-react";
+import { salesApi, type ApiCustomer, type ApiOrder } from "@/lib/api/sales";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, FormFooter } from "@/components/ui/Form";
-
-interface Purchase { date: string; items: string; total: number; }
-interface Customer {
-  id: string; name: string; phone: string; email: string | null;
-  totalPurchases: number; lastPurchaseAt: string; purchases: Purchase[];
-}
-
-const INITIAL: Customer[] = [
-  { id: "1", name: "Jean Pierre",       phone: "+250 788 123 456", email: "jean@example.com",    totalPurchases: 125000, lastPurchaseAt: "2025-07-24", purchases: [{ date: "2025-07-24", items: "Phone Case x2", total: 10000 }, { date: "2025-07-20", items: "USB Cable x3", total: 9000 }] },
-  { id: "2", name: "Marie Claire",      phone: "+250 788 234 567", email: null,                  totalPurchases: 87000,  lastPurchaseAt: "2025-07-23", purchases: [{ date: "2025-07-23", items: "Wireless Earbuds x1", total: 15000 }] },
-  { id: "3", name: "Patrick Niyonzima", phone: "+250 788 345 678", email: "patrick@example.com", totalPurchases: 234000, lastPurchaseAt: "2025-07-22", purchases: [{ date: "2025-07-22", items: "Bluetooth Speaker x1", total: 25000 }] },
-  { id: "4", name: "Immaculate",        phone: "+250 788 456 789", email: null,                  totalPurchases: 45000,  lastPurchaseAt: "2025-07-18", purchases: [] },
-  { id: "5", name: "Eric Habimana",     phone: "+250 788 567 890", email: null,                  totalPurchases: 67000,  lastPurchaseAt: "2025-07-15", purchases: [] },
-];
+import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { Button } from "@/components/ui/Button";
 
 const COLOR = "#0f766e";
+
+const TYPE_OPTS = ["individual", "business", "vip", "wholesale"];
+
+const EMPTY_FORM = {
+  name: "", email: "", phone: "", address: "",
+  customer_type: "individual", is_active: true,
+};
+type FormState = typeof EMPTY_FORM;
+
+function initials(name: string) {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function typeBadge(type: string) {
+  const map: Record<string, string> = {
+    individual: "bg-blue-100 text-blue-700",
+    business:   "bg-purple-100 text-purple-700",
+    vip:        "bg-amber-100 text-amber-700",
+    wholesale:  "bg-emerald-100 text-emerald-700",
+  };
+  return map[type] ?? "bg-surface text-muted";
+}
 
 export default function CustomersPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL);
+  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
-  const [viewing, setViewing] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "" });
+  const [editing, setEditing] = useState<ApiCustomer | null>(null);
+  const [viewing, setViewing] = useState<ApiCustomer | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const filtered = customers.filter((c) => {
-    const q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.phone.includes(q) || (c.email?.toLowerCase().includes(q) ?? false);
-  });
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [cRes, oRes] = await Promise.all([
+        salesApi.listCustomers(1, 500),
+        salesApi.listOrders(1, 500),
+      ]);
+      setCustomers(cRes.data.items);
+      setOrders(oRes.data.items);
+    } catch (e: unknown) {
+      setError((e as { detail?: string })?.detail ?? "Failed to load customers");
+    } finally { setLoading(false); }
+  }, []);
 
-  const totalRevenue = customers.reduce((s, c) => s + c.totalPurchases, 0);
-  const topSpender = customers.reduce((a, b) => a.totalPurchases > b.totalPurchases ? a : b, customers[0]);
+  useEffect(() => { load(); }, [load]);
+
+  // orders grouped by customer_id
+  const ordersByCustomer = useMemo(() => {
+    const map: Record<string, ApiOrder[]> = {};
+    for (const o of orders) {
+      if (o.customer_id) {
+        if (!map[o.customer_id]) map[o.customer_id] = [];
+        map[o.customer_id].push(o);
+      }
+    }
+    return map;
+  }, [orders]);
+
+  const totalSpent = (id: string) =>
+    (ordersByCustomer[id] ?? []).filter((o) => o.status === "Completed").reduce((s, o) => s + o.total, 0);
+
+  const lastOrder = (id: string) => {
+    const os = (ordersByCustomer[id] ?? []).sort((a, b) =>
+      new Date(b.ordered_at ?? 0).getTime() - new Date(a.ordered_at ?? 0).getTime()
+    );
+    return os[0]?.ordered_at?.slice(0, 10) ?? null;
+  };
+
+  // stats
+  const totalRevenue = customers.reduce((s, c) => s + totalSpent(c.id), 0);
+  const topSpender = [...customers].sort((a, b) => totalSpent(b.id) - totalSpent(a.id))[0];
+  const activeCount = customers.filter((c) => c.is_active).length;
 
   const stats = [
-    { label: "Total Customers", value: customers.length,  icon: Users,       color: COLOR },
-    { label: "Total Revenue",   value: fmt(totalRevenue), icon: TrendingUp,  color: "#059669" },
-    { label: "With Email",      value: customers.filter((c) => c.email).length, icon: Mail, color: "#0284c7" },
-    { label: "Top Spender",     value: topSpender?.name.split(" ")[0] ?? "—", icon: Star, color: "#b45309" },
+    { label: "Total Customers", value: String(customers.length), icon: Users,       color: COLOR },
+    { label: "Active",          value: String(activeCount),       icon: UserCheck,   color: "#10b981" },
+    { label: "Total Revenue",   value: fmt(totalRevenue),         icon: TrendingUp,  color: "#0284c7" },
+    { label: "Top Spender",     value: topSpender ? topSpender.name.split(" ")[0] : "—", icon: Star, color: "#b45309" },
   ];
 
-  function handleAdd(e: React.FormEvent) {
+  // filter
+  const displayed = customers.filter((c) => {
+    const q = search.toLowerCase();
+    const matchSearch = c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q) || (c.email ?? "").toLowerCase().includes(q);
+    const matchType = typeFilter === "All" || c.customer_type === typeFilter;
+    return matchSearch && matchType;
+  });
+
+  // form helpers
+  const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setShowAdd(true); };
+  const openEdit = (c: ApiCustomer) => {
+    setEditing(c);
+    setForm({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", address: c.address ?? "", customer_type: c.customer_type, is_active: c.is_active });
+    setFormError(null);
+  };
+  const closeDrawer = () => { setShowAdd(false); setEditing(null); };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.phone.trim()) return;
-    setCustomers((prev) => [{
-      id: String(Date.now()), name: form.name.trim(), phone: form.phone.trim(),
-      email: form.email.trim() || null, totalPurchases: 0, lastPurchaseAt: "", purchases: [],
-    }, ...prev]);
-    setForm({ name: "", phone: "", email: "" });
-    setShowAdd(false);
-  }
+    setFormError(null);
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        address: form.address.trim() || null,
+        customer_type: form.customer_type,
+        is_active: form.is_active,
+      };
+      if (editing) {
+        await salesApi.updateCustomer(editing.id, payload);
+      } else {
+        await salesApi.createCustomer(payload);
+      }
+      closeDrawer();
+      await load();
+    } catch (e: unknown) {
+      setFormError((e as { detail?: string })?.detail ?? "Failed to save customer");
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this customer? This cannot be undone.")) return;
+    try {
+      await salesApi.deleteCustomer(id);
+      setCustomers((prev) => prev.filter((c) => c.id !== id));
+      if (viewing?.id === id) setViewing(null);
+    } catch (e: unknown) {
+      setError((e as { detail?: string })?.detail ?? "Failed to delete customer");
+    }
+  };
+
+  const viewingOrders = viewing ? (ordersByCustomer[viewing.id] ?? []).sort((a, b) =>
+    new Date(b.ordered_at ?? 0).getTime() - new Date(a.ordered_at ?? 0).getTime()
+  ) : [];
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Customers</h1>
-          <p className="text-sm text-muted mt-0.5">{customers.length} total customers</p>
+          <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${customers.length} total customers`}</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors" style={{ backgroundColor: COLOR }}>
-          <Plus size={15} /> Add Customer
-        </button>
+        <Button color={COLOR} onClick={openAdd}><Plus size={15} /> Add Customer</Button>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <AlertCircle size={15} /> {error}
+          <button className="ml-auto text-xs underline" onClick={() => setError(null)}>Dismiss</button>
+        </div>
+      )}
+
+      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-all">
+            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-xl font-extrabold text-foreground tracking-tight">{loading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 w-64">
-            <Search size={14} className="text-muted flex-shrink-0" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search customers..."
-              className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
-          </div>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-64 focus-within:border-foreground/20 transition-colors">
+          <Search size={14} className="text-muted flex-shrink-0" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, phone, email..."
+            className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted">
-              <th className="p-4 font-semibold">Customer</th>
-              <th className="p-4 font-semibold">Phone</th>
-              <th className="p-4 font-semibold">Email</th>
-              <th className="p-4 font-semibold text-right">Total Spent</th>
-              <th className="p-4 font-semibold">Last Purchase</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((c) => (
-              <tr key={c.id} onClick={() => setViewing(c)} className="hover:bg-surface/50 transition-colors cursor-pointer group">
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ backgroundColor: COLOR }}>
-                      {c.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
-                    </div>
-                    <span className="text-sm font-semibold text-foreground">{c.name}</span>
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1.5 text-[13px] text-muted">
-                    <Phone size={12} /> {c.phone}
-                  </div>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1.5 text-[13px] text-muted">
-                    <Mail size={12} /> {c.email || "—"}
-                  </div>
-                </td>
-                <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums">{fmt(c.totalPurchases)}</td>
-                <td className="p-4 text-[13px] text-muted">{c.lastPurchaseAt || "—"}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={5} className="py-16 text-center text-sm text-muted">No customers found.</td></tr>
-            )}
-          </tbody>
-        </table>
+        <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
+          {["All", ...TYPE_OPTS].map((t) => (
+            <button key={t} onClick={() => setTypeFilter(t)}
+              className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors capitalize ${typeFilter === t ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
+              style={typeFilter === t ? { backgroundColor: COLOR } : undefined}>
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* View drawer */}
-      <Drawer open={!!viewing} onClose={() => setViewing(null)} title={viewing?.name ?? ""} description={viewing?.phone} size="md">
-        {viewing && (
-          <div className="p-5 space-y-4">
-            {[
-              { label: "Phone",         value: viewing.phone },
-              { label: "Email",         value: viewing.email || "—" },
-              { label: "Total Spent",   value: fmt(viewing.totalPurchases) },
-              { label: "Last Purchase", value: viewing.lastPurchaseAt || "—" },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-border">
-                <span className="text-[13px] text-muted font-medium">{label}</span>
-                <span className="text-[13px] font-semibold text-foreground">{value}</span>
-              </div>
-            ))}
-            {viewing.purchases.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[12px] font-bold text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <ShoppingCart size={13} /> Purchase History
-                </p>
-                <div className="space-y-2">
-                  {viewing.purchases.map((p, i) => (
-                    <div key={i} className="flex items-center justify-between bg-surface rounded-lg px-3 py-2">
-                      <div>
-                        <p className="text-[13px] font-semibold text-foreground">{p.items}</p>
-                        <p className="text-[11px] text-muted">{p.date}</p>
+      {/* Table */}
+      {loading ? (
+        <div className="py-20 flex items-center justify-center gap-2 text-muted">
+          <Loader2 size={18} className="animate-spin" /> Loading customers...
+        </div>
+      ) : displayed.length === 0 ? (
+        <div className="py-20 text-center bg-card border border-border rounded-xl">
+          <Users size={32} className="text-border mx-auto mb-3" />
+          <p className="text-sm font-semibold text-muted">No customers found</p>
+          <p className="text-xs text-muted mt-1 mb-4">Add your first customer to start tracking purchases</p>
+          <Button color={COLOR} size="sm" onClick={openAdd}><Plus size={13} /> Add Customer</Button>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border text-left">
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Customer</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Contact</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Type</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Orders</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Last Order</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide text-right">Total Spent</th>
+                <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Status</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {displayed.map((c) => {
+                const spent = totalSpent(c.id);
+                const orderCount = (ordersByCustomer[c.id] ?? []).length;
+                const last = lastOrder(c.id);
+                return (
+                  <tr key={c.id} className="hover:bg-surface/50 transition-colors group cursor-pointer"
+                    onClick={() => setViewing(c)}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                          style={{ backgroundColor: COLOR }}>
+                          {initials(c.name)}
+                        </div>
+                        <span className="text-sm font-semibold text-foreground">{c.name}</span>
                       </div>
-                      <span className="text-[13px] font-bold text-foreground tabular-nums">{fmt(p.total)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-0.5">
+                        {c.phone && <div className="flex items-center gap-1.5 text-[12px] text-muted"><Phone size={11} /> {c.phone}</div>}
+                        {c.email && <div className="flex items-center gap-1.5 text-[12px] text-muted"><Mail size={11} /> {c.email}</div>}
+                        {!c.phone && !c.email && <span className="text-[12px] text-muted">—</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${typeBadge(c.customer_type)}`}>
+                        {c.customer_type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted tabular-nums">{orderCount}</td>
+                    <td className="px-4 py-3 text-sm text-muted">{last ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-sm font-bold text-foreground tabular-nums font-mono">
+                      {spent > 0 ? fmt(spent) : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${c.is_active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
+                        {c.is_active ? <CheckCircle2 size={10} /> : <UserX size={10} />}
+                        {c.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => openEdit(c)}
+                          className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors">
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => handleDelete(c.id)}
+                          className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* View Drawer */}
+      <Drawer open={!!viewing} onClose={() => setViewing(null)}
+        title={viewing?.name ?? ""} description={viewing?.customer_type} size="md">
+        {viewing && (
+          <div className="p-5 space-y-5">
+            {/* info */}
+            <div className="bg-surface rounded-xl p-4 space-y-3">
+              {[
+                { icon: Phone,    label: "Phone",   value: viewing.phone ?? "—" },
+                { icon: Mail,     label: "Email",   value: viewing.email ?? "—" },
+                { icon: MapPin,   label: "Address", value: viewing.address ?? "—" },
+                { icon: Building2,label: "Type",    value: viewing.customer_type },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[12px] text-muted">
+                    <Icon size={13} /> {label}
+                  </div>
+                  <span className="text-[13px] font-semibold text-foreground capitalize">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* spend summary */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-surface rounded-xl p-3 text-center">
+                <p className="text-lg font-extrabold text-foreground">{viewingOrders.length}</p>
+                <p className="text-[11px] text-muted mt-0.5">Total Orders</p>
+              </div>
+              <div className="bg-surface rounded-xl p-3 text-center">
+                <p className="text-lg font-extrabold text-foreground font-mono">{fmt(totalSpent(viewing.id))}</p>
+                <p className="text-[11px] text-muted mt-0.5">Total Spent</p>
+              </div>
+            </div>
+
+            {/* order history */}
+            {viewingOrders.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <ShoppingCart size={12} /> Order History
+                </p>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {viewingOrders.map((o) => (
+                    <div key={o.id} className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5">
+                      <div>
+                        <p className="text-[13px] font-semibold text-foreground">{o.order_number}</p>
+                        <p className="text-[11px] text-muted">{o.ordered_at?.slice(0, 10) ?? "—"} · {o.items.length} item{o.items.length !== 1 ? "s" : ""}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[13px] font-bold text-foreground tabular-nums font-mono">{fmt(o.total)}</p>
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${o.status === "Completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                          {o.status}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            {/* actions */}
+            <div className="flex gap-2 pt-1">
+              <Button color={COLOR} size="sm" onClick={() => { setViewing(null); openEdit(viewing); }}>
+                <Edit2 size={13} /> Edit
+              </Button>
+              <Button variant="danger" size="sm" onClick={() => handleDelete(viewing.id)}>
+                <Trash2 size={13} /> Delete
+              </Button>
+            </div>
           </div>
         )}
       </Drawer>
 
-      {/* Add drawer */}
-      <Drawer open={showAdd} onClose={() => setShowAdd(false)} title="Add Customer" description="Save a customer to track their purchases" size="md">
-        <form onSubmit={handleAdd} className="p-5 space-y-4">
-          <Field label="Name" required>
-            <Input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Jean Pierre" />
+      {/* Add / Edit Drawer */}
+      <Drawer open={showAdd || !!editing} onClose={closeDrawer}
+        title={editing ? "Edit Customer" : "New Customer"}
+        description={editing ? editing.name : "Add a customer to track their orders and spending"}
+        size="sm">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <Field label="Full Name" required>
+            <Input autoFocus value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. Jean Pierre" />
           </Field>
-          <Field label="Phone" required>
-            <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+250 788 123 456" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone">
+              <Input type="tel" value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+250 788 123 456" />
+            </Field>
+            <Field label="Email">
+              <Input type="email" value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="jean@example.com" />
+            </Field>
+          </div>
+          <Field label="Address">
+            <Input value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              placeholder="Street, City" />
           </Field>
-          <Field label="Email" hint="Optional">
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jean@example.com" />
-          </Field>
-          <FormFooter submitLabel="Add Customer" onCancel={() => setShowAdd(false)} disabled={!form.name.trim() || !form.phone.trim()} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Customer Type">
+              <Select value={form.customer_type}
+                onChange={(e) => setForm((f) => ({ ...f, customer_type: e.target.value }))}>
+                {TYPE_OPTS.map((t) => <option key={t} value={t} className="capitalize">{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+              </Select>
+            </Field>
+            <Field label="Status">
+              <Select value={form.is_active ? "active" : "inactive"}
+                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "active" }))}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
+            </Field>
+          </div>
+
+          {formError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
+          )}
+
+          <FormFooter
+            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Customer"}
+            onCancel={closeDrawer}
+            disabled={saving || !form.name.trim()}
+            color={COLOR}
+          />
         </form>
       </Drawer>
     </div>
