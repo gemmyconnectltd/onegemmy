@@ -92,13 +92,11 @@ export const expenseCategories = [
 export const CURRENCY = "RWF";
 export const CURRENCY_SYMBOL = "RWF";
 
-/** Format a money value. >= 1 000 000 → "RWF 1.2M", >= 1 000 → "RWF 12.5K", else full number. */
+/** Format a money value as full number with comma separators e.g. "RWF 1,250,000" */
 export function fmtMoney(value: number | null | undefined, symbol = CURRENCY_SYMBOL): string {
   const v = Number(value ?? 0);
   if (isNaN(v)) return `${symbol} 0`;
-  if (v >= 1_000_000) return `${symbol} ${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (v >= 1_000)     return `${symbol} ${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K`;
-  return `${symbol} ${v.toLocaleString()}`;
+  return `${symbol} ${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 export const currencies = [
