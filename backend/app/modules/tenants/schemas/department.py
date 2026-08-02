@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 class DepartmentCreate(BaseModel):
     name: str
     description: str | None = None
+    tenant_id: uuid.UUID | None = None  # superadmin-only override; ignored for regular tenant users
 
 
 class DepartmentUpdate(BaseModel):

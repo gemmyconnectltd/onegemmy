@@ -14,7 +14,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
 import { inventoryApi, salesApi } from "@/lib/api";
-import type { ApiProduct } from "@/lib/api";
+import type { ApiCustomer, ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
 function apiToProduct(p: ApiProduct): Product {
@@ -43,6 +43,7 @@ export default function POSPage() {
 
   // ── inventory ────────────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,10 +51,14 @@ export default function POSPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await inventoryApi.listProducts(1, 500);
+      const [productsRes, customersRes] = await Promise.all([
+        inventoryApi.listProducts(1, 500),
+        salesApi.listCustomers(1, 500),
+      ]);
       setProducts(
-        res.data.items.filter((p) => p.is_active).map(apiToProduct)
+        productsRes.data.items.filter((p) => p.is_active).map(apiToProduct)
       );
+      setCustomers(customersRes.data.items);
     } catch {
       setError("Failed to load inventory. Check your connection.");
     } finally {
@@ -91,7 +96,12 @@ export default function POSPage() {
 
   // ── cart ─────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const handleCustomerChange = (id: string, name: string) => {
+    setCustomerId(id || null);
+    setCustomerName(name);
+  };
   const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
@@ -177,6 +187,7 @@ export default function POSPage() {
 
   const clearCart = () => {
     setCart([]);
+    setCustomerId(null);
     setCustomerName("");
     setNotes("");
     setCashGiven("");
@@ -213,6 +224,7 @@ export default function POSPage() {
     const held = heldOrders.find((h) => h.id === id);
     if (!held) return;
     setCart(held.cart);
+    setCustomerId(null);
     setCustomerName(held.customerName);
     setNotes(held.notes);
     setHeldOrders((prev) => prev.filter((h) => h.id !== id));
@@ -428,11 +440,13 @@ export default function POSPage() {
           <div className="flex-1 min-h-0 overflow-hidden">
             <CartPanel
               cart={cart}
+              customers={customers}
+              customerId={customerId}
               customerName={customerName}
               notes={notes}
               currencySymbol={currencySymbol}
               fmt={fmt}
-              onCustomerChange={setCustomerName}
+              onCustomerChange={handleCustomerChange}
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}

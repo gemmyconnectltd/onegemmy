@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, DbSession
+from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
@@ -26,7 +27,10 @@ async def list_departments(db: DbSession, current_user: CurrentUser, page_params
 
 @router.post("/departments")
 async def create_department(data: DepartmentCreate, db: DbSession, current_user: CurrentUser):
-    dept = await service.create_department(db, current_user.tenant_id, data)
+    tenant_id = data.tenant_id if (current_user.is_superuser and data.tenant_id) else current_user.tenant_id
+    if tenant_id is None:
+        raise ValidationError("tenant_id is required")
+    dept = await service.create_department(db, tenant_id, data)
     return success_response(
         data=dept.model_dump(),
         message="Department created successfully",
