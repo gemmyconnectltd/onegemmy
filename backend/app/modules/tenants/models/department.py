@@ -15,5 +15,5 @@ class Department(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(String(255))
 
-    tenant = relationship("Tenant", back_populates="departments", lazy="joined")
+    tenant = relationship("Tenant", back_populates="departments", lazy="select")
     users = relationship("User", back_populates="department_rel", lazy="selectin")

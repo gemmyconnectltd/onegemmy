@@ -28,28 +28,47 @@ export default function FinancePage() {
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const today = new Date();
-  const [from, setFrom] = useState(toISO(new Date(today.getFullYear(), 0, 1)));
-  const [to, setTo] = useState(toISO(today));
+  const [from, setFrom] = useState(() => toISO(new Date(new Date().getFullYear(), 0, 1)));
+  const [to, setTo] = useState(() => toISO(new Date()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ income: 0, expenses: 0, net: 0, cash: 0 });
   const [monthly, setMonthly] = useState<{ month: string; income: number; expenses: number }[]>([]);
   const [transactions, setTransactions] = useState<Tx[]>([]);
 
+  const ensureReady = useCallback(async () => {
+    const res = await financeApi.listAccounts();
+    if (res.data.items.length === 0) {
+      await financeApi.seedAccounts();
+      await financeApi.backfillSales();
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [is, cf, tx] = await Promise.all([
+      await ensureReady();
+      const now = new Date();
+      const monthRanges = Array.from({ length: 6 }, (_, i) => {
+        const m = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+        return {
+          label: m.toLocaleString("en", { month: "short" }),
+          from: toISO(m),
+          to: toISO(new Date(now.getFullYear(), now.getMonth() - (5 - i) + 1, 0)),
+        };
+      });
+
+      const [is, cf, tx, ...monthlyResults] = await Promise.all([
         financeApi.incomeStatement(from, to),
         financeApi.cashFlow(from, to),
         financeApi.listTransactions(),
+        ...monthRanges.map((r) => financeApi.incomeStatement(r.from, r.to)),
       ]);
-      const expenses = is.data.total_cogs + is.data.total_operating_expenses;
+
       setStats({
         income: is.data.total_revenue,
-        expenses,
+        expenses: is.data.total_cogs + is.data.total_operating_expenses,
         net: is.data.net_income,
         cash: cf.data.ending_cash,
       });
@@ -68,26 +87,19 @@ export default function FinancePage() {
           };
         }),
       );
-
-      const months: { month: string; income: number; expenses: number }[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const m = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const mFrom = toISO(m);
-        const mTo = toISO(new Date(today.getFullYear(), today.getMonth() - i + 1, 0));
-        const r = await financeApi.incomeStatement(mFrom, mTo);
-        months.push({
-          month: m.toLocaleString("en", { month: "short" }),
-          income: r.data.total_revenue,
-          expenses: r.data.total_cogs + r.data.total_operating_expenses,
-        });
-      }
-      setMonthly(months);
+      setMonthly(
+        monthRanges.map((r, i) => ({
+          month: r.label,
+          income: monthlyResults[i].data.total_revenue,
+          expenses: monthlyResults[i].data.total_cogs + monthlyResults[i].data.total_operating_expenses,
+        }))
+      );
     } catch {
       setError("Could not load the finance overview.");
     } finally {
       setLoading(false);
     }
-  }, [from, to, today]);
+  }, [from, to, ensureReady]);
 
   useEffect(() => {
     const id = window.setTimeout(() => { load(); }, 0);

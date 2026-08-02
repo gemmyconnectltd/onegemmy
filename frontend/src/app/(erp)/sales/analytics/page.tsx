@@ -1,6 +1,6 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from "recharts";
 import { TrendingUp, ShoppingCart, Users, ArrowUpRight, Loader2, AlertCircle } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
@@ -36,16 +36,18 @@ export default function SalesAnalyticsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Derive monthly revenue from completed orders
-  const monthlyMap: Record<string, number> = {};
+  // Derive monthly revenue + VAT from completed orders
+  const monthlyMap: Record<string, { sales: number; vat: number }> = {};
   orders.filter((o) => o.status === "Completed").forEach((o) => {
     const d = o.ordered_at ? new Date(o.ordered_at) : null;
     if (!d) return;
     const key = d.toLocaleString("default", { month: "short" });
-    monthlyMap[key] = (monthlyMap[key] ?? 0) + o.total;
+    if (!monthlyMap[key]) monthlyMap[key] = { sales: 0, vat: 0 };
+    monthlyMap[key].sales += o.total;
+    monthlyMap[key].vat   += o.tax;
   });
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const monthly = MONTHS.filter((m) => monthlyMap[m] !== undefined).map((m) => ({ month: m, sales: monthlyMap[m] }));
+  const monthly = MONTHS.filter((m) => monthlyMap[m] !== undefined).map((m) => ({ month: m, sales: monthlyMap[m].sales, vat: monthlyMap[m].vat }));
 
   // Stage breakdown for deals
   const stageMap: Record<string, number> = {};
@@ -53,13 +55,14 @@ export default function SalesAnalyticsPage() {
   const byStage = Object.entries(stageMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
   const totalRevenue = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + o.total, 0);
+  const totalVAT = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + o.tax, 0);
   const uniqueCustomers = new Set(orders.map((o) => o.customer_id).filter(Boolean)).size;
   const avgOrder = orders.length ? Math.round(totalRevenue / Math.max(orders.filter((o) => o.status === "Completed").length, 1)) : 0;
 
   const stats = [
     { label: "Total Revenue",  value: fmt(totalRevenue), icon: TrendingUp,   color: c.income, change: true },
     { label: "Orders",         value: String(orders.length), icon: ShoppingCart, color: sal },
-    { label: "Customers",      value: String(uniqueCustomers), icon: Users,    color: c.blue },
+    { label: "VAT Collected",  value: fmt(totalVAT),     icon: ArrowUpRight, color: "#6366f1" },
     { label: "Avg Order",      value: fmt(avgOrder),     icon: ArrowUpRight, color: c.primary },
   ];
 
@@ -103,26 +106,22 @@ export default function SalesAnalyticsPage() {
       ) : (
         <>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground mb-1">Monthly Revenue Trend</h2>
-            <p className="text-[11px] text-muted mb-4">Completed orders only</p>
+            <h2 className="text-sm font-bold text-foreground mb-1">Monthly Revenue & VAT (18%)</h2>
+            <p className="text-[11px] text-muted mb-4">Completed orders — VAT collected for RRA</p>
             {monthly.length === 0 ? (
               <div className="h-64 flex items-center justify-center text-muted text-sm">No completed orders yet</div>
             ) : (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthly}>
-                    <defs>
-                      <linearGradient id="gSales" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={sal} stopOpacity={0.15} />
-                        <stop offset="95%" stopColor={sal} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <BarChart data={monthly}>
                     <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v) => [fmt(Number(v)), "Revenue"]} contentStyle={c.tooltip} />
-                    <Area type="monotone" dataKey="sales" stroke={sal} strokeWidth={2.5} fill="url(#gSales)" dot={{ fill: sal, r: 3 }} />
-                  </AreaChart>
+                    <Tooltip formatter={(v, name) => [fmt(Number(v)), name === "vat" ? "VAT (18%)" : "Revenue"]} contentStyle={c.tooltip} />
+                    <Legend formatter={(v) => v === "vat" ? "VAT (18%)" : "Revenue"} wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="sales" fill={sal} radius={[4, 4, 0, 0]} stackId="a" />
+                    <Bar dataKey="vat" fill="#6366f1" radius={[4, 4, 0, 0]} stackId="b" />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -173,6 +172,31 @@ export default function SalesAnalyticsPage() {
               )}
             </div>
           </div>
+
+          {/* Rwanda Tax Obligations */}
+          {totalVAT > 0 && (
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-sm font-bold text-foreground">Rwanda Tax Obligations</h2>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">RRA</span>
+              </div>
+              <p className="text-[11px] text-muted mb-4">Estimated from completed orders — based on RDB/RRA rates</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { label: "VAT Collected (18%)",       value: fmt(totalVAT),                                    sub: "Due to RRA monthly",        color: "#6366f1" },
+                  { label: "Net Revenue (excl. VAT)",   value: fmt(totalRevenue - totalVAT),                     sub: "Taxable income base",       color: sal },
+                  { label: "Corp. Income Tax Est. (30%)", value: fmt((totalRevenue - totalVAT) * 0.30),          sub: "Annual CIT estimate",       color: "#f59e0b" },
+                  { label: "Withholding Tax Est. (15%)", value: fmt((totalRevenue - totalVAT) * 0.15),           sub: "On applicable payments",    color: "#ef4444" },
+                ].map((t) => (
+                  <div key={t.label} className="p-3 rounded-xl border border-border bg-surface">
+                    <p className="text-[11px] font-semibold text-muted uppercase tracking-wider leading-tight">{t.label}</p>
+                    <p className="text-lg font-extrabold mt-1" style={{ color: t.color }}>{t.value}</p>
+                    <p className="text-[10px] text-muted mt-0.5">{t.sub}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

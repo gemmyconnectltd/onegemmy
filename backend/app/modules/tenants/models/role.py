@@ -15,6 +15,6 @@ class Role(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[str | None] = mapped_column(String(255))
 
-    tenant = relationship("Tenant", back_populates="roles", lazy="joined")
-    users = relationship("User", back_populates="role_rel", lazy="selectin")
+    tenant = relationship("Tenant", back_populates="roles", lazy="select")
+    users = relationship("User", back_populates="role_rel", lazy="noload")
     permissions = relationship("Permission", secondary="role_permissions", back_populates="roles", lazy="selectin")

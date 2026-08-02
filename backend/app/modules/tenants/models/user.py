@@ -30,10 +30,10 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    tenant = relationship("Tenant", back_populates="users", lazy="joined")
-    role_rel = relationship("Role", back_populates="users", lazy="joined", foreign_keys=[role_id])
-    branch_rel = relationship("Branch", back_populates="users", lazy="joined", foreign_keys=[branch_id])
-    department_rel = relationship("Department", back_populates="users", lazy="joined", foreign_keys=[department_id])
+    tenant = relationship("Tenant", back_populates="users", lazy="select")
+    role_rel = relationship("Role", back_populates="users", lazy="select", foreign_keys=[role_id])
+    branch_rel = relationship("Branch", back_populates="users", lazy="select", foreign_keys=[branch_id])
+    department_rel = relationship("Department", back_populates="users", lazy="select", foreign_keys=[department_id])
 
     @property
     def permissions_names(self) -> list[str]:

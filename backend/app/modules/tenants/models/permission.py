@@ -21,4 +21,4 @@ class Permission(UUIDPKMixin, TimestampMixin, Base):
     resource: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
 
-    roles = relationship("Role", secondary="role_permissions", back_populates="permissions", lazy="selectin")
+    roles = relationship("Role", secondary="role_permissions", back_populates="permissions", lazy="noload")

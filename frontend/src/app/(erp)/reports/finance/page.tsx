@@ -150,6 +150,30 @@ export default function FinanceReportPage() {
           ))}
         </div>
       </div>
+
+      {totalTax > 0 && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-sm font-bold text-foreground">Rwanda Tax Obligations</h2>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">RRA</span>
+          </div>
+          <p className="text-[11px] text-muted mb-4">Estimated from completed orders — VAT 18%, CIT 30%, WHT 15%</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: "VAT Collected (18%)",         value: fmtMoney(totalTax),                        sub: "Remit to RRA monthly",    color: theme === "dark" ? "#818cf8" : "#6366f1" },
+              { label: "Net Revenue (excl. VAT)",     value: fmtMoney(netRevenue - totalRefunds),       sub: "After refunds & VAT",     color: theme === "dark" ? "#34d399" : "#10b981" },
+              { label: "Corp. Income Tax Est. (30%)", value: fmtMoney((netRevenue - totalRefunds) * 0.30), sub: "Annual CIT estimate",   color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
+              { label: "Withholding Tax Est. (15%)",  value: fmtMoney((netRevenue - totalRefunds) * 0.15), sub: "On applicable payments", color: theme === "dark" ? "#f87171" : "#ef4444" },
+            ].map((t) => (
+              <div key={t.label} className="p-3 rounded-xl border border-border bg-surface">
+                <p className="text-[11px] font-semibold text-muted uppercase tracking-wider leading-tight">{t.label}</p>
+                <p className="text-lg font-extrabold mt-1" style={{ color: t.color }}>{t.value}</p>
+                <p className="text-[10px] text-muted mt-0.5">{t.sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

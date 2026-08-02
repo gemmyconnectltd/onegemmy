@@ -20,6 +20,16 @@ from app.modules.finance.schemas.transaction import (
     TransactionUpdate,
 )
 from app.modules.finance.schemas.transaction_line import TransactionLineCreate, TransactionLineRead
+from app.modules.finance.schemas.tax import (
+    TaxConfigCreate,
+    TaxConfigRead,
+    TaxConfigUpdate,
+    TaxCalculationCreate,
+    TaxCalculationRead,
+    TaxPaymentCreate,
+    TaxPaymentRead,
+    RwandaTaxRates,
+)
 
 __all__ = [
     "AccountCreate",
@@ -40,6 +50,14 @@ __all__ = [
     "IncomeStatement",
     "LedgerEntry",
     "StatementLine",
+    "TaxCalculationCreate",
+    "TaxCalculationRead",
+    "TaxConfigCreate",
+    "TaxConfigRead",
+    "TaxConfigUpdate",
+    "TaxPaymentCreate",
+    "TaxPaymentRead",
+    "RwandaTaxRates",
     "TransactionCreate",
     "TransactionLineCreate",
     "TransactionLineRead",

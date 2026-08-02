@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.finance.service.transaction import create_sale_transaction
+from app.modules.finance.service.tax import create_tax_calculation
+from app.modules.finance.schemas.tax import TaxCalculationCreate
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.sales.models.order import Order
@@ -55,6 +57,23 @@ async def _bump_order_targets(db: AsyncSession, tenant_id: uuid.UUID) -> None:
         )
         .values(achieved_value=Target.achieved_value + 1)
     )
+
+
+async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, tax_amount: float, total: float) -> None:
+    """Write a VAT TaxCalculation record for a completed order."""
+    if tax_amount <= 0:
+        return
+    period = date.today().strftime("%Y-%m")
+    await create_tax_calculation(db, tenant_id, TaxCalculationCreate(
+        calculation_type="vat",
+        reference_type="sale",
+        reference_id=str(order_id),
+        period=period,
+        taxable_amount=round(total - tax_amount, 2),
+        tax_rate=18.0,
+        tax_amount=round(tax_amount, 2),
+        description=f"VAT on order {order_id}",
+    ))
 
 
 async def list_orders(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[OrderRead]:
@@ -161,6 +180,7 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         await _bump_revenue_targets(db, tenant_id, total)
         await _bump_order_targets(db, tenant_id)
         await create_sale_transaction(db, tenant_id, user_id, order.id, total, order_number)
+        await _record_vat(db, tenant_id, order.id, data.tax, total)
 
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
@@ -180,6 +200,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         await _bump_revenue_targets(db, tenant_id, float(obj.total))
         await _bump_order_targets(db, tenant_id)
         await create_sale_transaction(db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number)
+        await _record_vat(db, tenant_id, obj.id, float(obj.tax), float(obj.total))
     await OrderRepository(db).save(obj)
     await db.commit()
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)

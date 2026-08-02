@@ -35,10 +35,10 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    customer = relationship("Customer", back_populates="orders", lazy="joined")
-    deal = relationship("Deal", back_populates="orders", lazy="joined")
-    branch = relationship("Branch", foreign_keys=[branch_id], lazy="joined")
-    creator = relationship("User", foreign_keys=[created_by], lazy="joined")
+    customer = relationship("Customer", back_populates="orders", lazy="select")
+    deal = relationship("Deal", back_populates="orders", lazy="select")
+    branch = relationship("Branch", foreign_keys=[branch_id], lazy="select")
+    creator = relationship("User", foreign_keys=[created_by], lazy="select")
     items = relationship("OrderItem", back_populates="order", lazy="selectin", cascade="all, delete-orphan")
     returns = relationship("Return", back_populates="order", lazy="selectin")
 

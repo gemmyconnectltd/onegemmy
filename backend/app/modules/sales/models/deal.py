@@ -27,8 +27,8 @@ class Deal(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    customer = relationship("Customer", back_populates="deals", lazy="joined")
-    owner = relationship("User", foreign_keys=[owner_id], lazy="joined")
+    customer = relationship("Customer", back_populates="deals", lazy="select")
+    owner = relationship("User", foreign_keys=[owner_id], lazy="select")
     orders = relationship("Order", back_populates="deal", lazy="selectin")
 
     __table_args__ = (

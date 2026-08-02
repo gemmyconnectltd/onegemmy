@@ -10,6 +10,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { salesApi, inventoryApi, type ApiOrder, type ApiCustomer, type ApiProduct, type ApiVariant } from "@/lib/api";
+import { financeApi } from "@/lib/api/finance";
 
 const SAL = "#0284c7";
 
@@ -239,6 +240,7 @@ export default function SalesOrdersPage() {
   const completed = orders.filter((o) => o.status === "Completed");
   const pending   = orders.filter((o) => o.status === "Pending");
   const revenue   = completed.reduce((s, o) => s + o.total, 0);
+  const totalVAT  = completed.reduce((s, o) => s + o.tax, 0);
 
   const stats = [
     { label: "Total Orders", value: String(orders.length),    icon: ShoppingCart, color: SAL },
@@ -300,6 +302,9 @@ export default function SalesOrdersPage() {
         });
       } else {
         await salesApi.createOrder(payload);
+      }
+      if (payload.status === "Completed") {
+        financeApi.backfillSales().catch(() => null);
       }
       closeDrawer();
       await load();
@@ -376,6 +381,7 @@ export default function SalesOrdersPage() {
                 <th className="p-4 font-semibold">Items</th>
                 <th className="p-4 font-semibold">Date</th>
                 <th className="p-4 font-semibold">Status</th>
+                <th className="p-4 font-semibold text-right">VAT (18%)</th>
                 <th className="p-4 font-semibold text-right">Total</th>
                 <th className="p-4" />
               </tr>
@@ -394,6 +400,7 @@ export default function SalesOrdersPage() {
                         <Icon size={11} /> {o.status}
                       </span>
                     </td>
+                    <td className="p-4 text-right text-sm tabular-nums" style={{ color: "#6366f1" }}>{fmt(o.tax)}</td>
                     <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums">{fmt(o.total)}</td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -412,6 +419,14 @@ export default function SalesOrdersPage() {
           <div className="py-16 text-center">
             <ShoppingCart size={32} className="text-border mx-auto mb-3" />
             <p className="text-sm font-semibold text-muted">No orders found</p>
+          </div>
+        )}
+        {!loading && completed.length > 0 && (
+          <div className="px-4 py-3 border-t border-border bg-surface/50 flex flex-wrap items-center gap-6">
+            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Tax Summary (completed orders)</span>
+            <span className="text-[12px] font-bold" style={{ color: "#6366f1" }}>VAT Collected: {fmt(totalVAT)}</span>
+            <span className="text-[12px] font-bold text-foreground">Net (excl. VAT): {fmt(revenue - totalVAT)}</span>
+            <span className="text-[12px] font-bold text-foreground">Gross Revenue: {fmt(revenue)}</span>
           </div>
         )}
       </div>

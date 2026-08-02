@@ -51,6 +51,7 @@ export default function ReportsPage() {
 
   const completed = orders.filter((o) => o.status === "Completed");
   const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
+  const totalVAT = completed.reduce((s, o) => s + o.tax, 0);
   const totalRefunds = returns.filter((r) => r.status === "Approved").reduce((s, r) => s + r.refund_amount, 0);
   const totalOrders = completed.length;
   const avgOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0;
@@ -95,7 +96,7 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Total Revenue" value={fmtMoney(totalRevenue)} sub={`${totalOrders} completed orders`} icon={DollarSign} color={c.income} />
-        <StatCard label="Avg Order Value" value={fmtMoney(avgOrder)} sub="per completed order" icon={ShoppingCart} color={c.primary} />
+        <StatCard label="VAT Collected" value={fmtMoney(totalVAT)} sub="18% — due to RRA" icon={TrendingUp} color={theme === "dark" ? "#818cf8" : "#6366f1"} />
         <StatCard label="Total Refunds" value={fmtMoney(totalRefunds)} sub={`${returns.filter(r => r.status === "Approved").length} approved returns`} icon={RotateCcw} color={c.expenses} />
         <StatCard label="Active Customers" value={customers.filter(c => c.is_active).length.toString()} sub={`${lowStock} products low stock`} icon={Users} color={c.blue} />
       </div>

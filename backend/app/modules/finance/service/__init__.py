@@ -45,6 +45,7 @@ from app.modules.finance.service.transaction import (
     update_transaction,
     void_transaction,
 )
+from app.modules.finance.service import tax
 
 __all__ = [
     "approve_expense",
@@ -77,6 +78,7 @@ __all__ = [
     "list_transactions",
     "post_transaction",
     "reject_expense",
+    "tax",
     "trial_balance",
     "update_account",
     "update_budget",

@@ -32,6 +32,14 @@ export type {
 } from "./finance";
 export { financeApi } from "./finance";
 
+// Tax
+export type {
+  TaxConfig, TaxCalculation, TaxPayment,
+  PAYEResult, VATResult, WithholdingResult, PensionResult,
+  CorporateTaxResult, ConsumptionTaxResult, TaxSummary, RwandaTaxRates,
+} from "./tax";
+export { taxApi } from "./tax";
+
 // HR
 export type {
   ApiDepartment, ApiEmployee, EmployeeCreatePayload,
