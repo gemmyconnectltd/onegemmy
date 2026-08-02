@@ -24,7 +24,7 @@ class TransactionLine(UUIDPKMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     transaction = relationship("Transaction", back_populates="lines")
-    account = relationship("Account", back_populates="transaction_lines", lazy="joined")
+    account = relationship("Account", back_populates="transaction_lines", lazy="select")
 
     __table_args__ = (
         Index("ix_finance_txn_lines_transaction_id", "transaction_id"),

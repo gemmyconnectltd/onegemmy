@@ -37,10 +37,10 @@ class Expense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    account = relationship("Account", back_populates="expenses", lazy="joined")
-    order = relationship("Order", foreign_keys=[order_id], lazy="joined")
-    approver = relationship("User", foreign_keys=[approved_by], lazy="joined")
-    creator = relationship("User", foreign_keys=[created_by], lazy="joined")
+    account = relationship("Account", back_populates="expenses", lazy="select")
+    order = relationship("Order", foreign_keys=[order_id], lazy="noload")
+    approver = relationship("User", foreign_keys=[approved_by], lazy="noload")
+    creator = relationship("User", foreign_keys=[created_by], lazy="noload")
 
     __table_args__ = (
         Index("uq_finance_expenses_tenant_ref", "tenant_id", "reference", unique=True),

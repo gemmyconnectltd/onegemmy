@@ -32,9 +32,9 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    order = relationship("Order", foreign_keys=[order_id], lazy="select")
-    return_ = relationship("Return", foreign_keys=[return_id], lazy="select")
-    creator = relationship("User", foreign_keys=[created_by], lazy="select")
+    order = relationship("Order", foreign_keys=[order_id], lazy="noload")
+    return_ = relationship("Return", foreign_keys=[return_id], lazy="noload")
+    creator = relationship("User", foreign_keys=[created_by], lazy="noload")
     lines = relationship("TransactionLine", back_populates="transaction", lazy="selectin", cascade="all, delete-orphan")
 
     __table_args__ = (

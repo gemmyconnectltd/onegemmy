@@ -68,7 +68,7 @@ export default function FinancePage() {
 
       setStats({
         income: is.data.total_revenue,
-        expenses: is.data.total_cogs + is.data.total_operating_expenses,
+        expenses: is.data.total_operating_expenses,
         net: is.data.net_income,
         cash: cf.data.ending_cash,
       });
@@ -91,7 +91,7 @@ export default function FinancePage() {
         monthRanges.map((r, i) => ({
           month: r.label,
           income: monthlyResults[i].data.total_revenue,
-          expenses: monthlyResults[i].data.total_cogs + monthlyResults[i].data.total_operating_expenses,
+          expenses: monthlyResults[i].data.total_operating_expenses,
         }))
       );
     } catch {
