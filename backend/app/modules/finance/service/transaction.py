@@ -203,3 +203,55 @@ async def create_return_transaction(
     txn = await repo.save(txn)
     db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="debit",  amount=refund_amount, description="Revenue Reversal"))
     db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="credit", amount=refund_amount, description="Accounts Receivable"))
+
+
+async def backfill_sale_transactions(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> int:
+    """Create Posted sale transactions for every Completed order that has no finance transaction yet."""
+    from sqlalchemy import select as sa_select
+    from app.modules.sales.models.order import Order
+
+    ar_id = await _get_account_by_code(db, tenant_id, "1100")
+    rev_id = await _get_account_by_code(db, tenant_id, "4000")
+    if not ar_id or not rev_id:
+        return 0
+
+    # find completed orders with no linked finance transaction
+    result = await db.execute(
+        sa_select(Order).where(
+            Order.tenant_id == tenant_id,
+            Order.status == "Completed",
+            ~Order.id.in_(
+                sa_select(Transaction.order_id).where(
+                    Transaction.tenant_id == tenant_id,
+                    Transaction.order_id.isnot(None),
+                )
+            ),
+        )
+    )
+    orders = result.scalars().all()
+
+    repo = TransactionRepository(db)
+    count = 0
+    for order in orders:
+        reference = await repo.next_reference(tenant_id)
+        txn = Transaction(
+            tenant_id=tenant_id,
+            reference=reference,
+            type="sale",
+            status="Posted",
+            transaction_date=order.ordered_at.date() if order.ordered_at else date.today(),
+            description=f"Sale {order.order_number}",
+            order_id=order.id,
+            created_by=user_id,
+        )
+        txn = await repo.save(txn)
+        db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="debit",  amount=float(order.total), description="Accounts Receivable"))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=float(order.total), description="Sales Revenue"))
+        count += 1
+
+    await db.commit()
+    return count

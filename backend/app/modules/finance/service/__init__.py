@@ -33,6 +33,7 @@ from app.modules.finance.service.statements import (
     trial_balance,
 )
 from app.modules.finance.service.transaction import (
+    backfill_sale_transactions,
     count_transactions,
     create_expense_transaction,
     create_return_transaction,
@@ -81,5 +82,6 @@ __all__ = [
     "update_budget",
     "update_expense",
     "update_transaction",
+    "backfill_sale_transactions",
     "void_transaction",
 ]

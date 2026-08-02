@@ -37,6 +37,8 @@ export default function IncomePage() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -78,6 +80,21 @@ export default function IncomePage() {
     { label: "Pending",         value: fmt(totalDraft),  sub: `${countDraft} draft entries`, color: "#f59e0b", Icon: Clock },
     { label: "All Entries",     value: String(txns.length), sub: "sale + manual",            color: FIN,       Icon: ArrowUpRight },
   ];
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await financeApi.backfillSales();
+      const created = res.data.created;
+      setSyncMsg(created > 0 ? `Synced ${created} order${created !== 1 ? "s" : ""} from sales.` : "Already up to date — no new orders to sync.");
+      await load();
+    } catch (e: unknown) {
+      setError((e as { detail?: string })?.detail ?? "Sync failed.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handlePost = async (id: string) => {
     try {
@@ -145,11 +162,21 @@ export default function IncomePage() {
           <Button color={FIN} variant="secondary" onClick={load} disabled={loading}>
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </Button>
+          <Button color={FIN} variant="secondary" onClick={handleSync} disabled={syncing}>
+            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Sync from Sales
+          </Button>
           <Button color={FIN} onClick={() => setShowAdd(true)}>
             <Plus size={15} /> Add Income
           </Button>
         </div>
       </div>
+
+      {syncMsg && (
+        <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+          <CheckCircle2 size={15} /> {syncMsg}
+          <button className="ml-auto text-xs underline" onClick={() => setSyncMsg(null)}>Dismiss</button>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">

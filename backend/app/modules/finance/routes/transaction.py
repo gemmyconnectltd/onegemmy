@@ -58,3 +58,11 @@ async def void_transaction(id: uuid.UUID, db: DbSession, current_user: CurrentUs
     _require_tenant(current_user.tenant_id)
     obj = await service.void_transaction(db, current_user.tenant_id, id)
     return success_response(data=obj.model_dump(), message="Transaction voided")
+
+
+@router.post("/finance/transactions/backfill-sales")
+async def backfill_sales(db: DbSession, current_user: CurrentUser):
+    """Create finance transactions for all completed orders that don't have one yet."""
+    _require_tenant(current_user.tenant_id)
+    count = await service.backfill_sale_transactions(db, current_user.tenant_id, current_user.id)
+    return success_response(data={"created": count}, message=f"Backfilled {count} transaction(s)")

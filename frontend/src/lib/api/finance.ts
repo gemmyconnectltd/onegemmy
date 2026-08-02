@@ -243,4 +243,6 @@ export const financeApi = {
     request<SingleResponse<FinanceTransaction>>(`${BASE}/transactions/${id}/post`, { method: "POST" }),
   voidTransaction: (id: string) =>
     request<SingleResponse<FinanceTransaction>>(`${BASE}/transactions/${id}/void`, { method: "POST" }),
+  backfillSales: () =>
+    request<SingleResponse<{ created: number }>>(`${BASE}/transactions/backfill-sales`, { method: "POST" }),
 };
