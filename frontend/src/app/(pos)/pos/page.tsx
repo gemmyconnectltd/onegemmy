@@ -61,7 +61,10 @@ export default function POSPage() {
     }
   }, []);
 
-  useEffect(() => { loadInventory(); }, [loadInventory]);
+  useEffect(() => {
+    const id = window.setTimeout(() => { loadInventory(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [loadInventory]);
 
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(products.map((p) => p.category)))],
@@ -100,6 +103,8 @@ export default function POSPage() {
   const [todayCount, setTodayCount] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [completedSale, setCompletedSale] = useState<SaleResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saleError, setSaleError] = useState<string | null>(null);
 
   // ── keyboard shortcut: / → focus search ─────────────────────────────────
   useEffect(() => {
@@ -175,6 +180,7 @@ export default function POSPage() {
     setCustomerName("");
     setNotes("");
     setCashGiven("");
+    setSaleError(null);
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -217,45 +223,60 @@ export default function POSPage() {
 
   // ── complete sale ────────────────────────────────────────────────────────
   const completeSale = async () => {
+    if (saving || cart.length === 0) return;
+    setSaving(true);
+    setSaleError(null);
     const isInvoice = payment === "invoice";
-    const sale: SaleResult = {
-      orderId: generateOrderId(),
-      invoiceNumber: isInvoice ? generateInvoiceId() : null,
-      isInvoice,
-      payment,
-      customerName: customerName.trim(),
-      notes: notes.trim(),
-      items: cart,
-      subtotal,
-      discount,
-      tax,
-      total,
-      cashGiven,
-      change,
-      timestamp: new Date(),
-    };
-    setCompletedSale(sale);
-    saveSale(sale);
-    setTodayCount((c) => c + 1);
-    setTodayRevenue((r) => r + total);
+    try {
+      // order-level discount is 0 — item discounts are already baked into each line_total
+      await salesApi.createOrder({
+        status: "Completed",
+        notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
+        discount: 0,
+        tax,
+        items: cart.map((i) => ({
+          product_id: i.product_id ?? null,
+          variant_id: i.variant_id ?? null,
+          product_name: i.name,
+          sku: i.sku ?? null,
+          variant_attributes: i.variant_attributes ?? null,
+          unit_price: i.price,
+          quantity: i.qty,
+          discount: i.discount,
+          line_total: i.price * i.qty - i.discount,
+        })),
+      });
 
-    salesApi.createOrder({
-      status: "Completed",
-      notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
-      discount,
-      tax,
-      items: cart.map((i) => ({
-        product_id: i.product_id ?? null,
-        variant_id: i.variant_id ?? null,
-        product_name: i.name,
-        sku: i.sku ?? null,
-        variant_attributes: i.variant_attributes ?? null,
-        unit_price: i.price,
-        quantity: i.qty,
-        discount: i.discount,
-        line_total: i.price * i.qty - i.discount,
-      })),
-    }).catch(() => {});
+      const sale: SaleResult = {
+        orderId: generateOrderId(),
+        invoiceNumber: isInvoice ? generateInvoiceId() : null,
+        isInvoice,
+        payment,
+        customerName: customerName.trim(),
+        notes: notes.trim(),
+        items: cart,
+        subtotal,
+        discount,
+        tax,
+        total,
+        cashGiven,
+        change,
+        timestamp: new Date(),
+      };
+      setCompletedSale(sale);
+      saveSale(sale);
+      setTodayCount((c) => c + 1);
+      setTodayRevenue((r) => r + total);
+      clearCart();
+      loadInventory();
+    } catch (e: unknown) {
+      setSaleError(
+        (e as { detail?: string })?.detail ??
+          "Could not save the sale. Check your connection and try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const startNewSale = () => {
@@ -436,6 +457,8 @@ export default function POSPage() {
                 hasCustomer={customerName.trim().length > 0}
                 currencySymbol={currencySymbol}
                 fmt={fmt}
+                saving={saving}
+                saleError={saleError}
                 onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
                 onCashChange={setCashGiven}
                 onCharge={completeSale}

@@ -1,15 +1,21 @@
-import { FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound } from "lucide-react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound } from "lucide-react";
 
 import { IconBadge, getProductIcon, productAccent } from "./icons";
 import type { CartItem } from "./types";
+import type { ApiCustomer } from "@/lib/api";
 
 interface CartPanelProps {
   cart: CartItem[];
+  customers: ApiCustomer[];
+  customerId: string | null;
   customerName: string;
   notes: string;
   currencySymbol: string;
   fmt: (v: number) => string;
-  onCustomerChange: (v: string) => void;
+  onCustomerChange: (id: string, name: string) => void;
   onNotesChange: (v: string) => void;
   onUpdateQty: (id: string, delta: number) => void;
   onUpdateDiscount: (id: string, discount: number) => void;
@@ -19,10 +25,38 @@ interface CartPanelProps {
 }
 
 export function CartPanel({
-  cart, customerName, notes, currencySymbol, fmt,
+  cart, customers, customerId, customerName, notes, currencySymbol, fmt,
   onCustomerChange, onNotesChange, onUpdateQty, onUpdateDiscount, onRemoveItem, onClear, onHold,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+
+  // ── customer picker ────────────────────────────────────────────────────────
+  const [custOpen, setCustOpen] = useState(false);
+  const [custQ, setCustQ] = useState("");
+  const custRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (custRef.current && !custRef.current.contains(e.target as Node)) setCustOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filteredCustomers = customers.filter((c) => {
+    const q = custQ.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.phone ?? "").toLowerCase().includes(q)
+    );
+  }).slice(0, 30);
+
+  const pickCustomer = (id: string, name: string) => {
+    onCustomerChange(id, name);
+    setCustOpen(false);
+    setCustQ("");
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -45,14 +79,60 @@ export function CartPanel({
 
       {/* Customer + Notes — always visible, compact */}
       <div className="px-3 py-2 border-b border-border flex gap-2 flex-shrink-0">
-        <div className="flex-1 flex items-center gap-1.5 bg-surface border border-border rounded-lg px-2.5 py-1.5 focus-within:border-accent transition-colors">
-          <UserRound size={11} className="text-muted flex-shrink-0" />
-          <input
-            value={customerName}
-            onChange={(e) => onCustomerChange(e.target.value)}
-            placeholder="Customer"
-            className="flex-1 text-[12px] outline-none bg-transparent text-foreground placeholder:text-muted min-w-0"
-          />
+        <div ref={custRef} className="flex-1 relative">
+          <button
+            type="button"
+            onClick={() => setCustOpen((v) => !v)}
+            className="w-full flex items-center gap-1.5 bg-surface border border-border rounded-lg px-2.5 py-1.5 hover:border-accent/50 transition-colors text-left"
+          >
+            <UserRound size={11} className="text-muted flex-shrink-0" />
+            <span className={`flex-1 text-[12px] truncate min-w-0 ${customerName ? "text-foreground" : "text-muted"}`}>
+              {customerName || "Customer"}
+            </span>
+            <ChevronDown size={11} className="text-muted flex-shrink-0" />
+          </button>
+          {custOpen && (
+            <div className="absolute z-50 top-full mt-1 left-0 w-72 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+              <input
+                autoFocus
+                value={custQ}
+                onChange={(e) => setCustQ(e.target.value)}
+                placeholder="Search customers…"
+                className="w-full text-[12px] px-3 py-2 border-b border-border outline-none bg-transparent placeholder:text-muted/60"
+              />
+              <div className="max-h-48 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => pickCustomer("", "")}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface transition-colors text-left"
+                >
+                  <UserRound size={12} className="text-muted flex-shrink-0" />
+                  <span className="text-[12px] font-medium text-foreground">Walk-in</span>
+                  {!customerId && <Check size={12} className="ml-auto text-accent flex-shrink-0" />}
+                </button>
+                {filteredCustomers.length === 0 && (
+                  <p className="px-3 py-3 text-[11px] text-muted text-center">No customers found</p>
+                )}
+                {filteredCustomers.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => pickCustomer(c.id, c.name)}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface transition-colors text-left"
+                  >
+                    <UserRound size={12} className="text-muted flex-shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-[12px] font-medium text-foreground truncate">{c.name}</span>
+                      {(c.email || c.phone) && (
+                        <span className="block text-[10px] text-muted truncate">{c.email ?? c.phone}</span>
+                      )}
+                    </span>
+                    {customerId === c.id && <Check size={12} className="ml-auto text-accent flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex-1 flex items-center gap-1.5 bg-surface border border-border rounded-lg px-2.5 py-1.5 focus-within:border-accent transition-colors">
           <FileText size={11} className="text-muted flex-shrink-0" />

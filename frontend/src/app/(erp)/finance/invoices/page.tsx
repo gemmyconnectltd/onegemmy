@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   BadgeCheck, Clock, FileText, Search, Eye, Printer,
-  CircleDollarSign, TrendingUp, AlertCircle, Plus,
-  Download, MoreHorizontal, ChevronDown,
+  TrendingUp, AlertCircle, Plus,
+  Download, MoreHorizontal,
 } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";

@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { CreditCard, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { financeApi } from "@/lib/api/finance";
 import type { FinanceAccount } from "@/lib/api/finance";
-import { fmtMoney } from "@/lib/config";
-import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Loading, EmptyState, ErrorState } from "@/components/hr/State";
@@ -21,9 +19,6 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function AccountsPage() {
-  const { currencySymbol } = useAppConfig();
-  const fmt = (v: number) => fmtMoney(v, currencySymbol);
-
   const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [type, setType] = useState("All");
   const [loading, setLoading] = useState(true);

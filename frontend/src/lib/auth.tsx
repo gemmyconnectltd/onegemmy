@@ -5,6 +5,7 @@ import { type Role } from "./roles";
 import {
   authApi,
   clearStoredTokens,
+  clearApiCache,
   setStoredToken,
   setStoredRefreshToken,
   getStoredToken,
@@ -141,6 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     clearStoredTokens();
+    // Drop cached API responses so the next session never sees stale data
+    // from the previous user (logout makes no network request).
+    clearApiCache();
   }, []);
 
   const hasPermission = useCallback((permission: string): boolean => {

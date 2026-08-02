@@ -5,11 +5,11 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useCallback, useEffect, useState } from "react";
 import {
   TrendingUp, Plus, AlertCircle, Loader2, CheckCircle2,
-  Clock, Ban, ArrowUpRight, RefreshCw, Filter,
+  Clock, Ban, ArrowUpRight, RefreshCw,
 } from "lucide-react";
 import { financeApi, type FinanceTransaction } from "@/lib/api/finance";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 
 const FIN = "#b45309";
@@ -66,7 +66,10 @@ export default function IncomePage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const id = window.setTimeout(() => { load(); }, 0);
+    return () => window.clearTimeout(id);
+  }, [load]);
 
   const displayed = statusFilter === "All" ? txns : txns.filter((t) => t.status === statusFilter);
 

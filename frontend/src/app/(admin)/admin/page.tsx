@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Building2, Users, ShoppingCart, TrendingUp, Activity, CheckCircle, XCircle, Package } from "lucide-react";
 import { adminApi, type AdminPlatformStats } from "@/lib/api/admin";
 import { fmtMoney } from "@/lib/config";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "@/components/charts/lazy";
 import Link from "next/link";
 
 export default function AdminOverviewPage() {

@@ -3,7 +3,7 @@ import { fmtMoney } from "@/lib/config";
 import { Users, TrendingUp, ShoppingCart, Repeat } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "@/components/charts/lazy";
 
 const COLOR = "#0f766e";
 

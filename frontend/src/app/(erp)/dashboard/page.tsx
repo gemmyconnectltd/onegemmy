@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, Package, BarChart3, Target, Zap, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, Activity, AlertTriangle } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
-import { inventoryApi, type ApiProduct } from "@/lib/api";
-import { PERIODS, PAST_YEARS, getPeriodData, RECENT_SALES, TOP_PRODUCTS, METHOD_COLOR, type Period, type PeriodData } from "./data";
+import { inventoryApi, salesApi, financeApi, type ApiProduct, type ApiOrder } from "@/lib/api";
+import { PERIODS, PAST_YEARS, periodDateRange, METHOD_COLOR, type Period } from "./data";
+
+// ── helpers ──────────────────────────────────────────────────────────────────
 
 function variantStock(p: ApiProduct) {
   return p.has_variants && p.variants?.length ? p.variants.reduce((s, v) => s + v.stock, 0) : p.stock;
@@ -17,13 +19,72 @@ function variantMinStock(p: ApiProduct) {
   return p.has_variants && p.variants?.length ? p.variants.reduce((s, v) => s + v.min_stock, 0) : p.min_stock;
 }
 
-function KpiCards({ d, label, c }: { d: PeriodData; label: string; c: ChartPalette }) {
+function relativeTime(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  return `${Math.floor(h / 24)} days ago`;
+}
+
+function buildChart(orders: ApiOrder[], period: Period): { label: string; sales: number; expenses: number }[] {
+  if (period === "today") {
+    const buckets = ["8am","10am","12pm","2pm","4pm","6pm"];
+    const hours   = [8, 10, 12, 14, 16, 18];
+    return buckets.map((label, i) => ({
+      label,
+      sales: orders
+        .filter((o) => { const h = new Date(o.ordered_at ?? o.created_at ?? "").getHours(); return h >= hours[i] && h < (hours[i + 1] ?? 24); })
+        .reduce((s, o) => s + o.total, 0),
+      expenses: 0,
+    }));
+  }
+  if (period === "week") {
+    const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    return days.map((label, i) => ({
+      label,
+      sales: orders
+        .filter((o) => { const d = new Date(o.ordered_at ?? o.created_at ?? ""); return ((d.getDay() + 6) % 7) === i; })
+        .reduce((s, o) => s + o.total, 0),
+      expenses: 0,
+    }));
+  }
+  if (period === "month" || period === "last_month") {
+    return ["Wk 1","Wk 2","Wk 3","Wk 4"].map((label, i) => ({
+      label,
+      sales: orders
+        .filter((o) => { const d = new Date(o.ordered_at ?? o.created_at ?? ""); return Math.floor((d.getDate() - 1) / 7) === i; })
+        .reduce((s, o) => s + o.total, 0),
+      expenses: 0,
+    }));
+  }
+  // year / year_YYYY — monthly
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return months.map((label, i) => ({
+    label,
+    sales: orders
+      .filter((o) => new Date(o.ordered_at ?? o.created_at ?? "").getMonth() === i)
+      .reduce((s, o) => s + o.total, 0),
+    expenses: 0,
+  }));
+}
+
+// ── sub-components ────────────────────────────────────────────────────────────
+
+function KpiCards({ sales, expenses, profit, cash, customers, salesChange, expChange, profitChange, customersChange, label, c }: {
+  sales: number; expenses: number; profit: number; cash: number; customers: number;
+  salesChange: string | null; expChange: string | null; profitChange: string | null; customersChange: string | null;
+  label: string; c: ChartPalette;
+}) {
   const kpis = [
-    { label: `${label} Sales`,    value: fmtMoney(d.sales),    icon: TrendingUp,   color: c.income,   change: d.salesChange,     up: d.salesUp },
-    { label: `${label} Expenses`, value: fmtMoney(d.expenses), icon: TrendingDown, color: c.expenses, change: d.expChange,       up: d.expUp },
-    { label: `${label} Profit`,   value: fmtMoney(d.profit),   icon: DollarSign,   color: c.profit,   change: d.profitChange,    up: d.profitUp },
-    { label: "Cash Available",    value: fmtMoney(d.cash),     icon: Activity,     color: c.blue,     change: null,              up: true },
-    { label: "Customers",         value: String(d.customers),  icon: Users,        color: c.gold,     change: d.customersChange, up: d.customersUp },
+    { label: `${label} Sales`,    value: fmtMoney(sales),    icon: TrendingUp,   color: c.income,   change: salesChange,     up: sales >= 0 },
+    { label: `${label} Expenses`, value: fmtMoney(expenses), icon: TrendingDown, color: c.expenses, change: expChange,       up: false },
+    { label: `${label} Profit`,   value: fmtMoney(profit),   icon: DollarSign,   color: c.profit,   change: profitChange,    up: profit >= 0 },
+    { label: "Cash Available",    value: fmtMoney(cash),     icon: Activity,     color: c.blue,     change: null,            up: true },
+    { label: "Customers",         value: String(customers),  icon: Users,        color: c.gold,     change: customersChange, up: true },
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -47,13 +108,13 @@ function KpiCards({ d, label, c }: { d: PeriodData; label: string; c: ChartPalet
   );
 }
 
-function SalesChart({ d, c }: { d: PeriodData; c: ChartPalette }) {
+function SalesChart({ chart, title, sub, c }: { chart: { label: string; sales: number; expenses: number }[]; title: string; sub: string; c: ChartPalette }) {
   return (
     <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-foreground">{d.chartTitle}</h2>
-          <p className="text-[11px] text-muted mt-0.5">{d.chartSub}</p>
+          <h2 className="text-sm font-bold text-foreground">{title}</h2>
+          <p className="text-[11px] text-muted mt-0.5">{sub}</p>
         </div>
         <div className="flex items-center gap-4">
           {[{ color: c.income, label: "Sales" }, { color: c.expenses, label: "Expenses" }].map((l) => (
@@ -66,7 +127,7 @@ function SalesChart({ d, c }: { d: PeriodData; c: ChartPalette }) {
       </div>
       <div className="px-5 pt-4 pb-3 h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={d.chart}>
+          <AreaChart data={chart}>
             <defs>
               <linearGradient id="gS" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={c.income} stopOpacity={0.18} /><stop offset="95%" stopColor={c.income} stopOpacity={0} /></linearGradient>
               <linearGradient id="gE" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={c.expenses} stopOpacity={0.12} /><stop offset="95%" stopColor={c.expenses} stopOpacity={0} /></linearGradient>
@@ -84,14 +145,14 @@ function SalesChart({ d, c }: { d: PeriodData; c: ChartPalette }) {
   );
 }
 
-function TargetAndActions({ d, label, c }: { d: PeriodData; label: string; c: ChartPalette }) {
-  const targetPct = Math.round((d.sales / d.target) * 100);
+function TargetAndActions({ sales, target, label, c }: { sales: number; target: number; label: string; c: ChartPalette }) {
+  const targetPct = target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
   const actions = [
     { label: "Record Sale",    href: "/sales",         icon: ShoppingCart, color: c.income   },
     { label: "Add Stock",      href: "/inventory",     icon: Package,      color: c.blue     },
-    { label: "Record Expense", href: "/expenses",      icon: DollarSign,   color: c.expenses },
-    { label: "View Reports",   href: "/reports",       icon: BarChart3,    color: c.profit   },
-    { label: "Customers",      href: "/customers",     icon: Users,        color: c.gold     },
+    { label: "Record Expense", href: "/finance/expenses", icon: DollarSign, color: c.expenses },
+    { label: "View Reports",   href: "/finance",       icon: BarChart3,    color: c.profit   },
+    { label: "Customers",      href: "/sales/customers", icon: Users,      color: c.gold     },
     { label: "Set Target",     href: "/sales/targets", icon: Target,       color: c.gray     },
   ];
   return (
@@ -101,11 +162,11 @@ function TargetAndActions({ d, label, c }: { d: PeriodData; label: string; c: Ch
           <h2 className="text-sm font-bold text-foreground">{label} Target</h2>
           <span className="text-[11px] font-bold" style={{ color: c.income }}>{targetPct}%</span>
         </div>
-        <p className="text-[11px] text-muted mb-3">{fmtMoney(d.sales)} of {fmtMoney(d.target)}</p>
+        <p className="text-[11px] text-muted mb-3">{fmtMoney(sales)} of {target > 0 ? fmtMoney(target) : "No target set"}</p>
         <div className="h-1.5 bg-border rounded-full overflow-hidden mb-2">
           <div className="h-full rounded-full transition-all duration-700" style={{ width: `${targetPct}%`, backgroundColor: c.income }} />
         </div>
-        <p className="text-[11px] text-muted"><span className="font-semibold text-foreground">{fmtMoney(d.target - d.sales)}</span> left to target</p>
+        {target > 0 && <p className="text-[11px] text-muted"><span className="font-semibold text-foreground">{fmtMoney(Math.max(0, target - sales))}</span> left to target</p>}
       </div>
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
@@ -127,26 +188,42 @@ function TargetAndActions({ d, label, c }: { d: PeriodData; label: string; c: Ch
   );
 }
 
-function SidePanel({ lowStock }: { lowStock: { name: string; stock: number; min: number }[] }) {
+function TopProducts({ orders }: { orders: ApiOrder[] }) {
+  const map = new Map<string, { name: string; sold: number; revenue: number }>();
+  for (const o of orders) {
+    for (const item of o.items ?? []) {
+      const key = item.product_name;
+      const cur = map.get(key) ?? { name: key, sold: 0, revenue: 0 };
+      map.set(key, { name: key, sold: cur.sold + item.quantity, revenue: cur.revenue + item.line_total });
+    }
+  }
+  const top = [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 8);
+  if (!top.length) return <p className="px-4 py-6 text-[12px] text-muted text-center">No sales data yet</p>;
+  return (
+    <div className="divide-y divide-border">
+      {top.map((p, i) => (
+        <div key={i} className="px-4 py-2.5 flex items-center gap-3">
+          <span className="text-[11px] font-bold text-muted w-4 flex-shrink-0">{i + 1}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-semibold text-foreground truncate">{p.name}</p>
+            <p className="text-[10px] text-muted">{p.sold} sold</p>
+          </div>
+          <span className="text-[12px] font-bold text-foreground flex-shrink-0">{fmtMoney(p.revenue)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { name: string; stock: number; min: number }[] }) {
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground">Top Products</h2>
-          <a href="/products" className="text-[11px] font-bold text-accent hover:underline">View all</a>
+          <a href="/inventory" className="text-[11px] font-bold text-accent hover:underline">View all</a>
         </div>
-        <div className="divide-y divide-border">
-          {TOP_PRODUCTS.map((p, i) => (
-            <div key={i} className="px-4 py-2.5 flex items-center gap-3">
-              <span className="text-[11px] font-bold text-muted w-4 flex-shrink-0">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-foreground truncate">{p.name}</p>
-                <p className="text-[10px] text-muted">{p.sold} sold</p>
-              </div>
-              <span className="text-[12px] font-bold text-foreground flex-shrink-0">{fmtMoney(p.revenue)}</span>
-            </div>
-          ))}
-        </div>
+        <TopProducts orders={orders} />
       </div>
       {lowStock.length > 0 ? (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -187,24 +264,74 @@ function SidePanel({ lowStock }: { lowStock: { name: string; stock: number; min:
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
-  const [period, setPeriod] = useState<Period>("today");
-  const [inventory, setInventory] = useState<ApiProduct[]>([]);
 
-  useEffect(() => {
-    inventoryApi.listProducts(1, 200).then((r) => setInventory(r.data.items)).catch(() => {});
+  const [period, setPeriod] = useState<Period>("month");
+  const [loading, setLoading] = useState(true);
+
+  const [sales, setSales]           = useState(0);
+  const [expenses, setExpenses]     = useState(0);
+  const [profit, setProfit]         = useState(0);
+  const [cash, setCash]             = useState(0);
+  const [customers, setCustomers]   = useState(0);
+  const [target, setTarget]         = useState(0);
+  const [orders, setOrders]         = useState<ApiOrder[]>([]);
+  const [allOrders, setAllOrders]   = useState<ApiOrder[]>([]);
+  const [inventory, setInventory]   = useState<ApiProduct[]>([]);
+
+  const load = useCallback(async (p: Period) => {
+    setLoading(true);
+    const { from, to } = periodDateRange(p);
+    try {
+      const [incomeRes, cashRes, customersRes, targetsRes, ordersRes, allOrdersRes, inventoryRes] = await Promise.allSettled([
+        financeApi.incomeStatement(from, to),
+        financeApi.cashFlow(from, to),
+        salesApi.listCustomers(1, 1),
+        salesApi.listTargets(1, 100),
+        salesApi.listOrders(1, 10, "Completed"),
+        salesApi.listOrders(1, 500, "Completed"),
+        inventoryApi.listProducts(1, 200),
+      ]);
+
+      if (incomeRes.status === "fulfilled") {
+        const d = incomeRes.value.data;
+        setSales(d.total_revenue);
+        setExpenses(d.total_operating_expenses);
+        setProfit(d.net_income);
+      }
+      if (cashRes.status === "fulfilled") setCash(cashRes.value.data.ending_cash);
+      if (customersRes.status === "fulfilled") setCustomers(customersRes.value.data.total);
+      if (targetsRes.status === "fulfilled") {
+        const targets = targetsRes.value.data.items;
+        const periodLabel = [...PERIODS, ...PAST_YEARS].find((x) => x.key === p)?.label ?? "";
+        const match = targets.find((t) => t.period.toLowerCase().includes(periodLabel.toLowerCase())) ?? targets[0];
+        setTarget(match?.target_value ?? 0);
+      }
+      if (ordersRes.status === "fulfilled") setOrders(ordersRes.value.data.items);
+      if (allOrdersRes.status === "fulfilled") setAllOrders(allOrdersRes.value.data.items);
+      if (inventoryRes.status === "fulfilled") setInventory(inventoryRes.value.data.items);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const d = getPeriodData(period);
+  useEffect(() => { load(period); }, [period, load]);
+
   const label = [...PERIODS, ...PAST_YEARS].find((p) => p.key === period)!.label;
+  const chart = buildChart(allOrders, period);
+
   const lowStock = inventory
     .map((p) => ({ name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
-    .filter((i) => i.stock <= i.min).sort((a, b) => a.stock - b.stock).slice(0, 6);
+    .filter((i) => i.stock <= i.min)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, 6);
+
+  const recentOrders = orders.slice(0, 5);
 
   return (
     <div className="space-y-5">
@@ -239,7 +366,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <KpiCards d={d} label={label} c={c} />
+      {loading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-4 h-24 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <KpiCards
+          sales={sales} expenses={expenses} profit={profit} cash={cash} customers={customers}
+          salesChange={null} expChange={null} profitChange={null} customersChange={null}
+          label={label} c={c}
+        />
+      )}
 
       {lowStock.length > 0 && (
         <div className="flex items-center gap-2 px-1">
@@ -250,8 +389,13 @@ export default function DashboardPage() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <SalesChart d={d} c={c} />
-        <TargetAndActions d={d} label={label} c={c} />
+        <SalesChart
+          chart={chart}
+          title={`${label} Sales`}
+          sub="Revenue vs expenses"
+          c={c}
+        />
+        <TargetAndActions sales={sales} target={target} label={label} c={c} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -259,30 +403,36 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Recent Sales</h2>
-            <a href="/sales" className="text-[11px] font-bold text-accent hover:underline flex items-center gap-0.5">View all <ChevronRight size={11} /></a>
+            <a href="/sales/orders" className="text-[11px] font-bold text-accent hover:underline flex items-center gap-0.5">View all <ChevronRight size={11} /></a>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px]">
-              <thead><tr className="border-b border-border bg-surface/50">
-                {["Customer", "Items", "Total", "Method", "Time"].map((h, i) => (
-                  <th key={h} className={`text-[10px] font-semibold text-muted uppercase tracking-wider px-4 py-2.5 ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody className="divide-y divide-border">
-                {RECENT_SALES.map((s) => (
-                  <tr key={s.id} className="hover:bg-surface/40 transition-colors">
-                    <td className="px-4 py-3 text-sm font-semibold text-foreground">{s.customer}</td>
-                    <td className="px-4 py-3 text-right text-sm text-muted">{s.items}</td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{fmtMoney(s.total)}</td>
-                    <td className={`px-4 py-3 text-right text-[11px] font-bold capitalize ${METHOD_COLOR[s.method] ?? ""}`}>{s.method}</td>
-                    <td className="px-4 py-3 text-right text-[11px] text-muted"><span className="flex items-center gap-1 justify-end"><Clock size={10} />{s.time}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {recentOrders.length === 0 ? (
+              <p className="px-5 py-6 text-[12px] text-muted text-center">No completed orders yet</p>
+            ) : (
+              <table className="w-full min-w-[480px]">
+                <thead><tr className="border-b border-border bg-surface/50">
+                  {["Customer", "Items", "Total", "Order #", "Time"].map((h, i) => (
+                    <th key={h} className={`text-[10px] font-semibold text-muted uppercase tracking-wider px-4 py-2.5 ${i === 0 ? "text-left" : "text-right"}`}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody className="divide-y divide-border">
+                  {recentOrders.map((o) => (
+                    <tr key={o.id} className="hover:bg-surface/40 transition-colors">
+                      <td className="px-4 py-3 text-sm font-semibold text-foreground">{o.customer?.name ?? "Walk-in"}</td>
+                      <td className="px-4 py-3 text-right text-sm text-muted">{o.items?.length ?? 0}</td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{fmtMoney(o.total)}</td>
+                      <td className={`px-4 py-3 text-right text-[11px] font-bold ${METHOD_COLOR["cash"]}`}>{o.order_number}</td>
+                      <td className="px-4 py-3 text-right text-[11px] text-muted">
+                        <span className="flex items-center gap-1 justify-end"><Clock size={10} />{relativeTime(o.ordered_at ?? o.created_at)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
-        <SidePanel lowStock={lowStock} />
+        <SidePanel orders={allOrders} lowStock={lowStock} />
       </div>
     </div>
   );

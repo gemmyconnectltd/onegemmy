@@ -3,7 +3,7 @@ import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
 import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
@@ -28,8 +28,8 @@ export default function FinancePage() {
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [from, setFrom] = useState(() => toISO(new Date(new Date().getFullYear(), 0, 1)));
-  const [to, setTo] = useState(() => toISO(new Date()));
+  const [from] = useState(() => toISO(new Date(new Date().getFullYear(), 0, 1)));
+  const [to] = useState(() => toISO(new Date()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ income: 0, expenses: 0, net: 0, cash: 0 });

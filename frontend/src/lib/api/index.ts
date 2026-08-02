@@ -4,6 +4,7 @@ export {
   getStoredToken, setStoredToken,
   getStoredRefreshToken, setStoredRefreshToken,
   clearStoredTokens,
+  clearApiCache,
 } from "./client";
 
 // Shared response types

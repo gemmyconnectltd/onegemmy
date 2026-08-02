@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package, Loader2 } from "lucide-react";
 import { salesApi, inventoryApi } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";

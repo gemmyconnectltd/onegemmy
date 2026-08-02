@@ -1,6 +1,6 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from "@/components/charts/lazy";
 import { TrendingUp, ShoppingCart, Users, ArrowUpRight, Loader2, AlertCircle } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";

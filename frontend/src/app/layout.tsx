@@ -88,6 +88,15 @@ export default function RootLayout({
           {`(function(){try{if(localStorage.getItem("app_theme")==="dark")document.documentElement.classList.add("dark");}catch(e){}})();`}
         </Script>
       </head>
+      {process.env.NODE_ENV === "production" && (
+        <Script
+          id="register-sw"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); }); }`,
+          }}
+        />
+      )}
       <body className="min-h-full flex flex-col">
         <AppConfigProvider><AuthProvider>{children}</AuthProvider></AppConfigProvider>
       </body>

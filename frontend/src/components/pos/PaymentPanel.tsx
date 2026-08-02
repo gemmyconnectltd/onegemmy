@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, CreditCard, Delete, FileText, Smartphone, Wallet } from "lucide-react";
+import { AlertCircle, Banknote, CreditCard, Delete, FileText, Smartphone, Wallet } from "lucide-react";
 
 import type { PaymentMethod } from "./types";
 
@@ -26,6 +26,8 @@ interface PaymentPanelProps {
   hasCustomer: boolean;
   currencySymbol: string;
   fmt: (v: number) => string;
+  saving?: boolean;
+  saleError?: string | null;
   onPaymentChange: (m: PaymentMethod) => void;
   onCashChange: (v: string) => void;
   onCharge: () => void;
@@ -34,12 +36,14 @@ interface PaymentPanelProps {
 export function PaymentPanel({
   payment, cashGiven, subtotal, discount, tax, total, change, cashShort,
   cartCount, hasCustomer, currencySymbol, fmt,
+  saving, saleError,
   onPaymentChange, onCashChange, onCharge,
 }: PaymentPanelProps) {
   const isInvoice = payment === "invoice";
   const isCash = payment === "cash";
   const chargeDisabled =
     cartCount === 0 ||
+    saving ||
     (isCash && cashShort) ||
     (isInvoice && !hasCustomer);
 
@@ -168,12 +172,20 @@ export function PaymentPanel({
       )}
 
       {/* Charge button */}
+      {saleError && (
+        <div className="flex items-start gap-1.5 text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+          <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
+          <span>{saleError}</span>
+        </div>
+      )}
       <button
         disabled={chargeDisabled}
         onClick={onCharge}
         className="w-full py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
       >
-        {isInvoice
+        {saving
+          ? "Saving sale…"
+          : isInvoice
           ? `Issue Invoice${cartCount > 0 ? ` · ${currencySymbol} ${fmt(total)}` : ""}`
           : `Charge${cartCount > 0 ? ` ${currencySymbol} ${fmt(total)}` : ""}`}
       </button>
