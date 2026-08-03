@@ -1,82 +1,71 @@
 "use client";
-import { useAuth } from "@/lib/auth";
+
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect } from "react";
-import Link from "next/link";
-import { LayoutDashboard, Building2, Users, LogOut, Shield, BarChart3 } from "lucide-react";
+import type { ReactNode } from "react";
+import { Sidebar } from "@/components/dashboard/Sidebar";
+import { SupportFab } from "@/components/dashboard/SupportFab";
+import { Topbar } from "@/components/dashboard/Topbar";
+import { useAuth } from "@/lib/auth";
+import { pageTitleForPath } from "@/lib/pageTitles";
 
-const NAV = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/tenants", label: "Tenants", icon: Building2 },
-];
+const COLLAPSED_KEY = "sidebar_collapsed";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, isLoading, isSuperAdmin } = useAuth();
+export default function AdminLayout({ children }: { children: ReactNode }) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  });
+  const [isMobile, setIsMobile] = useState(false);
+  const { user, isLoading, isSuperAdmin } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isLoading && (!user || !isSuperAdmin())) {
-      router.replace("/login");
-    }
-  }, [user, isLoading, isSuperAdmin, router]);
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
-  if (isLoading || !user) return null;
+  useEffect(() => {
+    document.title = pageTitleForPath(pathname);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isLoading && (!user || !isSuperAdmin())) router.replace("/login");
+  }, [isLoading, user, isSuperAdmin, router]);
+
+  if (isLoading || !user) return (
+    <div className="min-h-screen bg-surface flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  const sidebarW = sidebarCollapsed ? 64 : 200;
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f] text-white overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 flex-shrink-0 flex flex-col border-r border-white/10 bg-[#0d0d14]">
-        <div className="px-5 py-5 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center">
-              <Shield size={14} className="text-white" />
-            </div>
-            <div>
-              <p className="text-[13px] font-bold text-white">OneGemmy</p>
-              <p className="text-[10px] text-white/40 font-medium">Super Admin</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
-                  active ? "bg-violet-600/20 text-violet-300" : "text-white/50 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Icon size={15} />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="px-3 py-4 border-t border-white/10">
-          <div className="px-3 py-2 mb-2">
-            <p className="text-[12px] font-semibold text-white truncate">{user.name}</p>
-            <p className="text-[11px] text-white/40 truncate">{user.email}</p>
-          </div>
-          <button
-            onClick={() => { logout(); router.push("/login"); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            <LogOut size={14} /> Sign out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          {children}
-        </div>
-      </main>
+    <div className="min-h-screen bg-surface" suppressHydrationWarning>
+      <Sidebar
+        expanded={false}
+        onExpandChange={() => {}}
+        layout="vertical"
+        onLayoutChange={() => {}}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        variant="admin"
+      />
+      <div
+        className="flex flex-col min-h-screen transition-all duration-200"
+        style={{
+          marginLeft: isMobile ? 0 : sidebarW,
+          paddingBottom: isMobile ? 64 : 0,
+        }}
+      >
+        <Topbar variant="admin" onToggleSidebar={() => {}} sidebarExpanded={false} />
+        <main className="flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
+      </div>
+      <SupportFab />
     </div>
   );
 }

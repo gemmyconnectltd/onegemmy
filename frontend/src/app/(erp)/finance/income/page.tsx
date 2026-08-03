@@ -2,12 +2,13 @@
 
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   TrendingUp, Plus, AlertCircle, Loader2, CheckCircle2,
   Clock, Ban, ArrowUpRight, RefreshCw,
 } from "lucide-react";
-import { financeApi, type FinanceTransaction } from "@/lib/api/finance";
+import { useAccounts, useTransactions, useCreateTransaction, usePostTransaction, useVoidTransaction, useBackfillSales } from "@/lib/api/hooks";
+import type { FinanceTransaction } from "@/lib/api/finance";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
@@ -32,15 +33,11 @@ export default function IncomePage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [txns, setTxns] = useState<FinanceTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState({
     description: "",
     amount: "",
@@ -48,28 +45,26 @@ export default function IncomePage() {
     type: "manual",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.listTransactions("sale");
-      // also fetch manual income entries
-      const manualRes = await financeApi.listTransactions("manual");
-      const all = [...res.data.items, ...manualRes.data.items].sort(
-        (a, b) => new Date(b.transaction_date ?? 0).getTime() - new Date(a.transaction_date ?? 0).getTime()
-      );
-      setTxns(all);
-    } catch {
-      setError("Could not load income transactions.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const saleQ = useTransactions("sale");
+  const manualQ = useTransactions("manual");
+  const accounts = useAccounts();
+  const loading = saleQ.isLoading || manualQ.isLoading;
+  const txns = [...(saleQ.data?.items ?? []), ...(manualQ.data?.items ?? [])].sort(
+    (a, b) => new Date(b.transaction_date ?? 0).getTime() - new Date(a.transaction_date ?? 0).getTime()
+  );
+  const error = saleQ.isError || manualQ.isError ? "Could not load income transactions." : actionError;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createTx = useCreateTransaction();
+  const postTx = usePostTransaction();
+  const voidTx = useVoidTransaction();
+  const backfill = useBackfillSales();
+  const saving = createTx.isPending;
+  const syncing = backfill.isPending;
+
+  const load = () => {
+    saleQ.refetch();
+    manualQ.refetch();
+  };
 
   const displayed = statusFilter === "All" ? txns : txns.filter((t) => t.status === statusFilter);
 
@@ -84,57 +79,44 @@ export default function IncomePage() {
     { label: "All Entries",     value: String(txns.length), sub: "sale + manual",            color: FIN,       Icon: ArrowUpRight },
   ];
 
-  const handleSync = async () => {
-    setSyncing(true);
+  const handleSync = () => {
     setSyncMsg(null);
-    try {
-      const res = await financeApi.backfillSales();
-      const created = res.data.created;
-      setSyncMsg(created > 0 ? `Synced ${created} order${created !== 1 ? "s" : ""} from sales.` : "Already up to date — no new orders to sync.");
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Sync failed.");
-    } finally {
-      setSyncing(false);
-    }
+    backfill.mutate(undefined, {
+      onSuccess: (res) => {
+        const created = res.data.created;
+        setSyncMsg(created > 0 ? `Synced ${created} order${created !== 1 ? "s" : ""} from sales.` : "Already up to date — no new orders to sync.");
+      },
+      onError: (e) => setActionError((e as { detail?: string })?.detail ?? "Sync failed."),
+    });
   };
 
-  const handlePost = async (id: string) => {
-    try {
-      await financeApi.postTransaction(id);
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to post transaction");
-    }
+  const handlePost = (id: string) => {
+    postTx.mutate(id, {
+      onError: (e) => setActionError((e as { detail?: string })?.detail ?? "Failed to post transaction"),
+    });
   };
 
-  const handleVoid = async (id: string) => {
+  const handleVoid = (id: string) => {
     if (!confirm("Void this transaction? This cannot be undone.")) return;
-    try {
-      await financeApi.voidTransaction(id);
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to void transaction");
-    }
+    voidTx.mutate(id, {
+      onError: (e) => setActionError((e as { detail?: string })?.detail ?? "Failed to void transaction"),
+    });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     const amount = Number(form.amount);
     if (!form.description || !amount) return;
-    setSaving(true);
-    try {
-      const accounts = await financeApi.listAccounts();
-      const items = accounts.data.items;
-      const cash = items.find((a) => a.type === "Assets" && /cash|bank/i.test(a.name)) ?? items.find((a) => a.type === "Assets");
-      const revenue = items.find((a) => a.type === "Revenue" && /sales/i.test(a.name)) ?? items.find((a) => a.type === "Revenue");
-      if (!cash || !revenue) {
-        setFormError("No Asset or Revenue accounts found. Go to Finance → Accounts and seed defaults first.");
-        setSaving(false);
-        return;
-      }
-      await financeApi.createTransaction({
+    const items = accounts.data?.items ?? [];
+    const cash = items.find((a) => a.type === "Assets" && /cash|bank/i.test(a.name)) ?? items.find((a) => a.type === "Assets");
+    const revenue = items.find((a) => a.type === "Revenue" && /sales/i.test(a.name)) ?? items.find((a) => a.type === "Revenue");
+    if (!cash || !revenue) {
+      setFormError("No Asset or Revenue accounts found. Go to Finance → Accounts and seed defaults first.");
+      return;
+    }
+    createTx.mutate(
+      {
         type: "manual",
         transaction_date: form.transaction_date,
         description: form.description,
@@ -142,15 +124,15 @@ export default function IncomePage() {
           { account_id: cash.id,    type: "debit",  amount },
           { account_id: revenue.id, type: "credit", amount },
         ],
-      });
-      setShowAdd(false);
-      setForm({ description: "", amount: "", transaction_date: new Date().toISOString().slice(0, 10), type: "manual" });
-      await load();
-    } catch (e: unknown) {
-      setFormError((e as { detail?: string })?.detail ?? "Could not save income entry.");
-    } finally {
-      setSaving(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          setShowAdd(false);
+          setForm({ description: "", amount: "", transaction_date: new Date().toISOString().slice(0, 10), type: "manual" });
+        },
+        onError: (e) => setFormError((e as { detail?: string })?.detail ?? "Could not save income entry."),
+      },
+    );
   };
 
   return (
@@ -184,7 +166,7 @@ export default function IncomePage() {
       {error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
           <AlertCircle size={15} /> {error}
-          <button className="ml-auto text-xs underline" onClick={() => setError(null)}>Dismiss</button>
+          <button className="ml-auto text-xs underline" onClick={() => setActionError(null)}>Dismiss</button>
         </div>
       )}
 

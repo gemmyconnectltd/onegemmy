@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, Package, BarChart3, Target, Zap, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, Activity, AlertTriangle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
-import { inventoryApi, salesApi, financeApi, type ApiProduct, type ApiOrder } from "@/lib/api";
+import { useProducts, useCustomers, useOrders, useTargets, useIncomeStatement, useCashFlow, type ApiProduct, type ApiOrder } from "@/lib/api/hooks";
 import { PERIODS, PAST_YEARS, periodDateRange, METHOD_COLOR, type Period } from "./data";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -272,58 +272,32 @@ export default function DashboardPage() {
   const c = chartPalette(theme === "dark");
 
   const [period, setPeriod] = useState<Period>("month");
-  const [loading, setLoading] = useState(true);
 
-  const [sales, setSales]           = useState(0);
-  const [expenses, setExpenses]     = useState(0);
-  const [profit, setProfit]         = useState(0);
-  const [cash, setCash]             = useState(0);
-  const [customers, setCustomers]   = useState(0);
-  const [target, setTarget]         = useState(0);
-  const [orders, setOrders]         = useState<ApiOrder[]>([]);
-  const [allOrders, setAllOrders]   = useState<ApiOrder[]>([]);
-  const [inventory, setInventory]   = useState<ApiProduct[]>([]);
+  const { from, to } = periodDateRange(period);
+  const income = useIncomeStatement(from, to);
+  const cash = useCashFlow(from, to);
+  const customers = useCustomers(1, 1);
+  const targets = useTargets(1, 100);
+  const orders = useOrders(1, 10, "Completed");
+  const allOrders = useOrders(1, 500, "Completed");
+  const products = useProducts(1, 200);
 
-  const load = useCallback(async (p: Period) => {
-    setLoading(true);
-    const { from, to } = periodDateRange(p);
-    try {
-      const [incomeRes, cashRes, customersRes, targetsRes, ordersRes, allOrdersRes, inventoryRes] = await Promise.allSettled([
-        financeApi.incomeStatement(from, to),
-        financeApi.cashFlow(from, to),
-        salesApi.listCustomers(1, 1),
-        salesApi.listTargets(1, 100),
-        salesApi.listOrders(1, 10, "Completed"),
-        salesApi.listOrders(1, 500, "Completed"),
-        inventoryApi.listProducts(1, 200),
-      ]);
+  const loading = [income, cash, customers, targets, orders, allOrders, products].some((q) => q.isLoading);
 
-      if (incomeRes.status === "fulfilled") {
-        const d = incomeRes.value.data;
-        setSales(d.total_revenue);
-        setExpenses(d.total_operating_expenses);
-        setProfit(d.net_income);
-      }
-      if (cashRes.status === "fulfilled") setCash(cashRes.value.data.ending_cash);
-      if (customersRes.status === "fulfilled") setCustomers(customersRes.value.data.total);
-      if (targetsRes.status === "fulfilled") {
-        const targets = targetsRes.value.data.items;
-        const periodLabel = [...PERIODS, ...PAST_YEARS].find((x) => x.key === p)?.label ?? "";
-        const match = targets.find((t) => t.period.toLowerCase().includes(periodLabel.toLowerCase())) ?? targets[0];
-        setTarget(match?.target_value ?? 0);
-      }
-      if (ordersRes.status === "fulfilled") setOrders(ordersRes.value.data.items);
-      if (allOrdersRes.status === "fulfilled") setAllOrders(allOrdersRes.value.data.items);
-      if (inventoryRes.status === "fulfilled") setInventory(inventoryRes.value.data.items);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(period); }, [period, load]);
+  const sales = income.data?.total_revenue ?? 0;
+  const expenses = income.data?.total_operating_expenses ?? 0;
+  const profit = income.data?.net_income ?? 0;
+  const cashAmt = cash.data?.ending_cash ?? 0;
+  const customersCount = customers.data?.total ?? 0;
+  const periodLabel = [...PERIODS, ...PAST_YEARS].find((x) => x.key === period)?.label ?? "";
+  const targetMatch = (targets.data?.items ?? []).find((t) => t.period.toLowerCase().includes(periodLabel.toLowerCase()));
+  const target = targetMatch?.target_value ?? 0;
+  const orderItems = orders.data?.items ?? [];
+  const allOrderItems = allOrders.data?.items ?? [];
+  const inventory = products.data?.items ?? [];
 
   const label = [...PERIODS, ...PAST_YEARS].find((p) => p.key === period)!.label;
-  const chart = buildChart(allOrders, period);
+  const chart = buildChart(allOrderItems, period);
 
   const lowStock = inventory
     .map((p) => ({ name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
@@ -331,7 +305,7 @@ export default function DashboardPage() {
     .sort((a, b) => a.stock - b.stock)
     .slice(0, 6);
 
-  const recentOrders = orders.slice(0, 5);
+  const recentOrders = orderItems.slice(0, 5);
 
   return (
     <div className="space-y-5">
@@ -374,7 +348,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <KpiCards
-          sales={sales} expenses={expenses} profit={profit} cash={cash} customers={customers}
+          sales={sales} expenses={expenses} profit={profit} cash={cashAmt} customers={customersCount}
           salesChange={null} expChange={null} profitChange={null} customersChange={null}
           label={label} c={c}
         />
@@ -432,7 +406,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-        <SidePanel orders={allOrders} lowStock={lowStock} />
+        <SidePanel orders={allOrderItems} lowStock={lowStock} />
       </div>
     </div>
   );

@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { Users, UserCheck, ShoppingCart, TrendingUp, Loader2 } from "lucide-react";
-import { salesApi } from "@/lib/api";
+import { useCustomers, useOrders } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import type { ApiCustomer, ApiOrder } from "@/lib/api";
 
 const ACCENT = "#0f766e";
 const ACCENT_DARK = "#2dd4bf";
@@ -14,23 +12,11 @@ const ACCENT_DARK = "#2dd4bf";
 export default function CustomersReportPage() {
   const { theme } = useAppConfig();
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      const [c, o] = await Promise.all([
-        salesApi.listCustomers(1, 500),
-        salesApi.listOrders(1, 500),
-      ]);
-      setCustomers(c.data.items);
-      setOrders(o.data.items);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const customersQ = useCustomers(1, 500);
+  const ordersQ = useOrders(1, 500);
+  const loading = customersQ.isLoading || ordersQ.isLoading;
+  const customers = customersQ.data?.items ?? [];
+  const orders = ordersQ.data?.items ?? [];
 
   const completed = orders.filter((o) => o.status === "Completed");
 

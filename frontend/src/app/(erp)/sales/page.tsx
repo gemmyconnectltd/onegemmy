@@ -1,12 +1,13 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import { Plus, Search, TrendingUp, ShoppingCart, Target, ArrowUpRight, Users, Edit2, Trash2, Loader2, AlertCircle } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { salesApi, type ApiDeal } from "@/lib/api";
+import { useDeals, useCreateDeal, useUpdateDeal, useDeleteDeal } from "@/lib/api/hooks";
+import type { ApiDeal } from "@/lib/api";
 
 const SAL = "#0284c7";
 const STAGES = ["Leads", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
@@ -31,27 +32,27 @@ export default function SalesPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [deals, setDeals] = useState<ApiDeal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ApiDeal | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true); setError(null);
-      const res = await salesApi.listDeals(1, 200);
-      setDeals(res.data.items);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to load deals");
-    } finally { setLoading(false); }
-  }, []);
+  const { data, isLoading, error: loadError } = useDeals(1, 200);
+  const deals = data?.items ?? [];
 
-  useEffect(() => { load(); }, [load]);
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load deals" : null;
+  if (loadErrorMessage !== shownLoadError) {
+    setShownLoadError(loadErrorMessage);
+    if (loadErrorMessage !== null) setError(loadErrorMessage);
+  }
+
+  const createDeal = useCreateDeal();
+  const updateDeal = useUpdateDeal();
+  const deleteDeal = useDeleteDeal();
+  const saving = createDeal.isPending || updateDeal.isPending;
 
   const revenue = deals.reduce((s, d) => s + (d.stage === "Closed Won" ? d.value : 0), 0);
   const closedWon = deals.filter((d) => d.stage === "Closed Won").length;
@@ -84,32 +85,22 @@ export default function SalesPage() {
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.value) return;
-    setSaving(true);
-    try {
-      const payload = { name: form.name, value: Number(form.value), stage: form.stage, probability: Number(form.probability), expected_close_date: form.expected_close_date || null, notes: form.notes || null };
-      if (editing) {
-        await salesApi.updateDeal(editing.id, payload);
-      } else {
-        await salesApi.createDeal(payload);
-      }
-      closeDrawer();
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to save deal");
-    } finally { setSaving(false); }
+    const payload = { name: form.name, value: Number(form.value), stage: form.stage, probability: Number(form.probability), expected_close_date: form.expected_close_date || null, notes: form.notes || null };
+    const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save deal");
+    const onSuccess = () => { setError(null); closeDrawer(); };
+    if (editing) {
+      updateDeal.mutate({ id: editing.id, data: payload }, { onSuccess, onError });
+    } else {
+      createDeal.mutate(payload, { onSuccess, onError });
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Delete this deal?")) return;
-    try {
-      await salesApi.deleteDeal(id);
-      setDeals((prev) => prev.filter((d) => d.id !== id));
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to delete deal");
-    }
+    deleteDeal.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete deal") });
   };
 
   return (
@@ -138,7 +129,7 @@ export default function SalesPage() {
               </div>
               {s.change && <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600"><ArrowUpRight size={11} />live</span>}
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{loading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{isLoading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -173,7 +164,7 @@ export default function SalesPage() {
           </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="py-20 flex items-center justify-center gap-2 text-muted">
             <Loader2 size={18} className="animate-spin" /> Loading deals...
           </div>
@@ -219,7 +210,7 @@ export default function SalesPage() {
             </tbody>
           </table>
         )}
-        {!loading && filtered.length === 0 && (
+        {!isLoading && filtered.length === 0 && (
           <div className="py-16 text-center">
             <Users size={32} className="text-border mx-auto mb-3" />
             <p className="text-sm font-semibold text-muted">No deals found</p>

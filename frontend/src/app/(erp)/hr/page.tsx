@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Users, UserCheck, Clock, Loader2, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
-import { hrApi, departmentsApi } from "@/lib/api/hr";
-import type { ApiEmployee, ApiDepartment } from "@/lib/api/hr";
+import type { ApiEmployee } from "@/lib/api/hr";
+import { useEmployees, useDepartments, useCreateEmployee, useDeleteEmployee } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -48,13 +48,8 @@ export default function EmployeesPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [employees, setEmployees] = useState<ApiEmployee[]>([]);
-  const [departments, setDepartments] = useState<ApiDepartment[]>([]);
   const [status, setStatus] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     first_name: "",
@@ -68,62 +63,40 @@ export default function EmployeesPage() {
     salary: "",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [empRes, deptRes] = await Promise.all([
-        hrApi.listEmployees(status === "All" ? undefined : status),
-        departmentsApi.list(),
-      ]);
-      setEmployees(empRes.data.items);
-      setDepartments(deptRes.data.items);
-    } catch {
-      setError("Could not load employees.");
-    } finally {
-      setLoading(false);
-    }
-  }, [status]);
+  const { data: empData, isLoading: empLoading, isError, refetch } = useEmployees(status === "All" ? undefined : status);
+  const { data: deptData, isLoading: deptLoading } = useDepartments();
+  const employees = empData?.items ?? [];
+  const departments = deptData?.items ?? [];
+  const loading = empLoading || deptLoading;
+  const error = isError ? "Could not load employees." : null;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createEmployee = useCreateEmployee();
+  const deleteEmployee = useDeleteEmployee();
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
-    setNotice(null);
-    try {
-      await hrApi.createEmployee({
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email || null,
-        phone: form.phone || null,
-        department_id: form.department_id || null,
-        job_title: form.job_title || null,
-        employment_status: form.employment_status,
-        hire_date: form.hire_date || null,
-        salary: Number(form.salary) || 0,
-      });
-      setShowForm(false);
-      setForm({ first_name: "", last_name: "", email: "", phone: "", department_id: "", job_title: "", employment_status: "Active", hire_date: new Date().toISOString().slice(0, 10), salary: "" });
-      await load();
-    } catch {
-      setNotice("Could not add employee.");
-    } finally {
-      setSaving(false);
-    }
+    createEmployee.mutate({
+      first_name: form.first_name,
+      last_name: form.last_name,
+      email: form.email || null,
+      phone: form.phone || null,
+      department_id: form.department_id || null,
+      job_title: form.job_title || null,
+      employment_status: form.employment_status,
+      hire_date: form.hire_date || null,
+      salary: Number(form.salary) || 0,
+    }, {
+      onSuccess: () => {
+        setShowForm(false);
+        setForm({ first_name: "", last_name: "", email: "", phone: "", department_id: "", job_title: "", employment_status: "Active", hire_date: new Date().toISOString().slice(0, 10), salary: "" });
+      },
+      onError: () => setNotice("Could not add employee."),
+    });
   };
 
-  const remove = async (emp: ApiEmployee) => {
+  const remove = (emp: ApiEmployee) => {
     if (!window.confirm(`Delete ${emp.full_name}?`)) return;
-    try {
-      await hrApi.deleteEmployee(emp.id);
-      await load();
-    } catch {
-      setNotice("Could not delete employee.");
-    }
+    deleteEmployee.mutate(emp.id, { onError: () => setNotice("Could not delete employee.") });
   };
 
   const active = employees.filter((e) => e.employment_status === "Active").length;
@@ -180,7 +153,7 @@ export default function EmployeesPage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={refetch} />
       ) : employees.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message={status === "All" ? "No employees yet — add your first team member." : `No employees with status "${status}".`} />
@@ -281,7 +254,7 @@ export default function EmployeesPage() {
           <Field label="Hire date">
             <Input type="date" value={form.hire_date} onChange={(e) => setForm({ ...form, hire_date: e.target.value })} />
           </Field>
-          <FormFooter submitLabel={saving ? "Saving…" : "Add Employee"} onCancel={() => setShowForm(false)} disabled={saving} />
+          <FormFooter submitLabel={createEmployee.isPending ? "Saving…" : "Add Employee"} onCancel={() => setShowForm(false)} disabled={createEmployee.isPending} />
         </form>
       </Drawer>
     </div>

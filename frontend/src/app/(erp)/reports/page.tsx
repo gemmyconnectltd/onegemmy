@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package, Loader2 } from "lucide-react";
-import { salesApi, inventoryApi } from "@/lib/api";
+import { useOrders, useReturns, useCustomers, useProducts } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
-import type { ApiOrder, ApiReturn, ApiCustomer, ApiProduct } from "@/lib/api";
 
 function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: React.ElementType; color: string }) {
   return (
@@ -25,29 +23,15 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
 export default function ReportsPage() {
   const { theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [returns, setReturns] = useState<ApiReturn[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      const [o, r, c, p] = await Promise.all([
-        salesApi.listOrders(1, 500),
-        salesApi.listReturns(1, 500),
-        salesApi.listCustomers(1, 500),
-        inventoryApi.listProducts(1, 500),
-      ]);
-      setOrders(o.data.items);
-      setReturns(r.data.items);
-      setCustomers(c.data.items);
-      setProducts(p.data.items);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const ordersQ = useOrders(1, 500);
+  const returnsQ = useReturns(1, 500);
+  const customersQ = useCustomers(1, 500);
+  const productsQ = useProducts(1, 500);
+  const loading = ordersQ.isLoading || returnsQ.isLoading || customersQ.isLoading || productsQ.isLoading;
+  const orders = ordersQ.data?.items ?? [];
+  const returns = returnsQ.data?.items ?? [];
+  const customers = customersQ.data?.items ?? [];
+  const products = productsQ.data?.items ?? [];
 
   const completed = orders.filter((o) => o.status === "Completed");
   const totalRevenue = completed.reduce((s, o) => s + o.total, 0);

@@ -1,7 +1,7 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
-import { useCallback, useEffect, useSyncExternalStore, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAppConfig } from "@/lib/appConfig";
@@ -10,7 +10,8 @@ import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
 import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { financeApi } from "@/lib/api/finance";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
 import type { FinanceTransaction } from "@/lib/api/finance";
 
 const EMPTY_SALES: SaleResult[] = [];
@@ -19,6 +20,30 @@ const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 type Tx = { id: string; desc: string; type: "income" | "expense"; amount: number; category: string; date: string };
+
+const MONTH_RANGES = Array.from({ length: 6 }, (_, i) => {
+  const now = new Date();
+  const m = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+  return {
+    label: m.toLocaleString("en", { month: "short" }),
+    from: toISO(m),
+    to: toISO(new Date(now.getFullYear(), now.getMonth() - (5 - i) + 1, 0)),
+  };
+});
+
+function mapTxn(t: FinanceTransaction): Tx {
+  const debits = t.lines.filter((l) => l.type === "debit").reduce((s, l) => s + l.amount, 0);
+  const credits = t.lines.filter((l) => l.type === "credit").reduce((s, l) => s + l.amount, 0);
+  const isIncome = t.type === "sale" || (credits > debits && !/expense|return/i.test(t.type));
+  return {
+    id: t.id,
+    desc: t.description ?? t.reference,
+    type: isIncome ? "income" : "expense",
+    amount: isIncome ? credits : debits,
+    category: t.type,
+    date: t.transaction_date ?? "",
+  };
+}
 
 export default function FinancePage() {
   const { currencySymbol, theme } = useAppConfig();
@@ -30,124 +55,103 @@ export default function FinancePage() {
 
   const [from] = useState(() => toISO(new Date(new Date().getFullYear(), 0, 1)));
   const [to] = useState(() => toISO(new Date()));
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({ income: 0, expenses: 0, net: 0, cash: 0 });
-  const [monthly, setMonthly] = useState<{ month: string; income: number; expenses: number }[]>([]);
-  const [transactions, setTransactions] = useState<Tx[]>([]);
 
-  const ensureReady = useCallback(async () => {
-    const res = await financeApi.listAccounts();
-    if (res.data.items.length === 0) {
-      await financeApi.seedAccounts();
-      await financeApi.backfillSales();
-    }
-  }, []);
+  const qc = useQueryClient();
+  const accounts = useAccounts();
+  const income = useIncomeStatement(from, to);
+  const cash = useCashFlow(from, to);
+  const tx = useTransactions();
+  const monthQueries = [
+    useIncomeStatement(MONTH_RANGES[0].from, MONTH_RANGES[0].to),
+    useIncomeStatement(MONTH_RANGES[1].from, MONTH_RANGES[1].to),
+    useIncomeStatement(MONTH_RANGES[2].from, MONTH_RANGES[2].to),
+    useIncomeStatement(MONTH_RANGES[3].from, MONTH_RANGES[3].to),
+    useIncomeStatement(MONTH_RANGES[4].from, MONTH_RANGES[4].to),
+    useIncomeStatement(MONTH_RANGES[5].from, MONTH_RANGES[5].to),
+  ];
+  const seedAccounts = useSeedAccounts();
+  const backfillSales = useBackfillSales();
+  const createExpense = useCreateExpense();
+  const createTransaction = useCreateTransaction();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await ensureReady();
-      const now = new Date();
-      const monthRanges = Array.from({ length: 6 }, (_, i) => {
-        const m = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-        return {
-          label: m.toLocaleString("en", { month: "short" }),
-          from: toISO(m),
-          to: toISO(new Date(now.getFullYear(), now.getMonth() - (5 - i) + 1, 0)),
-        };
-      });
+  const loading = [accounts, income, cash, tx, ...monthQueries].some((q) => q.isLoading);
+  const error = [accounts, income, cash, tx, ...monthQueries].some((q) => q.isError)
+    ? "Could not load the finance overview."
+    : null;
 
-      const [is, cf, tx, ...monthlyResults] = await Promise.all([
-        financeApi.incomeStatement(from, to),
-        financeApi.cashFlow(from, to),
-        financeApi.listTransactions(),
-        ...monthRanges.map((r) => financeApi.incomeStatement(r.from, r.to)),
-      ]);
+  const stats = {
+    income: income.data?.total_revenue ?? 0,
+    expenses: income.data?.total_operating_expenses ?? 0,
+    net: income.data?.net_income ?? 0,
+    cash: cash.data?.ending_cash ?? 0,
+  };
+  const transactions = (tx.data?.items ?? []).slice(0, 8).map(mapTxn);
+  const monthly = MONTH_RANGES.map((r, i) => ({
+    month: r.label,
+    income: monthQueries[i].data?.total_revenue ?? 0,
+    expenses: monthQueries[i].data?.total_operating_expenses ?? 0,
+  }));
 
-      setStats({
-        income: is.data.total_revenue,
-        expenses: is.data.total_operating_expenses,
-        net: is.data.net_income,
-        cash: cf.data.ending_cash,
-      });
-      setTransactions(
-        tx.data.items.slice(0, 8).map((t: FinanceTransaction) => {
-          const debits = t.lines.filter((l) => l.type === "debit").reduce((s, l) => s + l.amount, 0);
-          const credits = t.lines.filter((l) => l.type === "credit").reduce((s, l) => s + l.amount, 0);
-          const isIncome = t.type === "sale" || (credits > debits && !/expense|return/i.test(t.type));
-          return {
-            id: t.id,
-            desc: t.description ?? t.reference,
-            type: isIncome ? "income" : "expense",
-            amount: isIncome ? credits : debits,
-            category: t.type,
-            date: t.transaction_date ?? "",
-          };
-        }),
-      );
-      setMonthly(
-        monthRanges.map((r, i) => ({
-          month: r.label,
-          income: monthlyResults[i].data.total_revenue,
-          expenses: monthlyResults[i].data.total_operating_expenses,
-        }))
-      );
-    } catch {
-      setError("Could not load the finance overview.");
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to, ensureReady]);
+  const retry = () => { qc.invalidateQueries({ queryKey: ["finance"] }); };
 
+  const seededRef = useRef(false);
   useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+    if (seededRef.current || accounts.isLoading || accounts.isError) return;
+    if ((accounts.data?.items.length ?? 0) === 0) {
+      seededRef.current = true;
+      seedAccounts.mutate(undefined, { onSuccess: () => { backfillSales.mutate(undefined); } });
+    }
+  }, [accounts.isLoading, accounts.isError, accounts.data?.items.length, seedAccounts, backfillSales]);
 
   const [showIncome, setShowIncome] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({ desc: "", amount: "", category: "Sales", date: "" });
 
-  const submit = (type: "income" | "expense") => async (e: React.FormEvent<HTMLFormElement>) => {
+  const saving = createExpense.isPending || createTransaction.isPending;
+
+  const submit = (type: "income" | "expense") => (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.desc || !form.amount) return;
-    setSaving(true);
     setNotice(null);
     const date = form.date || toISO(new Date());
-    try {
-      if (type === "expense") {
-        await financeApi.createExpense({ title: form.desc, amount: Number(form.amount), expense_date: date, category: form.category });
-      } else {
-        const [accRes] = await Promise.all([financeApi.listAccounts()]);
-        const cash = accRes.data.items.find((a) => a.type === "Assets" && /cash|bank/i.test(a.name)) ?? accRes.data.items.find((a) => a.type === "Assets");
-        const revenue = accRes.data.items.find((a) => a.type === "Revenue" && /sales/i.test(a.name)) ?? accRes.data.items.find((a) => a.type === "Revenue");
-        if (!cash || !revenue) {
-          setNotice("Create Asset and Revenue accounts first (Accounts → Seed Defaults).");
-          setSaving(false);
-          return;
-        }
-        await financeApi.createTransaction({
+    if (type === "expense") {
+      createExpense.mutate(
+        { title: form.desc, amount: Number(form.amount), expense_date: date, category: form.category },
+        {
+          onSuccess: () => {
+            setForm({ desc: "", amount: "", category: "Sales", date: "" });
+            setShowExpense(false);
+          },
+          onError: () => setNotice("Could not add expense."),
+        },
+      );
+    } else {
+      const items = accounts.data?.items ?? [];
+      const cashAcc = items.find((a) => a.type === "Assets" && /cash|bank/i.test(a.name)) ?? items.find((a) => a.type === "Assets");
+      const revenue = items.find((a) => a.type === "Revenue" && /sales/i.test(a.name)) ?? items.find((a) => a.type === "Revenue");
+      if (!cashAcc || !revenue) {
+        setNotice("Create Asset and Revenue accounts first (Accounts → Seed Defaults).");
+        return;
+      }
+      createTransaction.mutate(
+        {
           type: "manual",
           transaction_date: date,
           description: form.desc,
           lines: [
-            { account_id: cash.id, type: "debit", amount: Number(form.amount) },
+            { account_id: cashAcc.id, type: "debit", amount: Number(form.amount) },
             { account_id: revenue.id, type: "credit", amount: Number(form.amount) },
           ],
-        });
-      }
-      setForm({ desc: "", amount: "", category: "Sales", date: "" });
-      if (type === "income") setShowIncome(false);
-      else setShowExpense(false);
-      await load();
-    } catch {
-      setNotice(`Could not add ${type}.`);
-    } finally {
-      setSaving(false);
+        },
+        {
+          onSuccess: () => {
+            setForm({ desc: "", amount: "", category: "Sales", date: "" });
+            setShowIncome(false);
+          },
+          onError: () => setNotice("Could not add income."),
+        },
+      );
     }
   };
 
@@ -208,7 +212,7 @@ export default function FinancePage() {
         <div className="bg-card border border-border rounded-xl py-12 px-6 text-center space-y-3">
           <AlertTriangle size={22} className="mx-auto text-red-500" />
           <p className="text-sm font-semibold text-foreground">{error}</p>
-          <button type="button" onClick={load} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70">
+          <button type="button" onClick={retry} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70">
             <RefreshCw size={14} /> Retry
           </button>
         </div>

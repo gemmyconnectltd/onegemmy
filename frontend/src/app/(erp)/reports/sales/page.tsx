@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
 import { ShoppingCart, TrendingUp, RotateCcw, Target, Loader2 } from "lucide-react";
-import { salesApi } from "@/lib/api";
+import { useOrders, useReturns, useTargets } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import type { ApiOrder, ApiReturn, ApiTarget } from "@/lib/api";
 
 const ACCENT = "#0284c7";
 const ACCENT_DARK = "#38bdf8";
@@ -14,26 +12,13 @@ const ACCENT_DARK = "#38bdf8";
 export default function SalesReportPage() {
   const { theme } = useAppConfig();
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [returns, setReturns] = useState<ApiReturn[]>([]);
-  const [targets, setTargets] = useState<ApiTarget[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
-      const [o, r, t] = await Promise.all([
-        salesApi.listOrders(1, 500),
-        salesApi.listReturns(1, 500),
-        salesApi.listTargets(1, 100),
-      ]);
-      setOrders(o.data.items);
-      setReturns(r.data.items);
-      setTargets(t.data.items);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const ordersQ = useOrders(1, 500);
+  const returnsQ = useReturns(1, 500);
+  const targetsQ = useTargets(1, 100);
+  const loading = ordersQ.isLoading || returnsQ.isLoading || targetsQ.isLoading;
+  const orders = ordersQ.data?.items ?? [];
+  const returns = returnsQ.data?.items ?? [];
+  const targets = targetsQ.data?.items ?? [];
 
   const completed = orders.filter((o) => o.status === "Completed");
   const cancelled = orders.filter((o) => o.status === "Cancelled");

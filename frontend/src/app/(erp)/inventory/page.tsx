@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   Package, AlertTriangle, XCircle, Layers,
   Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Loader2, Upload,
 } from "lucide-react";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
-import { inventoryApi, type ApiProduct } from "@/lib/api";
+import { type ApiProduct } from "@/lib/api";
+import { useProducts, useCreateProduct, useBulkCreateProducts, useRestockProduct, useUploadProductImage } from "@/lib/api/hooks";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
@@ -60,8 +61,6 @@ function toRow(p: ApiProduct) {
 }
 
 export default function InventoryOverviewPage() {
-  const [inventory, setInventory] = useState<ReturnType<typeof toRow>[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);
@@ -69,35 +68,28 @@ export default function InventoryOverviewPage() {
   const [formKey, setFormKey] = useState(0);
   const [restockTarget, setRestockTarget] = useState<ReturnType<typeof toRow> | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listProducts(1, 200);
-      setInventory(res.data.items.map(toRow));
-    } catch {
-      // keep existing data on error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, isLoading } = useProducts(1, 200);
+  const createProduct = useCreateProduct();
+  const uploadProductImage = useUploadProductImage();
+  const bulkCreateProducts = useBulkCreateProducts();
+  const restockProduct = useRestockProduct();
+  const inventory = (data?.items ?? []).map(toRow);
 
   const handleCreate = async (v: ProductFormValues, imageFile?: File) => {
-    const res = await inventoryApi.createProduct({
+    const payload = {
       name: v.name, sku: v.sku,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
       price: v.price, cost: v.cost,
       stock: v.stock, min_stock: v.minStock,
-    });
-    let created = res.data;
-    if (imageFile) created = (await inventoryApi.uploadProductImage(created.id, imageFile)).data;
-    setInventory((prev) => [toRow(created), ...prev]);
+    };
+    const res = await createProduct.mutateAsync(payload);
+    if (imageFile) await uploadProductImage.mutateAsync({ id: res.data.id, file: imageFile });
   };
 
   const handleBulkCreate = async (items: ProductFormValues[]) => {
-    await inventoryApi.bulkCreateProducts(items.map((v) => ({
+    await bulkCreateProducts.mutateAsync(items.map((v) => ({
       name: v.name, sku: v.sku,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
@@ -105,15 +97,11 @@ export default function InventoryOverviewPage() {
       price: v.price, cost: v.cost,
       stock: v.stock, min_stock: v.minStock,
     })));
-    await load();
   };
 
   const handleRestock = async (v: RestockValues) => {
     if (!restockTarget) return;
-    const res = await inventoryApi.restockProduct(restockTarget.id, {
-      qty: v.qty, mode: v.mode, reason: v.reason, notes: v.notes,
-    });
-    setInventory((prev) => prev.map((i) => i.id === restockTarget.id ? toRow(res.data) : i));
+    await restockProduct.mutateAsync({ id: restockTarget.id, data: { qty: v.qty, mode: v.mode, reason: v.reason, notes: v.notes } });
     setRestockTarget(null);
   };
 
@@ -130,7 +118,7 @@ export default function InventoryOverviewPage() {
   const totalVariants = inventory.reduce((s, i) => s + i.variantCount, 0);
   const topByValue = [...inventory].sort((a, b) => b.value - a.value).slice(0, 4);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 size={24} className="animate-spin text-muted" />

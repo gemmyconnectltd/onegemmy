@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Upload, Download, CheckCircle2, XCircle, FileText, ImagePlus, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { inventoryApi, type ApiCategory, type ApiBrand, type ApiUnit } from "@/lib/api";
+import { useCategories, useBrands, useUnits } from "@/lib/api/hooks";
 
 export interface ProductFormValues {
   name: string;
@@ -78,9 +78,6 @@ function parseForm(f: Record<string, string>): ProductFormValues {
 
 function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFormValues | null; onClose: () => void; onSubmit: (v: ProductFormValues, imageFile?: File) => Promise<void>; color?: string }) {
   const [form, setForm] = useState(() => toForm(initial));
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
-  const [brands, setBrands] = useState<ApiBrand[]>([]);
-  const [units, setUnits] = useState<ApiUnit[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -89,25 +86,24 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
   const valid = Boolean(isValid(form));
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
+  const { data: categoriesData } = useCategories();
+  const { data: brandsData } = useBrands();
+  const { data: unitsData } = useUnits();
+  const categories = categoriesData?.items ?? [];
+  const brands = brandsData?.items ?? [];
+  const units = unitsData?.items ?? [];
+
+  if (form.category_id === "" && categories.length > 0) {
+    setForm((f) => (f.category_id ? f : { ...f, category: categories[0].name, category_id: categories[0].id }));
+  }
+  if (form.unit_id === "" && units.length > 0) {
+    setForm((f) => (f.unit_id ? f : { ...f, unit: units[0].name, unit_id: units[0].id }));
+  }
+
   const handleImageChange = (file: File) => {
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
   };
-
-  useEffect(() => {
-    inventoryApi.listCategories().then((r) => {
-      setCategories(r.data.items);
-      if (!form.category_id && r.data.items.length > 0)
-        setForm((f) => ({ ...f, category: r.data.items[0].name, category_id: r.data.items[0].id }));
-    }).catch(() => {});
-    inventoryApi.listBrands().then((r) => setBrands(r.data.items)).catch(() => {});
-    inventoryApi.listUnits().then((r) => {
-      setUnits(r.data.items);
-      if (!form.unit_id && r.data.items.length > 0)
-        setForm((f) => ({ ...f, unit: r.data.items[0].name, unit_id: r.data.items[0].id }));
-    }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

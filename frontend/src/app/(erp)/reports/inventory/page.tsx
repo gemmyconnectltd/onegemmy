@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { Package, AlertTriangle, TrendingDown, Layers, Boxes, Loader2, Download, FileText } from "lucide-react";
 import { inventoryApi } from "@/lib/api";
+import { useValuationReport } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import type { InventoryValuationReport, ValuationLine } from "@/lib/api/inventory";
+import type { ValuationLine } from "@/lib/api/inventory";
 
 const ACCENT = "#059669";
 const ACCENT_DARK = "#34d399";
@@ -25,20 +26,9 @@ const STATUS_LABEL: Record<ValuationLine["status"], string> = {
 export default function InventoryReportPage() {
   const { theme } = useAppConfig();
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
-  const [report, setReport] = useState<InventoryValuationReport | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: report, isLoading } = useValuationReport();
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.valuationReport();
-      setReport(res.data);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const download = async (format: "csv" | "pdf") => {
     setExporting(format);
@@ -47,7 +37,7 @@ export default function InventoryReportPage() {
     finally { setExporting(null); }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
   if (!report) return <p className="text-sm text-muted py-10 text-center">Could not load valuation report.</p>;
 
   const { summary, categories, lines } = report;

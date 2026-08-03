@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Layers, Plus, Search, Edit2, Trash2, Package, Loader2, Check, X } from "lucide-react";
-import { inventoryApi, type ApiCategory } from "@/lib/api";
+import { type ApiCategory } from "@/lib/api";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
 const INV_COLOR = "#059669";
@@ -16,57 +17,46 @@ const COLORS = [
 function colorFor(name: string) { return COLORS[name.charCodeAt(0) % COLORS.length]; }
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
 
-useEffect(() => {
-    inventoryApi.listCategories()
-      .then((res) => setCategories(res.data.items))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading } = useCategories();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
+  const categories = data?.items ?? [];
 
   const filtered = categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
 
   async function handleAdd() {
-    if (!newName.trim() || saving) return;
-    setSaving(true);
+    if (!newName.trim() || createCategory.isPending) return;
     try {
-      const res = await inventoryApi.createCategory({ name: newName.trim(), description: newDesc.trim() || null });
-      setCategories((prev) => [...prev, res.data]);
+      await createCategory.mutateAsync({ name: newName.trim(), description: newDesc.trim() || null });
       setNewName(""); setNewDesc(""); setAdding(false);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleEdit(id: string) {
-    if (!editName.trim() || saving) return;
-    setSaving(true);
+    if (!editName.trim() || updateCategory.isPending) return;
     try {
-      const res = await inventoryApi.updateCategory(id, { name: editName.trim(), description: editDesc.trim() || null });
-      setCategories((prev) => prev.map((c) => c.id === id ? res.data : c));
+      await updateCategory.mutateAsync({ id, data: { name: editName.trim(), description: editDesc.trim() || null } });
       setEditingId(null);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this category?")) return;
     try {
-      await inventoryApi.deleteCategory(id);
-      setCategories((prev) => prev.filter((c) => c.id !== id));
+      await deleteCategory.mutateAsync(id);
     } catch { /* ignore */ }
   }
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={24} className="animate-spin text-muted" />
     </div>
@@ -103,8 +93,8 @@ useEffect(() => {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAdd} disabled={saving || !newName.trim()} color={INV_COLOR} className="rounded-lg">
-              {saving ? "Saving…" : "Save Category"}
+            <Button onClick={handleAdd} disabled={createCategory.isPending || !newName.trim()} color={INV_COLOR} className="rounded-lg">
+              {createCategory.isPending ? "Saving…" : "Save Category"}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setAdding(false)} className="rounded-lg">Cancel</Button>
           </div>
@@ -127,7 +117,7 @@ useEffect(() => {
                 <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description"
                   className="w-full px-2.5 py-1.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none" />
                 <div className="flex gap-1.5">
-                  <Button size="sm" onClick={() => handleEdit(c.id)} disabled={saving} color={INV_COLOR} className="rounded-lg">
+                  <Button size="sm" onClick={() => handleEdit(c.id)} disabled={updateCategory.isPending} color={INV_COLOR} className="rounded-lg">
                     <Check size={12} /> Save
                   </Button>
                   <Button size="sm" variant="secondary" onClick={() => setEditingId(null)} className="rounded-lg">

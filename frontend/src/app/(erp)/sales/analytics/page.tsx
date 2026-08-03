@@ -1,11 +1,11 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Legend } from "@/components/charts/lazy";
-import { TrendingUp, ShoppingCart, Users, ArrowUpRight, Loader2, AlertCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "@/components/charts/lazy";
+import { TrendingUp, ShoppingCart, ArrowUpRight, Loader2, AlertCircle } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
-import { useEffect, useState, useCallback } from "react";
-import { salesApi, type ApiOrder, type ApiDeal } from "@/lib/api";
+import { useState } from "react";
+import { useOrders, useDeals } from "@/lib/api/hooks";
 
 const SAL = "#0284c7";
 
@@ -15,26 +15,21 @@ export default function SalesAnalyticsPage() {
   const sal = theme === "dark" ? "#38bdf8" : SAL;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [deals, setDeals] = useState<ApiDeal[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true); setError(null);
-      const [ordRes, dealRes] = await Promise.all([
-        salesApi.listOrders(1, 500),
-        salesApi.listDeals(1, 500),
-      ]);
-      setOrders(ordRes.data.items);
-      setDeals(dealRes.data.items);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to load analytics");
-    } finally { setLoading(false); }
-  }, []);
+  const ordersQ = useOrders(1, 500);
+  const dealsQ = useDeals(1, 500);
+  const loading = ordersQ.isLoading || dealsQ.isLoading;
+  const orders = ordersQ.data?.items ?? [];
+  const deals = dealsQ.data?.items ?? [];
 
-  useEffect(() => { load(); }, [load]);
+  const loadError = ordersQ.error ?? dealsQ.error;
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load analytics" : null;
+  if (loadErrorMessage !== shownLoadError) {
+    setShownLoadError(loadErrorMessage);
+    if (loadErrorMessage !== null) setError(loadErrorMessage);
+  }
 
   // Derive monthly revenue + VAT from completed orders
   const monthlyMap: Record<string, { sales: number; vat: number }> = {};
@@ -56,7 +51,6 @@ export default function SalesAnalyticsPage() {
 
   const totalRevenue = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + o.total, 0);
   const totalVAT = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + o.tax, 0);
-  const uniqueCustomers = new Set(orders.map((o) => o.customer_id).filter(Boolean)).size;
   const avgOrder = orders.length ? Math.round(totalRevenue / Math.max(orders.filter((o) => o.status === "Completed").length, 1)) : 0;
 
   const stats = [

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { DollarSign, Trash2, Check } from "lucide-react";
-import { hrApi } from "@/lib/api/hr";
-import type { ApiPayroll, ApiEmployee } from "@/lib/api/hr";
+import type { ApiPayroll } from "@/lib/api/hr";
+import { usePayroll, useEmployees, useCreatePayroll, useMarkPaid, useDeletePayroll } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -15,13 +15,8 @@ export default function PayrollPage() {
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const currentPeriod = new Date().toISOString().slice(0, 7);
 
-  const [entries, setEntries] = useState<ApiPayroll[]>([]);
-  const [employees, setEmployees] = useState<ApiEmployee[]>([]);
   const [period, setPeriod] = useState(currentPeriod);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     employee_id: "",
@@ -30,65 +25,42 @@ export default function PayrollPage() {
     deductions: "0",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [payRes, empRes] = await Promise.all([hrApi.listPayroll(period), hrApi.listEmployees()]);
-      setEntries(payRes.data.items);
-      setEmployees(empRes.data.items);
-    } catch {
-      setError("Could not load payroll.");
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
+  const { data: payData, isLoading: payLoading, isError, refetch } = usePayroll(period);
+  const { data: empData, isLoading: empLoading } = useEmployees();
+  const entries = payData?.items ?? [];
+  const employees = empData?.items ?? [];
+  const loading = payLoading || empLoading;
+  const error = isError ? "Could not load payroll." : null;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createPayroll = useCreatePayroll();
+  const markPaid = useMarkPaid();
+  const deletePayroll = useDeletePayroll();
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.employee_id) return;
-    setSaving(true);
-    setNotice(null);
-    try {
-      await hrApi.createPayroll({
-        employee_id: form.employee_id,
-        period,
-        base_salary: Number(form.base_salary) || 0,
-        bonus: Number(form.bonus) || 0,
-        deductions: Number(form.deductions) || 0,
-      });
-      setShowForm(false);
-      setForm({ employee_id: "", base_salary: "", bonus: "0", deductions: "0" });
-      await load();
-    } catch {
-      setNotice("Could not add the payroll entry (it may already exist for this period).");
-    } finally {
-      setSaving(false);
-    }
+    createPayroll.mutate({
+      employee_id: form.employee_id,
+      period,
+      base_salary: Number(form.base_salary) || 0,
+      bonus: Number(form.bonus) || 0,
+      deductions: Number(form.deductions) || 0,
+    }, {
+      onSuccess: () => {
+        setShowForm(false);
+        setForm({ employee_id: "", base_salary: "", bonus: "0", deductions: "0" });
+      },
+      onError: () => setNotice("Could not add the payroll entry (it may already exist for this period)."),
+    });
   };
 
-  const markPaid = async (p: ApiPayroll) => {
-    try {
-      await hrApi.markPaid(p.id);
-      await load();
-    } catch {
-      setNotice("Could not mark as paid.");
-    }
+  const handleMarkPaid = (p: ApiPayroll) => {
+    markPaid.mutate(p.id, { onError: () => setNotice("Could not mark as paid.") });
   };
 
-  const remove = async (p: ApiPayroll) => {
+  const remove = (p: ApiPayroll) => {
     if (!window.confirm("Delete this payroll entry?")) return;
-    try {
-      await hrApi.deletePayroll(p.id);
-      await load();
-    } catch {
-      setNotice("Could not delete the entry.");
-    }
+    deletePayroll.mutate(p.id, { onError: () => setNotice("Could not delete the entry.") });
   };
 
   const totalNet = entries.reduce((s, p) => s + p.net_pay, 0);
@@ -126,7 +98,7 @@ export default function PayrollPage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={refetch} />
       ) : entries.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message="No payroll entries for this period yet." />
@@ -162,7 +134,7 @@ export default function PayrollPage() {
                       {p.status === "Pending" && (
                         <button
                           type="button"
-                          onClick={() => markPaid(p)}
+                          onClick={() => handleMarkPaid(p)}
                           className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
                           aria-label="Mark paid"
                         >
@@ -208,7 +180,7 @@ export default function PayrollPage() {
           <p className="text-xs text-muted">
             Net pay: <span className="font-bold text-foreground">{fmt((Number(form.base_salary) || 0) + (Number(form.bonus) || 0) - (Number(form.deductions) || 0))}</span>
           </p>
-          <FormFooter submitLabel={saving ? "Saving…" : "Add Entry"} onCancel={() => setShowForm(false)} disabled={saving} />
+          <FormFooter submitLabel={createPayroll.isPending ? "Saving…" : "Add Entry"} onCancel={() => setShowForm(false)} disabled={createPayroll.isPending} />
         </form>
       </Drawer>
     </div>

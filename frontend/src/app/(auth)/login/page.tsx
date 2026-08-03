@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
@@ -18,24 +18,41 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  const redirectAfterLogin = () => {
+    // redirect superadmin to admin dashboard, everyone else to ERP
+    const token = localStorage.getItem("onegemmy_token");
+    let isSuperAdmin = false;
+    if (token) {
+      try { isSuperAdmin = JSON.parse(atob(token.split(".")[1]))?.role === "superadmin"; } catch {}
+    }
+    router.push(isSuperAdmin ? "/admin" : "/dashboard");
+  };
+
+  const submitLogin = async (emailToUse: string, passwordToUse: string, slug: string | undefined) => {
+    setError("");
+    setLoading(true);
+    const result = await login(emailToUse, passwordToUse, slug);
+    if (result.ok) {
+      redirectAfterLogin();
+    } else {
+      setError(result.error ?? "Invalid email or password");
+    }
+    setLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await submitLogin(email, password, tenantSlug);
+  };
+
+  const fillDemo = (demo: { email: string; password: string }, slug: string | undefined) => {
+    setEmail(demo.email);
+    setPassword(demo.password);
+    setTenantSlug(slug);
     setError("");
-    setLoading(true);
-    const success = await login(email, password, tenantSlug);
-    if (success) {
-      // redirect superadmin to admin dashboard, everyone else to ERP
-      const token = localStorage.getItem("onegemmy_token");
-      let isSuperAdmin = false;
-      if (token) {
-        try { isSuperAdmin = JSON.parse(atob(token.split(".")[1]))?.role === "superadmin"; } catch {}
-      }
-      router.push(isSuperAdmin ? "/admin" : "/dashboard");
-    } else {
-      setError("Invalid email or password");
-    }
-    setLoading(false);
+    emailRef.current?.focus();
   };
 
   return (
@@ -117,6 +134,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-[13px] font-medium text-foreground mb-1.5">Email</label>
               <input
+                ref={emailRef}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -240,7 +258,7 @@ export default function LoginPage() {
                         key={demo.email}
                         type="button"
                         disabled={loading}
-                        onClick={() => { setEmail(demo.email); setPassword(demo.password); setTenantSlug(group.slug); }}
+                        onClick={() => fillDemo(demo, group.slug)}
                         className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
                       >
                         <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
@@ -256,7 +274,7 @@ export default function LoginPage() {
                         key={demo.email}
                         type="button"
                         disabled={loading}
-                        onClick={() => { setEmail(demo.email); setPassword(demo.password); setTenantSlug(group.slug); }}
+                        onClick={() => fillDemo(demo, group.slug)}
                         className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
                       >
                         <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>

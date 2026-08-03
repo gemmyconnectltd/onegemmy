@@ -1,67 +1,54 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Tag, Plus, Search, Edit2, Trash2, Loader2, Check, X } from "lucide-react";
-import { inventoryApi, type ApiBrand } from "@/lib/api";
+import { type ApiBrand } from "@/lib/api";
+import { useBrands, useCreateBrand, useUpdateBrand, useDeleteBrand } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
 const INV_COLOR = "#059669";
 
 export default function BrandsPage() {
-  const [brands, setBrands] = useState<ApiBrand[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
-  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listBrands();
-      setBrands(res.data.items);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, isLoading } = useBrands();
+  const createBrand = useCreateBrand();
+  const updateBrand = useUpdateBrand();
+  const deleteBrand = useDeleteBrand();
+  const brands = data?.items ?? [];
 
   const filtered = brands.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()));
 
   async function handleAdd() {
-    if (!newName.trim() || saving) return;
-    setSaving(true);
+    if (!newName.trim() || createBrand.isPending) return;
     try {
-      const res = await inventoryApi.createBrand({ name: newName.trim(), description: newDesc.trim() || null });
-      setBrands((prev) => [...prev, res.data]);
+      await createBrand.mutateAsync({ name: newName.trim(), description: newDesc.trim() || null });
       setNewName(""); setNewDesc(""); setAdding(false);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleEdit(id: string) {
-    if (!editName.trim() || saving) return;
-    setSaving(true);
+    if (!editName.trim() || updateBrand.isPending) return;
     try {
-      const res = await inventoryApi.updateBrand(id, { name: editName.trim(), description: editDesc.trim() || null });
-      setBrands((prev) => prev.map((b) => b.id === id ? res.data : b));
+      await updateBrand.mutateAsync({ id, data: { name: editName.trim(), description: editDesc.trim() || null } });
       setEditingId(null);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this brand?")) return;
     try {
-      await inventoryApi.deleteBrand(id);
-      setBrands((prev) => prev.filter((b) => b.id !== id));
+      await deleteBrand.mutateAsync(id);
     } catch { /* ignore */ }
   }
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={24} className="animate-spin text-muted" />
     </div>
@@ -92,8 +79,8 @@ export default function BrandsPage() {
               className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAdd} disabled={saving || !newName.trim()} color={INV_COLOR}>
-              {saving ? "Saving…" : "Save"}
+            <Button onClick={handleAdd} disabled={createBrand.isPending || !newName.trim()} color={INV_COLOR}>
+              {createBrand.isPending ? "Saving…" : "Save"}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
@@ -120,7 +107,7 @@ export default function BrandsPage() {
                 <div className="flex-1 flex items-center gap-2">
                   <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)}
                     className="flex-1 px-3 py-1.5 border border-border text-sm focus:border-foreground/30 outline-none rounded-lg" />
-                  <button onClick={() => handleEdit(b.id)} disabled={saving}
+                  <button onClick={() => handleEdit(b.id)} disabled={updateBrand.isPending}
                     className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-50"
                     style={{ color: INV_COLOR }}>
                     <Check size={14} />

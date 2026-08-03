@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Loader2, Upload } from "lucide-react";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
@@ -9,7 +9,8 @@ import { ProductFormDrawer, type ProductFormValues } from "@/components/inventor
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
-import { inventoryApi, type ApiProduct } from "@/lib/api";
+import { type ApiProduct } from "@/lib/api";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage } from "@/lib/api/hooks";
 
 const INV_COLOR = "#059669";
 
@@ -38,8 +39,6 @@ function toFormValues(p: ApiProduct): ProductFormValues {
 }
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -51,15 +50,14 @@ export default function ProductsPage() {
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listProducts(1, 200);
-      setProducts(res.data.items);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, isLoading } = useProducts(1, 200);
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+  const restockProduct = useRestockProduct();
+  const bulkCreateProducts = useBulkCreateProducts();
+  const uploadProductImage = useUploadProductImage();
+  const products = data?.items ?? [];
 
   const filtered = products.filter((p) => {
     const matchSearch =
@@ -79,45 +77,38 @@ export default function ProductsPage() {
       price: v.price, cost: v.cost, stock: v.stock, min_stock: v.minStock,
     };
     if (editing) {
-      const res = await inventoryApi.updateProduct(editing.id, payload);
-      let updated = res.data;
-      if (imageFile) updated = (await inventoryApi.uploadProductImage(editing.id, imageFile)).data;
-      setProducts((prev) => prev.map((p) => p.id === editing.id ? updated : p));
+      await updateProduct.mutateAsync({ id: editing.id, data: payload });
+      if (imageFile) await uploadProductImage.mutateAsync({ id: editing.id, file: imageFile });
       setEditing(null);
     } else {
-      const res = await inventoryApi.createProduct(payload);
-      let created = res.data;
-      if (imageFile) created = (await inventoryApi.uploadProductImage(created.id, imageFile)).data;
-      setProducts((prev) => [created, ...prev]);
+      const res = await createProduct.mutateAsync(payload);
+      if (imageFile) await uploadProductImage.mutateAsync({ id: res.data.id, file: imageFile });
     }
   };
 
   const handleBulkSubmit = async (items: ProductFormValues[]) => {
-    await inventoryApi.bulkCreateProducts(items.map((v) => ({
+    await bulkCreateProducts.mutateAsync(items.map((v) => ({
       name: v.name, sku: v.sku,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
       price: v.price, cost: v.cost, stock: v.stock, min_stock: v.minStock,
     })));
-    await load();
   };
 
   const handleRestock = async (v: RestockValues) => {
     if (!restockTarget) return;
-    const res = await inventoryApi.restockProduct(restockTarget.id, { qty: v.qty, mode: v.mode, reason: v.reason, notes: v.notes });
-    setProducts((prev) => prev.map((p) => p.id === restockTarget.id ? res.data : p));
+    await restockProduct.mutateAsync({ id: restockTarget.id, data: { qty: v.qty, mode: v.mode, reason: v.reason, notes: v.notes } });
     setRestockTarget(null);
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    await inventoryApi.deleteProduct(deleteTarget.id);
-    setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    await deleteProduct.mutateAsync(deleteTarget.id);
     setDeleteTarget(null);
   };
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={24} className="animate-spin text-muted" />
     </div>
@@ -278,11 +269,6 @@ export default function ProductsPage() {
         onClose={() => setVariantsTarget(null)}
         productId={variantsTarget?.id ?? ""}
         productName={variantsTarget?.name ?? ""}
-        variants={variantsTarget?.variants ?? []}
-        onChanged={(variants) => {
-          setProducts((prev) => prev.map((p) => p.id === variantsTarget?.id ? { ...p, variants, has_variants: variants.length > 0 } : p));
-          setVariantsTarget((t) => t ? { ...t, variants, has_variants: variants.length > 0 } : null);
-        }}
         color={INV_COLOR}
       />
 

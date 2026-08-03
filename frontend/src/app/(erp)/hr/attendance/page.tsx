@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckCircle, XCircle, Clock, Plus, Trash2 } from "lucide-react";
-import { hrApi } from "@/lib/api/hr";
-import type { ApiAttendance, ApiEmployee } from "@/lib/api/hr";
+import type { ApiAttendance } from "@/lib/api/hr";
+import { useAttendance, useEmployees, useCreateAttendance, useDeleteAttendance } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
@@ -15,12 +15,7 @@ const statusIcon: Record<string, React.ReactNode> = {
 };
 
 export default function AttendancePage() {
-  const [records, setRecords] = useState<ApiAttendance[]>([]);
-  const [employees, setEmployees] = useState<ApiEmployee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     employee_id: "",
@@ -30,56 +25,37 @@ export default function AttendancePage() {
     status: "Present",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [attRes, empRes] = await Promise.all([hrApi.listAttendance(), hrApi.listEmployees()]);
-      setRecords(attRes.data.items);
-      setEmployees(empRes.data.items);
-    } catch {
-      setError("Could not load attendance.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: attData, isLoading: attLoading, isError, refetch } = useAttendance();
+  const { data: empData, isLoading: empLoading } = useEmployees();
+  const records = attData?.items ?? [];
+  const employees = empData?.items ?? [];
+  const loading = attLoading || empLoading;
+  const error = isError ? "Could not load attendance." : null;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createAttendance = useCreateAttendance();
+  const deleteAttendance = useDeleteAttendance();
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.employee_id) return;
-    setSaving(true);
-    setNotice(null);
-    try {
-      await hrApi.createAttendance({
-        employee_id: form.employee_id,
-        date: form.date,
-        check_in: form.check_in || null,
-        check_out: form.check_out || null,
-        status: form.status,
-      });
-      setShowForm(false);
-      setForm({ ...form, employee_id: "" });
-      await load();
-    } catch {
-      setNotice("Could not record attendance (a record may already exist for this day).");
-    } finally {
-      setSaving(false);
-    }
+    createAttendance.mutate({
+      employee_id: form.employee_id,
+      date: form.date,
+      check_in: form.check_in || null,
+      check_out: form.check_out || null,
+      status: form.status,
+    }, {
+      onSuccess: () => {
+        setShowForm(false);
+        setForm({ ...form, employee_id: "" });
+      },
+      onError: () => setNotice("Could not record attendance (a record may already exist for this day)."),
+    });
   };
 
-  const remove = async (r: ApiAttendance) => {
+  const remove = (r: ApiAttendance) => {
     if (!window.confirm("Delete this attendance record?")) return;
-    try {
-      await hrApi.deleteAttendance(r.id);
-      await load();
-    } catch {
-      setNotice("Could not delete record.");
-    }
+    deleteAttendance.mutate(r.id, { onError: () => setNotice("Could not delete record.") });
   };
 
   const present = records.filter((r) => r.status === "Present").length;
@@ -123,7 +99,7 @@ export default function AttendancePage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={refetch} />
       ) : records.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message="No attendance records yet." />
@@ -197,7 +173,7 @@ export default function AttendancePage() {
               <option value="Half Day">Half Day</option>
             </Select>
           </Field>
-          <FormFooter submitLabel={saving ? "Saving…" : "Save Record"} onCancel={() => setShowForm(false)} disabled={saving} />
+          <FormFooter submitLabel={createAttendance.isPending ? "Saving…" : "Save Record"} onCancel={() => setShowForm(false)} disabled={createAttendance.isPending} />
         </form>
       </Drawer>
     </div>

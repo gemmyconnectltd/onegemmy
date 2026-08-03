@@ -1,13 +1,14 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Users, Plus, Search, Phone, Mail, MapPin, TrendingUp, Star,
   Edit2, Trash2, Loader2, AlertCircle, ShoppingCart, CheckCircle2,
   UserCheck, UserX, Building2,
 } from "lucide-react";
-import { salesApi, type ApiCustomer, type ApiOrder } from "@/lib/api/sales";
+import { useCustomers, useOrders, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from "@/lib/api/hooks";
+import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
@@ -40,11 +41,8 @@ export default function CustomersPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
@@ -53,21 +51,23 @@ export default function CustomersPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [cRes, oRes] = await Promise.all([
-        salesApi.listCustomers(1, 500),
-        salesApi.listOrders(1, 500),
-      ]);
-      setCustomers(cRes.data.items);
-      setOrders(oRes.data.items);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to load customers");
-    } finally { setLoading(false); }
-  }, []);
+  const customersQ = useCustomers(1, 500);
+  const ordersQ = useOrders(1, 500);
+  const loading = customersQ.isLoading || ordersQ.isLoading;
+  const customers = useMemo(() => customersQ.data?.items ?? [], [customersQ.data]);
+  const orders = useMemo(() => ordersQ.data?.items ?? [], [ordersQ.data]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadError = customersQ.error ?? ordersQ.error;
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load customers" : null;
+  if (loadErrorMessage !== shownLoadError) {
+    setShownLoadError(loadErrorMessage);
+    if (loadErrorMessage !== null) setError(loadErrorMessage);
+  }
+
+  const createCustomer = useCreateCustomer();
+  const updateCustomer = useUpdateCustomer();
+  const deleteCustomer = useDeleteCustomer();
+  const saving = createCustomer.isPending || updateCustomer.isPending;
 
   // orders grouped by customer_id
   const ordersByCustomer = useMemo(() => {
@@ -120,41 +120,33 @@ export default function CustomersPage() {
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     if (!form.name.trim()) return;
-    setSaving(true);
-    try {
-      const payload = {
-        name: form.name.trim(),
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        address: form.address.trim() || null,
-        customer_type: form.customer_type,
-        is_active: form.is_active,
-      };
-      if (editing) {
-        await salesApi.updateCustomer(editing.id, payload);
-      } else {
-        await salesApi.createCustomer(payload);
-      }
-      closeDrawer();
-      await load();
-    } catch (e: unknown) {
-      setFormError((e as { detail?: string })?.detail ?? "Failed to save customer");
-    } finally { setSaving(false); }
+    const payload = {
+      name: form.name.trim(),
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      address: form.address.trim() || null,
+      customer_type: form.customer_type,
+      is_active: form.is_active,
+    };
+    const onError = (err: Error) => setFormError((err as { detail?: string })?.detail ?? "Failed to save customer");
+    const onSuccess = () => { setError(null); closeDrawer(); };
+    if (editing) {
+      updateCustomer.mutate({ id: editing.id, data: payload }, { onSuccess, onError });
+    } else {
+      createCustomer.mutate(payload, { onSuccess, onError });
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Delete this customer? This cannot be undone.")) return;
-    try {
-      await salesApi.deleteCustomer(id);
-      setCustomers((prev) => prev.filter((c) => c.id !== id));
-      if (viewing?.id === id) setViewing(null);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to delete customer");
-    }
+    deleteCustomer.mutate(id, {
+      onSuccess: () => { if (viewing?.id === id) setViewing(null); },
+      onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete customer"),
+    });
   };
 
   const viewingOrders = viewing ? (ordersByCustomer[viewing.id] ?? []).sort((a, b) =>

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Plus, Trash2, Edit2, PackagePlus, ChevronDown, ChevronUp } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
-import { inventoryApi, type ApiVariant } from "@/lib/api";
+import { type ApiVariant } from "@/lib/api";
+import { useProductVariants, useCreateVariant, useUpdateVariant, useRestockVariant, useDeleteVariant } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 
 interface Props {
@@ -12,8 +13,7 @@ interface Props {
   onClose: () => void;
   productId: string;
   productName: string;
-  variants: ApiVariant[];
-  onChanged: (variants: ApiVariant[]) => void;
+  variants?: ApiVariant[];
   color?: string;
 }
 
@@ -107,7 +107,7 @@ function VariantForm({ initial, onSave, onCancel, color }: {
   );
 }
 
-export function VariantsDrawer({ open, onClose, productId, productName, variants, onChanged, color = "#059669" }: Props) {
+export function VariantsDrawer({ open, onClose, productId, productName, variants, color = "#059669" }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ApiVariant | null>(null);
   const [restocking, setRestocking] = useState<ApiVariant | null>(null);
@@ -115,36 +115,34 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
   const [restockMode, setRestockMode] = useState<"restock" | "adjust">("restock");
   const [deleteTarget, setDeleteTarget] = useState<ApiVariant | null>(null);
 
-  const refresh = async () => {
-    const res = await inventoryApi.listVariants(productId);
-    onChanged(res.data as unknown as ApiVariant[]);
-  };
+  const { data } = useProductVariants(productId);
+  const createVariant = useCreateVariant();
+  const updateVariant = useUpdateVariant();
+  const restockVariant = useRestockVariant();
+  const deleteVariant = useDeleteVariant();
+  const liveVariants = data ?? variants ?? [];
 
   const handleCreate = async (form: FormState) => {
-    await inventoryApi.createVariant(productId, { ...form, sku: form.sku || null });
-    await refresh();
+    await createVariant.mutateAsync({ productId, data: { ...form, sku: form.sku || null } });
     setShowForm(false);
   };
 
   const handleUpdate = async (form: FormState) => {
     if (!editing) return;
-    await inventoryApi.updateVariant(productId, editing.id, { ...form, sku: form.sku || null });
-    await refresh();
+    await updateVariant.mutateAsync({ productId, id: editing.id, data: { ...form, sku: form.sku || null } });
     setEditing(null);
   };
 
   const handleRestock = async () => {
     if (!restocking) return;
-    await inventoryApi.restockVariant(productId, restocking.id, { qty: restockQty, mode: restockMode });
-    await refresh();
+    await restockVariant.mutateAsync({ productId, id: restocking.id, data: { qty: restockQty, mode: restockMode } });
     setRestocking(null);
     setRestockQty(0);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await inventoryApi.deleteVariant(productId, deleteTarget.id);
-    await refresh();
+    await deleteVariant.mutateAsync({ productId, id: deleteTarget.id });
     setDeleteTarget(null);
   };
 
@@ -157,7 +155,7 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
     <Drawer open={open} onClose={onClose} title={`Variants — ${productName}`} side="right" size="md">
       <div className="p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted">{variants.length} variant{variants.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-muted">{liveVariants.length} variant{liveVariants.length !== 1 ? "s" : ""}</p>
           {!showForm && !editing && (
             <Button onClick={() => setShowForm(true)} style={{ backgroundColor: color }} className="rounded-lg text-[13px] text-white">
               <Plus size={13} /> Add Variant
@@ -170,7 +168,7 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
         )}
 
         <div className="space-y-2">
-          {variants.map((v) => (
+          {liveVariants.map((v) => (
             <div key={v.id} className="border border-border rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-3 bg-card">
                 <div className="flex-1 min-w-0">
@@ -227,7 +225,7 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
             </div>
           ))}
 
-          {variants.length === 0 && !showForm && (
+          {liveVariants.length === 0 && !showForm && (
             <div className="py-10 text-center">
               <p className="text-sm text-muted">No variants yet</p>
               <p className="text-xs text-muted/60 mt-1">Add a variant to track different sizes, colors, etc.</p>

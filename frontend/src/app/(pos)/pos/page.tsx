@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
@@ -13,8 +13,8 @@ import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant }
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
-import { inventoryApi, salesApi } from "@/lib/api";
-import type { ApiCustomer, ApiProduct } from "@/lib/api";
+import { useProducts, useCustomers, useCreateOrder } from "@/lib/api/hooks";
+import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
 function apiToProduct(p: ApiProduct): Product {
@@ -42,39 +42,23 @@ export default function POSPage() {
   const { currencySymbol, locale, setLocale, locales, theme, setTheme } = useAppConfig();
 
   // ── inventory ────────────────────────────────────────────────────────────
-  const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadInventory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [productsRes, customersRes] = await Promise.all([
-        inventoryApi.listProducts(1, 500),
-        salesApi.listCustomers(1, 500),
-      ]);
-      setProducts(
-        productsRes.data.items.filter((p) => p.is_active).map(apiToProduct)
-      );
-      setCustomers(customersRes.data.items);
-    } catch {
-      setError("Failed to load inventory. Check your connection.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { loadInventory(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [loadInventory]);
+  const { data: productData, isLoading, isError, refetch } = useProducts(1, 500);
+  const loading = isLoading;
+  const error = isError ? "Failed to load inventory. Check your connection." : null;
+  const products = useMemo(
+    () => (productData?.items ?? []).filter((p) => p.is_active).map(apiToProduct),
+    [productData]
+  );
 
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(products.map((p) => p.category)))],
     [products]
   );
+
+  const { data: customersData } = useCustomers(1, 500);
+  const customers = customersData?.items ?? [];
+
+  const createOrder = useCreateOrder();
 
   // ── ui state ─────────────────────────────────────────────────────────────
   const [category, setCategory] = useState("All");
@@ -96,12 +80,8 @@ export default function POSPage() {
 
   // ── cart ─────────────────────────────────────────────────────────────────
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
-  const handleCustomerChange = (id: string, name: string) => {
-    setCustomerId(id || null);
-    setCustomerName(name);
-  };
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
@@ -241,8 +221,9 @@ export default function POSPage() {
     const isInvoice = payment === "invoice";
     try {
       // order-level discount is 0 — item discounts are already baked into each line_total
-      await salesApi.createOrder({
+      await createOrder.mutateAsync({
         status: "Completed",
+        customer_id: customerId,
         notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
         discount: 0,
         tax,
@@ -280,7 +261,6 @@ export default function POSPage() {
       setTodayCount((c) => c + 1);
       setTodayRevenue((r) => r + total);
       clearCart();
-      loadInventory();
     } catch (e: unknown) {
       setSaleError(
         (e as { detail?: string })?.detail ??
@@ -343,7 +323,7 @@ export default function POSPage() {
             ) : error ? (
               <span className="flex items-center gap-2 text-[11px] text-red-500">
                 {error}
-                <button onClick={loadInventory} className="flex items-center gap-1 underline">
+                <button onClick={() => refetch()} className="flex items-center gap-1 underline">
                   <RefreshCw size={11} /> Retry
                 </button>
               </span>
@@ -351,7 +331,7 @@ export default function POSPage() {
               <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {products.length} products loaded
-                <button onClick={loadInventory} className="ml-1 text-muted hover:text-foreground">
+                <button onClick={() => refetch()} className="ml-1 text-muted hover:text-foreground">
                   <RefreshCw size={11} />
                 </button>
               </span>
@@ -446,7 +426,7 @@ export default function POSPage() {
               notes={notes}
               currencySymbol={currencySymbol}
               fmt={fmt}
-              onCustomerChange={handleCustomerChange}
+              onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}

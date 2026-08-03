@@ -1,12 +1,13 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import { RotateCcw, CheckCircle2, Clock, XCircle, Plus, Edit2, Trash2, Loader2, AlertCircle } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { salesApi, type ApiReturn, type ApiCustomer, type ApiOrder } from "@/lib/api";
+import { useReturns, useCustomers, useOrders, useCreateReturn, useUpdateReturn, useDeleteReturn } from "@/lib/api/hooks";
+import type { ApiReturn } from "@/lib/api";
 
 const SAL = "#0284c7";
 
@@ -25,34 +26,32 @@ export default function SalesReturnsPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [returns, setReturns] = useState<ApiReturn[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ApiReturn | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true); setError(null);
-      const [retRes, custRes, ordRes] = await Promise.all([
-        salesApi.listReturns(1, 200),
-        salesApi.listCustomers(1, 200),
-        salesApi.listOrders(1, 200),
-      ]);
-      setReturns(retRes.data.items);
-      setCustomers(custRes.data.items);
-      setOrders(ordRes.data.items);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to load returns");
-    } finally { setLoading(false); }
-  }, []);
+  const returnsQ = useReturns(1, 200);
+  const customersQ = useCustomers(1, 200);
+  const ordersQ = useOrders(1, 200);
+  const loading = returnsQ.isLoading || customersQ.isLoading || ordersQ.isLoading;
+  const returns = returnsQ.data?.items ?? [];
+  const customers = customersQ.data?.items ?? [];
+  const orders = ordersQ.data?.items ?? [];
 
-  useEffect(() => { load(); }, [load]);
+  const loadError = returnsQ.error ?? customersQ.error ?? ordersQ.error;
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load returns" : null;
+  if (loadErrorMessage !== shownLoadError) {
+    setShownLoadError(loadErrorMessage);
+    if (loadErrorMessage !== null) setError(loadErrorMessage);
+  }
+
+  const createReturn = useCreateReturn();
+  const updateReturn = useUpdateReturn();
+  const deleteReturn = useDeleteReturn();
+  const saving = createReturn.isPending || updateReturn.isPending;
 
   const approved = returns.filter((r) => r.status === "Approved");
   const pending  = returns.filter((r) => r.status === "Pending");
@@ -74,38 +73,28 @@ export default function SalesReturnsPage() {
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    try {
-      const payload = {
-        order_id: form.order_id || null,
-        customer_id: form.customer_id || null,
-        reason: form.reason || null,
-        status: form.status,
-        return_date: form.return_date,
-        items: [],
-      };
-      if (editing) {
-        await salesApi.updateReturn(editing.id, { order_id: payload.order_id, customer_id: payload.customer_id, reason: payload.reason, status: payload.status, return_date: payload.return_date });
-      } else {
-        await salesApi.createReturn(payload);
-      }
-      closeDrawer();
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to save return");
-    } finally { setSaving(false); }
+    const payload = {
+      order_id: form.order_id || null,
+      customer_id: form.customer_id || null,
+      reason: form.reason || null,
+      status: form.status,
+      return_date: form.return_date,
+      items: [],
+    };
+    const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save return");
+    const onSuccess = () => { setError(null); closeDrawer(); };
+    if (editing) {
+      updateReturn.mutate({ id: editing.id, data: { order_id: payload.order_id, customer_id: payload.customer_id, reason: payload.reason, status: payload.status, return_date: payload.return_date } }, { onSuccess, onError });
+    } else {
+      createReturn.mutate(payload, { onSuccess, onError });
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Delete this return?")) return;
-    try {
-      await salesApi.deleteReturn(id);
-      setReturns((prev) => prev.filter((r) => r.id !== id));
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to delete return");
-    }
+    deleteReturn.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete return") });
   };
 
   return (

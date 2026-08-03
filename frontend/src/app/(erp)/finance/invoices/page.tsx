@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BadgeCheck, Clock, FileText, Search, Eye, Printer,
   TrendingUp, AlertCircle, Plus,
@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
-import { salesApi, type ApiOrder } from "@/lib/api/sales";
+import { useOrders } from "@/lib/api/hooks";
+import type { ApiOrder } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 
 type StatusFilter = "all" | "pending" | "completed" | "cancelled";
@@ -32,19 +33,13 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function InvoicesPage() {
   const { currencySymbol } = useAppConfig();
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useOrders(1, 200);
+  const orders = data?.items ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewing, setViewing] = useState<ApiOrder | null>(null);
 
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
-
-  useEffect(() => {
-    salesApi.listOrders(1, 200).then((r) => {
-      setOrders(r.data.items);
-    }).finally(() => setLoading(false));
-  }, []);
 
   const filtered = orders.filter((o) => {
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
@@ -142,7 +137,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* Table */}
-      {loading ? (
+      {isLoading ? (
         <div className="bg-card border border-border rounded-xl p-16 flex items-center justify-center">
           <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>

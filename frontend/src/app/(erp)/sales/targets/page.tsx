@@ -4,12 +4,13 @@ import {
   Target, Plus, TrendingUp, CheckCircle2, AlertTriangle, XCircle,
   Edit2, Trash2, Loader2, AlertCircle, Zap, Calendar,
 } from "lucide-react";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { salesApi, type ApiTarget } from "@/lib/api";
+import { useTargets, useCreateTarget, useUpdateTarget, useDeleteTarget } from "@/lib/api/hooks";
+import type { ApiTarget } from "@/lib/api";
 
 const SAL = "#0284c7";
 
@@ -64,34 +65,31 @@ type FormState = typeof EMPTY_FORM;
 
 // ── Progress quick-update drawer ──────────────────────────────────────────────
 function QuickUpdateDrawer({
-  target, onClose, onSaved, currencySymbol,
+  target, onClose, currencySymbol,
 }: {
   target: ApiTarget;
   onClose: () => void;
-  onSaved: () => void;
   currencySymbol: string;
 }) {
   const fmt = (v: number) => target.unit === "currency" ? fmtMoney(v, currencySymbol) : v.toLocaleString();
   const [value, setValue] = useState(String(target.achieved_value));
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const updateTarget = useUpdateTarget();
+  const saving = updateTarget.isPending;
 
   const pct = target.target_value > 0 ? Math.min(100, Math.round((Number(value) / target.target_value) * 100)) : 0;
   const barColor = pct >= 100 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-400" : "bg-red-400";
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      await salesApi.updateTarget(target.id, { achieved_value: Number(value) });
-      onSaved();
-      onClose();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to update");
-    } finally { setSaving(false); }
+  const save = () => {
+    updateTarget.mutate({ id: target.id, data: { achieved_value: Number(value) } }, {
+      onSuccess: () => onClose(),
+      onError: (e: Error) => setError((e as { detail?: string })?.detail ?? "Failed to update"),
+    });
   };
 
   return (
-    <div className="p-5 space-y-5">
+    <form onSubmit={(e) => { e.preventDefault(); save(); }} className="p-5 space-y-5">
       <div className="bg-surface rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-foreground">{target.name}</p>
@@ -129,7 +127,7 @@ function QuickUpdateDrawer({
         disabled={saving || value === ""}
         color={SAL}
       />
-    </div>
+    </form>
   );
 }
 
@@ -139,27 +137,27 @@ export default function SalesTargetsPage() {
   const fmt = (v: number, unit: string) =>
     unit === "currency" ? fmtMoney(v, currencySymbol) : v.toLocaleString();
 
-  const [targets, setTargets] = useState<ApiTarget[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ApiTarget | null>(null);
   const [quickUpdate, setQuickUpdate] = useState<ApiTarget | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [periodFilter, setPeriodFilter] = useState("All");
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true); setError(null);
-      const res = await salesApi.listTargets(1, 200);
-      setTargets(res.data.items);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to load targets");
-    } finally { setLoading(false); }
-  }, []);
+  const { data, isLoading: loading, error: loadError } = useTargets(1, 200);
+  const targets = useMemo(() => data?.items ?? [], [data]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load targets" : null;
+  if (loadErrorMessage !== shownLoadError) {
+    setShownLoadError(loadErrorMessage);
+    if (loadErrorMessage !== null) setError(loadErrorMessage);
+  }
+
+  const createTarget = useCreateTarget();
+  const updateTarget = useUpdateTarget();
+  const deleteTarget = useDeleteTarget();
+  const saving = createTarget.isPending || updateTarget.isPending;
 
   // unique periods from data for filter tabs
   const periods = useMemo(() => {
@@ -207,39 +205,29 @@ export default function SalesTargetsPage() {
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.target_value || !form.period) return;
-    setSaving(true);
-    try {
-      const payload = {
-        name: form.name,
-        target_value: Number(form.target_value),
-        achieved_value: Number(form.achieved_value) || 0,
-        period: form.period,
-        unit: form.unit,
-        assigned_to: form.assigned_to || null,
-      };
-      if (editing) {
-        await salesApi.updateTarget(editing.id, payload);
-      } else {
-        await salesApi.createTarget(payload);
-      }
-      closeDrawer();
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to save target");
-    } finally { setSaving(false); }
+    const payload = {
+      name: form.name,
+      target_value: Number(form.target_value),
+      achieved_value: Number(form.achieved_value) || 0,
+      period: form.period,
+      unit: form.unit,
+      assigned_to: form.assigned_to || null,
+    };
+    const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save target");
+    const onSuccess = () => { setError(null); closeDrawer(); };
+    if (editing) {
+      updateTarget.mutate({ id: editing.id, data: payload }, { onSuccess, onError });
+    } else {
+      createTarget.mutate(payload, { onSuccess, onError });
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Delete this target?")) return;
-    try {
-      await salesApi.deleteTarget(id);
-      setTargets((prev) => prev.filter((t) => t.id !== id));
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to delete target");
-    }
+    deleteTarget.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete target") });
   };
 
   // live preview pct in form
@@ -302,7 +290,7 @@ export default function SalesTargetsPage() {
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <Target size={32} className="text-border mx-auto mb-3" />
           <p className="text-sm font-semibold text-muted">No targets yet</p>
-          <p className="text-xs text-muted mt-1 mb-4">Set goals to track your team's progress</p>
+          <p className="text-xs text-muted mt-1 mb-4">Set goals to track your team&apos;s progress</p>
           <Button color={SAL} size="sm" onClick={openAdd}><Plus size={13} /> Add First Target</Button>
         </div>
       ) : (
@@ -511,7 +499,6 @@ export default function SalesTargetsPage() {
           <QuickUpdateDrawer
             target={quickUpdate}
             onClose={() => setQuickUpdate(null)}
-            onSaved={load}
             currencySymbol={currencySymbol}
           />
         )}

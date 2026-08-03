@@ -28,7 +28,7 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, tenantSlug?: string) => Promise<boolean>;
+  login: (email: string, password: string, tenantSlug?: string) => Promise<{ ok: boolean; error?: string }>;
   register: (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
@@ -109,15 +109,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tryRefresh();
   }, []);
 
-  const login = useCallback(async (email: string, password: string, tenantSlug?: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string, tenantSlug?: string): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await authApi.login(email, password, tenantSlug);
       setStoredToken(res.data.access_token);
       setStoredRefreshToken(res.data.refresh_token);
       setUser(mapUser(res.data.user));
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const detail = (err as { detail?: string })?.detail;
+      if (!status) {
+        return { ok: false, error: "Can't reach the server. Check your connection and try again in a moment." };
+      }
+      if (status === 401) {
+        return { ok: false, error: "Invalid email or password" };
+      }
+      return { ok: false, error: detail || "Login failed. Please try again." };
     }
   }, []);
 

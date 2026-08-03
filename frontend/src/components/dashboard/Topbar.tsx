@@ -10,6 +10,7 @@ import { useAppConfig } from "@/lib/appConfig";
 interface TopbarProps {
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
+  variant?: "app" | "admin";
 }
 
 function getBreadcrumb(pathname: string) {
@@ -17,10 +18,11 @@ function getBreadcrumb(pathname: string) {
   return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1));
 }
 
-export function Topbar({ onToggleSidebar }: TopbarProps) {
+export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
   const { user } = useAuth();
   const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
+  const admin = variant === "admin";
   const [showLang, setShowLang] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const router = useRouter();
@@ -66,30 +68,36 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <div className="flex-1" />
 
       {/* POS */}
-      <Link
-        href="/pos"
-        className={`flex items-center gap-2 px-3.5 h-8 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
-          pathname === "/pos"
-            ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/30"
-            : "bg-accent text-white hover:bg-accent/90"
-        }`}
-      >
-        <Store size={15} />
-        <span className="hidden sm:inline">POS</span>
-      </Link>
+      {!admin && (
+        <Link
+          href="/pos"
+          className={`flex items-center gap-2 px-3.5 h-8 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
+            pathname === "/pos"
+              ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/30"
+              : "bg-accent text-white hover:bg-accent/90"
+          }`}
+        >
+          <Store size={15} />
+          <span className="hidden sm:inline">POS</span>
+        </Link>
+      )}
 
       {/* Search */}
-      <div className="hidden md:flex items-center gap-2 border border-border bg-surface/60 hover:bg-surface px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-all cursor-pointer w-56 rounded-lg">
-        <Search size={13} />
-        <span className="text-[13px] flex-1">Search...</span>
-        <span className="text-[10px] bg-card border border-border px-1.5 py-0.5 text-muted/60 font-mono rounded">⌘K</span>
-      </div>
+      {!admin && (
+        <div className="hidden md:flex items-center gap-2 border border-border bg-surface/60 hover:bg-surface px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-all cursor-pointer w-56 rounded-lg">
+          <Search size={13} />
+          <span className="text-[13px] flex-1">Search...</span>
+          <span className="text-[10px] bg-card border border-border px-1.5 py-0.5 text-muted/60 font-mono rounded">⌘K</span>
+        </div>
+      )}
 
       {/* Notifications */}
-      <button className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors relative" title="Notifications">
-        <Bell size={16} />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
-      </button>
+      {!admin && (
+        <button className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors relative" title="Notifications">
+          <Bell size={16} />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
+        </button>
+      )}
 
       {/* Theme toggle */}
       <button

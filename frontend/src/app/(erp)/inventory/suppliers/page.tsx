@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Loader2, Check, X } from "lucide-react";
-import { inventoryApi, type ApiSupplier } from "@/lib/api";
+import { type ApiSupplier } from "@/lib/api";
+import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
 const INV_COLOR = "#059669";
@@ -11,24 +12,17 @@ type SupplierForm = { name: string; email: string; phone: string; address: strin
 const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "" });
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<SupplierForm>(emptyForm());
-  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<SupplierForm>(emptyForm());
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listSuppliers();
-      setSuppliers(res.data.items);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, isLoading } = useSuppliers();
+  const createSupplier = useCreateSupplier();
+  const updateSupplier = useUpdateSupplier();
+  const deleteSupplier = useDeleteSupplier();
+  const suppliers = data?.items ?? [];
 
   const filtered = suppliers.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -37,46 +31,42 @@ export default function SuppliersPage() {
   );
 
   async function handleAdd() {
-    if (!form.name.trim() || saving) return;
-    setSaving(true);
+    if (!form.name.trim() || createSupplier.isPending) return;
     try {
-      const res = await inventoryApi.createSupplier({
+      await createSupplier.mutateAsync({
         name: form.name.trim(),
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
       });
-      setSuppliers((prev) => [...prev, res.data]);
       setForm(emptyForm()); setAdding(false);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleEdit(id: string) {
-    if (!editForm.name.trim() || saving) return;
-    setSaving(true);
+    if (!editForm.name.trim() || updateSupplier.isPending) return;
     try {
-      const res = await inventoryApi.updateSupplier(id, {
-        name: editForm.name.trim(),
-        email: editForm.email.trim() || null,
-        phone: editForm.phone.trim() || null,
-        address: editForm.address.trim() || null,
+      await updateSupplier.mutateAsync({
+        id,
+        data: {
+          name: editForm.name.trim(),
+          email: editForm.email.trim() || null,
+          phone: editForm.phone.trim() || null,
+          address: editForm.address.trim() || null,
+        },
       });
-      setSuppliers((prev) => prev.map((s) => s.id === id ? res.data : s));
       setEditingId(null);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this supplier?")) return;
     try {
-      await inventoryApi.deleteSupplier(id);
-      setSuppliers((prev) => prev.filter((s) => s.id !== id));
+      await deleteSupplier.mutateAsync(id);
     } catch { /* ignore */ }
   }
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={24} className="animate-spin text-muted" />
     </div>
@@ -105,8 +95,8 @@ export default function SuppliersPage() {
             ))}
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAdd} disabled={saving || !form.name.trim()} color={INV_COLOR}>
-              {saving ? "Saving…" : "Save"}
+            <Button onClick={handleAdd} disabled={createSupplier.isPending || !form.name.trim()} color={INV_COLOR}>
+              {createSupplier.isPending ? "Saving…" : "Save"}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
@@ -148,7 +138,7 @@ export default function SuppliersPage() {
                       className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   ))}
                   <div className="col-span-2 lg:col-span-4 flex gap-2">
-                    <Button onClick={() => handleEdit(s.id)} disabled={saving} size="sm" color={INV_COLOR} className="rounded">
+                    <Button onClick={() => handleEdit(s.id)} disabled={updateSupplier.isPending} size="sm" color={INV_COLOR} className="rounded">
                       <Check size={12} /> Save
                     </Button>
                     <Button type="button" variant="secondary" size="sm" onClick={() => setEditingId(null)} className="rounded">

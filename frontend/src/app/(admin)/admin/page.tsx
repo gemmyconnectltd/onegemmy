@@ -1,106 +1,101 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Building2, Users, ShoppingCart, TrendingUp, Activity, CheckCircle, XCircle, Package } from "lucide-react";
-import { adminApi, type AdminPlatformStats } from "@/lib/api/admin";
+import { Building2, Users, ShoppingCart, TrendingUp, Activity, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
+import { useAdminStats } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
+import { chartPalette } from "@/lib/chartColors";
+import { useAppConfig } from "@/lib/appConfig";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "@/components/charts/lazy";
 import Link from "next/link";
 
 export default function AdminOverviewPage() {
-  const [stats, setStats] = useState<AdminPlatformStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { theme } = useAppConfig();
+  const c = chartPalette(theme === "dark");
+  const { data: stats, isLoading, isError } = useAdminStats();
+  const error = isError ? "Failed to load platform stats" : null;
 
-  useEffect(() => {
-    adminApi.stats()
-      .then((r) => setStats(r.data))
-      .catch(() => setError("Failed to load platform stats"))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      <Loader2 size={22} className="animate-spin text-accent" />
     </div>
   );
 
   if (error || !stats) return (
-    <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</div>
+    <div className="text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</div>
   );
 
   const cards = [
-    { label: "Total Tenants",    value: stats.total_tenants,    icon: Building2,    color: "#8b5cf6" },
-    { label: "Active Tenants",   value: stats.active_tenants,   icon: CheckCircle,  color: "#10b981" },
-    { label: "Suspended",        value: stats.suspended_tenants,icon: XCircle,      color: "#ef4444" },
-    { label: "Total Users",      value: stats.total_users,      icon: Users,        color: "#3b82f6" },
-    { label: "Total Orders",     value: stats.total_orders,     icon: ShoppingCart, color: "#f59e0b" },
-    { label: "Completed Orders", value: stats.completed_orders, icon: Activity,     color: "#10b981" },
-    { label: "Total Products",   value: stats.total_products,   icon: Package,      color: "#6366f1" },
-    { label: "Platform Revenue", value: fmtMoney(stats.total_revenue), icon: TrendingUp, color: "#10b981", isString: true },
+    { label: "Total Tenants",    value: stats.total_tenants,    icon: Building2,    color: c.blue },
+    { label: "Active Tenants",   value: stats.active_tenants,   icon: CheckCircle,  color: c.income },
+    { label: "Suspended",        value: stats.suspended_tenants,icon: XCircle,      color: c.expenses },
+    { label: "Total Users",      value: stats.total_users,      icon: Users,        color: c.primary },
+    { label: "Total Orders",     value: stats.total_orders,     icon: ShoppingCart, color: c.gold },
+    { label: "Completed Orders", value: stats.completed_orders, icon: Activity,     color: c.income },
+    { label: "Total Products",   value: stats.total_products,   icon: Package,      color: c.gray },
+    { label: "Platform Revenue", value: fmtMoney(stats.total_revenue), icon: TrendingUp, color: c.profit, isString: true },
   ];
 
   const planColors: Record<string, string> = {
-    free: "#6b7280", starter: "#3b82f6", professional: "#8b5cf6", enterprise: "#f59e0b",
+    free: c.gray, starter: c.blue, professional: c.primary, enterprise: c.gold,
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Platform Overview</h1>
-        <p className="text-sm text-white/40 mt-1">Monitor all tenants and platform health</p>
+        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Platform Overview</h1>
+        <p className="text-sm text-muted mt-0.5">Monitor all tenants and platform health</p>
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {cards.map((c) => (
-          <div key={c.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${c.color}20` }}>
-              <c.icon size={16} style={{ color: c.color }} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {cards.map((card) => (
+          <div key={card.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${card.color}18` }}>
+              <card.icon size={17} style={{ color: card.color }} />
             </div>
-            <p className="text-xl font-bold text-white">{c.isString ? c.value : c.value.toLocaleString()}</p>
-            <p className="text-[11px] text-white/40 mt-0.5 font-medium">{c.label}</p>
+            <p className="text-lg font-extrabold text-foreground tracking-tight truncate">{card.isString ? card.value : card.value.toLocaleString()}</p>
+            <p className="text-[11px] text-muted mt-0.5 font-medium">{card.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Monthly signups chart */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h2 className="text-sm font-bold text-white mb-4">New Tenants (6 months)</h2>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-sm font-bold text-foreground mb-4">New Tenants (6 months)</h2>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.monthly_signups}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "rgba(255,255,255,0.4)" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={{ backgroundColor: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", fontSize: 12 }} />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={c.tooltip} />
+                <Bar dataKey="count" fill={c.primary} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Plan breakdown */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-5">
-          <h2 className="text-sm font-bold text-white mb-4">Tenants by Plan</h2>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-sm font-bold text-foreground mb-4">Tenants by Plan</h2>
           <div className="space-y-3">
             {Object.entries(stats.plans).map(([plan, count]) => {
               const pct = stats.total_tenants > 0 ? Math.round((count / stats.total_tenants) * 100) : 0;
-              const color = planColors[plan] ?? "#6b7280";
+              const color = planColors[plan] ?? c.gray;
               return (
                 <div key={plan}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[12px] font-semibold text-white capitalize">{plan}</span>
-                    <span className="text-[12px] text-white/50">{count} tenant{count !== 1 ? "s" : ""} · {pct}%</span>
+                    <span className="text-[12px] font-semibold text-foreground capitalize">{plan}</span>
+                    <span className="text-[12px] text-muted">{count} tenant{count !== 1 ? "s" : ""} · {pct}%</span>
                   </div>
-                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-border rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                   </div>
                 </div>
               );
             })}
             {Object.keys(stats.plans).length === 0 && (
-              <p className="text-sm text-white/30 text-center py-6">No plan data yet</p>
+              <p className="text-sm text-muted text-center py-6">No plan data yet</p>
             )}
           </div>
         </div>
@@ -108,7 +103,7 @@ export default function AdminOverviewPage() {
 
       {/* Quick link */}
       <div className="flex justify-end">
-        <Link href="/admin/tenants" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-colors">
+        <Link href="/admin/tenants" className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold transition-colors">
           <Building2 size={15} /> Manage Tenants
         </Link>
       </div>

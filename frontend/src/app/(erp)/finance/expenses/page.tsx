@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, TrendingDown, Check, X, Trash2 } from "lucide-react";
-import { financeApi } from "@/lib/api/finance";
+import { useExpenses, useCreateExpense, useApproveExpense, useRejectExpense, useDeleteExpense } from "@/lib/api/hooks";
 import type { FinanceExpense } from "@/lib/api/finance";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -17,12 +17,8 @@ export default function ExpensesPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [expenses, setExpenses] = useState<FinanceExpense[]>([]);
   const [filter, setFilter] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
@@ -31,71 +27,55 @@ export default function ExpensesPage() {
     category: "Other",
     notes: "",
   });
+  const [acting, setActing] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.listExpenses(filter === "All" ? undefined : filter);
-      setExpenses(res.data.items);
-    } catch {
-      setError("Could not load expenses.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+  const expensesQ = useExpenses(filter === "All" ? undefined : filter);
+  const expenses = expensesQ.data?.items ?? [];
+  const loading = expensesQ.isLoading;
+  const error = expensesQ.isError ? "Could not load expenses." : null;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createExpense = useCreateExpense();
+  const approveExpense = useApproveExpense();
+  const rejectExpense = useRejectExpense();
+  const deleteExpense = useDeleteExpense();
+  const saving = createExpense.isPending;
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.title || !form.amount) return;
-    setSaving(true);
     setNotice(null);
-    try {
-      await financeApi.createExpense({
+    createExpense.mutate(
+      {
         title: form.title,
         amount: Number(form.amount),
         expense_date: form.expense_date,
         category: form.category,
         notes: form.notes || null,
-      });
-      setShowForm(false);
-      setForm({ title: "", amount: "", expense_date: new Date().toISOString().slice(0, 10), category: "Other", notes: "" });
-      await load();
-    } catch {
-      setNotice("Could not add the expense.");
-    } finally {
-      setSaving(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          setShowForm(false);
+          setForm({ title: "", amount: "", expense_date: new Date().toISOString().slice(0, 10), category: "Other", notes: "" });
+        },
+        onError: () => setNotice("Could not add the expense."),
+      },
+    );
   };
 
-  const [acting, setActing] = useState<string | null>(null);
-
-  const act = async (e: FinanceExpense, action: "approve" | "reject") => {
+  const act = (e: FinanceExpense, action: "approve" | "reject") => {
     setActing(e.id);
-    try {
-      if (action === "approve") await financeApi.approveExpense(e.id);
-      else await financeApi.rejectExpense(e.id);
-      await load();
-    } catch {
-      setNotice("Could not update the expense.");
-    } finally {
-      setActing(null);
-    }
+    const handler = action === "approve" ? approveExpense : rejectExpense;
+    handler.mutate(e.id, {
+      onSettled: () => setActing(null),
+      onError: () => setNotice("Could not update the expense."),
+    });
   };
 
-  const remove = async (e: FinanceExpense) => {
+  const remove = (e: FinanceExpense) => {
     if (!window.confirm(`Delete expense “${e.title}”?`)) return;
-    try {
-      await financeApi.deleteExpense(e.id);
-      await load();
-    } catch {
-      setNotice("Could not delete the expense.");
-    }
+    deleteExpense.mutate(e.id, {
+      onError: () => setNotice("Could not delete the expense."),
+    });
   };
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
@@ -139,7 +119,7 @@ export default function ExpensesPage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={() => expensesQ.refetch()} />
       ) : expenses.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message="No expenses here yet." />

@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Scale, BadgeCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { financeApi } from "@/lib/api/finance";
+import { useIncomeStatement, useBalanceSheet, useCashFlow, useTrialBalance, useGeneralLedger } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
-import type {
-  TrialBalance, IncomeStatement, BalanceSheet, CashFlowStatement, GeneralLedger,
-} from "@/lib/api/finance";
 
 type TabKey = "income" | "balance" | "cashflow" | "trial" | "ledger";
 
@@ -163,38 +161,20 @@ function IncomeCard() {
   const { currencySymbol } = useAppConfig();
   const [from, setFrom] = useState(ytdStartISO);
   const [to, setTo] = useState(todayISO);
-  const [data, setData] = useState<IncomeStatement | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.incomeStatement(from, to);
-      setData(res.data);
-    } catch {
-      setError("Could not load the income statement.");
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const { data, isLoading, isError, refetch } = useIncomeStatement(from, to);
+  const loading = isLoading;
+  const error = isError ? "Could not load the income statement." : null;
 
   return (
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
-      onLoad={() => load()}
+      onLoad={() => refetch()}
       onExport={(fmt) => financeApi.exportStatement("income-statement", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => load()} />
+        <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -224,27 +204,9 @@ function IncomeCard() {
 function BalanceSheetCard() {
   const { currencySymbol } = useAppConfig();
   const [asOf, setAsOf] = useState(todayISO);
-  const [data, setData] = useState<BalanceSheet | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.balanceSheet(asOf);
-      setData(res.data);
-    } catch {
-      setError("Could not load the balance sheet.");
-    } finally {
-      setLoading(false);
-    }
-  }, [asOf]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const { data, isLoading, isError, refetch } = useBalanceSheet(asOf);
+  const loading = isLoading;
+  const error = isError ? "Could not load the balance sheet." : null;
 
   const exportBtn = (fmt: "csv" | "pdf") => (
     <button
@@ -262,7 +224,7 @@ function BalanceSheetCard() {
         <DateField label="As of" value={asOf} onChange={setAsOf} />
         <button
           type="button"
-          onClick={() => load()}
+          onClick={() => refetch()}
           className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
         >
           Load
@@ -273,7 +235,7 @@ function BalanceSheetCard() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => load()} />
+        <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
         <>
           <div className="flex items-center gap-3">
@@ -307,38 +269,20 @@ function CashFlowCard() {
   const { currencySymbol } = useAppConfig();
   const [from, setFrom] = useState(ytdStartISO);
   const [to, setTo] = useState(todayISO);
-  const [data, setData] = useState<CashFlowStatement | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.cashFlow(from, to);
-      setData(res.data);
-    } catch {
-      setError("Could not load the cash flow statement.");
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const { data, isLoading, isError, refetch } = useCashFlow(from, to);
+  const loading = isLoading;
+  const error = isError ? "Could not load the cash flow statement." : null;
 
   return (
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
-      onLoad={() => load()}
+      onLoad={() => refetch()}
       onExport={(fmt) => financeApi.exportStatement("cash-flow", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => load()} />
+        <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -370,38 +314,20 @@ function TrialBalanceCard() {
   const { currencySymbol } = useAppConfig();
   const [from, setFrom] = useState(ytdStartISO);
   const [to, setTo] = useState(todayISO);
-  const [data, setData] = useState<TrialBalance | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.trialBalance(from, to);
-      setData(res.data);
-    } catch {
-      setError("Could not load the trial balance.");
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const { data, isLoading, isError, refetch } = useTrialBalance(from, to);
+  const loading = isLoading;
+  const error = isError ? "Could not load the trial balance." : null;
 
   return (
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
-      onLoad={() => load()}
+      onLoad={() => refetch()}
       onExport={(fmt) => financeApi.exportStatement("trial-balance", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => load()} />
+        <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
         <>
           <div className="flex items-center gap-3">
@@ -454,38 +380,20 @@ function LedgerCard() {
   const { currencySymbol } = useAppConfig();
   const [from, setFrom] = useState(ytdStartISO);
   const [to, setTo] = useState(todayISO);
-  const [data, setData] = useState<GeneralLedger | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.generalLedger(from, to);
-      setData(res.data);
-    } catch {
-      setError("Could not load the general ledger.");
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const { data, isLoading, isError, refetch } = useGeneralLedger(from, to);
+  const loading = isLoading;
+  const error = isError ? "Could not load the general ledger." : null;
 
   return (
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
-      onLoad={() => load()}
+      onLoad={() => refetch()}
       onExport={(fmt) => financeApi.exportStatement("general-ledger", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={() => load()} />
+        <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           {data.entries.length === 0 ? (

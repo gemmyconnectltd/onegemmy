@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { UserPlus, Trash2 } from "lucide-react";
-import { hrApi } from "@/lib/api/hr";
 import type { ApiApplicant } from "@/lib/api/hr";
+import { useApplicants, useCreateApplicant, useUpdateApplicant, useDeleteApplicant } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
@@ -12,12 +12,8 @@ const STAGES = ["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected
 const FILTERS = ["All", ...STAGES];
 
 export default function RecruitingPage() {
-  const [applicants, setApplicants] = useState<ApiApplicant[]>([]);
   const [filter, setFilter] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -27,64 +23,42 @@ export default function RecruitingPage() {
     stage: "Applied",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await hrApi.listApplicants(filter === "All" ? undefined : filter);
-      setApplicants(res.data.items);
-    } catch {
-      setError("Could not load applicants.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+  const { data, isLoading, isError, refetch } = useApplicants(filter === "All" ? undefined : filter);
+  const applicants = data?.items ?? [];
+  const loading = isLoading;
+  const error = isError ? "Could not load applicants." : null;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createApplicant = useCreateApplicant();
+  const updateApplicant = useUpdateApplicant();
+  const deleteApplicant = useDeleteApplicant();
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.name) return;
-    setSaving(true);
-    setNotice(null);
-    try {
-      await hrApi.createApplicant({
-        name: form.name,
-        email: form.email || null,
-        phone: form.phone || null,
-        position: form.position || null,
-        stage: form.stage,
-      });
-      setShowForm(false);
-      setForm({ name: "", email: "", phone: "", position: "", stage: "Applied" });
-      await load();
-    } catch {
-      setNotice("Could not add the applicant.");
-    } finally {
-      setSaving(false);
-    }
+    createApplicant.mutate({
+      name: form.name,
+      email: form.email || null,
+      phone: form.phone || null,
+      position: form.position || null,
+      stage: form.stage,
+    }, {
+      onSuccess: () => {
+        setShowForm(false);
+        setForm({ name: "", email: "", phone: "", position: "", stage: "Applied" });
+      },
+      onError: () => setNotice("Could not add the applicant."),
+    });
   };
 
-  const advance = async (a: ApiApplicant, next: string) => {
-    try {
-      await hrApi.updateApplicant(a.id, { stage: next });
-      await load();
-    } catch {
-      setNotice("Could not update the applicant stage.");
-    }
+  const advance = (a: ApiApplicant, next: string) => {
+    updateApplicant.mutate({ id: a.id, data: { stage: next } }, {
+      onError: () => setNotice("Could not update the applicant stage."),
+    });
   };
 
-  const remove = async (a: ApiApplicant) => {
+  const remove = (a: ApiApplicant) => {
     if (!window.confirm(`Remove ${a.name}?`)) return;
-    try {
-      await hrApi.deleteApplicant(a.id);
-      await load();
-    } catch {
-      setNotice("Could not remove the applicant.");
-    }
+    deleteApplicant.mutate(a.id, { onError: () => setNotice("Could not remove the applicant.") });
   };
 
   const stageCounts = (stage: string) =>
@@ -125,7 +99,7 @@ export default function RecruitingPage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={refetch} />
       ) : applicants.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message="No applicants here yet." />
@@ -209,7 +183,7 @@ export default function RecruitingPage() {
               </Select>
             </Field>
           </div>
-          <FormFooter submitLabel={saving ? "Saving…" : "Add Applicant"} onCancel={() => setShowForm(false)} disabled={saving} />
+          <FormFooter submitLabel={createApplicant.isPending ? "Saving…" : "Add Applicant"} onCancel={() => setShowForm(false)} disabled={createApplicant.isPending} />
         </form>
       </Drawer>
     </div>

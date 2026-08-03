@@ -4,12 +4,13 @@ import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
   Eye, Edit2, Trash2, Loader2, AlertCircle, Package, ChevronDown,
 } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { salesApi, inventoryApi, type ApiOrder, type ApiCustomer, type ApiProduct, type ApiVariant } from "@/lib/api";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder } from "@/lib/api/hooks";
+import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
 import { financeApi } from "@/lib/api/finance";
 
 const SAL = "#0284c7";
@@ -205,12 +206,8 @@ export default function SalesOrdersPage() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [customers, setCustomers] = useState<ApiCustomer[]>([]);
-  const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
@@ -219,23 +216,25 @@ export default function SalesOrdersPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [items, setItems] = useState<ItemRow[]>([{ ...EMPTY_ITEM }]);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true); setError(null);
-      const [ordRes, custRes, prodRes] = await Promise.all([
-        salesApi.listOrders(1, 200),
-        salesApi.listCustomers(1, 200),
-        inventoryApi.listProducts(1, 500),
-      ]);
-      setOrders(ordRes.data.items);
-      setCustomers(custRes.data.items);
-      setProducts(prodRes.data.items);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to load orders");
-    } finally { setLoading(false); }
-  }, []);
+  const ordersQ = useOrders(1, 200);
+  const customersQ = useCustomers(1, 200);
+  const productsQ = useProducts(1, 500);
+  const loading = ordersQ.isLoading || customersQ.isLoading || productsQ.isLoading;
+  const orders = ordersQ.data?.items ?? [];
+  const customers = customersQ.data?.items ?? [];
+  const products = productsQ.data?.items ?? [];
 
-  useEffect(() => { load(); }, [load]);
+  const loadError = ordersQ.error ?? customersQ.error ?? productsQ.error;
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load orders" : null;
+  if (loadErrorMessage !== shownLoadError) {
+    setShownLoadError(loadErrorMessage);
+    if (loadErrorMessage !== null) setError(loadErrorMessage);
+  }
+
+  const createOrder = useCreateOrder();
+  const updateOrder = useUpdateOrder();
+  const deleteOrder = useDeleteOrder();
+  const saving = createOrder.isPending || updateOrder.isPending;
 
   const completed = orders.filter((o) => o.status === "Completed");
   const pending   = orders.filter((o) => o.status === "Pending");
@@ -272,55 +271,50 @@ export default function SalesOrdersPage() {
   const updateItem = (idx: number, patch: Partial<ItemRow>) =>
     setItems((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    try {
-      const validItems = items.filter((i) => i.product_name && i.unit_price);
-      const payload = {
-        customer_id: form.customer_id || null,
-        status: form.status,
-        discount: Number(form.discount),
-        tax: Number(form.tax),
-        notes: form.notes || null,
-        items: validItems.map((i) => ({
-          product_id: i.product_id || null,
-          variant_id: i.variant_id || null,
-          product_name: i.product_name,
-          sku: i.sku || null,
-          variant_attributes: i.variant_attributes,
-          unit_price: Number(i.unit_price),
-          quantity: Number(i.quantity),
-          discount: Number(i.discount),
-          line_total: (Number(i.unit_price) * Number(i.quantity)) - Number(i.discount),
-        })),
-      };
-      if (editing) {
-        await salesApi.updateOrder(editing.id, {
-          customer_id: payload.customer_id, status: payload.status,
-          discount: payload.discount, tax: payload.tax, notes: payload.notes,
-        });
-      } else {
-        await salesApi.createOrder(payload);
-      }
-      if (payload.status === "Completed") {
-        financeApi.backfillSales().catch(() => null);
-      }
-      closeDrawer();
-      await load();
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to save order");
-    } finally { setSaving(false); }
+    const validItems = items.filter((i) => i.product_name && i.unit_price);
+    const payload = {
+      customer_id: form.customer_id || null,
+      status: form.status,
+      discount: Number(form.discount),
+      tax: Number(form.tax),
+      notes: form.notes || null,
+      items: validItems.map((i) => ({
+        product_id: i.product_id || null,
+        variant_id: i.variant_id || null,
+        product_name: i.product_name,
+        sku: i.sku || null,
+        variant_attributes: i.variant_attributes,
+        unit_price: Number(i.unit_price),
+        quantity: Number(i.quantity),
+        discount: Number(i.discount),
+        line_total: (Number(i.unit_price) * Number(i.quantity)) - Number(i.discount),
+      })),
+    };
+    const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save order");
+    const onSuccess = () => { setError(null); closeDrawer(); };
+    if (editing) {
+      updateOrder.mutate({
+        id: editing.id,
+        data: { customer_id: payload.customer_id, status: payload.status, discount: payload.discount, tax: payload.tax, notes: payload.notes },
+      }, { onSuccess, onError });
+    } else {
+      createOrder.mutate(payload, {
+        onSuccess: () => {
+          if (payload.status === "Completed") {
+            financeApi.backfillSales().catch(() => null);
+          }
+          setError(null); closeDrawer();
+        },
+        onError,
+      });
+    }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm("Delete this order?")) return;
-    try {
-      await salesApi.deleteOrder(id);
-      setOrders((prev) => prev.filter((o) => o.id !== id));
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? "Failed to delete order");
-    }
+    deleteOrder.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete order") });
   };
 
   return (

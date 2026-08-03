@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { CreditCard, Plus, RefreshCw, Sparkles } from "lucide-react";
-import { financeApi } from "@/lib/api/finance";
-import type { FinanceAccount } from "@/lib/api/finance";
+import { useAccounts, useCreateAccount, useSeedAccounts } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Loading, EmptyState, ErrorState } from "@/components/hr/State";
@@ -19,13 +18,8 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<FinanceAccount[]>([]);
   const [type, setType] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     code: "",
@@ -35,57 +29,42 @@ export default function AccountsPage() {
     description: "",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await financeApi.listAccounts(type === "All" ? undefined : type);
-      setAccounts(res.data.items);
-    } catch {
-      setError("Could not load accounts.");
-    } finally {
-      setLoading(false);
-    }
-  }, [type]);
+  const accountsQ = useAccounts(type === "All" ? undefined : type);
+  const accounts = accountsQ.data?.items ?? [];
+  const loading = accountsQ.isLoading;
+  const error = accountsQ.isError ? "Could not load accounts." : null;
 
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
+  const createAccount = useCreateAccount();
+  const seedAccounts = useSeedAccounts();
+  const saving = createAccount.isPending;
+  const seeding = seedAccounts.isPending;
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
     setNotice(null);
-    try {
-      await financeApi.createAccount({
+    createAccount.mutate(
+      {
         code: form.code,
         name: form.name,
         type: form.type,
         normal_balance: form.normal_balance,
         description: form.description || null,
-      });
-      setShowForm(false);
-      setForm({ code: "", name: "", type: "Assets", normal_balance: "debit", description: "" });
-      await load();
-    } catch {
-      setNotice("Could not create the account (code may already exist).");
-    } finally {
-      setSaving(false);
-    }
+      },
+      {
+        onSuccess: () => {
+          setShowForm(false);
+          setForm({ code: "", name: "", type: "Assets", normal_balance: "debit", description: "" });
+        },
+        onError: () => setNotice("Could not create the account (code may already exist)."),
+      },
+    );
   };
 
-  const seed = async () => {
-    setSeeding(true);
+  const seed = () => {
     setNotice(null);
-    try {
-      await financeApi.seedAccounts();
-      await load();
-    } catch {
-      setNotice("Could not seed the chart of accounts.");
-    } finally {
-      setSeeding(false);
-    }
+    seedAccounts.mutate(undefined, {
+      onError: () => setNotice("Could not seed the chart of accounts."),
+    });
   };
 
   return (
@@ -132,7 +111,7 @@ export default function AccountsPage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={() => accountsQ.refetch()} />
       ) : accounts.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message="No accounts yet. Use “Seed Defaults” to create a standard chart of accounts." />

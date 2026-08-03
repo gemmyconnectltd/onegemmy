@@ -9,9 +9,14 @@ import {
   LayoutDashboard, ShoppingCart, Warehouse,
   Users, BarChart3, Settings, LogOut,
   UserCog, Layers, Briefcase, HandCoins,
-  Factory, ShoppingBag, ChevronRight, Menu, X,
+  Factory, ShoppingBag, Building2, ChevronRight, Menu, X,
   PanelLeft, PanelTop,
 } from "lucide-react";
+
+const adminNavItems = [
+  { name: "Overview", href: "/admin",         icon: LayoutDashboard, color: "#8b5cf6" },
+  { name: "Tenants",  href: "/admin/tenants", icon: Building2,       color: "#0284c7" },
+];
 
 const navItems = [
   { name: "Dashboard",   href: "/dashboard",     icon: LayoutDashboard, color: "#4f46e5" },
@@ -25,8 +30,6 @@ const navItems = [
   { name: "Reports",     href: "/reports",       icon: BarChart3,       color: "#1e40af" },
 ];
 
-const mobileNavItems = navItems.slice(0, 5);
-
 export type SidebarLayout = "vertical" | "horizontal";
 
 interface SidebarProps {
@@ -36,6 +39,7 @@ interface SidebarProps {
   onLayoutChange: (l: SidebarLayout) => void;
   collapsed: boolean;
   onCollapsedChange: (v: boolean) => void;
+  variant?: "app" | "admin";
 }
 
 function Tooltip({ label }: { label: string }) {
@@ -53,10 +57,13 @@ function Tooltip({ label }: { label: string }) {
   );
 }
 
-export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, collapsed, onCollapsedChange }: SidebarProps) {
+export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, collapsed, onCollapsedChange, variant = "app" }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const router = useRouter();
+  const admin = variant === "admin";
+  const items = admin ? adminNavItems : navItems;
+  const mobileItems = items.slice(0, 5);
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const toggleCollapse = () => {
@@ -81,7 +88,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
   const toggleLayout = () => onLayoutChange(layout === "vertical" ? "horizontal" : "vertical");
 
   // ── HORIZONTAL top nav ───────────────────────────────────────────────────
-  if (layout === "horizontal") {
+  if (layout === "horizontal" && !admin) {
     return (
       <>
         <header className="hidden lg:flex fixed top-0 left-0 right-0 h-[56px] bg-card border-b border-border z-50 items-center px-4 gap-1 select-none">
@@ -175,7 +182,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
         </header>
 
         {/* Mobile nav (same as vertical) */}
-        {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems, mobileNavItems })}
+        {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems: items, mobileNavItems: mobileItems, includeSettings: !admin })}
       </>
     );
   }
@@ -209,7 +216,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-clip py-2 flex flex-col gap-0.5 px-2">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
@@ -244,17 +251,19 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
         {/* Bottom */}
         <div className="py-3 flex flex-col items-center gap-0.5">
           {/* Settings */}
-          <div className="px-2 pb-1">
-            <Link
-              href="/settings"
-              title={collapsed ? "Settings" : undefined}
-              className="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none"
-              style={pathname.startsWith("/settings") ? { backgroundColor: "#4f46e5" } : undefined}
-            >
-              <Settings size={18} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.8} style={{ color: pathname.startsWith("/settings") ? "#fff" : "#4f46e5" }} className="flex-shrink-0" />
-              {!collapsed && <span className="text-[13px] font-semibold" style={{ color: pathname.startsWith("/settings") ? "#fff" : "#64748b" }}>Settings</span>}
-            </Link>
-          </div>
+          {!admin && (
+            <div className="px-2 pb-1">
+              <Link
+                href="/settings"
+                title={collapsed ? "Settings" : undefined}
+                className="group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 focus-visible:outline-none"
+                style={pathname.startsWith("/settings") ? { backgroundColor: "#4f46e5" } : undefined}
+              >
+                <Settings size={18} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.8} style={{ color: pathname.startsWith("/settings") ? "#fff" : "#4f46e5" }} className="flex-shrink-0" />
+                {!collapsed && <span className="text-[13px] font-semibold" style={{ color: pathname.startsWith("/settings") ? "#fff" : "#64748b" }}>Settings</span>}
+              </Link>
+            </div>
+          )}
 
           {/* User */}
           <div className="px-2 pb-2 relative" onMouseEnter={() => setTooltip("user")} onMouseLeave={() => setTooltip(null)}>
@@ -289,7 +298,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
         </div>
       </aside>
 
-      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems, mobileNavItems })}
+      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems: items, mobileNavItems: mobileItems, includeSettings: !admin })}
     </>
   );
 }
@@ -299,7 +308,7 @@ type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: 
 // ── Shared mobile bottom nav ─────────────────────────────────────────────────
 function mobileBottomNav({
   mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick,
-  handleLogout, initials, user, navItems, mobileNavItems,
+  handleLogout, initials, user, navItems, mobileNavItems, includeSettings = true,
 }: {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (v: boolean) => void;
@@ -310,6 +319,7 @@ function mobileBottomNav({
   user: { name?: string; role?: string } | null;
   navItems: NavItem[];
   mobileNavItems: NavItem[];
+  includeSettings?: boolean;
 }) {
   return (
     <>
@@ -324,7 +334,7 @@ function mobileBottomNav({
             </button>
           </div>
           <nav className="flex-1 overflow-y-auto px-3 py-4 grid grid-cols-3 gap-2 content-start">
-            {[...navItems, { name: "Settings", href: "/settings", icon: Settings, color: "#4f46e5" }].map((item) => {
+            {[...navItems, ...(includeSettings ? [{ name: "Settings", href: "/settings", icon: Settings, color: "#4f46e5" }] : [])].map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link

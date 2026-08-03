@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Layers, Search, PackagePlus, Trash2, Edit2, Plus, Loader2 } from "lucide-react";
-import { inventoryApi, type ApiProduct, type ApiVariantListItem } from "@/lib/api";
+import { type ApiVariantListItem } from "@/lib/api";
+import { useAllVariants, useProducts, useCreateVariant, useUpdateVariant, useRestockVariant, useDeleteVariant } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { Button } from "@/components/ui/Button";
 
@@ -53,8 +54,6 @@ function AttributeEditor({ attrs, onChange }: { attrs: Record<string, string>; o
 }
 
 export default function VariantsPage() {
-  const [variants, setVariants] = useState<ApiVariantListItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(() => {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("q") ?? "";
@@ -63,24 +62,20 @@ export default function VariantsPage() {
   const [restocking, setRestocking] = useState<ApiVariantListItem | null>(null);
   const [restockQty, setRestockQty] = useState(0);
   const [restockMode, setRestockMode] = useState<"restock" | "adjust">("restock");
-  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ApiVariantListItem | null>(null);
   const [editing, setEditing] = useState<ApiVariantListItem | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [adding, setAdding] = useState(false);
   const [createForm, setCreateForm] = useState<EditForm & { product_id: string }>(EMPTY_CREATE);
-  const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await inventoryApi.listAllVariants();
-      setVariants(res.data.items);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data, isLoading } = useAllVariants(1, 200);
+  const { data: productsData, isFetching: loadingProducts } = useProducts(1, 200, { enabled: adding });
+  const createVariant = useCreateVariant();
+  const updateVariant = useUpdateVariant();
+  const restockVariant = useRestockVariant();
+  const deleteVariant = useDeleteVariant();
+  const variants = data?.items ?? [];
+  const products = productsData?.items ?? [];
 
   const filtered = variants.filter((v) => {
     const q = search.toLowerCase();
@@ -94,22 +89,18 @@ export default function VariantsPage() {
   });
 
   const handleRestock = async () => {
-    if (!restocking || saving) return;
-    setSaving(true);
+    if (!restocking || restockVariant.isPending) return;
     try {
-      const res = await inventoryApi.restockVariant(restocking.product_id, restocking.id, { qty: restockQty, mode: restockMode });
-      setVariants((prev) => prev.map((v) => v.id === restocking.id ? { ...v, stock: res.data.stock } : v));
+      await restockVariant.mutateAsync({ productId: restocking.product_id, id: restocking.id, data: { qty: restockQty, mode: restockMode } });
       setRestocking(null);
       setRestockQty(0);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await inventoryApi.deleteVariant(deleteTarget.product_id, deleteTarget.id);
-      setVariants((prev) => prev.filter((v) => v.id !== deleteTarget.id));
+      await deleteVariant.mutateAsync({ productId: deleteTarget.product_id, id: deleteTarget.id });
       setDeleteTarget(null);
     } catch { /* ignore */ }
   };
@@ -119,44 +110,30 @@ export default function VariantsPage() {
     setEditForm({ sku: v.sku ?? "", price: v.price, cost: v.cost, stock: v.stock, min_stock: v.min_stock, is_active: v.is_active, attributes: v.attributes });
   };
 
-  const openAdd = async () => {
+  const openAdd = () => {
     setCreateForm(EMPTY_CREATE);
     setAdding(true);
-    if (products.length === 0) {
-      setLoadingProducts(true);
-      try {
-        const res = await inventoryApi.listProducts(1, 200);
-        setProducts(res.data.items);
-      } catch { /* ignore */ }
-      finally { setLoadingProducts(false); }
-    }
   };
 
   const handleCreate = async () => {
-    if (!createForm.product_id || saving) return;
-    setSaving(true);
+    if (!createForm.product_id || createVariant.isPending) return;
     try {
       const { product_id, ...payload } = createForm;
-      const res = await inventoryApi.createVariant(product_id, { ...payload, sku: payload.sku || null });
-      setVariants((prev) => [res.data as unknown as ApiVariantListItem, ...prev]);
+      await createVariant.mutateAsync({ productId: product_id, data: { ...payload, sku: payload.sku || null } });
       setAdding(false);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   };
 
   const handleUpdate = async () => {
-    if (!editing || !editForm || saving) return;
-    setSaving(true);
+    if (!editing || !editForm || updateVariant.isPending) return;
     try {
-      const res = await inventoryApi.updateVariant(editing.product_id, editing.id, { ...editForm, sku: editForm.sku || null });
-      setVariants((prev) => prev.map((v) => v.id === editing.id ? { ...v, ...res.data } : v));
+      await updateVariant.mutateAsync({ productId: editing.product_id, id: editing.id, data: { ...editForm, sku: editForm.sku || null } });
       setEditing(null);
       setEditForm(null);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   };
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={24} className="animate-spin text-muted" />
     </div>
@@ -284,8 +261,8 @@ export default function VariantsPage() {
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-foreground/30" />
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setRestocking(null)} className="flex-1 rounded-lg text-[13px]">Cancel</Button>
-              <Button onClick={handleRestock} disabled={saving} color={INV_COLOR} className="flex-1 rounded-lg text-[13px] text-white">
-                {saving ? "Saving…" : "Update Stock"}
+              <Button onClick={handleRestock} disabled={restockVariant.isPending} color={INV_COLOR} className="flex-1 rounded-lg text-[13px] text-white">
+                {restockVariant.isPending ? "Saving…" : "Update Stock"}
               </Button>
             </div>
           </div>
@@ -364,8 +341,8 @@ export default function VariantsPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => setAdding(false)} className="flex-1 rounded-lg text-[13px]">Cancel</Button>
-              <Button onClick={handleCreate} disabled={saving || !createForm.product_id} color={INV_COLOR} className="flex-1 rounded-lg text-[13px] text-white">
-                {saving ? "Saving…" : "Create Variant"}
+              <Button onClick={handleCreate} disabled={createVariant.isPending || !createForm.product_id} color={INV_COLOR} className="flex-1 rounded-lg text-[13px] text-white">
+                {createVariant.isPending ? "Saving…" : "Create Variant"}
               </Button>
             </div>
           </div>
@@ -418,8 +395,8 @@ export default function VariantsPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => { setEditing(null); setEditForm(null); }} className="flex-1 rounded-lg text-[13px]">Cancel</Button>
-              <Button onClick={handleUpdate} disabled={saving} color={INV_COLOR} className="flex-1 rounded-lg text-[13px] text-white">
-                {saving ? "Saving…" : "Save Changes"}
+              <Button onClick={handleUpdate} disabled={updateVariant.isPending} color={INV_COLOR} className="flex-1 rounded-lg text-[13px] text-white">
+                {updateVariant.isPending ? "Saving…" : "Save Changes"}
               </Button>
             </div>
           </div>

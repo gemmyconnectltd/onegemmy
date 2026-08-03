@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
-import { hrApi } from "@/lib/api/hr";
-import type { ApiLeave, ApiEmployee } from "@/lib/api/hr";
+import type { ApiLeave } from "@/lib/api/hr";
+import { useLeave, useEmployees, useCreateLeave, useApproveLeave, useRejectLeave, useDeleteLeave } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
@@ -12,13 +12,8 @@ const LEAVE_TYPES = ["Annual", "Sick", "Maternity", "Study", "Unpaid"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
 export default function LeavePage() {
-  const [leaves, setLeaves] = useState<ApiLeave[]>([]);
-  const [employees, setEmployees] = useState<ApiEmployee[]>([]);
   const [filter, setFilter] = useState("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     employee_id: "",
@@ -28,75 +23,50 @@ export default function LeavePage() {
     reason: "",
   });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [leaveRes, empRes] = await Promise.all([
-        hrApi.listLeave(filter === "All" ? undefined : filter),
-        hrApi.listEmployees(),
-      ]);
-      setLeaves(leaveRes.data.items);
-      setEmployees(empRes.data.items);
-    } catch {
-      setError("Could not load leave requests.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => { load(); }, 0);
-    return () => window.clearTimeout(id);
-  }, [load]);
-
   const days = (() => {
     if (!form.from_date || !form.to_date) return 0;
     const diff = (new Date(form.to_date).getTime() - new Date(form.from_date).getTime()) / 86400000;
     return Math.max(1, Math.round(diff) + 1);
   })();
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const { data: leaveData, isLoading: leaveLoading, isError, refetch } = useLeave(filter === "All" ? undefined : filter);
+  const { data: empData, isLoading: empLoading } = useEmployees();
+  const leaves = leaveData?.items ?? [];
+  const employees = empData?.items ?? [];
+  const loading = leaveLoading || empLoading;
+  const error = isError ? "Could not load leave requests." : null;
+
+  const createLeave = useCreateLeave();
+  const approveLeave = useApproveLeave();
+  const rejectLeave = useRejectLeave();
+  const deleteLeave = useDeleteLeave();
+
+  const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!form.employee_id) return;
-    setSaving(true);
-    setNotice(null);
-    try {
-      await hrApi.createLeave({
-        employee_id: form.employee_id,
-        leave_type: form.leave_type,
-        from_date: form.from_date,
-        to_date: form.to_date,
-        reason: form.reason || null,
-      });
-      setShowForm(false);
-      setForm({ ...form, employee_id: "", reason: "" });
-      await load();
-    } catch {
-      setNotice("Could not create the leave request.");
-    } finally {
-      setSaving(false);
-    }
+    createLeave.mutate({
+      employee_id: form.employee_id,
+      leave_type: form.leave_type,
+      from_date: form.from_date,
+      to_date: form.to_date,
+      reason: form.reason || null,
+    }, {
+      onSuccess: () => {
+        setShowForm(false);
+        setForm({ ...form, employee_id: "", reason: "" });
+      },
+      onError: () => setNotice("Could not create the leave request."),
+    });
   };
 
-  const act = async (leave: ApiLeave, action: "approve" | "reject") => {
-    try {
-      if (action === "approve") await hrApi.approveLeave(leave.id);
-      else await hrApi.rejectLeave(leave.id);
-      await load();
-    } catch {
-      setNotice("Could not update the request.");
-    }
+  const act = (leave: ApiLeave, action: "approve" | "reject") => {
+    const m = action === "approve" ? approveLeave : rejectLeave;
+    m.mutate(leave.id, { onError: () => setNotice("Could not update the request.") });
   };
 
-  const remove = async (leave: ApiLeave) => {
+  const remove = (leave: ApiLeave) => {
     if (!window.confirm("Delete this leave request?")) return;
-    try {
-      await hrApi.deleteLeave(leave.id);
-      await load();
-    } catch {
-      setNotice("Could not delete the request.");
-    }
+    deleteLeave.mutate(leave.id, { onError: () => setNotice("Could not delete the request.") });
   };
 
   const pendingCount = leaves.filter((l) => l.status === "Pending").length;
@@ -136,7 +106,7 @@ export default function LeavePage() {
       {loading ? (
         <Loading />
       ) : error ? (
-        <ErrorState message={error} onRetry={load} />
+        <ErrorState message={error} onRetry={refetch} />
       ) : leaves.length === 0 ? (
         <div className="bg-card border border-border rounded-xl">
           <EmptyState message="No leave requests yet." />
@@ -228,7 +198,7 @@ export default function LeavePage() {
           <Field label="Reason">
             <Textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Optional note" rows={3} />
           </Field>
-          <FormFooter submitLabel={saving ? "Saving…" : "Submit Request"} onCancel={() => setShowForm(false)} disabled={saving} />
+          <FormFooter submitLabel={createLeave.isPending ? "Saving…" : "Submit Request"} onCancel={() => setShowForm(false)} disabled={createLeave.isPending} />
         </form>
       </Drawer>
     </div>

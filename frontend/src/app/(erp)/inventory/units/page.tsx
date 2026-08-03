@@ -1,61 +1,51 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Ruler, Plus, Edit2, Trash2, Loader2, Check, X } from "lucide-react";
-import { inventoryApi, type ApiUnit } from "@/lib/api";
+import { type ApiUnit } from "@/lib/api";
+import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
 const INV_COLOR = "#059669";
 
 export default function UnitsPage() {
-  const [units, setUnits] = useState<ApiUnit[]>([]);
-  const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAbbr, setNewAbbr] = useState("");
-  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editAbbr, setEditAbbr] = useState("");
 
-  useEffect(() => {
-    inventoryApi.listUnits()
-      .then((res) => setUnits(res.data.items))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading } = useUnits();
+  const createUnit = useCreateUnit();
+  const updateUnit = useUpdateUnit();
+  const deleteUnit = useDeleteUnit();
+  const units = data?.items ?? [];
 
   async function handleAdd() {
-    if (!newName.trim() || saving) return;
-    setSaving(true);
+    if (!newName.trim() || createUnit.isPending) return;
     try {
-      const res = await inventoryApi.createUnit({ name: newName.trim(), abbreviation: newAbbr.trim() || null });
-      setUnits((prev) => [...prev, res.data]);
+      await createUnit.mutateAsync({ name: newName.trim(), abbreviation: newAbbr.trim() || null });
       setNewName(""); setNewAbbr(""); setAdding(false);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleEdit(id: string) {
-    if (!editName.trim() || saving) return;
-    setSaving(true);
+    if (!editName.trim() || updateUnit.isPending) return;
     try {
-      const res = await inventoryApi.updateUnit(id, { name: editName.trim(), abbreviation: editAbbr.trim() || null });
-      setUnits((prev) => prev.map((u) => u.id === id ? res.data : u));
+      await updateUnit.mutateAsync({ id, data: { name: editName.trim(), abbreviation: editAbbr.trim() || null } });
       setEditingId(null);
     } catch { /* ignore */ }
-    finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this unit?")) return;
     try {
-      await inventoryApi.deleteUnit(id);
-      setUnits((prev) => prev.filter((u) => u.id !== id));
+      await deleteUnit.mutateAsync(id);
     } catch { /* ignore */ }
   }
 
-  if (loading) return (
+  if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={24} className="animate-spin text-muted" />
     </div>
@@ -86,8 +76,8 @@ export default function UnitsPage() {
               className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleAdd} disabled={saving || !newName.trim()} color={INV_COLOR}>
-              {saving ? "Saving…" : "Save"}
+            <Button onClick={handleAdd} disabled={createUnit.isPending || !newName.trim()} color={INV_COLOR}>
+              {createUnit.isPending ? "Saving…" : "Save"}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
           </div>
@@ -111,7 +101,7 @@ export default function UnitsPage() {
                     className="flex-1 px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   <input value={editAbbr} onChange={(e) => setEditAbbr(e.target.value)} placeholder="Abbr"
                     className="w-20 px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
-                  <button onClick={() => handleEdit(u.id)} disabled={saving}
+                  <button onClick={() => handleEdit(u.id)} disabled={updateUnit.isPending}
                     className="w-6 h-6 flex items-center justify-center rounded transition-colors disabled:opacity-50"
                     style={{ color: INV_COLOR }}>
                     <Check size={13} />
