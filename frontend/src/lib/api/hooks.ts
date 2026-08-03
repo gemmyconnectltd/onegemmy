@@ -26,6 +26,7 @@ import {
   type ApiDepartment, type ApiEmployee, type ApiAttendance,
   type ApiLeave, type ApiPayroll, type ApiApplicant,
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
+  type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -270,6 +271,9 @@ const TENANTS = ["admin", "tenants"] as const;
 export const useAdminStats = (opts?: QueryOpts) =>
   useQ([...ADMIN_STATS], () => adminApi.stats(), (r) => r.data, opts);
 
+export const useUsers = (page = 1, pageSize = 50, opts?: QueryOpts) =>
+  useQ(["admin", "users", page, pageSize], () => adminApi.listUsers(page, pageSize), (r) => r.data, opts);
+
 export const useTenants = (page = 1, pageSize = 20, opts?: QueryOpts) =>
   useQ([...TENANTS, page, pageSize], () => adminApi.listTenants(page, pageSize), (r) => r.data, opts);
 
@@ -282,12 +286,31 @@ export const useTenantStats = (id: string | undefined, opts?: QueryOpts) =>
 export const useTenantUsers = (id: string | undefined, page = 1, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "users", page], () => adminApi.tenantUsers(id!, page), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
+export const useTenantDepartments = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...TENANTS, id, "departments"], () => adminApi.tenantDepartments(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useTenantRoles = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...TENANTS, id, "roles"], () => adminApi.tenantRoles(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useTenantBranches = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...TENANTS, id, "branches"], () => adminApi.tenantBranches(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
 export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS]]);
 export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS]]);
 export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
 export const useActivateTenant = mutation((id: string) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
 export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
 export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS]]);
+export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS]]);
+
+export const useCreateDepartment = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createDepartment>[1] }) => adminApi.createDepartment(tenantId, data), [[...TENANTS]]);
+export const useDeleteDepartment = mutation(({ tenantId, departmentId }: { tenantId: string; departmentId: string }) => adminApi.deleteDepartment(tenantId, departmentId), [[...TENANTS]]);
+
+export const useCreateRole = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createRole>[1] }) => adminApi.createRole(tenantId, data), [[...TENANTS]]);
+export const useDeleteRole = mutation(({ tenantId, roleId }: { tenantId: string; roleId: string }) => adminApi.deleteRole(tenantId, roleId), [[...TENANTS]]);
+
+export const useCreateBranch = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createBranch>[1] }) => adminApi.createBranch(tenantId, data), [[...TENANTS]]);
+export const useDeleteBranch = mutation(({ tenantId, branchId }: { tenantId: string; branchId: string }) => adminApi.deleteBranch(tenantId, branchId), [[...TENANTS]]);
 
 // ── Re-export the response types for convenience ────────────────────────────
 
@@ -299,4 +322,5 @@ export type {
   FinanceAccount, FinanceExpense, FinanceTransaction,
   ApiDepartment, ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
+  AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
 };

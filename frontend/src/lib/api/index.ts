@@ -54,5 +54,6 @@ export { hrApi, departmentsApi } from "./hr";
 // Admin
 export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
+  AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
 } from "./admin";
 export { adminApi } from "./admin";

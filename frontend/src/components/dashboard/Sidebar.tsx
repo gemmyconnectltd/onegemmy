@@ -10,12 +10,14 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, Layers, Briefcase, HandCoins,
   Factory, ShoppingBag, Building2, ChevronRight, Menu, X,
-  PanelLeft, PanelTop,
+  PanelLeft, PanelTop, Crown,
 } from "lucide-react";
 
 const adminNavItems = [
   { name: "Overview", href: "/admin",         icon: LayoutDashboard, color: "#8b5cf6" },
   { name: "Tenants",  href: "/admin/tenants", icon: Building2,       color: "#0284c7" },
+  { name: "Users",    href: "/admin/users",   icon: Users,           color: "#059669" },
+  { name: "Plans",    href: "/admin/plans",   icon: Crown,           color: "#d97706" },
 ];
 
 const navItems = [

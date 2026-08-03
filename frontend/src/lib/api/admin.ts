@@ -48,10 +48,45 @@ export interface AdminUser {
   created_at: string | null;
 }
 
+export interface AdminUserRow extends AdminUser {
+  tenant_id: string | null;
+  tenant_name: string | null;
+}
+
+export interface AdminDepartment {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminRole {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminBranch {
+  id: string;
+  tenant_id: string;
+  name: string;
+  location: string | null;
+  status: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 const B = "/admin";
 
 export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
+  listUsers: (page = 1, pageSize = 50) =>
+    request<PaginatedResponse<AdminUserRow>>(`${B}/users?page=${page}&page_size=${pageSize}`),
 
   listTenants: (page = 1, pageSize = 20) =>
     request<PaginatedResponse<AdminTenant>>(`${B}/tenants?page=${page}&page_size=${pageSize}`),
@@ -74,4 +109,27 @@ export const adminApi = {
     request<PaginatedResponse<AdminUser>>(`${B}/tenants/${id}/users?page=${page}&page_size=50`),
   inviteUser: (tenantId: string, data: { email: string; full_name: string; role: string; password: string }) =>
     request<SingleResponse<AdminUser>>(`${B}/tenants/${tenantId}/invite`, { method: "POST", body: JSON.stringify(data) }),
+  deleteUser: (tenantId: string, userId: string) =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/users/${userId}`, { method: "DELETE" }),
+
+  tenantDepartments: (id: string, page = 1) =>
+    request<PaginatedResponse<AdminDepartment>>(`${B}/tenants/${id}/departments?page=${page}&page_size=50`),
+  createDepartment: (tenantId: string, data: { name: string; description?: string }) =>
+    request<SingleResponse<AdminDepartment>>(`${B}/tenants/${tenantId}/departments`, { method: "POST", body: JSON.stringify(data) }),
+  deleteDepartment: (tenantId: string, departmentId: string) =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/departments/${departmentId}`, { method: "DELETE" }),
+
+  tenantRoles: (id: string, page = 1) =>
+    request<PaginatedResponse<AdminRole>>(`${B}/tenants/${id}/roles?page=${page}&page_size=50`),
+  createRole: (tenantId: string, data: { name: string; description?: string }) =>
+    request<SingleResponse<AdminRole>>(`${B}/tenants/${tenantId}/roles`, { method: "POST", body: JSON.stringify(data) }),
+  deleteRole: (tenantId: string, roleId: string) =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/roles/${roleId}`, { method: "DELETE" }),
+
+  tenantBranches: (id: string, page = 1) =>
+    request<PaginatedResponse<AdminBranch>>(`${B}/tenants/${id}/branches?page=${page}&page_size=50`),
+  createBranch: (tenantId: string, data: { name: string; location?: string }) =>
+    request<SingleResponse<AdminBranch>>(`${B}/tenants/${tenantId}/branches`, { method: "POST", body: JSON.stringify(data) }),
+  deleteBranch: (tenantId: string, branchId: string) =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/branches/${branchId}`, { method: "DELETE" }),
 };

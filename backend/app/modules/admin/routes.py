@@ -17,7 +17,10 @@ from app.modules.sales.models.order import Order
 from app.modules.tenants import service
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
-from app.modules.tenants.schemas import TenantCreate, TenantUpdate
+from app.modules.tenants.schemas import (
+    BranchCreate, DepartmentCreate, RoleCreate,
+    TenantCreate, TenantUpdate,
+)
 
 router = APIRouter(prefix="/admin", tags=["Super Admin"])
 
@@ -68,6 +71,38 @@ async def admin_stats(db: DbSession, _: SuperUser):
         "plans": plans,
         "monthly_signups": [{"month": r.month, "count": r.cnt} for r in monthly],
     }, message="Platform stats retrieved")
+
+
+# ── Platform users ────────────────────────────────────────────────────────────
+
+@router.get("/users")
+async def admin_list_all_users(db: DbSession, _: SuperUser, page_params: PageQuery):
+    stmt = (
+        select(User, Tenant.name)
+        .outerjoin(Tenant, Tenant.id == User.tenant_id)
+        .order_by(User.created_at.desc())
+        .offset(page_params.offset)
+        .limit(page_params.limit)
+    )
+    rows = (await db.execute(stmt)).all()
+    total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+    items = [
+        {
+            "id": str(u.id),
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": u.role,
+            "is_active": u.is_active,
+            "is_superuser": u.is_superuser,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "tenant_id": str(u.tenant_id) if u.tenant_id else None,
+            "tenant_name": tname,
+        }
+        for u, tname in rows
+    ]
+    return paginated_response(items=items, total=total,
+                              page=page_params.page, page_size=page_params.page_size,
+                              message="All users retrieved")
 
 
 # ── Tenant CRUD ───────────────────────────────────────────────────────────────
@@ -210,3 +245,53 @@ async def admin_list_tenant_roles(tenant_id: uuid.UUID, db: DbSession, _: SuperU
     return paginated_response(items=[r.model_dump() for r in roles], total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="Tenant roles retrieved")
+
+
+# ── Tenant sub-resource management (create / delete) ─────────────────────────
+
+@router.post("/tenants/{tenant_id}/departments", status_code=201)
+async def admin_create_tenant_department(tenant_id: uuid.UUID, data: DepartmentCreate, db: DbSession, _: SuperUser):
+    dept = await service.create_department(db, tenant_id, data)
+    return success_response(data=dept.model_dump(), message="Department created", status_code=201)
+
+
+@router.delete("/tenants/{tenant_id}/departments/{department_id}")
+async def admin_delete_tenant_department(tenant_id: uuid.UUID, department_id: uuid.UUID, db: DbSession, _: SuperUser):
+    await service.delete_department(db, tenant_id, department_id)
+    return success_response(message="Department deleted")
+
+
+@router.post("/tenants/{tenant_id}/roles", status_code=201)
+async def admin_create_tenant_role(tenant_id: uuid.UUID, data: RoleCreate, db: DbSession, _: SuperUser):
+    role = await service.create_role(db, tenant_id, data)
+    return success_response(data=role.model_dump(), message="Role created", status_code=201)
+
+
+@router.delete("/tenants/{tenant_id}/roles/{role_id}")
+async def admin_delete_tenant_role(tenant_id: uuid.UUID, role_id: uuid.UUID, db: DbSession, _: SuperUser):
+    await service.delete_role(db, tenant_id, role_id)
+    return success_response(message="Role deleted")
+
+
+@router.post("/tenants/{tenant_id}/branches", status_code=201)
+async def admin_create_tenant_branch(tenant_id: uuid.UUID, data: BranchCreate, db: DbSession, _: SuperUser):
+    branch = await service.create_branch(db, tenant_id, data)
+    return success_response(data=branch.model_dump(), message="Branch created", status_code=201)
+
+
+@router.delete("/tenants/{tenant_id}/branches/{branch_id}")
+async def admin_delete_tenant_branch(tenant_id: uuid.UUID, branch_id: uuid.UUID, db: DbSession, _: SuperUser):
+    await service.delete_branch(db, tenant_id, branch_id)
+    return success_response(message="Branch deleted")
+
+
+@router.delete("/tenants/{tenant_id}/users/{user_id}")
+async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser):
+    user = await db.get(User, user_id)
+    if not user or user.tenant_id != tenant_id:
+        raise NotFoundError("User not found in tenant")
+    if user.is_superuser:
+        raise ConflictError("Cannot remove a superuser")
+    await db.delete(user)
+    await db.commit()
+    return success_response(message="User removed")
