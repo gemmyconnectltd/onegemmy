@@ -105,3 +105,11 @@ body {
 input, select, textarea {
   font-family: inherit;
 }
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
