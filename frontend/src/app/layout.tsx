@@ -98,7 +98,7 @@ export default function RootLayout({
           }}
         />
       )}
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <Providers><AppConfigProvider><AuthProvider>{children}</AuthProvider></AppConfigProvider></Providers>
       </body>
     </html>

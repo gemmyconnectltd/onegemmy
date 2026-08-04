@@ -24,13 +24,29 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "low-stock", label: "Low stock first" },
 ];
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  groceries: "🍚", drinks: "🥤", food: "🍞", bakery: "🥐", dairy: "🥛",
+  electronics: "💻", phones: "📱", accessories: "🎧", clothing: "👕",
+  shoes: "👟", furniture: "🪑", hardware: "🔨", stationery: "📓",
+  pharmacy: "💊", cosmetics: "💄", cleaning: "🧴", pets: "🐾",
+  automotive: "🚗", books: "📖", toys: "🧸", office: "📏",
+};
+
+function emojiForCategory(category: string): string {
+  const c = category.toLowerCase();
+  for (const [key, emoji] of Object.entries(CATEGORY_EMOJI)) {
+    if (c.includes(key)) return emoji;
+  }
+  return "📦";
+}
+
 function apiToProduct(p: ApiProduct): Product {
   return {
     id: p.id,
     name: p.name,
     price: p.price,
     category: p.category?.name ?? "Uncategorized",
-    emoji: "📦",
+    emoji: emojiForCategory(p.category?.name ?? ""),
     stock: p.stock,
     image_url: p.image_url,
     sku: p.sku,

@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, House, Settings, ShoppingBasket } from "lucide-react";
+import { ArrowLeftRight, House, ShoppingBasket, UserRound } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 
 const TABS = [
   { href: "/m", label: "Home", icon: House },
   { href: "/m/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/m/settings", label: "Settings", icon: Settings },
+  { href: "/m/account", label: "Account", icon: UserRound },
 ];
 
 export function BottomNav() {

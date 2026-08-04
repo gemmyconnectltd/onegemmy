@@ -52,7 +52,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         disabled={outOfStock}
         className={`block w-full text-left group ${isVariantGroup ? "cursor-pointer" : "active:scale-[0.97] transition-transform"}`}
       >
-        <div className="w-full aspect-square relative overflow-hidden bg-surface flex items-center justify-center">
+        <div className="w-full aspect-square relative overflow-hidden flex items-center justify-center">
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -62,12 +62,30 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <IconBadge
-              Icon={getProductIcon(product)}
-              size={28}
-              color={accent}
-              className="w-16 h-16 transition-transform group-hover:scale-110"
-            />
+            <div
+              className="w-full h-full relative flex items-center justify-center"
+              style={{ background: `linear-gradient(145deg, ${accent}1F 0%, ${accent}08 60%, transparent 100%)` }}
+            >
+              <div
+                className="absolute -top-5 -right-5 w-16 h-16 rounded-full"
+                style={{ backgroundColor: `${accent}14` }}
+              />
+              <div
+                className="absolute -bottom-6 -left-4 w-20 h-20 rounded-full"
+                style={{ backgroundColor: `${accent}0F` }}
+              />
+              <div
+                className="relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm"
+                style={{ backgroundColor: `${accent}1A`, border: `1px solid ${accent}33` }}
+              >
+                <IconBadge
+                  Icon={getProductIcon(product)}
+                  size={24}
+                  color={accent}
+                  rounded="rounded-2xl"
+                />
+              </div>
+            </div>
           )}
           {outOfStock && (
             <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
@@ -77,16 +95,16 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         </div>
 
         {/* Info */}
-        <div className="p-3 flex flex-col gap-0.5">
+        <div className="p-3 flex flex-col gap-0.5 flex-1">
           <p className="text-[12px] font-semibold text-foreground leading-tight line-clamp-2">{product.name}</p>
           {isVariantGroup ? (
             <p className="text-[10px] text-accent font-semibold flex items-center gap-0.5">
               {product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
             </p>
           ) : product.sku ? (
-            <p className="text-[10px] text-muted font-mono">{product.sku}</p>
+            <p className="text-[10px] text-muted font-mono truncate">{product.sku}</p>
           ) : null}
-          <p className="text-[13px] text-accent font-bold mt-1 font-mono">
+          <p className="text-[13px] text-accent font-bold mt-auto pt-1 font-mono">
             {currencySymbol} {fmt(product.price)}
           </p>
           <div className="flex items-center justify-between mt-0.5">
