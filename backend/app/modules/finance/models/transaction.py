@@ -28,6 +28,9 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     return_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_returns.id", ondelete="SET NULL"), nullable=True
     )
+    purchase_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="SET NULL"), nullable=True
+    )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -41,5 +44,6 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         Index("uq_finance_transactions_tenant_ref", "tenant_id", "reference", unique=True),
         Index("ix_finance_transactions_tenant_id", "tenant_id"),
         Index("ix_finance_transactions_order_id", "order_id"),
+        Index("ix_finance_transactions_purchase_id", "purchase_id"),
         Index("ix_finance_transactions_type_status", "tenant_id", "type", "status"),
     )

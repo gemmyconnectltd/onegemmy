@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, LogOut, Mail, Shield, UserRound } from "lucide-react";
+import { Building2, ChartPie, LogOut, Mail, Shield, ShoppingBasket, UserRound } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
 
@@ -55,18 +56,18 @@ export default function MobileAccountPage() {
 
         {/* Links */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <button
-            onClick={() => router.push("/pos")}
-            className="w-full text-left px-4 py-3.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors"
+          <Link
+            href="/m/pos"
+            className="w-full flex items-center gap-2.5 px-4 py-3.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors"
           >
-            Open full POS
-          </button>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="w-full text-left px-4 py-3.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors border-t border-border"
+            <ShoppingBasket size={15} className="text-accent" /> Open point of sale
+          </Link>
+          <Link
+            href="/m/stats"
+            className="w-full flex items-center gap-2.5 px-4 py-3.5 text-[13px] font-medium text-foreground hover:bg-surface transition-colors border-t border-border"
           >
-            Open dashboard
-          </button>
+            <ChartPie size={15} className="text-accent" /> View stats
+          </Link>
         </div>
 
         <button

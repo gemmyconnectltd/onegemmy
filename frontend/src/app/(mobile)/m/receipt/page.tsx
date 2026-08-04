@@ -18,7 +18,7 @@ export default function MobileReceiptPage() {
 
   const handleNewSale = () => {
     startNewSale();
-    router.replace("/m");
+    router.replace("/m/pos");
   };
 
   return (

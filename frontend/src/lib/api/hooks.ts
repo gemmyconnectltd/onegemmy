@@ -15,7 +15,7 @@ import {
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import {
-  inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi,
+  inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
@@ -27,6 +27,7 @@ import {
   type ApiLeave, type ApiPayroll, type ApiApplicant,
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
+  type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -263,6 +264,22 @@ export const useCreateApplicant = mutation((d: Parameters<typeof hrApi.createApp
 export const useUpdateApplicant = mutation(({ id, data }: { id: string; data: Parameters<typeof hrApi.updateApplicant>[1] }) => hrApi.updateApplicant(id, data), [[...APPLICANTS]]);
 export const useDeleteApplicant = mutation((id: string) => hrApi.deleteApplicant(id), [[...APPLICANTS]]);
 
+// ── Procurement ──────────────────────────────────────────────────────────────
+
+const PURCHASES = ["procurement", "purchase-orders"] as const;
+
+export const usePurchaseOrders = (status?: string, page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...PURCHASES, status ?? "all", page, pageSize], () => procurementApi.listPurchaseOrders(status, page, pageSize), (r) => r.data, opts);
+
+export const usePurchaseOrder = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...PURCHASES, id], () => procurementApi.getPurchaseOrder(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["finance", "transactions"], ["finance", "reports"]]);
+export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [[...PURCHASES]]);
+export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.receivePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["finance", "transactions"], ["finance", "reports"]]);
+export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
+export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
+
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 const ADMIN_STATS = ["admin", "stats"] as const;
@@ -323,4 +340,5 @@ export type {
   ApiDepartment, ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
+  PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
 };

@@ -7,11 +7,12 @@ from app.modules.finance.schemas.transaction_line import TransactionLineCreate, 
 
 
 class TransactionCreate(BaseModel):
-    type: str  # sale | return | expense | adjustment | manual
+    type: str  # sale | return | expense | adjustment | manual | purchase
     transaction_date: str  # date string YYYY-MM-DD
     description: str | None = None
     order_id: uuid.UUID | None = None
     return_id: uuid.UUID | None = None
+    purchase_id: uuid.UUID | None = None
     lines: list[TransactionLineCreate] = []
 
 
@@ -32,6 +33,7 @@ class TransactionRead(BaseModel):
     description: str | None = None
     order_id: uuid.UUID | None = None
     return_id: uuid.UUID | None = None
+    purchase_id: uuid.UUID | None = None
     created_by: uuid.UUID | None = None
     lines: list[TransactionLineRead] = []
     created_at: datetime | None = None

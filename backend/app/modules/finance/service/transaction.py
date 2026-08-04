@@ -45,6 +45,7 @@ async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
         description=data.description,
         order_id=data.order_id,
         return_id=data.return_id,
+        purchase_id=data.purchase_id,
         created_by=user_id,
     )
     txn = await repo.save(txn)
@@ -203,6 +204,37 @@ async def create_return_transaction(
     txn = await repo.save(txn)
     db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="debit",  amount=refund_amount, description="Revenue Reversal"))
     db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="credit", amount=refund_amount, description="Accounts Receivable"))
+
+
+async def create_purchase_transaction(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    purchase_id: uuid.UUID,
+    total: float,
+    reference: str,
+) -> None:
+    """Auto-called when a purchase order is received. Debit Inventory, Credit Cash."""
+    inv_id = await _get_account_by_code(db, tenant_id, "1200")
+    cash_id = await _get_account_by_code(db, tenant_id, "1000")
+    if not inv_id or not cash_id:
+        return  # accounts not seeded yet — skip silently
+
+    repo = TransactionRepository(db)
+    txn_ref = await repo.next_reference(tenant_id)
+    txn = Transaction(
+        tenant_id=tenant_id,
+        reference=txn_ref,
+        type="purchase",
+        status="Posted",
+        transaction_date=date.today(),
+        description=f"Purchase {reference}",
+        purchase_id=purchase_id,
+        created_by=user_id,
+    )
+    txn = await repo.save(txn)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id,  type="debit",  amount=total, description="Inventory"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=cash_id, type="credit", amount=total, description="Cash"))
 
 
 async def backfill_sale_transactions(

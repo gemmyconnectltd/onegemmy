@@ -37,7 +37,7 @@ export default function MobileSalesDetailPage() {
 
   const handleNewSale = () => {
     startNewSale();
-    router.replace("/m");
+    router.replace("/m/pos");
   };
 
   return (

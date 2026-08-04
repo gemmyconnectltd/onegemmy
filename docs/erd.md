@@ -1,7 +1,10 @@
 ```dbml
 // OneGemmy ERD — Multi-tenant SaaS Platform
 // Docs: https://dbml.dbdiagram.io/docs
-// Updated: added Sales module (deals, orders, order_items, returns, targets)
+// Updated: + finance tax tables, + full HR module, order_items.variant_id,
+//          fixed users/inventory indexes to match models.
+//          + procurement module (purchase_orders, purchase_items),
+//          finance_transactions.purchase_id.
 
 // ============================================================
 // CORE TENANT TABLES
@@ -82,21 +85,17 @@ Table role_permissions {
 Table users {
   id uuid [primary key]
   tenant_id uuid [ref: > tenants.id, note: "null = superuser/platform admin"]
-  email varchar(255) [unique, not null]
+  email varchar(255) [unique, not null, note: "unique across all tenants"]
   hashed_password varchar(255) [not null]
   full_name varchar(255) [not null]
   role varchar(50) [default: "member", note: "legacy string role"]
-  role_id uuid [ref: > roles.id, note: "FK to structured role"]
-  branch_id uuid [ref: > branches.id]
-  department_id uuid [ref: > departments.id]
+  role_id uuid [ref: > roles.id, note: "FK to structured role — SET NULL on delete"]
+  branch_id uuid [ref: > branches.id, note: "SET NULL on delete"]
+  department_id uuid [ref: > departments.id, note: "SET NULL on delete"]
   is_active boolean [default: true]
   is_superuser boolean [default: false]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
-
-  indexes {
-    (tenant_id, email) [unique]
-  }
 }
 
 // ============================================================
@@ -173,11 +172,7 @@ Table inventory_products {
   supplier_id uuid [ref: > inventory_suppliers.id, note: "SET NULL on delete"]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
-
-  indexes {
-    (tenant_id, sku) [unique]
-    tenant_id
-  }
+  // NOTE: sku is NOT unique in the DB (model defines no unique constraint)
 }
 
 // ------------------------------------------------------------
@@ -289,8 +284,10 @@ Table sales_order_items {
   id uuid [primary key]
   order_id uuid [not null, ref: > sales_orders.id]
   product_id uuid [ref: > inventory_products.id, note: "SET NULL on delete"]
+  variant_id uuid [ref: > inventory_product_variants.id, note: "SET NULL on delete"]
   product_name varchar(255) [not null, note: "Snapshot at time of sale"]
   sku varchar(100) [note: "Snapshot at time of sale"]
+  variant_attributes json [note: "Snapshot, e.g. {color: Red, size: XL}"]
   unit_price numeric(12,2) [not null]
   quantity int [not null, default: 1]
   discount numeric(12,2) [default: 0]
@@ -300,6 +297,7 @@ Table sales_order_items {
   indexes {
     order_id
     product_id
+    variant_id
   }
 }
 
@@ -402,12 +400,13 @@ Table finance_transactions {
   id uuid [primary key]
   tenant_id uuid [not null, ref: > tenants.id]
   reference varchar(50) [not null, note: "e.g. TXN-0001 — unique per tenant"]
-  type varchar(20) [not null, note: "sale | return | expense | adjustment | manual"]
+  type varchar(20) [not null, note: "sale | return | expense | adjustment | manual | purchase"]
   status varchar(10) [not null, default: "Draft", note: "Draft | Posted | Void"]
   transaction_date date [not null]
   description text
   order_id uuid [ref: > sales_orders.id, note: "SET NULL — auto-linked on sale"]
   return_id uuid [ref: > sales_returns.id, note: "SET NULL — auto-linked on return"]
+  purchase_id uuid [ref: > purchase_orders.id, note: "SET NULL — auto-linked on purchase receipt"]
   created_by uuid [ref: > users.id, note: "SET NULL on delete"]
   created_at timestamptz [default: `now()`]
   updated_at timestamptz [default: `now()`]
@@ -416,6 +415,7 @@ Table finance_transactions {
     (tenant_id, reference) [unique]
     tenant_id
     order_id
+    purchase_id
     (tenant_id, type, status)
   }
 }
@@ -489,6 +489,237 @@ Table finance_budgets {
   }
 }
 
+// ------------------------------------------------------------
+// Taxes — Rwanda tax configuration & tracking
+// ------------------------------------------------------------
+Table finance_tax_configs {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  tax_type varchar(50) [not null, note: "vat | paye | withholding | consumption | corporate | personal_income"]
+  name varchar(255) [not null]
+  rate numeric(10,4) [not null, note: "e.g. 18.00 for VAT"]
+  rate_type varchar(20) [not null, default: "percentage", note: "percentage | fixed"]
+  min_threshold numeric(14,2) [default: 0]
+  max_threshold numeric(14,2) [note: "null = no limit"]
+  description text
+  is_active boolean [default: true]
+  effective_from date [not null]
+  effective_to date [note: "null = currently active"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, tax_type) [unique]
+    tenant_id
+    tax_type
+  }
+}
+
+Table finance_tax_calculations {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  calculation_type varchar(50) [not null, note: "vat | paye | withholding | consumption | corporate | personal_income"]
+  reference_type varchar(50) [not null, note: "sale | expense | payroll | manual"]
+  reference_id varchar(36) [note: "ID of the related record (no FK)"]
+  period varchar(7) [not null, note: "YYYY-MM"]
+  taxable_amount numeric(14,2) [not null]
+  tax_rate numeric(10,4) [not null]
+  tax_amount numeric(14,2) [not null]
+  status varchar(20) [not null, default: "Calculated", note: "Calculated | Paid | Void"]
+  description text
+  paid_at date
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    tenant_id
+    period
+    (calculation_type, status)
+  }
+}
+
+Table finance_tax_payments {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  payment_reference varchar(50) [not null]
+  tax_type varchar(50) [not null]
+  period varchar(7) [not null, note: "YYYY-MM"]
+  amount numeric(14,2) [not null]
+  payment_date date [not null]
+  payment_method varchar(50) [not null, note: "bank_transfer | mobile_money | cash"]
+  status varchar(20) [not null, default: "Pending", note: "Pending | Confirmed | Rejected"]
+  notes text
+  confirmed_at date
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, payment_reference) [unique]
+    tenant_id
+    period
+  }
+}
+
+// ============================================================
+// HR MODULE
+// ============================================================
+
+// ------------------------------------------------------------
+// Employees — staff belonging to a department
+// ------------------------------------------------------------
+Table hr_employees {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  employee_code varchar(20) [not null]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  email varchar(255)
+  phone varchar(50)
+  job_title varchar(100)
+  department_id uuid [ref: > departments.id, note: "SET NULL on delete"]
+  employment_status varchar(20) [default: "Active", note: "Active | On Leave | Terminated"]
+  hire_date date
+  salary numeric(14,2) [default: 0]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, employee_code) [unique]
+    tenant_id
+    department_id
+  }
+}
+
+Table hr_attendance {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  employee_id uuid [not null, ref: > hr_employees.id, note: "CASCADE on delete"]
+  date date [not null]
+  check_in varchar(5) [note: "HH:MM"]
+  check_out varchar(5) [note: "HH:MM"]
+  status varchar(20) [default: "Present", note: "Present | Late | Absent | Half Day"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, employee_id, date) [unique]
+    tenant_id
+    date
+  }
+}
+
+Table hr_leave_requests {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  employee_id uuid [not null, ref: > hr_employees.id, note: "CASCADE on delete"]
+  leave_type varchar(30) [not null, note: "Annual | Sick | Maternity | Unpaid | Study"]
+  from_date date [not null]
+  to_date date [not null]
+  days int [default: 1]
+  reason text
+  status varchar(20) [default: "Pending", note: "Pending | Approved | Rejected"]
+  approved_by uuid [ref: > users.id, note: "SET NULL on delete"]
+  approved_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    tenant_id
+    (tenant_id, status)
+  }
+}
+
+Table hr_payroll_entries {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  employee_id uuid [not null, ref: > hr_employees.id, note: "CASCADE on delete"]
+  period varchar(7) [not null, note: "YYYY-MM"]
+  base_salary numeric(14,2) [default: 0]
+  bonus numeric(14,2) [default: 0]
+  deductions numeric(14,2) [default: 0]
+  net_pay numeric(14,2) [default: 0]
+  status varchar(20) [default: "Pending", note: "Pending | Paid"]
+  paid_at timestamptz
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, employee_id, period) [unique]
+    tenant_id
+    period
+  }
+}
+
+Table hr_applicants {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  name varchar(150) [not null]
+  email varchar(255)
+  phone varchar(50)
+  position varchar(100)
+  stage varchar(30) [default: "Applied", note: "Applied | Screening | Interview | Offer | Hired | Rejected"]
+  applied_date date [not null]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    tenant_id
+    (tenant_id, stage)
+  }
+}
+
+// ============================================================
+// PROCUREMENT
+// ============================================================
+// Purchases are first-class records. Creating one with status "Received"
+// stocks inventory in (product/variant) and posts a Posted finance
+// transaction (Debit Inventory 1200 / Credit Cash 1000, type=purchase).
+
+Table purchase_orders {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  reference varchar(50) [not null, note: "PUR-0001…"]
+  status varchar(20) [default: "Draft", note: "Draft | Received | Cancelled"]
+  subtotal numeric(14,2) [default: 0]
+  discount numeric(14,2) [default: 0]
+  tax numeric(14,2) [default: 0]
+  total numeric(14,2) [default: 0]
+  notes text
+  expected_date date
+  received_at timestamptz
+  supplier_id uuid [ref: > inventory_suppliers.id, note: "on delete SET NULL"]
+  created_by uuid [ref: > users.id, note: "on delete SET NULL"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, reference) [unique]
+    tenant_id
+    supplier_id
+    (tenant_id, status)
+  }
+}
+
+Table purchase_items {
+  id uuid [primary key]
+  purchase_order_id uuid [not null, ref: > purchase_orders.id, note: "on delete CASCADE"]
+  product_id uuid [ref: > inventory_products.id, note: "on delete SET NULL"]
+  variant_id uuid [ref: > inventory_product_variants.id, note: "on delete SET NULL"]
+  product_name varchar(255) [not null]
+  sku varchar(100)
+  variant_attributes jsonb
+  unit_cost numeric(12,2) [not null]
+  quantity integer [not null, default: 1]
+  line_total numeric(14,2) [not null]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    purchase_order_id
+    product_id
+    variant_id
+  }
+}
+
 // ============================================================
 // RELATIONSHIPS SUMMARY
 // ============================================================
@@ -544,6 +775,7 @@ Ref: users.id < sales_orders.created_by
 // --- Sales: Order Items ---
 Ref: sales_orders.id < sales_order_items.order_id
 Ref: inventory_products.id < sales_order_items.product_id
+Ref: inventory_product_variants.id < sales_order_items.variant_id
 
 // --- Sales: Returns ---
 Ref: sales_orders.id < sales_returns.order_id
@@ -567,7 +799,16 @@ Ref: tenants.id < finance_budgets.tenant_id
 // --- Finance: Transactions ---
 Ref: sales_orders.id < finance_transactions.order_id
 Ref: sales_returns.id < finance_transactions.return_id
+Ref: purchase_orders.id < finance_transactions.purchase_id
 Ref: users.id < finance_transactions.created_by
+
+// --- Procurement ---
+Ref: tenants.id < purchase_orders.tenant_id
+Ref: inventory_suppliers.id < purchase_orders.supplier_id
+Ref: users.id < purchase_orders.created_by
+Ref: purchase_orders.id < purchase_items.purchase_order_id
+Ref: inventory_products.id < purchase_items.product_id
+Ref: inventory_product_variants.id < purchase_items.variant_id
 
 // --- Finance: Transaction Lines ---
 Ref: finance_transactions.id < finance_transaction_lines.transaction_id
@@ -581,4 +822,23 @@ Ref: users.id < finance_expenses.created_by
 
 // --- Finance: Budgets ---
 Ref: finance_accounts.id < finance_budgets.account_id
+
+// --- Tenant → Tax ---
+Ref: tenants.id < finance_tax_configs.tenant_id
+Ref: tenants.id < finance_tax_calculations.tenant_id
+Ref: tenants.id < finance_tax_payments.tenant_id
+
+// --- Tenant → HR ---
+Ref: tenants.id < hr_employees.tenant_id
+Ref: tenants.id < hr_attendance.tenant_id
+Ref: tenants.id < hr_leave_requests.tenant_id
+Ref: tenants.id < hr_payroll_entries.tenant_id
+Ref: tenants.id < hr_applicants.tenant_id
+
+// --- HR: Employees ---
+Ref: departments.id < hr_employees.department_id
+Ref: hr_employees.id < hr_attendance.employee_id
+Ref: hr_employees.id < hr_leave_requests.employee_id
+Ref: hr_employees.id < hr_payroll_entries.employee_id
+Ref: users.id < hr_leave_requests.approved_by
 ```

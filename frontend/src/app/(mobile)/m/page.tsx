@@ -1,91 +1,119 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { History, Loader2, Search, ShoppingBasket, Sun, Moon, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle, ArrowRight, Boxes, CheckCircle2, ChevronRight,
+  PackagePlus, ShoppingBasket, Sun, Moon, TrendingUp, Truck, Users,
+} from "lucide-react";
 
-import { ProductCard } from "@/components/pos/ProductCard";
-import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { useProducts } from "@/lib/api/hooks";
-import type { ApiProduct } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
+import { getSales, getInvoices, subscribeSales } from "@/lib/invoices";
+import { getPurchases, subscribePurchases } from "@/lib/purchases";
+import { useProducts, useCustomers, useSuppliers } from "@/lib/api/hooks";
+import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
+import type { SaleResult } from "@/components/pos/types";
+import type { PurchaseResult } from "@/lib/purchases";
 
-function apiToProduct(p: ApiProduct): Product {
-  return {
-    id: p.id,
-    name: p.name,
-    price: p.price,
-    category: p.category?.name ?? "Uncategorized",
-    emoji: "📦",
-    stock: p.stock,
-    image_url: p.image_url,
-    sku: p.sku,
-    has_variants: p.has_variants && (p.variants?.length ?? 0) > 0,
-    variants: (p.variants ?? []).map(
-      (v): Variant => ({ id: v.id, sku: v.sku, attributes: v.attributes, price: v.price, stock: v.stock }),
-    ),
-  };
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
 }
 
 export default function MobileHomePage() {
-  const { data, isLoading, isError, refetch } = useProducts(1, 500);
   const { theme, setTheme } = useAppConfig();
-  const { cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total } = useMobilePos();
+  const { user } = useAuth();
+  const { currencySymbol, fmt } = useMobilePos();
+  const [sales, setSales] = useState<SaleResult[]>(() => getSales());
+  const [purchases, setPurchases] = useState<PurchaseResult[]>(() => getPurchases());
 
-  const products = useMemo(() => (data?.items ?? []).filter((p) => p.is_active).map(apiToProduct), [data]);
-  const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
+  useEffect(() => subscribeSales(() => setSales(getSales())), []);
+  useEffect(() => subscribePurchases(() => setPurchases(getPurchases())), []);
 
-  const [category, setCategory] = useState("All");
-  const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const productsQ = useProducts(1, 200);
+  const customersQ = useCustomers(1, 200);
+  const suppliersQ = useSuppliers();
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return products.filter((p) => {
-      if (category !== "All" && p.category !== category) return false;
-      if (!q) return true;
-      return p.name.toLowerCase().includes(q) || (p.sku ?? "").toLowerCase().includes(q);
-    });
-  }, [products, category, search]);
+  const costMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of productsQ.data?.items ?? []) map.set(p.id, p.cost);
+    return map;
+  }, [productsQ.data]);
 
-  const toggleExpanded = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const todaySales = useMemo(
+    () => sales.filter((s) => new Date(s.timestamp).toDateString() === new Date().toDateString()),
+    [sales],
+  );
 
-  const cartCount = totalItems;
+  const salesToday = todaySales.reduce((sum, s) => sum + s.total, 0);
+  const profitToday = todaySales.reduce((sum, s) => {
+    let profit = 0;
+    for (const item of s.items) {
+      const cost = item.product_id ? costMap.get(item.product_id) : undefined;
+      if (cost !== undefined) profit += (item.price - cost) * item.qty - item.discount;
+    }
+    return sum + profit;
+  }, 0);
+  const cashToday = todaySales.filter((s) => s.payment === "cash").reduce((sum, s) => sum + s.total, 0);
+
+  const lowStock = useMemo(
+    () =>
+      (productsQ.data?.items ?? []).filter((p) => p.stock <= Math.max(p.min_stock, LOW_STOCK_THRESHOLD)),
+    [productsQ.data],
+  );
+
+  const unpaidInvoices = useMemo(() => getInvoices().filter((s) => !s.paid).length, []);
+
+  const activity = useMemo(() => {
+    const rows: { kind: "sale" | "purchase"; label: string; time: string; amount: number }[] = [
+      ...sales.map((s) => ({
+        kind: "sale" as const,
+        label: s.isInvoice ? s.invoiceNumber! : s.orderId,
+        time: new Date(s.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        amount: s.total,
+      })),
+      ...purchases.map((p) => ({
+        kind: "purchase" as const,
+        label: p.id,
+        time: new Date(p.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        amount: p.total,
+      })),
+    ];
+    return rows
+      .sort((a, b) => b.time.localeCompare(a.time))
+      .slice(0, 6);
+  }, [sales, purchases]);
+
+  const firstName = (user?.name ?? "there").split(" ")[0];
+
+  const quickActions = [
+    { href: "/m/pos", label: "New Sale", desc: "Sell items", icon: ShoppingBasket },
+    { href: "/m/purchase/new", label: "New Purchase", desc: "Buy stock", icon: Truck },
+    { href: "/m/restock", label: "Receive Stock", desc: "Stock in", icon: PackagePlus },
+    { href: "/m/products/new", label: "Add Product", desc: "New item", icon: Boxes },
+  ];
+
+  const summary = [
+    { href: "/m/inventory", label: "Products", value: productsQ.data?.items?.length ?? 0, icon: Boxes },
+    { href: "/m/customers", label: "Customers", value: customersQ.data?.items?.length ?? 0, icon: Users },
+    { href: "/m/suppliers", label: "Suppliers", value: suppliersQ.data?.items?.length ?? 0, icon: Truck },
+    { href: "/m/restock", label: "Low Stock", value: lowStock.length, icon: AlertTriangle, warn: true },
+  ];
 
   return (
-    <div className="min-h-full flex flex-col pb-20">
+    <div className="min-h-full flex flex-col pb-6">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border">
-        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[15px] font-bold text-foreground leading-tight">Point of Sale</h1>
-            <p className="text-[10px] text-muted flex items-center gap-1">
-              <TrendingUp size={10} />
-              {cartCount} in cart
-            </p>
+      <header className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[10px] text-muted">{greeting()},</p>
+            <h1 className="text-[17px] font-bold text-foreground">{firstName}</h1>
+            <p className="text-[11px] text-muted mt-0.5 truncate">{user?.tenantName ?? "OneGemmy"}</p>
           </div>
-
-          <Link
-            href="/m/held"
-            className="relative w-9 h-9 flex items-center justify-center border border-border rounded-xl text-foreground/70"
-            aria-label="Held sales"
-          >
-            <History size={16} />
-            {heldOrders.length > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-0.5 bg-accent text-white text-[9px] font-bold flex items-center justify-center rounded-full">
-                {heldOrders.length}
-              </span>
-            )}
-          </Link>
-
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             className="w-9 h-9 flex items-center justify-center border border-border rounded-xl text-muted"
@@ -94,96 +122,160 @@ export default function MobileHomePage() {
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </div>
-
-        {/* Search */}
-        <div className="px-4 pb-2">
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-surface border border-border rounded-xl">
-            <Search size={14} className="text-muted flex-shrink-0" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products…"
-              className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted/40 outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Categories */}
-        <div className="flex gap-1.5 px-4 pb-2.5 overflow-x-auto no-scrollbar">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors ${
-                category === c
-                  ? "bg-accent border-accent text-white"
-                  : "border-border text-muted"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
       </header>
 
-      {/* Product grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-2.5 p-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-xl bg-surface h-36" />
+      <div className="flex-1 px-4 pt-4 space-y-5">
+        {/* Today's KPIs */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { label: "Today's Sales", value: salesToday, icon: TrendingUp, accent: true },
+            { label: "Today's Profit", value: profitToday, icon: TrendingUp },
+            { label: "Cash Received", value: cashToday, icon: ShoppingBasket },
+          ].map((kpi) => (
+            <div key={kpi.label} className="bg-card border border-border rounded-2xl px-3 py-3">
+              <p className="text-[10px] text-muted font-medium leading-tight">{kpi.label}</p>
+              <p className={`text-[15px] font-bold font-mono mt-1.5 leading-none ${kpi.accent ? "text-accent" : "text-foreground"}`}>
+                {fmt(kpi.value)}
+              </p>
+            </div>
           ))}
         </div>
-      ) : isError ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <p className="text-[13px] text-muted">Couldn&apos;t load products.</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 rounded-xl bg-accent text-white text-[12px] font-semibold"
-          >
-            Retry
-          </button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
-          <ShoppingBasket size={28} className="text-muted/40 mb-2" />
-          <p className="text-[13px] text-muted">No products found</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2.5 p-3">
-          {filtered.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              inCartQty={cart.find((i) => i.id === p.id)?.qty ?? 0}
-              bumping={false}
-              expanded={expanded.has(p.id)}
-              currencySymbol={currencySymbol}
-              fmt={fmt}
-              onAdd={addToCart}
-              onAddVariant={addVariantToCart}
-              onToggle={toggleExpanded}
-            />
-          ))}
-        </div>
-      )}
 
-      {/* Floating cart bar */}
-      {cartCount > 0 && (
-        <Link
-          href="/m/cart"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+56px)] left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-[406px] z-30"
-        >
-          <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-accent text-white shadow-lg shadow-accent/30">
-            <span className="flex items-center gap-2 text-[13px] font-bold">
-              <ShoppingBasket size={16} />
-              {cartCount} item{cartCount !== 1 ? "s" : ""}
-            </span>
-            <span className="text-[13px] font-bold font-mono">{currencySymbol} {fmt(total)}</span>
+        {/* Quick Actions */}
+        <div>
+          <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-2 px-1">Quick Actions</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {quickActions.map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="flex items-center gap-3 px-4 py-4 bg-card border border-border rounded-2xl active:bg-surface transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent flex-shrink-0">
+                  <a.icon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-foreground leading-tight">{a.label}</p>
+                  <p className="text-[10px] text-muted mt-0.5 truncate">{a.desc}</p>
+                </div>
+              </Link>
+            ))}
           </div>
-        </Link>
-      )}
+        </div>
 
-      {isLoading && <Loader2 className="hidden" />}
+        {/* Business Summary */}
+        <div>
+          <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-2 px-1">Business Summary</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {summary.map((s) => (
+              <Link
+                key={s.label}
+                href={s.href}
+                className="flex items-center gap-3 px-4 py-4 bg-card border border-border rounded-2xl active:bg-surface transition-colors"
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${s.warn ? "bg-amber-500/10 text-amber-500" : "bg-surface text-accent"}`}>
+                  <s.icon size={18} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-[18px] font-bold font-mono leading-none ${s.warn ? "text-amber-500" : "text-foreground"}`}>
+                    {s.value}
+                  </p>
+                  <p className="text-[10px] text-muted mt-1">{s.label}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <p className="text-[10px] text-muted uppercase tracking-wider font-semibold">Recent Activity</p>
+            <Link href="/m/transactions" className="flex items-center gap-0.5 text-[11px] font-semibold text-accent">
+              View all <ChevronRight size={12} />
+            </Link>
+          </div>
+          <div className="bg-card border border-border rounded-2xl divide-y divide-border">
+            {activity.length === 0 ? (
+              <p className="px-4 py-6 text-center text-[12px] text-muted">No activity yet. Start with a new sale.</p>
+            ) : (
+              activity.map((row, i) => (
+                <Link
+                  key={`${row.kind}-${row.label}-${i}`}
+                  href={row.kind === "sale" ? `/m/sales/${encodeURIComponent(row.label)}` : "/m/transactions"}
+                  className="flex items-center justify-between px-4 py-3 active:bg-surface transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-accent flex-shrink-0">
+                      {row.kind === "sale" ? <CheckCircle2 size={15} /> : <Truck size={15} />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-foreground truncate">
+                        {row.kind === "sale" ? "Sale" : "Purchase"} {row.label}
+                      </p>
+                      <p className="text-[10px] text-muted">{row.time}</p>
+                    </div>
+                  </div>
+                  <span className="text-[12px] font-bold font-mono text-foreground flex-shrink-0">
+                    {currencySymbol} {fmt(row.amount)}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Analytics */}
+        <Link
+          href="/m/stats"
+          className="flex items-center justify-between px-4 py-4 rounded-2xl bg-accent text-white shadow-lg shadow-accent/25 active:scale-[0.98] transition"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <p className="text-[13px] font-bold">Analytics</p>
+              <p className="text-[11px] text-white/70">Revenue, top products & customers</p>
+            </div>
+          </div>
+          <ArrowRight size={18} />
+        </Link>
+
+        {/* Alerts */}
+        {(lowStock.length > 0 || unpaidInvoices > 0) && (
+          <div>
+            <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-2 px-1">Alerts</p>
+            <div className="space-y-2">
+              {lowStock.length > 0 && (
+                <Link href="/m/restock" className="flex items-start gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+                  <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-foreground">
+                      {lowStock.length} low stock {lowStock.length === 1 ? "item" : "items"}
+                    </p>
+                    <p className="text-[10px] text-muted mt-0.5 truncate">
+                      {lowStock.slice(0, 3).map((p) => p.name).join(", ")}
+                      {lowStock.length > 3 ? ` +${lowStock.length - 3} more` : ""}
+                    </p>
+                  </div>
+                </Link>
+              )}
+              {unpaidInvoices > 0 && (
+                <Link href="/m/sales" className="flex items-start gap-3 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
+                  <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-foreground">
+                      {unpaidInvoices} unpaid {unpaidInvoices === 1 ? "invoice" : "invoices"}
+                    </p>
+                    <p className="text-[10px] text-muted mt-0.5">Awaiting payment from customers</p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

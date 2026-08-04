@@ -27,7 +27,7 @@ export default function MobileCartPage() {
           <ShoppingBasket size={30} className="text-muted/40 mb-2" />
           <p className="text-[13px] text-muted">Your cart is empty</p>
           <Link
-            href="/m"
+            href="/m/pos"
             className="mt-4 px-4 py-2.5 rounded-xl bg-accent text-white text-[12px] font-semibold"
           >
             Browse products

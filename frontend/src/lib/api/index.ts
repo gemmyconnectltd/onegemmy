@@ -51,6 +51,10 @@ export type {
 } from "./hr";
 export { hrApi, departmentsApi } from "./hr";
 
+// Procurement
+export type { PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput } from "./procurement";
+export { procurementApi } from "./procurement";
+
 // Admin
 export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
