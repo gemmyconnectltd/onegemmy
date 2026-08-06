@@ -68,6 +68,7 @@ The web app is a full dashboard ERP — the "big" experience (mobile is the fast
 - **Bottom nav order is fixed**: Home → Transactions → **Sell (center pill FAB, cart badge)** → Reports → Account.
 - **Home icon tiles**: 4 per row, icon-only, 6 tiles (Purchases, Inventory, Products, Customers, Suppliers, Expenses). No tiles for Sales/Reports (they are nav tabs).
 - **Sell flow**: fastest path = 2 taps — add product, then **Charge** (exact cash) on the floating cart bar. Cart drawer has Charge + "Other payment methods". `/m/payment` (numpad/change, mobile/card/invoice) is the secondary path. Receipt shows inline after charge.
+- **Mobile subdomain (entry point)**: `frontend/src/proxy.ts` (Next 16 proxy, former middleware) serves the mobile app "alone" on a branded subdomain (hosts prefixed `shop.`/`m.`/`mobile.`, or exact domains via `MOBILE_APP_HOSTS` env). On those hosts, non-`/m/*` paths 307-redirect: `/login|register|forgot-password` → `/m/login`, everything else → `/m` (ERP pages are unreachable there). The main domain keeps serving both surfaces.
 - Keep existing screens/components; don't remove buttons that mirror nav tabs without explicit confirmation from the user.
 
 ## Enterprise / large-business rules

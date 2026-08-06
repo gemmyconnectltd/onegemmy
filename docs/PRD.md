@@ -88,6 +88,7 @@ See `docs/backend-architecture.md` and `docs/erd.md` for detail.
 
 ### P1 — Mobile sell flow
 
+- **FR-MOB-000** The mobile app is reachable standalone via a branded subdomain (`shop.`/`m.`/`mobile.` hosts, or exact domains in `MOBILE_APP_HOSTS`): `src/proxy.ts` 307-redirects every non-`/m/*` path there (auth → `/m/login`, everything else → `/m`), so ERP pages are never shown on the mobile host. Same deployment — no separate codebase.
 - **FR-MOB-001** Fastest cash sale = 2 taps: add product → **Charge** on the floating cart bar (exact cash).
 - **FR-MOB-002** Cart drawer shows items, totals (items incl. VAT, discount, VAT, total), and offers **Charge** plus **Other payment methods**.
 - **FR-MOB-003** `/m/payment` handles exact/cash-with-change (numpad + presets), mobile money, card, and invoice (customer required).
