@@ -2,15 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  ArrowUpDown, History, Loader2, Search, ShoppingBasket, SlidersHorizontal,
-  Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw,
+  ArrowUpDown, ChevronRight, History, Loader2, Search, ShoppingBasket, SlidersHorizontal,
+  Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw, Zap,
 } from "lucide-react";
 
+import { CartPanel } from "@/components/pos/CartPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
 import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { useProducts } from "@/lib/api/hooks";
+import { useProducts, useCustomers } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -58,9 +60,19 @@ function apiToProduct(p: ApiProduct): Product {
 }
 
 export default function MobilePosPage() {
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useProducts(1, 500);
+  const customersQ = useCustomers(1, 500);
   const { theme, setTheme } = useAppConfig();
-  const { cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total } = useMobilePos();
+  const {
+    cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total,
+    customerId, customerName, notes, subtotal, tax, discount,
+    setCustomer, setNotes, updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    saving, completeSale,
+  } = useMobilePos();
+
+  const customers = customersQ.data?.items ?? [];
+  const [showCart, setShowCart] = useState(false);
 
   const products = useMemo(() => (data?.items ?? []).filter((p) => p.is_active).map(apiToProduct), [data]);
   const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
@@ -117,6 +129,11 @@ export default function MobilePosPage() {
   };
 
   const cartCount = totalItems;
+
+  const chargeExact = () => {
+    setShowCart(false);
+    void completeSale({ payment: "cash", cashGiven: String(total) }).then(() => router.push("/m/payment"));
+  };
 
   return (
     <div className="min-h-full flex flex-col pb-20">
@@ -228,11 +245,11 @@ export default function MobilePosPage() {
         </div>
       </header>
 
-      {/* Product grid */}
+      {/* Product list */}
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-2.5 p-3">
+        <div className="p-3 space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-xl bg-surface h-36" />
+            <div key={i} className="animate-pulse rounded-2xl bg-surface h-16" />
           ))}
         </div>
       ) : isError ? (
@@ -261,11 +278,12 @@ export default function MobilePosPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 p-3">
+        <div className="p-3 space-y-2">
           {filtered.map((p) => (
             <ProductCard
               key={p.id}
               product={p}
+              layout="horizontal"
               inCartQty={cart.find((i) => i.id === p.id)?.qty ?? 0}
               bumping={false}
               expanded={expanded.has(p.id)}
@@ -281,22 +299,111 @@ export default function MobilePosPage() {
 
       {/* Floating cart bar */}
       {cartCount > 0 && (
-        <Link
-          href="/m/cart"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+56px)] left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-[406px] z-30"
-        >
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+56px)] left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-[406px] z-30">
           <div
-            className={`flex items-center justify-between px-4 py-3 rounded-2xl bg-accent text-white shadow-lg shadow-accent/30 transition-transform ${
+            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-accent text-white shadow-lg shadow-accent/30 transition-transform ${
               cartBump ? "scale-105" : "scale-100"
             }`}
           >
-            <span className="flex items-center gap-2 text-[13px] font-bold">
-              <ShoppingBasket size={16} />
-              {cartCount} item{cartCount !== 1 ? "s" : ""}
-            </span>
-            <span className="text-[13px] font-bold font-mono">{currencySymbol} {fmt(total)}</span>
+            <button
+              onClick={() => setShowCart(true)}
+              className="flex items-center gap-2 text-[13px] font-bold flex-1 min-w-0 text-left"
+            >
+              <ShoppingBasket size={16} className="flex-shrink-0" />
+              <span className="truncate">{cartCount} item{cartCount !== 1 ? "s" : ""}</span>
+            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-[13px] font-bold font-mono">{currencySymbol} {fmt(total)}</span>
+              <button
+                onClick={chargeExact}
+                disabled={saving}
+                className="px-3 py-1.5 rounded-xl bg-white/20 text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition disabled:opacity-40"
+                aria-label="Charge exact cash"
+              >
+                <Zap size={12} />
+                {saving ? "Saving…" : "Charge"}
+              </button>
+            </div>
           </div>
-        </Link>
+        </div>
+      )}
+
+      {/* Cart drawer */}
+      {showCart && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowCart(false)} aria-hidden />
+          <div className="relative w-full max-w-[430px] h-[82dvh] bg-background rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-200">
+            <div className="pt-2.5 pb-1 flex justify-center flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-border" />
+            </div>
+            <header className="px-4 pb-2 flex items-center gap-2 flex-shrink-0">
+              <ShoppingBasket size={15} className="text-accent" />
+              <h2 className="text-[15px] font-bold text-foreground">Cart</h2>
+              <span className="text-[11px] text-muted">{totalItems} item{totalItems !== 1 ? "s" : ""}</span>
+              <button
+                onClick={() => setShowCart(false)}
+                className="ml-auto w-8 h-8 flex items-center justify-center text-muted border border-border rounded-xl"
+                aria-label="Close cart"
+              >
+                <X size={15} />
+              </button>
+            </header>
+
+            <div className="flex-1 min-h-0 overflow-y-auto border-t border-border">
+              <CartPanel
+                cart={cart}
+                customers={customers}
+                customerId={customerId}
+                customerName={customerName}
+                notes={notes}
+                currencySymbol={currencySymbol}
+                fmt={fmt}
+                onCustomerChange={(id, name) => setCustomer(id, name)}
+                onNotesChange={setNotes}
+                onUpdateQty={updateQty}
+                onUpdateDiscount={updateDiscount}
+                onRemoveItem={removeItem}
+                onClear={() => {
+                  clearCart();
+                  setShowCart(false);
+                }}
+                onHold={() => {
+                  holdSale();
+                  setShowCart(false);
+                }}
+              />
+            </div>
+
+            <div className="flex-shrink-0 px-4 pt-2.5 pb-4 border-t border-border bg-card space-y-2">
+              <div>
+                <p className="text-[10px] text-muted">Total</p>
+                <p className="text-[17px] leading-none font-bold text-foreground font-mono">
+                  {currencySymbol} {fmt(total)}
+                </p>
+                <p className="text-[10px] text-muted mt-0.5">
+                  {currencySymbol} {fmt(subtotal)}{discount > 0 && <span className="text-emerald-600"> · -{fmt(discount)}</span>} · VAT {currencySymbol} {fmt(tax)}
+                </p>
+              </div>
+              <button
+                onClick={chargeExact}
+                disabled={saving}
+                className="w-full py-3 rounded-xl bg-accent text-white font-bold text-[13px] flex items-center justify-between px-4 hover:opacity-90 active:scale-[0.98] transition disabled:opacity-40"
+              >
+                <span className="flex items-center gap-1.5"><Zap size={15} /> {saving ? "Saving sale…" : "Charge"}</span>
+                <span className="font-mono">{currencySymbol} {fmt(total)}</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowCart(false);
+                  router.push("/m/payment");
+                }}
+                className="w-full py-2.5 rounded-xl border border-border text-foreground/70 text-[12px] font-semibold hover:bg-surface active:scale-[0.98] transition"
+              >
+                Other payment methods <ChevronRight size={13} className="inline" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {isLoading && <Loader2 className="hidden" />}

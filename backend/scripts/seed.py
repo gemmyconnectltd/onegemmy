@@ -176,6 +176,7 @@ async def seed_permissions(session: AsyncSession) -> list[Permission]:
                 session.add(p)
                 new_perms.append(p)
     await session.flush()
+    await session.commit()
     all_perms = (await session.execute(select(Permission))).scalars().all()
     return list(all_perms)
 

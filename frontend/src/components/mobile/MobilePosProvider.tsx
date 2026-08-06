@@ -44,7 +44,7 @@ interface MobilePosContextValue {
   setNotes: (v: string) => void;
   setPayment: (m: PaymentMethod) => void;
   setCashGiven: (v: string) => void;
-  completeSale: () => Promise<void>;
+  completeSale: (overrides?: { payment?: PaymentMethod; cashGiven?: string }) => Promise<void>;
   startNewSale: () => void;
 }
 
@@ -155,24 +155,28 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
 
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
   const discount = useMemo(() => cart.reduce((s, i) => s + i.discount, 0), [cart]);
-  const taxable = subtotal - discount;
-  const tax = Math.round(taxable * TAX_RATE);
-  const total = taxable + tax;
+  const gross = subtotal - discount;
+  const taxable = Math.round(gross / (1 + TAX_RATE));
+  const tax = gross - taxable;
+  const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
   const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const fmt = (v: number) => v.toLocaleString();
 
-  const completeSale = useCallback(async () => {
+  const completeSale = useCallback(async (overrides?: { payment?: PaymentMethod; cashGiven?: string }) => {
     if (saving || cart.length === 0) return;
+    const pay = overrides?.payment ?? payment;
+    const cash = overrides?.cashGiven ?? cashGiven;
     setSaving(true);
     setSaleError(null);
-    const isInvoice = payment === "invoice";
+    const isInvoice = pay === "invoice";
+    const changeAmt = cash ? Math.max(0, Number(cash) - total) : 0;
     try {
       await createOrder.mutateAsync({
         status: "Completed",
         customer_id: customerId,
-        notes: `POS — ${payment}${notes ? ` — ${notes}` : ""}`,
+        notes: `POS — ${pay}${notes ? ` — ${notes}` : ""}`,
         discount,
         tax,
         items: cart.map((i) => ({
@@ -191,7 +195,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
         orderId: generateOrderId(),
         invoiceNumber: isInvoice ? generateInvoiceId() : null,
         isInvoice,
-        payment,
+        payment: pay,
         customerName: customerName.trim(),
         notes,
         items: cart,
@@ -199,8 +203,8 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
         discount,
         tax,
         total,
-        cashGiven,
-        change,
+        cashGiven: cash,
+        change: changeAmt,
         timestamp: new Date(),
       };
       saveSale(sale);
@@ -213,7 +217,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     } finally {
       setSaving(false);
     }
-  }, [saving, cart, payment, customerId, notes, discount, tax, subtotal, total, cashGiven, change, customerName, createOrder, clearCart]);
+  }, [saving, cart, payment, customerId, notes, discount, tax, subtotal, total, cashGiven, customerName, createOrder, clearCart]);
 
   const startNewSale = useCallback(() => {
     setCompletedSale(null);

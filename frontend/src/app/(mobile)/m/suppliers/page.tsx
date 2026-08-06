@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Search, Truck } from "lucide-react";
+import { ArrowLeft, Plus, Search, Truck } from "lucide-react";
 
 import { useSuppliers } from "@/lib/api/hooks";
 
@@ -26,10 +26,16 @@ export default function MobileSuppliersPage() {
           <button onClick={() => window.history.back()} className="w-8 h-8 flex items-center justify-center text-muted" aria-label="Back">
             <ArrowLeft size={18} />
           </button>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-[15px] font-bold text-foreground">Suppliers</h1>
             <p className="text-[11px] text-muted mt-0.5">{filtered.length} suppliers</p>
           </div>
+          <Link
+            href="/m/suppliers/new"
+            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-accent text-white text-[12px] font-semibold active:opacity-80 transition-opacity"
+          >
+            <Plus size={14} /> Add
+          </Link>
         </div>
       </header>
 

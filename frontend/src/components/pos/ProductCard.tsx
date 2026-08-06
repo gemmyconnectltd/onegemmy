@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
 
 import { LOW_STOCK_THRESHOLD } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
@@ -14,6 +14,7 @@ interface ProductCardProps {
   onAdd: (p: Product) => void;
   onAddVariant: (p: Product, v: Variant) => void;
   onToggle: (id: string) => void;
+  layout?: "vertical" | "horizontal";
 }
 
 function attrLabel(attrs: Record<string, string>) {
@@ -21,12 +22,105 @@ function attrLabel(attrs: Record<string, string>) {
   return entries.length ? entries.map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
 }
 
-export function ProductCard({ product, inCartQty, bumping, expanded, currencySymbol, fmt, onAdd, onAddVariant, onToggle }: ProductCardProps) {
+export function ProductCard({ product, inCartQty, bumping, expanded, currencySymbol, fmt, onAdd, onAddVariant, onToggle, layout = "vertical" }: ProductCardProps) {
   const outOfStock = product.stock <= 0;
   const lowStock = !outOfStock && product.stock <= LOW_STOCK_THRESHOLD;
   const accent = productAccent(product.id);
   const isVariantGroup = product.has_variants && (product.variants?.length ?? 0) > 0;
   const disabled = outOfStock || isVariantGroup;
+
+  // ── Horizontal (mobile list) ────────────────────────────────────────────────
+  if (layout === "horizontal") {
+    return (
+      <div className={`bg-card rounded-2xl overflow-hidden ${disabled ? "opacity-40" : ""}`}>
+        <button
+          type="button"
+          onClick={() => (isVariantGroup ? onToggle(product.id) : onAdd(product))}
+          disabled={outOfStock}
+          className="w-full flex items-center gap-3 px-3 py-2.5 text-left active:bg-surface/60 transition-colors"
+        >
+          {/* Small thumbnail */}
+          <div className="w-14 h-14 rounded-xl overflow-hidden relative flex-shrink-0 bg-surface">
+            {product.image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center"
+                style={{ background: `linear-gradient(145deg, ${accent}1F 0%, ${accent}08 100%)` }}
+              >
+                <IconBadge Icon={getProductIcon(product)} size={18} color={accent} />
+              </div>
+            )}
+            {outOfStock && <div className="absolute inset-0 bg-background/60" />}
+          </div>
+
+          {/* Info */}
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-foreground leading-tight truncate">{product.name}</p>
+            <p className="text-[10px] text-muted truncate mt-0.5">
+              {isVariantGroup
+                ? `${product.variants?.length} variants`
+                : (product.sku ?? product.category)}
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-[13px] font-bold text-accent font-mono">{currencySymbol} {fmt(product.price)}</p>
+              {lowStock && !isVariantGroup && (
+                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600">
+                  <AlertTriangle size={9} /> {product.stock} left
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Right affordance */}
+          {outOfStock ? (
+            <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-full flex-shrink-0">Out of stock</span>
+          ) : inCartQty > 0 ? (
+            <span className="w-7 h-7 rounded-full bg-accent text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm">{inCartQty}</span>
+          ) : (
+            <span className="w-7 h-7 rounded-full bg-surface text-accent flex items-center justify-center flex-shrink-0">
+              <Plus size={15} />
+            </span>
+          )}
+        </button>
+
+        {/* Variant sub-list */}
+        {isVariantGroup && expanded && (
+          <div className="px-3 pb-2.5 space-y-1.5">
+            {product.variants?.map((v) => {
+              const variantOut = v.stock <= 0;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  disabled={variantOut}
+                  onClick={() => onAddVariant(product, v)}
+                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left ${
+                    variantOut ? "opacity-40 cursor-not-allowed" : "bg-surface active:scale-[0.99] transition-transform"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-foreground truncate">{attrLabel(v.attributes)}</p>
+                    {v.sku && <p className="text-[10px] text-muted font-mono truncate">{v.sku}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[11px] text-muted">{v.stock} left</span>
+                    <span className="text-[12px] font-bold text-accent font-mono">{currencySymbol} {fmt(v.price)}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

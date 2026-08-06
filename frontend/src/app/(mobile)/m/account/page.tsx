@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Bell, Building2, ChevronRight, CreditCard, Download, LogOut, Moon,
-  Printer, ReceiptText, ShieldCheck, Sun, UserRound, Users,
+  Bell, Building2, ChevronRight, CreditCard, Download, LifeBuoy, LogOut, Moon,
+  Printer, ReceiptText, Sun, UserRound,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
@@ -14,12 +14,11 @@ import { getPurchases } from "@/lib/purchases";
 
 const SECTIONS = [
   { href: "/m/account/profile", label: "Business profile", desc: "Name, phone, address", icon: Building2 },
-  { href: "/m/account/employees", label: "Employees", desc: "Your team & roles", icon: Users },
-  { href: "/m/account/roles", label: "Roles & permissions", desc: "Who can do what", icon: ShieldCheck },
   { href: "/m/account/payments", label: "Payment methods", desc: "Cash, mobile, card", icon: CreditCard },
   { href: "/m/account/taxes", label: "Taxes", desc: "VAT & receipts", icon: ReceiptText },
   { href: "/m/account/printer", label: "Printer settings", desc: "Paper size, copies", icon: Printer },
   { href: "/m/account/notifications", label: "Notifications", desc: "Alerts & summaries", icon: Bell },
+  { href: "/m/account/support", label: "Help & support", desc: "FAQ, contact & help", icon: LifeBuoy },
 ];
 
 export default function MobileAccountPage() {

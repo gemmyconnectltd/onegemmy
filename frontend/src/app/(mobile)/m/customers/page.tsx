@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, Search, UserRound, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Plus, Search, UserRound, Users } from "lucide-react";
 
 import { useCustomers } from "@/lib/api/hooks";
 
@@ -25,10 +26,16 @@ export default function MobileCustomersPage() {
           <button onClick={() => window.history.back()} className="w-8 h-8 flex items-center justify-center text-muted" aria-label="Back">
             <ArrowLeft size={18} />
           </button>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-[15px] font-bold text-foreground">Customers</h1>
             <p className="text-[11px] text-muted mt-0.5">{filtered.length} customers</p>
           </div>
+          <Link
+            href="/m/customers/new"
+            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-accent text-white text-[12px] font-semibold active:opacity-80 transition-opacity"
+          >
+            <Plus size={14} /> Add
+          </Link>
         </div>
       </header>
 

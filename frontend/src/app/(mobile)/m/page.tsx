@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeftRight, Bell, Package, ReceiptText, TrendingDown, TrendingUp,
+  ArrowLeftRight, Bell, Boxes, Package, PackagePlus, ReceiptText,
+  ShoppingBag, TrendingDown, TrendingUp, Truck, Users, Wallet,
 } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useAuth } from "@/lib/auth";
 import { getSales, subscribeSales } from "@/lib/invoices";
-import { useProducts, useCustomers, useSuppliers, useExpenses, usePurchaseOrders } from "@/lib/api/hooks";
+import { useProducts } from "@/lib/api/hooks";
 import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
 import type { SaleResult } from "@/components/pos/types";
 
@@ -24,11 +25,6 @@ function isToday(d: Date) {
   return d.toDateString() === new Date().toDateString();
 }
 
-function isThisMonth(d: Date) {
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-}
-
 export default function MobileHomePage() {
   const { user } = useAuth();
   const { currencySymbol, fmt } = useMobilePos();
@@ -37,10 +33,6 @@ export default function MobileHomePage() {
   useEffect(() => subscribeSales(() => setSales(getSales())), []);
 
   const productsQ = useProducts(1, 200);
-  const customersQ = useCustomers(1, 200);
-  const suppliersQ = useSuppliers();
-  const expensesQ = useExpenses();
-  const purchasesQ = usePurchaseOrders();
 
   const todaySales = useMemo(() => sales.filter((s) => isToday(new Date(s.timestamp))), [sales]);
   const yesterdaySales = useMemo(() => {
@@ -55,78 +47,19 @@ export default function MobileHomePage() {
   const trendPct =
     yesterdayTotal > 0 ? Math.round(((salesTotal - yesterdayTotal) / yesterdayTotal) * 100) : null;
 
-  const monthPurchases = (purchasesQ.data?.items ?? []).filter((p) =>
-    isThisMonth(new Date(p.created_at ?? 0)),
-  );
-  const monthExpenses = (expensesQ.data?.items ?? []).filter((e) =>
-    isThisMonth(new Date(`${e.expense_date}T00:00:00`)),
-  );
-
   const products = productsQ.data?.items ?? [];
-  const totalStockUnits = products.reduce((sum, p) => sum + p.stock, 0);
   const lowStock = products.filter((p) => p.stock <= Math.max(p.min_stock, LOW_STOCK_THRESHOLD));
 
   const firstName = (user?.name ?? "there").split(" ")[0];
   const businessName = user?.tenantName ?? "OneGemmy";
-  const avatarInitial = (firstName[0] ?? "?").toUpperCase();
 
   const tiles = [
-    {
-      href: "/m/pos",
-      label: "Sales",
-      stat: `${todaySales.length} today`,
-      sub: `${currencySymbol} ${fmt(salesTotal)}`,
-      bg: "bg-rose-500",
-    },
-    {
-      href: "/m/purchase/new",
-      label: "Purchases",
-      stat: `${monthPurchases.length} this mo`,
-      sub: `${currencySymbol} ${fmt(monthPurchases.reduce((s, p) => s + p.total, 0))}`,
-      bg: "bg-indigo-500",
-    },
-    {
-      href: "/m/inventory",
-      label: "Inventory",
-      stat: `${totalStockUnits.toLocaleString()} units`,
-      sub: `${lowStock.length} low stock`,
-      bg: "bg-emerald-500",
-    },
-    {
-      href: "/m/products/new",
-      label: "Products",
-      stat: `${products.length}`,
-      sub: "in catalog",
-      bg: "bg-violet-500",
-    },
-    {
-      href: "/m/customers",
-      label: "Customers",
-      stat: `${customersQ.data?.items?.length ?? 0}`,
-      sub: "registered",
-      bg: "bg-sky-500",
-    },
-    {
-      href: "/m/suppliers",
-      label: "Suppliers",
-      stat: `${suppliersQ.data?.items?.length ?? 0}`,
-      sub: "active",
-      bg: "bg-amber-500",
-    },
-    {
-      href: "/m/expenses",
-      label: "Expenses",
-      stat: `${currencySymbol} ${fmt(monthExpenses.reduce((s, e) => s + e.amount, 0))}`,
-      sub: `${monthExpenses.length} this mo`,
-      bg: "bg-red-600",
-    },
-    {
-      href: "/m/stats",
-      label: "Reports",
-      stat: "View all",
-      sub: "analytics",
-      bg: "bg-cyan-500",
-    },
+    { href: "/m/purchase/new", label: "Purchases",  icon: ShoppingBag,    color: "#6366f1" },
+    { href: "/m/inventory",    label: "Inventory",  icon: Boxes,          color: "#10b981" },
+    { href: "/m/products/new", label: "Products",   icon: PackagePlus,    color: "#8b5cf6" },
+    { href: "/m/customers",    label: "Customers",  icon: Users,          color: "#0ea5e9" },
+    { href: "/m/suppliers",    label: "Suppliers",  icon: Truck,          color: "#f59e0b" },
+    { href: "/m/expenses",     label: "Expenses",   icon: Wallet,         color: "#dc2626" },
   ];
 
   const alertCount = lowStock.length;
@@ -148,13 +81,6 @@ export default function MobileHomePage() {
             >
               <Bell size={17} />
               {alertCount > 0 && <span className="absolute top-1.5 right-1.5 min-w-[7px] h-[7px] rounded-full bg-red-500" />}
-            </Link>
-            <Link
-              href="/m/account"
-              className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center text-[13px] font-bold"
-              aria-label="Account"
-            >
-              {avatarInitial}
             </Link>
           </div>
         </div>
@@ -198,19 +124,21 @@ export default function MobileHomePage() {
           </div>
         </div>
 
-        {/* 8-tile navigation grid */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Icon navigation grid */}
+        <div className="grid grid-cols-4 gap-2">
           {tiles.map((t) => (
             <Link
               key={t.label}
               href={t.href}
-              className={`aspect-square flex flex-col justify-between p-2.5 shadow-sm active:opacity-80 transition-opacity ${t.bg}`}
+              className="flex flex-col items-center gap-2 rounded-2xl py-2 active:scale-95 transition-transform"
             >
-              <p className="text-[10px] font-bold uppercase tracking-wide text-white/90">{t.label}</p>
-              <div className="min-w-0">
-                <p className="text-[14px] font-bold font-mono text-white leading-tight truncate">{t.stat}</p>
-                <p className="text-[9px] text-white/70 mt-0.5 truncate">{t.sub}</p>
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm"
+                style={{ backgroundColor: `${t.color}1A`, color: t.color }}
+              >
+                <t.icon size={26} strokeWidth={2} />
               </div>
+              <span className="text-[11px] font-semibold text-foreground/80">{t.label}</span>
             </Link>
           ))}
         </div>

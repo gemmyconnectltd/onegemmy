@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingBasket } from "lucide-react";
 
 import { PaymentPanel } from "@/components/pos/PaymentPanel";
+import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 
 export default function MobilePaymentPage() {
@@ -14,24 +14,44 @@ export default function MobilePaymentPage() {
   const {
     cart, payment, cashGiven, subtotal, discount, tax, total, change, cashShort,
     customerName, currencySymbol, fmt, saving, saleError, completedSale,
-    setPayment, setCashGiven, completeSale,
+    setPayment, setCashGiven, completeSale, startNewSale,
   } = useMobilePos();
 
-  useEffect(() => {
-    if (completedSale) router.replace("/m/receipt");
-  }, [completedSale, router]);
+  if (completedSale) {
+    return (
+      <div className="min-h-full bg-card">
+        <Receipt
+          sale={completedSale}
+          currencySymbol={currencySymbol}
+          fmt={fmt}
+          onNewSale={() => {
+            startNewSale();
+            router.replace("/m/pos");
+          }}
+        />
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    if (cart.length === 0 && !completedSale) router.replace("/m");
-  }, [cart.length, completedSale, router]);
+  if (cart.length === 0) {
+    return (
+      <div className="min-h-full flex flex-col items-center justify-center py-24 text-center px-6">
+        <ShoppingBasket size={30} className="text-muted/40 mb-2" />
+        <p className="text-[13px] text-muted">Nothing to pay</p>
+        <Link href="/m/pos" className="mt-4 px-4 py-2.5 rounded-xl bg-accent text-white text-[12px] font-semibold">
+          Start a sale
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full flex flex-col">
       <header className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border flex items-center gap-2 px-3 py-3">
         <Link
-          href="/m/cart"
+          href="/m/pos"
           className="w-9 h-9 flex items-center justify-center border border-border rounded-xl text-foreground/70"
-          aria-label="Back to cart"
+          aria-label="Back to products"
         >
           <ArrowLeft size={16} />
         </Link>
@@ -59,16 +79,6 @@ export default function MobilePaymentPage() {
           onCharge={completeSale}
         />
       </div>
-
-      {cart.length === 0 && !completedSale && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-          <ShoppingBasket size={30} className="text-muted/40 mb-2" />
-          <p className="text-[13px] text-muted">Nothing to pay</p>
-          <Link href="/m" className="mt-4 px-4 py-2.5 rounded-xl bg-accent text-white text-[12px] font-semibold">
-            Go to store
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

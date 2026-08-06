@@ -34,7 +34,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
           </p>
         )}
         {sale.notes && (
-          <p className="text-[10px] text-muted mt-1 italic">"{sale.notes}"</p>
+          <p className="text-[10px] text-muted mt-1 italic">&quot;{sale.notes}&quot;</p>
         )}
         {sale.isInvoice && (
           <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
@@ -95,7 +95,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
           </div>
         )}
         <div className="flex justify-between text-muted">
-          <span>Tax (18%)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
+          <span>VAT (18%, included)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
         </div>
         <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
           <span>{sale.isInvoice ? "Amount due" : "Total"}</span>

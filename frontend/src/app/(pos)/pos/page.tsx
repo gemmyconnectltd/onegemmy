@@ -183,9 +183,10 @@ export default function POSPage() {
   // ── totals ───────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const discount = cart.reduce((s, i) => s + i.discount, 0);
-  const taxable = subtotal - discount;
-  const tax = Math.round(taxable * TAX_RATE);
-  const total = taxable + tax;
+  const gross = subtotal - discount;
+  const taxable = Math.round(gross / (1 + TAX_RATE));
+  const tax = gross - taxable;
+  const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
   const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;
   const fmt = (v: number) => v.toLocaleString();

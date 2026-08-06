@@ -63,7 +63,7 @@ export function PaymentPanel({
       {/* Totals */}
       <div className="space-y-1 font-mono text-[12px]">
         <div className="flex justify-between text-muted">
-          <span>Subtotal</span>
+          <span>Items (incl. VAT)</span>
           <span>{currencySymbol} {fmt(subtotal)}</span>
         </div>
         {discount > 0 && (
@@ -73,7 +73,7 @@ export function PaymentPanel({
           </div>
         )}
         <div className="flex justify-between text-muted">
-          <span>Tax (18%)</span>
+          <span>VAT (18%, included)</span>
           <span>{currencySymbol} {fmt(tax)}</span>
         </div>
         <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
