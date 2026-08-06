@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ArrowLeftRight, Bell, Boxes, Package, PackagePlus, ReceiptText,
@@ -12,7 +12,6 @@ import { useAuth } from "@/lib/auth";
 import { getSales, subscribeSales } from "@/lib/invoices";
 import { useProducts } from "@/lib/api/hooks";
 import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
-import type { SaleResult } from "@/components/pos/types";
 
 function greeting() {
   const h = new Date().getHours();
@@ -28,9 +27,7 @@ function isToday(d: Date) {
 export default function MobileHomePage() {
   const { user } = useAuth();
   const { currencySymbol, fmt } = useMobilePos();
-  const [sales, setSales] = useState<SaleResult[]>(() => getSales());
-
-  useEffect(() => subscribeSales(() => setSales(getSales())), []);
+  const sales = useSyncExternalStore(subscribeSales, getSales, getSales);
 
   const productsQ = useProducts(1, 200);
 

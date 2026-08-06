@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Banknote, CreditCard, FileText, ReceiptText, Search, Smartphone,
 } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { getSales, subscribeSales } from "@/lib/invoices";
+import { useOrders } from "@/lib/api/hooks";
+import { orderToSale } from "@/lib/orders";
 import { PeriodSelector, inPeriod, type PeriodKey } from "@/components/mobile/PeriodSelector";
 import type { PaymentMethod, SaleResult } from "@/components/pos/types";
 
@@ -33,12 +34,15 @@ function dayLabel(d: Date) {
 
 export default function MobileTransactionsPage() {
   const { currencySymbol, fmt } = useMobilePos();
-  const [sales, setSales] = useState<SaleResult[]>(() => getSales());
+  const ordersQ = useOrders(1, 500);
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [payment, setPayment] = useState<PaymentMethod | "all">("all");
   const [query, setQuery] = useState("");
 
-  useEffect(() => subscribeSales(() => setSales(getSales())), []);
+  const sales = useMemo(
+    () => (ordersQ.data?.items ?? []).filter((o) => o.status === "Completed").map(orderToSale),
+    [ordersQ.data],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

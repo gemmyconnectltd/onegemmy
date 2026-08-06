@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
-import { type Role } from "./roles";
 import {
   authApi,
   clearStoredTokens,
@@ -72,41 +71,42 @@ function isTokenExpired(token: string): boolean {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    // Restore user instantly from stored token — no network call
-    const token = getStoredToken();
-    if (!token || isTokenExpired(token)) return null;
-    const payload = decodeToken(token);
-    if (!payload) return null;
-    return mapUser(payload);
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    // Only show loading if we need to refresh (token missing or expired)
-    const token = getStoredToken();
-    if (!token || isTokenExpired(token)) {
-      const refresh = getStoredRefreshToken();
-      return !!refresh; // loading only if we have a refresh token to try
-    }
-    return false;
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (token && !isTokenExpired(token)) return; // already restored above, skip
-    const tryRefresh = async () => {
+    let cancelled = false;
+
+    const init = async () => {
+      const token = getStoredToken();
+      if (token && !isTokenExpired(token)) {
+        const payload = decodeToken(token);
+        if (payload) {
+          if (!cancelled) setUser(mapUser(payload));
+          if (!cancelled) setIsLoading(false);
+          return;
+        }
+      }
       const refreshToken = getStoredRefreshToken();
-      if (!refreshToken) { setIsLoading(false); return; }
+      if (!refreshToken) {
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
       try {
         const res = await authApi.refresh(refreshToken);
         setStoredToken(res.data.access_token);
         setStoredRefreshToken(res.data.refresh_token);
-        setUser(mapUser(res.data.user));
+        if (!cancelled) setUser(mapUser(res.data.user));
       } catch {
         clearStoredTokens();
       }
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     };
-    tryRefresh();
+
+    void init();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string, tenantSlug?: string): Promise<{ ok: boolean; error?: string }> => {

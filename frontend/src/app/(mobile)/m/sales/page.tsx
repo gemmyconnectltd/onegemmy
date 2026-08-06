@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Banknote, CreditCard, FileText, ReceiptText, Smartphone } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { getSales, subscribeSales } from "@/lib/invoices";
+import { useOrders } from "@/lib/api/hooks";
+import { orderToSale } from "@/lib/orders";
 import { PeriodSelector, inPeriod, type PeriodKey } from "@/components/mobile/PeriodSelector";
-import type { PaymentMethod, SaleResult } from "@/components/pos/types";
+import type { PaymentMethod } from "@/components/pos/types";
 
 const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { key: "cash", label: "Cash", icon: Banknote },
@@ -18,10 +19,13 @@ const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }
 
 export default function MobileSalesPage() {
   const { currencySymbol, fmt } = useMobilePos();
-  const [sales, setSales] = useState<SaleResult[]>(() => getSales());
+  const ordersQ = useOrders(1, 500);
   const [period, setPeriod] = useState<PeriodKey>("today");
 
-  useEffect(() => subscribeSales(() => setSales(getSales())), []);
+  const sales = useMemo(
+    () => (ordersQ.data?.items ?? []).filter((o) => o.status === "Completed").map(orderToSale),
+    [ordersQ.data],
+  );
 
   const list = useMemo(
     () => sales.filter((s) => inPeriod(new Date(s.timestamp), period)),

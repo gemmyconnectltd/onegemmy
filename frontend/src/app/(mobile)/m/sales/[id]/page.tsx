@@ -1,27 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ReceiptText } from "lucide-react";
 
 import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { getSales, subscribeSales } from "@/lib/invoices";
-import type { SaleResult } from "@/components/pos/types";
+import { useOrders } from "@/lib/api/hooks";
+import { orderToSale } from "@/lib/orders";
 
 export default function MobileSalesDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { currencySymbol, fmt, startNewSale } = useMobilePos();
-  const [sales, setSales] = useState<SaleResult[]>(() => getSales());
+  const ordersQ = useOrders(1, 500);
 
-  useEffect(() => subscribeSales(() => setSales(getSales())), []);
-
-  const sale = useMemo(
-    () => sales.find((s) => s.orderId === id || s.invoiceNumber === id) ?? null,
-    [sales, id],
-  );
+  const sale = useMemo(() => {
+    const order = (ordersQ.data?.items ?? []).find(
+      (o) => o.status === "Completed" && (o.order_number === id || o.id === id),
+    );
+    return order ? orderToSale(order) : null;
+  }, [ordersQ.data, id]);
 
   if (!sale) {
     return (
