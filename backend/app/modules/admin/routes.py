@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select, text
 
 from app.core.deps import DbSession, SuperUser
+from app.core.email import send_invite_email
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
@@ -216,6 +217,12 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    await send_invite_email(
+        to=user.email,
+        full_name=user.full_name,
+        tenant_name=tenant.name,
+        temp_password=data.password,
+    )
     return success_response(data={"id": str(user.id), "email": user.email, "full_name": user.full_name},
                             message="User invited successfully", status_code=201)
 

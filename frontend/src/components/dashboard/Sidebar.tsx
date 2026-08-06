@@ -14,10 +14,11 @@ import {
 } from "lucide-react";
 
 const adminNavItems = [
-  { name: "Overview", href: "/admin",         icon: LayoutDashboard, color: "#8b5cf6" },
-  { name: "Tenants",  href: "/admin/tenants", icon: Building2,       color: "#0284c7" },
-  { name: "Users",    href: "/admin/users",   icon: Users,           color: "#059669" },
-  { name: "Plans",    href: "/admin/plans",   icon: Crown,           color: "#d97706" },
+  { name: "Overview",  href: "/admin",          icon: LayoutDashboard, color: "#64748b" },
+  { name: "Tenants",  href: "/admin/tenants",   icon: Building2,       color: "#64748b" },
+  { name: "Users",    href: "/admin/users",     icon: Users,           color: "#64748b" },
+  { name: "Plans",    href: "/admin/plans",     icon: Crown,           color: "#64748b" },
+  { name: "Settings", href: "/admin/settings",  icon: Settings,        color: "#64748b" },
 ];
 
 const navItems = [
@@ -219,7 +220,9 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-clip py-2 flex flex-col gap-0.5 px-2">
           {items.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = item.href === "/admin"
+              ? pathname === "/admin"
+              : pathname === item.href || pathname.startsWith(item.href + "/");
             return (
               <Link
                 key={item.name}
@@ -252,7 +255,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
 
         {/* Bottom */}
         <div className="py-3 flex flex-col items-center gap-0.5">
-          {/* Settings */}
+          {/* Settings — only for non-admin (admin has it in nav) */}
           {!admin && (
             <div className="px-2 pb-1">
               <Link

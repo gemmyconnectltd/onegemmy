@@ -29,3 +29,5 @@ line-length = 100
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
+addopts = "--ignore=_smoke_test.py --ignore=_smoke_test2.py"

@@ -2,10 +2,13 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.email import send_password_reset_email, send_welcome_email
 from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.core.logging import get_logger
 from app.core.security import (
     create_access_token,
+    create_password_reset_token,
     create_refresh_token,
     decode_token,
     hash_password,
@@ -102,6 +105,15 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
     await db.commit()
 
     log.info("auth.register.success", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(tenant.id)}})
+
+    await send_welcome_email(
+        to=user.email,
+        full_name=user.full_name,
+        tenant_name=tenant.name,
+        tenant_slug=tenant.slug,
+        dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
+    )
+
     return _issue_tokens(user)
 
 
@@ -159,6 +171,18 @@ async def forgot_password(db: AsyncSession, data: ForgotPasswordRequest) -> dict
     if user is None:
         return {"message": "If the email exists, a password reset link has been sent"}
 
+    reset_token = create_password_reset_token(
+        str(user.id),
+        {"tenant_id": str(user.tenant_id) if user.tenant_id else ""},
+    )
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+
+    await send_password_reset_email(
+        to=user.email,
+        full_name=user.full_name,
+        reset_link=reset_link,
+    )
+
     log.info("auth.forgot_password.token_generated", extra={"_extra_fields": {"user_id": str(user.id)}})
     return {"message": "If the email exists, a password reset link has been sent"}
 
@@ -172,9 +196,13 @@ async def reset_password(db: AsyncSession, data: ResetPasswordRequest) -> None:
         raise UnauthorizedError("Invalid or expired reset token")
 
     user_id = uuid.UUID(payload["sub"])
-    tenant_id = uuid.UUID(payload["tenant_id"])
+    tenant_id_str = payload.get("tenant_id") or ""
 
-    user = await UserRepository(db).get_by_id_for_tenant(tenant_id, user_id)
+    if tenant_id_str:
+        tenant_id = uuid.UUID(tenant_id_str)
+        user = await UserRepository(db).get_by_id_for_tenant(tenant_id, user_id)
+    else:
+        user = await UserRepository(db).get(user_id)
     if user is None:
         raise NotFoundError("User not found")
     user.hashed_password = hash_password(data.new_password)

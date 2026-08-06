@@ -18,6 +18,14 @@ class Settings(BaseSettings):
 
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # Email (Gmail SMTP) — set SMTP_USER and SMTP_PASSWORD to enable sending.
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""  # Gmail App Password
+    EMAIL_FROM: str = "OneGemmy <eplotrobert@gmail.com>"
+    FRONTEND_URL: str = "http://localhost:3000"
+
     UPLOAD_DIR: str = "uploads"
 
     CORS_ORIGINS: str = "http://localhost:3000"

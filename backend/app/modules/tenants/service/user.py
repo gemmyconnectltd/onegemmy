@@ -2,10 +2,11 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.email import send_invite_email
 from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.core.logging import get_logger
 from app.core.security import hash_password, verify_password
-from app.modules.tenants.models import User
+from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import UserRepository
 from app.modules.tenants.schemas import ChangePasswordRequest, UserCreate, UserRead, UserUpdate
 
@@ -66,6 +67,13 @@ async def create_user(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) 
     user = await UserRepository(db).save(user)
     await db.commit()
     log.info("users.create.success", extra={"_extra_fields": {"user_id": str(user.id)}})
+    tenant = await db.get(Tenant, tenant_id)
+    await send_invite_email(
+        to=user.email,
+        full_name=user.full_name,
+        tenant_name=tenant.name if tenant else str(tenant_id),
+        temp_password=data.password,
+    )
     return UserRead.model_validate(user)
 
 
