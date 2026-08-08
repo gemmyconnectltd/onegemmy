@@ -5,7 +5,6 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Minus, PackagePlus, Plus, Searc
 
 import { useProducts, useRestockProduct, type ApiProduct } from "@/lib/api/hooks";
 import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
-import { addStockMovement } from "@/lib/stockMovements";
 
 export default function MobileRestockPage() {
   const productsQ = useProducts(1, 200);
@@ -42,11 +41,6 @@ export default function MobileRestockPage() {
       await restock.mutateAsync({
         id: selected.id,
         data: { qty, mode: "restock", reason: reason.trim() || "Stock in (mobile)" },
-      });
-      addStockMovement({
-        productName: selected.name,
-        qty,
-        reason: reason.trim() || "Manual restock",
       });
       setSuccessId(selected.id);
       setSelected(null);

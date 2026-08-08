@@ -6,7 +6,6 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Minus, Plus, Search, Truck, X } fr
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useProducts, useSuppliers, useCreatePurchaseOrder, type ApiProduct } from "@/lib/api/hooks";
-import { savePurchase } from "@/lib/purchases";
 
 interface PurchaseLine {
   product_id: string;
@@ -42,8 +41,6 @@ export default function MobileNewPurchasePage() {
     [productsQ.data, query],
   );
 
-  const supplierName = suppliers.find((s) => s.id === supplierId)?.name ?? "";
-
   const addLine = (p: ApiProduct) => {
     setLines((prev) => {
       const existing = prev.find((l) => l.product_id === p.id);
@@ -76,15 +73,6 @@ export default function MobileNewPurchasePage() {
           unit_cost: l.unit_cost,
           quantity: l.qty,
         })),
-      });
-      savePurchase({
-        id: data.reference,
-        supplierId: data.supplier_id,
-        supplierName,
-        items: lines.map((l) => ({ product_id: l.product_id, name: l.name, sku: l.sku, qty: l.qty, unit_cost: l.unit_cost })),
-        total: data.total,
-        notes,
-        timestamp: new Date(),
       });
       setDoneRef(data.reference);
     } catch (e) {

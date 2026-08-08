@@ -16,6 +16,7 @@ import {
 } from "@tanstack/react-query";
 import {
   inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
+  crmApi, manufacturingApi,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
@@ -28,6 +29,8 @@ import {
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
+  type ApiCampaign, type ApiEmailLog,
+  type ApiProductionOrder, type ApiProductionItem,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -280,6 +283,36 @@ export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.r
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
 
+// ── CRM ──────────────────────────────────────────────────────────────────────
+
+const CAMPAIGNS = ["crm", "campaigns"] as const;
+const EMAILS = ["crm", "emails"] as const;
+
+export const useCampaigns = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...CAMPAIGNS, page, pageSize], () => crmApi.listCampaigns(page, pageSize), (r) => r.data, opts);
+
+export const useEmails = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...EMAILS, page, pageSize], () => crmApi.listEmails(page, pageSize), (r) => r.data, opts);
+
+export const useCreateCampaign = mutation((d: Parameters<typeof crmApi.createCampaign>[0]) => crmApi.createCampaign(d), [[...CAMPAIGNS]]);
+export const useUpdateCampaign = mutation(({ id, data }: { id: string; data: Parameters<typeof crmApi.updateCampaign>[1] }) => crmApi.updateCampaign(id, data), [[...CAMPAIGNS]]);
+export const useDeleteCampaign = mutation((id: string) => crmApi.deleteCampaign(id), [[...CAMPAIGNS]]);
+
+export const useCreateEmail = mutation((d: Parameters<typeof crmApi.createEmail>[0]) => crmApi.createEmail(d), [[...EMAILS], [...CAMPAIGNS]]);
+export const useDeleteEmail = mutation((id: string) => crmApi.deleteEmail(id), [[...EMAILS]]);
+
+// ── Manufacturing ────────────────────────────────────────────────────────────
+
+const PRODUCTION = ["manufacturing", "orders"] as const;
+
+export const useProductionOrders = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...PRODUCTION, page, pageSize], () => manufacturingApi.listProductionOrders(page, pageSize), (r) => r.data, opts);
+
+export const useCreateProductionOrder = mutation((d: Parameters<typeof manufacturingApi.createProductionOrder>[0]) => manufacturingApi.createProductionOrder(d), [[...PRODUCTION]]);
+export const useUpdateProductionOrder = mutation(({ id, data }: { id: string; data: Parameters<typeof manufacturingApi.updateProductionOrder>[1] }) => manufacturingApi.updateProductionOrder(id, data), [[...PRODUCTION]]);
+export const useCompleteProductionOrder = mutation((id: string) => manufacturingApi.completeProductionOrder(id), [[...PRODUCTION], [...PRODUCTS], [...VALUATION]]);
+export const useDeleteProductionOrder = mutation((id: string) => manufacturingApi.deleteProductionOrder(id), [[...PRODUCTION]]);
+
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 const ADMIN_STATS = ["admin", "stats"] as const;
@@ -341,4 +374,6 @@ export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
+  ApiCampaign, ApiEmailLog,
+  ApiProductionOrder, ApiProductionItem,
 };

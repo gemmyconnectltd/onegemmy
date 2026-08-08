@@ -55,6 +55,14 @@ export { hrApi, departmentsApi } from "./hr";
 export type { PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput } from "./procurement";
 export { procurementApi } from "./procurement";
 
+// CRM
+export type { ApiCampaign, ApiEmailLog } from "./crm";
+export { crmApi } from "./crm";
+
+// Manufacturing
+export type { ApiProductionOrder, ApiProductionItem } from "./manufacturing";
+export { manufacturingApi } from "./manufacturing";
+
 // Admin
 export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,

@@ -1,20 +1,20 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
-import { useEffect, useRef, useSyncExternalStore, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
-import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
-import type { SaleResult } from "@/components/pos/types";
+import { parsePaymentFromNotes } from "@/lib/orders";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
+import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useOrders, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
 import type { FinanceTransaction } from "@/lib/api/finance";
+import type { ApiOrder } from "@/lib/api/sales";
 
-const EMPTY_SALES: SaleResult[] = [];
+const EMPTY_ORDERS: { items: ApiOrder[]; total: number } = { items: [], total: 0 };
 
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -48,8 +48,9 @@ function mapTxn(t: FinanceTransaction): Tx {
 export default function FinancePage() {
   const { currencySymbol, theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
-  const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
-  const outstanding = sales.filter((s) => s.isInvoice && !s.paid);
+  const ordersQ = useOrders(1, 500);
+  const salesOrders = (ordersQ.data ?? EMPTY_ORDERS).items.filter((o) => o.status === "Completed");
+  const outstanding = salesOrders.filter((o) => parsePaymentFromNotes(o.notes) === "invoice");
   const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 

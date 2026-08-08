@@ -12,7 +12,6 @@ import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
-import { saveSale } from "@/lib/invoices";
 import { useProducts, useCustomers, useCreateOrder } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
@@ -258,7 +257,6 @@ export default function POSPage() {
         timestamp: new Date(),
       };
       setCompletedSale(sale);
-      saveSale(sale);
       setTodayCount((c) => c + 1);
       setTodayRevenue((r) => r + total);
       clearCart();
