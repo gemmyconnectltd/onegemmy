@@ -10,20 +10,21 @@ Implements Rwanda Revenue Authority (RRA) tax rates and calculation logic:
 """
 
 import uuid
-from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.finance.models.tax import TaxConfig, TaxCalculation, TaxPayment
+from app.modules.finance.models.tax import TaxCalculation, TaxConfig, TaxPayment
 from app.modules.finance.schemas.tax import (
-    TaxConfigCreate, TaxConfigUpdate, TaxConfigRead,
-    TaxCalculationCreate, TaxCalculationRead,
-    TaxPaymentCreate, TaxPaymentRead,
-    RwandaTaxRates,
+    TaxCalculationCreate,
+    TaxCalculationRead,
+    TaxConfigCreate,
+    TaxConfigRead,
+    TaxConfigUpdate,
+    TaxPaymentCreate,
+    TaxPaymentRead,
 )
-
 
 # ── Rwanda Tax Brackets (PAYE) ─────────────────────────────────────────────────
 

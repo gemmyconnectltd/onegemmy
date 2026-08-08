@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, File, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
@@ -12,7 +12,12 @@ def _require_tenant(tenant_id) -> None:
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.inventory import service
-from app.modules.inventory.schemas import ProductCreate, ProductBulkCreate, ProductUpdate, RestockRequest
+from app.modules.inventory.schemas import (
+    ProductBulkCreate,
+    ProductCreate,
+    ProductUpdate,
+    RestockRequest,
+)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB

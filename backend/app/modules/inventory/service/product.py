@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -7,8 +8,12 @@ from app.integrations.storage import storage
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.repository import ProductRepository
 from app.modules.inventory.schemas import (
-    ProductBulkCreate, ProductBulkResult,
-    ProductCreate, ProductRead, ProductUpdate, RestockRequest,
+    ProductBulkCreate,
+    ProductBulkResult,
+    ProductCreate,
+    ProductRead,
+    ProductUpdate,
+    RestockRequest,
 )
 
 
@@ -45,9 +50,9 @@ async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: Pro
             obj = Product(tenant_id=tenant_id, **item.model_dump())
             await repo.save(obj)
             created += 1
-        except Exception as e:
+        except SQLAlchemyError as e:
             await db.rollback()
-            errors.append(f"{item.name or item.sku}: {str(e)}")
+            errors.append(f"{item.name or item.sku}: {e!s}")
     if created > 0:
         await db.commit()
     return ProductBulkResult(created=created, failed=len(errors), errors=errors)

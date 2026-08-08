@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,7 +71,7 @@ async def set_leave_status(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
         raise ValidationError(f"Leave request is already {obj.status}")
     obj.status = status
     obj.approved_by = user_id
-    obj.approved_at = datetime.now()
+    obj.approved_at = datetime.now(UTC)
     await repo.save(obj)
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)

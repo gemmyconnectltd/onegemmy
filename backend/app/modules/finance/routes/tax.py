@@ -2,17 +2,22 @@ from fastapi import APIRouter, Query
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
-from app.core.pagination import PageQuery
-from app.core.response import paginated_response, success_response
+from app.core.response import success_response
 from app.modules.finance import service
 from app.modules.finance.schemas.tax import (
-    TaxConfigCreate, TaxConfigUpdate,
-    TaxCalculationCreate, TaxPaymentCreate,
     RwandaTaxRates,
+    TaxCalculationCreate,
+    TaxConfigCreate,
+    TaxConfigUpdate,
+    TaxPaymentCreate,
 )
 from app.modules.finance.service.tax import (
-    calculate_paye, calculate_vat, calculate_withholding_tax,
-    calculate_pension, calculate_corporate_tax, calculate_consumption_tax,
+    calculate_consumption_tax,
+    calculate_corporate_tax,
+    calculate_paye,
+    calculate_pension,
+    calculate_vat,
+    calculate_withholding_tax,
 )
 
 router = APIRouter(tags=["Finance - Tax Management"])

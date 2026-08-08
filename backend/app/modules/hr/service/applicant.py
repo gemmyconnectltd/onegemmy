@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +32,7 @@ async def create_applicant(db: AsyncSession, tenant_id: uuid.UUID, data: Applica
         raise ValidationError(f"Invalid stage: {data.stage}")
     obj = Applicant(
         tenant_id=tenant_id,
-        applied_date=data.applied_date or date.today(),
+        applied_date=data.applied_date or datetime.now(UTC).date(),
         **data.model_dump(exclude={"applied_date"}),
     )
     obj = await ApplicantRepository(db).save(obj)

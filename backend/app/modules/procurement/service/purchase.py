@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -93,7 +93,7 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
             product.stock = product.stock + item.quantity
 
     purchase.status = "Received"
-    purchase.received_at = datetime.now(timezone.utc)
+    purchase.received_at = datetime.now(UTC)
     await create_purchase_transaction(db, tenant_id, user_id, purchase.id, float(purchase.total), purchase.reference)
 
 

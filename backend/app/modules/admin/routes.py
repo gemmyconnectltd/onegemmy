@@ -1,5 +1,4 @@
 import uuid
-from datetime import date
 
 from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr
@@ -19,8 +18,11 @@ from app.modules.tenants import service
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
 from app.modules.tenants.schemas import (
-    BranchCreate, DepartmentCreate, RoleCreate,
-    TenantCreate, TenantUpdate,
+    BranchCreate,
+    DepartmentCreate,
+    RoleCreate,
+    TenantCreate,
+    TenantUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["Super Admin"])

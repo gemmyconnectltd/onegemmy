@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundError
 from app.integrations.storage import storage
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.repository import ProductRepository, VariantRepository

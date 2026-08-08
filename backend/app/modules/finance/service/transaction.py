@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -134,7 +134,7 @@ async def create_sale_transaction(
         reference=reference,
         type="sale",
         status="Posted",
-        transaction_date=date.today(),
+        transaction_date=datetime.now(UTC).date(),
         description=f"Sale {order_number}",
         order_id=order_id,
         created_by=user_id,
@@ -166,7 +166,7 @@ async def create_expense_transaction(
         reference=txn_ref,
         type="expense",
         status="Posted",
-        transaction_date=date.today(),
+        transaction_date=datetime.now(UTC).date(),
         description=f"Expense {reference}",
         created_by=user_id,
     )
@@ -196,7 +196,7 @@ async def create_return_transaction(
         reference=reference,
         type="return",
         status="Posted",
-        transaction_date=date.today(),
+        transaction_date=datetime.now(UTC).date(),
         description=f"Return {return_number}",
         return_id=return_id,
         created_by=user_id,
@@ -227,7 +227,7 @@ async def create_purchase_transaction(
         reference=txn_ref,
         type="purchase",
         status="Posted",
-        transaction_date=date.today(),
+        transaction_date=datetime.now(UTC).date(),
         description=f"Purchase {reference}",
         purchase_id=purchase_id,
         created_by=user_id,
@@ -244,6 +244,7 @@ async def backfill_sale_transactions(
 ) -> int:
     """Create Posted sale transactions for every Completed order that has no finance transaction yet."""
     from sqlalchemy import select as sa_select
+
     from app.modules.sales.models.order import Order
 
     ar_id = await _get_account_by_code(db, tenant_id, "1100")
@@ -275,7 +276,7 @@ async def backfill_sale_transactions(
             reference=reference,
             type="sale",
             status="Posted",
-            transaction_date=order.ordered_at.date() if order.ordered_at else date.today(),
+            transaction_date=order.ordered_at.date() if order.ordered_at else datetime.now(UTC).date(),
             description=f"Sale {order.order_number}",
             order_id=order.id,
             created_by=user_id,

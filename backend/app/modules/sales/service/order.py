@@ -1,13 +1,13 @@
 import uuid
-from datetime import date
+from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.modules.finance.service.transaction import create_sale_transaction
-from app.modules.finance.service.tax import create_tax_calculation
 from app.modules.finance.schemas.tax import TaxCalculationCreate
+from app.modules.finance.service.tax import create_tax_calculation
+from app.modules.finance.service.transaction import create_sale_transaction
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.sales.models.order import Order
@@ -20,7 +20,7 @@ from app.modules.sales.schemas import OrderCreate, OrderRead, OrderUpdate
 def _current_period() -> str:
     """Returns e.g. 'Jul 2025' — matches the period format used in targets."""
     months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-    d = date.today()
+    d = datetime.now(UTC).date()
     return f"{months[d.month - 1]} {d.year}"
 
 
@@ -63,7 +63,7 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
     """Write a VAT TaxCalculation record for a completed order."""
     if tax_amount <= 0:
         return
-    period = date.today().strftime("%Y-%m")
+    period = datetime.now(UTC).date().strftime("%Y-%m")
     await create_tax_calculation(db, tenant_id, TaxCalculationCreate(
         calculation_type="vat",
         reference_type="sale",

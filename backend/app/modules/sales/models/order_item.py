@@ -1,9 +1,9 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import datetime
 
 from app.core.database import Base
 from app.core.models import UUIDPKMixin

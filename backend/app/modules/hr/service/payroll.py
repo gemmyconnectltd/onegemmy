@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,7 +70,7 @@ async def mark_paid(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Pa
     if obj.status == "Paid":
         raise ValidationError("Payroll entry is already paid")
     obj.status = "Paid"
-    obj.paid_at = datetime.now()
+    obj.paid_at = datetime.now(UTC)
     await repo.save(obj)
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)

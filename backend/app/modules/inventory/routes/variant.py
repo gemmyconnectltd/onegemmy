@@ -7,7 +7,7 @@ from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.inventory import service
-from app.modules.inventory.schemas import VariantCreate, VariantUpdate, RestockRequest
+from app.modules.inventory.schemas import RestockRequest, VariantCreate, VariantUpdate
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE = 5 * 1024 * 1024

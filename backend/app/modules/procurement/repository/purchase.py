@@ -4,8 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
-from app.modules.procurement.models.purchase_order import PurchaseOrder
 from app.modules.procurement.models.purchase_item import PurchaseItem
+from app.modules.procurement.models.purchase_order import PurchaseOrder
 
 
 def _with_relations():
