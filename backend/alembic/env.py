@@ -16,6 +16,8 @@ from app.modules.sales.models import Customer, Deal, Order, OrderItem, Return, R
 from app.modules.finance.models import Account, Transaction, TransactionLine, Budget, Expense  # noqa: F401
 from app.modules.hr.models import Applicant, Attendance, Employee, LeaveRequest, PayrollEntry  # noqa: F401
 from app.modules.procurement.models import PurchaseItem, PurchaseOrder  # noqa: F401
+from app.modules.crm.models import Campaign, EmailLog  # noqa: F401
+from app.modules.manufacturing.models import ProductionItem, ProductionOrder  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

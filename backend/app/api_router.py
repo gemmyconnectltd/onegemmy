@@ -2,9 +2,11 @@ from fastapi import APIRouter
 
 from app.modules.admin.routes import router as admin_router
 from app.modules.auth.routes import router as auth_router
+from app.modules.crm.routes import crm_router
 from app.modules.finance.routes import finance_router
 from app.modules.hr.routes import hr_router
 from app.modules.inventory.routes import inventory_router
+from app.modules.manufacturing.routes import manufacturing_router
 from app.modules.procurement.routes import procurement_router
 from app.modules.sales.routes import sales_router
 from app.modules.tenants.routes import global_router, tenants_router
@@ -19,3 +21,5 @@ api_router.include_router(sales_router, prefix="/tenants")
 api_router.include_router(finance_router, prefix="/tenants")
 api_router.include_router(hr_router, prefix="/tenants")
 api_router.include_router(procurement_router, prefix="/tenants")
+api_router.include_router(crm_router, prefix="/tenants")
+api_router.include_router(manufacturing_router, prefix="/tenants")
