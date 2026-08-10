@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { AppConfigProvider } from "@/lib/appConfig";
+import OfflineIndicator from "@/components/ui/OfflineIndicator";
 import { Providers } from "./providers";
 
 const geistSans = Geist({
@@ -99,6 +100,7 @@ export default function RootLayout({
         />
       )}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <OfflineIndicator />
         <Providers><AppConfigProvider><AuthProvider>{children}</AuthProvider></AppConfigProvider></Providers>
       </body>
     </html>

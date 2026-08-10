@@ -1,15 +1,33 @@
 // OneGemmy service worker
 // Strategy:
+//  - App shell (/, /login, /manifest.json, icons): precached at install so the
+//    app loads offline on first launch.
 //  - Navigations: network-first, falling back to cache (offline support).
 //  - Static assets (hashed JS/CSS/fonts/images): cache-first — these are
 //    content-hashed by Next.js, so they are immutable and safe to cache.
 //  - Everything else same-origin: stale-while-revalidate.
 // Cross-origin requests (e.g. the API on a different host) are left alone.
 
-const CACHE = "onegemmy-mobile-v3";
+const CACHE = "onegemmy-mobile-v4";
 const STATIC_ASSET = /\.(js|css|woff2?|ttf|png|jpe?g|gif|svg|webp|avif|ico)$/;
 
-self.addEventListener("install", () => self.skipWaiting());
+const PRECACHE = [
+  "/",
+  "/login",
+  "/manifest.json",
+  "/icons/icon-192x192.png",
+  "/icons/icon-512x512.png",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .catch(() => {})
+      .then(() => self.skipWaiting()),
+  );
+});
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
