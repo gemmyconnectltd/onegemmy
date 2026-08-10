@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "uploads"
 
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
 
     LOG_LEVEL: str = "DEBUG"
     LOG_FILE: str | None = None
