@@ -61,7 +61,17 @@ self.addEventListener("fetch", (event) => {
           return res;
         })
         .catch(() =>
-          caches.match(request).then((cached) => cached || caches.match("/")),
+          caches
+            .match(request)
+            .then((cached) => cached || caches.match("/"))
+            .then(
+              (cached) =>
+                cached ||
+                new Response("You are offline. Please reconnect to the internet.", {
+                  status: 200,
+                  headers: { "Content-Type": "text/html; charset=utf-8" },
+                }),
+            ),
         ),
     );
     return;
