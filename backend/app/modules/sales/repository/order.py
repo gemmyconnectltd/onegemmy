@@ -40,6 +40,13 @@ class OrderRepository(BaseRepository[Order]):
         result = await self.db.execute(stmt)
         return result.scalar_one()
 
+    async def find_by_client_order_id(self, tenant_id: uuid.UUID, client_order_id: str) -> Order | None:
+        result = await self.db.execute(
+            select(Order).options(*_with_relations())
+            .where(Order.tenant_id == tenant_id, Order.client_order_id == client_order_id)
+        )
+        return result.scalar_one_or_none()
+
     async def next_order_number(self, tenant_id: uuid.UUID) -> str:
         result = await self.db.execute(
             select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)

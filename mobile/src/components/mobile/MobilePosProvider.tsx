@@ -3,10 +3,11 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
+import { TAX_RATE, generateClientOrderId, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { useCreateOrder } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
+import { addPendingOrder, isNetworkError } from "@/lib/offline";
 
 interface MobilePosContextValue {
   cart: CartItem[];
@@ -171,50 +172,62 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     setSaleError(null);
     const isInvoice = pay === "invoice";
     const changeAmt = cash ? Math.max(0, Number(cash) - total) : 0;
+
+    const clientOrderId = generateClientOrderId();
+    const payload = {
+      status: "Completed",
+      customer_id: customerId,
+      notes: `POS — ${pay}${notes ? ` — ${notes}` : ""}`,
+      discount,
+      tax,
+      client_order_id: clientOrderId,
+      items: cart.map((i) => ({
+        product_id: i.product_id,
+        variant_id: i.variant_id,
+        product_name: i.name,
+        sku: i.sku,
+        variant_attributes: i.variant_attributes,
+        unit_price: i.price,
+        quantity: i.qty,
+        discount: i.discount,
+        line_total: i.price * i.qty - i.discount,
+      })),
+    };
+
+    const sale: SaleResult = {
+      orderId: generateOrderId(),
+      invoiceNumber: isInvoice ? generateInvoiceId() : null,
+      isInvoice,
+      payment: pay,
+      customerName: customerName.trim(),
+      notes,
+      items: cart,
+      subtotal,
+      discount,
+      tax,
+      total,
+      cashGiven: cash,
+      change: changeAmt,
+      timestamp: new Date(),
+    };
+
     try {
-      await createOrder.mutateAsync({
-        status: "Completed",
-        customer_id: customerId,
-        notes: `POS — ${pay}${notes ? ` — ${notes}` : ""}`,
-        discount,
-        tax,
-        items: cart.map((i) => ({
-          product_id: i.product_id,
-          variant_id: i.variant_id,
-          product_name: i.name,
-          sku: i.sku,
-          variant_attributes: i.variant_attributes,
-          unit_price: i.price,
-          quantity: i.qty,
-          discount: i.discount,
-          line_total: i.price * i.qty - i.discount,
-        })),
-      });
-      const sale: SaleResult = {
-        orderId: generateOrderId(),
-        invoiceNumber: isInvoice ? generateInvoiceId() : null,
-        isInvoice,
-        payment: pay,
-        customerName: customerName.trim(),
-        notes,
-        items: cart,
-        subtotal,
-        discount,
-        tax,
-        total,
-        cashGiven: cash,
-        change: changeAmt,
-        timestamp: new Date(),
-      };
-      setCompletedSale(sale);
-      setTodayCount((c) => c + 1);
-      setTodayRevenue((r) => r + total);
-      clearCart();
+      await createOrder.mutateAsync(payload);
     } catch (e) {
-      setSaleError((e as { detail?: string })?.detail ?? "Failed to save sale");
-    } finally {
-      setSaving(false);
+      if (!isNetworkError(e)) {
+        setSaleError((e as { detail?: string })?.detail ?? "Failed to save sale");
+        setSaving(false);
+        return;
+      }
+      // Backend unreachable — queue the sale locally; it syncs on reconnect.
+      addPendingOrder({ clientOrderId, queuedAt: new Date().toISOString(), payload });
     }
+
+    setCompletedSale(sale);
+    setTodayCount((c) => c + 1);
+    setTodayRevenue((r) => r + total);
+    clearCart();
+    setSaving(false);
   }, [saving, cart, payment, customerId, notes, discount, tax, subtotal, total, cashGiven, customerName, createOrder, clearCart]);
 
   const startNewSale = useCallback(() => {

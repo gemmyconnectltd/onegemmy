@@ -94,6 +94,14 @@ async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Or
 
 async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate) -> OrderRead:
     repo = OrderRepository(db)
+
+    # Idempotency: replaying a client order id (e.g. an offline sale being
+    # synced after a retry) must return the existing order, never double-create.
+    if data.client_order_id:
+        existing = await repo.find_by_client_order_id(tenant_id, data.client_order_id)
+        if existing is not None:
+            return OrderRead.model_validate(existing)
+
     order_number = await repo.next_order_number(tenant_id)
 
     subtotal = sum(item.line_total for item in data.items)
@@ -112,6 +120,7 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         tax=data.tax,
         total=total,
         notes=data.notes,
+        client_order_id=data.client_order_id,
     )
     order = await repo.save(order)
 

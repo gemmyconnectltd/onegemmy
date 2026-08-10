@@ -21,6 +21,7 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     total: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     ordered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    client_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_customers.id", ondelete="SET NULL"), nullable=True
@@ -44,6 +45,7 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     __table_args__ = (
         Index("uq_sales_orders_tenant_number", "tenant_id", "order_number", unique=True),
+        Index("uq_sales_orders_tenant_client", "tenant_id", "client_order_id", unique=True),
         Index("ix_sales_orders_tenant_id", "tenant_id"),
         Index("ix_sales_orders_customer_id", "customer_id"),
         Index("ix_sales_orders_tenant_status", "tenant_id", "status"),

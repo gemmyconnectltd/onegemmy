@@ -15,6 +15,7 @@ class OrderCreate(BaseModel):
     discount: float = 0
     tax: float = 0
     notes: str | None = None
+    client_order_id: str | None = None
     items: list[OrderItemCreate] = []
 
 

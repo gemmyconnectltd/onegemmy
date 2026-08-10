@@ -13,6 +13,7 @@ import { ProductCard } from "@/components/pos/ProductCard";
 import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useProducts, useCustomers } from "@/lib/api/hooks";
+import { cacheProducts, getCachedProducts } from "@/lib/offline";
 import type { ApiProduct } from "@/lib/api";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -74,7 +75,18 @@ export default function MobilePosPage() {
   const customers = customersQ.data?.items ?? [];
   const [showCart, setShowCart] = useState(false);
 
-  const products = useMemo(() => (data?.items ?? []).filter((p) => p.is_active).map(apiToProduct), [data]);
+  useEffect(() => {
+    if (data?.items?.length) cacheProducts(data.items);
+  }, [data]);
+
+  const products = useMemo(() => {
+    const source = data?.items?.length
+      ? data.items
+      : isError
+        ? (getCachedProducts() ?? [])
+        : (data?.items ?? []);
+    return source.filter((p) => p.is_active).map(apiToProduct);
+  }, [data, isError]);
   const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
 
   const [category, setCategory] = useState("All");
@@ -253,15 +265,42 @@ export default function MobilePosPage() {
           ))}
         </div>
       ) : isError ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-center">
-          <p className="text-[13px] text-muted">Couldn&apos;t load products.</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 rounded-xl bg-accent text-white text-[12px] font-semibold"
-          >
-            Retry
-          </button>
-        </div>
+        products.length > 0 ? (
+          filtered.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-6">
+              <ShoppingBasket size={28} className="text-muted/40 mb-2" />
+              <p className="text-[13px] text-muted">No cached products match your filters</p>
+            </div>
+          ) : (
+            <div className="p-3 space-y-2">
+              {filtered.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  layout="horizontal"
+                  inCartQty={cart.find((i) => i.id === p.id)?.qty ?? 0}
+                  bumping={false}
+                  expanded={expanded.has(p.id)}
+                  currencySymbol={currencySymbol}
+                  fmt={fmt}
+                  onAdd={addToCart}
+                  onAddVariant={addVariantToCart}
+                  onToggle={toggleExpanded}
+                />
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <p className="text-[13px] text-muted">Offline — no saved products yet.</p>
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 rounded-xl bg-accent text-white text-[12px] font-semibold"
+            >
+              Retry
+            </button>
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-16 text-center px-6">
           <ShoppingBasket size={28} className="text-muted/40 mb-2" />

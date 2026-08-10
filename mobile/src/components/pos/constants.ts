@@ -20,6 +20,10 @@ export function generateInvoiceId() {
   return `INV-${stamp}`;
 }
 
+export function generateClientOrderId() {
+  return `CLI-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+}
+
 export function timeLabel() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
