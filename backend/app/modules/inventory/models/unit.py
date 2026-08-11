@@ -12,4 +12,4 @@ class Unit(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     abbreviation: Mapped[str | None] = mapped_column(String(20))
 
-    products = relationship("Product", back_populates="unit", lazy="selectin")
+    products = relationship("Product", foreign_keys="Product.unit_id", back_populates="unit", lazy="selectin")

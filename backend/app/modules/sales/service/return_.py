@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.modules.finance.service.transaction import create_return_transaction
+from app.modules.inventory.service.serial import mark_serials_returned
 from app.modules.sales.models.return_ import Return
 from app.modules.sales.models.return_item import ReturnItem
 from app.modules.sales.repository import ReturnRepository
@@ -78,6 +79,8 @@ async def update_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
         await create_return_transaction(
             db, tenant_id, user_id, obj.id, float(obj.refund_amount), obj.return_number
         )
+        order_item_ids = [i.order_item_id for i in obj.items if i.order_item_id]
+        await mark_serials_returned(db, tenant_id, order_item_ids)
     await db.commit()
     obj = await ReturnRepository(db).get_by_id_for_tenant(tenant_id, id)
     return ReturnRead.model_validate(obj)

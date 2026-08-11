@@ -1,12 +1,20 @@
+import itertools
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.integrations.storage import storage
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.repository import ProductRepository, VariantRepository
-from app.modules.inventory.schemas import VariantCreate, VariantListRead, VariantRead, VariantUpdate
+from app.modules.inventory.schemas import (
+    GenerateVariantsRequest,
+    GenerateVariantsResult,
+    VariantCreate,
+    VariantListRead,
+    VariantRead,
+    VariantUpdate,
+)
 
 
 async def _get_product_or_404(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID):
@@ -117,3 +125,43 @@ async def delete_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uui
             product.has_variants = False
             await ProductRepository(db).save(product)
     await db.commit()
+
+
+async def generate_variants(
+    db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, data: GenerateVariantsRequest
+) -> GenerateVariantsResult:
+    """Generate the cartesian product of attribute options as variants (size/color matrix)."""
+    product = await _get_product_or_404(db, tenant_id, product_id)
+    if not data.attributes:
+        raise ValidationError("Provide at least one attribute matrix (e.g. Size, Color)")
+    deltas = data.price_deltas or {}
+
+    existing = await VariantRepository(db).list_for_product(product_id)
+    existing_combos = {frozenset(v.attributes.items()) for v in existing}
+
+    keys = list(data.attributes.keys())
+    created: list[uuid.UUID] = []
+    skipped = 0
+    product.has_variants = True
+    await ProductRepository(db).save(product)
+
+    for combo in itertools.product(*[data.attributes[k] for k in keys]):
+        attributes = dict(zip(keys, combo))
+        if frozenset(attributes.items()) in existing_combos:
+            skipped += 1
+            continue
+        delta = sum(deltas.get(f"{k}:{v}", 0.0) for k, v in attributes.items())
+        variant = ProductVariant(
+            product_id=product_id,
+            attributes=attributes,
+            price=round(data.base_price + delta, 2),
+            cost=round(data.base_cost + delta, 2),
+            stock=0,
+            min_stock=0,
+            is_active=True,
+        )
+        variant = await VariantRepository(db).save(variant)
+        created.append(variant.id)
+
+    await db.commit()
+    return GenerateVariantsResult(created=len(created), skipped=skipped, variants=created)

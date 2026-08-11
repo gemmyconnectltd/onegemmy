@@ -51,3 +51,33 @@ class VariantRepository(BaseRepository[ProductVariant]):
             .where(Product.tenant_id == tenant_id)
         )
         return result.scalar_one()
+
+    async def get_by_barcode_for_tenant(self, tenant_id: uuid.UUID, barcode: str) -> ProductVariant | None:
+        result = await self.db.execute(
+            select(ProductVariant)
+            .options(selectinload(ProductVariant.product))
+            .join(Product, Product.id == ProductVariant.product_id)
+            .where(Product.tenant_id == tenant_id, ProductVariant.barcode == barcode)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_low_stock_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50) -> list[ProductVariant]:
+        result = await self.db.execute(
+            select(ProductVariant)
+            .options(selectinload(ProductVariant.product))
+            .join(Product, Product.id == ProductVariant.product_id)
+            .where(Product.tenant_id == tenant_id, ProductVariant.stock <= ProductVariant.min_stock)
+            .order_by(Product.name)
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def count_low_stock_for_tenant(self, tenant_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(ProductVariant)
+            .join(Product, Product.id == ProductVariant.product_id)
+            .where(Product.tenant_id == tenant_id, ProductVariant.stock <= ProductVariant.min_stock)
+        )
+        return result.scalar_one()

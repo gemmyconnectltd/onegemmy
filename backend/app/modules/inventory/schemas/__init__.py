@@ -1,5 +1,13 @@
 from app.modules.inventory.schemas.brand import BrandCreate, BrandRead, BrandUpdate
 from app.modules.inventory.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
+from app.modules.inventory.schemas.markdown import (
+    GenerateVariantsRequest,
+    GenerateVariantsResult,
+    MarkdownLine,
+    MarkdownReport,
+    SizeSelloutLine,
+    SizeSelloutReport,
+)
 from app.modules.inventory.schemas.product import (
     ProductBulkCreate,
     ProductBulkResult,
@@ -12,7 +20,24 @@ from app.modules.inventory.schemas.product import (
     VariantRead,
     VariantUpdate,
 )
+from app.modules.inventory.schemas.serial import (
+    SerialBulkCreate,
+    SerialCreateItem,
+    SerialRead,
+    SerialUpdate,
+    WarrantyClaimCreate,
+    WarrantyClaimRead,
+    WarrantyClaimUpdate,
+)
+from app.modules.inventory.schemas.stock import LowStockLine, LowStockReport
 from app.modules.inventory.schemas.supplier import SupplierCreate, SupplierRead, SupplierUpdate
+from app.modules.inventory.schemas.transfer import (
+    StockTransferCreate,
+    StockTransferRead,
+    StockTransferUpdate,
+    TransferItemCreate,
+    TransferItemRead,
+)
 from app.modules.inventory.schemas.unit import UnitCreate, UnitRead, UnitUpdate
 from app.modules.inventory.schemas.valuation import (
     CategoryValuation,
@@ -29,16 +54,33 @@ __all__ = [
     "CategoryRead",
     "CategoryUpdate",
     "CategoryValuation",
+    "GenerateVariantsRequest",
+    "GenerateVariantsResult",
     "InventoryValuationReport",
+    "LowStockLine",
+    "LowStockReport",
+    "MarkdownLine",
+    "MarkdownReport",
     "ProductBulkCreate",
     "ProductBulkResult",
     "ProductCreate",
     "ProductRead",
     "ProductUpdate",
     "RestockRequest",
+    "SerialBulkCreate",
+    "SerialCreateItem",
+    "SerialRead",
+    "SerialUpdate",
+    "SizeSelloutLine",
+    "SizeSelloutReport",
+    "StockTransferCreate",
+    "StockTransferRead",
+    "StockTransferUpdate",
     "SupplierCreate",
     "SupplierRead",
     "SupplierUpdate",
+    "TransferItemCreate",
+    "TransferItemRead",
     "UnitCreate",
     "UnitRead",
     "UnitUpdate",
@@ -48,4 +90,7 @@ __all__ = [
     "VariantListRead",
     "VariantRead",
     "VariantUpdate",
+    "WarrantyClaimCreate",
+    "WarrantyClaimRead",
+    "WarrantyClaimUpdate",
 ]

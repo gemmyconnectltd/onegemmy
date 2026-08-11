@@ -10,6 +10,7 @@ from app.modules.finance.service.tax import create_tax_calculation
 from app.modules.finance.service.transaction import create_sale_transaction
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
+from app.modules.inventory.service.serial import mark_serial_sold
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
 from app.modules.sales.models.target import Target
@@ -153,12 +154,12 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
 
         # stock check + decrement for Completed orders
         if data.status == "Completed":
-            if variant and variant.stock < item_data.quantity:
+            if variant and float(variant.stock) < item_data.quantity:
                 raise ValidationError(
                     f"Insufficient stock for '{product_name}' ({_attr_label(variant.attributes)}): "
                     f"{variant.stock} available, {item_data.quantity} requested"
                 )
-            if product and not variant and product.stock < item_data.quantity:
+            if product and not variant and float(product.stock) < item_data.quantity:
                 raise ValidationError(
                     f"Insufficient stock for '{product_name}': "
                     f"{product.stock} available, {item_data.quantity} requested"
@@ -181,9 +182,18 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         # deduct stock when order is Completed — variants decrement variant stock
         if data.status == "Completed":
             if variant:
-                variant.stock = max(0, variant.stock - item_data.quantity)
+                variant.stock = max(0, float(variant.stock) - item_data.quantity)
             elif product:
-                product.stock = max(0, product.stock - item_data.quantity)
+                product.stock = max(0, float(product.stock) - item_data.quantity)
+
+            await _assign_serials(
+                db,
+                tenant_id,
+                product=product,
+                serial_ids=item_data.serial_ids,
+                quantity=item_data.quantity,
+                order_item_id=item.id,
+            )
 
     if data.status == "Completed":
         await _bump_revenue_targets(db, tenant_id, total)
@@ -194,6 +204,28 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
     return OrderRead.model_validate(obj)
+
+
+async def _assign_serials(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    product,
+    serial_ids: list[uuid.UUID] | None,
+    quantity: float,
+    order_item_id: uuid.UUID,
+) -> None:
+    """Bind sold serial numbers to a completed order line."""
+    tracked = product.tracks_serials if product else False
+    if not tracked:
+        return
+    if not serial_ids:
+        raise ValidationError(f"Product '{product.name}' tracks serials — select serial numbers for each unit")
+    if len(serial_ids) != quantity:
+        raise ValidationError(
+            f"Product '{product.name}' requires {int(quantity)} serial number(s), got {len(serial_ids)}"
+        )
+    for serial_id in serial_ids:
+        await mark_serial_sold(db, tenant_id, serial_id, order_item_id, 0)
 
 
 async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: OrderUpdate) -> OrderRead:

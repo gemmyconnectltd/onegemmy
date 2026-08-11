@@ -8,7 +8,7 @@ import {
   TrendingDown, CreditCard, Users, UserPlus, Clock, DollarSign, Award,
   UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
   Hammer, Package, Layers, Tag, Ruler, Star, BarChart3, Settings, Bell,
-  Shield, Palette, PanelTop, PanelLeft,
+  Shield, Palette, PanelTop, PanelLeft, Barcode, ShieldCheck, ArrowLeftRight,
 } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -78,6 +78,9 @@ const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React
     { nameKey: "units",      href: "/inventory/units",      icon: Ruler,           color: "#059669" },
     { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck,           color: "#059669" },
     { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
+    { nameKey: "serials",    href: "/inventory/serials",    icon: Barcode,         color: "#059669" },
+    { nameKey: "warranty",   href: "/inventory/warranty",   icon: ShieldCheck,     color: "#059669" },
+    { nameKey: "transfers",  href: "/inventory/transfers",  icon: ArrowLeftRight,  color: "#059669" },
   ],
   reports: [
     { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, color: "#1e40af", exact: true },

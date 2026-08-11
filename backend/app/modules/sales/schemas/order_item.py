@@ -11,8 +11,9 @@ class OrderItemCreate(BaseModel):
     sku: str | None = None
     variant_attributes: dict | None = None
     unit_price: float
-    quantity: int = 1
+    quantity: float = 1
     discount: float = 0
+    serial_ids: list[uuid.UUID] | None = None
 
     @model_validator(mode="after")
     def compute_line_total(self):
@@ -33,7 +34,7 @@ class OrderItemRead(BaseModel):
     sku: str | None
     variant_attributes: dict | None
     unit_price: float
-    quantity: int
+    quantity: float
     discount: float
     line_total: float
     created_at: datetime | None = None

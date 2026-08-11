@@ -13,7 +13,7 @@ class PurchaseItemCreate(BaseModel):
     sku: str | None = None
     variant_attributes: dict | None = None
     unit_cost: float = Field(ge=0)
-    quantity: int = Field(default=1, ge=1)
+    quantity: float = Field(default=1, gt=0)
 
 
 class PurchaseItemRead(BaseModel):
@@ -26,7 +26,7 @@ class PurchaseItemRead(BaseModel):
     sku: str | None
     variant_attributes: dict | None
     unit_cost: float
-    quantity: int
+    quantity: float
     line_total: float
 
 

@@ -60,6 +60,8 @@ async def delete_role(role_id: uuid.UUID, db: DbSession, current_user: CurrentUs
 
 @router.get("/roles/{role_id}/permissions")
 async def get_role_permissions(role_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    # Ensure the role belongs to this tenant before returning its permissions.
+    await service.get_role(db, current_user.tenant_id, role_id)
     perms = await service.get_role_permissions(db, role_id)
     return success_response(
         data=[p.model_dump() for p in perms],
@@ -71,5 +73,7 @@ async def get_role_permissions(role_id: uuid.UUID, db: DbSession, current_user: 
 async def assign_role_permissions(
     role_id: uuid.UUID, data: RolePermissionAssign, db: DbSession, current_user: CurrentUser
 ):
+    # Only the owning tenant may edit a role's permissions.
+    await service.get_role(db, current_user.tenant_id, role_id)
     await service.assign_perm_to_role(db, role_id, data.permission_ids)
     return success_response(message="Permissions assigned to role successfully")

@@ -26,11 +26,26 @@ router = APIRouter(tags=["Inventory - Products"])
 
 
 @router.get("/inventory/products")
-async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery):
+async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery,
+                        search: str | None = None):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit)
+    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search)
     total = await service.count_products(db, current_user.tenant_id)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Products retrieved successfully")
+
+
+@router.get("/inventory/products/low-stock")
+async def low_stock_report(db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    report = await service.low_stock_report(db, current_user.tenant_id)
+    return success_response(data=report.model_dump(), message="Low stock report retrieved successfully")
+
+
+@router.get("/inventory/products/barcode/{code}")
+async def get_product_by_barcode(code: str, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    obj = await service.get_product_by_barcode(db, current_user.tenant_id, code)
+    return success_response(data=obj.model_dump(), message="Product retrieved successfully")
 
 
 @router.post("/inventory/products")

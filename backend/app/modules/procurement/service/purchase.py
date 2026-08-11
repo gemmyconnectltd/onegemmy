@@ -62,7 +62,7 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
             if product.has_variants:
                 raise ValidationError(f"Product '{product.name}' has variants — pick a specific variant")
 
-        line_total = round(float(item_data.unit_cost) * int(item_data.quantity), 2)
+        line_total = round(float(item_data.unit_cost) * float(item_data.quantity), 2)
         item = PurchaseItem(
             purchase_order_id=purchase.id,
             product_id=variant.product_id if variant else item_data.product_id,
@@ -85,12 +85,15 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
             variant = await db.get(ProductVariant, item.variant_id)
             if variant is None:
                 raise ValidationError(f"Variant for '{item.product_name}' not found")
-            variant.stock = variant.stock + item.quantity
+            product = await db.get(Product, variant.product_id)
+            factor = float(product.conversion_factor) if product else 1.0
+            variant.stock = variant.stock + (item.quantity * factor)
         elif item.product_id:
             product = await db.get(Product, item.product_id)
             if product is None:
                 raise ValidationError(f"Product '{item.product_name}' not found")
-            product.stock = product.stock + item.quantity
+            factor = float(product.conversion_factor)
+            product.stock = product.stock + (item.quantity * factor)
 
     purchase.status = "Received"
     purchase.received_at = datetime.now(UTC)
@@ -101,7 +104,7 @@ async def create_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.
     repo = PurchaseOrderRepository(db)
     reference = await repo.next_reference(tenant_id)
 
-    subtotal = sum(round(float(i.unit_cost) * int(i.quantity), 2) for i in data.items)
+    subtotal = sum(round(float(i.unit_cost) * float(i.quantity), 2) for i in data.items)
     total = round(subtotal - data.discount + data.tax, 2)
 
     purchase = PurchaseOrder(

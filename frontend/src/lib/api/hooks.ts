@@ -113,6 +113,43 @@ export const useCreateVariant = mutation(({ productId, data }: { productId: stri
 export const useUpdateVariant = mutation(({ productId, id, data }: { productId: string; id: string; data: object }) => inventoryApi.updateVariant(productId, id, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
 export const useRestockVariant = mutation(({ productId, id, data }: { productId: string; id: string; data: { qty: number; mode: string } }) => inventoryApi.restockVariant(productId, id, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
 export const useDeleteVariant = mutation(({ productId, id }: { productId: string; id: string }) => inventoryApi.deleteVariant(productId, id), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
+export const useGenerateVariants = mutation(({ productId, data }: { productId: string; data: { attributes: Record<string, string[]>; base_price: number; base_cost?: number; price_deltas?: Record<string, number> } }) => inventoryApi.generateVariants(productId, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
+
+const SERIALS = ["inventory", "serials"] as const;
+const WARRANTY = ["inventory", "warranty"] as const;
+const TRANSFERS = ["inventory", "transfers"] as const;
+const LOW_STOCK = ["inventory", "low-stock"] as const;
+const MARKDOWNS = ["inventory", "markdowns"] as const;
+
+export const useSerials = (page = 1, pageSize = 50, productId?: string, status?: string, opts?: QueryOpts) =>
+  useQ([...SERIALS, page, pageSize, productId, status], () => inventoryApi.listSerials(page, pageSize, productId, status), (r) => r.data, opts);
+
+export const useCreateSerials = mutation((items: object[]) => inventoryApi.createSerials(items), [[...SERIALS], [...LOW_STOCK]]);
+export const useUpdateSerial = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateSerial(id, data), [[...SERIALS], [...LOW_STOCK]]);
+export const useDeleteSerial = mutation((id: string) => inventoryApi.deleteSerial(id), [[...SERIALS], [...LOW_STOCK]]);
+
+export const useWarrantyClaims = (page = 1, pageSize = 50, status?: string, opts?: QueryOpts) =>
+  useQ([...WARRANTY, page, pageSize, status], () => inventoryApi.listWarrantyClaims(page, pageSize, status), (r) => r.data, opts);
+
+export const useCreateWarrantyClaim = mutation((data: { serial_id: string; order_id?: string; issue_description: string }) => inventoryApi.createWarrantyClaim(data), [[...WARRANTY], [...SERIALS]]);
+export const useUpdateWarrantyClaim = mutation(({ id, data }: { id: string; data: { status?: string; resolution_notes?: string } }) => inventoryApi.updateWarrantyClaim(id, data), [[...WARRANTY], [...SERIALS]]);
+
+export const useTransfers = (page = 1, pageSize = 50, status?: string, opts?: QueryOpts) =>
+  useQ([...TRANSFERS, page, pageSize, status], () => inventoryApi.listTransfers(page, pageSize, status), (r) => r.data, opts);
+
+export const useMyBranches = (opts?: QueryOpts) =>
+  useQ(["tenants", "branches"], () => inventoryApi.listMyBranches(), (r) => r.data, opts);
+
+export const useCreateTransfer = mutation((data: object) => inventoryApi.createTransfer(data), [[...TRANSFERS]]);
+export const useUpdateTransfer = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateTransfer(id, data), [[...TRANSFERS]]);
+export const useDeleteTransfer = mutation((id: string) => inventoryApi.deleteTransfer(id), [[...TRANSFERS]]);
+
+export const useLowStockReport = (opts?: QueryOpts) =>
+  useQ([...LOW_STOCK], () => inventoryApi.lowStockReport(), (r) => r.data, opts);
+export const useActiveMarkdowns = (opts?: QueryOpts) =>
+  useQ([...MARKDOWNS], () => inventoryApi.activeMarkdowns(), (r) => r.data, opts);
+export const useSizeSellout = (productId?: string, attributeKey = "Size", opts?: QueryOpts) =>
+  useQ(["inventory", "reports", "size-sellout", productId, attributeKey], () => inventoryApi.sizeSellout(productId, attributeKey), (r) => r.data, opts);
 
 export const useCreateCategory = mutation((d: object) => inventoryApi.createCategory(d), [[...CATEGORIES], [...VALUATION]]);
 export const useUpdateCategory = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateCategory(id, data), [[...CATEGORIES], [...VALUATION]]);

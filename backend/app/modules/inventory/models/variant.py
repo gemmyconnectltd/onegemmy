@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,13 +16,16 @@ class ProductVariant(UUIDPKMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("inventory_products.id", ondelete="CASCADE"), nullable=False
     )
     sku: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    barcode: Mapped[str | None] = mapped_column(String(100), nullable=True)
     attributes: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
-    stock: Mapped[int] = mapped_column(Integer, default=0)
-    min_stock: Mapped[int] = mapped_column(Integer, default=0)
+    stock: Mapped[float] = mapped_column(Numeric(14, 3), default=0)
+    min_stock: Mapped[float] = mapped_column(Numeric(14, 3), default=0)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    promo_price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    promo_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     product = relationship("Product", back_populates="variants")
 

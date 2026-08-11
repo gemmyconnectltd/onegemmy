@@ -55,7 +55,9 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 async def get_current_active_superuser(user: CurrentUser) -> User:
-    if not user.is_superuser:
+    # Platform superadmin only: a tenant admin is `is_superuser=True` within
+    # their own tenant but must never reach the global /admin/* console.
+    if not user.is_superuser or user.tenant_id is not None:
         log.warning("auth.forbidden_not_superuser", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise ForbiddenError("Superuser privileges required")
     return user
