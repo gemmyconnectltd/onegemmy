@@ -212,19 +212,18 @@ export default function ManufacturingPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                    <div className="flex items-center gap-1.5 justify-end">
                       {o.status !== "Completed" && o.status !== "Cancelled" && (
                         <button onClick={() => handleComplete(o)}
                           disabled={completing}
-                          className="w-7 h-7 flex items-center justify-center text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                          title="Complete order">
-                          <PlayCircle size={15} />
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors text-[12px] font-semibold disabled:opacity-40">
+                          <PlayCircle size={14} /> Complete
                         </button>
                       )}
                       {o.status !== "Completed" && (
                         <button onClick={() => handleDelete(o)}
-                          className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <Trash2 size={13} />
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                          <Trash2 size={13} /> Delete
                         </button>
                       )}
                     </div>
@@ -284,8 +283,8 @@ export default function ManufacturingPage() {
                       onChange={(e) => setComponent(i, { quantity_required: Number(e.target.value) || 1 })}
                       className="w-24 text-center" />
                     <button type="button" onClick={() => removeComponent(i)}
-                      className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">
-                      <X size={14} />
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 flex-shrink-0">
+                      <X size={14} /> Remove
                     </button>
                   </div>
                 ))}

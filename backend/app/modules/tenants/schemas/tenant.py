@@ -44,5 +44,16 @@ class TenantRead(BaseModel):
     country: str | None
     subscription_plan: str
     subscription_status: str
+    features: dict[str, bool] | None = None
+    limits: dict[str, int | None] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class TenantFeatureSummary(BaseModel):
+    """Effective entitlements exposed to a tenant's own clients (no admin detail)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    features: dict[str, bool]
+    limits: dict[str, int | None]

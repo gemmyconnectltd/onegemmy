@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.core.deps import require_feature
 from app.modules.admin.routes import router as admin_router
 from app.modules.auth.routes import router as auth_router
 from app.modules.crm.routes import crm_router
@@ -16,10 +17,10 @@ api_router.include_router(admin_router)
 api_router.include_router(auth_router)
 api_router.include_router(tenants_router)
 api_router.include_router(global_router)
-api_router.include_router(inventory_router, prefix="/tenants")
-api_router.include_router(sales_router, prefix="/tenants")
-api_router.include_router(finance_router, prefix="/tenants")
-api_router.include_router(hr_router, prefix="/tenants")
-api_router.include_router(procurement_router, prefix="/tenants")
-api_router.include_router(crm_router, prefix="/tenants")
-api_router.include_router(manufacturing_router, prefix="/tenants")
+api_router.include_router(inventory_router, prefix="/tenants", dependencies=[Depends(require_feature("inventory"))])
+api_router.include_router(sales_router, prefix="/tenants", dependencies=[Depends(require_feature("sales"))])
+api_router.include_router(finance_router, prefix="/tenants", dependencies=[Depends(require_feature("finance"))])
+api_router.include_router(hr_router, prefix="/tenants", dependencies=[Depends(require_feature("hr"))])
+api_router.include_router(procurement_router, prefix="/tenants", dependencies=[Depends(require_feature("procurement"))])
+api_router.include_router(crm_router, prefix="/tenants", dependencies=[Depends(require_feature("crm"))])
+api_router.include_router(manufacturing_router, prefix="/tenants", dependencies=[Depends(require_feature("manufacturing"))])

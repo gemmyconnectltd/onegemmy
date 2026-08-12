@@ -52,6 +52,9 @@ async def count_products(db: AsyncSession, tenant_id: uuid.UUID) -> int:
 
 
 async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCreate) -> ProductRead:
+    from app.modules.tenants import service
+
+    await service.enforce_limit(db, tenant_id, "max_products", await count_products(db, tenant_id), noun="product")
     obj = Product(tenant_id=tenant_id, **data.model_dump())
     obj = await ProductRepository(db).save(obj)
     await db.commit()

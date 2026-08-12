@@ -5,8 +5,8 @@ export const PAYMENT_METHODS = [
   { id: "invoice", label: "Invoice",      icon: "file-text"   },
 ] as const;
 
-export const CASH_PRESETS = [500, 1000, 2000, 5000, 10000, 20000, 50000];
-export const DISCOUNT_PRESETS = [5, 10, 15, 20]; // percent of line total
+export const CASH_PRESETS = [0, 1000, 5000, 10000, 20000, 50000];
+export const DISCOUNT_PRESETS = [5, 10, 15, 20, 25, 50]; // percent
 export const LOW_STOCK_THRESHOLD = 5;
 export const TAX_RATE = 0.18;
 

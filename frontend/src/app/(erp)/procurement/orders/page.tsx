@@ -180,10 +180,9 @@ export default function PurchaseOrdersPage() {
                         </button>
                         <button
                           onClick={() => setStatus(p.id, "Cancelled")}
-                          title="Cancel order"
-                          className="w-8 h-8 flex items-center justify-center border border-border text-foreground/50 hover:text-red-600 hover:border-red-200 transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
                         >
-                          <X size={14} />
+                          <X size={14} /> Cancel
                         </button>
                       </>
                     )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, Search, X, ArrowLeftRight } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, ArrowLeftRight } from "lucide-react";
 import { type ApiStockTransfer } from "@/lib/api";
 import { useTransfers, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
@@ -184,8 +184,8 @@ export default function TransfersPage() {
                   </select>
                 )}
                 <button onClick={() => handleDelete(t.id)}
-                  className="w-7 h-7 inline-flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                  <X size={14} />
+                  className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                  <Trash2 size={14} /> Delete
                 </button>
               </div>
             </div>

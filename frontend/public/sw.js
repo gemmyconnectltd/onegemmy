@@ -1,34 +1,15 @@
 // OneGemmy service worker
 // Strategy:
-//  - App shell (/, /login, /dashboard, /manifest.json, icons): precached at
-//    install so the app loads offline on first launch.
 //  - Navigations: network-first, falling back to cache (offline support).
 //  - Static assets (hashed JS/CSS/fonts/images): cache-first — these are
 //    content-hashed by Next.js, so they are immutable and safe to cache.
 //  - Everything else same-origin: stale-while-revalidate.
 // Cross-origin requests (e.g. the API on a different host) are left alone.
 
-const CACHE = "onegemmy-v2";
+const CACHE = "onegemmy-v1";
 const STATIC_ASSET = /\.(js|css|woff2?|ttf|png|jpe?g|gif|svg|webp|avif|ico)$/;
 
-const PRECACHE = [
-  "/",
-  "/login",
-  "/dashboard",
-  "/manifest.json",
-  "/icons/icon-192x192.png",
-  "/icons/icon-512x512.png",
-];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .catch(() => {})
-      .then(() => self.skipWaiting()),
-  );
-});
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -61,17 +42,7 @@ self.addEventListener("fetch", (event) => {
           return res;
         })
         .catch(() =>
-          caches
-            .match(request)
-            .then((cached) => cached || caches.match("/"))
-            .then(
-              (cached) =>
-                cached ||
-                new Response("You are offline. Please reconnect to the internet.", {
-                  status: 200,
-                  headers: { "Content-Type": "text/html; charset=utf-8" },
-                }),
-            ),
+          caches.match(request).then((cached) => cached || caches.match("/")),
         ),
     );
     return;

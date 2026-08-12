@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -21,6 +22,12 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
 
     subscription_plan: Mapped[str] = mapped_column(String(50), default="free")
     subscription_status: Mapped[str] = mapped_column(String(50), default="active")
+
+    # Per-tenant feature overrides, e.g. {"hr": false, "pos": true}.
+    # Effective value = catalog default merged with these overrides.
+    features: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # Usage quotas, e.g. {"max_users": 10, "max_branches": 3}. None/absent = unlimited.
+    limits: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     users = relationship("User", back_populates="tenant", lazy="selectin")
     roles = relationship("Role", back_populates="tenant", lazy="selectin")

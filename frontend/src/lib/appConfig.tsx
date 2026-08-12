@@ -24,7 +24,6 @@ const BASE_STRINGS: Record<string, string> = {
   brands: "Brands", units: "Units", general: "General",
   usersRoles: "Users & Roles", notifications: "Notifications",
   security: "Security", appearance: "Appearance", allCustomers: "All Customers",
-  serials: "Serials", warranty: "Warranty", transfers: "Transfers",
   signOut: "Sign out", language: "Language", currency: "Currency",
   search: "Search", filter: "Filter", newDeal: "New Deal",
   pos: "Point of Sale", collapse: "Collapse",
@@ -116,8 +115,8 @@ const LOCALE_LANG_MAP: Record<LocaleCode, string> = {
 
 const VALID_LOCALES: LocaleCode[] = ["en", "rw", "sw"];
 const VALID_BUSINESS_TYPES: BusinessType[] = ["retail", "restaurant", "service"];
-export type NavOrientation = "top" | "left";
-const VALID_ORIENTATIONS: NavOrientation[] = ["top", "left"];
+export type NavOrientation = "top" | "left" | "big";
+const VALID_ORIENTATIONS: NavOrientation[] = ["top", "left", "big"];
 
 async function fetchTranslations(targetLang: string): Promise<Record<string, string>> {
   const cacheKey = `translations_${targetLang}`;

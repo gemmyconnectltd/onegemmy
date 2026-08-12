@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpDown, CheckCircle2, Loader2, RefreshCw, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
 import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
@@ -12,35 +12,10 @@ import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
-import { useOrders, useProducts, useCustomers, useCreateOrder } from "@/lib/api/hooks";
+import { saveSale } from "@/lib/invoices";
+import { useProducts, useCustomers, useCreateOrder } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
-
-type SortKey = "featured" | "price-asc" | "price-desc" | "name" | "low-stock";
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "featured", label: "Featured" },
-  { key: "price-asc", label: "Price: low to high" },
-  { key: "price-desc", label: "Price: high to low" },
-  { key: "name", label: "Name A–Z" },
-  { key: "low-stock", label: "Low stock first" },
-];
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  groceries: "🍚", drinks: "🥤", food: "🍞", bakery: "🥐", dairy: "🥛",
-  electronics: "💻", phones: "📱", accessories: "🎧", clothing: "👕",
-  shoes: "👟", furniture: "🪑", hardware: "🔨", stationery: "📓",
-  pharmacy: "💊", cosmetics: "💄", cleaning: "🧴", pets: "🐾",
-  automotive: "🚗", books: "📖", toys: "🧸", office: "📏",
-};
-
-function emojiForCategory(category: string): string {
-  const c = category.toLowerCase();
-  for (const [key, emoji] of Object.entries(CATEGORY_EMOJI)) {
-    if (c.includes(key)) return emoji;
-  }
-  return "📦";
-}
 
 function apiToProduct(p: ApiProduct): Product {
   return {
@@ -48,17 +23,20 @@ function apiToProduct(p: ApiProduct): Product {
     name: p.name,
     price: p.price,
     category: p.category?.name ?? "Uncategorized",
-    emoji: emojiForCategory(p.category?.name ?? ""),
+    emoji: "📦",
     stock: p.stock,
     image_url: p.image_url,
     sku: p.sku,
     has_variants: p.has_variants && (p.variants?.length ?? 0) > 0,
-    variants: (p.variants ?? []).map(
-      (v): Variant => ({ id: v.id, sku: v.sku, attributes: v.attributes, price: v.price, stock: v.stock }),
-    ),
+    variants: p.variants?.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      attributes: v.attributes,
+      price: v.price,
+      stock: v.stock,
+    })),
   };
 }
-
 export default function POSPage() {
   usePageTitle("Point of Sale");
   const { currencySymbol, locale, setLocale, locales, theme, setTheme } = useAppConfig();
@@ -77,40 +55,14 @@ export default function POSPage() {
     [products]
   );
 
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of products) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
-    return counts;
-  }, [products]);
-
   const { data: customersData } = useCustomers(1, 500);
   const customers = customersData?.items ?? [];
-
-  // ── today (live from backend) ─────────────────────────────────────────────
-  const { data: ordersData } = useOrders(1, 500);
-  const todayStats = useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    let count = 0;
-    let revenue = 0;
-    for (const o of ordersData?.items ?? []) {
-      if (o.status !== "Completed") continue;
-      const t = new Date(o.ordered_at ?? o.created_at ?? 0).getTime();
-      if (t >= startOfToday) {
-        count += 1;
-        revenue += o.total;
-      }
-    }
-    return { count, revenue };
-  }, [ordersData]);
 
   const createOrder = useCreateOrder();
 
   // ── ui state ─────────────────────────────────────────────────────────────
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortKey>("featured");
-  const [inStockOnly, setInStockOnly] = useState(false);
   const [showLang, setShowLang] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -138,6 +90,8 @@ export default function POSPage() {
   // ── held / session ───────────────────────────────────────────────────────
   const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
   const [showHeld, setShowHeld] = useState(false);
+  const [todayCount, setTodayCount] = useState(0);
+  const [todayRevenue, setTodayRevenue] = useState(0);
   const [completedSale, setCompletedSale] = useState<SaleResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saleError, setSaleError] = useState<string | null>(null);
@@ -156,25 +110,16 @@ export default function POSPage() {
   }, []);
 
   // ── filtered products ────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let list = products.filter(
-      (p) =>
-        (category === "All" || p.category === category) &&
-        (!inStockOnly || p.stock > 0) &&
-        (!q || p.name.toLowerCase().includes(q) || (p.sku ?? "").toLowerCase().includes(q))
-    );
-    switch (sort) {
-      case "price-asc": list = [...list].sort((a, b) => a.price - b.price); break;
-      case "price-desc": list = [...list].sort((a, b) => b.price - a.price); break;
-      case "name": list = [...list].sort((a, b) => a.name.localeCompare(b.name)); break;
-      case "low-stock": list = [...list].sort((a, b) => a.stock - b.stock); break;
-      default: break;
-    }
-    return list;
-  }, [products, category, search, sort, inStockOnly]);
-
-  const hasActiveFilters = category !== "All" || inStockOnly || sort !== "featured" || search.trim() !== "";
+  const filtered = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          (category === "All" || p.category === category) &&
+          (p.name.toLowerCase().includes(search.toLowerCase()) ||
+            (p.sku ?? "").toLowerCase().includes(search.toLowerCase()))
+      ),
+    [products, category, search]
+  );
 
   // ── cart actions ─────────────────────────────────────────────────────────
   const addToCart = (p: Product) => {
@@ -313,6 +258,9 @@ export default function POSPage() {
         timestamp: new Date(),
       };
       setCompletedSale(sale);
+      saveSale(sale);
+      setTodayCount((c) => c + 1);
+      setTodayRevenue((r) => r + total);
       clearCart();
     } catch (e: unknown) {
       setSaleError(
@@ -345,8 +293,8 @@ export default function POSPage() {
         heldCount={heldOrders.length}
         heldOrders={heldOrders}
         showHeld={showHeld}
-        todayCount={todayStats.count}
-        todayRevenue={todayStats.revenue}
+        todayCount={todayCount}
+        todayRevenue={todayRevenue}
         locale={locale}
         locales={locales}
         currencySymbol={currencySymbol}
@@ -370,7 +318,7 @@ export default function POSPage() {
           {/* Status bar */}
           <div className="flex items-center gap-2 px-4 pt-3 flex-shrink-0">
             {loading ? (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-[11px] text-muted">
                 <Loader2 size={11} className="animate-spin" /> Loading products…
               </span>
             ) : error ? (
@@ -384,7 +332,7 @@ export default function POSPage() {
               <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {products.length} products loaded
-                <button onClick={() => refetch()} className="ml-1 text-muted-foreground hover:text-foreground">
+                <button onClick={() => refetch()} className="ml-1 text-muted hover:text-foreground">
                   <RefreshCw size={11} />
                 </button>
               </span>
@@ -393,85 +341,39 @@ export default function POSPage() {
 
           {/* Search */}
           <div className="px-4 pt-2 flex-shrink-0">
-            <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2.5 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-              <Search size={14} className="text-muted-foreground flex-shrink-0" />
+            <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
+              <Search size={14} className="text-muted flex-shrink-0" />
               <input
                 ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search by name or SKU… (press / or Enter to add top match)"
-                className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted-foreground"
+                className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
               />
               {search && (
-                <button onClick={() => setSearch("")} className="text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={() => setSearch("")} className="text-muted hover:text-foreground transition-colors">
                   <X size={13} />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Sort + filters */}
-          <div className="flex items-center gap-1.5 px-4 pt-2 flex-shrink-0">
-            <div className="relative flex-shrink-0">
-              <SlidersHorizontal size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="appearance-none pl-7 pr-6 py-1.5 rounded-full bg-card border border-border text-[11px] font-semibold text-foreground outline-none cursor-pointer"
-                aria-label="Sort products"
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option key={o.key} value={o.key}>{o.label}</option>
-                ))}
-              </select>
-              <ArrowUpDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            </div>
-
-            <button
-              onClick={() => setInStockOnly((s) => !s)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-semibold transition-colors ${
-                inStockOnly
-                  ? "bg-primary border-primary text-primary-foreground"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CheckCircle2 size={12} />
-              In stock
-            </button>
-
-            {hasActiveFilters && (
-              <button
-                onClick={() => { setCategory("All"); setSearch(""); setSort("featured"); setInStockOnly(false); }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-muted-foreground text-[11px] font-semibold ml-auto hover:text-foreground"
-              >
-                <RotateCcw size={11} /> Clear
-              </button>
-            )}
-          </div>
-
           {/* Category tabs */}
-          <div className="flex gap-1.5 overflow-x-auto px-4 pt-2 flex-shrink-0 no-scrollbar">
-            {categories.map((c) => {
-              const count = c === "All" ? products.length : (categoryCounts.get(c) ?? 0);
-              const active = category === c;
-              return (
-                <button
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap rounded-full transition-all flex-shrink-0 ${
-                    active
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
-                  }`}
-                >
-                  {c}
-                  <span className={`text-[10px] font-bold tabular-nums ${active ? "text-primary-foreground/70" : "text-muted-foreground/60"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex gap-1.5 overflow-x-auto px-4 pt-2 flex-shrink-0">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap rounded-full transition-all flex-shrink-0 ${
+                  category === c
+                    ? "bg-accent text-white shadow-sm"
+                    : "bg-card border border-border text-foreground/60 hover:text-foreground hover:border-accent/40"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
           </div>
 
           {/* Product grid */}
@@ -483,19 +385,11 @@ export default function POSPage() {
                 ))}
               </div>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-16">
+              <div className="flex flex-col items-center justify-center h-full text-muted gap-2 py-16">
                 <Search size={28} strokeWidth={1.5} />
                 <p className="text-[13px]">
-                  {hasActiveFilters ? "No products match your filters" : "No products in this category"}
+                  {search ? `No results for "${search}"` : "No products in this category"}
                 </p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={() => { setCategory("All"); setSearch(""); setSort("featured"); setInStockOnly(false); }}
-                    className="mt-1 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-[12px] font-semibold"
-                  >
-                    Clear filters
-                  </button>
-                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
@@ -521,8 +415,8 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Right: cart + checkout */}
-        <div className="w-full lg:w-[400px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden">
+        {/* Right: cart + payment */}
+        <div className="w-full lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden">
           {/* Cart — flex-1 so it fills space and scrolls its own items */}
           <div className="flex-1 min-h-0 overflow-hidden">
             <CartPanel
@@ -542,8 +436,8 @@ export default function POSPage() {
               onHold={holdSale}
             />
           </div>
-          {/* Checkout dock — always visible, scrolls its own content if needed */}
-          <div className="flex-shrink-0 border-t border-border overflow-y-auto max-h-[52vh] lg:max-h-[46vh]">
+          {/* Payment — never grows, scrolls its own content if needed */}
+          <div className="flex-shrink-0 border-t border-border overflow-y-auto max-h-[52vh] lg:max-h-[48vh]">
             <div className="p-3">
               <PaymentPanel
                 payment={payment}

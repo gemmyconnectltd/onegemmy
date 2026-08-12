@@ -165,12 +165,12 @@ export default function SuppliersPage() {
                     <button onClick={() => {
                       setEditingId(s.id);
                       setEditForm({ name: s.name, email: s.email ?? "", phone: s.phone ?? "", address: s.address ?? "" });
-                    }} className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded transition-colors">
-                      <Edit2 size={13} />
+                    }} className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                      <Edit2 size={13} /> Edit
                     </button>
                     <button onClick={() => handleDelete(s.id)}
-                      className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded transition-colors">
-                      <Trash2 size={13} />
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                      <Trash2 size={13} /> Delete
                     </button>
                   </div>
                 </>

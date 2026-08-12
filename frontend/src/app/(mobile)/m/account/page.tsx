@@ -9,7 +9,8 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
-import { useOrders, usePurchaseOrders } from "@/lib/api/hooks";
+import { getSales } from "@/lib/invoices";
+import { getPurchases } from "@/lib/purchases";
 
 const SECTIONS = [
   { href: "/m/account/profile", label: "Business profile", desc: "Name, phone, address", icon: Building2 },
@@ -24,8 +25,6 @@ export default function MobileAccountPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { theme, setTheme } = useAppConfig();
-  const ordersQ = useOrders(1, 500);
-  const purchasesQ = usePurchaseOrders(undefined, 1, 200);
 
   const handleLogout = () => {
     logout();
@@ -36,8 +35,8 @@ export default function MobileAccountPage() {
     const payload = {
       exportedAt: new Date().toISOString(),
       tenant: user?.tenantName,
-      sales: ordersQ.data?.items ?? [],
-      purchases: purchasesQ.data?.items ?? [],
+      sales: getSales(),
+      purchases: getPurchases(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

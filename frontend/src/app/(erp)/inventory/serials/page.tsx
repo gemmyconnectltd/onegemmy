@@ -163,8 +163,8 @@ export default function SerialsPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => handleDelete(s.id)}
-                    className="w-7 h-7 inline-flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 size={13} />
+                    className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                    <Trash2 size={13} /> Delete
                   </button>
                 </td>
               </tr>

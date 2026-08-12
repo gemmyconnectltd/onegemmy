@@ -254,7 +254,7 @@ export default function IncomePage() {
                       {fmt(amount)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-1.5">
                         {t.status === "Draft" && (
                           <button onClick={() => handlePost(t.id)}
                             className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">

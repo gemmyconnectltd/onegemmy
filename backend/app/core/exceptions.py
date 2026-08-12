@@ -41,6 +41,11 @@ class ValidationError(AppError):
     detail = "Validation error"
 
 
+class QuotaExceededError(AppError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    detail = "Usage limit exceeded"
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     log.warning(
         "app.error",

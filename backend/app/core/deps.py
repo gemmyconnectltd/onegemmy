@@ -78,3 +78,24 @@ def require_permission(permission_name: str):
             raise ForbiddenError(f"Permission required: {permission_name}")
         return user
     return _check
+
+
+def require_feature(feature_key: str):
+    """Gate a whole router (or route) behind a tenant feature flag.
+
+    Platform superusers (no tenant) bypass the check so the /admin console
+    keeps working regardless of tenant entitlements.
+    """
+    async def _check(db: DbSession, user: CurrentUser) -> User:
+        if user.tenant_id is None:
+            return user
+        from app.modules.tenants import service
+
+        if not await service.feature_enabled(db, user.tenant_id, feature_key):
+            log.warning("features.forbidden_disabled", extra={"_extra_fields": {
+                "tenant_id": str(user.tenant_id),
+                "feature": feature_key,
+            }})
+            raise ForbiddenError("This feature is not enabled for your company")
+        return user
+    return _check

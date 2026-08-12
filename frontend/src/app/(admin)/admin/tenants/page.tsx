@@ -199,30 +199,29 @@ export default function AdminTenantsPage() {
                     {t.created_at ? new Date(t.created_at).toLocaleDateString() : "—"}
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-1.5">
                       <Link href={`/admin/tenants/${t.id}`}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-surface text-muted hover:text-foreground hover:bg-border transition-colors"
-                        title="View details"
+                        className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold"
                       >
-                        <Eye size={13} />
+                        <Eye size={13} /> Manage
                       </Link>
                       {t.is_active ? (
-                        <button onClick={() => suspend(t)} disabled={acting === t.id} title="Suspend"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-40"
+                        <button onClick={() => suspend(t)} disabled={acting === t.id}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors text-[12px] font-semibold disabled:opacity-40"
                         >
-                          {acting === t.id ? <Loader2 size={12} className="animate-spin" /> : <PauseCircle size={13} />}
+                          {acting === t.id ? <Loader2 size={12} className="animate-spin" /> : <PauseCircle size={13} />} Suspend
                         </button>
                       ) : (
-                        <button onClick={() => activate(t)} disabled={acting === t.id} title="Activate"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-40"
+                        <button onClick={() => activate(t)} disabled={acting === t.id}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors text-[12px] font-semibold disabled:opacity-40"
                         >
-                          {acting === t.id ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={13} />}
+                          {acting === t.id ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={13} />} Activate
                         </button>
                       )}
-                      <button onClick={() => remove(t)} disabled={acting === t.id} title="Delete"
-                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+                      <button onClick={() => remove(t)} disabled={acting === t.id}
+                        className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={13} /> Delete
                       </button>
                     </div>
                   </td>

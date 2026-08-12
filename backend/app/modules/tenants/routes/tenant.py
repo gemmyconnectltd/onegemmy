@@ -54,6 +54,21 @@ async def get_current_tenant(db: DbSession, current_user: CurrentUser):
     )
 
 
+@router.get("/me/entitlements")
+async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUser):
+    """Effective feature flags + usage limits for the current tenant."""
+    if current_user.tenant_id is None:
+        features, limits = {}, {}
+    else:
+        features = await service.get_effective_features(db, current_user.tenant_id)
+        limits_data = await service.get_tenant_limits(db, current_user.tenant_id)
+        limits = limits_data.model_dump()
+    return success_response(
+        data={"features": features, "limits": limits},
+        message="Current company entitlements retrieved successfully",
+    )
+
+
 @router.get("/{tenant_id}")
 async def get_tenant(tenant_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_own_tenant(current_user, tenant_id)

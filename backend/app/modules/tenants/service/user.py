@@ -54,6 +54,10 @@ async def create_user(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) 
         log.warning("users.create.conflict", extra={"_extra_fields": {"email": data.email}})
         raise ConflictError("User with this email already exists")
 
+    from app.modules.tenants import service
+
+    await service.enforce_limit(db, tenant_id, "max_users", await count_users(db, tenant_id), noun="user")
+
     user = User(
         tenant_id=tenant_id,
         email=data.email,

@@ -123,14 +123,14 @@ export default function BrandsPage() {
                     <p className="text-sm font-semibold text-foreground">{b.name}</p>
                     {b.description && <p className="text-xs text-muted mt-0.5 truncate">{b.description}</p>}
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1.5">
                     <button onClick={() => { setEditingId(b.id); setEditName(b.name); setEditDesc(b.description ?? ""); }}
-                      className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors">
-                      <Edit2 size={13} />
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                      <Edit2 size={13} /> Edit
                     </button>
                     <button onClick={() => handleDelete(b.id)}
-                      className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 size={13} />
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                      <Trash2 size={13} /> Delete
                     </button>
                   </div>
                 </>

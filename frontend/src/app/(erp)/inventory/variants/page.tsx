@@ -205,18 +205,18 @@ export default function VariantsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-1.5">
                       <button onClick={() => openEdit(v)}
-                        className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors" title="Edit">
-                        <Edit2 size={13} />
+                        className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                        <Edit2 size={13} /> Edit
                       </button>
                       <button onClick={() => { setRestocking(v); setRestockQty(0); setRestockMode("restock"); }}
-                        className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors" title="Restock">
-                        <PackagePlus size={13} style={{ color: INV_COLOR }} />
+                        className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                        <PackagePlus size={13} /> Restock
                       </button>
                       <button onClick={() => setDeleteTarget(v)}
-                        className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                        <Trash2 size={13} />
+                        className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                        <Trash2 size={13} /> Delete
                       </button>
                     </div>
                   </td>

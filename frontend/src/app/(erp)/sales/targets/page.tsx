@@ -331,8 +331,8 @@ export default function SalesTargetsPage() {
                       <badge.Icon size={11} /> {badge.label}
                     </span>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
-                      <button onClick={() => openEdit(t)} className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors"><Edit2 size={13} /></button>
-                      <button onClick={() => handleDelete(t.id)} className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={13} /></button>
+                      <button onClick={() => openEdit(t)} aria-label="Edit target" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Edit2 size={13} /> Edit</button>
+                      <button onClick={() => handleDelete(t.id)} aria-label="Delete target" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Trash2 size={13} /> Delete</button>
                     </div>
                   </div>
                 </div>
@@ -360,7 +360,7 @@ export default function SalesTargetsPage() {
                 {/* quick update button */}
                 <button
                   onClick={() => setQuickUpdate(t)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-[12px] font-semibold text-muted hover:text-foreground hover:bg-surface transition-colors opacity-0 group-hover:opacity-100"
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-border text-[12px] font-semibold text-muted hover:text-foreground hover:bg-surface transition-colors"
                 >
                   <Zap size={12} /> Update Progress
                 </button>

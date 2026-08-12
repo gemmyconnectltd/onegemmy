@@ -200,9 +200,9 @@ export default function SalesPage() {
                   </td>
                   <td className="p-4 text-sm text-muted">{deal.expected_close_date ?? "—"}</td>
                   <td className="p-4">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => openEdit(deal)} className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors"><Edit2 size={13} /></button>
-                      <button onClick={() => handleDelete(deal.id)} className="w-7 h-7 flex items-center justify-center text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={13} /></button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => openEdit(deal)} aria-label="Edit deal" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Edit2 size={13} /> Edit</button>
+                      <button onClick={() => handleDelete(deal.id)} aria-label="Delete deal" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Trash2 size={13} /> Delete</button>
                     </div>
                   </td>
                 </tr>

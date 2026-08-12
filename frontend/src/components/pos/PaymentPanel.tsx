@@ -1,8 +1,7 @@
 "use client";
 
-import { AlertCircle, Banknote, CreditCard, Delete, FileText, Smartphone } from "lucide-react";
+import { AlertCircle, Banknote, CreditCard, Delete, FileText, Smartphone, Wallet } from "lucide-react";
 
-import { CASH_PRESETS } from "./constants";
 import type { PaymentMethod } from "./types";
 
 const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
@@ -13,13 +12,6 @@ const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof Banknote
 ];
 
 const NUMPAD = ["7","8","9","4","5","6","1","2","3","00","0","⌫"] as const;
-
-function presetLabel(v: number): string {
-  if (v === 0) return "Exact";
-  if (v >= 1000 && v % 1000 === 0) return `+${v / 1000}k`;
-  if (v >= 1000) return `+${(v / 1000).toFixed(1)}k`;
-  return `+${v}`;
-}
 
 interface PaymentPanelProps {
   payment: PaymentMethod;
@@ -66,55 +58,52 @@ export function PaymentPanel({
   };
 
   return (
-    <div className="bg-primary text-primary-foreground rounded-2xl p-3.5 shadow-lg shadow-primary/20 space-y-3">
+    <div className="space-y-2.5">
 
-      {/* Totals — big total dominates */}
-      <div className="space-y-1 font-mono text-[11px]">
-        <div className="flex justify-between text-primary-foreground/60">
+      {/* Totals */}
+      <div className="space-y-1 font-mono text-[12px]">
+        <div className="flex justify-between text-muted">
           <span>Items (incl. VAT)</span>
           <span>{currencySymbol} {fmt(subtotal)}</span>
         </div>
         {discount > 0 && (
-          <div className="flex justify-between text-emerald-300 font-semibold">
+          <div className="flex justify-between text-emerald-600 font-semibold">
             <span>Discount</span>
             <span>-{currencySymbol} {fmt(discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-primary-foreground/60">
+        <div className="flex justify-between text-muted">
           <span>VAT (18%, included)</span>
           <span>{currencySymbol} {fmt(tax)}</span>
         </div>
-        <div className="flex items-end justify-between pt-1.5 mt-1 border-t border-primary-foreground/20">
-          <span className="text-[12px] font-bold uppercase tracking-wide">{isInvoice ? "Amount due" : "Total"}</span>
-          <span className="text-[26px] leading-none font-extrabold tabular-nums">{currencySymbol} {fmt(total)}</span>
+        <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
+          <span>{isInvoice ? "Amount due" : "Total"}</span>
+          <span className="text-accent">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
 
-      {/* Payment method segmented control */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {PAYMENT_METHODS.map((m) => {
-          const active = payment === m.id;
-          return (
-            <button
-              key={m.id}
-              onClick={() => onPaymentChange(m.id)}
-              className={`flex flex-col items-center justify-center gap-1 py-2 text-[10px] font-semibold border rounded-xl transition-all ${
-                active
-                  ? "bg-primary-foreground text-primary border-transparent shadow"
-                  : "bg-white/10 text-primary-foreground border-white/15 hover:bg-white/20"
-              }`}
-            >
-              <m.icon size={14} />
-              <span>{m.label}</span>
-            </button>
-          );
-        })}
+      {/* Payment method tabs */}
+      <div className="grid grid-cols-4 gap-1">
+        {PAYMENT_METHODS.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => onPaymentChange(m.id)}
+            className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold border-2 rounded-xl transition-all ${
+              payment === m.id
+                ? "border-accent bg-accent text-white shadow-sm"
+                : "border-border text-foreground/60 hover:border-accent/50 hover:text-foreground"
+            }`}
+          >
+            <m.icon size={13} />
+            <span>{m.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* Invoice warning */}
       {isInvoice && !hasCustomer && (
-        <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-200 bg-amber-400/15 border border-amber-300/30 rounded-lg px-2.5 py-1.5">
-          <FileText size={11} /> Add a customer name above to issue invoice.
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+          <Wallet size={11} /> Add a customer name above to issue invoice.
         </div>
       )}
 
@@ -124,14 +113,14 @@ export function PaymentPanel({
           {/* Cash display */}
           <div className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-colors ${
             cashShort
-              ? "border-red-400/40 bg-red-500/20"
+              ? "border-red-300 bg-red-50"
               : cashGiven && Number(cashGiven) >= total
-              ? "border-emerald-400/40 bg-emerald-500/20"
-              : "border-white/15 bg-white/10"
+              ? "border-emerald-300 bg-emerald-50"
+              : "border-border bg-surface"
           }`}>
-            <span className="text-[11px] text-primary-foreground/70 font-medium">Cash given</span>
+            <span className="text-[11px] text-muted font-medium">Cash given</span>
             <span className={`text-[15px] font-bold font-mono ${
-              cashShort ? "text-red-300" : cashGiven ? "text-primary-foreground" : "text-primary-foreground/40"
+              cashShort ? "text-red-500" : cashGiven ? "text-foreground" : "text-muted/40"
             }`}>
               {cashGiven ? `${currencySymbol} ${fmt(Number(cashGiven))}` : "—"}
             </span>
@@ -145,8 +134,8 @@ export function PaymentPanel({
                 onClick={() => handleNumpad(key)}
                 className={`py-2.5 rounded-xl text-[13px] font-bold transition-all active:scale-95 select-none ${
                   key === "⌫"
-                    ? "bg-red-500/20 text-red-300 border border-red-400/30 hover:bg-red-500/30"
-                    : "bg-white/10 border border-white/10 text-primary-foreground hover:bg-white/20"
+                    ? "bg-red-50 text-red-500 border border-red-200 hover:bg-red-100"
+                    : "bg-surface border border-border text-foreground hover:bg-border"
                 }`}
               >
                 {key === "⌫" ? <Delete size={14} className="mx-auto" /> : key}
@@ -155,28 +144,28 @@ export function PaymentPanel({
           </div>
 
           {/* Quick presets */}
-          <div className="flex gap-1 overflow-x-auto no-scrollbar">
-            {CASH_PRESETS.map((preset) => (
+          <div className="grid grid-cols-4 gap-1">
+            {[0, 1000, 5000, 10000].map((preset) => (
               <button
                 key={preset}
                 onClick={() => onCashChange(String(total + preset))}
-                className="px-2.5 py-1.5 text-[10px] font-semibold border border-white/15 rounded-lg text-primary-foreground/80 hover:border-white/40 hover:text-primary-foreground transition-colors flex-shrink-0 bg-white/5"
+                className="py-1.5 text-[10px] font-semibold border border-border rounded-lg text-foreground/70 hover:border-accent hover:text-accent transition-colors"
               >
-                {presetLabel(preset)}
+                {preset === 0 ? "Exact" : `+${preset >= 1000 ? `${preset / 1000}k` : preset}`}
               </button>
             ))}
           </div>
 
           {/* Change / short feedback */}
           {cashGiven && Number(cashGiven) >= total ? (
-            <div className="flex justify-between items-center px-3 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-xl">
-              <span className="text-[12px] font-semibold text-emerald-200">Change</span>
-              <span className="text-[14px] font-bold text-emerald-200 font-mono">{currencySymbol} {fmt(change)}</span>
+            <div className="flex justify-between items-center px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <span className="text-[12px] font-semibold text-emerald-700">Change</span>
+              <span className="text-[14px] font-bold text-emerald-700 font-mono">{currencySymbol} {fmt(change)}</span>
             </div>
           ) : cashShort ? (
-            <div className="flex justify-between items-center px-3 py-2 bg-red-500/20 border border-red-400/40 rounded-xl">
-              <span className="text-[12px] font-semibold text-red-200">Short by</span>
-              <span className="text-[14px] font-bold text-red-200 font-mono">{currencySymbol} {fmt(total - Number(cashGiven))}</span>
+            <div className="flex justify-between items-center px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+              <span className="text-[12px] font-semibold text-red-600">Short by</span>
+              <span className="text-[14px] font-bold text-red-600 font-mono">{currencySymbol} {fmt(total - Number(cashGiven))}</span>
             </div>
           ) : null}
         </div>
@@ -184,7 +173,7 @@ export function PaymentPanel({
 
       {/* Charge button */}
       {saleError && (
-        <div className="flex items-start gap-1.5 text-[11px] font-medium text-red-200 bg-red-500/20 border border-red-400/40 rounded-lg px-2.5 py-2">
+        <div className="flex items-start gap-1.5 text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
           <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
           <span>{saleError}</span>
         </div>
@@ -192,7 +181,7 @@ export function PaymentPanel({
       <button
         disabled={chargeDisabled}
         onClick={onCharge}
-        className="w-full py-3.5 bg-primary-foreground text-primary font-bold text-[15px] rounded-xl hover:opacity-90 active:scale-[0.98] transition shadow-md disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+        className="w-full py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
       >
         {saving
           ? "Saving sale…"

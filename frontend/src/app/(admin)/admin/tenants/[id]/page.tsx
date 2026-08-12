@@ -4,13 +4,13 @@ import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Users, ShoppingCart, TrendingUp, Package, UserPlus, Loader2,
   CheckCircle, XCircle, PauseCircle, PlayCircle, Building2, Layers, Shield,
-  Plus, Trash2, X,
+  Plus, Trash2, X, KeyRound, Copy, Check, SlidersHorizontal,
 } from "lucide-react";
 import {
   useTenant, useTenantStats, useTenantUsers, useSuspendTenant, useActivateTenant,
   useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
-  useTenantBranches, useCreateBranch, useDeleteBranch,
+  useTenantBranches, useCreateBranch, useDeleteBranch, useResetUserPassword,
 } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { chartPalette } from "@/lib/chartColors";
@@ -18,8 +18,10 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import Link from "next/link";
+import { SecondSidebar, type SectionItem } from "@/components/dashboard/SecondSidebar";
+import FeaturesPanel from "./FeaturesPanel";
 
-type Tab = "users" | "departments" | "roles" | "branches";
+type Tab = "features" | "users" | "departments" | "roles" | "branches";
 
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +38,9 @@ export default function TenantDetailPage() {
   const [showAddDept, setShowAddDept] = useState(false);
   const [showAddRole, setShowAddRole] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
+  const [resetUser, setResetUser] = useState<{ id: string; full_name: string } | null>(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member", password: "" });
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
@@ -73,6 +78,7 @@ export default function TenantDetailPage() {
   const deleteRole = useDeleteRole();
   const createBranch = useCreateBranch();
   const deleteBranch = useDeleteBranch();
+  const resetPassword = useResetUserPassword();
 
   const toggleStatus = () => {
     if (!tenant) return;
@@ -157,6 +163,34 @@ export default function TenantDetailPage() {
     });
   };
 
+  const handleResetPassword = (u: { id: string; full_name: string }) => {
+    setNotice(null);
+    setTempPassword(null);
+    setCopied(false);
+    setResetUser(u);
+  };
+
+  const confirmResetPassword = () => {
+    if (!resetUser) return;
+    resetPassword.mutate({ tenantId: id, userId: resetUser.id }, {
+      onSuccess: (res) => {
+        setTempPassword(res.data?.temp_password ?? null);
+      },
+      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to reset password"),
+    });
+  };
+
+  const copyPassword = async () => {
+    if (!tempPassword) return;
+    try {
+      await navigator.clipboard.writeText(tempPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 size={22} className="animate-spin text-accent" />
@@ -184,7 +218,8 @@ export default function TenantDetailPage() {
     free: "text-muted", starter: "text-blue-600 dark:text-blue-400", professional: "text-violet-600 dark:text-violet-400", enterprise: "text-amber-600 dark:text-amber-400",
   };
 
-  const TABS: { key: Tab; label: string; count: number; icon: typeof Users }[] = [
+  const sections: SectionItem[] = [
+    { key: "features", label: "Features & Access", icon: SlidersHorizontal },
     { key: "users", label: "Users", count: users.length, icon: Users },
     { key: "departments", label: "Departments", count: departments.length, icon: Layers },
     { key: "roles", label: "Roles", count: roles.length, icon: Shield },
@@ -254,21 +289,21 @@ export default function TenantDetailPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 overflow-x-auto">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-colors ${
-              tab === t.key ? "bg-card text-foreground shadow-sm border border-border" : "text-muted hover:text-foreground"
-            }`}
-          >
-            <t.icon size={14} /> {t.label}
-            <span className={`text-[11px] px-1.5 py-0.5 rounded-md ${tab === t.key ? "bg-accent/10 text-accent" : "bg-surface"}`}>{t.count}</span>
-          </button>
-        ))}
-      </div>
+      {/* Section nav + panels */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="lg:flex-shrink-0 lg:w-52">
+          <SecondSidebar
+            sections={sections}
+            activeKey={tab}
+            onSelect={(key) => setTab(key as Tab)}
+            label={tenant.name}
+            defaultOrientation="left"
+            showToggle={false}
+          />
+        </div>
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Features & Access panel */}
+          {tab === "features" && <FeaturesPanel tenantId={id} />}
 
       {/* Users panel */}
       {tab === "users" && (
@@ -309,16 +344,26 @@ export default function TenantDetailPage() {
                     {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    {!u.is_superuser && (
-                      <button
-                        onClick={() => handleRemoveUser(u)}
-                        disabled={deleteUser.isPending}
-                        title="Remove user"
-                        className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-1.5">
+                      {!u.is_superuser && (
+                        <button
+                          onClick={() => handleResetPassword(u)}
+                          disabled={resetPassword.isPending}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                        >
+                          <KeyRound size={13} /> Reset
+                        </button>
+                      )}
+                      {!u.is_superuser && (
+                        <button
+                          onClick={() => handleRemoveUser(u)}
+                          disabled={deleteUser.isPending}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                        >
+                          <Trash2 size={13} /> Remove
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -358,10 +403,9 @@ export default function TenantDetailPage() {
                   <button
                     onClick={() => handleRemoveDepartment(d)}
                     disabled={deleteDepartment.isPending}
-                    title="Delete department"
-                    className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50 shrink-0"
+                    className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 shrink-0"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={13} /> Delete
                   </button>
                 </div>
               ))}
@@ -395,10 +439,9 @@ export default function TenantDetailPage() {
                   <button
                     onClick={() => handleRemoveRole(r)}
                     disabled={deleteRole.isPending}
-                    title="Delete role"
-                    className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50 shrink-0"
+                    className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 shrink-0"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={13} /> Delete
                   </button>
                 </div>
               ))}
@@ -432,10 +475,9 @@ export default function TenantDetailPage() {
                   <button
                     onClick={() => handleRemoveBranch(b)}
                     disabled={deleteBranch.isPending}
-                    title="Delete branch"
-                    className="p-1.5 rounded-lg text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50 shrink-0"
+                    className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 shrink-0"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={13} /> Delete
                   </button>
                 </div>
               ))}
@@ -443,6 +485,8 @@ export default function TenantDetailPage() {
           )}
         </div>
       )}
+        </div>
+      </div>
 
       {/* Invite drawer */}
       <Drawer open={showInvite} onClose={() => setShowInvite(false)} title="Invite User" description={`Add a user to ${tenant.name}`}>
@@ -504,6 +548,65 @@ export default function TenantDetailPage() {
           </Field>
           <FormFooter submitLabel={createBranch.isPending ? "Creating…" : "Add Branch"} onCancel={() => setShowAddBranch(false)} disabled={createBranch.isPending} />
         </form>
+      </Drawer>
+
+      {/* Reset password drawer */}
+      <Drawer
+        open={!!resetUser}
+        onClose={() => { setResetUser(null); setTempPassword(null); setCopied(false); }}
+        title="Reset Password"
+        description={resetUser ? `Set a new temporary password for ${resetUser.full_name}` : ""}
+      >
+        <div className="p-5 space-y-4">
+          {tempPassword === null ? (
+            <>
+              <p className="text-sm text-muted">
+                This will immediately invalidate the user&apos;s current password and generate a new temporary one. They&apos;ll need to sign in with the new password shown here.
+              </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => { setResetUser(null); setCopied(false); }}
+                  className="px-4 py-2 rounded-lg text-[13px] font-semibold text-muted hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmResetPassword}
+                  disabled={resetPassword.isPending}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors disabled:opacity-50"
+                >
+                  {resetPassword.isPending ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
+                  Reset Password
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[13px] px-4 py-3">
+                Temporary password shown once — copy it now and share with the user securely.
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-surface border border-border rounded-lg px-4 py-3 font-mono text-sm text-foreground break-all">
+                  {tempPassword}
+                </code>
+                <button
+                  onClick={copyPassword}
+                  className="flex items-center gap-1.5 px-3 h-10 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={() => { setResetUser(null); setTempPassword(null); setCopied(false); }}
+                  className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </Drawer>
     </div>
   );

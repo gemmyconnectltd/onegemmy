@@ -13,28 +13,28 @@ interface ReceiptProps {
 
 export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) {
   return (
-    <div className="bg-card print:bg-white">
+    <div className="bg-card">
       {/* Header */}
-      <div className="p-6 text-center bg-primary/5 border-b border-border">
-        <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mx-auto mb-3 shadow-sm">
+      <div className="p-6 text-center bg-accent/5 border-b border-border">
+        <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center mx-auto mb-3 shadow-sm">
           {sale.isInvoice
-            ? <FileText size={20} className="text-primary-foreground" strokeWidth={2.5} />
-            : <Check size={20} className="text-primary-foreground" strokeWidth={3} />}
+            ? <FileText size={20} className="text-white" strokeWidth={2.5} />
+            : <Check size={20} className="text-white" strokeWidth={3} />}
         </div>
         <h2 className="text-[16px] font-bold text-foreground">
           {sale.isInvoice ? "Invoice issued" : "Payment complete"}
         </h2>
-        <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
+        <p className="text-[11px] text-muted mt-0.5 font-mono">
           {sale.isInvoice ? sale.invoiceNumber : sale.orderId}
         </p>
-        <p className="text-[10px] text-muted-foreground/70 mt-1">{sale.timestamp.toLocaleString()}</p>
+        <p className="text-[10px] text-muted/70 mt-1">{sale.timestamp.toLocaleString()}</p>
         {sale.customerName && (
           <p className="text-[11px] text-foreground/70 mt-1 flex items-center justify-center gap-1">
             <UserRound size={11} /> {sale.customerName}
           </p>
         )}
         {sale.notes && (
-          <p className="text-[10px] text-muted-foreground mt-1 italic">&quot;{sale.notes}&quot;</p>
+          <p className="text-[10px] text-muted mt-1 italic">&quot;{sale.notes}&quot;</p>
         )}
         {sale.isInvoice && (
           <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
@@ -59,7 +59,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
                 <IconBadge
                   Icon={getProductIcon({ emoji: item.emoji })}
                   size={12}
-                  color="var(--primary)"
+                  color="var(--accent)"
                   className="w-7 h-7 flex-shrink-0"
                   rounded="rounded-lg"
                 />
@@ -67,11 +67,11 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
               <div className="min-w-0">
                 <p className="text-[12px] font-medium text-foreground truncate">{item.name}</p>
                 {item.variant_attributes && Object.keys(item.variant_attributes).length > 0 && (
-                  <p className="text-[10px] text-muted-foreground truncate">
+                  <p className="text-[10px] text-muted truncate">
                     {Object.entries(item.variant_attributes).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                   </p>
                 )}
-                <p className="text-[10px] text-muted-foreground font-mono">
+                <p className="text-[10px] text-muted font-mono">
                   {item.qty} × {currencySymbol} {fmt(item.price)}
                   {item.discount > 0 && <span className="text-emerald-600"> (-{fmt(item.discount)})</span>}
                 </p>
@@ -86,7 +86,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
 
       {/* Totals */}
       <div className="px-4 py-4 space-y-1.5 border-t border-border font-mono text-[12px]">
-        <div className="flex justify-between text-muted-foreground">
+        <div className="flex justify-between text-muted">
           <span>Subtotal</span><span>{currencySymbol} {fmt(sale.subtotal)}</span>
         </div>
         {sale.discount > 0 && (
@@ -94,19 +94,19 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
             <span>Discount</span><span>-{currencySymbol} {fmt(sale.discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-muted-foreground">
+        <div className="flex justify-between text-muted">
           <span>VAT (18%, included)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
         </div>
         <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
           <span>{sale.isInvoice ? "Amount due" : "Total"}</span>
-          <span className="text-primary">{currencySymbol} {fmt(sale.total)}</span>
+          <span>{currencySymbol} {fmt(sale.total)}</span>
         </div>
-        <div className="flex justify-between text-muted-foreground">
+        <div className="flex justify-between text-muted">
           <span>Payment</span>
           <span className="capitalize">{sale.payment === "mobile" ? "Mobile Money" : sale.payment}</span>
         </div>
         {!sale.isInvoice && sale.payment === "cash" && sale.cashGiven && (
-          <div className="flex justify-between font-semibold text-foreground">
+          <div className="flex justify-between font-semibold text-accent">
             <span>Change</span><span>{currencySymbol} {fmt(sale.change)}</span>
           </div>
         )}
@@ -120,7 +120,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
       <BarcodeStripe />
 
       <div className="px-4 py-3 text-center">
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[10px] text-muted">
           {sale.isInvoice ? `Invoice ${sale.invoiceNumber} — payable on demand.` : "Thanks for shopping with us."}
         </p>
       </div>
@@ -129,7 +129,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
       <div className="px-4 pb-4 grid grid-cols-[1fr_auto] gap-2">
         <button
           onClick={onNewSale}
-          className="py-3 bg-primary text-primary-foreground font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition"
+          className="py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition"
         >
           New Sale
         </button>

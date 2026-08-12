@@ -28,12 +28,11 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
   const accent = productAccent(product.id);
   const isVariantGroup = product.has_variants && (product.variants?.length ?? 0) > 0;
   const disabled = outOfStock || isVariantGroup;
-  const inCart = inCartQty > 0;
 
   // ── Horizontal (mobile list) ────────────────────────────────────────────────
   if (layout === "horizontal") {
     return (
-      <div className={`bg-card rounded-2xl overflow-hidden border border-border ${disabled ? "opacity-40" : ""} ${inCart ? "border-primary ring-1 ring-primary/40" : ""}`}>
+      <div className={`bg-card rounded-2xl overflow-hidden ${disabled ? "opacity-40" : ""}`}>
         <button
           type="button"
           onClick={() => (isVariantGroup ? onToggle(product.id) : onAdd(product))}
@@ -64,13 +63,13 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           {/* Info */}
           <div className="min-w-0 flex-1">
             <p className="text-[13px] font-semibold text-foreground leading-tight truncate">{product.name}</p>
-            <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+            <p className="text-[10px] text-muted truncate mt-0.5">
               {isVariantGroup
                 ? `${product.variants?.length} variants`
                 : (product.sku ?? product.category)}
             </p>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-[13px] font-bold text-primary font-mono">{currencySymbol} {fmt(product.price)}</p>
+              <p className="text-[13px] font-bold text-accent font-mono">{currencySymbol} {fmt(product.price)}</p>
               {lowStock && !isVariantGroup && (
                 <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600">
                   <AlertTriangle size={9} /> {product.stock} left
@@ -82,10 +81,10 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           {/* Right affordance */}
           {outOfStock ? (
             <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-full flex-shrink-0">Out of stock</span>
-          ) : inCart ? (
-            <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm">{inCartQty}</span>
+          ) : inCartQty > 0 ? (
+            <span className="w-7 h-7 rounded-full bg-accent text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm">{inCartQty}</span>
           ) : (
-            <span className="w-7 h-7 rounded-full bg-surface border border-border text-foreground flex items-center justify-center flex-shrink-0">
+            <span className="w-7 h-7 rounded-full bg-surface text-accent flex items-center justify-center flex-shrink-0">
               <Plus size={15} />
             </span>
           )}
@@ -102,17 +101,17 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
                   type="button"
                   disabled={variantOut}
                   onClick={() => onAddVariant(product, v)}
-                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left border border-border ${
-                    variantOut ? "opacity-40 cursor-not-allowed" : "bg-card hover:border-primary/50 active:scale-[0.99] transition-all"
+                  className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left ${
+                    variantOut ? "opacity-40 cursor-not-allowed" : "bg-surface active:scale-[0.99] transition-transform"
                   }`}
                 >
                   <div className="min-w-0">
                     <p className="text-[12px] font-semibold text-foreground truncate">{attrLabel(v.attributes)}</p>
-                    {v.sku && <p className="text-[10px] text-muted-foreground font-mono truncate">{v.sku}</p>}
+                    {v.sku && <p className="text-[10px] text-muted font-mono truncate">{v.sku}</p>}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-[11px] text-muted-foreground">{v.stock} left</span>
-                    <span className="text-[12px] font-bold text-primary font-mono">{currencySymbol} {fmt(v.price)}</span>
+                    <span className="text-[11px] text-muted">{v.stock} left</span>
+                    <span className="text-[12px] font-bold text-accent font-mono">{currencySymbol} {fmt(v.price)}</span>
                   </div>
                 </button>
               );
@@ -125,17 +124,17 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
 
   return (
     <div
-      className={`bg-card border rounded-2xl text-left transition-all relative overflow-hidden flex flex-col ${
+      className={`bg-card border-2 rounded-2xl text-left transition-all relative overflow-hidden flex flex-col ${
         disabled
           ? "opacity-40 border-border"
-          : inCart
-          ? "border-primary ring-1 ring-primary/40 shadow-sm"
-          : "border-border hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5"
+          : inCartQty > 0
+          ? "border-accent shadow-sm"
+          : "border-border hover:border-accent/40 hover:shadow-md"
       } ${bumping ? "scale-[0.96]" : ""}`}
     >
       {/* Cart qty badge */}
-      {inCart && (
-        <span className="absolute top-2 right-2 z-10 min-w-[24px] h-6 px-1.5 bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center rounded-full shadow">
+      {inCartQty > 0 && (
+        <span className="absolute top-2 right-2 z-10 w-6 h-6 bg-accent text-white text-[11px] font-bold flex items-center justify-center rounded-full shadow">
           {inCartQty}
         </span>
       )}
@@ -193,17 +192,17 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         <div className="p-3 flex flex-col gap-0.5 flex-1">
           <p className="text-[12px] font-semibold text-foreground leading-tight line-clamp-2">{product.name}</p>
           {isVariantGroup ? (
-            <p className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+            <p className="text-[10px] text-accent font-semibold flex items-center gap-0.5">
               {product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
             </p>
           ) : product.sku ? (
-            <p className="text-[10px] text-muted-foreground font-mono truncate">{product.sku}</p>
+            <p className="text-[10px] text-muted font-mono truncate">{product.sku}</p>
           ) : null}
-          <p className="text-[13px] text-primary font-bold mt-auto pt-1 font-mono">
+          <p className="text-[13px] text-accent font-bold mt-auto pt-1 font-mono">
             {currencySymbol} {fmt(product.price)}
           </p>
           <div className="flex items-center justify-between mt-0.5">
-            <p className="text-[10px] text-muted-foreground truncate">{product.category}</p>
+            <p className="text-[10px] text-muted truncate">{product.category}</p>
             {lowStock && !isVariantGroup && (
               <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 flex-shrink-0">
                 <AlertTriangle size={9} /> {product.stock}
@@ -227,16 +226,16 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
                 className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-left transition-all ${
                   variantOut
                     ? "opacity-40 cursor-not-allowed"
-                    : "bg-card border border-border hover:border-primary/50 active:scale-[0.98]"
+                    : "bg-card border border-border hover:border-accent/50 active:scale-[0.98]"
                 }`}
               >
                 <div className="min-w-0">
                   <p className="text-[12px] font-semibold text-foreground truncate">{attrLabel(v.attributes)}</p>
-                  {v.sku && <p className="text-[10px] text-muted-foreground font-mono truncate">{v.sku}</p>}
+                  {v.sku && <p className="text-[10px] text-muted font-mono truncate">{v.sku}</p>}
                 </div>
                 <div className="flex flex-col items-end flex-shrink-0">
-                  <span className="text-[12px] font-bold text-primary font-mono">{currencySymbol} {fmt(v.price)}</span>
-                  <span className={`text-[10px] ${v.stock <= LOW_STOCK_THRESHOLD ? "text-amber-600 font-semibold" : "text-muted-foreground"}`}>{v.stock} left</span>
+                  <span className="text-[12px] font-bold text-accent font-mono">{currencySymbol} {fmt(v.price)}</span>
+                  <span className={`text-[10px] ${v.stock <= LOW_STOCK_THRESHOLD ? "text-amber-600 font-semibold" : "text-muted"}`}>{v.stock} left</span>
                 </div>
               </button>
             );

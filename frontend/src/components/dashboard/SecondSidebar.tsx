@@ -4,11 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, ShoppingCart, FileText, Target, RotateCcw, TrendingUp,
+  LayoutDashboard, FileText, Target, RotateCcw, TrendingUp,
   TrendingDown, CreditCard, Users, UserPlus, Clock, DollarSign, Award,
   UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
-  Hammer, Package, Layers, Tag, Ruler, Star, BarChart3, Settings, Bell,
-  Shield, Palette, PanelTop, PanelLeft, Barcode, ShieldCheck, ArrowLeftRight,
+  Hammer, Package, Layers, Tag, Ruler, Star, Settings, Bell,
+  Shield, Palette, PanelTop, PanelLeft, PanelRight,
 } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -16,9 +16,25 @@ type ModuleKey =
   | "sales" | "finance" | "hr" | "crm" | "procurement"
   | "manufacturing" | "customers" | "inventory" | "reports" | "settings";
 
-type Orientation = "top" | "left";
+type Orientation = "top" | "left" | "big";
 
-const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React.ElementType; color: string; exact?: boolean }[]> = {
+export interface NavConfigItem {
+  nameKey: string;
+  href: string;
+  icon: React.ElementType;
+  color: string;
+  exact?: boolean;
+}
+
+export interface SectionItem {
+  key: string;
+  label: string;
+  icon: React.ElementType;
+  count?: number;
+  color?: string;
+}
+
+const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
   sales: [
     { nameKey: "overview",  href: "/sales",           icon: LayoutDashboard, color: "#0284c7", exact: true },
     { nameKey: "orders",    href: "/sales/orders",    icon: FileText,        color: "#0284c7" },
@@ -78,9 +94,6 @@ const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React
     { nameKey: "units",      href: "/inventory/units",      icon: Ruler,           color: "#059669" },
     { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck,           color: "#059669" },
     { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
-    { nameKey: "serials",    href: "/inventory/serials",    icon: Barcode,         color: "#059669" },
-    { nameKey: "warranty",   href: "/inventory/warranty",   icon: ShieldCheck,     color: "#059669" },
-    { nameKey: "transfers",  href: "/inventory/transfers",  icon: ArrowLeftRight,  color: "#059669" },
   ],
   reports: [
     { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, color: "#1e40af", exact: true },
@@ -99,7 +112,16 @@ const navConfigs: Record<ModuleKey, { nameKey: string; href: string; icon: React
 };
 
 interface SecondSidebarProps {
-  module: ModuleKey;
+  /** Required when `sections` is not provided (link-mode). Ignored in section-mode. */
+  module?: ModuleKey;
+  /** Controlled "section tab" mode: renders buttons instead of links, e.g. a tenant detail page. */
+  sections?: SectionItem[];
+  /** Active section key (section-mode). */
+  activeKey?: string;
+  /** Called when a section is selected (section-mode). */
+  onSelect?: (key: string) => void;
+  /** Optional header label rendered in the left/big rails (e.g. tenant name). */
+  label?: string;
   /** Starting orientation if uncontrolled (default "top"). Ignored on re-render once the user has toggled, unless `orientation` is also passed to force control. */
   defaultOrientation?: Orientation;
   /** Pass this to fully control orientation from the parent (e.g. persist it, sync with other layout). */
@@ -110,8 +132,14 @@ interface SecondSidebarProps {
   showToggle?: boolean;
 }
 
+const ORIENTATION_CYCLE: Orientation[] = ["top", "left", "big"];
+
 export function SecondSidebar({
   module,
+  sections,
+  activeKey,
+  onSelect,
+  label,
   defaultOrientation = "top",
   orientation: controlledOrientation,
   onOrientationChange,
@@ -119,75 +147,82 @@ export function SecondSidebar({
 }: SecondSidebarProps) {
   const pathname = usePathname();
   const { t } = useAppConfig();
-  const items = navConfigs[module];
+  const isSectionMode = !!sections;
 
   const [internalOrientation, setInternalOrientation] = useState<Orientation>(defaultOrientation);
   const orientation = controlledOrientation ?? internalOrientation;
-  const isLeft = orientation === "left";
 
   const toggle = () => {
-    const next: Orientation = isLeft ? "top" : "left";
+    const idx = ORIENTATION_CYCLE.indexOf(orientation);
+    const next = ORIENTATION_CYCLE[(idx + 1) % ORIENTATION_CYCLE.length];
     if (controlledOrientation === undefined) setInternalOrientation(next);
     onOrientationChange?.(next);
   };
 
-  const ToggleIcon = isLeft ? PanelTop : PanelLeft;
-  const toggleLabel = isLeft ? "Switch to top navigation" : "Switch to left navigation";
+  const nextOrientation = ORIENTATION_CYCLE[(ORIENTATION_CYCLE.indexOf(orientation) + 1) % ORIENTATION_CYCLE.length];
+  const toggleLabel = `Switch to ${nextOrientation} navigation`;
+  const ToggleIcon = orientation === "top" ? PanelLeft : orientation === "left" ? PanelTop : PanelRight;
 
-  return (
-    <nav
-      className={
-        isLeft
-          ? "flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]"
-          : "flex items-center border-b border-border bg-surface px-2 overflow-x-auto flex-shrink-0 sticky top-14 z-10"
-      }
-    >
-      {/* Toggle + module header */}
+  const showRail = orientation === "left";
+  const isBig = orientation === "big";
+
+  const navClassName = showRail
+    ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
+    : `flex items-center border-b border-border bg-surface overflow-x-auto flex-shrink-0 sticky top-14 z-10 ${isBig ? "h-12 px-2.5 gap-1.5" : "px-2"}`;
+
+  const railHeader = showRail && (showToggle || label) && (
+    <div className="hidden lg:flex items-center justify-between gap-2 h-[46px] px-3 flex-shrink-0 border-b border-border">
+      <span className="text-[11px] font-bold uppercase tracking-wider text-foreground/50 truncate">
+        {label ?? (module ? t(module) : "")}
+      </span>
       {showToggle && (
-        <>
-          {isLeft ? (
-            <>
-              <div className="hidden lg:flex items-center justify-between h-[46px] px-3 flex-shrink-0 border-b border-border">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground/50">{t(module)}</span>
-                <button
-                  type="button"
-                  onClick={toggle}
-                  title={toggleLabel}
-                  aria-label={toggleLabel}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
-                >
-                  <PanelTop size={14} strokeWidth={1.8} />
-                </button>
-              </div>
-              <div className="hidden lg:block mx-3 mb-1 border-t border-border" />
-              <button
-                type="button"
-                onClick={toggle}
-                title={toggleLabel}
-                aria-label={toggleLabel}
-                className="lg:hidden flex items-center justify-center w-9 h-9 m-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
-              >
-                <ToggleIcon size={14} strokeWidth={1.8} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={toggle}
-                title={toggleLabel}
-                aria-label={toggleLabel}
-                className="flex items-center justify-center flex-shrink-0 w-9 h-9 mr-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
-              >
-                <ToggleIcon size={14} strokeWidth={1.8} />
-              </button>
-              <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-            </>
-          )}
-        </>
+        <button
+          type="button"
+          onClick={toggle}
+          title={toggleLabel}
+          aria-label={toggleLabel}
+          className="flex items-center justify-center w-7 h-7 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
+        >
+          <ToggleIcon size={14} strokeWidth={1.8} />
+        </button>
       )}
+    </div>
+  );
 
-      {items.map((item) => {
+  const linkClassName = (isActive: boolean) =>
+    `flex items-center ${isBig ? "gap-3 px-4 py-2.5" : "gap-2.5 px-3 py-2"} ${showRail ? "lg:mx-2 lg:px-2.5 text-sm font-semibold whitespace-nowrap lg:whitespace-normal rounded-lg transition-all flex-shrink-0 lg:flex-shrink" : "text-sm font-semibold whitespace-nowrap rounded-lg transition-all flex-shrink-0"} ${
+      isActive ? "text-white shadow-sm" : "text-foreground/55 hover:bg-surface hover:text-foreground"
+    }`;
+
+  const items = isSectionMode
+    ? (sections ?? []).map((item) => {
+        const isActive = activeKey === item.key;
+        const color = item.color ?? "#0284c7";
+        return (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => onSelect?.(item.key)}
+            aria-current={isActive ? "page" : undefined}
+            className={linkClassName(isActive)}
+            style={isActive ? { backgroundColor: color } : undefined}
+          >
+            <item.icon
+              size={isBig ? 17 : 15}
+              strokeWidth={isActive ? 2.2 : 1.8}
+              style={{ color: isActive ? "#fff" : color }}
+              className="flex-shrink-0"
+            />
+            <span className={isActive ? "" : "text-foreground/55"}>{item.label}</span>
+            {typeof item.count === "number" && (
+              <span className={`ml-auto text-[11px] px-1.5 py-0.5 rounded-md ${isActive ? "bg-white/20 text-white" : "bg-surface"}`}>
+                {item.count}
+              </span>
+            )}
+          </button>
+        );
+      })
+    : (module ? navConfigs[module] : []).map((item) => {
         const isActive = item.exact
           ? pathname === item.href
           : pathname === item.href || pathname.startsWith(item.href + "/");
@@ -196,23 +231,11 @@ export function SecondSidebar({
             key={item.nameKey}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={
-              isLeft
-                ? `flex items-center gap-2.5 px-3 py-2 lg:mx-2 lg:px-2.5 text-sm font-semibold whitespace-nowrap lg:whitespace-normal rounded-lg transition-all flex-shrink-0 lg:flex-shrink ${
-                    isActive
-                      ? "text-white shadow-sm"
-                      : "text-foreground/55 hover:bg-surface hover:text-foreground"
-                  }`
-                : `flex items-center gap-2 px-3 py-2 text-sm font-semibold whitespace-nowrap rounded-lg transition-all flex-shrink-0 ${
-                    isActive
-                      ? "text-white shadow-sm"
-                      : "text-foreground/55 hover:bg-surface hover:text-foreground"
-                  }`
-            }
+            className={linkClassName(isActive)}
             style={isActive ? { backgroundColor: item.color } : undefined}
           >
             <item.icon
-              size={15}
+              size={isBig ? 17 : 15}
               strokeWidth={isActive ? 2.2 : 1.8}
               style={{ color: isActive ? "#fff" : item.color }}
               className="flex-shrink-0"
@@ -220,7 +243,72 @@ export function SecondSidebar({
             <span className={isActive ? "" : "text-foreground/55"}>{t(item.nameKey)}</span>
           </Link>
         );
-      })}
+      });
+
+  return (
+    <nav className={navClassName}>
+      {/* Big (horizontal POS-style) header: title + toggle at far right */}
+      {isBig ? (
+        <>
+          {(label || module) && (
+            <>
+              <span className="hidden sm:block text-[13px] font-bold text-foreground px-2 flex-shrink-0 whitespace-nowrap">
+                {label ?? t(module ?? "")}
+              </span>
+              <div className="hidden sm:block w-px h-5 bg-border mx-1.5 flex-shrink-0" />
+            </>
+          )}
+          <div className="flex items-center gap-1.5 overflow-x-auto flex-shrink-0">
+            {items}
+          </div>
+          <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+            {showToggle && (
+              <button
+                type="button"
+                onClick={toggle}
+                title={toggleLabel}
+                aria-label={toggleLabel}
+                className="flex items-center justify-center w-9 h-9 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
+              >
+                <ToggleIcon size={15} strokeWidth={1.8} />
+              </button>
+            )}
+          </div>
+        </>
+      ) : showRail ? (
+        <>
+          {railHeader}
+          <div className="hidden lg:block mx-3 mb-1 border-t border-border" />
+          {showToggle && (
+            <button
+              type="button"
+              onClick={toggle}
+              title={toggleLabel}
+              aria-label={toggleLabel}
+              className="lg:hidden flex items-center justify-center w-9 h-9 m-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
+            >
+              <ToggleIcon size={14} strokeWidth={1.8} />
+            </button>
+          )}
+        </>
+      ) : (
+        showToggle && (
+          <>
+            <button
+              type="button"
+              onClick={toggle}
+              title={toggleLabel}
+              aria-label={toggleLabel}
+              className="flex items-center justify-center flex-shrink-0 w-9 h-9 mr-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
+            >
+              <ToggleIcon size={14} strokeWidth={1.8} />
+            </button>
+            <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
+          </>
+        )
+      )}
+
+      {!isBig && items}
     </nav>
   );
 }

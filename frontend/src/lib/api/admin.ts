@@ -81,6 +81,32 @@ export interface AdminBranch {
   updated_at: string | null;
 }
 
+export interface FeatureFlag {
+  key: string;
+  name: string;
+  module: string;
+  description: string | null;
+  default_enabled: boolean;
+  is_active: boolean;
+}
+
+export interface TenantFeatureState {
+  key: string;
+  name: string;
+  module: string;
+  description: string | null;
+  default_enabled: boolean;
+  enabled: boolean;
+  overridden: boolean;
+}
+
+export interface TenantLimits {
+  max_users: number | null;
+  max_branches: number | null;
+  max_products: number | null;
+  max_storage_mb: number | null;
+}
+
 const B = "/admin";
 
 export const adminApi = {
@@ -132,4 +158,19 @@ export const adminApi = {
     request<SingleResponse<AdminBranch>>(`${B}/tenants/${tenantId}/branches`, { method: "POST", body: JSON.stringify(data) }),
   deleteBranch: (tenantId: string, branchId: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/branches/${branchId}`, { method: "DELETE" }),
+
+  listFeatures: () =>
+    request<SingleResponse<FeatureFlag[]>>(`${B}/features`),
+  tenantFeatures: (tenantId: string) =>
+    request<SingleResponse<TenantFeatureState[]>>(`${B}/tenants/${tenantId}/features`),
+  setTenantFeatures: (tenantId: string, data: { features: Record<string, boolean> }) =>
+    request<SingleResponse<TenantFeatureState[]>>(`${B}/tenants/${tenantId}/features`, { method: "PATCH", body: JSON.stringify(data) }),
+  resetTenantFeatures: (tenantId: string) =>
+    request<SingleResponse<TenantFeatureState[]>>(`${B}/tenants/${tenantId}/features/reset`, { method: "POST" }),
+  tenantLimits: (tenantId: string) =>
+    request<SingleResponse<TenantLimits>>(`${B}/tenants/${tenantId}/limits`),
+  setTenantLimits: (tenantId: string, data: TenantLimits) =>
+    request<SingleResponse<TenantLimits>>(`${B}/tenants/${tenantId}/limits`, { method: "PATCH", body: JSON.stringify(data) }),
+  resetUserPassword: (tenantId: string, userId: string) =>
+    request<SingleResponse<{ user_id: string; email: string; full_name: string; temp_password: string }>>(`${B}/tenants/${tenantId}/users/${userId}/reset-password`, { method: "POST" }),
 };

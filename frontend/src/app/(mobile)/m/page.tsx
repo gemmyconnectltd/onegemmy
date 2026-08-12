@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ArrowLeftRight, Bell, Boxes, Package, PackagePlus, ReceiptText,
@@ -9,7 +9,8 @@ import {
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useAuth } from "@/lib/auth";
-import { useProducts, useOrders } from "@/lib/api/hooks";
+import { getSales, subscribeSales } from "@/lib/invoices";
+import { useProducts } from "@/lib/api/hooks";
 import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
 
 function greeting() {
@@ -19,31 +20,24 @@ function greeting() {
   return "Good evening";
 }
 
-function isToday(d: string | null) {
-  return d ? new Date(d).toDateString() === new Date().toDateString() : false;
+function isToday(d: Date) {
+  return d.toDateString() === new Date().toDateString();
 }
 
 export default function MobileHomePage() {
   const { user } = useAuth();
   const { currencySymbol, fmt } = useMobilePos();
+  const sales = useSyncExternalStore(subscribeSales, getSales, getSales);
 
   const productsQ = useProducts(1, 200);
-  const ordersQ = useOrders(1, 500);
 
-  const salesOrders = useMemo(
-    () => (ordersQ.data?.items ?? []).filter((o) => o.status === "Completed"),
-    [ordersQ.data],
-  );
-  const todaySales = useMemo(() => salesOrders.filter((o) => isToday(o.ordered_at ?? o.created_at)), [salesOrders]);
+  const todaySales = useMemo(() => sales.filter((s) => isToday(new Date(s.timestamp))), [sales]);
   const yesterdaySales = useMemo(() => {
     const y = new Date();
     y.setDate(y.getDate() - 1);
     const key = y.toDateString();
-    return salesOrders.filter((o) => {
-      const d = o.ordered_at ?? o.created_at;
-      return d ? new Date(d).toDateString() === key : false;
-    });
-  }, [salesOrders]);
+    return sales.filter((s) => new Date(s.timestamp).toDateString() === key);
+  }, [sales]);
 
   const salesTotal = todaySales.reduce((sum, s) => sum + s.total, 0);
   const yesterdayTotal = yesterdaySales.reduce((sum, s) => sum + s.total, 0);

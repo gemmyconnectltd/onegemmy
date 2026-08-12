@@ -25,6 +25,9 @@ async def count_branches(db: AsyncSession, tenant_id: uuid.UUID) -> int:
 
 
 async def create_branch(db: AsyncSession, tenant_id: uuid.UUID, data: BranchCreate) -> BranchRead:
+    from app.modules.tenants import service
+
+    await service.enforce_limit(db, tenant_id, "max_branches", await count_branches(db, tenant_id), noun="branch")
     branch = Branch(tenant_id=tenant_id, **data.model_dump())
     branch = await BranchRepository(db).save(branch)
     await db.commit()

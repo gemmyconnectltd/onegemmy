@@ -15,7 +15,7 @@ export type { ApiTokenUserInfo, ApiTokenResponse, ApiRegisterRequest } from "./a
 export { authApi } from "./auth";
 
 // Inventory
-export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiBrand, ApiUnit, ApiSupplier, InventoryValuationReport, ApiSerial, ApiWarrantyClaim, ApiStockTransfer, LowStockReport, MarkdownReport, SizeSelloutReport } from "./inventory";
+export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiBrand, ApiUnit, ApiSupplier, InventoryValuationReport } from "./inventory";
 export { inventoryApi } from "./inventory";
 
 // Sales
@@ -54,14 +54,6 @@ export { hrApi, departmentsApi } from "./hr";
 // Procurement
 export type { PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput } from "./procurement";
 export { procurementApi } from "./procurement";
-
-// CRM
-export type { ApiCampaign, ApiEmailLog } from "./crm";
-export { crmApi } from "./crm";
-
-// Manufacturing
-export type { ApiProductionOrder, ApiProductionItem } from "./manufacturing";
-export { manufacturingApi } from "./manufacturing";
 
 // Admin
 export type {

@@ -16,7 +16,6 @@ import {
 } from "@tanstack/react-query";
 import {
   inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
-  crmApi, manufacturingApi,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
@@ -29,8 +28,6 @@ import {
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
-  type ApiCampaign, type ApiEmailLog,
-  type ApiProductionOrder, type ApiProductionItem,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -113,43 +110,6 @@ export const useCreateVariant = mutation(({ productId, data }: { productId: stri
 export const useUpdateVariant = mutation(({ productId, id, data }: { productId: string; id: string; data: object }) => inventoryApi.updateVariant(productId, id, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
 export const useRestockVariant = mutation(({ productId, id, data }: { productId: string; id: string; data: { qty: number; mode: string } }) => inventoryApi.restockVariant(productId, id, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
 export const useDeleteVariant = mutation(({ productId, id }: { productId: string; id: string }) => inventoryApi.deleteVariant(productId, id), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
-export const useGenerateVariants = mutation(({ productId, data }: { productId: string; data: { attributes: Record<string, string[]>; base_price: number; base_cost?: number; price_deltas?: Record<string, number> } }) => inventoryApi.generateVariants(productId, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
-
-const SERIALS = ["inventory", "serials"] as const;
-const WARRANTY = ["inventory", "warranty"] as const;
-const TRANSFERS = ["inventory", "transfers"] as const;
-const LOW_STOCK = ["inventory", "low-stock"] as const;
-const MARKDOWNS = ["inventory", "markdowns"] as const;
-
-export const useSerials = (page = 1, pageSize = 50, productId?: string, status?: string, opts?: QueryOpts) =>
-  useQ([...SERIALS, page, pageSize, productId, status], () => inventoryApi.listSerials(page, pageSize, productId, status), (r) => r.data, opts);
-
-export const useCreateSerials = mutation((items: object[]) => inventoryApi.createSerials(items), [[...SERIALS], [...LOW_STOCK]]);
-export const useUpdateSerial = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateSerial(id, data), [[...SERIALS], [...LOW_STOCK]]);
-export const useDeleteSerial = mutation((id: string) => inventoryApi.deleteSerial(id), [[...SERIALS], [...LOW_STOCK]]);
-
-export const useWarrantyClaims = (page = 1, pageSize = 50, status?: string, opts?: QueryOpts) =>
-  useQ([...WARRANTY, page, pageSize, status], () => inventoryApi.listWarrantyClaims(page, pageSize, status), (r) => r.data, opts);
-
-export const useCreateWarrantyClaim = mutation((data: { serial_id: string; order_id?: string; issue_description: string }) => inventoryApi.createWarrantyClaim(data), [[...WARRANTY], [...SERIALS]]);
-export const useUpdateWarrantyClaim = mutation(({ id, data }: { id: string; data: { status?: string; resolution_notes?: string } }) => inventoryApi.updateWarrantyClaim(id, data), [[...WARRANTY], [...SERIALS]]);
-
-export const useTransfers = (page = 1, pageSize = 50, status?: string, opts?: QueryOpts) =>
-  useQ([...TRANSFERS, page, pageSize, status], () => inventoryApi.listTransfers(page, pageSize, status), (r) => r.data, opts);
-
-export const useMyBranches = (opts?: QueryOpts) =>
-  useQ(["tenants", "branches"], () => inventoryApi.listMyBranches(), (r) => r.data, opts);
-
-export const useCreateTransfer = mutation((data: object) => inventoryApi.createTransfer(data), [[...TRANSFERS]]);
-export const useUpdateTransfer = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateTransfer(id, data), [[...TRANSFERS]]);
-export const useDeleteTransfer = mutation((id: string) => inventoryApi.deleteTransfer(id), [[...TRANSFERS]]);
-
-export const useLowStockReport = (opts?: QueryOpts) =>
-  useQ([...LOW_STOCK], () => inventoryApi.lowStockReport(), (r) => r.data, opts);
-export const useActiveMarkdowns = (opts?: QueryOpts) =>
-  useQ([...MARKDOWNS], () => inventoryApi.activeMarkdowns(), (r) => r.data, opts);
-export const useSizeSellout = (productId?: string, attributeKey = "Size", opts?: QueryOpts) =>
-  useQ(["inventory", "reports", "size-sellout", productId, attributeKey], () => inventoryApi.sizeSellout(productId, attributeKey), (r) => r.data, opts);
 
 export const useCreateCategory = mutation((d: object) => inventoryApi.createCategory(d), [[...CATEGORIES], [...VALUATION]]);
 export const useUpdateCategory = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateCategory(id, data), [[...CATEGORIES], [...VALUATION]]);
@@ -320,36 +280,6 @@ export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.r
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
 
-// ── CRM ──────────────────────────────────────────────────────────────────────
-
-const CAMPAIGNS = ["crm", "campaigns"] as const;
-const EMAILS = ["crm", "emails"] as const;
-
-export const useCampaigns = (page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...CAMPAIGNS, page, pageSize], () => crmApi.listCampaigns(page, pageSize), (r) => r.data, opts);
-
-export const useEmails = (page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...EMAILS, page, pageSize], () => crmApi.listEmails(page, pageSize), (r) => r.data, opts);
-
-export const useCreateCampaign = mutation((d: Parameters<typeof crmApi.createCampaign>[0]) => crmApi.createCampaign(d), [[...CAMPAIGNS]]);
-export const useUpdateCampaign = mutation(({ id, data }: { id: string; data: Parameters<typeof crmApi.updateCampaign>[1] }) => crmApi.updateCampaign(id, data), [[...CAMPAIGNS]]);
-export const useDeleteCampaign = mutation((id: string) => crmApi.deleteCampaign(id), [[...CAMPAIGNS]]);
-
-export const useCreateEmail = mutation((d: Parameters<typeof crmApi.createEmail>[0]) => crmApi.createEmail(d), [[...EMAILS], [...CAMPAIGNS]]);
-export const useDeleteEmail = mutation((id: string) => crmApi.deleteEmail(id), [[...EMAILS]]);
-
-// ── Manufacturing ────────────────────────────────────────────────────────────
-
-const PRODUCTION = ["manufacturing", "orders"] as const;
-
-export const useProductionOrders = (page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...PRODUCTION, page, pageSize], () => manufacturingApi.listProductionOrders(page, pageSize), (r) => r.data, opts);
-
-export const useCreateProductionOrder = mutation((d: Parameters<typeof manufacturingApi.createProductionOrder>[0]) => manufacturingApi.createProductionOrder(d), [[...PRODUCTION]]);
-export const useUpdateProductionOrder = mutation(({ id, data }: { id: string; data: Parameters<typeof manufacturingApi.updateProductionOrder>[1] }) => manufacturingApi.updateProductionOrder(id, data), [[...PRODUCTION]]);
-export const useCompleteProductionOrder = mutation((id: string) => manufacturingApi.completeProductionOrder(id), [[...PRODUCTION], [...PRODUCTS], [...VALUATION]]);
-export const useDeleteProductionOrder = mutation((id: string) => manufacturingApi.deleteProductionOrder(id), [[...PRODUCTION]]);
-
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 const ADMIN_STATS = ["admin", "stats"] as const;
@@ -399,6 +329,17 @@ export const useDeleteRole = mutation(({ tenantId, roleId }: { tenantId: string;
 export const useCreateBranch = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createBranch>[1] }) => adminApi.createBranch(tenantId, data), [[...TENANTS]]);
 export const useDeleteBranch = mutation(({ tenantId, branchId }: { tenantId: string; branchId: string }) => adminApi.deleteBranch(tenantId, branchId), [[...TENANTS]]);
 
+export const useTenantFeatures = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...TENANTS, id, "features"], () => adminApi.tenantFeatures(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useTenantLimits = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...TENANTS, id, "limits"], () => adminApi.tenantLimits(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useSetTenantFeatures = mutation(({ tenantId, features }: { tenantId: string; features: Record<string, boolean> }) => adminApi.setTenantFeatures(tenantId, { features }), [[...TENANTS]]);
+export const useResetTenantFeatures = mutation((tenantId: string) => adminApi.resetTenantFeatures(tenantId), [[...TENANTS]]);
+export const useSetTenantLimits = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.setTenantLimits>[1] }) => adminApi.setTenantLimits(tenantId, data), [[...TENANTS]]);
+export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.resetUserPassword(tenantId, userId), [[...TENANTS]]);
+
 // ── Re-export the response types for convenience ────────────────────────────
 
 export type {
@@ -411,6 +352,4 @@ export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
-  ApiCampaign, ApiEmailLog,
-  ApiProductionOrder, ApiProductionItem,
 };

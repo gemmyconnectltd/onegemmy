@@ -7,6 +7,7 @@ import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/compo
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { useCreateOrder } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
+import { saveSale } from "@/lib/invoices";
 
 interface MobilePosContextValue {
   cart: CartItem[];
@@ -206,6 +207,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
         change: changeAmt,
         timestamp: new Date(),
       };
+      saveSale(sale);
       setCompletedSale(sale);
       setTodayCount((c) => c + 1);
       setTodayRevenue((r) => r + total);

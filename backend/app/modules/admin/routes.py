@@ -1,3 +1,4 @@
+import secrets
 import uuid
 
 from fastapi import APIRouter
@@ -7,6 +8,7 @@ from sqlalchemy import func, select, text
 from app.core.deps import DbSession, SuperUser
 from app.core.email import send_invite_email
 from app.core.exceptions import ConflictError, NotFoundError
+from app.core.logging import get_logger
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.core.security import hash_password
@@ -20,10 +22,14 @@ from app.modules.tenants.repository import TenantRepository, UserRepository
 from app.modules.tenants.schemas import (
     BranchCreate,
     DepartmentCreate,
+    FeatureOverrideUpdate,
     RoleCreate,
     TenantCreate,
+    TenantLimitsUpdate,
     TenantUpdate,
 )
+
+log = get_logger("admin.routes")
 
 router = APIRouter(prefix="/admin", tags=["Super Admin"])
 
@@ -207,6 +213,7 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
     tenant = await db.get(Tenant, tenant_id)
     if not tenant:
         raise NotFoundError("Tenant not found")
+    await service.enforce_limit(db, tenant_id, "max_users", await service.count_users(db, tenant_id), noun="user")
     user = User(
         tenant_id=tenant_id,
         email=data.email,
@@ -254,6 +261,44 @@ async def admin_list_tenant_roles(tenant_id: uuid.UUID, db: DbSession, _: SuperU
     return paginated_response(items=[r.model_dump() for r in roles], total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="Tenant roles retrieved")
+
+
+# ── Feature catalog & tenant entitlements ─────────────────────────────────────
+
+@router.get("/features")
+async def admin_list_features(db: DbSession, _: SuperUser):
+    flags = await service.list_feature_flags(db)
+    return success_response(data=[f.model_dump() for f in flags], message="Feature catalog retrieved")
+
+
+@router.get("/tenants/{tenant_id}/features")
+async def admin_get_tenant_features(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+    states = await service.get_tenant_feature_state(db, tenant_id)
+    return success_response(data=[s.model_dump() for s in states], message="Tenant features retrieved")
+
+
+@router.patch("/tenants/{tenant_id}/features")
+async def admin_set_tenant_features(tenant_id: uuid.UUID, data: FeatureOverrideUpdate, db: DbSession, _: SuperUser):
+    states = await service.set_tenant_features(db, tenant_id, data)
+    return success_response(data=[s.model_dump() for s in states], message="Tenant features updated")
+
+
+@router.post("/tenants/{tenant_id}/features/reset")
+async def admin_reset_tenant_features(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+    states = await service.reset_tenant_features(db, tenant_id)
+    return success_response(data=[s.model_dump() for s in states], message="Tenant features reset to defaults")
+
+
+@router.get("/tenants/{tenant_id}/limits")
+async def admin_get_tenant_limits(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+    limits = await service.get_tenant_limits(db, tenant_id)
+    return success_response(data=limits.model_dump(), message="Tenant limits retrieved")
+
+
+@router.patch("/tenants/{tenant_id}/limits")
+async def admin_set_tenant_limits(tenant_id: uuid.UUID, data: TenantLimitsUpdate, db: DbSession, _: SuperUser):
+    limits = await service.set_tenant_limits(db, tenant_id, data)
+    return success_response(data=limits.model_dump(), message="Tenant limits updated")
 
 
 # ── Tenant sub-resource management (create / delete) ─────────────────────────
@@ -304,3 +349,19 @@ async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db:
     await db.delete(user)
     await db.commit()
     return success_response(message="User removed")
+
+
+@router.post("/tenants/{tenant_id}/users/{user_id}/reset-password")
+async def admin_reset_tenant_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser):
+    user = await db.get(User, user_id)
+    if not user or user.tenant_id != tenant_id:
+        raise NotFoundError("User not found in tenant")
+    temp_password = secrets.token_urlsafe(12)
+    user.hashed_password = hash_password(temp_password)
+    await UserRepository(db).save(user)
+    await db.commit()
+    log.info("admin.reset_password.success", extra={"_extra_fields": {"tenant_id": str(tenant_id), "user_id": str(user_id)}})
+    return success_response(
+        data={"user_id": str(user.id), "email": user.email, "full_name": user.full_name, "temp_password": temp_password},
+        message="Password reset successfully",
+    )
