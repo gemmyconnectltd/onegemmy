@@ -28,7 +28,7 @@ async def list_expenses(db: DbSession, current_user: CurrentUser, page_params: P
 @router.post("/finance/expenses")
 async def create_expense(data: ExpenseCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.create_expense(db, current_user.tenant_id, current_user.id, data)
+    obj = await service.create_expense(db, current_user.tenant_id, current_user.id, data, current_user.full_name or current_user.email)
     return success_response(data=obj.model_dump(), message="Expense created", status_code=201)
 
 
@@ -49,14 +49,14 @@ async def update_expense(id: uuid.UUID, data: ExpenseUpdate, db: DbSession, curr
 @router.post("/finance/expenses/{id}/approve")
 async def approve_expense(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.approve_expense(db, current_user.tenant_id, id, current_user.id)
+    obj = await service.approve_expense(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email)
     return success_response(data=obj.model_dump(), message="Expense approved")
 
 
 @router.post("/finance/expenses/{id}/reject")
 async def reject_expense(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.reject_expense(db, current_user.tenant_id, id, current_user.id)
+    obj = await service.reject_expense(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email)
     return success_response(data=obj.model_dump(), message="Expense rejected")
 
 

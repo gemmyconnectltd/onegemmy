@@ -4,6 +4,7 @@ from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.audit.service import record_audit
 from app.modules.finance.models.budget import Budget
 from app.modules.finance.models.expense import Expense
 from app.modules.finance.repository import BudgetRepository, ExpenseRepository
@@ -27,7 +28,7 @@ async def get_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> 
     return ExpenseRead.model_validate(obj)
 
 
-async def create_expense(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ExpenseCreate) -> ExpenseRead:
+async def create_expense(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ExpenseCreate, user_name: str | None = None) -> ExpenseRead:
     repo = ExpenseRepository(db)
     reference = await repo.next_reference(tenant_id)
     obj = Expense(
@@ -37,6 +38,17 @@ async def create_expense(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
         **data.model_dump(),
     )
     obj = await repo.save(obj)
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="expense.create",
+        entity_type="expense",
+        entity_id=str(obj.id),
+        summary=f"Created expense {reference}",
+        changes={"reference": reference, "amount": obj.amount, "category": data.category},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, obj.id)
     return ExpenseRead.model_validate(obj)
@@ -57,7 +69,7 @@ async def update_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
     return ExpenseRead.model_validate(obj)
 
 
-async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID) -> ExpenseRead:
+async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None = None) -> ExpenseRead:
     # Lock the row to prevent duplicate approvals from concurrent requests
     await db.execute(text("SELECT 1 FROM finance_expenses WHERE id = :id FOR UPDATE"), {"id": id})
 
@@ -87,12 +99,23 @@ async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         db, tenant_id, user_id, obj.id, obj.amount, obj.reference, obj.account_id
     )
 
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="expense.approve",
+        entity_type="expense",
+        entity_id=str(obj.id),
+        summary=f"Approved expense {obj.reference}",
+        changes={"status": "Approved", "reference": obj.reference, "amount": obj.amount},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return ExpenseRead.model_validate(obj)
 
 
-async def reject_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID) -> ExpenseRead:
+async def reject_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None = None) -> ExpenseRead:
     repo = ExpenseRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -102,6 +125,17 @@ async def reject_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
     obj.status = "Rejected"
     obj.approved_by = user_id
     await repo.save(obj)
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="expense.reject",
+        entity_type="expense",
+        entity_id=str(obj.id),
+        summary=f"Rejected expense {obj.reference}",
+        changes={"status": "Rejected", "reference": obj.reference},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return ExpenseRead.model_validate(obj)

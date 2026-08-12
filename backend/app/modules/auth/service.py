@@ -14,6 +14,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.modules.audit.service import record_audit
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -22,7 +23,6 @@ from app.modules.auth.schemas import (
     TokenResponse,
     TokenUserInfo,
 )
-from app.modules.audit.service import record_audit
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
 
@@ -146,7 +146,7 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
         action="login",
         entity_type="user",
         entity_id=str(user.id),
-        summary=f"User signed in",
+        summary="User signed in",
     )
     await db.commit()
     return _issue_tokens(user)

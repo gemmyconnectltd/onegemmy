@@ -13,7 +13,7 @@ async def record_audit(
     *,
     tenant_id: uuid.UUID | None,
     actor_user_id: uuid.UUID | None,
-    actor_name: str | None,
+    actor_name: str | None = None,
     action: str,
     entity_type: str,
     entity_id: str | None = None,

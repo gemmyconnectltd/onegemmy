@@ -33,7 +33,7 @@ class _FakeDB:
     async def get(self, _model, user_id):
         return self._user if self._user and self._user.id == user_id else None
 
-    async def add(self, obj):
+    def add(self, obj):
         self.added.append(obj)
 
     async def flush(self):

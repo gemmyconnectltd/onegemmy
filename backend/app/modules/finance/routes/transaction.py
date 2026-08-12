@@ -57,12 +57,12 @@ async def update_transaction(id: uuid.UUID, data: TransactionUpdate, db: DbSessi
 @router.post("/finance/transactions/{id}/post")
 async def post_transaction(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.post_transaction(db, current_user.tenant_id, id)
+    obj = await service.post_transaction(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email)
     return success_response(data=obj.model_dump(), message="Transaction posted")
 
 
 @router.post("/finance/transactions/{id}/void")
 async def void_transaction(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.void_transaction(db, current_user.tenant_id, id)
+    obj = await service.void_transaction(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email)
     return success_response(data=obj.model_dump(), message="Transaction voided")

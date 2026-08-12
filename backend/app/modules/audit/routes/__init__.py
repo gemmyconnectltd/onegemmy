@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, DbSession, SuperUser
 from app.core.pagination import PageQuery

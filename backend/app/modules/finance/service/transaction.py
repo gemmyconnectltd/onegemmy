@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.audit.service import record_audit
 from app.modules.finance.models.transaction import Transaction
 from app.modules.finance.models.transaction_line import TransactionLine
 from app.modules.finance.repository import AccountRepository, TransactionRepository
@@ -58,6 +59,16 @@ async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
             description=line_data.description,
         )
         db.add(line)
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        action="transaction.create",
+        entity_type="transaction",
+        entity_id=str(txn.id),
+        summary=f"Created {data.type} transaction {reference} ({len(data.lines)} lines)",
+        changes={"type": data.type, "reference": reference, "lines": len(data.lines), "transaction_date": data.transaction_date},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, txn.id)
     return TransactionRead.model_validate(obj)
@@ -78,7 +89,7 @@ async def update_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UU
     return TransactionRead.model_validate(obj)
 
 
-async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> TransactionRead:
+async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None = None) -> TransactionRead:
     repo = TransactionRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -87,12 +98,23 @@ async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
         raise ValidationError(f"Cannot post a transaction with status '{obj.status}'")
     obj.status = "Posted"
     await repo.save(obj)
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="transaction.post",
+        entity_type="transaction",
+        entity_id=str(obj.id),
+        summary=f"Posted transaction {obj.reference}",
+        changes={"status": "Posted", "reference": obj.reference},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return TransactionRead.model_validate(obj)
 
 
-async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> TransactionRead:
+async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None = None) -> TransactionRead:
     repo = TransactionRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -101,6 +123,17 @@ async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
         raise ValidationError("Transaction is already void")
     obj.status = "Void"
     await repo.save(obj)
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="transaction.void",
+        entity_type="transaction",
+        entity_id=str(obj.id),
+        summary=f"Voided transaction {obj.reference}",
+        changes={"status": "Void", "reference": obj.reference},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return TransactionRead.model_validate(obj)

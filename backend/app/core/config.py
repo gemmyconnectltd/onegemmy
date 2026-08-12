@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql+asyncpg://onegemmy:onegemmy@localhost:5432/onegemmy"
+    DATABASE_NEON_URL: str = ""  # Production Neon DB — set in .env
 
     SECRET_KEY: str = "insecure-dev-key-change-me"
     ALGORITHM: str = "HS256"
