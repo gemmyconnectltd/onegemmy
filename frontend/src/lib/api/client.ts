@@ -2,9 +2,14 @@ import { clearApiQueryCache } from "./queryClient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://onegemmy.onrender.com/api/v1";
 
-// The backend is hosted on a free tier (Render) that sleeps when idle and can
-// take a while to cold-start. Time out gracefully instead of hanging forever.
 const REQUEST_TIMEOUT_MS = 60_000;
+
+let _refreshPromise: Promise<string | null> | null = null;
+let _onSessionExpired: (() => void) | null = null;
+
+export function setSessionExpiredHandler(fn: () => void) {
+  _onSessionExpired = fn;
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -16,8 +21,6 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-// Caching is owned by TanStack Query (see src/lib/api/queryClient.ts). This
-// hook lets code outside React (e.g. logout) drop all cached data too.
 export function clearApiCache() {
   clearApiQueryCache();
 }
@@ -47,6 +50,34 @@ export function clearStoredTokens() {
   }
 }
 
+async function tryRefreshToken(): Promise<string | null> {
+  // Deduplicate concurrent refresh calls
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = (async () => {
+    const refreshToken = getStoredRefreshToken();
+    if (!refreshToken) return null;
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }, REQUEST_TIMEOUT_MS);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const newToken = data?.data?.access_token;
+      const newRefresh = data?.data?.refresh_token;
+      if (newToken) setStoredToken(newToken);
+      if (newRefresh) setStoredRefreshToken(newRefresh);
+      return newToken ?? null;
+    } catch {
+      return null;
+    } finally {
+      _refreshPromise = null;
+    }
+  })();
+  return _refreshPromise;
+}
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
@@ -54,7 +85,24 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     ...(options.headers as Record<string, string>),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers }, REQUEST_TIMEOUT_MS);
+
+  // Auto-refresh on 401
+  if (res.status === 401) {
+    const newToken = await tryRefreshToken();
+    if (newToken) {
+      // Retry original request with new token
+      const retryHeaders = { ...headers, "Authorization": `Bearer ${newToken}` };
+      const retryRes = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers: retryHeaders }, REQUEST_TIMEOUT_MS);
+      if (retryRes.ok) return retryRes.json();
+    }
+    // Refresh failed — session expired
+    clearStoredTokens();
+    _onSessionExpired?.();
+    throw { status: 401, detail: "Session expired" };
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     const detail = Array.isArray(body.detail)

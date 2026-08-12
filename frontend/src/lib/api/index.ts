@@ -5,6 +5,7 @@ export {
   getStoredRefreshToken, setStoredRefreshToken,
   clearStoredTokens,
   clearApiCache,
+  setSessionExpiredHandler,
 } from "./client";
 
 // Shared response types
