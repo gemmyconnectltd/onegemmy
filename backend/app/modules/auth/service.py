@@ -22,6 +22,7 @@ from app.modules.auth.schemas import (
     TokenResponse,
     TokenUserInfo,
 )
+from app.modules.audit.service import record_audit
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
 
@@ -137,6 +138,17 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
         raise UnauthorizedError("User is inactive")
 
     log.info("auth.login.success", extra={"_extra_fields": {"user_id": str(user.id)}})
+    await record_audit(
+        db,
+        tenant_id=user.tenant_id,
+        actor_user_id=user.id,
+        actor_name=user.full_name or user.email,
+        action="login",
+        entity_type="user",
+        entity_id=str(user.id),
+        summary=f"User signed in",
+    )
+    await db.commit()
     return _issue_tokens(user)
 
 

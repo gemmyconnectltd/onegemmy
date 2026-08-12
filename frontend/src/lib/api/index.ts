@@ -55,6 +55,14 @@ export { hrApi, departmentsApi } from "./hr";
 export type { PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput } from "./procurement";
 export { procurementApi } from "./procurement";
 
+// Repairs, Batches, Serials, Transfers & Warranty
+export type { RepairJob, RepairJobPart, InventoryBatch, ApiSerial, ApiStockTransfer, ApiStockTransferItem, ApiBranch, ApiWarrantyClaim } from "./repairs";
+export { repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi } from "./repairs";
+
+// Manufacturing
+export type { ApiProductionOrder, ApiProductionItem } from "./manufacturing";
+export { manufacturingApi } from "./manufacturing";
+
 // Admin
 export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,

@@ -12,6 +12,7 @@ from app.core.logging import get_logger
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.core.security import hash_password
+from app.modules.audit.service import record_audit
 from app.modules.finance.models.transaction import Transaction
 from app.modules.finance.models.transaction_line import TransactionLine
 from app.modules.inventory.models.product import Product
@@ -128,11 +129,17 @@ async def admin_list_tenants(db: DbSession, _: SuperUser, page_params: PageQuery
 
 
 @router.post("/tenants", status_code=201)
-async def admin_create_tenant(data: TenantCreate, db: DbSession, _: SuperUser):
+async def admin_create_tenant(data: TenantCreate, db: DbSession, admin: SuperUser):
     existing = await TenantRepository(db).get_by_slug(data.slug)
     if existing:
         raise ConflictError(f"Tenant slug '{data.slug}' already exists")
     tenant = await service.create_tenant(db, data)
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.create", entity_type="tenant", entity_id=str(tenant.id),
+        summary=f"Tenant '{tenant.name}' created",
+    )
+    await db.commit()
     return success_response(data=tenant.model_dump(), message="Tenant created", status_code=201)
 
 
@@ -143,26 +150,52 @@ async def admin_get_tenant(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
 
 
 @router.patch("/tenants/{tenant_id}")
-async def admin_update_tenant(tenant_id: uuid.UUID, data: TenantUpdate, db: DbSession, _: SuperUser):
+async def admin_update_tenant(tenant_id: uuid.UUID, data: TenantUpdate, db: DbSession, admin: SuperUser):
     tenant = await service.update_tenant(db, tenant_id, data)
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.update", entity_type="tenant", entity_id=str(tenant_id),
+        summary=f"Tenant '{tenant.name}' updated",
+        changes=data.model_dump(exclude_unset=True),
+    )
+    await db.commit()
     return success_response(data=tenant.model_dump(), message="Tenant updated")
 
 
 @router.post("/tenants/{tenant_id}/suspend")
-async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
     tenant = await service.update_tenant(db, tenant_id, TenantUpdate(is_active=False))
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.suspend", entity_type="tenant", entity_id=str(tenant_id),
+        summary=f"Tenant '{tenant.name}' suspended",
+    )
+    await db.commit()
     return success_response(data=tenant.model_dump(), message="Tenant suspended")
 
 
 @router.post("/tenants/{tenant_id}/activate")
-async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
     tenant = await service.update_tenant(db, tenant_id, TenantUpdate(is_active=True))
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.activate", entity_type="tenant", entity_id=str(tenant_id),
+        summary=f"Tenant '{tenant.name}' activated",
+    )
+    await db.commit()
     return success_response(data=tenant.model_dump(), message="Tenant activated")
 
 
 @router.delete("/tenants/{tenant_id}")
-async def admin_delete_tenant(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_delete_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
+    tenant = await service.get_by_id(db, tenant_id)
     await service.delete_tenant(db, tenant_id)
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.delete", entity_type="tenant", entity_id=str(tenant_id),
+        summary=f"Tenant '{tenant.name if tenant else tenant_id}' deleted",
+    )
+    await db.commit()
     return success_response(message="Tenant deleted")
 
 
@@ -205,7 +238,7 @@ class InviteUserPayload(BaseModel):
 
 
 @router.post("/tenants/{tenant_id}/invite", status_code=201)
-async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: DbSession, _: SuperUser):
+async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: DbSession, admin: SuperUser):
     repo = UserRepository(db)
     existing = await repo.get_by_email_global(data.email)
     if existing:
@@ -226,6 +259,12 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="user.invite", entity_type="user", entity_id=str(user.id),
+        summary=f"User '{user.email}' invited to tenant",
+    )
+    await db.commit()
     await send_invite_email(
         to=user.email,
         full_name=user.full_name,
@@ -278,14 +317,27 @@ async def admin_get_tenant_features(tenant_id: uuid.UUID, db: DbSession, _: Supe
 
 
 @router.patch("/tenants/{tenant_id}/features")
-async def admin_set_tenant_features(tenant_id: uuid.UUID, data: FeatureOverrideUpdate, db: DbSession, _: SuperUser):
+async def admin_set_tenant_features(tenant_id: uuid.UUID, data: FeatureOverrideUpdate, db: DbSession, admin: SuperUser):
     states = await service.set_tenant_features(db, tenant_id, data)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.features.update", entity_type="tenant", entity_id=str(tenant_id),
+        summary="Tenant feature overrides updated",
+        changes=data.model_dump(exclude_unset=True),
+    )
+    await db.commit()
     return success_response(data=[s.model_dump() for s in states], message="Tenant features updated")
 
 
 @router.post("/tenants/{tenant_id}/features/reset")
-async def admin_reset_tenant_features(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_reset_tenant_features(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
     states = await service.reset_tenant_features(db, tenant_id)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.features.reset", entity_type="tenant", entity_id=str(tenant_id),
+        summary="Tenant feature overrides reset to defaults",
+    )
+    await db.commit()
     return success_response(data=[s.model_dump() for s in states], message="Tenant features reset to defaults")
 
 
@@ -296,8 +348,15 @@ async def admin_get_tenant_limits(tenant_id: uuid.UUID, db: DbSession, _: SuperU
 
 
 @router.patch("/tenants/{tenant_id}/limits")
-async def admin_set_tenant_limits(tenant_id: uuid.UUID, data: TenantLimitsUpdate, db: DbSession, _: SuperUser):
+async def admin_set_tenant_limits(tenant_id: uuid.UUID, data: TenantLimitsUpdate, db: DbSession, admin: SuperUser):
     limits = await service.set_tenant_limits(db, tenant_id, data)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.limits.update", entity_type="tenant", entity_id=str(tenant_id),
+        summary="Tenant limits updated",
+        changes=data.model_dump(exclude_unset=True),
+    )
+    await db.commit()
     return success_response(data=limits.model_dump(), message="Tenant limits updated")
 
 
@@ -340,25 +399,35 @@ async def admin_delete_tenant_branch(tenant_id: uuid.UUID, branch_id: uuid.UUID,
 
 
 @router.delete("/tenants/{tenant_id}/users/{user_id}")
-async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, admin: SuperUser):
     user = await db.get(User, user_id)
     if not user or user.tenant_id != tenant_id:
         raise NotFoundError("User not found in tenant")
     if user.is_superuser:
         raise ConflictError("Cannot remove a superuser")
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="user.delete", entity_type="user", entity_id=str(user_id),
+        summary=f"User '{user.email}' removed from tenant",
+    )
     await db.delete(user)
     await db.commit()
     return success_response(message="User removed")
 
 
 @router.post("/tenants/{tenant_id}/users/{user_id}/reset-password")
-async def admin_reset_tenant_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_reset_tenant_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, admin: SuperUser):
     user = await db.get(User, user_id)
     if not user or user.tenant_id != tenant_id:
         raise NotFoundError("User not found in tenant")
     temp_password = secrets.token_urlsafe(12)
     user.hashed_password = hash_password(temp_password)
     await UserRepository(db).save(user)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="user.password_reset", entity_type="user", entity_id=str(user_id),
+        summary=f"Password reset for '{user.email}'",
+    )
     await db.commit()
     log.info("admin.reset_password.success", extra={"_extra_fields": {"tenant_id": str(tenant_id), "user_id": str(user_id)}})
     return success_response(

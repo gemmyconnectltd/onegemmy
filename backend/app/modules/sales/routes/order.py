@@ -42,12 +42,18 @@ async def get_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
 @router.patch("/sales/orders/{id}")
 async def update_order(id: uuid.UUID, data: OrderUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.update_order(db, current_user.tenant_id, id, data)
+    obj = await service.update_order(
+        db, current_user.tenant_id, id, data,
+        user_id=current_user.id, user_name=current_user.full_name or current_user.email,
+    )
     return success_response(data=obj.model_dump(), message="Order updated successfully")
 
 
 @router.delete("/sales/orders/{id}")
 async def delete_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    await service.delete_order(db, current_user.tenant_id, id)
+    await service.delete_order(
+        db, current_user.tenant_id, id,
+        user_id=current_user.id, user_name=current_user.full_name or current_user.email,
+    )
     return success_response(message="Order deleted successfully")

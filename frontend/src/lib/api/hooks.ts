@@ -16,6 +16,8 @@ import {
 } from "@tanstack/react-query";
 import {
   inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
+  repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
+  type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
@@ -28,6 +30,8 @@ import {
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
+  type RepairJob, type InventoryBatch, type ApiSerial,
+  type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -340,6 +344,74 @@ export const useResetTenantFeatures = mutation((tenantId: string) => adminApi.re
 export const useSetTenantLimits = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.setTenantLimits>[1] }) => adminApi.setTenantLimits(tenantId, data), [[...TENANTS]]);
 export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.resetUserPassword(tenantId, userId), [[...TENANTS]]);
 
+// ── Repairs ────────────────────────────────────────────────────────────────────────────────────
+
+const REPAIRS_KEY = ["repairs"] as const;
+
+export const useRepairJobs = (status?: string, page = 1, pageSize = 50, opts?: QueryOpts) =>
+  useQ([...REPAIRS_KEY, status ?? "all", page, pageSize], () => repairsApi.list(status, page, pageSize), (r) => r.data, opts);
+
+export const useCreateRepairJob = mutation((d: object) => repairsApi.create(d), [[...REPAIRS_KEY]]);
+export const useUpdateRepairJob = mutation(({ id, data }: { id: string; data: object }) => repairsApi.update(id, data), [[...REPAIRS_KEY]]);
+export const useDeleteRepairJob = mutation((id: string) => repairsApi.delete(id), [[...REPAIRS_KEY]]);
+
+// ── Batches ────────────────────────────────────────────────────────────────────────────────────
+
+const BATCHES_KEY = ["inventory", "batches"] as const;
+
+export const useBatches = (productId?: string, expiringInDays?: number, page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...BATCHES_KEY, productId ?? "all", expiringInDays ?? "all", page, pageSize], () => batchesApi.list(productId, expiringInDays, page, pageSize), (r) => r.data, opts);
+
+export const useCreateBatch = mutation((d: object) => batchesApi.create(d), [[...BATCHES_KEY]]);
+export const useUpdateBatch = mutation(({ id, data }: { id: string; data: object }) => batchesApi.update(id, data), [[...BATCHES_KEY]]);
+export const useDeleteBatch = mutation((id: string) => batchesApi.delete(id), [[...BATCHES_KEY]]);
+
+// ── Serials ───────────────────────────────────────────────────────────────────────────────────
+
+const SERIALS_KEY = ["inventory", "serials"] as const;
+
+export const useSerials = (page = 1, pageSize = 100, productId?: string, status?: string, opts?: QueryOpts) =>
+  useQ([...SERIALS_KEY, page, pageSize, productId ?? "all", status ?? "all"], () => serialsApi.list(page, pageSize, productId, status), (r) => r.data, opts);
+
+export const useCreateSerials = mutation((items: object[]) => serialsApi.bulkCreate(items), [[...SERIALS_KEY]]);
+export const useDeleteSerial = mutation((id: string) => serialsApi.delete(id), [[...SERIALS_KEY]]);
+
+// ── Transfers ─────────────────────────────────────────────────────────────────
+
+const TRANSFERS_KEY = ["inventory", "transfers"] as const;
+const BRANCHES_KEY = ["inventory", "branches"] as const;
+
+export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
+  useQ([...TRANSFERS_KEY, page, pageSize, status ?? "all"], () => transfersApi.list(page, pageSize, status), (r) => r.data, opts);
+
+export const useMyBranches = (opts?: QueryOpts) =>
+  useQ([...BRANCHES_KEY], () => branchesApi.list(), (r) => r.data, opts);
+
+export const useCreateTransfer = mutation((d: object) => transfersApi.create(d), [[...TRANSFERS_KEY]]);
+export const useUpdateTransfer = mutation(({ id, data }: { id: string; data: object }) => transfersApi.update(id, data), [[...TRANSFERS_KEY]]);
+export const useDeleteTransfer = mutation((id: string) => transfersApi.delete(id), [[...TRANSFERS_KEY]]);
+
+// ── Warranty ──────────────────────────────────────────────────────────────────
+
+const WARRANTY_KEY = ["inventory", "warranty"] as const;
+
+export const useWarrantyClaims = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
+  useQ([...WARRANTY_KEY, page, pageSize, status ?? "all"], () => warrantyApi.list(page, pageSize, status), (r) => r.data, opts);
+
+export const useCreateWarrantyClaim = mutation((d: object) => warrantyApi.create(d), [[...WARRANTY_KEY]]);
+export const useUpdateWarrantyClaim = mutation(({ id, data }: { id: string; data: object }) => warrantyApi.update(id, data), [[...WARRANTY_KEY]]);
+
+// ── Manufacturing ─────────────────────────────────────────────────────────────
+
+const PRODUCTION_KEY = ["manufacturing", "orders"] as const;
+
+export const useProductionOrders = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...PRODUCTION_KEY, page, pageSize], () => manufacturingApi.listProductionOrders(page, pageSize), (r) => r.data, opts);
+
+export const useCreateProductionOrder = mutation((d: object) => manufacturingApi.createProductionOrder(d), [[...PRODUCTION_KEY], [...PRODUCTS], [...VALUATION]]);
+export const useCompleteProductionOrder = mutation((id: string) => manufacturingApi.completeProductionOrder(id), [[...PRODUCTION_KEY], [...PRODUCTS], [...VALUATION]]);
+export const useDeleteProductionOrder = mutation((id: string) => manufacturingApi.deleteProductionOrder(id), [[...PRODUCTION_KEY]]);
+
 // ── Re-export the response types for convenience ────────────────────────────
 
 export type {
@@ -352,4 +424,5 @@ export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
+  RepairJob, InventoryBatch, ApiSerial, ApiStockTransfer, ApiWarrantyClaim, ApiProductionOrder,
 };

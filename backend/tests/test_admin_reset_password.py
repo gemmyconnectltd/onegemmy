@@ -17,13 +17,27 @@ class _FakeUser:
         self.hashed_password = "old-hash"
 
 
+class _FakeAdmin:
+    def __init__(self):
+        self.id = uuid.uuid4()
+        self.email = "superadmin@onegemmy.com"
+        self.full_name = "Super Admin"
+
+
 class _FakeDB:
     def __init__(self, user):
         self._user = user
         self.committed = False
+        self.added = []
 
     async def get(self, _model, user_id):
         return self._user if self._user and self._user.id == user_id else None
+
+    async def add(self, obj):
+        self.added.append(obj)
+
+    async def flush(self):
+        return None
 
     async def commit(self):
         self.committed = True
@@ -36,7 +50,7 @@ async def _call(monkeypatch, user, tenant_id, user_id):
         return u
     monkeypatch.setattr("app.modules.admin.routes.UserRepository.save", fake_save)
     db = _FakeDB(user)
-    res = await routes.admin_reset_tenant_user_password(tenant_id, user_id, db, None)
+    res = await routes.admin_reset_tenant_user_password(tenant_id, user_id, db, _FakeAdmin())
     return res, db, saved
 
 
@@ -54,6 +68,19 @@ async def test_reset_tenant_user_password_sets_new_hash(monkeypatch):
     assert len(body["data"]["temp_password"]) >= 12
     assert db.committed is True
     assert saved and saved[0].hashed_password != "old-hash"
+
+
+@pytest.mark.asyncio
+async def test_reset_tenant_user_password_audits(monkeypatch):
+    uid, tid = uuid.uuid4(), uuid.uuid4()
+    user = _FakeUser(uid, tid)
+
+    res, db, _ = await _call(monkeypatch, user, tid, uid)
+
+    assert db.committed is True
+    assert len(db.added) >= 1
+    assert db.added[-1].action == "user.password_reset"
+    assert db.added[-1].entity_id == str(uid)
 
 
 @pytest.mark.asyncio

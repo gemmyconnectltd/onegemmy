@@ -14,7 +14,7 @@ import { useAppConfig } from "@/lib/appConfig";
 
 type ModuleKey =
   | "sales" | "finance" | "hr" | "crm" | "procurement"
-  | "manufacturing" | "customers" | "inventory" | "reports" | "settings";
+  | "manufacturing" | "customers" | "inventory" | "reports" | "settings" | "repairs";
 
 type Orientation = "top" | "left" | "big";
 
@@ -94,6 +94,9 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "units",      href: "/inventory/units",      icon: Ruler,           color: "#059669" },
     { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck,           color: "#059669" },
     { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
+    { nameKey: "serials",    href: "/inventory/serials",    icon: Star,            color: "#059669" },
+    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck,           color: "#059669" },
+    { nameKey: "batches",    href: "/inventory/batches",    icon: Package,         color: "#059669" },
   ],
   reports: [
     { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, color: "#1e40af", exact: true },
@@ -108,6 +111,9 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "security",      href: "/settings/security",      icon: Shield,   color: "#4f46e5" },
     { nameKey: "notifications", href: "/settings/notifications", icon: Bell,     color: "#4f46e5" },
     { nameKey: "appearance",    href: "/settings/appearance",    icon: Palette,  color: "#4f46e5" },
+  ],
+  repairs: [
+    { nameKey: "allJobs", href: "/repairs", icon: Hammer, color: "#7c3aed", exact: true },
   ],
 };
 

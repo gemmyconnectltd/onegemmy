@@ -5,6 +5,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.audit.service import record_audit
 from app.modules.finance.schemas.tax import TaxCalculationCreate
 from app.modules.finance.service.tax import create_tax_calculation
 from app.modules.finance.service.transaction import create_sale_transaction
@@ -201,6 +202,17 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         await create_sale_transaction(db, tenant_id, user_id, order.id, total, order_number)
         await _record_vat(db, tenant_id, order.id, data.tax, total)
 
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=None,
+        action="order.create",
+        entity_type="order",
+        entity_id=str(order.id),
+        summary=f"Order {order_number} created ({data.status})",
+        changes={"total": total, "items": len(data.items)},
+    )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
     return OrderRead.model_validate(obj)
@@ -228,11 +240,12 @@ async def _assign_serials(
         await mark_serial_sold(db, tenant_id, serial_id, order_item_id, 0)
 
 
-async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: OrderUpdate) -> OrderRead:
+async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: OrderUpdate, user_id: uuid.UUID | None = None, user_name: str | None = None) -> OrderRead:
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
     was_completed = obj.status == "Completed"
+    before = obj.status
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, field, value)
     obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
@@ -243,16 +256,37 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         await create_sale_transaction(db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number)
         await _record_vat(db, tenant_id, obj.id, float(obj.tax), float(obj.total))
     await OrderRepository(db).save(obj)
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="order.update",
+        entity_type="order",
+        entity_id=str(id),
+        summary=f"Order {obj.order_number} updated",
+        changes={"before": {"status": before}, "after": {"status": obj.status}},
+    )
     await db.commit()
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     return OrderRead.model_validate(obj)
 
 
-async def delete_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> None:
+async def delete_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID | None = None, user_name: str | None = None) -> None:
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
     if obj.status == "Completed":
         raise ValidationError("Cannot delete a completed order")
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        actor_name=user_name,
+        action="order.delete",
+        entity_type="order",
+        entity_id=str(id),
+        summary=f"Order {obj.order_number} deleted",
+    )
     await OrderRepository(db).delete(obj)
     await db.commit()

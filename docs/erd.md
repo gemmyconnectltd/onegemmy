@@ -721,6 +721,86 @@ Table purchase_items {
 }
 
 // ============================================================
+// REPAIRS MODULE
+// ============================================================
+
+Table repair_jobs {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  job_number varchar(50) [not null, note: "e.g. REP-0001 — unique per tenant"]
+  status varchar(20) [not null, default: "received", note: "received | diagnosing | waiting_parts | in_repair | ready | delivered | cancelled"]
+  device_type varchar(100) [not null, note: "e.g. Phone, Laptop, Tablet"]
+  device_brand varchar(100)
+  device_model varchar(100)
+  serial_number varchar(100)
+  imei varchar(30)
+  device_condition varchar(255)
+  reported_issue text [not null]
+  diagnosis text
+  resolution_notes text
+  estimated_cost numeric(12,2) [default: 0]
+  final_cost numeric(12,2) [default: 0]
+  received_at timestamptz [default: `now()`]
+  promised_at timestamptz
+  completed_at timestamptz
+  customer_id uuid [ref: > sales_customers.id, note: "SET NULL on delete"]
+  assigned_to uuid [ref: > users.id, note: "Technician — SET NULL on delete"]
+  created_by uuid [ref: > users.id, note: "SET NULL on delete"]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, job_number) [unique]
+    (tenant_id, status)
+    (tenant_id, customer_id)
+  }
+}
+
+Table repair_job_parts {
+  id uuid [primary key]
+  job_id uuid [not null, ref: > repair_jobs.id, note: "CASCADE on delete"]
+  product_id uuid [ref: > inventory_products.id, note: "SET NULL on delete"]
+  part_name varchar(255) [not null, note: "Snapshot name"]
+  quantity numeric(12,3) [not null, default: 1]
+  unit_cost numeric(12,2) [default: 0]
+  line_total numeric(14,2) [default: 0]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    job_id
+  }
+}
+
+// ============================================================
+// INVENTORY BATCHES (Expiry & Lot Tracking)
+// ============================================================
+
+Table inventory_batches {
+  id uuid [primary key]
+  tenant_id uuid [not null, ref: > tenants.id]
+  product_id uuid [not null, ref: > inventory_products.id, note: "CASCADE on delete"]
+  variant_id uuid [ref: > inventory_product_variants.id, note: "SET NULL on delete"]
+  purchase_order_id uuid [ref: > purchase_orders.id, note: "SET NULL on delete"]
+  batch_number varchar(100) [not null, note: "Lot/batch number — unique per tenant"]
+  quantity numeric(14,3) [not null]
+  quantity_remaining numeric(14,3) [not null]
+  unit_cost numeric(12,2) [default: 0]
+  manufactured_date date
+  expiry_date date [note: "null = no expiry"]
+  received_at timestamptz [default: `now()`]
+  supplier_id uuid [ref: > inventory_suppliers.id, note: "SET NULL on delete"]
+  notes text
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+
+  indexes {
+    (tenant_id, batch_number) [unique]
+    (tenant_id, product_id)
+    (tenant_id, expiry_date)
+  }
+}
+
+// ============================================================
 // RELATIONSHIPS SUMMARY
 // ============================================================
 

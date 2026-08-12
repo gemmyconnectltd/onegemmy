@@ -10,7 +10,8 @@ from app.core.config import settings
 from app.core.database import Base
 
 # Import all models so they register on Base.metadata before autogenerate runs.
-from app.modules.inventory.models import Brand, Category, Product, ProductVariant, Supplier, Unit  # noqa: F401
+from app.modules.audit.models import AuditLog  # noqa: F401
+from app.modules.inventory.models import Brand, Category, InventoryBatch, Product, ProductSerial, ProductVariant, StockTransfer, StockTransferItem, Supplier, Unit, WarrantyClaim  # noqa: F401
 from app.modules.tenants.models import Branch, Department, Permission, Role, Tenant, User  # noqa: F401
 from app.modules.sales.models import Customer, Deal, Order, OrderItem, Return, ReturnItem, Target  # noqa: F401
 from app.modules.finance.models import Account, Transaction, TransactionLine, Budget, Expense  # noqa: F401
@@ -18,6 +19,7 @@ from app.modules.hr.models import Applicant, Attendance, Employee, LeaveRequest,
 from app.modules.procurement.models import PurchaseItem, PurchaseOrder  # noqa: F401
 from app.modules.crm.models import Campaign, EmailLog  # noqa: F401
 from app.modules.manufacturing.models import ProductionItem, ProductionOrder  # noqa: F401
+from app.modules.repairs.models import RepairJob, RepairJobPart  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
