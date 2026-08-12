@@ -30,8 +30,7 @@ import {
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
-  type RepairJob, type InventoryBatch, type ApiSerial,
-  type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
+  type RepairJob, type InventoryBatch,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────

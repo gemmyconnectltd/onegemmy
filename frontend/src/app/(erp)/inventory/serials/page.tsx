@@ -34,7 +34,7 @@ export default function SerialsPage() {
     if (valid.length === 0 || createSerials.isPending) return;
     try {
       const res = await createSerials.mutateAsync(valid);
-      setResult(`Registered ${res?.data?.length ?? valid.length} serial(s)`);
+      setResult(`Registered ${res?.data?.items?.length ?? valid.length} serial(s)`);
       setAdding(false);
       setBulk([{ product_id: "", serial_number: "", imei: "", warranty_months: 0, purchase_price: 0, notes: "" }]);
     } catch { setResult("Failed to register serials"); }
