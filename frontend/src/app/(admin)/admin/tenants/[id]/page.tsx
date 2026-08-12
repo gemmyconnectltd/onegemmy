@@ -18,10 +18,17 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import Link from "next/link";
-import { SecondSidebar, type SectionItem } from "@/components/dashboard/SecondSidebar";
 import FeaturesPanel from "./FeaturesPanel";
 
 type Tab = "features" | "users" | "departments" | "roles" | "branches";
+
+type SectionItem = {
+  key: string;
+  label: string;
+  icon: React.ElementType;
+  count?: number;
+  color?: string;
+};
 
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -222,11 +229,11 @@ export default function TenantDetailPage() {
   };
 
   const sections: SectionItem[] = [
-    { key: "features", label: "Features & Access", icon: SlidersHorizontal },
-    { key: "users", label: "Users", count: users.length, icon: Users },
-    { key: "departments", label: "Departments", count: departments.length, icon: Layers },
-    { key: "roles", label: "Roles", count: roles.length, icon: Shield },
-    { key: "branches", label: "Branches", count: branches.length, icon: Building2 },
+    { key: "features", label: "Features & Access", icon: SlidersHorizontal, color: "#0284c7" },
+    { key: "users", label: "Users", count: users.length, icon: Users, color: "#7c3aed" },
+    { key: "departments", label: "Departments", count: departments.length, icon: Layers, color: "#0f766e" },
+    { key: "roles", label: "Roles", count: roles.length, icon: Shield, color: "#b45309" },
+    { key: "branches", label: "Branches", count: branches.length, icon: Building2, color: "#059669" },
   ];
 
   return (
@@ -300,17 +307,35 @@ export default function TenantDetailPage() {
       )}
 
       {/* Section nav + panels */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="lg:flex-shrink-0 lg:w-52">
-          <SecondSidebar
-            sections={sections}
-            activeKey={tab}
-            onSelect={(key) => setTab(key as Tab)}
-            label={tenant.name}
-            defaultOrientation="left"
-            showToggle={false}
-          />
-        </div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+        <nav className="lg:w-44 lg:flex-shrink-0">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 lg:flex-col lg:gap-1 lg:mx-0 lg:px-0 lg:pb-0 lg:overflow-x-visible lg:sticky lg:top-24">
+            {sections.map((s) => {
+              const active = tab === s.key;
+              const color = s.color ?? "#0284c7";
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => setTab(s.key as Tab)}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-colors flex-shrink-0 lg:flex-shrink ${
+                    active ? "text-white shadow-sm" : "text-muted hover:bg-surface/70 hover:text-foreground"
+                  }`}
+                  style={active ? { backgroundColor: color } : undefined}
+                >
+                  <s.icon size={15} strokeWidth={active ? 2.2 : 1.8} style={{ color: active ? "#fff" : color }} className="flex-shrink-0" />
+                  <span className="lg:truncate">{s.label}</span>
+                  {typeof s.count === "number" && (
+                    <span className={`ml-auto text-[11px] px-1.5 py-0.5 rounded-md ${active ? "bg-white/20 text-white" : "bg-surface text-muted"}`}>
+                      {s.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
         <div className="flex-1 min-w-0 space-y-6">
           {/* Features & Access panel */}
           {tab === "features" && <FeaturesPanel tenantId={id} />}
