@@ -30,9 +30,7 @@ export default function TenantDetailPage() {
   const c = chartPalette(theme === "dark");
 
   const [acting, setActing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [tab, setTab] = useState<Tab>("users");
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
@@ -50,9 +48,9 @@ export default function TenantDetailPage() {
   const { data: tenant, isLoading: tenantLoading, isError: tenantError } = useTenant(id);
   const { data: stats, isLoading: statsLoading, isError: statsError } = useTenantStats(id);
   const { data: usersData, isLoading: usersLoading, isError: usersError } = useTenantUsers(id);
-  const { data: departmentsData, isLoading: deptsLoading, isError: deptsError } = useTenantDepartments(id);
-  const { data: rolesData, isLoading: rolesLoading, isError: rolesError } = useTenantRoles(id);
-  const { data: branchesData, isLoading: branchesLoading, isError: branchesError } = useTenantBranches(id);
+  const { data: departmentsData, isError: deptsError } = useTenantDepartments(id);
+  const { data: rolesData, isError: rolesError } = useTenantRoles(id);
+  const { data: branchesData, isError: branchesError } = useTenantBranches(id);
 
   const users = usersData?.items ?? [];
   const departments = departmentsData?.items ?? [];
@@ -60,13 +58,7 @@ export default function TenantDetailPage() {
   const branches = branchesData?.items ?? [];
 
   const loading = tenantLoading || statsLoading || usersLoading;
-  const isError = tenantError || statsError || usersError || deptsError || rolesError || branchesError;
-
-  const loadErrorMessage = isError ? "Failed to load tenant" : null;
-  if (loadErrorMessage !== shownLoadError) {
-    setShownLoadError(loadErrorMessage);
-    if (loadErrorMessage !== null) setError(loadErrorMessage);
-  }
+  const coreError = tenantError || statsError || usersError;
 
   const suspendTenant = useSuspendTenant();
   const activateTenant = useActivateTenant();
@@ -82,10 +74,14 @@ export default function TenantDetailPage() {
 
   const toggleStatus = () => {
     if (!tenant) return;
+    const action = tenant.is_active ? "suspend" : "activate";
+    if (!confirm(`Are you sure you want to ${action} "${tenant.name}"? This affects the whole company.`)) return;
     setActing(true);
+    setNotice(null);
     const m = tenant.is_active ? suspendTenant : activateTenant;
     m.mutate(id, {
-      onError: () => setError("Failed to update status"),
+      onSuccess: () => setNotice({ kind: "success", text: `Tenant ${action}d` }),
+      onError: () => setNotice({ kind: "error", text: "Failed to update status" }),
       onSettled: () => setActing(false),
     });
   };
@@ -96,16 +92,17 @@ export default function TenantDetailPage() {
       onSuccess: () => {
         setShowInvite(false);
         setInviteForm({ email: "", full_name: "", role: "member", password: "" });
-        setNotice(null);
+        setNotice({ kind: "success", text: "User invited" });
       },
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to invite user"),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to invite user" }),
     });
   };
 
   const handleRemoveUser = (u: { id: string; full_name: string }) => {
+    if (!confirm(`Remove ${u.full_name} from this tenant? They will lose access immediately.`)) return;
     deleteUser.mutate({ tenantId: id, userId: u.id }, {
-      onSuccess: () => setNotice(null),
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to remove user"),
+      onSuccess: () => setNotice({ kind: "success", text: "User removed" }),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to remove user" }),
     });
   };
 
@@ -115,15 +112,17 @@ export default function TenantDetailPage() {
       onSuccess: () => {
         setShowAddDept(false);
         setDeptForm({ name: "", description: "" });
-        setNotice(null);
+        setNotice({ kind: "success", text: "Department created" });
       },
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to create department"),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to create department" }),
     });
   };
 
-  const handleRemoveDepartment = (d: { id: string }) => {
+  const handleRemoveDepartment = (d: { id: string; name: string }) => {
+    if (!confirm(`Delete department "${d.name}"?`)) return;
     deleteDepartment.mutate({ tenantId: id, departmentId: d.id }, {
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to delete department"),
+      onSuccess: () => setNotice({ kind: "success", text: "Department deleted" }),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete department" }),
     });
   };
 
@@ -133,15 +132,17 @@ export default function TenantDetailPage() {
       onSuccess: () => {
         setShowAddRole(false);
         setRoleForm({ name: "", description: "" });
-        setNotice(null);
+        setNotice({ kind: "success", text: "Role created" });
       },
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to create role"),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to create role" }),
     });
   };
 
-  const handleRemoveRole = (r: { id: string }) => {
+  const handleRemoveRole = (r: { id: string; name: string }) => {
+    if (!confirm(`Delete role "${r.name}"?`)) return;
     deleteRole.mutate({ tenantId: id, roleId: r.id }, {
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to delete role"),
+      onSuccess: () => setNotice({ kind: "success", text: "Role deleted" }),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete role" }),
     });
   };
 
@@ -151,15 +152,17 @@ export default function TenantDetailPage() {
       onSuccess: () => {
         setShowAddBranch(false);
         setBranchForm({ name: "", location: "" });
-        setNotice(null);
+        setNotice({ kind: "success", text: "Branch created" });
       },
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to create branch"),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to create branch" }),
     });
   };
 
-  const handleRemoveBranch = (b: { id: string }) => {
+  const handleRemoveBranch = (b: { id: string; name: string }) => {
+    if (!confirm(`Delete branch "${b.name}"?`)) return;
     deleteBranch.mutate({ tenantId: id, branchId: b.id }, {
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to delete branch"),
+      onSuccess: () => setNotice({ kind: "success", text: "Branch deleted" }),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete branch" }),
     });
   };
 
@@ -176,7 +179,7 @@ export default function TenantDetailPage() {
       onSuccess: (res) => {
         setTempPassword(res.data?.temp_password ?? null);
       },
-      onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Failed to reset password"),
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to reset password" }),
     });
   };
 
@@ -197,12 +200,12 @@ export default function TenantDetailPage() {
     </div>
   );
 
-  if (error || !tenant) return (
+  if (coreError || !tenant) return (
     <div className="space-y-4">
       <button onClick={() => router.back()} className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors">
         <ArrowLeft size={14} /> Back
       </button>
-      <div className="text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error ?? "Tenant not found"}</div>
+      <div className="text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{coreError ? "Failed to load tenant" : "Tenant not found"}</div>
     </div>
   );
 
@@ -283,8 +286,15 @@ export default function TenantDetailPage() {
       </div>
 
       {notice && (
-        <div className="text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-          <span>{notice}</span>
+        <div className={`flex items-center justify-between gap-3 text-sm rounded-xl px-4 py-3 border ${
+          notice.kind === "error"
+            ? "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20"
+            : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+        }`}>
+          <span className="flex items-center gap-2">
+            {notice.kind === "error" ? <XCircle size={14} /> : <CheckCircle size={14} />}
+            {notice.text}
+          </span>
           <button onClick={() => setNotice(null)} className="text-muted hover:text-foreground transition-colors"><X size={14} /></button>
         </div>
       )}
@@ -314,16 +324,17 @@ export default function TenantDetailPage() {
               <UserPlus size={13} /> Invite
             </button>
           </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
-                <th className="px-5 py-3 font-semibold">User</th>
-                <th className="px-5 py-3 font-semibold">Role</th>
-                <th className="px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3 font-semibold">Joined</th>
-                <th className="px-5 py-3 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px]">
+              <thead>
+                <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
+                  <th className="px-5 py-3 font-semibold">User</th>
+                  <th className="px-5 py-3 font-semibold">Role</th>
+                  <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold">Joined</th>
+                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
             <tbody className="divide-y divide-border">
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-surface/40 transition-colors">
@@ -348,19 +359,23 @@ export default function TenantDetailPage() {
                       {!u.is_superuser && (
                         <button
                           onClick={() => handleResetPassword(u)}
-                          disabled={resetPassword.isPending}
+                          disabled={resetPassword.isPending && resetPassword.variables?.userId === u.id}
                           className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
                         >
-                          <KeyRound size={13} /> Reset
+                          {resetPassword.isPending && resetPassword.variables?.userId === u.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <KeyRound size={13} />} Reset
                         </button>
                       )}
                       {!u.is_superuser && (
                         <button
                           onClick={() => handleRemoveUser(u)}
-                          disabled={deleteUser.isPending}
+                          disabled={deleteUser.isPending && deleteUser.variables?.userId === u.id}
                           className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
                         >
-                          <Trash2 size={13} /> Remove
+                          {deleteUser.isPending && deleteUser.variables?.userId === u.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={13} />} Remove
                         </button>
                       )}
                     </div>
@@ -368,11 +383,15 @@ export default function TenantDetailPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
           {users.length === 0 && (
             <div className="py-12 text-center">
               <Users size={28} className="text-muted/30 mx-auto mb-2" />
               <p className="text-sm text-muted">No users yet</p>
+              <button onClick={() => setShowInvite(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[12px] font-semibold transition-colors">
+                <UserPlus size={13} /> Invite the first user
+              </button>
             </div>
           )}
         </div>
@@ -387,10 +406,16 @@ export default function TenantDetailPage() {
               <Plus size={13} /> Add
             </button>
           </div>
+          {deptsError && (
+            <div className="px-5 py-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border-b border-red-500/20">Failed to load departments.</div>
+          )}
           {departments.length === 0 ? (
             <div className="py-12 text-center">
               <Layers size={28} className="text-muted/30 mx-auto mb-2" />
               <p className="text-sm text-muted">No departments yet</p>
+              <button onClick={() => setShowAddDept(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[12px] font-semibold transition-colors">
+                <Plus size={13} /> Add a department
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -402,10 +427,12 @@ export default function TenantDetailPage() {
                   </div>
                   <button
                     onClick={() => handleRemoveDepartment(d)}
-                    disabled={deleteDepartment.isPending}
+                    disabled={deleteDepartment.isPending && deleteDepartment.variables?.departmentId === d.id}
                     className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 shrink-0"
                   >
-                    <Trash2 size={13} /> Delete
+                    {deleteDepartment.isPending && deleteDepartment.variables?.departmentId === d.id
+                      ? <Loader2 size={13} className="animate-spin" />
+                      : <Trash2 size={13} />} Delete
                   </button>
                 </div>
               ))}
@@ -423,10 +450,16 @@ export default function TenantDetailPage() {
               <Plus size={13} /> Add
             </button>
           </div>
+          {rolesError && (
+            <div className="px-5 py-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border-b border-red-500/20">Failed to load roles.</div>
+          )}
           {roles.length === 0 ? (
             <div className="py-12 text-center">
               <Shield size={28} className="text-muted/30 mx-auto mb-2" />
               <p className="text-sm text-muted">No roles yet</p>
+              <button onClick={() => setShowAddRole(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[12px] font-semibold transition-colors">
+                <Plus size={13} /> Add a role
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -438,10 +471,12 @@ export default function TenantDetailPage() {
                   </div>
                   <button
                     onClick={() => handleRemoveRole(r)}
-                    disabled={deleteRole.isPending}
+                    disabled={deleteRole.isPending && deleteRole.variables?.roleId === r.id}
                     className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 shrink-0"
                   >
-                    <Trash2 size={13} /> Delete
+                    {deleteRole.isPending && deleteRole.variables?.roleId === r.id
+                      ? <Loader2 size={13} className="animate-spin" />
+                      : <Trash2 size={13} />} Delete
                   </button>
                 </div>
               ))}
@@ -459,10 +494,16 @@ export default function TenantDetailPage() {
               <Plus size={13} /> Add
             </button>
           </div>
+          {branchesError && (
+            <div className="px-5 py-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border-b border-red-500/20">Failed to load branches.</div>
+          )}
           {branches.length === 0 ? (
             <div className="py-12 text-center">
               <Building2 size={28} className="text-muted/30 mx-auto mb-2" />
               <p className="text-sm text-muted">No branches yet</p>
+              <button onClick={() => setShowAddBranch(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[12px] font-semibold transition-colors">
+                <Plus size={13} /> Add a branch
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -474,10 +515,12 @@ export default function TenantDetailPage() {
                   </div>
                   <button
                     onClick={() => handleRemoveBranch(b)}
-                    disabled={deleteBranch.isPending}
+                    disabled={deleteBranch.isPending && deleteBranch.variables?.branchId === b.id}
                     className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 shrink-0"
                   >
-                    <Trash2 size={13} /> Delete
+                    {deleteBranch.isPending && deleteBranch.variables?.branchId === b.id
+                      ? <Loader2 size={13} className="animate-spin" />
+                      : <Trash2 size={13} />} Delete
                   </button>
                 </div>
               ))}
