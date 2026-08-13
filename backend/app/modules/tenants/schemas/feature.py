@@ -13,7 +13,8 @@ class FeatureFlagRead(BaseModel):
 
 
 class FeatureOverrideUpdate(BaseModel):
-    """Per-tenant feature overrides. Only keys present are applied."""
+    """Per-tenant feature overrides. The map is authoritative: keys set to their
+    catalog default are dropped, replacing the tenant's full override set."""
 
     features: dict[str, bool] = Field(default_factory=dict)
 

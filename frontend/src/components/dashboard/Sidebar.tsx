@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { useMyEntitlements } from "@/lib/api/hooks";
 import {
   LayoutDashboard, ShoppingCart, Warehouse,
   Users, BarChart3, Settings, LogOut,
@@ -23,13 +24,13 @@ const adminNavItems = [
 
 const navItems = [
   { name: "Dashboard",   href: "/dashboard",     icon: LayoutDashboard, color: "#4f46e5" },
-  { name: "Sales",       href: "/sales",         icon: ShoppingCart,    color: "#0284c7" },
-  { name: "Inventory",   href: "/inventory",     icon: Warehouse,       color: "#059669" },
-  { name: "Finance",     href: "/finance",       icon: HandCoins,       color: "#b45309" },
-  { name: "Procurement", href: "/procurement",   icon: ShoppingBag,     color: "#0e7490" },
-  { name: "HR",          href: "/hr",            icon: UserCog,         color: "#7c3aed" },
-  { name: "Customers",   href: "/customers",     icon: Users,           color: "#0f766e" },
-  { name: "Mfg",         href: "/manufacturing", icon: Factory,         color: "#92400e" },
+  { name: "Sales",       href: "/sales",         icon: ShoppingCart,    color: "#0284c7", feature: "sales" },
+  { name: "Inventory",   href: "/inventory",     icon: Warehouse,       color: "#059669", feature: "inventory" },
+  { name: "Finance",     href: "/finance",       icon: HandCoins,       color: "#b45309", feature: "finance" },
+  { name: "Procurement", href: "/procurement",   icon: ShoppingBag,     color: "#0e7490", feature: "procurement" },
+  { name: "HR",          href: "/hr",            icon: UserCog,         color: "#7c3aed", feature: "hr" },
+  { name: "Customers",   href: "/customers",     icon: Users,           color: "#0f766e", feature: "sales" },
+  { name: "Mfg",         href: "/manufacturing", icon: Factory,         color: "#92400e", feature: "manufacturing" },
   { name: "Reports",     href: "/reports",       icon: BarChart3,       color: "#1e40af" },
 ];
 
@@ -65,7 +66,11 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
   const { user, logout } = useAuth();
   const router = useRouter();
   const admin = variant === "admin";
-  const items = admin ? adminNavItems : navItems;
+  const { data: entitlements } = useMyEntitlements({ enabled: !admin });
+  const enabledFeatures = entitlements?.features;
+  const items = admin
+    ? adminNavItems
+    : navItems.filter((i) => !i.feature || enabledFeatures?.[i.feature] !== false);
   const mobileItems = items.slice(0, 5);
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -102,7 +107,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
 
           {/* Nav items */}
           <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto">
-            {navItems.map((item) => {
+            {items.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
@@ -308,7 +313,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
   );
 }
 
-type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>; color: string };
+type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>; color: string; feature?: string };
 
 // ── Shared mobile bottom nav ─────────────────────────────────────────────────
 function mobileBottomNav({

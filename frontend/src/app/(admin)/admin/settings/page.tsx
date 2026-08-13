@@ -1,17 +1,21 @@
 "use client";
 import { useState } from "react";
 import React from "react";
-import { Settings, Shield, Bell, Globe, Key, Save, CheckCircle } from "lucide-react";
+import { Shield, Bell, Globe, Key, Save, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { Toggle } from "@/components/ui/Toggle";
 
 export default function AdminSettingsPage() {
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
+  const [toggles, setToggles] = useState<Record<string, boolean>>({});
 
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const toggleValue = (label: string, initial: boolean) => toggles[label] ?? initial;
 
   const sections: {
     icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
@@ -97,12 +101,12 @@ export default function AdminSettingsPage() {
               <div key={item.label} className="px-5 py-4 flex items-center justify-between gap-4">
                 <label className="text-sm font-medium text-foreground">{item.label}</label>
                 {item.type === "toggle" && (
-                  <button
-                    className={`relative w-10 h-5 rounded-full transition-colors ${item.value ? "bg-accent" : "bg-border"}`}
-                    onClick={() => {}}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${item.value ? "translate-x-5" : "translate-x-0.5"}`} />
-                  </button>
+                  <Toggle
+                    checked={toggleValue(item.label, item.value as boolean)}
+                    label={item.label}
+                    size="sm"
+                    onChange={(v) => setToggles((prev) => ({ ...prev, [item.label]: v }))}
+                  />
                 )}
                 {item.type === "number" && (
                   <input

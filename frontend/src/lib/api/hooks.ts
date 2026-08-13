@@ -17,6 +17,7 @@ import {
 import {
   inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
   repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
+  tenantsApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
@@ -342,6 +343,13 @@ export const useSetTenantFeatures = mutation(({ tenantId, features }: { tenantId
 export const useResetTenantFeatures = mutation((tenantId: string) => adminApi.resetTenantFeatures(tenantId), [[...TENANTS]]);
 export const useSetTenantLimits = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.setTenantLimits>[1] }) => adminApi.setTenantLimits(tenantId, data), [[...TENANTS]]);
 export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.resetUserPassword(tenantId, userId), [[...TENANTS]]);
+
+// ── Current tenant entitlements ───────────────────────────────────────────────
+
+const ENTITLEMENTS = ["tenants", "me", "entitlements"] as const;
+
+export const useMyEntitlements = (opts?: QueryOpts) =>
+  useQ([...ENTITLEMENTS], () => tenantsApi.entitlements(), (r) => r.data, opts);
 
 // ── Repairs ────────────────────────────────────────────────────────────────────────────────────
 

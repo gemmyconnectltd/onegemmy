@@ -44,7 +44,11 @@ async def feature_enabled(db: AsyncSession, tenant_id: uuid.UUID, key: str) -> b
 
 
 async def get_tenant_feature_state(db: AsyncSession, tenant_id: uuid.UUID) -> list[TenantFeatureState]:
-    flags = await list_feature_flags(db)
+    flags = (await db.execute(
+        select(FeatureFlag)
+        .where(FeatureFlag.is_active.is_(True))
+        .order_by(FeatureFlag.module, FeatureFlag.key)
+    )).scalars().all()
     tenant = await _get_tenant(db, tenant_id)
     overrides = tenant.features or {}
     return [
@@ -65,9 +69,7 @@ async def set_tenant_features(
     db: AsyncSession, tenant_id: uuid.UUID, data: FeatureOverrideUpdate
 ) -> list[TenantFeatureState]:
     tenant = await _get_tenant(db, tenant_id)
-    merged = dict(tenant.features or {})
-    merged.update(data.features)
-    tenant.features = merged
+    tenant.features = dict(data.features)
     await TenantRepository(db).save(tenant)
     await db.commit()
     return await get_tenant_feature_state(db, tenant_id)

@@ -69,18 +69,32 @@ async def test_effective_features_respect_overrides(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_set_tenant_features_merges_overrides(monkeypatch):
+async def test_set_tenant_features_replaces_overrides(monkeypatch):
     tenant = _FakeTenant(features={"hr": False})
     repo = _FakeRepo(tenant)
     monkeypatch.setattr(service.feature.TenantRepository, "get", repo.get)
     monkeypatch.setattr(service.feature.TenantRepository, "save", repo.save)
     db = _FakeDB(tenant)
     states = await service.set_tenant_features(db, tenant.id, FeatureOverrideUpdate(features={"manufacturing": False}))
-    assert repo.saved.features == {"hr": False, "manufacturing": False}
+    assert repo.saved.features == {"manufacturing": False}
     by_key = {s.key: s for s in states}
     assert by_key["manufacturing"].enabled is False
     assert by_key["manufacturing"].overridden is True
-    assert by_key["hr"].enabled is False
+    assert by_key["hr"].enabled is True
+    assert by_key["hr"].overridden is False
+
+
+@pytest.mark.asyncio
+async def test_set_tenant_features_empty_clears_all_overrides(monkeypatch):
+    tenant = _FakeTenant(features={"sales": True, "finance": False})
+    repo = _FakeRepo(tenant)
+    monkeypatch.setattr(service.feature.TenantRepository, "get", repo.get)
+    monkeypatch.setattr(service.feature.TenantRepository, "save", repo.save)
+    db = _FakeDB(tenant)
+    states = await service.set_tenant_features(db, tenant.id, FeatureOverrideUpdate(features={}))
+    assert repo.saved.features == {}
+    assert all(s.enabled is s.default_enabled for s in states)
+    assert all(s.overridden is False for s in states)
 
 
 @pytest.mark.asyncio

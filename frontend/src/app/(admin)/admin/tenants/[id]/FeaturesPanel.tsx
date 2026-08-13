@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, RotateCcw, Save, X } from "lucide-react";
 import type { TenantLimits } from "@/lib/api/admin";
 import {
@@ -10,6 +11,7 @@ import {
   useTenantLimits,
 } from "@/lib/api/hooks";
 import { Field, Input } from "@/components/ui/Form";
+import { Toggle } from "@/components/ui/Toggle";
 
 const LIMIT_FIELDS: { key: keyof TenantLimits; label: string; hint: string; placeholder: string }[] = [
   { key: "max_users", label: "Max Users", hint: "Total users allowed in the company", placeholder: "Unlimited" },
@@ -18,34 +20,17 @@ const LIMIT_FIELDS: { key: keyof TenantLimits; label: string; hint: string; plac
   { key: "max_storage_mb", label: "Storage (MB)", hint: "Upload/logo storage allowance", placeholder: "Unlimited" },
 ];
 
-function Toggle({ on, disabled, onChange }: { on: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={`relative w-10 h-[22px] rounded-full transition-colors disabled:opacity-50 ${
-        on ? "bg-emerald-500" : "bg-border"
-      }`}
-    >
-      <span
-        className={`absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-all ${
-          on ? "left-[20px]" : "left-[2px]"
-        }`}
-      />
-    </button>
-  );
-}
-
 export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
+  const queryClient = useQueryClient();
   const { data: features, isLoading: featuresLoading } = useTenantFeatures(tenantId);
   const { data: limits, isLoading: limitsLoading } = useTenantLimits(tenantId);
 
   const setFeatures = useSetTenantFeatures();
   const resetFeatures = useResetTenantFeatures();
   const setLimits = useSetTenantLimits();
+
+  const featuresKey = useMemo(() => ["admin", "tenants", tenantId, "features"] as const, [tenantId]);
+  const limitsKey = useMemo(() => ["admin", "tenants", tenantId, "limits"] as const, [tenantId]);
 
   const [dirty, setDirty] = useState<Record<string, boolean>>({});
   const [limitsDraft, setLimitsDraft] = useState<Record<string, string>>({});
@@ -73,7 +58,8 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
     setFeatures.mutate(
       { tenantId, features: overridesFor({ ...enabledMap, [key]: value }) },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
+          queryClient.setQueryData(featuresKey, res);
           setDirty({});
           setNotice({ kind: "success", text: "Features updated" });
         },
@@ -88,7 +74,8 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
   const handleReset = () => {
     setNotice(null);
     resetFeatures.mutate(tenantId, {
-      onSuccess: () => {
+      onSuccess: (res) => {
+        queryClient.setQueryData(featuresKey, res);
         setDirty({});
         setNotice({ kind: "success", text: "Features reset to platform defaults" });
       },
@@ -111,7 +98,8 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
     setLimits.mutate(
       { tenantId, data: payload },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
+          queryClient.setQueryData(limitsKey, res);
           setDraftTouched(false);
           setLimitsDraft({});
           setNotice({ kind: "success", text: "Usage limits saved" });
@@ -187,7 +175,12 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
                   </div>
                   {f.description && <p className="text-[11px] text-muted mt-0.5">{f.description}</p>}
                 </div>
-                <Toggle on={enabledMap[f.key] ?? false} disabled={setFeatures.isPending} onChange={(v) => handleToggle(f.key, v)} />
+                <Toggle
+                  checked={enabledMap[f.key] ?? false}
+                  label={`${f.name} module`}
+                  disabled={setFeatures.isPending}
+                  onChange={(v) => handleToggle(f.key, v)}
+                />
               </div>
             ))}
           </div>

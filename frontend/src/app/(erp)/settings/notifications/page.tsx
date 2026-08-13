@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bell, Mail, Smartphone, AlertTriangle, ShoppingCart, DollarSign, Package } from "lucide-react";
+import { Toggle } from "@/components/ui/Toggle";
 
 const C = "#4f46e5";
 
@@ -57,10 +58,14 @@ export default function NotificationsPage() {
               </div>
               <div className="flex items-center gap-6 flex-shrink-0">
                 {(["email", "push"] as const).map((ch) => (
-                  <button key={ch} onClick={() => toggle(s.id, ch)}
-                    className={`w-10 h-5 rounded-full transition-colors relative ${s[ch] ? "bg-emerald-500" : "bg-border"}`}>
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${s[ch] ? "translate-x-5" : "translate-x-0.5"}`} />
-                  </button>
+                  <Toggle
+                    key={ch}
+                    checked={s[ch]}
+                    label={`${s.label} — ${ch}`}
+                    size="sm"
+                    color="#10b981"
+                    onChange={() => toggle(s.id, ch)}
+                  />
                 ))}
               </div>
             </div>

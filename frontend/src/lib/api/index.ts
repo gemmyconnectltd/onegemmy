@@ -70,3 +70,7 @@ export type {
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
 } from "./admin";
 export { adminApi } from "./admin";
+
+// Tenants (current company: profile, entitlements)
+export type { TenantEntitlements } from "./tenants";
+export { tenantsApi } from "./tenants";
