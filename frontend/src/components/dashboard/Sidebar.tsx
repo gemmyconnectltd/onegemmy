@@ -11,7 +11,7 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, Layers, Briefcase, HandCoins,
   Factory, ShoppingBag, Building2, ChevronRight, Menu, X,
-  PanelLeft, PanelTop, Crown,
+  PanelLeft, PanelTop, Crown, LayoutGrid,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -34,7 +34,9 @@ const navItems = [
   { name: "Reports",     href: "/reports",       icon: BarChart3,       color: "#1e40af" },
 ];
 
-export type SidebarLayout = "vertical" | "horizontal";
+export type SidebarLayout = "vertical" | "horizontal" | "grid";
+
+const LAYOUT_CYCLE: SidebarLayout[] = ["vertical", "horizontal", "grid"];
 
 interface SidebarProps {
   expanded: boolean;
@@ -97,27 +99,35 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
   const initials =
     user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
 
-  const toggleLayout = () => onLayoutChange(layout === "vertical" ? "horizontal" : "vertical");
+  const layoutIdx = LAYOUT_CYCLE.indexOf(layout);
+  const nextLayout = LAYOUT_CYCLE[(layoutIdx + 1) % LAYOUT_CYCLE.length];
+  const toggleLayout = () => onLayoutChange(nextLayout);
+  const NextLayoutIcon = nextLayout === "vertical" ? PanelLeft : nextLayout === "grid" ? LayoutGrid : PanelTop;
 
-  // ── HORIZONTAL top nav ───────────────────────────────────────────────────
-  if (layout === "horizontal" && !admin) {
+  // ── TOP nav (horizontal bar or icon-on-top tiles) ───────────────────────
+  if (layout !== "vertical" && !admin) {
+    const isGrid = layout === "grid";
     return (
       <>
-        <header className="hidden lg:flex fixed top-0 left-0 right-0 h-[56px] bg-card border-b border-border z-50 items-center px-4 gap-1 select-none">
+        <header className={`hidden lg:flex fixed top-0 left-0 right-0 bg-card border-b border-border z-50 items-center px-4 gap-1 select-none ${isGrid ? "h-16" : "h-[56px]"}`}>
           {/* Logo */}
           <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 mr-3">
             <Layers size={18} className="text-white" strokeWidth={2.5} />
           </div>
 
           {/* Nav items */}
-          <nav className="flex items-center gap-0.5 flex-1 overflow-x-auto">
+          <nav className={`flex items-center gap-0.5 flex-1 overflow-x-auto ${isGrid ? "h-full" : ""}`}>
             {items.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0"
+                  className={
+                    isGrid
+                      ? "flex flex-col items-center justify-center gap-1 px-3.5 h-[54px] rounded-xl text-[11px] font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0"
+                      : "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all duration-150 flex-shrink-0"
+                  }
                   style={
                     isActive
                       ? { backgroundColor: item.color, color: "#fff" }
@@ -125,11 +135,11 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
                   }
                 >
                   <item.icon
-                    size={15}
+                    size={isGrid ? 18 : 15}
                     strokeWidth={isActive ? 2.2 : 1.6}
                     style={{ color: isActive ? "#fff" : item.color }}
                   />
-                  {item.name}
+                  {isGrid ? <span>{item.name}</span> : item.name}
                 </Link>
               );
             })}
@@ -152,10 +162,10 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
 
             <button
               onClick={toggleLayout}
-              title="Switch to vertical sidebar"
+              title={`Switch to ${nextLayout} layout`}
               className="w-8 h-8 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors"
             >
-              <PanelLeft size={16} />
+              <NextLayoutIcon size={16} />
             </button>
 
             <div
@@ -293,7 +303,7 @@ export function Sidebar({ expanded, onExpandChange, layout, onLayoutChange, coll
               )}
             </button>
             {tooltip === "user" && (
-              <div className="absolute left-full bottom-0 ml-2 z-[51] pointer-events-auto">
+              <div className="fixed z-[60] pointer-events-auto" style={{ left: w + 12, bottom: 12 }}>
                 <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-44">
                   <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">{initials}</div>

@@ -23,7 +23,7 @@ export function ModuleLayout({ module, children, renderNav }: ModuleLayoutProps)
 
   return (
     <div
-      className={`-m-6 ${
+      className={`-mx-4 sm:-mx-8 -my-6 ${
         isLeft
           ? "flex flex-col lg:flex-row min-h-[calc(100vh-60px)]"
           : "flex flex-col min-h-[calc(100vh-60px)]"
