@@ -27,6 +27,21 @@ export interface User {
   permissions: string[];
 }
 
+// Backend permission resources (resource:action, see backend/app/scripts/seed.py)
+// that grant access to each ERP module the sidebar/nav exposes.
+const MODULE_RESOURCES: Record<string, string[]> = {
+  sales: ["orders", "pos", "invoices"],
+  inventory: ["items", "warehouses", "stock", "pricing", "returns"],
+  finance: [
+    "invoices", "chart_of_accounts", "journal_entries", "accounts_payable",
+    "accounts_receivable", "banking", "fixed_assets", "budgeting", "tax",
+  ],
+  procurement: ["vendors", "requisitions", "rfq", "purchase_orders", "goods_receipt", "contracts"],
+  hr: ["employees", "organization", "recruitment", "attendance", "leave", "payroll", "performance"],
+  customers: ["leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets"],
+  manufacturing: ["bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing"],
+};
+
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, tenantSlug?: string) => Promise<{ ok: boolean; error?: string }>;
@@ -51,7 +66,7 @@ function mapUser(u: ApiTokenUserInfo): User {
     tenantId: u.tenant_id,
     tenantName: u.tenant_name,
     tenantSlug: u.tenant_slug,
-    permissions: u.permissions,
+    permissions: u.permissions ?? [],
   };
 }
 
@@ -180,7 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasModuleAccess = useCallback((module: string): boolean => {
     if (!user) return false;
     if (user.isSuperuser) return true;
-    return user.permissions.some((p) => p.startsWith(module.toLowerCase() + ":"));
+    const key = module.toLowerCase();
+    const resources = MODULE_RESOURCES[key];
+    if (!resources) return user.permissions.some((p) => p.startsWith(key + ":"));
+    return user.permissions.some((p) => resources.some((r) => p.startsWith(r + ":")));
   }, [user]);
 
   const isSuperAdmin = useCallback((): boolean => user?.role === "superadmin" || (user?.isSuperuser ?? false), [user]);

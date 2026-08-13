@@ -52,6 +52,7 @@ def _build_token_claims(user: User) -> dict:
         "role": user.role,
         "role_id": str(user.role_id) if user.role_id else None,
         "is_superuser": user.is_superuser,
+        "permissions": _get_permission_names(user),
     }
 
 
