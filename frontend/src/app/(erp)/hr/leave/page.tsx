@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiLeave } from "@/lib/api/hr";
 import { useLeave, useEmployees, useCreateLeave, useApproveLeave, useRejectLeave, useDeleteLeave } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
-import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
 const LEAVE_TYPES = ["Annual", "Sick", "Maternity", "Study", "Unpaid"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
@@ -104,7 +105,7 @@ export default function LeavePage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : leaves.length === 0 ? (

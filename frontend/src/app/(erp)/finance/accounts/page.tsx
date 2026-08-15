@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { CreditCard, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAccounts, useCreateAccount, useSeedAccounts } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { Loading, EmptyState, ErrorState } from "@/components/hr/State";
+import { EmptyState, ErrorState } from "@/components/hr/State";
 
 const ACCOUNT_TYPES = ["Assets", "Liabilities", "Equity", "Revenue", "Expense"];
 const TYPE_FILTERS = ["All", ...ACCOUNT_TYPES];
@@ -109,7 +110,7 @@ export default function AccountsPage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => accountsQ.refetch()} />
       ) : accounts.length === 0 ? (

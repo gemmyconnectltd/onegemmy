@@ -55,7 +55,7 @@ export function PageLoader({
   }
 
   return (
-    <div className="flex flex-col gap-5" role="status" aria-live="polite">
+    <div className="w-full flex flex-col items-center justify-center gap-5 min-h-[55vh]" role="status" aria-live="polite">
       <div className="flex items-center gap-3">
         <Brand size="sm" />
         <div>
@@ -64,13 +64,13 @@ export function PageLoader({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="w-full grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-24" />
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+      <div className="w-full bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-4 w-16" />

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { DollarSign, Trash2, Check } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiPayroll } from "@/lib/api/hr";
 import { usePayroll, useEmployees, useCreatePayroll, useMarkPaid, useDeletePayroll } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
 export default function PayrollPage() {
   const { currencySymbol } = useAppConfig();
@@ -96,7 +97,7 @@ export default function PayrollPage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : entries.length === 0 ? (

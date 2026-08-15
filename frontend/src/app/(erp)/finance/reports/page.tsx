@@ -154,9 +154,6 @@ function CardShell({
   );
 }
 
-function Loading() {
-  return <PageLoader variant="compact" />;
-}
 
 function IncomeCard() {
   const { currencySymbol } = useAppConfig();
@@ -173,7 +170,7 @@ function IncomeCard() {
       onExport={(fmt) => financeApi.exportStatement("income-statement", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
@@ -234,7 +231,7 @@ function BalanceSheetCard() {
         <div className="flex gap-2">{exportBtn("csv")}{exportBtn("pdf")}</div>
       </div>
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
@@ -281,7 +278,7 @@ function CashFlowCard() {
       onExport={(fmt) => financeApi.exportStatement("cash-flow", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
@@ -326,7 +323,7 @@ function TrialBalanceCard() {
       onExport={(fmt) => financeApi.exportStatement("trial-balance", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (
@@ -392,7 +389,7 @@ function LedgerCard() {
       onExport={(fmt) => financeApi.exportStatement("general-ledger", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => refetch()} />
       ) : data ? (

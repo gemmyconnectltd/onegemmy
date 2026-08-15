@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Plus, TrendingDown, Check, X, Trash2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useExpenses, useCreateExpense, useApproveExpense, useRejectExpense, useDeleteExpense } from "@/lib/api/hooks";
 import type { FinanceExpense } from "@/lib/api/finance";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
 const CATEGORIES = ["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
@@ -117,7 +118,7 @@ export default function ExpensesPage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={() => expensesQ.refetch()} />
       ) : expenses.length === 0 ? (

@@ -9,6 +9,7 @@ import {
 
 import { PageHeader } from "@/components/mobile/PageHeader";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useExpenses } from "@/lib/api/hooks";
 import { expenseCategories } from "@/lib/config";
 
@@ -104,11 +105,7 @@ export default function MobileExpensesPage() {
         </div>
 
         {expensesQ.isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-xl bg-surface h-16" />
-            ))}
-          </div>
+          <PageLoader variant="compact" />
         ) : expenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Wallet size={28} className="text-muted/40 mb-2" />

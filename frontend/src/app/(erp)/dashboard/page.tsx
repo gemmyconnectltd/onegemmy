@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, Package, BarChart3, Target, Zap, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, Activity, AlertTriangle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
@@ -341,18 +342,14 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-xl p-4 h-24 animate-pulse" />
-          ))}
-        </div>
+        <PageLoader />
       ) : (
+        <>
         <KpiCards
           sales={sales} expenses={expenses} profit={profit} cash={cashAmt} customers={customersCount}
           salesChange={null} expChange={null} profitChange={null} customersChange={null}
           label={label} c={c}
         />
-      )}
 
       {lowStock.length > 0 && (
         <div className="flex items-center gap-2 px-1">
@@ -407,7 +404,9 @@ export default function DashboardPage() {
           </div>
         </div>
         <SidePanel orders={allOrderItems} lowStock={lowStock} />
-      </div>
+        </div>
+      </>
+      )}
     </div>
   );
 }

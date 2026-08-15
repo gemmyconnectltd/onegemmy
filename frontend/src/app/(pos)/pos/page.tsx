@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import { RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
 import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
@@ -11,6 +11,7 @@ import { ProductCard } from "@/components/pos/ProductCard";
 import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
 import { useProducts, useCustomers, useCreateOrder } from "@/lib/api/hooks";
@@ -317,11 +318,7 @@ export default function POSPage() {
 
           {/* Status bar */}
           <div className="flex items-center gap-2 px-4 pt-3 flex-shrink-0">
-            {loading ? (
-              <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <Loader2 size={11} className="animate-spin" /> Loading products…
-              </span>
-            ) : error ? (
+            {loading ? null : error ? (
               <span className="flex items-center gap-2 text-[11px] text-red-500">
                 {error}
                 <button onClick={() => refetch()} className="flex items-center gap-1 underline">
@@ -379,11 +376,7 @@ export default function POSPage() {
           {/* Product grid */}
           <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 min-h-0">
             {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className="bg-card border border-border rounded-2xl animate-pulse aspect-[3/4]" />
-                ))}
-              </div>
+              <PageLoader variant="compact" />
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted gap-2 py-16">
                 <Search size={28} strokeWidth={1.5} />

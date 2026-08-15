@@ -49,6 +49,7 @@ frontend/src/
 - **Source of truth for sales**: `src/lib/orders.ts` maps backend `ApiOrder` → `SaleResult` (`orderToSale`, `parsePaymentFromNotes`). Sales screens (stats, transactions, sales list/detail) MUST come from `useOrders`, not localStorage. Payment method is parsed from `POS — <method>` order notes.
 - **Client/server split**: pages that fetch/hydrate are `"use client"`. No env secrets in client components (only `NEXT_PUBLIC_*`).
 - **Styling**: Tailwind v4 utility classes, design tokens/theme via `useAppConfig`, consistent surfaces (`bg-card`, `border-border`, `rounded-xl/2xl`), lucide-react icons only.
+- **Loading states (one way)**: there is ONE loader — `PageLoader` from `@/components/ui/PageLoader`. Use it for every page/content load: `variant="page"` (full page skeleton), `variant="compact"` (inline content block), `variant="screen"` (full-screen/auth). Route groups ship a `loading.tsx` that renders `PageLoader`. Never hand-roll spinners/skeletons for page loads; only small inline `Loader2` spinners inside action buttons are allowed. Do not add extra loading components or wrappers.
 - **Money display**: format with `currencySymbol` + `fmt` from `useAppConfig` / `useMobilePos`; never hardcode `$`/commas.
 
 ### Web ERP (desktop, `(erp)` route group)

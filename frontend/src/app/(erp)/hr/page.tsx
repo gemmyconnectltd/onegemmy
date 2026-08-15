@@ -18,9 +18,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUSES = ["All", "Active", "On Leave", "Terminated"];
 
-function Loading() {
-  return <PageLoader variant="compact" />;
-}
 
 function EmptyState({ message }: { message: string }) {
   return <p className="text-sm text-muted py-12 text-center">{message}</p>;
@@ -152,7 +149,7 @@ export default function EmployeesPage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : employees.length === 0 ? (

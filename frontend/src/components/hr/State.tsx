@@ -1,11 +1,6 @@
 "use client";
 
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
-
-export function Loading() {
-  return <PageLoader variant="compact" />;
-}
 
 export function EmptyState({ message }: { message: string }) {
   return <p className="text-sm text-muted py-12 text-center">{message}</p>;

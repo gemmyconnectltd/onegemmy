@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { UserPlus, Trash2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiApplicant } from "@/lib/api/hr";
 import { useApplicants, useCreateApplicant, useUpdateApplicant, useDeleteApplicant } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
 const STAGES = ["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"];
 const FILTERS = ["All", ...STAGES];
@@ -97,7 +98,7 @@ export default function RecruitingPage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : applicants.length === 0 ? (

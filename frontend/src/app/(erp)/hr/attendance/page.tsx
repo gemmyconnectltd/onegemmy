@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { CheckCircle, XCircle, Clock, Plus, Trash2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiAttendance } from "@/lib/api/hr";
 import { useAttendance, useEmployees, useCreateAttendance, useDeleteAttendance } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { Loading, EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
 const statusIcon: Record<string, React.ReactNode> = {
   Present: <CheckCircle size={14} className="text-emerald-500" />,
@@ -97,7 +98,7 @@ export default function AttendancePage() {
       </div>
 
       {loading ? (
-        <Loading />
+        <PageLoader variant="compact" />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : records.length === 0 ? (

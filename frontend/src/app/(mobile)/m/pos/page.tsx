@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowUpDown, ChevronRight, History, Loader2, Search, ShoppingBasket, SlidersHorizontal,
+  ArrowUpDown, ChevronRight, History, Search, ShoppingBasket, SlidersHorizontal,
   Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw, Zap,
 } from "lucide-react";
 
@@ -12,6 +12,7 @@ import { CartPanel } from "@/components/pos/CartPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
 import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useProducts, useCustomers } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { useAppConfig } from "@/lib/appConfig";
@@ -247,11 +248,7 @@ export default function MobilePosPage() {
 
       {/* Product list */}
       {isLoading ? (
-        <div className="p-3 space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl bg-surface h-16" />
-          ))}
-        </div>
+        <PageLoader variant="compact" />
       ) : isError ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-center">
           <p className="text-[13px] text-muted">Couldn&apos;t load products.</p>
@@ -405,8 +402,6 @@ export default function MobilePosPage() {
           </div>
         </div>
       )}
-
-      {isLoading && <Loader2 className="hidden" />}
     </div>
   );
 }
