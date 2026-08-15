@@ -1,7 +1,8 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
-import { DollarSign, TrendingUp, TrendingDown, CreditCard, Loader2 } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, CreditCard } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useOrders, useReturns } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -54,7 +55,7 @@ export default function FinanceReportPage() {
   });
   const taxChart = Object.entries(taxByMonth).slice(-8).map(([month, tax]) => ({ month, tax }));
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  if (loading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Loader2, Upload } from "lucide-react";
+import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Upload } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
@@ -108,11 +109,7 @@ export default function ProductsPage() {
     setDeleteTarget(null);
   };
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, AlertTriangle, X } from "lucide-react";
+import { Plus, AlertTriangle, X } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type InventoryBatch } from "@/lib/api";
 import { useBatches, useCreateBatch, useDeleteBatch } from "@/lib/api/hooks";
 
@@ -59,11 +60,7 @@ export default function BatchesPage() {
   const expiredCount = batches.filter((b) => b.days_to_expiry !== null && b.days_to_expiry < 0).length;
   const soonCount = batches.filter((b) => b.days_to_expiry !== null && b.days_to_expiry >= 0 && b.days_to_expiry <= 30).length;
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

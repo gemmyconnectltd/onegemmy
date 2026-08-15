@@ -1,7 +1,8 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useOrders, useReturns, useCustomers, useProducts } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -65,11 +66,7 @@ export default function ReportsPage() {
   const statusCount = orders.reduce((acc, o) => { acc[o.status] = (acc[o.status] ?? 0) + 1; return acc; }, {} as Record<string, number>);
   const statusChart = Object.entries(statusCount).map(([status, count]) => ({ status, count }));
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (loading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 
 export function Loading() {
-  return <div className="flex items-center justify-center h-48"><Loader2 size={22} className="animate-spin text-muted" /></div>;
+  return <PageLoader variant="compact" />;
 }
 
 export function EmptyState({ message }: { message: string }) {

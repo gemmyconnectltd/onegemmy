@@ -4,9 +4,10 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useState, useMemo } from "react";
 import {
   Users, Plus, Search, Phone, Mail, MapPin, TrendingUp, Star,
-  Edit2, Trash2, Loader2, AlertCircle, ShoppingCart, CheckCircle2,
+  Edit2, Trash2, AlertCircle, ShoppingCart, CheckCircle2,
   UserCheck, UserX, Building2,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useCustomers, useOrders, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from "@/lib/api/hooks";
 import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
 import { Drawer } from "@/components/ui/Drawer";
@@ -205,9 +206,7 @@ export default function CustomersPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="py-20 flex items-center justify-center gap-2 text-muted">
-          <Loader2 size={18} className="animate-spin" /> Loading customers...
-        </div>
+        <PageLoader variant="compact" />
       ) : displayed.length === 0 ? (
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <Users size={32} className="text-border mx-auto mb-3" />

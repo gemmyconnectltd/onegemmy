@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { MobilePosProvider } from "@/components/mobile/MobilePosProvider";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 
 export default function MobileLayout({ children }: { children: ReactNode }) {
@@ -22,8 +23,8 @@ export default function MobileLayout({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-dvh bg-surface flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-dvh bg-surface flex items-center justify-center px-6">
+        <PageLoader variant="screen" label="OneGemmy" sub="Signing you in" />
       </div>
     );
   }

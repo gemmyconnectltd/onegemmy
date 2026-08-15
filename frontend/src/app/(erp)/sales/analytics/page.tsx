@@ -1,7 +1,8 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "@/components/charts/lazy";
-import { TrendingUp, ShoppingCart, ArrowUpRight, Loader2, AlertCircle } from "lucide-react";
+import { TrendingUp, ShoppingCart, ArrowUpRight, AlertCircle } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
 import { useState } from "react";
@@ -94,9 +95,7 @@ export default function SalesAnalyticsPage() {
       </div>
 
       {loading ? (
-        <div className="py-20 flex items-center justify-center gap-2 text-muted bg-card border border-border rounded-xl">
-          <Loader2 size={18} className="animate-spin" /> Loading analytics...
-        </div>
+        <PageLoader variant="compact" />
       ) : (
         <>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">

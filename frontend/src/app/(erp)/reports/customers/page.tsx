@@ -1,7 +1,8 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
-import { Users, UserCheck, ShoppingCart, TrendingUp, Loader2 } from "lucide-react";
+import { Users, UserCheck, ShoppingCart, TrendingUp } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useCustomers, useOrders } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -45,7 +46,7 @@ export default function CustomersReportPage() {
   const business = customers.filter((c) => c.customer_type === "business").length;
   const withOrders = Object.keys(custRevMap).length;
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  if (loading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Loader2, Check, X } from "lucide-react";
+import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Check, X } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiSupplier } from "@/lib/api";
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
@@ -66,11 +67,7 @@ export default function SuppliersPage() {
     } catch { /* ignore */ }
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">

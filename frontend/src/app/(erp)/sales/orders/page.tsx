@@ -2,8 +2,9 @@
 import { fmtMoney } from "@/lib/config";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, Trash2, Loader2, AlertCircle, Package, ChevronDown,
+  Eye, Edit2, Trash2, AlertCircle, Package, ChevronDown,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useEffect, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -363,9 +364,7 @@ export default function SalesOrdersPage() {
         </div>
 
         {loading ? (
-          <div className="py-20 flex items-center justify-center gap-2 text-muted">
-            <Loader2 size={18} className="animate-spin" /> Loading orders...
-          </div>
+          <PageLoader variant="compact" />
         ) : (
           <table className="w-full">
             <thead>

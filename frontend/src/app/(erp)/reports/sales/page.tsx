@@ -1,7 +1,8 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
-import { ShoppingCart, TrendingUp, RotateCcw, Target, Loader2 } from "lucide-react";
+import { ShoppingCart, TrendingUp, RotateCcw, Target } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useOrders, useReturns, useTargets } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -50,7 +51,7 @@ export default function SalesReportPage() {
     returnsByMonth[key] = (returnsByMonth[key] ?? 0) + r.refund_amount;
   });
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  if (loading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

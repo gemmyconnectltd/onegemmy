@@ -4,9 +4,10 @@ import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import {
-  TrendingUp, Plus, AlertCircle, Loader2, CheckCircle2,
+  TrendingUp, Plus, AlertCircle, CheckCircle2,
   Clock, Ban, ArrowUpRight, RefreshCw,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAccounts, useTransactions, useCreateTransaction, usePostTransaction, useVoidTransaction, useBackfillSales } from "@/lib/api/hooks";
 import type { FinanceTransaction } from "@/lib/api/finance";
 import { Drawer } from "@/components/ui/Drawer";
@@ -197,9 +198,7 @@ export default function IncomePage() {
 
       {/* Table */}
       {loading ? (
-        <div className="py-20 flex items-center justify-center gap-2 text-muted">
-          <Loader2 size={18} className="animate-spin" /> Loading income...
-        </div>
+        <PageLoader variant="compact" />
       ) : displayed.length === 0 ? (
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <TrendingUp size={32} className="text-border mx-auto mb-3" />

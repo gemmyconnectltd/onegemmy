@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Layers, Plus, Search, Edit2, Trash2, Package, Loader2, Check, X } from "lucide-react";
+import { Layers, Plus, Search, Edit2, Trash2, Package, Check, X } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiCategory } from "@/lib/api";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
@@ -56,11 +57,7 @@ export default function CategoriesPage() {
     } catch { /* ignore */ }
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

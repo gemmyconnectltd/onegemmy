@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Ruler, Plus, Edit2, Trash2, Loader2, Check, X } from "lucide-react";
+import { Ruler, Plus, Edit2, Trash2, Check, X } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiUnit } from "@/lib/api";
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
@@ -45,11 +46,7 @@ export default function UnitsPage() {
     } catch { /* ignore */ }
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">

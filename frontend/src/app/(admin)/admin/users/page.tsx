@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
-import { Users, Loader2, CheckCircle, XCircle, Building2, Search, Filter, AlertTriangle, Shield } from "lucide-react";
+import { Users, CheckCircle, XCircle, Building2, Search, Filter, AlertTriangle, Shield } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useUsers } from "@/lib/api/hooks";
 import Link from "next/link";
 
@@ -36,11 +37,7 @@ export default function AdminUsersPage() {
   const activeCount = users.filter((u) => u.is_active).length;
   const superadminCount = users.filter((u) => u.is_superuser).length;
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={22} className="animate-spin text-accent" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   if (isError || !data) return (
     <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

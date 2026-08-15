@@ -2,7 +2,8 @@
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, AlertTriangle, RefreshCw } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
@@ -207,7 +208,7 @@ export default function FinancePage() {
       </Link>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64 bg-card border border-border rounded-xl"><Loader2 size={24} className="animate-spin text-muted" /></div>
+        <PageLoader variant="compact" />
       ) : error ? (
         <div className="bg-card border border-border rounded-xl py-12 px-6 text-center space-y-3">
           <AlertTriangle size={22} className="mx-auto text-red-500" />

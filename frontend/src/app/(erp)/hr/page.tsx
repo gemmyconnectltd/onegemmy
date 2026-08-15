@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Users, UserCheck, Clock, Loader2, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { Users, UserCheck, Clock, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiEmployee } from "@/lib/api/hr";
 import { useEmployees, useDepartments, useCreateEmployee, useDeleteEmployee } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
@@ -18,7 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUSES = ["All", "Active", "On Leave", "Terminated"];
 
 function Loading() {
-  return <div className="flex items-center justify-center h-48"><Loader2 size={22} className="animate-spin text-muted" /></div>;
+  return <PageLoader variant="compact" />;
 }
 
 function EmptyState({ message }: { message: string }) {

@@ -1,6 +1,7 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
-import { RotateCcw, CheckCircle2, Clock, XCircle, Plus, Edit2, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { RotateCcw, CheckCircle2, Clock, XCircle, Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useState } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -138,9 +139,7 @@ export default function SalesReturnsPage() {
         </div>
 
         {loading ? (
-          <div className="py-20 flex items-center justify-center gap-2 text-muted">
-            <Loader2 size={18} className="animate-spin" /> Loading returns...
-          </div>
+          <PageLoader variant="compact" />
         ) : (
           <table className="w-full">
             <thead>

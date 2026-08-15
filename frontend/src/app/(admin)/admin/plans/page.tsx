@@ -1,5 +1,6 @@
 "use client";
-import { Building2, CheckCircle, XCircle, Loader2, Crown, TrendingUp, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { Building2, CheckCircle, XCircle, Crown, TrendingUp, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAdminStats, useTenants } from "@/lib/api/hooks";
 import Link from "next/link";
 
@@ -15,11 +16,7 @@ export default function AdminPlansPage() {
   const { data: tenantsData, isLoading: tenantsLoading } = useTenants(1, 200);
   const tenants = tenantsData?.items ?? [];
 
-  if (statsLoading || tenantsLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={22} className="animate-spin text-accent" />
-    </div>
-  );
+  if (statsLoading || tenantsLoading) return <PageLoader />;
 
   if (statsError || !stats) return (
     <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

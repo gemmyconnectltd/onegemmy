@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import { Plus, Building2, CheckCircle, XCircle, Trash2, Eye, PauseCircle, PlayCircle, Loader2, Search, Filter, AlertTriangle } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import type { AdminTenant } from "@/lib/api/admin";
 import { useTenants, useCreateTenant, useSuspendTenant, useActivateTenant, useDeleteTenant } from "@/lib/api/hooks";
 import Link from "next/link";
@@ -145,9 +146,7 @@ export default function AdminTenantsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader2 size={22} className="animate-spin text-accent" />
-        </div>
+        <PageLoader variant="compact" />
       ) : isError ? (
         <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
           <AlertTriangle size={15} /> Failed to load tenants

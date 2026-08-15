@@ -6,6 +6,7 @@ import {
   TrendingUp, AlertCircle, Plus,
   Download, MoreHorizontal,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { useOrders } from "@/lib/api/hooks";
@@ -138,9 +139,7 @@ export default function InvoicesPage() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="bg-card border border-border rounded-xl p-16 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-        </div>
+        <PageLoader variant="compact" />
       ) : filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-16 flex flex-col items-center justify-center text-center gap-3">
           <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "#b4530915" }}>

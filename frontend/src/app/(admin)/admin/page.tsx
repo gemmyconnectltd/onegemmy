@@ -1,9 +1,10 @@
 "use client";
 import {
   Building2, Users, ShoppingCart, TrendingUp, Activity, CheckCircle,
-  XCircle, Package, Loader2, ArrowUpRight, ArrowRight, Crown,
+  XCircle, Package, ArrowUpRight, ArrowRight, Crown,
   AlertTriangle, Server,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAdminStats } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { chartPalette } from "@/lib/chartColors";
@@ -20,11 +21,7 @@ export default function AdminOverviewPage() {
   const c = chartPalette(theme === "dark");
   const { data: stats, isLoading, isError } = useAdminStats();
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={22} className="animate-spin text-accent" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   if (isError || !stats) return (
     <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">

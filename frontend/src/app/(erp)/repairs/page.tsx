@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, Wrench, X, ChevronDown } from "lucide-react";
+import { Plus, Wrench, X, ChevronDown } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type RepairJob } from "@/lib/api";
 import { useRepairJobs, useCreateRepairJob, useUpdateRepairJob, useDeleteRepairJob } from "@/lib/api/hooks";
 
@@ -60,11 +61,7 @@ export default function RepairsPage() {
     await updateJob.mutateAsync({ id, data: { status } });
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

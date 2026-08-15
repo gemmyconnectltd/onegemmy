@@ -3,8 +3,9 @@
 import { useState } from "react";
 import {
   Package, AlertTriangle, XCircle, Layers,
-  Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Loader2, Upload,
+  Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Upload,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { type ApiProduct } from "@/lib/api";
 import { useProducts, useCreateProduct, useBulkCreateProducts, useRestockProduct, useUploadProductImage } from "@/lib/api/hooks";
@@ -118,13 +119,7 @@ export default function InventoryOverviewPage() {
   const totalVariants = inventory.reduce((s, i) => s + i.variantCount, 0);
   const topByValue = [...inventory].sort((a, b) => b.value - a.value).slice(0, 4);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 size={24} className="animate-spin text-muted" />
-      </div>
-    );
-  }
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

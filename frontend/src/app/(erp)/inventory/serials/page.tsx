@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { Plus, Search, Trash2, X } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiSerial } from "@/lib/api";
 import { useSerials, useCreateSerials, useDeleteSerial } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
@@ -45,11 +46,7 @@ export default function SerialsPage() {
     try { await deleteSerial.mutateAsync(id); } catch { /* ignore */ }
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

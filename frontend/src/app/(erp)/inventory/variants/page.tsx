@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Layers, Search, PackagePlus, Trash2, Edit2, Plus, Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiVariantListItem } from "@/lib/api";
 import { useAllVariants, useProducts, useCreateVariant, useUpdateVariant, useRestockVariant, useDeleteVariant } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
@@ -133,11 +134,7 @@ export default function VariantsPage() {
     } catch { /* ignore */ }
   };
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

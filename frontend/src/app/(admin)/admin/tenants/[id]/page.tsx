@@ -6,6 +6,7 @@ import {
   CheckCircle, XCircle, PauseCircle, PlayCircle, Building2, Layers, Shield,
   Plus, Trash2, X, KeyRound, Copy, Check, SlidersHorizontal,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import {
   useTenant, useTenantStats, useTenantUsers, useSuspendTenant, useActivateTenant,
   useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
@@ -201,11 +202,7 @@ export default function TenantDetailPage() {
     }
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={22} className="animate-spin text-accent" />
-    </div>
-  );
+  if (loading) return <PageLoader />;
 
   if (coreError || !tenant) return (
     <div className="space-y-4">

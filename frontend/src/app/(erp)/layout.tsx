@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Sidebar, type SidebarLayout } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 import { pageTitleForPath } from "@/lib/pageTitles";
 
@@ -85,8 +86,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const topBarH = sidebarLayout === "grid" ? 64 : sidebarLayout === "horizontal" ? 56 : 0;
 
   if (isLoading || !user) return (
-    <div className="min-h-screen bg-surface flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-surface flex items-center justify-center px-6">
+      <PageLoader variant="screen" label="OneGemmy" sub="Signing you in" />
     </div>
   );
 

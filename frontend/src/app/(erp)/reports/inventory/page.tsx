@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { Package, AlertTriangle, TrendingDown, Layers, Boxes, Loader2, Download, FileText } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { inventoryApi } from "@/lib/api";
 import { useValuationReport } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
@@ -37,7 +38,7 @@ export default function InventoryReportPage() {
     finally { setExporting(null); }
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  if (isLoading) return <PageLoader />;
   if (!report) return <p className="text-sm text-muted py-10 text-center">Could not load valuation report.</p>;
 
   const { summary, categories, lines } = report;

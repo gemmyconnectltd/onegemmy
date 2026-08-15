@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Scale, BadgeCheck, AlertTriangle, RefreshCw } from "lucide-react";
+import { Scale, BadgeCheck, AlertTriangle, RefreshCw } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { financeApi } from "@/lib/api/finance";
 import { useIncomeStatement, useBalanceSheet, useCashFlow, useTrialBalance, useGeneralLedger } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
@@ -154,7 +155,7 @@ function CardShell({
 }
 
 function Loading() {
-  return <div className="flex items-center justify-center h-64"><Loader2 size={24} className="animate-spin text-muted" /></div>;
+  return <PageLoader variant="compact" />;
 }
 
 function IncomeCard() {

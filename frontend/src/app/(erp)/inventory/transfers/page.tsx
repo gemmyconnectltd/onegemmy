@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, Search, Trash2, ArrowLeftRight } from "lucide-react";
+import { Plus, Search, Trash2, ArrowLeftRight } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiStockTransfer } from "@/lib/api";
 import { useTransfers, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
@@ -67,11 +68,7 @@ export default function TransfersPage() {
     try { await deleteTransfer.mutateAsync(id); } catch { /* ignore */ }
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 size={24} className="animate-spin text-muted" />
-    </div>
-  );
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">

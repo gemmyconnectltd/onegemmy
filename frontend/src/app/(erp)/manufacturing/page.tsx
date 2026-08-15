@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import {
-  Factory, Plus, Layers, CheckCircle2, Boxes, Trash2, AlertCircle, Loader2,
+  Factory, Plus, Layers, CheckCircle2, Boxes, Trash2, AlertCircle,
   PlayCircle, Package, Calendar, X,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useProductionOrders, useProducts, useCreateProductionOrder, useCompleteProductionOrder, useDeleteProductionOrder } from "@/lib/api/hooks";
 import type { ApiProductionOrder } from "@/lib/api/manufacturing";
 import { Drawer } from "@/components/ui/Drawer";
@@ -162,9 +163,7 @@ export default function ManufacturingPage() {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
-          <div className="py-20 flex items-center justify-center gap-2 text-muted">
-            <Loader2 size={18} className="animate-spin" /> Loading work orders...
-          </div>
+          <PageLoader variant="compact" />
         ) : displayed.length === 0 ? (
           <div className="py-20 text-center">
             <Factory size={32} className="text-border mx-auto mb-3" />

@@ -2,8 +2,9 @@
 import { fmtMoney } from "@/lib/config";
 import {
   Target, Plus, TrendingUp, CheckCircle2, AlertTriangle, XCircle,
-  Edit2, Trash2, Loader2, AlertCircle, Zap, Calendar,
+  Edit2, Trash2, AlertCircle, Zap, Calendar,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useMemo } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -283,9 +284,7 @@ export default function SalesTargetsPage() {
 
       {/* ── Cards ── */}
       {loading ? (
-        <div className="py-20 flex items-center justify-center gap-2 text-muted">
-          <Loader2 size={18} className="animate-spin" /> Loading targets...
-        </div>
+        <PageLoader variant="compact" />
       ) : displayed.length === 0 ? (
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <Target size={32} className="text-border mx-auto mb-3" />
