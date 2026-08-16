@@ -22,7 +22,7 @@ const statusBadge: Record<string, string> = {
   "Cancelled": "bg-red-100 text-red-600",
 };
 
-type ComponentRow = { product_id: string; quantity_required: number };
+type ComponentRow = { id: string; product_id: string; quantity_required: number };
 const EMPTY_FORM = { product_id: "", quantity: 1, scheduled_date: "", notes: "", components: [] as ComponentRow[] };
 
 export default function ManufacturingPage() {
@@ -73,7 +73,7 @@ export default function ManufacturingPage() {
   const closeDrawer = () => setShowAdd(false);
 
   const addComponent = () =>
-    setForm((f) => ({ ...f, components: [...f.components, { product_id: products[0]?.id ?? "", quantity_required: 1 }] }));
+    setForm((f) => ({ ...f, components: [...f.components, { id: crypto.randomUUID(), product_id: products[0]?.id ?? "", quantity_required: 1 }] }));
   const setComponent = (i: number, patch: Partial<ComponentRow>) =>
     setForm((f) => ({ ...f, components: f.components.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) }));
   const removeComponent = (i: number) =>
@@ -272,7 +272,7 @@ export default function ManufacturingPage() {
             ) : (
               <div className="space-y-2">
                 {form.components.map((c, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                  <div key={c.id} className="flex items-center gap-2">
                     <Select value={c.product_id}
                       onChange={(e) => setComponent(i, { product_id: e.target.value })} className="flex-1">
                       <option value="">Select component...</option>

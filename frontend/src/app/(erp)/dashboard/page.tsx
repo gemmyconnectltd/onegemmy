@@ -203,7 +203,7 @@ function TopProducts({ orders }: { orders: ApiOrder[] }) {
   return (
     <div className="divide-y divide-border">
       {top.map((p, i) => (
-        <div key={i} className="px-4 py-2.5 flex items-center gap-3">
+        <div key={p.name} className="px-4 py-2.5 flex items-center gap-3">
           <span className="text-[11px] font-bold text-muted w-4 flex-shrink-0">{i + 1}</span>
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-semibold text-foreground truncate">{p.name}</p>
@@ -216,7 +216,7 @@ function TopProducts({ orders }: { orders: ApiOrder[] }) {
   );
 }
 
-function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { name: string; stock: number; min: number }[] }) {
+function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { id: string; name: string; stock: number; min: number }[] }) {
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -233,11 +233,11 @@ function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { name:
             <a href="/inventory" className="text-[11px] font-bold text-accent hover:underline">Restock</a>
           </div>
           <div className="divide-y divide-border">
-            {lowStock.map((item, i) => {
+            {lowStock.map((item) => {
               const pct = item.min > 0 ? Math.min(100, Math.round((item.stock / item.min) * 100)) : 0;
               const col = item.stock === 0 ? "#ef4444" : pct < 50 ? "#f59e0b" : "#10b981";
               return (
-                <div key={i} className="px-4 py-3">
+                <div key={item.id} className="px-4 py-3">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[12px] font-medium text-foreground truncate max-w-[130px]">{item.name}</span>
                     <span className="text-[11px] font-bold ml-2" style={{ color: col }}>{item.stock}/{item.min}</span>
@@ -301,7 +301,7 @@ export default function DashboardPage() {
   const chart = buildChart(allOrderItems, period);
 
   const lowStock = inventory
-    .map((p) => ({ name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
+    .map((p) => ({ id: p.id, name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
     .filter((i) => i.stock <= i.min)
     .sort((a, b) => a.stock - b.stock)
     .slice(0, 6);

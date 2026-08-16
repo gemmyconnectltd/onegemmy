@@ -22,11 +22,11 @@ export default function CustomersReportPage() {
   const completed = orders.filter((o) => o.status === "Completed");
 
   // Revenue per customer
-  const custRevMap: Record<string, { name: string; orders: number; revenue: number }> = {};
+  const custRevMap: Record<string, { id: string; name: string; orders: number; revenue: number }> = {};
   completed.forEach((o) => {
     if (!o.customer_id) return;
     const k = o.customer_id;
-    if (!custRevMap[k]) custRevMap[k] = { name: o.customer?.name ?? "Unknown", orders: 0, revenue: 0 };
+    if (!custRevMap[k]) custRevMap[k] = { id: k, name: o.customer?.name ?? "Unknown", orders: 0, revenue: 0 };
     custRevMap[k].orders += 1;
     custRevMap[k].revenue += o.total;
   });
@@ -102,7 +102,7 @@ export default function CustomersReportPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {topCustomers.map((c, i) => (
-                <tr key={c.name}>
+                <tr key={c.id}>
                   <td className="py-2.5 text-muted font-mono text-xs">{i + 1}</td>
                   <td className="py-2.5 font-medium text-foreground">{c.name}</td>
                   <td className="py-2.5 text-muted">{c.orders}</td>

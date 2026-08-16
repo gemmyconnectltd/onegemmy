@@ -28,8 +28,8 @@ function Brand({ size }: { size: "sm" | "md" }) {
 }
 
 export function PageLoader({
-  label = "Loading your workspace",
-  sub = "Almost there — crunching the numbers",
+  label = "Loading…",
+  sub = "Getting everything ready",
   variant = "page",
 }: PageLoaderProps) {
   if (variant === "screen") {

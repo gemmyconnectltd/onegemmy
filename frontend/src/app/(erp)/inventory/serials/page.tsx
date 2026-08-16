@@ -15,10 +15,21 @@ const STATUS_COLORS: Record<string, string> = {
   under_repair: "bg-red-100 text-red-700",
 };
 
+type BulkRow = { id: string; product_id: string; serial_number: string; imei: string; warranty_months: number; purchase_price: number; notes: string };
+const newRow = (patch: Partial<BulkRow> = {}): BulkRow => ({
+  id: crypto.randomUUID(),
+  product_id: patch.product_id ?? "",
+  serial_number: patch.serial_number ?? "",
+  imei: patch.imei ?? "",
+  warranty_months: patch.warranty_months ?? 0,
+  purchase_price: patch.purchase_price ?? 0,
+  notes: patch.notes ?? "",
+});
+
 export default function SerialsPage() {
   const [status, setStatus] = useState<string>("");
   const [adding, setAdding] = useState(false);
-  const [bulk, setBulk] = useState([{ product_id: "", serial_number: "", imei: "", warranty_months: 0, purchase_price: 0, notes: "" }]);
+  const [bulk, setBulk] = useState<BulkRow[]>([newRow()]);
   const [result, setResult] = useState<string | null>(null);
 
   const { data, isLoading } = useSerials(1, 100, undefined, status || undefined);
@@ -26,7 +37,7 @@ export default function SerialsPage() {
   const deleteSerial = useDeleteSerial();
   const serials = data?.items ?? [];
 
-  function updateRow(i: number, patch: Partial<typeof bulk[number]>) {
+  function updateRow(i: number, patch: Partial<BulkRow>) {
     setBulk((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   }
 
@@ -37,7 +48,7 @@ export default function SerialsPage() {
       const res = await createSerials.mutateAsync(valid);
       setResult(`Registered ${res?.data?.items?.length ?? valid.length} serial(s)`);
       setAdding(false);
-      setBulk([{ product_id: "", serial_number: "", imei: "", warranty_months: 0, purchase_price: 0, notes: "" }]);
+      setBulk([newRow()]);
     } catch { setResult("Failed to register serials"); }
   }
 
@@ -71,7 +82,7 @@ export default function SerialsPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
           <p className="text-sm font-bold text-foreground">Register Serials</p>
           {bulk.map((row, i) => (
-            <div key={i} className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+            <div key={row.id} className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
               <div className="md:col-span-1">
                 <label className="text-xs font-semibold text-muted mb-1 block">Product ID</label>
                 <input type="text" placeholder="product id" value={row.product_id}
@@ -103,7 +114,7 @@ export default function SerialsPage() {
                   className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none" />
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setBulk((rows) => [...rows, { ...bulk[bulk.length - 1] }])} className="rounded-lg">+ Row</Button>
+                <Button size="sm" variant="secondary" onClick={() => setBulk((rows) => [...rows, newRow(rows[rows.length - 1])])} className="rounded-lg">+ Row</Button>
                 {bulk.length > 1 && (
                   <Button size="sm" variant="secondary" onClick={() => setBulk((rows) => rows.filter((_, idx) => idx !== i))} className="rounded-lg">−</Button>
                 )}

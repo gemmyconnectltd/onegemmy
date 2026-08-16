@@ -14,7 +14,8 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-interface ItemRow { product_name: string; sku: string; quantity: number; }
+interface ItemRow { id: string; product_name: string; sku: string; quantity: number; }
+const newItem = (): ItemRow => ({ id: crypto.randomUUID(), product_name: "", sku: "", quantity: 1 });
 
 export default function TransfersPage() {
   const [status, setStatus] = useState<string>("");
@@ -23,7 +24,7 @@ export default function TransfersPage() {
   const [fromBranch, setFromBranch] = useState("");
   const [toBranch, setToBranch] = useState("");
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<ItemRow[]>([{ product_name: "", sku: "", quantity: 1 }]);
+  const [items, setItems] = useState<ItemRow[]>([newItem()]);
 
   const { data, isLoading } = useTransfers(1, 100, status || undefined);
   const { data: branchesData } = useMyBranches();
@@ -55,7 +56,7 @@ export default function TransfersPage() {
       });
       setAdding(false);
       setFromBranch(""); setToBranch(""); setNotes("");
-      setItems([{ product_name: "", sku: "", quantity: 1 }]);
+      setItems([newItem()]);
     } catch { /* ignore */ }
   }
 
@@ -110,7 +111,7 @@ export default function TransfersPage() {
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted">Items</p>
             {items.map((row, i) => (
-              <div key={i} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+              <div key={row.id} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
                 <div className="md:col-span-2">
                   <input type="text" placeholder="Product name" value={row.product_name}
                     onChange={(e) => updateRow(i, { product_name: e.target.value })}
@@ -129,7 +130,7 @@ export default function TransfersPage() {
                 </div>
               </div>
             ))}
-            <Button size="sm" variant="secondary" onClick={() => setItems((rows) => [...rows, { product_name: "", sku: "", quantity: 1 }])} className="rounded-lg">
+            <Button size="sm" variant="secondary" onClick={() => setItems((rows) => [...rows, newItem()])} className="rounded-lg">
               <Plus size={12} /> Add item
             </Button>
           </div>

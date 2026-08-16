@@ -26,6 +26,7 @@ const STATUS_ICON: Record<string, React.ElementType> = {
 };
 
 type ItemRow = {
+  rowId: string;            // stable key for the editor row
   product_id: string;       // uuid or ""
   variant_id: string;       // uuid or ""
   product_name: string;
@@ -36,7 +37,8 @@ type ItemRow = {
   variant_attributes: Record<string, string> | null;
 };
 
-const EMPTY_ITEM: ItemRow = { product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0", variant_attributes: null };
+const EMPTY_ITEM: ItemRow = { rowId: "", product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0", variant_attributes: null };
+const newItem = (): ItemRow => ({ ...EMPTY_ITEM, rowId: crypto.randomUUID() });
 const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "" };
 
 function attrLabel(attrs: Record<string, string> | null | undefined) {
@@ -215,7 +217,7 @@ export default function SalesOrdersPage() {
   const [editing, setEditing] = useState<ApiOrder | null>(null);
   const [viewing, setViewing] = useState<ApiOrder | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [items, setItems] = useState<ItemRow[]>([{ ...EMPTY_ITEM }]);
+  const [items, setItems] = useState<ItemRow[]>([newItem()]);
 
   const ordersQ = useOrders(1, 200);
   const customersQ = useCustomers(1, 200);
@@ -259,13 +261,13 @@ export default function SalesOrdersPage() {
   const itemsSubtotal = items.reduce((s, i) => s + (Number(i.unit_price) * Number(i.quantity)) - Number(i.discount), 0);
   const orderTotal = Math.max(0, itemsSubtotal - Number(form.discount) + Number(form.tax));
 
-  const openAdd = () => { setForm(EMPTY_FORM); setItems([{ ...EMPTY_ITEM }]); setShowAdd(true); };
+  const openAdd = () => { setForm(EMPTY_FORM); setItems([newItem()]); setShowAdd(true); };
   const openEdit = (o: ApiOrder) => {
     setEditing(o);
     setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "" });
     setItems(o.items.length
-      ? o.items.map((i) => ({ product_id: i.product_id ?? "", variant_id: i.variant_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount), variant_attributes: i.variant_attributes ?? null }))
-      : [{ ...EMPTY_ITEM }]);
+      ? o.items.map((i) => ({ rowId: crypto.randomUUID(), product_id: i.product_id ?? "", variant_id: i.variant_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount), variant_attributes: i.variant_attributes ?? null }))
+      : [newItem()]);
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
@@ -450,7 +452,7 @@ export default function SalesOrdersPage() {
                   — pick from inventory or type manually
                 </span>
               </label>
-              <button type="button" onClick={() => setItems((p) => [...p, { ...EMPTY_ITEM }])}
+              <button type="button" onClick={() => setItems((p) => [...p, newItem()])}
                 className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-border hover:bg-surface transition-colors" style={{ color: SAL }}>
                 + Add row
               </button>
@@ -465,7 +467,7 @@ export default function SalesOrdersPage() {
 
             <div className="space-y-2">
               {items.map((it, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                <div key={it.rowId} className="grid grid-cols-12 gap-2 items-center">
                   {/* product picker */}
                   <div className="col-span-5">
                     <ProductPicker
