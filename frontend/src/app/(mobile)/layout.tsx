@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { MobilePosProvider } from "@/components/mobile/MobilePosProvider";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 
 export default function MobileLayout({ children }: { children: ReactNode }) {
@@ -23,8 +23,12 @@ export default function MobileLayout({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-dvh bg-surface flex items-center justify-center px-6">
-        <PageLoader variant="screen" label="OneGemmy" sub="Signing you in" />
+      <div
+        className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 size={32} className="animate-spin text-accent" />
       </div>
     );
   }

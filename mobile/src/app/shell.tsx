@@ -24,7 +24,7 @@ export default function MobileShell({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-dvh bg-surface flex items-center justify-center">
+      <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );

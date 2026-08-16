@@ -3,13 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Box, Home, Megaphone, Package, Plus, Receipt, ShoppingCart,
+  Box, Home, Megaphone, Loader2, Package, Plus, Receipt, ShoppingCart,
   Truck, Wallet, Wrench, Zap,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/mobile/PageHeader";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useExpenses } from "@/lib/api/hooks";
 import { expenseCategories } from "@/lib/config";
 
@@ -105,7 +104,13 @@ export default function MobileExpensesPage() {
         </div>
 
         {expensesQ.isLoading ? (
-          <PageLoader variant="compact" />
+          <div
+            className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 size={32} className="animate-spin text-accent" />
+          </div>
         ) : expenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Wallet size={28} className="text-muted/40 mb-2" />

@@ -104,10 +104,8 @@ export default function MobileExpensesPage() {
         </div>
 
         {expensesQ.isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-xl bg-surface h-16" />
-            ))}
+          <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
           </div>
         ) : expenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">

@@ -5,14 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpDown, ChevronRight, History, Search, ShoppingBasket, SlidersHorizontal,
-  Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw, Zap,
+  Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw, Zap, Loader2,
 } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
 import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useProducts, useCustomers } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { useAppConfig } from "@/lib/appConfig";
@@ -248,7 +247,13 @@ export default function MobilePosPage() {
 
       {/* Product list */}
       {isLoading ? (
-        <PageLoader variant="compact" />
+        <div
+          className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 size={32} className="animate-spin text-accent" />
+        </div>
       ) : isError ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-center">
           <p className="text-[13px] text-muted">Couldn&apos;t load products.</p>

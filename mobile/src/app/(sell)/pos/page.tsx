@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowUpDown, ChevronRight, History, Loader2, Search, ShoppingBasket, SlidersHorizontal,
+  ArrowUpDown, ChevronRight, History, Search, ShoppingBasket, SlidersHorizontal,
   Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw, Zap,
 } from "lucide-react";
 
@@ -259,10 +259,8 @@ export default function MobilePosPage() {
 
       {/* Product list */}
       {isLoading ? (
-        <div className="p-3 space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl bg-surface h-16" />
-          ))}
+        <div className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
         </div>
       ) : isError ? (
         products.length > 0 ? (
@@ -444,8 +442,6 @@ export default function MobilePosPage() {
           </div>
         </div>
       )}
-
-      {isLoading && <Loader2 className="hidden" />}
     </div>
   );
 }
