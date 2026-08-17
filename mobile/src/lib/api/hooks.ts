@@ -32,7 +32,7 @@ import {
   type ApiCampaign, type ApiEmailLog,
   type ApiProductionOrder, type ApiProductionItem,
 } from "@/lib/api";
-import { cacheProducts, cacheCustomers, cacheSuppliers } from "@/lib/offline";
+import { cacheProducts, cacheCustomers, cacheSuppliers, cacheOrders, cacheExpenses } from "@/lib/offline";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -143,7 +143,7 @@ export const useDeleteSupplier = mutation((id: string) => inventoryApi.deleteSup
 
 export const CUSTOMERS = ["sales", "customers"] as const;
 const DEALS = ["sales", "deals"] as const;
-const ORDERS = ["sales", "orders"] as const;
+export const ORDERS = ["sales", "orders"] as const;
 const RETURNS = ["sales", "returns"] as const;
 const TARGETS = ["sales", "targets"] as const;
 
@@ -158,7 +158,11 @@ export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryO
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
 export const useOrders = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all"], () => salesApi.listOrders(page, pageSize, status), (r) => r.data, opts);
+  useQ([...ORDERS, page, pageSize, status ?? "all"], async () => {
+    const res = await salesApi.listOrders(page, pageSize, status);
+    cacheOrders(res.data?.items ?? []).catch(() => {});
+    return res;
+  }, (r) => r.data, opts);
 
 export const useReturns = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
   useQ([...RETURNS, page, pageSize, status ?? "all"], () => salesApi.listReturns(page, pageSize, status), (r) => r.data, opts);
@@ -190,7 +194,7 @@ export const useDeleteTarget = mutation((id: string) => salesApi.deleteTarget(id
 
 const REPORTS = ["finance", "reports"] as const;
 const ACCOUNTS = ["finance", "accounts"] as const;
-const EXPENSES = ["finance", "expenses"] as const;
+export const EXPENSES = ["finance", "expenses"] as const;
 const TRANSACTIONS = ["finance", "transactions"] as const;
 
 export const useTrialBalance = (from?: string, to?: string, opts?: QueryOpts) =>
@@ -212,7 +216,11 @@ export const useAccounts = (type?: string, opts?: QueryOpts) =>
   useQ([...ACCOUNTS, type ?? "all"], () => financeApi.listAccounts(type), (r) => r.data, opts);
 
 export const useExpenses = (status?: string, opts?: QueryOpts) =>
-  useQ([...EXPENSES, status ?? "all"], () => financeApi.listExpenses(status), (r) => r.data, opts);
+  useQ([...EXPENSES, status ?? "all"], async () => {
+    const res = await financeApi.listExpenses(status);
+    cacheExpenses(res.data?.items ?? []).catch(() => {});
+    return res;
+  }, (r) => r.data, opts);
 
 export const useTransactions = (type?: string, status?: string, opts?: QueryOpts) =>
   useQ([...TRANSACTIONS, type ?? "all", status ?? "all"], () => financeApi.listTransactions(type, status), (r) => r.data, opts);

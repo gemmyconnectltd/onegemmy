@@ -3,7 +3,7 @@
 // so we can store large catalogs without the 5 MB quota limit.
 
 import { getAll, replaceAll, getItem, put, del, clearStore } from "@/lib/db";
-import type { ApiProduct, ApiCustomer, ApiSupplier } from "@/lib/api";
+import type { ApiProduct, ApiCustomer, ApiSupplier, ApiOrder, FinanceExpense } from "@/lib/api";
 
 // ── network error detection ────────────────────────────────────────────────
 
@@ -115,6 +115,26 @@ export async function cacheSuppliers(items: ApiSupplier[]): Promise<void> {
 
 export async function getCachedSuppliers(): Promise<ApiSupplier[]> {
   return getAll<ApiSupplier>("suppliers");
+}
+
+// ── offline order cache ─────────────────────────────────────────────────
+
+export async function cacheOrders(items: ApiOrder[]): Promise<void> {
+  await replaceAll<ApiOrder>("orders", items);
+}
+
+export async function getCachedOrders(): Promise<ApiOrder[]> {
+  return getAll<ApiOrder>("orders");
+}
+
+// ── offline expense cache ───────────────────────────────────────────────
+
+export async function cacheExpenses(items: FinanceExpense[]): Promise<void> {
+  await replaceAll<FinanceExpense>("expenses", items);
+}
+
+export async function getCachedExpenses(): Promise<FinanceExpense[]> {
+  return getAll<FinanceExpense>("expenses");
 }
 
 // ── local stock decrement (optimistic, for POS offline mode) ──────────────

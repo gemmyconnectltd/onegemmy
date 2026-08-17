@@ -9,11 +9,13 @@ import { MobilePosProvider } from "@/components/mobile/MobilePosProvider";
 import OfflineIndicator from "@/components/mobile/OfflineIndicator";
 import SyncBanner from "@/components/mobile/SyncBanner";
 import { useAuth } from "@/lib/auth";
+import { useWakeLock } from "@/hooks/useWakeLock";
 
 export default function MobileShell({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  useWakeLock();
 
   const isLogin = pathname === "/login";
 

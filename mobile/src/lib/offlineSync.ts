@@ -7,11 +7,13 @@
 // Call syncPendingOps() to drain the pending-ops queue when back online.
 
 import { queryClient } from "@/lib/api/queryClient";
-import { PRODUCTS, CUSTOMERS, SUPPLIERS } from "@/lib/api/hooks";
+import { PRODUCTS, CUSTOMERS, SUPPLIERS, ORDERS, EXPENSES } from "@/lib/api/hooks";
 import {
   getCachedProducts,
   getCachedCustomers,
   getCachedSuppliers,
+  getCachedOrders,
+  getCachedExpenses,
   getPendingOps,
   removePendingOp,
 } from "@/lib/offline";
@@ -27,10 +29,12 @@ const CUSTOMER_PAGE_SIZES = [200, 500] as const;
 
 export async function hydrateQueryCache(): Promise<void> {
   try {
-    const [products, customers, suppliers] = await Promise.all([
+    const [products, customers, suppliers, orders, expenses] = await Promise.all([
       getCachedProducts(),
       getCachedCustomers(),
       getCachedSuppliers(),
+      getCachedOrders(),
+      getCachedExpenses(),
     ]);
 
     if (products.length > 0) {
@@ -52,6 +56,18 @@ export async function hydrateQueryCache(): Promise<void> {
     if (suppliers.length > 0) {
       queryClient.setQueryData([...SUPPLIERS], {
         data: { items: suppliers, total: suppliers.length, page: 1, page_size: 100 },
+      });
+    }
+
+    if (orders.length > 0) {
+      queryClient.setQueryData([...ORDERS, 1, 500, "all"], {
+        data: { items: orders, total: orders.length, page: 1, page_size: 500 },
+      });
+    }
+
+    if (expenses.length > 0) {
+      queryClient.setQueryData([...EXPENSES, "all"], {
+        data: { items: expenses, total: expenses.length, page: 1, page_size: 100 },
       });
     }
   } catch {
