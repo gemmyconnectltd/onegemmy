@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/mobile/PageHeader";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useCreateExpense } from "@/lib/api/hooks";
 import { expenseCategories } from "@/lib/config";
+import { addPendingOp, isNetworkError } from "@/lib/offline";
 
 export default function MobileNewExpensePage() {
   const router = useRouter();
@@ -28,17 +29,28 @@ export default function MobileNewExpensePage() {
       return;
     }
     setError(null);
+    const payload = {
+      title: title.trim(),
+      amount: value,
+      expense_date: date,
+      category,
+      notes: notes.trim() || null,
+    };
     try {
-      await createExpense.mutateAsync({
-        title: title.trim(),
-        amount: value,
-        expense_date: date,
-        category,
-        notes: notes.trim() || null,
-      });
+      await createExpense.mutateAsync(payload);
       router.replace("/expenses");
     } catch (e) {
-      setError((e as { detail?: string })?.detail ?? "Could not record the expense. Try again.");
+      if (!isNetworkError(e)) {
+        setError((e as { detail?: string })?.detail ?? "Could not record the expense. Try again.");
+        return;
+      }
+      await addPendingOp({
+        id: `exp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        type: "create_expense",
+        queuedAt: new Date().toISOString(),
+        payload,
+      });
+      router.replace("/expenses");
     }
   };
 

@@ -2,49 +2,42 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CloudUpload, RefreshCw, WifiOff } from "lucide-react";
-
-import { useCreateOrder } from "@/lib/api/hooks";
-import { getPendingOrders, removePendingOrder, subscribePendingChanges } from "@/lib/offline";
+import { getPendingOps, subscribePendingChanges } from "@/lib/offline";
+import { syncPendingOps } from "@/lib/offlineSync";
 
 const RETRY_INTERVAL_MS = 8000;
 
 export default function SyncBanner() {
-  const createOrder = useCreateOrder();
-  const [pending, setPending] = useState(() => getPendingOrders().length);
+  const [pending, setPending] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const refresh = useCallback(() => setPending(getPendingOrders().length), []);
+  const refresh = useCallback(async () => {
+    const ops = await getPendingOps();
+    setPending(ops.length);
+  }, []);
 
   const sync = useCallback(async () => {
-    const orders = getPendingOrders();
-    if (orders.length === 0 || typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
     setSyncing(true);
-    let ok = true;
-    for (const order of orders) {
-      try {
-        await createOrder.mutateAsync(order.payload);
-        removePendingOrder(order.clientOrderId);
-      } catch (e) {
-        ok = false;
-        setLastError((e as { status?: number; detail?: string })?.detail ?? "Sync failed");
-      }
-    }
+    const result = await syncPendingOps();
     setSyncing(false);
-    refresh();
-    return ok;
-  }, [createOrder, refresh]);
+    if (result.failed > 0) setLastError(result.errors[0] ?? "Sync failed");
+    else setLastError(null);
+    await refresh();
+  }, [refresh]);
 
   useEffect(() => {
+    getPendingOps().then((ops) => {
+      setPending(ops.length);
+    });
     const unsubscribe = subscribePendingChanges(refresh);
     const onOnline = () => sync();
     window.addEventListener("online", onOnline);
 
-    // While there are unsynced sales, retry periodically so the queue clears
-    // on its own once the backend is reachable again.
     timerRef.current = setInterval(() => {
-      if (getPendingOrders().length > 0) sync();
+      getPendingOps().then((ops) => { if (ops.length > 0) sync(); });
     }, RETRY_INTERVAL_MS);
 
     return () => {
@@ -64,22 +57,22 @@ export default function SyncBanner() {
         {offline ? (
           <>
             <WifiOff size={13} className="flex-shrink-0" />
-            Offline — {pending} {pending === 1 ? "sale" : "sales"} saved, will sync
+            Offline — {pending} {pending === 1 ? "op" : "ops"} saved, will sync
           </>
         ) : syncing ? (
           <>
             <RefreshCw size={13} className="flex-shrink-0 animate-spin" />
-            Syncing {pending} {pending === 1 ? "sale" : "sales"}…
+            Syncing {pending} {pending === 1 ? "op" : "ops"}…
           </>
         ) : lastError ? (
           <>
             <AlertTriangle size={13} className="flex-shrink-0 text-yellow-300" />
-            {pending} {pending === 1 ? "sale" : "sales"} waiting — server rejected
+            {pending} {pending === 1 ? "op" : "ops"} waiting — {lastError}
           </>
         ) : (
           <>
             <CloudUpload size={13} className="flex-shrink-0" />
-            {pending} {pending === 1 ? "sale" : "sales"} pending sync
+            {pending} {pending === 1 ? "op" : "ops"} pending sync
           </>
         )}
         {!offline && !syncing && (

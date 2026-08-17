@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Minus, PackagePlus, Plus, Searc
 
 import { useProducts, useRestockProduct, type ApiProduct } from "@/lib/api/hooks";
 import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
+import { addPendingOp, isNetworkError, decrementLocalStock } from "@/lib/offline";
 
 export default function MobileRestockPage() {
   const productsQ = useProducts(1, 200);
@@ -37,18 +38,32 @@ export default function MobileRestockPage() {
   const submit = async () => {
     if (!selected || qty <= 0) return;
     setError(null);
+    const restockData = { qty, mode: "restock", reason: reason.trim() || "Stock in (mobile)" };
     try {
-      await restock.mutateAsync({
-        id: selected.id,
-        data: { qty, mode: "restock", reason: reason.trim() || "Stock in (mobile)" },
-      });
+      await restock.mutateAsync({ id: selected.id, data: restockData });
       setSuccessId(selected.id);
       setSelected(null);
       setQty(1);
       setReason("");
       setTimeout(() => setSuccessId(null), 2000);
     } catch (e) {
-      setError((e as { detail?: string })?.detail ?? "Failed to receive stock");
+      if (!isNetworkError(e)) {
+        setError((e as { detail?: string })?.detail ?? "Failed to receive stock");
+        return;
+      }
+      // Queue for later sync and optimistically update local stock
+      await addPendingOp({
+        id: `restock-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        type: "restock",
+        queuedAt: new Date().toISOString(),
+        payload: { id: selected.id, data: restockData },
+      });
+      await decrementLocalStock(selected.id, -qty); // negative = increment
+      setSuccessId(selected.id);
+      setSelected(null);
+      setQty(1);
+      setReason("");
+      setTimeout(() => setSuccessId(null), 2000);
     }
   };
 

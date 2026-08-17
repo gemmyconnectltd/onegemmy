@@ -1,27 +1,11 @@
-// Offline support for the POS: a localStorage-backed product cache and a
-// pending-sales queue. When the backend is unreachable, sales are stored here
-// and replayed (with idempotent client_order_id) once the app is back online.
+// Offline support: IDB-backed caches + generic pending-ops queue.
+// localStorage is no longer used for data — everything goes through IndexedDB
+// so we can store large catalogs without the 5 MB quota limit.
 
-import type { ApiProduct } from "@/lib/api";
+import { getAll, replaceAll, getItem, put, del, clearStore } from "@/lib/db";
+import type { ApiProduct, ApiCustomer, ApiSupplier } from "@/lib/api";
 
-const PENDING_KEY = "onegemmy_pending_orders";
-const PRODUCT_CACHE_KEY = "onegemmy_product_cache";
-const PENDING_CHANGED_EVENT = "onegemmy:pending-changed";
-
-export interface PendingOrder {
-  clientOrderId: string;
-  queuedAt: string;
-  payload: Record<string, unknown>;
-}
-
-function safeParse<T>(raw: string | null): T | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
+// ── network error detection ────────────────────────────────────────────────
 
 // A network failure throws a plain fetch/TypeError. Real backend errors throw
 // `{ status, detail }`. Anything with a `status` is a real server response.
@@ -29,26 +13,40 @@ export function isNetworkError(err: unknown): boolean {
   return !(err && typeof err === "object" && "status" in (err as { status?: number }));
 }
 
-// ── pending sales queue ────────────────────────────────────────────────────
+// ── pending ops queue (generic) ────────────────────────────────────────────
 
-export function getPendingOrders(): PendingOrder[] {
-  if (typeof window === "undefined") return [];
-  return safeParse<PendingOrder[]>(localStorage.getItem(PENDING_KEY)) ?? [];
+export type OpType = "create_order" | "create_expense" | "restock" | "create_customer";
+
+export interface PendingOp {
+  id: string;           // client-generated UUID
+  type: OpType;
+  queuedAt: string;     // ISO timestamp
+  payload: Record<string, unknown>;
 }
 
-export function addPendingOrder(order: PendingOrder): void {
-  if (typeof window === "undefined") return;
-  const orders = getPendingOrders();
-  orders.push(order);
-  localStorage.setItem(PENDING_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event(PENDING_CHANGED_EVENT));
+const PENDING_CHANGED_EVENT = "onegemmy:pending-changed";
+
+function emit() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(PENDING_CHANGED_EVENT));
 }
 
-export function removePendingOrder(clientOrderId: string): void {
-  if (typeof window === "undefined") return;
-  const orders = getPendingOrders().filter((o) => o.clientOrderId !== clientOrderId);
-  localStorage.setItem(PENDING_KEY, JSON.stringify(orders));
-  window.dispatchEvent(new Event(PENDING_CHANGED_EVENT));
+export async function getPendingOps(): Promise<PendingOp[]> {
+  return getAll<PendingOp>("pendingOps");
+}
+
+export async function addPendingOp(op: PendingOp): Promise<void> {
+  await put<PendingOp>("pendingOps", op);
+  emit();
+}
+
+export async function removePendingOp(id: string): Promise<void> {
+  await del("pendingOps", id);
+  emit();
+}
+
+export async function clearPendingOps(): Promise<void> {
+  await clearStore("pendingOps");
+  emit();
 }
 
 export function subscribePendingChanges(listener: () => void): () => void {
@@ -57,15 +55,72 @@ export function subscribePendingChanges(listener: () => void): () => void {
   return () => window.removeEventListener(PENDING_CHANGED_EVENT, listener);
 }
 
-// ── offline product catalog ────────────────────────────────────────────────
+// ── backwards-compat: pending orders (wraps generic queue) ────────────────
 
-export function cacheProducts(items: ApiProduct[]): void {
-  if (typeof window === "undefined" || items.length === 0) return;
-  localStorage.setItem(PRODUCT_CACHE_KEY, JSON.stringify({ at: Date.now(), items }));
+export interface PendingOrder {
+  clientOrderId: string;
+  queuedAt: string;
+  payload: Record<string, unknown>;
 }
 
-export function getCachedProducts(): ApiProduct[] | null {
-  if (typeof window === "undefined") return null;
-  const cached = safeParse<{ at: number; items: ApiProduct[] }>(localStorage.getItem(PRODUCT_CACHE_KEY));
-  return cached?.items ?? null;
+export async function getPendingOrders(): Promise<PendingOrder[]> {
+  const ops = await getPendingOps();
+  return ops
+    .filter((o) => o.type === "create_order")
+    .map((o) => ({
+      clientOrderId: o.id,
+      queuedAt: o.queuedAt,
+      payload: o.payload,
+    }));
+}
+
+export async function addPendingOrder(order: PendingOrder): Promise<void> {
+  await addPendingOp({
+    id: order.clientOrderId,
+    type: "create_order",
+    queuedAt: order.queuedAt,
+    payload: order.payload,
+  });
+}
+
+export async function removePendingOrder(clientOrderId: string): Promise<void> {
+  await removePendingOp(clientOrderId);
+}
+
+// ── offline product catalog ────────────────────────────────────────────────
+
+export async function cacheProducts(items: ApiProduct[]): Promise<void> {
+  await replaceAll<ApiProduct>("products", items);
+}
+
+export async function getCachedProducts(): Promise<ApiProduct[]> {
+  return getAll<ApiProduct>("products");
+}
+
+// ── offline customer catalog ───────────────────────────────────────────────
+
+export async function cacheCustomers(items: ApiCustomer[]): Promise<void> {
+  await replaceAll<ApiCustomer>("customers", items);
+}
+
+export async function getCachedCustomers(): Promise<ApiCustomer[]> {
+  return getAll<ApiCustomer>("customers");
+}
+
+// ── offline supplier catalog ───────────────────────────────────────────────
+
+export async function cacheSuppliers(items: ApiSupplier[]): Promise<void> {
+  await replaceAll<ApiSupplier>("suppliers", items);
+}
+
+export async function getCachedSuppliers(): Promise<ApiSupplier[]> {
+  return getAll<ApiSupplier>("suppliers");
+}
+
+// ── local stock decrement (optimistic, for POS offline mode) ──────────────
+
+export async function decrementLocalStock(productId: string, qty: number): Promise<void> {
+  const product = await getItem<ApiProduct>("products", productId);
+  if (!product) return;
+  await put<ApiProduct>("products", { ...product, stock: Math.max(0, (product.stock ?? 0) - qty) });
 }

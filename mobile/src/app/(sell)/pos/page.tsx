@@ -13,7 +13,7 @@ import { ProductCard } from "@/components/pos/ProductCard";
 import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useProducts, useCustomers } from "@/lib/api/hooks";
-import { cacheProducts, getCachedProducts } from "@/lib/offline";
+import { cacheProducts } from "@/lib/offline";
 import type { ApiProduct } from "@/lib/api";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -82,11 +82,9 @@ export default function MobilePosPage() {
   const products = useMemo(() => {
     const source = data?.items?.length
       ? data.items
-      : isError
-        ? (getCachedProducts() ?? [])
-        : (data?.items ?? []);
-    return source.filter((p) => p.is_active).map(apiToProduct);
-  }, [data, isError]);
+      : (data?.items ?? []);
+    return source.filter((p: ApiProduct) => p.is_active).map(apiToProduct);
+  }, [data]);
   const categories = useMemo(() => ["All", ...new Set(products.map((p) => p.category))], [products]);
 
   const [category, setCategory] = useState("All");

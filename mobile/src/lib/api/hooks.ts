@@ -5,8 +5,8 @@
 // refetch and invalidation are handled here, keyed per resource so mutations
 // only invalidate what they actually touch.
 //
-// Queries return the unwrapped `data` payload (via `select`), so e.g.
-// `useProducts().data?.items` is the list directly.
+// Offline-first: products, customers and suppliers are written through to
+// IndexedDB on every successful fetch so they're available when offline.
 
 import {
   useQuery,
@@ -32,6 +32,7 @@ import {
   type ApiCampaign, type ApiEmailLog,
   type ApiProductionOrder, type ApiProductionItem,
 } from "@/lib/api";
+import { cacheProducts, cacheCustomers, cacheSuppliers } from "@/lib/offline";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,11 @@ const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
 export const useProducts = (page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...PRODUCTS, page, pageSize], () => inventoryApi.listProducts(page, pageSize), (r) => r.data, opts);
+  useQ([...PRODUCTS, page, pageSize], async () => {
+    const res = await inventoryApi.listProducts(page, pageSize);
+    cacheProducts(res.data?.items ?? []).catch(() => {});
+    return res;
+  }, (r) => r.data, opts);
 
 export const useAllVariants = (page = 1, pageSize = 200, opts?: QueryOpts) =>
   useQ([...VARIANTS, page, pageSize], () => inventoryApi.listAllVariants(page, pageSize), (r) => r.data, opts);
@@ -97,7 +102,11 @@ export const useUnits = (opts?: QueryOpts) =>
   useQ([...UNITS], () => inventoryApi.listUnits(), (r) => r.data, opts);
 
 export const useSuppliers = (opts?: QueryOpts) =>
-  useQ([...SUPPLIERS], () => inventoryApi.listSuppliers(), (r) => r.data, opts);
+  useQ([...SUPPLIERS], async () => {
+    const res = await inventoryApi.listSuppliers();
+    cacheSuppliers(res.data?.items ?? []).catch(() => {});
+    return res;
+  }, (r) => r.data, opts);
 
 export const useValuationReport = (opts?: QueryOpts) =>
   useQ([...VALUATION], () => inventoryApi.valuationReport(), (r) => r.data, opts);
@@ -139,7 +148,11 @@ const RETURNS = ["sales", "returns"] as const;
 const TARGETS = ["sales", "targets"] as const;
 
 export const useCustomers = (page = 1, pageSize = 200, opts?: QueryOpts) =>
-  useQ([...CUSTOMERS, page, pageSize], () => salesApi.listCustomers(page, pageSize), (r) => r.data, opts);
+  useQ([...CUSTOMERS, page, pageSize], async () => {
+    const res = await salesApi.listCustomers(page, pageSize);
+    cacheCustomers(res.data?.items ?? []).catch(() => {});
+    return res;
+  }, (r) => r.data, opts);
 
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);

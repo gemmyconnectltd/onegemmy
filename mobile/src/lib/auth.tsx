@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
   authApi,
   clearStoredTokens,
@@ -9,6 +10,7 @@ import {
   setStoredRefreshToken,
   getStoredToken,
   getStoredRefreshToken,
+  setSessionExpiredHandler,
   type ApiTokenUserInfo,
 } from "./api";
 
@@ -73,7 +75,16 @@ function isTokenExpired(token: string): boolean {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const router = useRouter();
 
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      setUser(null);
+      clearApiCache();
+      setSessionExpired(true);
+    });
+  }, []);
   useEffect(() => {
     let cancelled = false;
 
@@ -180,7 +191,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSuperAdmin, isAdmin,
   }), [user, login, register, logout, isLoading, hasPermission, hasAnyPermission, hasModuleAccess, isSuperAdmin, isAdmin]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {sessionExpired && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <h2 className="text-base font-bold text-foreground text-center">Session Expired</h2>
+            <p className="text-sm text-muted text-center mt-1 mb-5">
+              Your session has expired. Please log in again to continue.
+            </p>
+            <button
+              onClick={() => { setSessionExpired(false); router.push("/login"); }}
+              className="w-full py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold transition-colors"
+            >
+              Log in again
+            </button>
+          </div>
+        </div>
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

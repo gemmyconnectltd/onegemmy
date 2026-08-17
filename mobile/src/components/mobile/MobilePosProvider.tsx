@@ -7,7 +7,7 @@ import { TAX_RATE, generateClientOrderId, generateInvoiceId, generateOrderId, ti
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { useCreateOrder } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
-import { addPendingOrder, isNetworkError } from "@/lib/offline";
+import { addPendingOrder, isNetworkError, decrementLocalStock } from "@/lib/offline";
 
 interface MobilePosContextValue {
   cart: CartItem[];
@@ -221,6 +221,10 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
       }
       // Backend unreachable — queue the sale locally; it syncs on reconnect.
       addPendingOrder({ clientOrderId, queuedAt: new Date().toISOString(), payload });
+      // Optimistically decrement local stock so POS reflects reality offline
+      for (const item of cart) {
+        if (item.product_id) decrementLocalStock(item.product_id, item.qty).catch(() => {});
+      }
     }
 
     setCompletedSale(sale);
