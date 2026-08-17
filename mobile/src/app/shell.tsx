@@ -34,8 +34,8 @@ export default function MobileShell({ children }: { children: ReactNode }) {
 
   return (
     <MobilePosProvider>
-      <div className="min-h-dvh bg-background flex justify-center">
-        <div className="w-full max-w-[430px] h-dvh flex flex-col bg-background overflow-hidden">
+      <div className="h-dvh bg-background flex justify-center">
+        <div className="w-full max-w-[430px] h-full flex flex-col bg-background overflow-hidden">
           <OfflineIndicator />
           <SyncBanner />
           <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
