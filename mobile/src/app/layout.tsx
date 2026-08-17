@@ -90,7 +90,7 @@ export default function RootLayout({
           id="register-sw"
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
-            __html: `if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); }); }`,
+            __html: `if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); navigator.serviceWorker.addEventListener("controllerchange", function () { window.location.reload(); }); }); }`,
           }}
         />
       )}

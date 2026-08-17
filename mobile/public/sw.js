@@ -8,7 +8,7 @@
 //  - Everything else same-origin: stale-while-revalidate.
 // Cross-origin requests (e.g. the API on a different host) are left alone.
 
-const CACHE = "onegemmy-mobile-v4";
+const CACHE = "onegemmy-mobile-v5";
 const STATIC_ASSET = /\.(js|css|woff2?|ttf|png|jpe?g|gif|svg|webp|avif|ico)$/;
 
 const PRECACHE = [
