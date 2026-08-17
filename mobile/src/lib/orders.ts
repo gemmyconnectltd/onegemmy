@@ -23,6 +23,7 @@ export function orderToSale(o: ApiOrder): SaleResult {
     name: i.product_name,
     price: i.unit_price,
     qty: i.quantity,
+    stock: 0,
     emoji: "📦",
     discount: i.discount,
     image_url: null,

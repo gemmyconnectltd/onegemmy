@@ -82,6 +82,8 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           {/* Right affordance */}
           {outOfStock ? (
             <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-1 rounded-full flex-shrink-0">Out of stock</span>
+          ) : inCart && inCartQty >= product.stock ? (
+            <span className="w-7 h-7 rounded-full bg-surface border border-border text-muted-foreground text-[11px] font-bold flex items-center justify-center flex-shrink-0">Max</span>
           ) : inCart ? (
             <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-[12px] font-bold flex items-center justify-center flex-shrink-0 shadow-sm">{inCartQty}</span>
           ) : (

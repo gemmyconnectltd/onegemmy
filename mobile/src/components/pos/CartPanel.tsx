@@ -230,7 +230,11 @@ export function CartPanel({
                         <Minus size={10} />
                       </button>
                       <span className="text-[13px] font-bold w-5 text-center tabular-nums">{item.qty}</span>
-                      <button onClick={() => onUpdateQty(item.id, 1)} className="w-6 h-6 flex items-center justify-center rounded-full border border-border hover:bg-surface active:scale-90 transition-all">
+                      <button
+                        onClick={() => onUpdateQty(item.id, 1)}
+                        disabled={item.qty >= item.stock}
+                        className="w-6 h-6 flex items-center justify-center rounded-full border border-border hover:bg-surface active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
                         <Plus size={10} />
                       </button>
                       <button onClick={() => onRemoveItem(item.id)} className="w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors">

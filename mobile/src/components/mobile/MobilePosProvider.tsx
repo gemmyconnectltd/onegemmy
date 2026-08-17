@@ -71,10 +71,13 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     if (p.stock <= 0 || p.has_variants) return;
     setCart((prev) => {
       const existing = prev.find((i) => i.id === p.id);
-      if (existing) return prev.map((i) => (i.id === p.id ? { ...i, qty: i.qty + 1 } : i));
+      if (existing) {
+        if (existing.qty >= p.stock) return prev;
+        return prev.map((i) => (i.id === p.id ? { ...i, qty: i.qty + 1 } : i));
+      }
       return [...prev, {
         id: p.id, product_id: p.id, variant_id: null, name: p.name, price: p.price, qty: 1,
-        emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null,
+        stock: p.stock, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null,
       }];
     });
     setCashGiven("");
@@ -84,10 +87,13 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     const id = `${p.id}::${v.id}`;
     setCart((prev) => {
       const existing = prev.find((i) => i.id === id);
-      if (existing) return prev.map((i) => (i.id === id ? { ...i, qty: i.qty + 1 } : i));
+      if (existing) {
+        if (existing.qty >= v.stock) return prev;
+        return prev.map((i) => (i.id === id ? { ...i, qty: i.qty + 1 } : i));
+      }
       return [...prev, {
         id, product_id: p.id, variant_id: v.id, name: p.name, price: v.price, qty: 1,
-        emoji: p.emoji, discount: 0, image_url: p.image_url, sku: v.sku ?? p.sku,
+        stock: v.stock, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: v.sku ?? p.sku,
         variant_attributes: v.attributes,
       }];
     });
@@ -96,8 +102,13 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
 
   const updateQty = useCallback((id: string, delta: number) => {
     setCart((prev) => prev
-      .map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
-      .filter((i) => i.qty > 0));
+      .map((i) => {
+        if (i.id !== id) return i;
+        const next = i.qty + delta;
+        if (next <= 0) return null;
+        return { ...i, qty: Math.min(next, i.stock ?? Infinity) };
+      })
+      .filter(Boolean) as typeof prev);
   }, []);
 
   const updateDiscount = useCallback((id: string, discount: number) => {

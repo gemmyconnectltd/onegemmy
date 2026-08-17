@@ -36,6 +36,7 @@ export type CartItem = {
   name: string;
   price: number;
   qty: number;
+  stock: number;
   emoji: string;
   discount: number;
   image_url?: string | null;
