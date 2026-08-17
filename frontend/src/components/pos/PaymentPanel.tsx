@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Banknote, CreditCard, Delete, Smartphone } from "lucide-react";
+import { AlertCircle, Banknote, CreditCard, Smartphone } from "lucide-react";
 
 import type { PaymentMethod } from "./types";
 
@@ -9,8 +9,6 @@ const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof Banknote
   { id: "mobile",  label: "Mobile",  icon: Smartphone },
   { id: "card",    label: "Card",    icon: CreditCard },
 ];
-
-const NUMPAD = ["7","8","9","4","5","6","1","2","3","00","0","⌫"] as const;
 
 interface PaymentPanelProps {
   payment: PaymentMethod;
@@ -33,26 +31,12 @@ interface PaymentPanelProps {
 }
 
 export function PaymentPanel({
-  payment, cashGiven, subtotal, discount, tax, total, change, cashShort,
-  cartCount, hasCustomer, currencySymbol, fmt,
+  payment, subtotal, discount, tax, total,
+  cartCount, currencySymbol, fmt,
   saving, saleError,
-  onPaymentChange, onCashChange, onCharge,
+  onPaymentChange, onCharge,
 }: PaymentPanelProps) {
-  const isCash = payment === "cash";
-  const chargeDisabled =
-    cartCount === 0 ||
-    saving ||
-    (isCash && cashShort);
-
-  const handleNumpad = (key: string) => {
-    if (key === "⌫") {
-      onCashChange(cashGiven.slice(0, -1));
-    } else {
-      // prevent leading zeros
-      const next = cashGiven === "0" ? key : cashGiven + key;
-      onCashChange(next);
-    }
-  };
+  const chargeDisabled = cartCount === 0 || saving;
 
   return (
     <div className="space-y-2.5">
@@ -97,71 +81,7 @@ export function PaymentPanel({
         ))}
       </div>
 
-      {/* Cash numpad */}
-      {isCash && (
-        <div className="space-y-2">
-          {/* Cash display */}
-          <div className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-colors ${
-            cashShort
-              ? "border-red-300 bg-red-50"
-              : cashGiven && Number(cashGiven) >= total
-              ? "border-emerald-300 bg-emerald-50"
-              : "border-border bg-surface"
-          }`}>
-            <span className="text-[11px] text-muted font-medium">Cash given</span>
-            <span className={`text-[15px] font-bold font-mono ${
-              cashShort ? "text-red-500" : cashGiven ? "text-foreground" : "text-muted/40"
-            }`}>
-              {cashGiven ? `${currencySymbol} ${fmt(Number(cashGiven))}` : "—"}
-            </span>
-          </div>
-
-          {/* Numpad — compact 3×4 */}
-          <div className="grid grid-cols-3 gap-1">
-            {NUMPAD.map((key) => (
-              <button
-                key={key}
-                onClick={() => handleNumpad(key)}
-                className={`py-2.5 rounded-xl text-[13px] font-bold transition-all active:scale-95 select-none ${
-                  key === "⌫"
-                    ? "bg-red-50 text-red-500 border border-red-200 hover:bg-red-100"
-                    : "bg-surface border border-border text-foreground hover:bg-border"
-                }`}
-              >
-                {key === "⌫" ? <Delete size={14} className="mx-auto" /> : key}
-              </button>
-            ))}
-          </div>
-
-          {/* Quick presets */}
-          <div className="grid grid-cols-4 gap-1">
-            {[0, 1000, 5000, 10000].map((preset) => (
-              <button
-                key={preset}
-                onClick={() => onCashChange(String(total + preset))}
-                className="py-1.5 text-[10px] font-semibold border border-border rounded-lg text-foreground/70 hover:border-accent hover:text-accent transition-colors"
-              >
-                {preset === 0 ? "Exact" : `+${preset >= 1000 ? `${preset / 1000}k` : preset}`}
-              </button>
-            ))}
-          </div>
-
-          {/* Change / short feedback */}
-          {cashGiven && Number(cashGiven) >= total ? (
-            <div className="flex justify-between items-center px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <span className="text-[12px] font-semibold text-emerald-700">Change</span>
-              <span className="text-[14px] font-bold text-emerald-700 font-mono">{currencySymbol} {fmt(change)}</span>
-            </div>
-          ) : cashShort ? (
-            <div className="flex justify-between items-center px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
-              <span className="text-[12px] font-semibold text-red-600">Short by</span>
-              <span className="text-[14px] font-bold text-red-600 font-mono">{currencySymbol} {fmt(total - Number(cashGiven))}</span>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* Charge button */}
+      {/* Error + Charge */}
       {saleError && (
         <div className="flex items-start gap-1.5 text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
           <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
