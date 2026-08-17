@@ -111,33 +111,35 @@ export default function MobileLoginPage() {
           </button>
         </form>
 
-        {/* Demo accounts */}
-        <div className="mt-6">
-          <button
-            onClick={() => setShowDemo((s) => !s)}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-border text-foreground/70 active:bg-surface transition-colors"
-          >
-            <span className="flex items-center gap-1.5 text-[12px] font-semibold">
-              <Sparkles size={13} className="text-accent" /> Use demo account
-            </span>
-            <ChevronDown size={14} className={`text-muted transition-transform ${showDemo ? "rotate-180" : ""}`} />
-          </button>
-          {showDemo && (
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map((demo) => (
-                <button
-                  key={demo.email}
-                  type="button"
-                  onClick={() => fillDemo(demo)}
-                  className="text-left px-3 py-2.5 rounded-xl bg-card border border-border hover:border-accent/50 transition-colors"
-                >
-                  <p className="text-[12px] font-semibold text-foreground">{demo.label}</p>
-                  <p className="text-[10px] text-muted mt-0.5 truncate">{demo.email}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Demo accounts — development only */}
+        {process.env.NODE_ENV !== "production" && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowDemo((s) => !s)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-border text-foreground/70 active:bg-surface transition-colors"
+            >
+              <span className="flex items-center gap-1.5 text-[12px] font-semibold">
+                <Sparkles size={13} className="text-accent" /> Use demo account
+              </span>
+              <ChevronDown size={14} className={`text-muted transition-transform ${showDemo ? "rotate-180" : ""}`} />
+            </button>
+            {showDemo && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {DEMO_ACCOUNTS.map((demo) => (
+                  <button
+                    key={demo.email}
+                    type="button"
+                    onClick={() => fillDemo(demo)}
+                    className="text-left px-3 py-2.5 rounded-xl bg-card border border-border hover:border-accent/50 transition-colors"
+                  >
+                    <p className="text-[12px] font-semibold text-foreground">{demo.label}</p>
+                    <p className="text-[10px] text-muted mt-0.5 truncate">{demo.email}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <p className="text-center text-[10px] text-muted pb-[env(safe-area-inset-bottom)] py-4">

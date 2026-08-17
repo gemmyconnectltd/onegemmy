@@ -201,91 +201,95 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-card px-3 text-xs text-muted">Quick login</span>
-            </div>
-          </div>
-
-          {/* Demo accounts */}
-          <div className="space-y-3">
-            <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
-            {([
-              {
-                tenant: "Global", slug: undefined,
-                users: [
-                  { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Admin dashboard", isSuper: true },
-                ],
-              },
-              {
-                tenant: "OneGemmy", slug: "onegemmy",
-                users: [
-                  { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123", desc: "Full access" },
-                  { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",  desc: "Inventory" },
-                  { label: "Inv. Staff",   email: "inventory.staff@onegemmy.com",     password: "user123",  desc: "Inv. staff" },
-                  { label: "Finance Mgr",  email: "finance.manager@onegemmy.com",     password: "user123",  desc: "Finance" },
-                  { label: "Finance",      email: "finance.staff@onegemmy.com",       password: "user123",  desc: "Fin. staff" },
-                  { label: "HR Manager",   email: "hr.manager@onegemmy.com",          password: "user123",  desc: "HR" },
-                  { label: "HR Staff",     email: "hr.staff@onegemmy.com",            password: "user123",  desc: "HR staff" },
-                  { label: "Sales Mgr",    email: "sales.manager@onegemmy.com",       password: "user123",  desc: "Sales" },
-                  { label: "Sales Staff",  email: "sales.staff@onegemmy.com",         password: "user123",  desc: "Sales staff" },
-                  { label: "Procurement",  email: "procurement.manager@onegemmy.com", password: "user123",  desc: "Procurement" },
-                  { label: "Proc. Staff",  email: "procurement.staff@onegemmy.com",   password: "user123",  desc: "Proc. staff" },
-                ],
-              },
-              {
-                tenant: "FreshMart", slug: "freshmart",
-                users: [
-                  { label: "Admin",        email: "admin@freshmart.rw",               password: "admin123", desc: "Full access" },
-                  { label: "Inv. Manager", email: "inventory.manager@freshmart.rw",   password: "user123",  desc: "Inventory" },
-                  { label: "Finance Mgr",  email: "finance.manager@freshmart.rw",     password: "user123",  desc: "Finance" },
-                  { label: "Sales Mgr",    email: "sales.manager@freshmart.rw",       password: "user123",  desc: "Sales" },
-                  { label: "Procurement",  email: "procurement.manager@freshmart.rw", password: "user123",  desc: "Procurement" },
-                  { label: "HR Manager",   email: "hr.manager@freshmart.rw",          password: "user123",  desc: "HR" },
-                ],
-              },
-            ] as { tenant: string; slug: string | undefined; users: { label: string; email: string; password: string; desc: string; isSuper?: boolean }[] }[]).map((group) => (
-              <div key={group.tenant}>
-                <p className="text-[10px] text-muted/40 uppercase tracking-wider font-semibold mb-1.5">{group.tenant}</p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {group.users.map((demo) => (
-                    demo.isSuper ? (
-                      <button
-                        key={demo.email}
-                        type="button"
-                        disabled={loading}
-                        onClick={() => fillDemo(demo, group.slug)}
-                        className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                          <Shield size={14} className="text-violet-400" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-violet-400">{demo.label}</p>
-                          <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc} → /admin</p>
-                        </div>
-                      </button>
-                    ) : (
-                      <button
-                        key={demo.email}
-                        type="button"
-                        disabled={loading}
-                        onClick={() => fillDemo(demo, group.slug)}
-                        className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
-                      >
-                        <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
-                        <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
-                      </button>
-                    )
-                  ))}
+          {/* Demo accounts — development only */}
+          {process.env.NODE_ENV !== "production" && (
+            <>
+              {/* Divider */}
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-card px-3 text-xs text-muted">Quick login</span>
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
+                {([
+                  {
+                    tenant: "Global", slug: undefined,
+                    users: [
+                      { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Admin dashboard", isSuper: true },
+                    ],
+                  },
+                  {
+                    tenant: "OneGemmy", slug: "onegemmy",
+                    users: [
+                      { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123", desc: "Full access" },
+                      { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",  desc: "Inventory" },
+                      { label: "Inv. Staff",   email: "inventory.staff@onegemmy.com",     password: "user123",  desc: "Inv. staff" },
+                      { label: "Finance Mgr",  email: "finance.manager@onegemmy.com",     password: "user123",  desc: "Finance" },
+                      { label: "Finance",      email: "finance.staff@onegemmy.com",       password: "user123",  desc: "Fin. staff" },
+                      { label: "HR Manager",   email: "hr.manager@onegemmy.com",          password: "user123",  desc: "HR" },
+                      { label: "HR Staff",     email: "hr.staff@onegemmy.com",            password: "user123",  desc: "HR staff" },
+                      { label: "Sales Mgr",    email: "sales.manager@onegemmy.com",       password: "user123",  desc: "Sales" },
+                      { label: "Sales Staff",  email: "sales.staff@onegemmy.com",         password: "user123",  desc: "Sales staff" },
+                      { label: "Procurement",  email: "procurement.manager@onegemmy.com", password: "user123",  desc: "Procurement" },
+                      { label: "Proc. Staff",  email: "procurement.staff@onegemmy.com",   password: "user123",  desc: "Proc. staff" },
+                    ],
+                  },
+                  {
+                    tenant: "FreshMart", slug: "freshmart",
+                    users: [
+                      { label: "Admin",        email: "admin@freshmart.rw",               password: "admin123", desc: "Full access" },
+                      { label: "Inv. Manager", email: "inventory.manager@freshmart.rw",   password: "user123",  desc: "Inventory" },
+                      { label: "Finance Mgr",  email: "finance.manager@freshmart.rw",     password: "user123",  desc: "Finance" },
+                      { label: "Sales Mgr",    email: "sales.manager@freshmart.rw",       password: "user123",  desc: "Sales" },
+                      { label: "Procurement",  email: "procurement.manager@freshmart.rw", password: "user123",  desc: "Procurement" },
+                      { label: "HR Manager",   email: "hr.manager@freshmart.rw",          password: "user123",  desc: "HR" },
+                    ],
+                  },
+                ] as { tenant: string; slug: string | undefined; users: { label: string; email: string; password: string; desc: string; isSuper?: boolean }[] }[]).map((group) => (
+                  <div key={group.tenant}>
+                    <p className="text-[10px] text-muted/40 uppercase tracking-wider font-semibold mb-1.5">{group.tenant}</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {group.users.map((demo) => (
+                        demo.isSuper ? (
+                          <button
+                            key={demo.email}
+                            type="button"
+                            disabled={loading}
+                            onClick={() => fillDemo(demo, group.slug)}
+                            className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                              <Shield size={14} className="text-violet-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-violet-400">{demo.label}</p>
+                              <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc} → /admin</p>
+                            </div>
+                          </button>
+                        ) : (
+                          <button
+                            key={demo.email}
+                            type="button"
+                            disabled={loading}
+                            onClick={() => fillDemo(demo, group.slug)}
+                            className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
+                          >
+                            <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
+                            <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
+                          </button>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <p className="text-sm text-muted text-center mt-8">
             Don&apos;t have an account?{" "}
