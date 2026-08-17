@@ -27,12 +27,15 @@ export default function MobileCartPage() {
 
   if (completedSale) {
     return (
-      <div className="min-h-full bg-card">
+      <div className="min-h-full bg-card flex flex-col">
         <Receipt
           sale={completedSale}
           currencySymbol={currencySymbol}
           fmt={fmt}
           onNewSale={() => {
+            startNewSale();
+          }}
+          onClose={() => {
             startNewSale();
           }}
           vatEnabled={vatEnabled}

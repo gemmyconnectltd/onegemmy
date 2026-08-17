@@ -282,7 +282,7 @@ export default function POSPage() {
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
-          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} vatEnabled={vatEnabled} />
+          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} onClose={startNewSale} vatEnabled={vatEnabled} />
         )}
       </Drawer>
 

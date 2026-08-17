@@ -30,6 +30,7 @@ export default function MobileReceiptPage() {
         currencySymbol={currencySymbol}
         fmt={fmt}
         onNewSale={handleNewSale}
+        onClose={handleNewSale}
         vatEnabled={vatEnabled}
       />
     </div>

@@ -24,12 +24,13 @@ export default function MobileReceiptPage() {
   };
 
   return (
-    <div className="min-h-full bg-card">
+    <div className="min-h-full bg-card flex flex-col">
       <Receipt
         sale={completedSale}
         currencySymbol={currencySymbol}
         fmt={fmt}
         onNewSale={handleNewSale}
+        onClose={handleNewSale}
         vatEnabled={vatEnabled}
       />
     </div>

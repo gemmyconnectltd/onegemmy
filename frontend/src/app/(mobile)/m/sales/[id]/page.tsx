@@ -55,7 +55,7 @@ export default function MobileSalesDetailPage() {
         <h1 className="text-[15px] font-bold text-foreground">Receipt</h1>
       </header>
       <div className="flex-1">
-        <Receipt sale={sale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={handleNewSale} vatEnabled={vatEnabled} />
+        <Receipt sale={sale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={handleNewSale} onClose={() => router.back()} vatEnabled={vatEnabled} />
       </div>
     </div>
   );

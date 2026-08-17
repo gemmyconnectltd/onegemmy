@@ -148,16 +148,23 @@ export default function MobilePosPage() {
 
   return (
     <div className="min-h-full flex flex-col pb-20">
-      {/* Receipt overlay — shown after a sale completes */}
+      {/* Receipt drawer — slide-up modal after sale completes */}
       {completedSale && (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col">
-          <Receipt
-            sale={completedSale}
-            currencySymbol={currencySymbol}
-            fmt={fmt}
-            onNewSale={handleNewSale}
-            vatEnabled={vatEnabled}
-          />
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={handleNewSale} aria-hidden />
+          <div className="relative w-full max-w-[430px] h-[85dvh] bg-background rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-6 fade-in duration-300">
+            <div className="pt-2.5 pb-0 flex justify-center flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-border" />
+            </div>
+            <Receipt
+              sale={completedSale}
+              currencySymbol={currencySymbol}
+              fmt={fmt}
+              onNewSale={handleNewSale}
+              onClose={handleNewSale}
+              vatEnabled={vatEnabled}
+            />
+          </div>
         </div>
       )}
       {/* Header */}
