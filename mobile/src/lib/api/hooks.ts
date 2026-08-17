@@ -71,13 +71,13 @@ function mutation<TVariables, TResponse>(
 
 // ── Inventory ────────────────────────────────────────────────────────────────
 
-const PRODUCTS = ["inventory", "products"] as const;
+export const PRODUCTS = ["inventory", "products"] as const;
 const VARIANTS = ["inventory", "variants"] as const;
 const VALUATION = ["inventory", "reports", "valuation"] as const;
 const CATEGORIES = ["inventory", "categories"] as const;
 const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
-const SUPPLIERS = ["inventory", "suppliers"] as const;
+export const SUPPLIERS = ["inventory", "suppliers"] as const;
 
 export const useProducts = (page = 1, pageSize = 100, opts?: QueryOpts) =>
   useQ([...PRODUCTS, page, pageSize], async () => {
@@ -141,7 +141,7 @@ export const useDeleteSupplier = mutation((id: string) => inventoryApi.deleteSup
 
 // ── Sales ────────────────────────────────────────────────────────────────────
 
-const CUSTOMERS = ["sales", "customers"] as const;
+export const CUSTOMERS = ["sales", "customers"] as const;
 const DEALS = ["sales", "deals"] as const;
 const ORDERS = ["sales", "orders"] as const;
 const RETURNS = ["sales", "returns"] as const;

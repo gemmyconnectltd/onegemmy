@@ -7,6 +7,7 @@
 // Call syncPendingOps() to drain the pending-ops queue when back online.
 
 import { queryClient } from "@/lib/api/queryClient";
+import { PRODUCTS, CUSTOMERS, SUPPLIERS } from "@/lib/api/hooks";
 import {
   getCachedProducts,
   getCachedCustomers,
@@ -16,13 +17,11 @@ import {
 } from "@/lib/offline";
 import { salesApi, inventoryApi, financeApi } from "@/lib/api";
 
-// ── canonical query keys (must match hooks.ts) ────────────────────────────
-
-export const QUERY_KEYS = {
-  products:  ["inventory", "products", 1, 100] as const,
-  customers: ["sales", "customers", 1, 200] as const,
-  suppliers: ["inventory", "suppliers"] as const,
-} as const;
+// Every (page, pageSize) pair actually used by useProducts()/useCustomers()
+// call sites — TanStack Query keys are exact-match, so hydration must seed
+// each one a page might read, or that page sees no offline data at all.
+const PRODUCT_PAGE_SIZES = [200, 500] as const;
+const CUSTOMER_PAGE_SIZES = [200, 500] as const;
 
 // ── hydrate query cache from IDB ──────────────────────────────────────────
 
@@ -35,19 +34,23 @@ export async function hydrateQueryCache(): Promise<void> {
     ]);
 
     if (products.length > 0) {
-      queryClient.setQueryData(QUERY_KEYS.products, {
-        data: { items: products, total: products.length, page: 1, page_size: 100 },
-      });
+      for (const pageSize of PRODUCT_PAGE_SIZES) {
+        queryClient.setQueryData([...PRODUCTS, 1, pageSize], {
+          data: { items: products, total: products.length, page: 1, page_size: pageSize },
+        });
+      }
     }
 
     if (customers.length > 0) {
-      queryClient.setQueryData(QUERY_KEYS.customers, {
-        data: { items: customers, total: customers.length, page: 1, page_size: 200 },
-      });
+      for (const pageSize of CUSTOMER_PAGE_SIZES) {
+        queryClient.setQueryData([...CUSTOMERS, 1, pageSize], {
+          data: { items: customers, total: customers.length, page: 1, page_size: pageSize },
+        });
+      }
     }
 
     if (suppliers.length > 0) {
-      queryClient.setQueryData(QUERY_KEYS.suppliers, {
+      queryClient.setQueryData([...SUPPLIERS], {
         data: { items: suppliers, total: suppliers.length, page: 1, page_size: 100 },
       });
     }
