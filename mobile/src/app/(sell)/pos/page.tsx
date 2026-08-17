@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  ArrowUpDown, ChevronRight, History, Search, ShoppingBasket, SlidersHorizontal,
-  Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw, Zap,
+  ArrowUpDown, History, Search, ShoppingBasket, SlidersHorizontal,
+  Sun, Moon, TrendingUp, X, CheckCircle2, RotateCcw,
 } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
+import { PaymentPanel } from "@/components/pos/PaymentPanel";
+import { Receipt } from "@/components/pos/Receipt";
 import { ProductCard } from "@/components/pos/ProductCard";
 import type { Product, Variant } from "@/components/pos/types";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
@@ -61,15 +61,16 @@ function apiToProduct(p: ApiProduct): Product {
 }
 
 export default function MobilePosPage() {
-  const router = useRouter();
   const { data, isLoading, isError, refetch } = useProducts(1, 500);
   const customersQ = useCustomers(1, 500);
   const { theme, setTheme } = useAppConfig();
   const {
     cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total,
-    customerId, customerName, notes, subtotal, tax, discount,
-    setCustomer, setNotes, updateQty, updateDiscount, removeItem, clearCart, holdSale,
-    saving, completeSale,
+    customerId, customerName, notes, subtotal, tax, discount, payment, cashGiven, change, cashShort,
+    saleError, saving, completedSale,
+    setCustomer, setNotes, setPayment, setCashGiven,
+    updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    completeSale, startNewSale,
   } = useMobilePos();
 
   const customers = customersQ.data?.items ?? [];
@@ -140,13 +141,24 @@ export default function MobilePosPage() {
 
   const cartCount = totalItems;
 
-  const chargeExact = () => {
+  const handleNewSale = () => {
+    startNewSale();
     setShowCart(false);
-    void completeSale({ payment: "cash", cashGiven: String(total) }).then(() => router.push("/payment"));
   };
 
   return (
     <div className="min-h-full flex flex-col pb-20">
+      {/* Receipt overlay — shown after a sale completes */}
+      {completedSale && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col">
+          <Receipt
+            sale={completedSale}
+            currencySymbol={currencySymbol}
+            fmt={fmt}
+            onNewSale={handleNewSale}
+          />
+        </div>
+      )}
       {/* Header */}
       <header className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border">
         <div className="flex items-center gap-3 px-4 pt-3 pb-2">
@@ -158,8 +170,8 @@ export default function MobilePosPage() {
             </p>
           </div>
 
-          <Link
-            href="/held"
+          <button
+            onClick={() => setShowCart(true)}
             className="relative w-9 h-9 flex items-center justify-center border border-border rounded-xl text-foreground/70"
             aria-label="Held sales"
           >
@@ -169,7 +181,7 @@ export default function MobilePosPage() {
                 {heldOrders.length}
               </span>
             )}
-          </Link>
+          </button>
 
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -332,48 +344,35 @@ export default function MobilePosPage() {
         </div>
       )}
 
-      {/* Floating cart bar */}
+      {/* Floating cart bar — tap to open cart */}
       {cartCount > 0 && (
         <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+56px)] left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-[406px] z-30">
-          <div
-            className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-accent text-white shadow-lg shadow-accent/30 transition-transform ${
+          <button
+            onClick={() => setShowCart(true)}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-accent text-white shadow-lg shadow-accent/30 transition-transform ${
               cartBump ? "scale-105" : "scale-100"
             }`}
           >
-            <button
-              onClick={() => setShowCart(true)}
-              className="flex items-center gap-2 text-[13px] font-bold flex-1 min-w-0 text-left"
-            >
+            <span className="flex items-center gap-2 text-[13px] font-bold flex-1 min-w-0 text-left">
               <ShoppingBasket size={16} className="flex-shrink-0" />
               <span className="truncate">{cartCount} item{cartCount !== 1 ? "s" : ""}</span>
-            </button>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-[13px] font-bold font-mono">{currencySymbol} {fmt(total)}</span>
-              <button
-                onClick={chargeExact}
-                disabled={saving}
-                className="px-3 py-1.5 rounded-xl bg-white/20 text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition disabled:opacity-40"
-                aria-label="Charge exact cash"
-              >
-                <Zap size={12} />
-                {saving ? "Saving…" : "Charge"}
-              </button>
-            </div>
-          </div>
+            </span>
+            <span className="text-[13px] font-bold font-mono flex-shrink-0">{currencySymbol} {fmt(total)}</span>
+          </button>
         </div>
       )}
 
-      {/* Cart drawer */}
+      {/* Cart drawer with inline PaymentPanel */}
       {showCart && (
         <div className="fixed inset-0 z-40 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCart(false)} aria-hidden />
-          <div className="relative w-full max-w-[430px] h-[82dvh] bg-background rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-200">
+          <div className="relative w-full max-w-[430px] h-[90dvh] bg-background rounded-t-3xl flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 fade-in duration-200">
             <div className="pt-2.5 pb-1 flex justify-center flex-shrink-0">
               <div className="w-10 h-1 rounded-full bg-border" />
             </div>
             <header className="px-4 pb-2 flex items-center gap-2 flex-shrink-0">
               <ShoppingBasket size={15} className="text-accent" />
-              <h2 className="text-[15px] font-bold text-foreground">Cart</h2>
+              <h2 className="text-[15px] font-bold text-foreground">Checkout</h2>
               <span className="text-[11px] text-muted">{totalItems} item{totalItems !== 1 ? "s" : ""}</span>
               <button
                 onClick={() => setShowCart(false)}
@@ -384,6 +383,7 @@ export default function MobilePosPage() {
               </button>
             </header>
 
+            {/* Cart items — scrollable */}
             <div className="flex-1 min-h-0 overflow-y-auto border-t border-border">
               <CartPanel
                 cart={cart}
@@ -409,34 +409,32 @@ export default function MobilePosPage() {
               />
             </div>
 
-            <div className="flex-shrink-0 px-4 pt-2.5 pb-4 border-t border-border bg-card space-y-2">
-              <div>
-                <p className="text-[10px] text-muted">Total</p>
-                <p className="text-[17px] leading-none font-bold text-foreground font-mono">
-                  {currencySymbol} {fmt(total)}
-                </p>
-                <p className="text-[10px] text-muted mt-0.5">
-                  {currencySymbol} {fmt(subtotal)}{discount > 0 && <span className="text-emerald-600"> · -{fmt(discount)}</span>} · VAT {currencySymbol} {fmt(tax)}
-                </p>
+            {/* Inline PaymentPanel — always visible at bottom */}
+            {cart.length > 0 && (
+              <div className="flex-shrink-0 border-t border-border overflow-y-auto max-h-[55%]">
+                <div className="p-3">
+                  <PaymentPanel
+                    payment={payment}
+                    cashGiven={cashGiven}
+                    subtotal={subtotal}
+                    discount={discount}
+                    tax={tax}
+                    total={total}
+                    change={change}
+                    cashShort={cashShort}
+                    cartCount={cartCount}
+                    hasCustomer={customerName.trim().length > 0}
+                    currencySymbol={currencySymbol}
+                    fmt={fmt}
+                    saving={saving}
+                    saleError={saleError}
+                    onPaymentChange={setPayment}
+                    onCashChange={setCashGiven}
+                    onCharge={() => void completeSale()}
+                  />
+                </div>
               </div>
-              <button
-                onClick={chargeExact}
-                disabled={saving}
-                className="w-full py-3 rounded-xl bg-accent text-white font-bold text-[13px] flex items-center justify-between px-4 hover:opacity-90 active:scale-[0.98] transition disabled:opacity-40"
-              >
-                <span className="flex items-center gap-1.5"><Zap size={15} /> {saving ? "Saving sale…" : "Charge"}</span>
-                <span className="font-mono">{currencySymbol} {fmt(total)}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowCart(false);
-                  router.push("/payment");
-                }}
-                className="w-full py-2.5 rounded-xl border border-border text-foreground/70 text-[12px] font-semibold hover:bg-surface active:scale-[0.98] transition"
-              >
-                Other payment methods <ChevronRight size={13} className="inline" />
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
