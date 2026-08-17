@@ -21,6 +21,7 @@ interface PaymentPanelProps {
   cashShort: boolean;
   cartCount: number;
   hasCustomer: boolean;
+  vatEnabled: boolean;
   currencySymbol: string;
   fmt: (v: number) => string;
   saving?: boolean;
@@ -32,7 +33,7 @@ interface PaymentPanelProps {
 
 export function PaymentPanel({
   payment, subtotal, discount, tax, total,
-  cartCount, currencySymbol, fmt,
+  cartCount, vatEnabled, currencySymbol, fmt,
   saving, saleError,
   onPaymentChange, onCharge,
 }: PaymentPanelProps) {
@@ -44,7 +45,7 @@ export function PaymentPanel({
       {/* Totals */}
       <div className="space-y-1 font-mono text-[12px]">
         <div className="flex justify-between text-muted">
-          <span>Items (incl. VAT)</span>
+          <span>{vatEnabled ? "Subtotal (incl. VAT)" : "Subtotal"}</span>
           <span>{currencySymbol} {fmt(subtotal)}</span>
         </div>
         {discount > 0 && (
@@ -53,10 +54,12 @@ export function PaymentPanel({
             <span>-{currencySymbol} {fmt(discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-muted">
-          <span>VAT (18%, included)</span>
-          <span>{currencySymbol} {fmt(tax)}</span>
-        </div>
+        {vatEnabled && (
+          <div className="flex justify-between text-muted">
+            <span>VAT (18%, included)</span>
+            <span>{currencySymbol} {fmt(tax)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
           <span>Total</span>
           <span className="text-accent">{currencySymbol} {fmt(total)}</span>

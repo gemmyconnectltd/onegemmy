@@ -51,7 +51,7 @@ interface MobilePosContextValue {
 const MobilePosContext = createContext<MobilePosContextValue | null>(null);
 
 export function MobilePosProvider({ children }: { children: ReactNode }) {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, vatEnabled } = useAppConfig();
   const createOrder = useCreateOrder();
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -167,8 +167,8 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
   const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.qty, 0), [cart]);
   const discount = useMemo(() => cart.reduce((s, i) => s + i.discount, 0), [cart]);
   const gross = subtotal - discount;
-  const taxable = Math.round(gross / (1 + TAX_RATE));
-  const tax = gross - taxable;
+  const taxable = vatEnabled ? Math.round(gross / (1 + TAX_RATE)) : gross;
+  const tax = vatEnabled ? gross - taxable : 0;
   const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
   const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;

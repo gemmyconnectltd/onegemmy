@@ -9,10 +9,12 @@ import { PaymentPanel } from "@/components/pos/PaymentPanel";
 import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useCustomers } from "@/lib/api/hooks";
+import { useAppConfig } from "@/lib/appConfig";
 
 export default function MobileCartPage() {
   const { data } = useCustomers(1, 500);
   const customers = data?.items ?? [];
+  const { vatEnabled } = useAppConfig();
 
   const {
     cart, customerId, customerName, notes, currencySymbol, fmt,
@@ -33,6 +35,7 @@ export default function MobileCartPage() {
           onNewSale={() => {
             startNewSale();
           }}
+          vatEnabled={vatEnabled}
         />
       </div>
     );
@@ -93,6 +96,7 @@ export default function MobileCartPage() {
             cashShort={cashShort}
             cartCount={totalItems}
             hasCustomer={customerName.trim().length > 0}
+            vatEnabled={vatEnabled}
             currencySymbol={currencySymbol}
             fmt={fmt}
             saving={saving}

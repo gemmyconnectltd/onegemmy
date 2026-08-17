@@ -7,6 +7,7 @@ import { ArrowLeft, ReceiptText } from "lucide-react";
 
 import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
+import { useAppConfig } from "@/lib/appConfig";
 import { useOrders } from "@/lib/api/hooks";
 import { orderToSale } from "@/lib/orders";
 
@@ -14,6 +15,7 @@ export default function MobileSalesDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { currencySymbol, fmt, startNewSale } = useMobilePos();
+  const { vatEnabled } = useAppConfig();
   const ordersQ = useOrders(1, 500);
 
   const sale = useMemo(() => {
@@ -53,7 +55,7 @@ export default function MobileSalesDetailPage() {
         <h1 className="text-[15px] font-bold text-foreground">Receipt</h1>
       </header>
       <div className="flex-1">
-        <Receipt sale={sale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={handleNewSale} />
+        <Receipt sale={sale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={handleNewSale} vatEnabled={vatEnabled} />
       </div>
     </div>
   );

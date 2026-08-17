@@ -23,7 +23,7 @@ const SECTIONS = [
 export default function MobileAccountPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useAppConfig();
+  const { theme, setTheme, vatEnabled, setVatEnabled } = useAppConfig();
   const ordersQ = useOrders(1, 500);
   const purchasesQ = usePurchaseOrders(undefined, 1, 200);
 
@@ -117,6 +117,23 @@ export default function MobileAccountPage() {
                 </p>
               </div>
               <ChevronRight size={15} className="text-muted flex-shrink-0" />
+            </button>
+            <button
+              onClick={() => setVatEnabled(!vatEnabled)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-surface transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center text-accent flex-shrink-0">
+                <ReceiptText size={16} />
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-[13px] font-semibold text-foreground">VAT</p>
+                <p className="text-[10px] text-muted mt-0.5">
+                  {vatEnabled ? "Enabled · 18% on receipts" : "Disabled · no tax shown"}
+                </p>
+              </div>
+              <div className={`w-9 h-5 rounded-full transition-colors ${vatEnabled ? "bg-accent" : "bg-surface border border-border"}`}>
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform mt-0.5 ${vatEnabled ? "ml-[18px]" : "ml-0.5"}`} />
+              </div>
             </button>
             <button
               onClick={exportData}

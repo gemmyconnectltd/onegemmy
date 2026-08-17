@@ -63,7 +63,7 @@ function apiToProduct(p: ApiProduct): Product {
 export default function MobilePosPage() {
   const { data, isLoading, isError, refetch } = useProducts(1, 500);
   const customersQ = useCustomers(1, 500);
-  const { theme, setTheme } = useAppConfig();
+  const { theme, setTheme, vatEnabled } = useAppConfig();
   const {
     cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total,
     customerId, customerName, notes, subtotal, tax, discount, payment, cashGiven, change, cashShort,
@@ -156,6 +156,7 @@ export default function MobilePosPage() {
             currencySymbol={currencySymbol}
             fmt={fmt}
             onNewSale={handleNewSale}
+            vatEnabled={vatEnabled}
           />
         </div>
       )}
@@ -424,6 +425,7 @@ export default function MobilePosPage() {
                     cashShort={cashShort}
                     cartCount={cartCount}
                     hasCustomer={customerName.trim().length > 0}
+                    vatEnabled={vatEnabled}
                     currencySymbol={currencySymbol}
                     fmt={fmt}
                     saving={saving}

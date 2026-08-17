@@ -8,10 +8,11 @@ interface ReceiptProps {
   sale: SaleResult;
   currencySymbol: string;
   fmt: (v: number) => string;
+  vatEnabled: boolean;
   onNewSale: () => void;
 }
 
-export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) {
+export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale }: ReceiptProps) {
   return (
     <div className="bg-card">
       {/* Header */}
@@ -85,9 +86,11 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
             <span>Discount</span><span>-{currencySymbol} {fmt(sale.discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-muted">
-          <span>VAT (18%, included)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
-        </div>
+        {vatEnabled && sale.tax > 0 && (
+          <div className="flex justify-between text-muted">
+            <span>VAT (18%, included)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
           <span>Total</span>
           <span>{currencySymbol} {fmt(sale.total)}</span>

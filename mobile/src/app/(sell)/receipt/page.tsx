@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
+import { useAppConfig } from "@/lib/appConfig";
 
 export default function MobileReceiptPage() {
   const router = useRouter();
   const { completedSale, currencySymbol, fmt, startNewSale } = useMobilePos();
+  const { vatEnabled } = useAppConfig();
 
   useEffect(() => {
     if (!completedSale) router.replace("/");
@@ -28,6 +30,7 @@ export default function MobileReceiptPage() {
         currencySymbol={currencySymbol}
         fmt={fmt}
         onNewSale={handleNewSale}
+        vatEnabled={vatEnabled}
       />
     </div>
   );

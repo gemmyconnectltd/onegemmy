@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  BarChart3, Banknote, CreditCard, Package, ReceiptText,
+  BarChart3, Banknote, CreditCard, DollarSign, Package, ReceiptText,
   ShoppingBasket, Smartphone, TrendingUp, Users,
 } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { useOrders } from "@/lib/api/hooks";
+import { useOrders, useProducts } from "@/lib/api/hooks";
 import { orderToSale } from "@/lib/orders";
 import { PeriodSelector, inPeriod, type PeriodKey } from "@/components/mobile/PeriodSelector";
 import type { PaymentMethod } from "@/components/pos/types";
@@ -22,7 +22,14 @@ const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }
 export default function MobileStatsPage() {
   const { currencySymbol, fmt, heldOrders } = useMobilePos();
   const ordersQ = useOrders(1, 500);
+  const productsQ = useProducts(1, 500);
   const [period, setPeriod] = useState<PeriodKey>("today");
+
+  const costMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of productsQ.data?.items ?? []) map.set(p.id, p.cost);
+    return map;
+  }, [productsQ.data]);
 
   const sales = useMemo(
     () => (ordersQ.data?.items ?? []).filter((o) => o.status === "Completed").map(orderToSale),
@@ -37,6 +44,17 @@ export default function MobileStatsPage() {
   const revenue = filtered.reduce((sum, s) => sum + s.total, 0);
   const itemsSold = filtered.reduce((sum, s) => sum + s.items.reduce((n, i) => n + i.qty, 0), 0);
   const avgSale = filtered.length > 0 ? Math.round(revenue / filtered.length) : 0;
+
+  const profit = useMemo(() => {
+    let totalCost = 0;
+    for (const s of filtered) {
+      for (const i of s.items) {
+        const cost = i.product_id ? (costMap.get(i.product_id) ?? 0) : 0;
+        totalCost += cost * i.qty;
+      }
+    }
+    return revenue - totalCost;
+  }, [filtered, revenue, costMap]);
 
   const paymentBreakdown = useMemo(() => {
     return PAYMENT_META.map((p) => {
@@ -88,6 +106,14 @@ export default function MobileStatsPage() {
             <Kpi label="Sales" value={String(filtered.length)} icon={<ReceiptText size={14} />} />
             <Kpi label="Items sold" value={String(itemsSold)} icon={<Package size={14} />} />
             <Kpi label="Avg / sale" value={fmt(avgSale)} icon={<BarChart3 size={14} />} />
+          </div>
+          <div className="pt-1">
+            <Kpi
+              label="Profit"
+              value={`${currencySymbol} ${fmt(profit)}`}
+              icon={<DollarSign size={14} />}
+              accent={profit >= 0}
+            />
           </div>
         </div>
 
@@ -197,13 +223,13 @@ export default function MobileStatsPage() {
   );
 }
 
-function Kpi({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function Kpi({ label, value, icon, accent }: { label: string; value: string; icon: React.ReactNode; accent?: boolean }) {
   return (
-    <div className="rounded-xl bg-surface p-2.5">
+    <div className={`rounded-xl p-2.5 ${accent === false ? "bg-red-500/10" : "bg-surface"}`}>
       <p className="flex items-center gap-1 text-[9px] text-muted font-medium uppercase tracking-wide">
         {icon} {label}
       </p>
-      <p className="text-[16px] font-bold text-foreground font-mono mt-1 truncate">{value}</p>
+      <p className={`text-[16px] font-bold font-mono mt-1 truncate ${accent === false ? "text-red-500" : "text-foreground"}`}>{value}</p>
     </div>
   );
 }

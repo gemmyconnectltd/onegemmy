@@ -21,6 +21,7 @@ interface PaymentPanelProps {
   cashShort: boolean;
   cartCount: number;
   hasCustomer: boolean;
+  vatEnabled: boolean;
   currencySymbol: string;
   fmt: (v: number) => string;
   saving?: boolean;
@@ -32,7 +33,7 @@ interface PaymentPanelProps {
 
 export function PaymentPanel({
   payment, subtotal, discount, tax, total,
-  cartCount, currencySymbol, fmt,
+  cartCount, vatEnabled, currencySymbol, fmt,
   saving, saleError,
   onPaymentChange, onCharge,
 }: PaymentPanelProps) {
@@ -44,7 +45,7 @@ export function PaymentPanel({
       {/* Totals */}
       <div className="space-y-1 font-mono text-[11px]">
         <div className="flex justify-between text-primary-foreground/60">
-          <span>Items (incl. VAT)</span>
+          <span>{vatEnabled ? "Subtotal (incl. VAT)" : "Subtotal"}</span>
           <span>{currencySymbol} {fmt(subtotal)}</span>
         </div>
         {discount > 0 && (
@@ -53,13 +54,15 @@ export function PaymentPanel({
             <span>-{currencySymbol} {fmt(discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-primary-foreground/60">
-          <span>VAT (18%, included)</span>
-          <span>{currencySymbol} {fmt(tax)}</span>
-        </div>
+        {vatEnabled && (
+          <div className="flex justify-between text-primary-foreground/60">
+            <span>VAT (18%, included)</span>
+            <span>{currencySymbol} {fmt(tax)}</span>
+          </div>
+        )}
         <div className="flex items-end justify-between pt-1.5 mt-1 border-t border-primary-foreground/20">
           <span className="text-[12px] font-bold uppercase tracking-wide">Total</span>
-          <span className="text-[26px] leading-none font-extrabold tabular-nums">{currencySymbol} {fmt(total)}</span>
+          <span className="text-[20px] leading-none font-extrabold tabular-nums">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
 

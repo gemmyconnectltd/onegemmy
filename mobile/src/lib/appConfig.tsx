@@ -168,6 +168,7 @@ interface AppConfig {
   businessType: BusinessType;
   theme: Theme;
   navOrientation: NavOrientation;
+  vatEnabled: boolean;
   translating: boolean;
   t: (key: string) => string;
   setCurrency: (code: string) => void;
@@ -175,6 +176,7 @@ interface AppConfig {
   setBusinessType: (type: BusinessType) => void;
   setTheme: (theme: Theme) => void;
   setNavOrientation: (orientation: NavOrientation) => void;
+  setVatEnabled: (enabled: boolean) => void;
   currencies: typeof currencies;
   locales: typeof locales;
   businessTypes: typeof businessTypes;
@@ -188,6 +190,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   const [businessType, setBusinessTypeState] = useState<BusinessType>("retail");
   const [theme, setThemeState] = useState<Theme>("light");
   const [navOrientation, setNavOrientationState] = useState<NavOrientation>("left");
+  const [vatEnabled, setVatEnabledState] = useState(true);
 
   // Restore persisted settings client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
@@ -201,6 +204,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     if (t === "dark" || t === "light") setThemeState(t);
     const o = localStorage.getItem("app_nav_orientation");
     if (o && VALID_ORIENTATIONS.includes(o as NavOrientation)) setNavOrientationState(o as NavOrientation);
+    const v = localStorage.getItem("app_vat_enabled");
+    if (v !== null) setVatEnabledState(v !== "false");
   }, []);
   const [strings, setStrings] = useState<Record<string, string>>(BASE_STRINGS);
   const [translating, setTranslating] = useState(false);
@@ -256,13 +261,18 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("app_nav_orientation", next);
   };
 
+  const setVatEnabled = (next: boolean) => {
+    setVatEnabledState(next);
+    localStorage.setItem("app_vat_enabled", String(next));
+  };
+
   const currencySymbol = currencies.find((c) => c.code === "RWF")?.symbol ?? "RWF";
   const t = (key: string) => strings[key] ?? BASE_STRINGS[key] ?? key;
 
   return (
     <AppConfigContext.Provider value={{
-      currency, currencySymbol, locale, businessType, theme, navOrientation, translating,
-      t, setCurrency, setLocale, setBusinessType, setTheme, setNavOrientation,
+      currency, currencySymbol, locale, businessType, theme, navOrientation, vatEnabled, translating,
+      t, setCurrency, setLocale, setBusinessType, setTheme, setNavOrientation, setVatEnabled,
       currencies, locales, businessTypes,
     }}>
       {children}

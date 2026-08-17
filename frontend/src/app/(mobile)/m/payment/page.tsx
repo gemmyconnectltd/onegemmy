@@ -7,6 +7,7 @@ import { ArrowLeft, ShoppingBasket } from "lucide-react";
 import { PaymentPanel } from "@/components/pos/PaymentPanel";
 import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
+import { useAppConfig } from "@/lib/appConfig";
 
 export default function MobilePaymentPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function MobilePaymentPage() {
     customerName, currencySymbol, fmt, saving, saleError, completedSale,
     setPayment, setCashGiven, completeSale, startNewSale,
   } = useMobilePos();
+  const { vatEnabled } = useAppConfig();
 
   if (completedSale) {
     return (
@@ -28,6 +30,7 @@ export default function MobilePaymentPage() {
             startNewSale();
             router.replace("/m/pos");
           }}
+          vatEnabled={vatEnabled}
         />
       </div>
     );
@@ -77,6 +80,7 @@ export default function MobilePaymentPage() {
           onPaymentChange={setPayment}
           onCashChange={setCashGiven}
           onCharge={completeSale}
+          vatEnabled={vatEnabled}
         />
       </div>
     </div>

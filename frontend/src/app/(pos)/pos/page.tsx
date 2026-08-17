@@ -40,7 +40,7 @@ function apiToProduct(p: ApiProduct): Product {
 }
 export default function POSPage() {
   usePageTitle("Point of Sale");
-  const { currencySymbol, locale, setLocale, locales, theme, setTheme } = useAppConfig();
+  const { currencySymbol, locale, setLocale, locales, theme, setTheme, vatEnabled } = useAppConfig();
 
   // ── inventory ────────────────────────────────────────────────────────────
   const { data: productData, isLoading, isError, refetch } = useProducts(1, 500);
@@ -282,7 +282,7 @@ export default function POSPage() {
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
-          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} />
+          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} vatEnabled={vatEnabled} />
         )}
       </Drawer>
 
@@ -447,6 +447,7 @@ export default function POSPage() {
                 onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
                 onCashChange={setCashGiven}
                 onCharge={completeSale}
+                vatEnabled={vatEnabled}
               />
             </div>
           </div>
