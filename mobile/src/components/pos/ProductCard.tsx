@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 
 import { LOW_STOCK_THRESHOLD } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
@@ -71,9 +71,9 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
             </p>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-[13px] font-bold text-primary font-mono">{currencySymbol} {fmt(product.price)}</p>
-              {lowStock && !isVariantGroup && (
-                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600">
-                  <AlertTriangle size={9} /> {product.stock} left
+              {!isVariantGroup && (
+                <span className={`text-[10px] font-semibold ${outOfStock ? "text-red-500" : lowStock ? "text-amber-600" : "text-muted-foreground"}`}>
+                  {outOfStock ? "Out" : `${product.stock} in stock`}
                 </span>
               )}
             </div>
@@ -204,9 +204,9 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           </p>
           <div className="flex items-center justify-between mt-0.5">
             <p className="text-[10px] text-muted-foreground truncate">{product.category}</p>
-            {lowStock && !isVariantGroup && (
-              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 flex-shrink-0">
-                <AlertTriangle size={9} /> {product.stock}
+            {!isVariantGroup && (
+              <span className={`text-[10px] font-semibold flex-shrink-0 ${outOfStock ? "text-red-500" : lowStock ? "text-amber-600" : "text-muted-foreground"}`}>
+                {outOfStock ? "Out" : `${product.stock} in stock`}
               </span>
             )}
           </div>
