@@ -1,23 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, ShoppingBasket } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ShoppingBasket, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
+import { PaymentPanel } from "@/components/pos/PaymentPanel";
+import { Receipt } from "@/components/pos/Receipt";
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useCustomers } from "@/lib/api/hooks";
 
 export default function MobileCartPage() {
-  const router = useRouter();
   const { data } = useCustomers(1, 500);
   const customers = data?.items ?? [];
 
   const {
     cart, customerId, customerName, notes, currencySymbol, fmt,
-    totalItems, total, subtotal, tax, discount,
-    setCustomer, setNotes, updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    totalItems, total, subtotal, tax, discount, payment, cashGiven, change, cashShort,
+    saleError, saving, completedSale,
+    setCustomer, setNotes, setPayment, setCashGiven,
+    updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    completeSale, startNewSale,
   } = useMobilePos();
+
+  if (completedSale) {
+    return (
+      <div className="min-h-full bg-card">
+        <Receipt
+          sale={completedSale}
+          currencySymbol={currencySymbol}
+          fmt={fmt}
+          onNewSale={() => {
+            startNewSale();
+          }}
+        />
+      </div>
+    );
+  }
 
   if (cart.length === 0) {
     return (
@@ -41,7 +60,7 @@ export default function MobileCartPage() {
     <div className="min-h-full flex flex-col pb-6">
       <PageHeader />
 
-      <div className="flex-1 min-h-0 px-3 pt-2">
+      <div className="flex-1 min-h-0 px-3 pt-2 overflow-y-auto">
         <CartPanel
           cart={cart}
           customers={customers}
@@ -60,26 +79,29 @@ export default function MobileCartPage() {
         />
       </div>
 
-      {/* Checkout summary bar */}
-      <div className="flex-shrink-0 px-3 pt-2 pb-3 border-t border-border bg-card">
-        <div className="flex items-center justify-between text-[12px] text-muted mb-1 font-mono">
-          <span>{totalItems} item{totalItems !== 1 ? "s" : ""}</span>
-          {discount > 0 && <span>-{currencySymbol} {fmt(discount)}</span>}
+      {/* Inline PaymentPanel */}
+      <div className="flex-shrink-0 border-t border-border overflow-y-auto max-h-[55%]">
+        <div className="p-3">
+          <PaymentPanel
+            payment={payment}
+            cashGiven={cashGiven}
+            subtotal={subtotal}
+            discount={discount}
+            tax={tax}
+            total={total}
+            change={change}
+            cashShort={cashShort}
+            cartCount={totalItems}
+            hasCustomer={customerName.trim().length > 0}
+            currencySymbol={currencySymbol}
+            fmt={fmt}
+            saving={saving}
+            saleError={saleError}
+            onPaymentChange={setPayment}
+            onCashChange={setCashGiven}
+            onCharge={() => void completeSale()}
+          />
         </div>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[13px] text-muted">
-            {currencySymbol} {fmt(subtotal)} · tax {currencySymbol} {fmt(tax)}
-          </span>
-          <span className="text-[15px] font-bold text-foreground font-mono">
-            {currencySymbol} {fmt(total)}
-          </span>
-        </div>
-        <button
-          onClick={() => router.push("/payment")}
-          className="w-full py-3.5 rounded-xl bg-accent text-white font-bold text-[14px] flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition"
-        >
-          Continue to payment <ChevronRight size={16} />
-        </button>
       </div>
     </div>
   );
@@ -89,7 +111,7 @@ function PageHeader() {
   return (
     <header className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border flex items-center gap-2 px-3 py-3">
       <Link
-        href="/"
+        href="/pos"
         className="w-9 h-9 flex items-center justify-center border border-border rounded-xl text-foreground/70"
         aria-label="Back"
       >
