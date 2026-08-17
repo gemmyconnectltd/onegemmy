@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
-import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
+import { TAX_RATE, generateOrderId, timeLabel } from "@/components/pos/constants";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { PaymentPanel } from "@/components/pos/PaymentPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
@@ -220,7 +220,6 @@ export default function POSPage() {
     if (saving || cart.length === 0) return;
     setSaving(true);
     setSaleError(null);
-    const isInvoice = payment === "invoice";
     try {
       // order-level discount is 0 — item discounts are already baked into each line_total
       await createOrder.mutateAsync({
@@ -244,8 +243,6 @@ export default function POSPage() {
 
       const sale: SaleResult = {
         orderId: generateOrderId(),
-        invoiceNumber: isInvoice ? generateInvoiceId() : null,
-        isInvoice,
         payment,
         customerName: customerName.trim(),
         notes: notes.trim(),

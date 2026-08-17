@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
-import { TAX_RATE, generateInvoiceId, generateOrderId, timeLabel } from "@/components/pos/constants";
+import { TAX_RATE, generateOrderId, timeLabel } from "@/components/pos/constants";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
 import { useCreateOrder } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
@@ -170,7 +170,6 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     const cash = overrides?.cashGiven ?? cashGiven;
     setSaving(true);
     setSaleError(null);
-    const isInvoice = pay === "invoice";
     const changeAmt = cash ? Math.max(0, Number(cash) - total) : 0;
     try {
       await createOrder.mutateAsync({
@@ -193,8 +192,6 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
       });
       const sale: SaleResult = {
         orderId: generateOrderId(),
-        invoiceNumber: isInvoice ? generateInvoiceId() : null,
-        isInvoice,
         payment: pay,
         customerName: customerName.trim(),
         notes,

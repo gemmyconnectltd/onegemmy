@@ -52,12 +52,10 @@ export type HeldOrder = {
   notes: string;
 };
 
-export type PaymentMethod = "cash" | "mobile" | "card" | "invoice";
+export type PaymentMethod = "cash" | "mobile" | "card";
 
 export type SaleResult = {
   orderId: string;
-  invoiceNumber: string | null;
-  isInvoice: boolean;
   payment: PaymentMethod;
   customerName: string;
   notes: string;
@@ -69,6 +67,4 @@ export type SaleResult = {
   cashGiven: string;
   change: number;
   timestamp: Date;
-  paid?: boolean;
-  paidAt?: string | null;
 };

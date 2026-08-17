@@ -23,10 +23,6 @@ const FAQS = [
     a: "After a sale, the receipt screen has a Print button. You can set paper size and copies in Account → Printer settings.",
   },
   {
-    q: "How do I issue an invoice?",
-    a: "During checkout choose Invoice as the payment method and select a customer. The receipt becomes an invoice with a due amount.",
-  },
-  {
     q: "How do I back up my data?",
     a: "Open Account and tap Backup data to export your sales and purchases as a JSON file you can store safely.",
   },

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  BarChart3, Banknote, CreditCard, FileText, Package, ReceiptText,
+  BarChart3, Banknote, CreditCard, Package, ReceiptText,
   ShoppingBasket, Smartphone, TrendingUp, Users,
 } from "lucide-react";
 
@@ -17,7 +17,6 @@ const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }
   { key: "cash", label: "Cash", icon: Banknote },
   { key: "mobile", label: "Mobile Money", icon: Smartphone },
   { key: "card", label: "Card", icon: CreditCard },
-  { key: "invoice", label: "Invoice", icon: FileText },
 ];
 
 export default function MobileStatsPage() {
@@ -175,10 +174,10 @@ export default function MobileStatsPage() {
           ) : (
             <div className="divide-y divide-border">
               {filtered.slice(0, 5).map((sale) => (
-                <div key={sale.orderId + sale.invoiceNumber} className="flex items-center justify-between py-2.5">
+                <div key={sale.orderId} className="flex items-center justify-between py-2.5">
                   <div className="min-w-0">
                     <p className="text-[12px] font-semibold text-foreground truncate">
-                      {sale.isInvoice ? sale.invoiceNumber : sale.orderId}
+                      {sale.orderId}
                     </p>
                     <p className="text-[10px] text-muted flex items-center gap-1">
                       <Users size={9} /> {sale.customerName || "Walk-in"} ·{" "}

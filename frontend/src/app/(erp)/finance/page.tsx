@@ -2,7 +2,7 @@
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Clock, ArrowRight, Plus, AlertTriangle, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowRight, Plus, AlertTriangle, RefreshCw } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { useAppConfig } from "@/lib/appConfig";
@@ -50,8 +50,6 @@ export default function FinancePage() {
   const { currencySymbol, theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
   const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
-  const outstanding = sales.filter((s) => s.isInvoice && !s.paid);
-  const outstandingTotal = outstanding.reduce((s, i) => s + i.total, 0);
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [from] = useState(() => toISO(new Date(new Date().getFullYear(), 0, 1)));
@@ -181,31 +179,6 @@ export default function FinancePage() {
       </div>
 
       {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
-
-      <Link
-        href="/finance/invoices"
-        className="flex items-center gap-3 bg-card border border-border border-l-4 px-4 py-3 hover:bg-surface/50 transition-colors"
-        style={{ borderLeftColor: "#b45309" }}
-      >
-        <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#b4530915" }}>
-          <Clock size={15} className="text-[#b45309]" />
-        </div>
-        <div className="flex-1">
-          <p className="text-[13px] font-bold text-foreground">
-            {outstanding.length > 0
-              ? `${outstanding.length} outstanding invoice${outstanding.length > 1 ? "s" : ""} — ${fmt(outstandingTotal)}`
-              : "No outstanding invoices"}
-          </p>
-          <p className="text-[11px] text-muted">
-            {outstanding.length > 0
-              ? "Awaiting payment from POS invoice sales."
-              : "All POS invoices have been settled."}
-          </p>
-        </div>
-        <span className="flex items-center gap-1 text-[12px] font-semibold text-accent">
-          View invoices <ArrowRight size={13} />
-        </span>
-      </Link>
 
       {loading ? (
         <PageLoader variant="compact" />

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Banknote, CreditCard, FileText, ReceiptText, Smartphone } from "lucide-react";
+import { Banknote, CreditCard, ReceiptText, Smartphone } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useOrders } from "@/lib/api/hooks";
@@ -14,7 +14,6 @@ const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }
   { key: "cash", label: "Cash", icon: Banknote },
   { key: "mobile", label: "Mobile", icon: Smartphone },
   { key: "card", label: "Card", icon: CreditCard },
-  { key: "invoice", label: "Invoice", icon: FileText },
 ];
 
 export default function MobileSalesPage() {
@@ -86,13 +85,13 @@ export default function MobileSalesPage() {
           <div className="space-y-2">
             {list.map((sale) => (
               <Link
-                key={sale.orderId + sale.invoiceNumber}
+                key={sale.orderId}
                 href={`/sales/${encodeURIComponent(sale.orderId)}`}
                 className="flex items-center justify-between bg-card border border-border rounded-xl px-3.5 py-3 active:bg-surface transition-colors"
               >
                 <div className="min-w-0">
                   <p className="text-[13px] font-semibold text-foreground truncate">
-                    {sale.isInvoice ? sale.invoiceNumber : sale.orderId}
+                    {sale.orderId}
                   </p>
                   <p className="text-[10px] text-muted mt-0.5">
                     {new Date(sale.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ·{" "}

@@ -1,7 +1,7 @@
 import type { ApiOrder } from "@/lib/api";
 import type { CartItem, PaymentMethod, SaleResult } from "@/components/pos/types";
 
-const METHODS: readonly PaymentMethod[] = ["cash", "mobile", "card", "invoice"];
+const METHODS: readonly PaymentMethod[] = ["cash", "mobile", "card"];
 
 // Mobile/desktop POS stamp the payment method into the order notes as
 // `POS — <method>`. Parse it back out so reports can break sales down by
@@ -32,8 +32,6 @@ export function orderToSale(o: ApiOrder): SaleResult {
   }));
   return {
     orderId: o.order_number,
-    invoiceNumber: payment === "invoice" ? o.order_number : null,
-    isInvoice: payment === "invoice",
     payment,
     customerName: o.customer?.name ?? "Walk-in",
     notes: o.notes ?? "",

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Banknote, CreditCard, Delete, FileText, Smartphone } from "lucide-react";
+import { AlertCircle, Banknote, CreditCard, Delete, Smartphone } from "lucide-react";
 
 import { CASH_PRESETS } from "./constants";
 import type { PaymentMethod } from "./types";
@@ -9,7 +9,6 @@ const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof Banknote
   { id: "cash",    label: "Cash",    icon: Banknote   },
   { id: "mobile",  label: "Mobile",  icon: Smartphone },
   { id: "card",    label: "Card",    icon: CreditCard },
-  { id: "invoice", label: "Invoice", icon: FileText   },
 ];
 
 const NUMPAD = ["7","8","9","4","5","6","1","2","3","00","0","⌫"] as const;
@@ -47,13 +46,11 @@ export function PaymentPanel({
   saving, saleError,
   onPaymentChange, onCashChange, onCharge,
 }: PaymentPanelProps) {
-  const isInvoice = payment === "invoice";
   const isCash = payment === "cash";
   const chargeDisabled =
     cartCount === 0 ||
     saving ||
-    (isCash && cashShort) ||
-    (isInvoice && !hasCustomer);
+    (isCash && cashShort);
 
   const handleNumpad = (key: string) => {
     if (key === "⌫") {
@@ -85,7 +82,7 @@ export function PaymentPanel({
           <span>{currencySymbol} {fmt(tax)}</span>
         </div>
         <div className="flex items-end justify-between pt-1.5 mt-1 border-t border-primary-foreground/20">
-          <span className="text-[12px] font-bold uppercase tracking-wide">{isInvoice ? "Amount due" : "Total"}</span>
+          <span className="text-[12px] font-bold uppercase tracking-wide">Total</span>
           <span className="text-[26px] leading-none font-extrabold tabular-nums">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
@@ -110,13 +107,6 @@ export function PaymentPanel({
           );
         })}
       </div>
-
-      {/* Invoice warning */}
-      {isInvoice && !hasCustomer && (
-        <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-200 bg-amber-400/15 border border-amber-300/30 rounded-lg px-2.5 py-1.5">
-          <FileText size={11} /> Add a customer name above to issue invoice.
-        </div>
-      )}
 
       {/* Cash numpad */}
       {isCash && (
@@ -196,8 +186,6 @@ export function PaymentPanel({
       >
         {saving
           ? "Saving sale…"
-          : isInvoice
-          ? `Issue Invoice${cartCount > 0 ? ` · ${currencySymbol} ${fmt(total)}` : ""}`
           : `Charge${cartCount > 0 ? ` ${currencySymbol} ${fmt(total)}` : ""}`}
       </button>
     </div>

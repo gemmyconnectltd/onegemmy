@@ -30,8 +30,6 @@ function rehydrate(s: StoredSale): SaleResult {
   return {
     ...s,
     timestamp: new Date(s.timestamp),
-    paid: s.paid ?? false,
-    paidAt: s.paidAt ?? null,
     discount: s.discount ?? 0,
     notes: s.notes ?? "",
   };
@@ -42,8 +40,6 @@ export function saveSale(sale: SaleResult) {
   const entry: StoredSale = {
     ...sale,
     timestamp: sale.timestamp.toISOString(),
-    paid: false,
-    paidAt: null,
   };
   writeStorage([entry, ...sales]);
 }
@@ -57,19 +53,8 @@ export function getSales(): SaleResult[] {
   return salesCache;
 }
 
-export function getInvoices(): SaleResult[] {
-  return getSales().filter((s) => s.isInvoice);
-}
-
-export function markInvoicePaid(id: string) {
-  const sales = readStorage().map((s) =>
-    s.invoiceNumber === id ? { ...s, paid: true, paidAt: new Date().toISOString() } : s
-  );
-  writeStorage(sales);
-}
-
 export function deleteSale(id: string) {
-  writeStorage(readStorage().filter((s) => s.orderId !== id && s.invoiceNumber !== id));
+  writeStorage(readStorage().filter((s) => s.orderId !== id));
 }
 
 export function subscribeSales(callback: () => void): () => void {

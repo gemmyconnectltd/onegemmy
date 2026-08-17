@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Banknote, CreditCard, FileText, ReceiptText, Search, Smartphone,
+  Banknote, CreditCard, ReceiptText, Search, Smartphone,
 } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
@@ -16,7 +16,6 @@ const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }
   { key: "cash", label: "Cash", icon: Banknote },
   { key: "mobile", label: "Mobile", icon: Smartphone },
   { key: "card", label: "Card", icon: CreditCard },
-  { key: "invoice", label: "Invoice", icon: FileText },
 ];
 
 function dayKey(d: Date) {
@@ -53,7 +52,7 @@ export default function MobileTransactionsPage() {
         if (!q) return true;
         const itemsText = s.items.map((i) => `${i.name} ${i.qty}`).join(" ");
         return (
-          `${s.orderId} ${s.invoiceNumber ?? ""}`.toLowerCase().includes(q) ||
+          `${s.orderId}`.toLowerCase().includes(q) ||
           s.customerName.toLowerCase().includes(q) ||
           (s.notes ?? "").toLowerCase().includes(q) ||
           itemsText.toLowerCase().includes(q)
@@ -152,13 +151,13 @@ export default function MobileTransactionsPage() {
                 </p>
                 <div className="space-y-2">
                   {list.map((sale) => {
-                    const num = sale.isInvoice ? sale.invoiceNumber : sale.orderId;
+                    const num = sale.orderId;
                     const meta = PAYMENT_META.find((p) => p.key === sale.payment);
                     const itemsCount = sale.items.reduce((n, i) => n + i.qty, 0);
                     const first = sale.items[0];
                     return (
                       <Link
-                        key={sale.orderId + sale.invoiceNumber}
+                        key={sale.orderId}
                         href={`/sales/${encodeURIComponent(sale.orderId)}`}
                         className="block bg-card rounded-2xl px-3.5 py-3 active:bg-surface transition-colors"
                       >
@@ -166,14 +165,10 @@ export default function MobileTransactionsPage() {
                           <ReceiptText size={15} className="text-accent flex-shrink-0" />
                           <p className="font-mono text-[12px] font-bold text-foreground truncate">{num}</p>
                           <span
-                            className={`flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
-                              sale.isInvoice
-                                ? "bg-amber-500/10 text-amber-600"
-                                : "bg-surface text-muted"
-                            }`}
+                            className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-surface text-muted"
                           >
                             {meta?.icon && <meta.icon size={9} />}
-                            {sale.isInvoice ? "Invoice" : meta?.label}
+                            {meta?.label}
                           </span>
                           <span className="ml-auto flex-shrink-0 text-[11px] text-muted font-mono">
                             {new Date(sale.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

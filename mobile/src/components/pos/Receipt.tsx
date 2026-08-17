@@ -1,4 +1,4 @@
-import { BadgeCheck, Check, FileText, Printer, UserRound } from "lucide-react";
+import { Check, Printer, UserRound } from "lucide-react";
 
 import { BarcodeStripe } from "./BarcodeStripe";
 import { getProductIcon, IconBadge } from "./icons";
@@ -17,15 +17,13 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
       {/* Header */}
       <div className="p-6 text-center bg-primary/5 border-b border-border">
         <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center mx-auto mb-3 shadow-sm">
-          {sale.isInvoice
-            ? <FileText size={20} className="text-primary-foreground" strokeWidth={2.5} />
-            : <Check size={20} className="text-primary-foreground" strokeWidth={3} />}
+          <Check size={20} className="text-primary-foreground" strokeWidth={3} />
         </div>
         <h2 className="text-[16px] font-bold text-foreground">
-          {sale.isInvoice ? "Invoice issued" : "Payment complete"}
+          Payment complete
         </h2>
         <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-          {sale.isInvoice ? sale.invoiceNumber : sale.orderId}
+          {sale.orderId}
         </p>
         <p className="text-[10px] text-muted-foreground/70 mt-1">{sale.timestamp.toLocaleString()}</p>
         {sale.customerName && (
@@ -35,13 +33,6 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
         )}
         {sale.notes && (
           <p className="text-[10px] text-muted-foreground mt-1 italic">&quot;{sale.notes}&quot;</p>
-        )}
-        {sale.isInvoice && (
-          <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
-            sale.paid ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-          }`}>
-            <BadgeCheck size={11} /> {sale.paid ? "Paid" : "Awaiting payment"}
-          </span>
         )}
       </div>
 
@@ -98,21 +89,16 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
           <span>VAT (18%, included)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
         </div>
         <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
-          <span>{sale.isInvoice ? "Amount due" : "Total"}</span>
+          <span>Total</span>
           <span className="text-primary">{currencySymbol} {fmt(sale.total)}</span>
         </div>
         <div className="flex justify-between text-muted-foreground">
           <span>Payment</span>
           <span className="capitalize">{sale.payment === "mobile" ? "Mobile Money" : sale.payment}</span>
         </div>
-        {!sale.isInvoice && sale.payment === "cash" && sale.cashGiven && (
+        {sale.payment === "cash" && sale.cashGiven && (
           <div className="flex justify-between font-semibold text-foreground">
             <span>Change</span><span>{currencySymbol} {fmt(sale.change)}</span>
-          </div>
-        )}
-        {sale.isInvoice && (
-          <div className="flex justify-between font-semibold text-amber-600">
-            <span>Status</span><span>{sale.paid ? "Paid" : "Unpaid"}</span>
           </div>
         )}
       </div>
@@ -121,7 +107,7 @@ export function Receipt({ sale, currencySymbol, fmt, onNewSale }: ReceiptProps) 
 
       <div className="px-4 py-3 text-center">
         <p className="text-[10px] text-muted-foreground">
-          {sale.isInvoice ? `Invoice ${sale.invoiceNumber} — payable on demand.` : "Thanks for shopping with us."}
+          Thanks for shopping with us.
         </p>
       </div>
 
