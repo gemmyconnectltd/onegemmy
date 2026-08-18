@@ -64,6 +64,7 @@ export default function MobileLoginPage() {
             <input
               type="email"
               required
+              name="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
@@ -78,6 +79,7 @@ export default function MobileLoginPage() {
               <input
                 type={showPassword ? "text" : "password"}
                 required
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
