@@ -3,13 +3,18 @@ import uuid
 from fastapi import APIRouter, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
 from app.modules.tenants.schemas import TenantCreate, TenantUpdate
 
 router = APIRouter(tags=["Tenants"])
+
+MAX_LOGO_BYTES = 2 * 1024 * 1024
+# SVG excluded: it can embed <script>, and uploads are served back as static
+# files, so allowing it would let a tenant admin plant stored XSS on our origin.
+ALLOWED_LOGO_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 
 def _require_own_tenant(current_user, tenant_id: uuid.UUID) -> None:
@@ -101,6 +106,10 @@ async def delete_tenant(tenant_id: uuid.UUID, db: DbSession, current_user: Curre
 @router.post("/{tenant_id}/logo")
 async def upload_logo(tenant_id: uuid.UUID, file: UploadFile, db: DbSession, current_user: CurrentUser):
     _require_own_tenant(current_user, tenant_id)
+    if file.content_type not in ALLOWED_LOGO_TYPES:
+        raise ValidationError("Logo must be a PNG, JPEG or WEBP image")
     content = await file.read()
+    if len(content) > MAX_LOGO_BYTES:
+        raise ValidationError("Logo must be smaller than 2MB")
     url = await service.upload_logo(db, tenant_id, file.filename or "logo.png", content)
     return success_response(data={"logo_url": url}, message="Logo uploaded successfully")

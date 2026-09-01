@@ -14,6 +14,7 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     logo_url: Mapped[str | None] = mapped_column(String(500))
+    brand_color: Mapped[str | None] = mapped_column(String(7))
     website: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(50))
     address: Mapped[str | None] = mapped_column(String(500))

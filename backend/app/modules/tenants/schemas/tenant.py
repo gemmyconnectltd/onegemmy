@@ -1,13 +1,17 @@
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
+
+HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 
 
 class TenantCreate(BaseModel):
     name: str
     slug: str | None = None
     logo_url: str | None = None
+    brand_color: HexColor | None = None
     website: str | None = None
     phone: str | None = None
     address: str | None = None
@@ -20,6 +24,7 @@ class TenantUpdate(BaseModel):
     slug: str | None = None
     is_active: bool | None = None
     logo_url: str | None = None
+    brand_color: HexColor | None = None
     website: str | None = None
     phone: str | None = None
     address: str | None = None
@@ -37,6 +42,7 @@ class TenantRead(BaseModel):
     slug: str
     is_active: bool
     logo_url: str | None
+    brand_color: str | None
     website: str | None
     phone: str | None
     address: str | None
