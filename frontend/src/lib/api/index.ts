@@ -23,16 +23,16 @@ export { inventoryApi } from "./inventory";
 export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiReturnItem, ApiReturn, ApiTarget } from "./sales";
 export { salesApi } from "./sales";
 
-// Finance
+// Accounting
 export type {
   TrialBalance, TrialBalanceLine,
   IncomeStatement, StatementLine,
   BalanceSheet, BalanceSheetSection,
   CashFlowStatement, CashFlowSection, CashFlowLine,
   GeneralLedger, LedgerEntry,
-  FinanceAccount, FinanceExpense, FinanceTransaction, FinanceTransactionLine,
-} from "./finance";
-export { financeApi } from "./finance";
+  AccountingAccount, AccountingExpense, AccountingTransaction, AccountingTransactionLine,
+} from "./accounting";
+export { accountingApi } from "./accounting";
 
 // Tax
 export type {

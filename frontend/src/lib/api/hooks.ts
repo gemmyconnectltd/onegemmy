@@ -15,7 +15,7 @@ import {
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import {
-  inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
+  inventoryApi, salesApi, accountingApi, hrApi, departmentsApi, adminApi, procurementApi,
   repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
   tenantsApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
@@ -25,7 +25,7 @@ import {
   type ApiCustomer, type ApiDeal, type ApiOrder, type ApiReturn, type ApiTarget,
   type TrialBalance, type IncomeStatement, type BalanceSheet,
   type CashFlowStatement, type GeneralLedger,
-  type FinanceAccount, type FinanceExpense, type FinanceTransaction,
+  type AccountingAccount, type AccountingExpense, type AccountingTransaction,
   type ApiDepartment, type ApiEmployee, type ApiAttendance,
   type ApiLeave, type ApiPayroll, type ApiApplicant,
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
@@ -103,11 +103,11 @@ export const useSuppliers = (opts?: QueryOpts) =>
 export const useValuationReport = (opts?: QueryOpts) =>
   useQ([...VALUATION], () => inventoryApi.valuationReport(), (r) => r.data, opts);
 
-export const useCreateProduct = mutation((d: object) => inventoryApi.createProduct(d), [[...PRODUCTS], [...VALUATION], ["finance", "reports"], ["finance", "transactions"]]);
-export const useBulkCreateProducts = mutation((items: object[]) => inventoryApi.bulkCreateProducts(items), [[...PRODUCTS], [...VALUATION], ["finance", "reports"]]);
-export const useUpdateProduct = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateProduct(id, data), [[...PRODUCTS], [...VALUATION], ["finance", "reports"], ["finance", "transactions"]]);
-export const useDeleteProduct = mutation((id: string) => inventoryApi.deleteProduct(id), [[...PRODUCTS], [...VALUATION], ["finance", "reports"]]);
-export const useRestockProduct = mutation(({ id, data }: { id: string; data: { qty: number; mode: string; reason?: string; notes?: string } }) => inventoryApi.restockProduct(id, data), [[...PRODUCTS], [...VALUATION], ["finance", "reports"], ["finance", "transactions"]]);
+export const useCreateProduct = mutation((d: object) => inventoryApi.createProduct(d), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
+export const useBulkCreateProducts = mutation((items: object[]) => inventoryApi.bulkCreateProducts(items), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"]]);
+export const useUpdateProduct = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateProduct(id, data), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
+export const useDeleteProduct = mutation((id: string) => inventoryApi.deleteProduct(id), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"]]);
+export const useRestockProduct = mutation(({ id, data }: { id: string; data: { qty: number; mode: string; reason?: string; notes?: string } }) => inventoryApi.restockProduct(id, data), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
 export const useUploadProductImage = mutation(({ id, file }: { id: string; file: File }) => inventoryApi.uploadProductImage(id, file), [[...PRODUCTS]]);
 
 export const useCreateVariant = mutation(({ productId, data }: { productId: string; data: object }) => inventoryApi.createVariant(productId, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
@@ -162,63 +162,63 @@ export const useCreateDeal = mutation((d: object) => salesApi.createDeal(d), [[.
 export const useUpdateDeal = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateDeal(id, data), [[...DEALS]]);
 export const useDeleteDeal = mutation((id: string) => salesApi.deleteDeal(id), [[...DEALS]]);
 
-export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [[...ORDERS], ["finance", "transactions"], ["finance", "reports"], [...PRODUCTS], [...VALUATION]]);
-export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["finance", "transactions"], ["finance", "reports"]]);
-export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["finance", "transactions"], ["finance", "reports"]]);
+export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
+export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 
-export const useCreateReturn = mutation((d: object) => salesApi.createReturn(d), [[...RETURNS], ["finance", "transactions"], ["finance", "reports"], [...PRODUCTS], [...VALUATION]]);
-export const useUpdateReturn = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateReturn(id, data), [[...RETURNS], ["finance", "transactions"], ["finance", "reports"]]);
-export const useDeleteReturn = mutation((id: string) => salesApi.deleteReturn(id), [[...RETURNS], ["finance", "transactions"], ["finance", "reports"]]);
+export const useCreateReturn = mutation((d: object) => salesApi.createReturn(d), [[...RETURNS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
+export const useUpdateReturn = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateReturn(id, data), [[...RETURNS], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useDeleteReturn = mutation((id: string) => salesApi.deleteReturn(id), [[...RETURNS], ["accounting", "transactions"], ["accounting", "reports"]]);
 
 export const useCreateTarget = mutation((d: object) => salesApi.createTarget(d), [[...TARGETS]]);
 export const useUpdateTarget = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateTarget(id, data), [[...TARGETS]]);
 export const useDeleteTarget = mutation((id: string) => salesApi.deleteTarget(id), [[...TARGETS]]);
 
-// ── Finance ──────────────────────────────────────────────────────────────────
+// ── Accounting ──────────────────────────────────────────────────────────────────
 
-const REPORTS = ["finance", "reports"] as const;
-const ACCOUNTS = ["finance", "accounts"] as const;
-const EXPENSES = ["finance", "expenses"] as const;
-const TRANSACTIONS = ["finance", "transactions"] as const;
+const REPORTS = ["accounting", "reports"] as const;
+const ACCOUNTS = ["accounting", "accounts"] as const;
+const EXPENSES = ["accounting", "expenses"] as const;
+const TRANSACTIONS = ["accounting", "transactions"] as const;
 
 export const useTrialBalance = (from?: string, to?: string, opts?: QueryOpts) =>
-  useQ([...REPORTS, "trial-balance", from ?? "all", to ?? "all"], () => financeApi.trialBalance(from, to), (r) => r.data, opts);
+  useQ([...REPORTS, "trial-balance", from ?? "all", to ?? "all"], () => accountingApi.trialBalance(from, to), (r) => r.data, opts);
 
 export const useIncomeStatement = (from?: string, to?: string, opts?: QueryOpts) =>
-  useQ([...REPORTS, "income-statement", from ?? "all", to ?? "all"], () => financeApi.incomeStatement(from, to), (r) => r.data, opts);
+  useQ([...REPORTS, "income-statement", from ?? "all", to ?? "all"], () => accountingApi.incomeStatement(from, to), (r) => r.data, opts);
 
 export const useBalanceSheet = (asOf?: string, opts?: QueryOpts) =>
-  useQ([...REPORTS, "balance-sheet", asOf ?? "all"], () => financeApi.balanceSheet(asOf), (r) => r.data, opts);
+  useQ([...REPORTS, "balance-sheet", asOf ?? "all"], () => accountingApi.balanceSheet(asOf), (r) => r.data, opts);
 
 export const useCashFlow = (from?: string, to?: string, opts?: QueryOpts) =>
-  useQ([...REPORTS, "cash-flow", from ?? "all", to ?? "all"], () => financeApi.cashFlow(from, to), (r) => r.data, opts);
+  useQ([...REPORTS, "cash-flow", from ?? "all", to ?? "all"], () => accountingApi.cashFlow(from, to), (r) => r.data, opts);
 
 export const useGeneralLedger = (from?: string, to?: string, accountId?: string, opts?: QueryOpts) =>
-  useQ([...REPORTS, "general-ledger", from ?? "all", to ?? "all", accountId ?? "all"], () => financeApi.generalLedger(from, to, accountId), (r) => r.data, opts);
+  useQ([...REPORTS, "general-ledger", from ?? "all", to ?? "all", accountId ?? "all"], () => accountingApi.generalLedger(from, to, accountId), (r) => r.data, opts);
 
 export const useAccounts = (type?: string, opts?: QueryOpts) =>
-  useQ([...ACCOUNTS, type ?? "all"], () => financeApi.listAccounts(type), (r) => r.data, opts);
+  useQ([...ACCOUNTS, type ?? "all"], () => accountingApi.listAccounts(type), (r) => r.data, opts);
 
 export const useExpenses = (status?: string, opts?: QueryOpts) =>
-  useQ([...EXPENSES, status ?? "all"], () => financeApi.listExpenses(status), (r) => r.data, opts);
+  useQ([...EXPENSES, status ?? "all"], () => accountingApi.listExpenses(status), (r) => r.data, opts);
 
 export const useTransactions = (type?: string, status?: string, opts?: QueryOpts) =>
-  useQ([...TRANSACTIONS, type ?? "all", status ?? "all"], () => financeApi.listTransactions(type, status), (r) => r.data, opts);
+  useQ([...TRANSACTIONS, type ?? "all", status ?? "all"], () => accountingApi.listTransactions(type, status), (r) => r.data, opts);
 
-export const useCreateAccount = mutation((d: Parameters<typeof financeApi.createAccount>[0]) => financeApi.createAccount(d), [[...ACCOUNTS], [...REPORTS]]);
-export const useUpdateAccount = mutation(({ id, data }: { id: string; data: Parameters<typeof financeApi.updateAccount>[1] }) => financeApi.updateAccount(id, data), [[...ACCOUNTS], [...REPORTS]]);
-export const useDeleteAccount = mutation((id: string) => financeApi.deleteAccount(id), [[...ACCOUNTS], [...REPORTS]]);
-export const useSeedAccounts = mutation(() => financeApi.seedAccounts(), [[...ACCOUNTS], [...REPORTS]]);
+export const useCreateAccount = mutation((d: Parameters<typeof accountingApi.createAccount>[0]) => accountingApi.createAccount(d), [[...ACCOUNTS], [...REPORTS]]);
+export const useUpdateAccount = mutation(({ id, data }: { id: string; data: Parameters<typeof accountingApi.updateAccount>[1] }) => accountingApi.updateAccount(id, data), [[...ACCOUNTS], [...REPORTS]]);
+export const useDeleteAccount = mutation((id: string) => accountingApi.deleteAccount(id), [[...ACCOUNTS], [...REPORTS]]);
+export const useSeedAccounts = mutation(() => accountingApi.seedAccounts(), [[...ACCOUNTS], [...REPORTS]]);
 
-export const useCreateExpense = mutation((d: Parameters<typeof financeApi.createExpense>[0]) => financeApi.createExpense(d), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
-export const useApproveExpense = mutation((id: string) => financeApi.approveExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
-export const useRejectExpense = mutation((id: string) => financeApi.rejectExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
-export const useDeleteExpense = mutation((id: string) => financeApi.deleteExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
+export const useCreateExpense = mutation((d: Parameters<typeof accountingApi.createExpense>[0]) => accountingApi.createExpense(d), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
+export const useApproveExpense = mutation((id: string) => accountingApi.approveExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
+export const useRejectExpense = mutation((id: string) => accountingApi.rejectExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
+export const useDeleteExpense = mutation((id: string) => accountingApi.deleteExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
 
-export const useCreateTransaction = mutation((d: Parameters<typeof financeApi.createTransaction>[0]) => financeApi.createTransaction(d), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
-export const usePostTransaction = mutation((id: string) => financeApi.postTransaction(id), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
-export const useVoidTransaction = mutation((id: string) => financeApi.voidTransaction(id), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
-export const useBackfillSales = mutation(() => financeApi.backfillSales(), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
+export const useCreateTransaction = mutation((d: Parameters<typeof accountingApi.createTransaction>[0]) => accountingApi.createTransaction(d), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
+export const usePostTransaction = mutation((id: string) => accountingApi.postTransaction(id), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
+export const useVoidTransaction = mutation((id: string) => accountingApi.voidTransaction(id), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
+export const useBackfillSales = mutation(() => accountingApi.backfillSales(), [[...TRANSACTIONS], [...REPORTS], [...ACCOUNTS], [...EXPENSES]]);
 
 // ── HR ───────────────────────────────────────────────────────────────────────
 
@@ -278,9 +278,9 @@ export const usePurchaseOrders = (status?: string, page = 1, pageSize = 100, opt
 export const usePurchaseOrder = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...PURCHASES, id], () => procurementApi.getPurchaseOrder(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
-export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["finance", "transactions"], ["finance", "reports"]]);
+export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [[...PURCHASES]]);
-export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.receivePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["finance", "transactions"], ["finance", "reports"]]);
+export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.receivePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
 
@@ -449,7 +449,7 @@ export type {
   InventoryValuationReport,
   ApiCustomer, ApiDeal, ApiOrder, ApiReturn, ApiTarget,
   TrialBalance, IncomeStatement, BalanceSheet, CashFlowStatement, GeneralLedger,
-  FinanceAccount, FinanceExpense, FinanceTransaction,
+  AccountingAccount, AccountingExpense, AccountingTransaction,
   ApiDepartment, ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
