@@ -61,7 +61,7 @@ export type { RepairJob, RepairJobPart, InventoryBatch, ApiSerial, ApiStockTrans
 export { repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi } from "./repairs";
 
 // Manufacturing
-export type { ApiProductionOrder, ApiProductionItem } from "./manufacturing";
+export type { ApiProductionOrder, ApiProductionItem, ApiBom, ApiBomItem } from "./manufacturing";
 export { manufacturingApi } from "./manufacturing";
 
 // Admin
