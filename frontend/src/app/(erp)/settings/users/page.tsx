@@ -12,13 +12,13 @@ type User = { id: number; name: string; email: string; role: string; status: str
 const INITIAL_USERS: User[] = [
   { id: 1, name: "Admin User",       email: "admin@onegemmy.com",      role: "Admin",               status: "Active" },
   { id: 2, name: "Inventory Manager",email: "inventory@onegemmy.com",  role: "Inventory Manager",   status: "Active" },
-  { id: 3, name: "Finance Manager",  email: "finance@onegemmy.com",    role: "Finance Manager",     status: "Active" },
+  { id: 3, name: "Accounting Manager",  email: "accounting@onegemmy.com",    role: "Accounting Manager",     status: "Active" },
   { id: 4, name: "HR Manager",       email: "hr@onegemmy.com",         role: "HR Manager",          status: "Active" },
   { id: 5, name: "Sales Manager",    email: "sales@onegemmy.com",      role: "Sales Manager",       status: "Active" },
   { id: 6, name: "Sales Staff",      email: "salesstaff@onegemmy.com", role: "Sales Manager",       status: "Inactive" },
 ];
 
-const ROLES = ["Admin", "Inventory Manager", "Finance Manager", "HR Manager", "Sales Manager", "Procurement Manager"];
+const ROLES = ["Admin", "Inventory Manager", "Accounting Manager", "HR Manager", "Sales Manager", "Procurement Manager"];
 
 const STATUS_STYLE: Record<string, string> = {
   Active:   "bg-emerald-100 text-emerald-700",

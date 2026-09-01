@@ -151,8 +151,8 @@ function TargetAndActions({ sales, target, label, c }: { sales: number; target: 
   const actions = [
     { label: "Record Sale",    href: "/sales",         icon: ShoppingCart, color: c.income   },
     { label: "Add Stock",      href: "/inventory",     icon: Package,      color: c.blue     },
-    { label: "Record Expense", href: "/finance/expenses", icon: DollarSign, color: c.expenses },
-    { label: "View Reports",   href: "/finance",       icon: BarChart3,    color: c.profit   },
+    { label: "Record Expense", href: "/accounting/expenses", icon: DollarSign, color: c.expenses },
+    { label: "View Reports",   href: "/accounting",       icon: BarChart3,    color: c.profit   },
     { label: "Customers",      href: "/sales/customers", icon: Users,      color: c.gold     },
     { label: "Set Target",     href: "/sales/targets", icon: Target,       color: c.gray     },
   ];

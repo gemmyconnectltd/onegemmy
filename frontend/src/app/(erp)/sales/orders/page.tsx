@@ -12,7 +12,7 @@ import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form
 import { Button } from "@/components/ui/Button";
 import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder } from "@/lib/api/hooks";
 import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
-import { financeApi } from "@/lib/api/finance";
+import { accountingApi } from "@/lib/api/accounting";
 
 const SAL = "#0284c7";
 
@@ -306,7 +306,7 @@ export default function SalesOrdersPage() {
       createOrder.mutate(payload, {
         onSuccess: () => {
           if (payload.status === "Completed") {
-            financeApi.backfillSales().catch(() => null);
+            accountingApi.backfillSales().catch(() => null);
           }
           setError(null); closeDrawer();
         },

@@ -72,7 +72,7 @@ export function DashboardMockup() {
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    {["Dashboard", "Sales", "Stock", "Finance", "HR"].map((item, i) => (
+                    {["Dashboard", "Sales", "Stock", "Accounting", "HR"].map((item, i) => (
                       <div key={item} className={`px-1.5 py-1 text-[5px] rounded-lg ${i === 0 ? "bg-white/10 text-white" : "text-white/40"}`}>
                         {item}
                       </div>

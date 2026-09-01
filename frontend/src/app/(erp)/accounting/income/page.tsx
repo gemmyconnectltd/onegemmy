@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAccounts, useTransactions, useCreateTransaction, usePostTransaction, useVoidTransaction, useBackfillSales } from "@/lib/api/hooks";
-import type { FinanceTransaction } from "@/lib/api/finance";
+import type { AccountingTransaction } from "@/lib/api/accounting";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
@@ -22,11 +22,11 @@ const STATUS_STYLES: Record<string, { cls: string; Icon: typeof CheckCircle2 }> 
   Void:   { cls: "bg-red-100 text-red-500",         Icon: Ban },
 };
 
-function txnAmount(t: FinanceTransaction) {
+function txnAmount(t: AccountingTransaction) {
   return t.lines.reduce((s, l) => s + (l.type === "credit" ? l.amount : 0), 0);
 }
 
-function txnSource(t: FinanceTransaction) {
+function txnSource(t: AccountingTransaction) {
   return t.lines.find((l) => l.type === "credit")?.account?.name ?? "Sales Revenue";
 }
 
@@ -113,7 +113,7 @@ export default function IncomePage() {
     const cash = items.find((a) => a.type === "Assets" && /cash|bank/i.test(a.name)) ?? items.find((a) => a.type === "Assets");
     const revenue = items.find((a) => a.type === "Revenue" && /sales/i.test(a.name)) ?? items.find((a) => a.type === "Revenue");
     if (!cash || !revenue) {
-      setFormError("No Asset or Revenue accounts found. Go to Finance → Accounts and seed defaults first.");
+      setFormError("No Asset or Revenue accounts found. Go to Accounting → Accounts and seed defaults first.");
       return;
     }
     createTx.mutate(

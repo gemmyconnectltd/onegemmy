@@ -61,7 +61,7 @@ const ERP_MANIFEST = {
   name: "OneGemmy - Business Management",
   short_name: "OneGemmy",
   description:
-    "All-in-one business management platform for sales, inventory, finance, HR, projects, and CRM.",
+    "All-in-one business management platform for sales, inventory, accounting, HR, projects, and CRM.",
   start_url: "/dashboard",
   display: "standalone",
   background_color: "#f8f8f6",
@@ -89,8 +89,8 @@ const ERP_MANIFEST = {
       description: "Manage your stock",
     },
     {
-      name: "Finance",
-      url: "/finance",
+      name: "Accounting",
+      url: "/accounting",
       description: "View financial reports",
     },
   ],

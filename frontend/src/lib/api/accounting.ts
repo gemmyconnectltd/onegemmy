@@ -1,7 +1,7 @@
 import { request, getStoredToken, API_BASE } from "./client";
 import type { SingleResponse, PaginatedResponse } from "./types";
 
-export interface FinanceAccount {
+export interface AccountingAccount {
   id: string;
   tenant_id: string;
   code: string;
@@ -12,7 +12,7 @@ export interface FinanceAccount {
   is_active: boolean;
 }
 
-export interface FinanceExpense {
+export interface AccountingExpense {
   id: string;
   tenant_id: string;
   reference: string;
@@ -23,20 +23,20 @@ export interface FinanceExpense {
   status: string;
   notes: string | null;
   account_id: string | null;
-  account: FinanceAccount | null;
+  account: AccountingAccount | null;
 }
 
-export interface FinanceTransactionLine {
+export interface AccountingTransactionLine {
   id: string;
   transaction_id: string;
   account_id: string;
   type: string;
   amount: number;
   description: string | null;
-  account: FinanceAccount | null;
+  account: AccountingAccount | null;
 }
 
-export interface FinanceTransaction {
+export interface AccountingTransaction {
   id: string;
   tenant_id: string;
   reference: string;
@@ -46,7 +46,7 @@ export interface FinanceTransaction {
   description: string | null;
   order_id: string | null;
   return_id: string | null;
-  lines: FinanceTransactionLine[];
+  lines: AccountingTransactionLine[];
 }
 
 export interface TrialBalanceLine {
@@ -158,7 +158,7 @@ export interface GeneralLedger {
   balance: number;
 }
 
-const BASE = "/tenants/finance";
+const BASE = "/tenants/accounting";
 
 const qs = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
@@ -169,7 +169,7 @@ const qs = (params: Record<string, string | number | undefined>) => {
   return s ? `?${s}` : "";
 };
 
-export const financeApi = {
+export const accountingApi = {
   trialBalance: (fromDate?: string, toDate?: string) =>
     request<SingleResponse<TrialBalance>>(`${BASE}/reports/trial-balance${qs({ from_date: fromDate, to_date: toDate })}`),
   incomeStatement: (fromDate?: string, toDate?: string) =>
@@ -209,40 +209,40 @@ export const financeApi = {
   },
 
   listAccounts: (type?: string) =>
-    request<PaginatedResponse<FinanceAccount>>(`${BASE}/accounts${qs({ type })}`),
+    request<PaginatedResponse<AccountingAccount>>(`${BASE}/accounts${qs({ type })}`),
   createAccount: (data: { code: string; name: string; type: string; normal_balance: string; description?: string | null }) =>
-    request<SingleResponse<FinanceAccount>>(`${BASE}/accounts`, { method: "POST", body: JSON.stringify(data) }),
-  updateAccount: (id: string, data: Partial<Pick<FinanceAccount, "name" | "description" | "is_active">>) =>
-    request<SingleResponse<FinanceAccount>>(`${BASE}/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<SingleResponse<AccountingAccount>>(`${BASE}/accounts`, { method: "POST", body: JSON.stringify(data) }),
+  updateAccount: (id: string, data: Partial<Pick<AccountingAccount, "name" | "description" | "is_active">>) =>
+    request<SingleResponse<AccountingAccount>>(`${BASE}/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteAccount: (id: string) =>
     request<SingleResponse<unknown>>(`${BASE}/accounts/${id}`, { method: "DELETE" }),
   seedAccounts: () =>
     request<SingleResponse<unknown>>(`${BASE}/accounts/seed`, { method: "POST" }),
 
   listExpenses: (status?: string) =>
-    request<PaginatedResponse<FinanceExpense>>(`${BASE}/expenses${qs({ status })}`),
+    request<PaginatedResponse<AccountingExpense>>(`${BASE}/expenses${qs({ status })}`),
   createExpense: (data: { title: string; amount: number; expense_date: string; category: string; notes?: string | null; account_id?: string | null }) =>
-    request<SingleResponse<FinanceExpense>>(`${BASE}/expenses`, { method: "POST", body: JSON.stringify(data) }),
+    request<SingleResponse<AccountingExpense>>(`${BASE}/expenses`, { method: "POST", body: JSON.stringify(data) }),
   approveExpense: (id: string) =>
-    request<SingleResponse<FinanceExpense>>(`${BASE}/expenses/${id}/approve`, { method: "POST" }),
+    request<SingleResponse<AccountingExpense>>(`${BASE}/expenses/${id}/approve`, { method: "POST" }),
   rejectExpense: (id: string) =>
-    request<SingleResponse<FinanceExpense>>(`${BASE}/expenses/${id}/reject`, { method: "POST" }),
+    request<SingleResponse<AccountingExpense>>(`${BASE}/expenses/${id}/reject`, { method: "POST" }),
   deleteExpense: (id: string) =>
     request<SingleResponse<unknown>>(`${BASE}/expenses/${id}`, { method: "DELETE" }),
 
   listTransactions: (type?: string, status?: string) =>
-    request<PaginatedResponse<FinanceTransaction>>(`${BASE}/transactions${qs({ type, status })}`),
+    request<PaginatedResponse<AccountingTransaction>>(`${BASE}/transactions${qs({ type, status })}`),
   createTransaction: (data: {
     type: string;
     transaction_date: string;
     description?: string | null;
     lines: { account_id: string; type: "debit" | "credit"; amount: number }[];
   }) =>
-    request<SingleResponse<FinanceTransaction>>(`${BASE}/transactions`, { method: "POST", body: JSON.stringify(data) }),
+    request<SingleResponse<AccountingTransaction>>(`${BASE}/transactions`, { method: "POST", body: JSON.stringify(data) }),
   postTransaction: (id: string) =>
-    request<SingleResponse<FinanceTransaction>>(`${BASE}/transactions/${id}/post`, { method: "POST" }),
+    request<SingleResponse<AccountingTransaction>>(`${BASE}/transactions/${id}/post`, { method: "POST" }),
   voidTransaction: (id: string) =>
-    request<SingleResponse<FinanceTransaction>>(`${BASE}/transactions/${id}/void`, { method: "POST" }),
+    request<SingleResponse<AccountingTransaction>>(`${BASE}/transactions/${id}/void`, { method: "POST" }),
   backfillSales: () =>
     request<SingleResponse<{ created: number }>>(`${BASE}/transactions/backfill-sales`, { method: "POST" }),
 };

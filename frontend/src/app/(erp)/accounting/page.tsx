@@ -13,7 +13,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
-import type { FinanceTransaction } from "@/lib/api/finance";
+import type { AccountingTransaction } from "@/lib/api/accounting";
 
 const EMPTY_SALES: SaleResult[] = [];
 
@@ -32,7 +32,7 @@ const MONTH_RANGES = Array.from({ length: 6 }, (_, i) => {
   };
 });
 
-function mapTxn(t: FinanceTransaction): Tx {
+function mapTxn(t: AccountingTransaction): Tx {
   const debits = t.lines.filter((l) => l.type === "debit").reduce((s, l) => s + l.amount, 0);
   const credits = t.lines.filter((l) => l.type === "credit").reduce((s, l) => s + l.amount, 0);
   const isIncome = t.type === "sale" || (credits > debits && !/expense|return/i.test(t.type));
@@ -46,7 +46,7 @@ function mapTxn(t: FinanceTransaction): Tx {
   };
 }
 
-export default function FinancePage() {
+export default function AccountingPage() {
   const { currencySymbol, theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
   const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
@@ -75,7 +75,7 @@ export default function FinancePage() {
 
   const loading = [accounts, income, cash, tx, ...monthQueries].some((q) => q.isLoading);
   const error = [accounts, income, cash, tx, ...monthQueries].some((q) => q.isError)
-    ? "Could not load the finance overview."
+    ? "Could not load the accounting overview."
     : null;
 
   const stats = {
@@ -91,7 +91,7 @@ export default function FinancePage() {
     expenses: monthQueries[i].data?.total_operating_expenses ?? 0,
   }));
 
-  const retry = () => { qc.invalidateQueries({ queryKey: ["finance"] }); };
+  const retry = () => { qc.invalidateQueries({ queryKey: ["accounting"] }); };
 
   const seededRef = useRef(false);
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function FinancePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Finance Overview</h1>
+          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Accounting Overview</h1>
           <p className="text-sm text-muted mt-1">Track your income, expenses and profit</p>
         </div>
         <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ export default function FinancePage() {
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
               <h2 className="text-sm font-bold text-foreground">Recent Activity</h2>
-              <Link href="/finance/expenses" className="flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
+              <Link href="/accounting/expenses" className="flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
                 View all <ArrowRight size={13} />
               </Link>
             </div>

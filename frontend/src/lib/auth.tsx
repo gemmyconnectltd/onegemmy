@@ -32,7 +32,7 @@ export interface User {
 const MODULE_RESOURCES: Record<string, string[]> = {
   sales: ["orders", "pos", "invoices"],
   inventory: ["items", "warehouses", "stock", "pricing", "returns"],
-  finance: [
+  accounting: [
     "invoices", "chart_of_accounts", "journal_entries", "accounts_payable",
     "accounts_receivable", "banking", "fixed_assets", "budgeting", "tax",
   ],

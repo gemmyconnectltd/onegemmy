@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, TrendingDown, Check, X, Trash2 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useExpenses, useCreateExpense, useApproveExpense, useRejectExpense, useDeleteExpense } from "@/lib/api/hooks";
-import type { FinanceExpense } from "@/lib/api/finance";
+import type { AccountingExpense } from "@/lib/api/accounting";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -63,7 +63,7 @@ export default function ExpensesPage() {
     );
   };
 
-  const act = (e: FinanceExpense, action: "approve" | "reject") => {
+  const act = (e: AccountingExpense, action: "approve" | "reject") => {
     setActing(e.id);
     const handler = action === "approve" ? approveExpense : rejectExpense;
     handler.mutate(e.id, {
@@ -72,7 +72,7 @@ export default function ExpensesPage() {
     });
   };
 
-  const remove = (e: FinanceExpense) => {
+  const remove = (e: AccountingExpense) => {
     if (!window.confirm(`Delete expense “${e.title}”?`)) return;
     deleteExpense.mutate(e.id, {
       onError: () => setNotice("Could not delete the expense."),

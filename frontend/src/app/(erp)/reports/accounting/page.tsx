@@ -10,7 +10,7 @@ import { useAppConfig } from "@/lib/appConfig";
 const ACCENT = "#b45309";
 const ACCENT_DARK = "#fbbf24";
 
-export default function FinanceReportPage() {
+export default function AccountingReportPage() {
   const { theme } = useAppConfig();
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const ordersQ = useOrders(1, 500);
@@ -60,7 +60,7 @@ export default function FinanceReportPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Finance Report</h1>
+        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Accounting Report</h1>
         <p className="text-sm text-muted mt-0.5">Based on completed orders & approved returns</p>
       </div>
 

@@ -49,7 +49,7 @@ export default function Home() {
               <span className="text-white/80">From One Place</span>
             </h1>
             <p className="text-lg text-white/70 max-w-xl mb-8">
-              OneGemmy brings sales, inventory, finance, HR, projects, and CRM
+              OneGemmy brings sales, inventory, accounting, HR, projects, and CRM
               together in a single powerful platform. Stop juggling multiple tools
               — manage everything with OneGemmy.
             </p>
@@ -348,7 +348,7 @@ const modules = [
   },
   {
     icon: Calculator,
-    title: "Finance & Accounting",
+    title: "Accounting & Finance",
     description:
       "Invoicing, expenses, revenue tracking, financial reports, tax calculations, and budget management.",
     tags: ["Invoices", "Expenses", "P&L", "Budgets", "Tax"],

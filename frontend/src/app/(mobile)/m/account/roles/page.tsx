@@ -11,7 +11,7 @@ function moduleLabel(prefix: string) {
     purchase: "Purchases",
     procurement: "Procurement",
     inventory: "Inventory",
-    finance: "Finance",
+    accounting: "Accounting",
     hr: "HR",
     admin: "Admin",
     settings: "Settings",

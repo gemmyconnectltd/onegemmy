@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Scale, BadgeCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { financeApi } from "@/lib/api/finance";
+import { accountingApi } from "@/lib/api/accounting";
 import { useIncomeStatement, useBalanceSheet, useCashFlow, useTrialBalance, useGeneralLedger } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -167,7 +167,7 @@ function IncomeCard() {
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
       onLoad={() => refetch()}
-      onExport={(fmt) => financeApi.exportStatement("income-statement", fmt, { fromDate: from, toDate: to })}
+      onExport={(fmt) => accountingApi.exportStatement("income-statement", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <PageLoader variant="compact" />
@@ -209,7 +209,7 @@ function BalanceSheetCard() {
   const exportBtn = (fmt: "csv" | "pdf") => (
     <button
       type="button"
-      onClick={() => financeApi.exportStatement("balance-sheet", fmt, { asOf })}
+      onClick={() => accountingApi.exportStatement("balance-sheet", fmt, { asOf })}
       className="h-9 px-3 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70"
     >
       Export {fmt.toUpperCase()}
@@ -275,7 +275,7 @@ function CashFlowCard() {
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
       onLoad={() => refetch()}
-      onExport={(fmt) => financeApi.exportStatement("cash-flow", fmt, { fromDate: from, toDate: to })}
+      onExport={(fmt) => accountingApi.exportStatement("cash-flow", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <PageLoader variant="compact" />
@@ -320,7 +320,7 @@ function TrialBalanceCard() {
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
       onLoad={() => refetch()}
-      onExport={(fmt) => financeApi.exportStatement("trial-balance", fmt, { fromDate: from, toDate: to })}
+      onExport={(fmt) => accountingApi.exportStatement("trial-balance", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <PageLoader variant="compact" />
@@ -386,7 +386,7 @@ function LedgerCard() {
     <CardShell
       from={from} setFrom={setFrom} to={to} setTo={setTo}
       onLoad={() => refetch()}
-      onExport={(fmt) => financeApi.exportStatement("general-ledger", fmt, { fromDate: from, toDate: to })}
+      onExport={(fmt) => accountingApi.exportStatement("general-ledger", fmt, { fromDate: from, toDate: to })}
     >
       {loading ? (
         <PageLoader variant="compact" />
@@ -437,7 +437,7 @@ function LedgerCard() {
   );
 }
 
-export default function FinanceReportsPage() {
+export default function AccountingReportsPage() {
   const [tab, setTab] = useState<TabKey>("income");
   return (
     <div className="space-y-6">

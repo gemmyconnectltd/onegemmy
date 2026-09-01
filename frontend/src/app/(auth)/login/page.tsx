@@ -83,7 +83,7 @@ export default function LoginPage() {
               <span className="text-white/50">From One Place</span>
             </h1>
             <p className="text-base text-white/40 max-w-sm leading-relaxed">
-              Sales, inventory, finance, HR, projects, and CRM — everything you need in a single platform.
+              Sales, inventory, accounting, HR, projects, and CRM — everything you need in a single platform.
             </p>
           </div>
 
@@ -229,8 +229,8 @@ export default function LoginPage() {
                       { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123", desc: "Full access" },
                       { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",  desc: "Inventory" },
                       { label: "Inv. Staff",   email: "inventory.staff@onegemmy.com",     password: "user123",  desc: "Inv. staff" },
-                      { label: "Finance Mgr",  email: "finance.manager@onegemmy.com",     password: "user123",  desc: "Finance" },
-                      { label: "Finance",      email: "finance.staff@onegemmy.com",       password: "user123",  desc: "Fin. staff" },
+                      { label: "Accounting Mgr",  email: "accounting.manager@onegemmy.com",     password: "user123",  desc: "Accounting" },
+                      { label: "Accounting",      email: "accounting.staff@onegemmy.com",       password: "user123",  desc: "Fin. staff" },
                       { label: "HR Manager",   email: "hr.manager@onegemmy.com",          password: "user123",  desc: "HR" },
                       { label: "HR Staff",     email: "hr.staff@onegemmy.com",            password: "user123",  desc: "HR staff" },
                       { label: "Sales Mgr",    email: "sales.manager@onegemmy.com",       password: "user123",  desc: "Sales" },
@@ -244,7 +244,7 @@ export default function LoginPage() {
                     users: [
                       { label: "Admin",        email: "admin@freshmart.rw",               password: "admin123", desc: "Full access" },
                       { label: "Inv. Manager", email: "inventory.manager@freshmart.rw",   password: "user123",  desc: "Inventory" },
-                      { label: "Finance Mgr",  email: "finance.manager@freshmart.rw",     password: "user123",  desc: "Finance" },
+                      { label: "Accounting Mgr",  email: "accounting.manager@freshmart.rw",     password: "user123",  desc: "Accounting" },
                       { label: "Sales Mgr",    email: "sales.manager@freshmart.rw",       password: "user123",  desc: "Sales" },
                       { label: "Procurement",  email: "procurement.manager@freshmart.rw", password: "user123",  desc: "Procurement" },
                       { label: "HR Manager",   email: "hr.manager@freshmart.rw",          password: "user123",  desc: "HR" },

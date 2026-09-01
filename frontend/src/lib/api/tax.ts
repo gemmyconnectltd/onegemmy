@@ -132,7 +132,7 @@ export interface RwandaTaxRates {
   pension_employer: number;
 }
 
-const BASE = "/tenants/finance/tax";
+const BASE = "/tenants/accounting/tax";
 
 export const taxApi = {
   // ── Tax Rates ─────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import Link from "next/link";
 const PLANS: Record<string, { desc: string; color: string; features: string[] }> = {
   free:         { desc: "Trial essentials for small businesses",  color: "#64748b", features: ["Basic dashboard", "Up to 2 users", "Core modules"] },
   starter:      { desc: "Growing teams with core modules",        color: "#0284c7", features: ["All free features", "Up to 10 users", "Inventory & Sales"] },
-  professional: { desc: "Full modules for scaling operations",    color: "#8b5cf6", features: ["All starter features", "Unlimited users", "HR & Finance"] },
+  professional: { desc: "Full modules for scaling operations",    color: "#8b5cf6", features: ["All starter features", "Unlimited users", "HR & Accounting"] },
   enterprise:   { desc: "Unlimited everything + priority support",color: "#d97706", features: ["All pro features", "Custom integrations", "Priority support"] },
 };
 

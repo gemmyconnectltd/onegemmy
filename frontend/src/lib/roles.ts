@@ -40,13 +40,13 @@ export const permissions: Permission[] = [
   { id: "stock.purchase orders", name: "Manage Purchase Orders", description: "Can create and manage POs", module: "Stock" },
   { id: "stock.stocktake", name: "Manage Stock Takes", description: "Can perform physical stock takes", module: "Stock" },
 
-  // Finance
-  { id: "finance.view", name: "View Finance", description: "Can view financial data", module: "Finance" },
-  { id: "finance.invoices.manage", name: "Manage Invoices", description: "Can create and send invoices", module: "Finance" },
-  { id: "finance.expenses.manage", name: "Manage Expenses", description: "Can record and approve expenses", module: "Finance" },
-  { id: "finance.reports.view", name: "View Financial Reports", description: "Can view P&L, balance sheet", module: "Finance" },
-  { id: "finance.budgets.manage", name: "Manage Budgets", description: "Can set and edit budgets", module: "Finance" },
-  { id: "finance.payments.process", name: "Process Payments", description: "Can record incoming/outgoing payments", module: "Finance" },
+  // Accounting
+  { id: "accounting.view", name: "View Accounting", description: "Can view financial data", module: "Accounting" },
+  { id: "accounting.invoices.manage", name: "Manage Invoices", description: "Can create and send invoices", module: "Accounting" },
+  { id: "accounting.expenses.manage", name: "Manage Expenses", description: "Can record and approve expenses", module: "Accounting" },
+  { id: "accounting.reports.view", name: "View Financial Reports", description: "Can view P&L, balance sheet", module: "Accounting" },
+  { id: "accounting.budgets.manage", name: "Manage Budgets", description: "Can set and edit budgets", module: "Accounting" },
+  { id: "accounting.payments.process", name: "Process Payments", description: "Can record incoming/outgoing payments", module: "Accounting" },
 
   // HR
   { id: "hr.view", name: "View HR", description: "Can view employee directory", module: "HR" },
@@ -112,7 +112,7 @@ export const defaultRoles: Role[] = [
       "dashboard.view",
       "sales.view", "sales.create", "sales.edit", "sales.leads.manage", "sales.targets.view", "sales.commissions.view",
       "stock.view", "stock.create", "stock.edit", "stock.adjust",
-      "finance.view", "finance.invoices.manage", "finance.reports.view",
+      "accounting.view", "accounting.invoices.manage", "accounting.reports.view",
       "hr.view", "hr.employees.manage", "hr.attendance.manage", "hr.leave.manage",
       "projects.view", "projects.create", "projects.edit", "projects.tasks.manage",
       "crm.view", "crm.contacts.manage", "crm.interactions.log",
@@ -149,7 +149,7 @@ export const defaultRoles: Role[] = [
     color: "#3B82F6",
     permissions: [
       "dashboard.view",
-      "finance.view", "finance.invoices.manage", "finance.expenses.manage", "finance.reports.view", "finance.budgets.manage", "finance.payments.process",
+      "accounting.view", "accounting.invoices.manage", "accounting.expenses.manage", "accounting.reports.view", "accounting.budgets.manage", "accounting.payments.process",
       "reports.view", "reports.export",
     ],
   },
@@ -166,7 +166,7 @@ export const defaultRoles: Role[] = [
   },
 ];
 
-export const modules = ["Dashboard", "Sales", "Stock", "Finance", "HR", "Projects", "CRM", "Reports", "Settings"];
+export const modules = ["Dashboard", "Sales", "Stock", "Accounting", "HR", "Projects", "CRM", "Reports", "Settings"];
 
 export function getPermissionsByModule(module: string): Permission[] {
   return permissions.filter((p) => p.module === module);
