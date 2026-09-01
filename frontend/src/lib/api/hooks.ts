@@ -347,9 +347,23 @@ export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: 
 // ── Current tenant entitlements ───────────────────────────────────────────────
 
 const ENTITLEMENTS = ["tenants", "me", "entitlements"] as const;
+const CURRENT_TENANT = ["tenants", "me", "current"] as const;
 
 export const useMyEntitlements = (opts?: QueryOpts) =>
   useQ([...ENTITLEMENTS], () => tenantsApi.entitlements(), (r) => r.data, opts);
+
+export const useCurrentTenant = (opts?: QueryOpts) =>
+  useQ([...CURRENT_TENANT], () => tenantsApi.getCurrent(), (r) => r.data, opts);
+
+export const useUpdateMyTenant = mutation(
+  ({ id, data }: { id: string; data: Parameters<typeof tenantsApi.update>[1] }) => tenantsApi.update(id, data),
+  [[...CURRENT_TENANT]],
+);
+
+export const useUploadMyTenantLogo = mutation(
+  ({ id, file }: { id: string; file: File }) => tenantsApi.uploadLogo(id, file),
+  [[...CURRENT_TENANT]],
+);
 
 // ── Repairs ────────────────────────────────────────────────────────────────────────────────────
 

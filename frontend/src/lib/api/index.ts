@@ -72,5 +72,5 @@ export type {
 export { adminApi } from "./admin";
 
 // Tenants (current company: profile, entitlements)
-export type { TenantEntitlements } from "./tenants";
+export type { TenantEntitlements, Tenant, TenantUpdateInput } from "./tenants";
 export { tenantsApi } from "./tenants";
