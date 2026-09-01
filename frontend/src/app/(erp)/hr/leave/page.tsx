@@ -8,11 +8,13 @@ import { useLeave, useEmployees, useCreateLeave, useApproveLeave, useRejectLeave
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { useAppConfig } from "@/lib/appConfig";
 
 const LEAVE_TYPES = ["Annual", "Sick", "Maternity", "Study", "Unpaid"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
 export default function LeavePage() {
+  const { brandColor } = useAppConfig();
   const [filter, setFilter] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,7 +84,7 @@ export default function LeavePage() {
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: "#b45309" }}
+          style={{ backgroundColor: brandColor }}
         >
           <Plus size={15} /> Request Leave
         </button>
@@ -97,7 +99,7 @@ export default function LeavePage() {
             type="button"
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f ? "text-white" : "text-muted hover:bg-surface"}`}
-            style={filter === f ? { backgroundColor: "#b45309" } : undefined}
+            style={filter === f ? { backgroundColor: brandColor } : undefined}
           >
             {f}
           </button>

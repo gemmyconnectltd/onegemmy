@@ -8,6 +8,7 @@ import { useAttendance, useEmployees, useCreateAttendance, useDeleteAttendance }
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { useAppConfig } from "@/lib/appConfig";
 
 const statusIcon: Record<string, React.ReactNode> = {
   Present: <CheckCircle size={14} className="text-emerald-500" />,
@@ -16,6 +17,7 @@ const statusIcon: Record<string, React.ReactNode> = {
 };
 
 export default function AttendancePage() {
+  const { brandColor } = useAppConfig();
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -73,7 +75,7 @@ export default function AttendancePage() {
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: "#b45309" }}
+          style={{ backgroundColor: brandColor }}
         >
           <Plus size={15} /> Record Attendance
         </button>

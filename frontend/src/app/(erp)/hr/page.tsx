@@ -43,7 +43,7 @@ const initials = (name: string) =>
   name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
 export default function EmployeesPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [status, setStatus] = useState("All");
@@ -110,7 +110,7 @@ export default function EmployeesPage() {
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: "#b45309" }}
+          style={{ backgroundColor: brandColor }}
         >
           <Plus size={15} /> Add Employee
         </button>
@@ -141,7 +141,7 @@ export default function EmployeesPage() {
             type="button"
             onClick={() => setStatus(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${status === s ? "text-white" : "text-muted hover:bg-surface"}`}
-            style={status === s ? { backgroundColor: "#b45309" } : undefined}
+            style={status === s ? { backgroundColor: brandColor } : undefined}
           >
             {s}
           </button>

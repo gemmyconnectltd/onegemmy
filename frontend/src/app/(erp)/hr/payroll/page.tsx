@@ -12,7 +12,7 @@ import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 
 export default function PayrollPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const currentPeriod = new Date().toISOString().slice(0, 7);
 
@@ -77,7 +77,7 @@ export default function PayrollPage() {
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: "#b45309" }}
+          style={{ backgroundColor: brandColor }}
         >
           <DollarSign size={15} /> Add Entry
         </button>

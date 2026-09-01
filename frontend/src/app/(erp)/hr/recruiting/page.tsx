@@ -74,8 +74,7 @@ export default function RecruitingPage() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: "#b45309" }}
+          className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg bg-accent"
         >
           <UserPlus size={15} /> Add Applicant
         </button>
@@ -89,7 +88,7 @@ export default function RecruitingPage() {
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={`bg-card border p-3 text-left transition-colors ${filter === f ? "border-[#b45309]" : "border-border hover:border-foreground/20"}`}
+            className={`bg-card border p-3 text-left transition-colors ${filter === f ? "border-accent" : "border-border hover:border-foreground/20"}`}
           >
             <p className="text-lg font-extrabold text-foreground tracking-tight">{stageCounts(f)}</p>
             <p className="text-[11px] text-muted font-medium">{f}</p>
@@ -143,7 +142,7 @@ export default function RecruitingPage() {
                           <button
                             type="button"
                             onClick={() => advance(a, next)}
-                            className="text-xs font-semibold text-[#b45309] hover:bg-[#b4530915] px-2 py-1 rounded-md transition-colors"
+                            className="text-xs font-semibold text-accent hover:bg-accent/10 px-2 py-1 rounded-md transition-colors"
                           >
                             Move to {next} →
                           </button>
