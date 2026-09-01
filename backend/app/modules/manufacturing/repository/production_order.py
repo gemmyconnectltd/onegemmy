@@ -11,10 +11,15 @@ class ProductionOrderRepository(BaseRepository[ProductionOrder]):
     model = ProductionOrder
 
     async def get_by_id_for_tenant(self, tenant_id: uuid.UUID, id: uuid.UUID) -> ProductionOrder | None:
+        # populate_existing: the session keeps expire_on_commit=False, so an
+        # object already in the identity map (e.g. just created in this same
+        # request) would otherwise keep its stale, pre-items-added `.items`
+        # collection instead of picking up what this query actually returns.
         result = await self.db.execute(
             select(ProductionOrder)
             .options(selectinload(ProductionOrder.items))
             .where(ProductionOrder.id == id, ProductionOrder.tenant_id == tenant_id)
+            .execution_options(populate_existing=True)
         )
         return result.scalar_one_or_none()
 
