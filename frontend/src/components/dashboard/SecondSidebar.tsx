@@ -13,7 +13,7 @@ import {
 import { useAppConfig } from "@/lib/appConfig";
 
 type ModuleKey =
-  | "sales" | "finance" | "hr" | "crm" | "procurement"
+  | "sales" | "accounting" | "hr" | "crm" | "procurement"
   | "manufacturing" | "customers" | "inventory" | "reports" | "settings" | "repairs";
 
 type Orientation = "top" | "left" | "big";
@@ -22,7 +22,6 @@ export interface NavConfigItem {
   nameKey: string;
   href: string;
   icon: React.ElementType;
-  color: string;
   exact?: boolean;
 }
 
@@ -36,84 +35,84 @@ export interface SectionItem {
 
 const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
   sales: [
-    { nameKey: "overview",  href: "/sales",           icon: LayoutDashboard, color: "#0284c7", exact: true },
-    { nameKey: "orders",    href: "/sales/orders",    icon: FileText,        color: "#0284c7" },
-    { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw,       color: "#0284c7" },
-    { nameKey: "targets",   href: "/sales/targets",   icon: Target,          color: "#0284c7" },
-    { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp,      color: "#0284c7" },
+    { nameKey: "overview",  href: "/sales",           icon: LayoutDashboard, exact: true },
+    { nameKey: "orders",    href: "/sales/orders",    icon: FileText },
+    { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw },
+    { nameKey: "targets",   href: "/sales/targets",   icon: Target },
+    { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp },
   ],
-  finance: [
-    { nameKey: "overview",  href: "/finance",          icon: LayoutDashboard, color: "#b45309", exact: true },
-    { nameKey: "accounts",  href: "/finance/accounts", icon: CreditCard,      color: "#b45309" },
-    { nameKey: "income",    href: "/finance/income",   icon: TrendingUp,      color: "#b45309" },
-    { nameKey: "expenses",  href: "/finance/expenses", icon: TrendingDown,    color: "#b45309" },
-    { nameKey: "invoices",  href: "/finance/invoices", icon: FileText,        color: "#b45309" },
-    { nameKey: "reports",   href: "/finance/reports",  icon: BarChart2,       color: "#b45309" },
+  accounting: [
+    { nameKey: "overview",  href: "/accounting",          icon: LayoutDashboard, exact: true },
+    { nameKey: "accounts",  href: "/accounting/accounts", icon: CreditCard },
+    { nameKey: "income",    href: "/accounting/income",   icon: TrendingUp },
+    { nameKey: "expenses",  href: "/accounting/expenses", icon: TrendingDown },
+    { nameKey: "invoices",  href: "/accounting/invoices", icon: FileText },
+    { nameKey: "reports",   href: "/accounting/reports",  icon: BarChart2 },
   ],
   hr: [
-    { nameKey: "employees",  href: "/hr",             icon: Users,      color: "#7c3aed", exact: true },
-    { nameKey: "attendance", href: "/hr/attendance",  icon: Clock,      color: "#7c3aed" },
-    { nameKey: "leave",      href: "/hr/leave",       icon: Award,      color: "#7c3aed" },
-    { nameKey: "payroll",    href: "/hr/payroll",     icon: DollarSign, color: "#7c3aed" },
-    { nameKey: "recruiting", href: "/hr/recruiting",  icon: UserPlus,   color: "#7c3aed" },
+    { nameKey: "employees",  href: "/hr",             icon: Users, exact: true },
+    { nameKey: "attendance", href: "/hr/attendance",  icon: Clock },
+    { nameKey: "leave",      href: "/hr/leave",       icon: Award },
+    { nameKey: "payroll",    href: "/hr/payroll",     icon: DollarSign },
+    { nameKey: "recruiting", href: "/hr/recruiting",  icon: UserPlus },
   ],
   crm: [
-    { nameKey: "overview",   href: "/crm",           icon: LayoutDashboard, color: "#0f766e", exact: true },
-    { nameKey: "contacts",   href: "/crm/contacts",  icon: UserCheck,       color: "#0f766e" },
-    { nameKey: "campaigns",  href: "/crm/campaigns", icon: Megaphone,       color: "#0f766e" },
-    { nameKey: "emails",     href: "/crm/emails",    icon: Mail,            color: "#0f766e" },
+    { nameKey: "overview",   href: "/crm",           icon: LayoutDashboard, exact: true },
+    { nameKey: "contacts",   href: "/crm/contacts",  icon: UserCheck },
+    { nameKey: "campaigns",  href: "/crm/campaigns", icon: Megaphone },
+    { nameKey: "emails",     href: "/crm/emails",    icon: Mail },
   ],
   customers: [
-    { nameKey: "allCustomers", href: "/customers",           icon: Users,     color: "#0f766e", exact: true },
-    { nameKey: "contacts",     href: "/crm/contacts",        icon: UserCheck, color: "#0f766e" },
-    { nameKey: "segments",     href: "/customers/segments",  icon: Tag,       color: "#0f766e" },
-    { nameKey: "loyalty",      href: "/customers/loyalty",   icon: Star,      color: "#0f766e" },
-    { nameKey: "campaigns",    href: "/crm/campaigns",       icon: Megaphone, color: "#0f766e" },
-    { nameKey: "emails",       href: "/crm/emails",          icon: Mail,      color: "#0f766e" },
-    { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2, color: "#0f766e" },
+    { nameKey: "allCustomers", href: "/customers",           icon: Users, exact: true },
+    { nameKey: "contacts",     href: "/crm/contacts",        icon: UserCheck },
+    { nameKey: "segments",     href: "/customers/segments",  icon: Tag },
+    { nameKey: "loyalty",      href: "/customers/loyalty",   icon: Star },
+    { nameKey: "campaigns",    href: "/crm/campaigns",       icon: Megaphone },
+    { nameKey: "emails",       href: "/crm/emails",          icon: Mail },
+    { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2 },
   ],
   procurement: [
-    { nameKey: "overview",  href: "/procurement",           icon: LayoutDashboard, color: "#0e7490", exact: true },
-    { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList,   color: "#0e7490" },
-    { nameKey: "orders",    href: "/procurement/orders",    icon: ShoppingBag,     color: "#0e7490" },
-    { nameKey: "suppliers", href: "/procurement/suppliers", icon: Truck,           color: "#0e7490" },
-    { nameKey: "returns",   href: "/procurement/returns",   icon: RotateCcw,       color: "#0e7490" },
+    { nameKey: "overview",  href: "/procurement",           icon: LayoutDashboard, exact: true },
+    { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList },
+    { nameKey: "orders",    href: "/procurement/orders",    icon: ShoppingBag },
+    { nameKey: "suppliers", href: "/procurement/suppliers", icon: Truck },
+    { nameKey: "returns",   href: "/procurement/returns",   icon: RotateCcw },
   ],
   manufacturing: [
-    { nameKey: "overview",   href: "/manufacturing",             icon: LayoutDashboard, color: "#92400e", exact: true },
-    { nameKey: "workOrders", href: "/manufacturing/work-orders", icon: Hammer,          color: "#92400e" },
-    { nameKey: "materials",  href: "/manufacturing/materials",   icon: Package,         color: "#92400e" },
-    { nameKey: "bom",        href: "/manufacturing/bom",         icon: ClipboardList,   color: "#92400e" },
-    { nameKey: "analytics",  href: "/manufacturing/analytics",   icon: BarChart2,       color: "#92400e" },
+    { nameKey: "overview",   href: "/manufacturing",             icon: LayoutDashboard, exact: true },
+    { nameKey: "workOrders", href: "/manufacturing/work-orders", icon: Hammer },
+    { nameKey: "materials",  href: "/manufacturing/materials",   icon: Package },
+    { nameKey: "bom",        href: "/manufacturing/bom",         icon: ClipboardList },
+    { nameKey: "analytics",  href: "/manufacturing/analytics",   icon: BarChart2 },
   ],
   inventory: [
-    { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, color: "#059669", exact: true },
-    { nameKey: "products",   href: "/inventory/products",   icon: Package,         color: "#059669" },
-    { nameKey: "categories", href: "/inventory/categories", icon: Tag,             color: "#059669" },
-    { nameKey: "brands",     href: "/inventory/brands",     icon: Star,            color: "#059669" },
-    { nameKey: "units",      href: "/inventory/units",      icon: Ruler,           color: "#059669" },
-    { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck,           color: "#059669" },
-    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers,          color: "#059669" },
-    { nameKey: "serials",    href: "/inventory/serials",    icon: Star,            color: "#059669" },
-    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck,           color: "#059669" },
-    { nameKey: "batches",    href: "/inventory/batches",    icon: Package,         color: "#059669" },
+    { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, exact: true },
+    { nameKey: "products",   href: "/inventory/products",   icon: Package },
+    { nameKey: "categories", href: "/inventory/categories", icon: Tag },
+    { nameKey: "brands",     href: "/inventory/brands",     icon: Star },
+    { nameKey: "units",      href: "/inventory/units",      icon: Ruler },
+    { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck },
+    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers },
+    { nameKey: "serials",    href: "/inventory/serials",    icon: Star },
+    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck },
+    { nameKey: "batches",    href: "/inventory/batches",    icon: Package },
   ],
   reports: [
-    { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, color: "#1e40af", exact: true },
-    { nameKey: "sales",      href: "/reports/sales",     icon: TrendingUp,      color: "#1e40af" },
-    { nameKey: "finance",    href: "/reports/finance",   icon: DollarSign,      color: "#1e40af" },
-    { nameKey: "inventory",  href: "/reports/inventory", icon: Package,         color: "#1e40af" },
-    { nameKey: "customers",  href: "/reports/customers", icon: Users,           color: "#1e40af" },
+    { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, exact: true },
+    { nameKey: "sales",      href: "/reports/sales",     icon: TrendingUp },
+    { nameKey: "accounting",    href: "/reports/accounting",   icon: DollarSign },
+    { nameKey: "inventory",  href: "/reports/inventory", icon: Package },
+    { nameKey: "customers",  href: "/reports/customers", icon: Users },
   ],
   settings: [
-    { nameKey: "general",       href: "/settings",               icon: Settings, color: "#4f46e5", exact: true },
-    { nameKey: "usersRoles",    href: "/settings/users",         icon: Users,    color: "#4f46e5" },
-    { nameKey: "security",      href: "/settings/security",      icon: Shield,   color: "#4f46e5" },
-    { nameKey: "notifications", href: "/settings/notifications", icon: Bell,     color: "#4f46e5" },
-    { nameKey: "appearance",    href: "/settings/appearance",    icon: Palette,  color: "#4f46e5" },
+    { nameKey: "general",       href: "/settings",               icon: Settings, exact: true },
+    { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
+    { nameKey: "security",      href: "/settings/security",      icon: Shield },
+    { nameKey: "notifications", href: "/settings/notifications", icon: Bell },
+    { nameKey: "appearance",    href: "/settings/appearance",    icon: Palette },
   ],
   repairs: [
-    { nameKey: "allJobs", href: "/repairs", icon: Hammer, color: "#7c3aed", exact: true },
+    { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
   ],
 };
 
@@ -171,10 +170,15 @@ export function SecondSidebar({
 
   const showRail = orientation === "left";
   const isBig = orientation === "big";
+  // Top and "big" orientations read as an underline tab bar — the pattern
+  // retail/ERP dashboards (Shopify admin, QuickBooks, Square) use for a
+  // module's secondary nav. The rail (left) orientation stays a filled list,
+  // matching the primary Sidebar's own active-item treatment.
+  const isTabBar = !showRail;
 
   const navClassName = showRail
     ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
-    : `flex items-center border-b border-border bg-surface overflow-x-auto flex-shrink-0 sticky top-14 z-10 ${isBig ? "h-12 px-2.5 gap-1.5" : "px-2"}`;
+    : `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-14 z-10 ${isBig ? "h-12 px-3 gap-1" : "px-3"}`;
 
   const railHeader = showRail && (showToggle || label) && (
     <div className="hidden lg:flex items-center justify-between gap-2 h-[46px] px-3 flex-shrink-0 border-b border-border">
@@ -187,7 +191,7 @@ export function SecondSidebar({
           onClick={toggle}
           title={toggleLabel}
           aria-label={toggleLabel}
-          className="flex items-center justify-center w-7 h-7 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
+          className="flex items-center justify-center w-7 h-7 text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
         >
           <ToggleIcon size={14} strokeWidth={1.8} />
         </button>
@@ -195,33 +199,45 @@ export function SecondSidebar({
     </div>
   );
 
-  const linkClassName = (isActive: boolean) =>
-    `flex items-center ${isBig ? "gap-3 px-4 py-2.5" : "gap-2.5 px-3 py-2"} ${showRail ? "lg:mx-2 lg:px-2.5 text-sm font-semibold whitespace-nowrap lg:whitespace-normal rounded-lg transition-all flex-shrink-0 lg:flex-shrink" : "text-sm font-semibold whitespace-nowrap rounded-lg transition-all flex-shrink-0"} ${
-      isActive ? "text-white shadow-sm" : "text-foreground/55 hover:bg-surface hover:text-foreground"
+  const linkClassName = (isActive: boolean, hasCustomColor: boolean) => {
+    if (isTabBar) {
+      return `relative flex items-center gap-2 -mb-px ${isBig ? "px-3.5 py-2.5" : "px-3.5 py-3"} text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 transition-colors ${
+        isActive
+          ? hasCustomColor ? "border-transparent" : "text-foreground border-accent"
+          : "text-muted border-transparent hover:text-foreground hover:border-border"
+      }`;
+    }
+    return `flex items-center lg:mx-2 lg:px-2.5 gap-2.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink ${
+      isActive ? hasCustomColor ? "text-white" : "bg-accent text-white" : "text-foreground/55 hover:bg-surface hover:text-foreground"
     }`;
+  };
 
   const items = isSectionMode
     ? (sections ?? []).map((item) => {
         const isActive = activeKey === item.key;
-        const color = item.color ?? "#0284c7";
+        const custom = item.color;
         return (
           <button
             key={item.key}
             type="button"
             onClick={() => onSelect?.(item.key)}
             aria-current={isActive ? "page" : undefined}
-            className={linkClassName(isActive)}
-            style={isActive ? { backgroundColor: color } : undefined}
+            className={linkClassName(isActive, !!custom)}
+            style={
+              isActive && custom
+                ? isTabBar ? { color: custom, borderColor: custom } : { backgroundColor: custom }
+                : undefined
+            }
           >
             <item.icon
-              size={isBig ? 17 : 15}
+              size={isTabBar ? 16 : 18}
               strokeWidth={isActive ? 2.2 : 1.8}
-              style={{ color: isActive ? "#fff" : color }}
-              className="flex-shrink-0"
+              style={custom ? { color: isActive ? (isTabBar ? custom : "#fff") : custom } : undefined}
+              className={custom ? "flex-shrink-0" : "flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
             />
-            <span className={isActive ? "" : "text-foreground/55"}>{item.label}</span>
+            <span>{item.label}</span>
             {typeof item.count === "number" && (
-              <span className={`ml-auto text-[11px] px-1.5 py-0.5 rounded-md ${isActive ? "bg-white/20 text-white" : "bg-surface"}`}>
+              <span className={`ml-auto text-[11px] px-1.5 py-0.5 ${isActive && !isTabBar ? "bg-white/20 text-white" : "bg-surface text-muted"}`}>
                 {item.count}
               </span>
             )}
@@ -237,23 +253,35 @@ export function SecondSidebar({
             key={item.nameKey}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={linkClassName(isActive)}
-            style={isActive ? { backgroundColor: item.color } : undefined}
+            className={linkClassName(isActive, false)}
           >
             <item.icon
-              size={isBig ? 17 : 15}
+              size={isTabBar ? 16 : 18}
               strokeWidth={isActive ? 2.2 : 1.8}
-              style={{ color: isActive ? "#fff" : item.color }}
-              className="flex-shrink-0"
+              className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
             />
-            <span className={isActive ? "" : "text-foreground/55"}>{t(item.nameKey)}</span>
+            <span>{t(item.nameKey)}</span>
           </Link>
         );
       });
 
+  // One toggle button, rendered the same way everywhere it appears — always
+  // trailing (right side), same icon, same size. Orientation alone decides
+  // which icon it shows (via `ToggleIcon`); position never moves.
+  const toggleButton = showToggle && (
+    <button
+      type="button"
+      onClick={toggle}
+      title={toggleLabel}
+      aria-label={toggleLabel}
+      className="flex items-center justify-center w-9 h-9 flex-shrink-0 text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
+    >
+      <ToggleIcon size={15} strokeWidth={1.8} />
+    </button>
+  );
+
   return (
     <nav className={navClassName}>
-      {/* Big (horizontal POS-style) header: title + toggle at far right */}
       {isBig ? (
         <>
           {(label || module) && (
@@ -267,54 +295,22 @@ export function SecondSidebar({
           <div className="flex items-center gap-1.5 overflow-x-auto flex-shrink-0">
             {items}
           </div>
-          <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-            {showToggle && (
-              <button
-                type="button"
-                onClick={toggle}
-                title={toggleLabel}
-                aria-label={toggleLabel}
-                className="flex items-center justify-center w-9 h-9 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
-              >
-                <ToggleIcon size={15} strokeWidth={1.8} />
-              </button>
-            )}
-          </div>
+          <div className="ml-auto flex items-center flex-shrink-0">{toggleButton}</div>
         </>
       ) : showRail ? (
         <>
           {railHeader}
           <div className="hidden lg:block mx-3 mb-1 border-t border-border" />
-          {showToggle && (
-            <button
-              type="button"
-              onClick={toggle}
-              title={toggleLabel}
-              aria-label={toggleLabel}
-              className="lg:hidden flex items-center justify-center w-9 h-9 m-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors flex-shrink-0"
-            >
-              <ToggleIcon size={14} strokeWidth={1.8} />
-            </button>
-          )}
+          {items}
+          {/* Mobile only — railHeader (with its own toggle) is desktop-only. */}
+          <div className="lg:hidden ml-auto flex items-center flex-shrink-0">{toggleButton}</div>
         </>
       ) : (
-        showToggle && (
-          <>
-            <button
-              type="button"
-              onClick={toggle}
-              title={toggleLabel}
-              aria-label={toggleLabel}
-              className="flex items-center justify-center flex-shrink-0 w-9 h-9 mr-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
-            >
-              <ToggleIcon size={14} strokeWidth={1.8} />
-            </button>
-            <div className="w-px h-5 bg-border mx-1 flex-shrink-0" />
-          </>
-        )
+        <>
+          {items}
+          <div className="ml-auto flex items-center flex-shrink-0">{toggleButton}</div>
+        </>
       )}
-
-      {!isBig && items}
     </nav>
   );
 }

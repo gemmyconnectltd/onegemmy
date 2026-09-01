@@ -5,7 +5,7 @@ import { SecondSidebar, type NavConfigItem } from "./SecondSidebar";
 import { useAppConfig } from "@/lib/appConfig";
 
 type ModuleKey =
-  | "sales" | "finance" | "hr" | "crm" | "procurement"
+  | "sales" | "accounting" | "hr" | "crm" | "procurement"
   | "manufacturing" | "customers" | "inventory" | "reports" | "settings";
 
 export type { NavConfigItem };
