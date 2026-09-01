@@ -1,3 +1,6 @@
+# ruff: noqa: I001
+# Import order below is load-bearing (see comment further down) — do not let
+# `ruff --fix` re-sort it.
 import asyncio
 from logging.config import fileConfig
 
@@ -8,18 +11,65 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 from app.core.config import settings
 from app.core.database import Base
-
 # Import all models so they register on Base.metadata before autogenerate runs.
+# `sales` must be imported before `accounting`: Expense.order references the
+# "Order" class by string name, and SQLAlchemy resolves it against whichever
+# classes are registered at mapper-configuration time. Keep this block as-is
+# (do not let `ruff --fix` re-alphabetize it — that reintroduces the failure).
 from app.modules.audit.models import AuditLog  # noqa: F401
-from app.modules.inventory.models import Brand, Category, InventoryBatch, Product, ProductSerial, ProductVariant, StockTransfer, StockTransferItem, Supplier, Unit, WarrantyClaim  # noqa: F401
-from app.modules.tenants.models import Branch, Department, Permission, Role, Tenant, User  # noqa: F401
-from app.modules.sales.models import Customer, Deal, Order, OrderItem, Return, ReturnItem, Target  # noqa: F401
-from app.modules.finance.models import Account, Transaction, TransactionLine, Budget, Expense  # noqa: F401
-from app.modules.hr.models import Applicant, Attendance, Employee, LeaveRequest, PayrollEntry  # noqa: F401
-from app.modules.procurement.models import PurchaseItem, PurchaseOrder  # noqa: F401
 from app.modules.crm.models import Campaign, EmailLog  # noqa: F401
-from app.modules.manufacturing.models import ProductionItem, ProductionOrder  # noqa: F401
+from app.modules.hr.models import (  # noqa: F401
+    Applicant,
+    Attendance,
+    Employee,
+    LeaveRequest,
+    PayrollEntry,
+)
+from app.modules.inventory.models import (  # noqa: F401
+    Brand,
+    Category,
+    InventoryBatch,
+    Product,
+    ProductSerial,
+    ProductVariant,
+    StockTransfer,
+    StockTransferItem,
+    Supplier,
+    Unit,
+    WarrantyClaim,
+)
+from app.modules.manufacturing.models import (  # noqa: F401
+    BillOfMaterial,
+    BillOfMaterialItem,
+    ProductionItem,
+    ProductionOrder,
+)
+from app.modules.procurement.models import PurchaseItem, PurchaseOrder  # noqa: F401
 from app.modules.repairs.models import RepairJob, RepairJobPart  # noqa: F401
+from app.modules.sales.models import (  # noqa: F401
+    Customer,
+    Deal,
+    Order,
+    OrderItem,
+    Return,
+    ReturnItem,
+    Target,
+)
+from app.modules.tenants.models import (  # noqa: F401
+    Branch,
+    Department,
+    Permission,
+    Role,
+    Tenant,
+    User,
+)
+from app.modules.accounting.models import (  # noqa: F401
+    Account,
+    Budget,
+    Expense,
+    Transaction,
+    TransactionLine,
+)
 
 config = context.config
 if config.config_file_name is not None:

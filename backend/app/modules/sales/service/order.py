@@ -5,10 +5,10 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.accounting.schemas.tax import TaxCalculationCreate
+from app.modules.accounting.service.tax import create_tax_calculation
+from app.modules.accounting.service.transaction import create_sale_transaction
 from app.modules.audit.service import record_audit
-from app.modules.finance.schemas.tax import TaxCalculationCreate
-from app.modules.finance.service.tax import create_tax_calculation
-from app.modules.finance.service.transaction import create_sale_transaction
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.service.serial import mark_serial_sold

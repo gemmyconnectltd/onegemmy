@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.modules.finance.service.transaction import create_purchase_transaction
+from app.modules.accounting.service.transaction import create_purchase_transaction
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.procurement.models.purchase_item import PurchaseItem
@@ -79,7 +79,7 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
 
 
 async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder) -> None:
-    """Stock in all items and post the finance entry. Caller commits."""
+    """Stock in all items and post the accounting entry. Caller commits."""
     for item in purchase.items:
         if item.variant_id:
             variant = await db.get(ProductVariant, item.variant_id)

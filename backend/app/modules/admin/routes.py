@@ -12,9 +12,9 @@ from app.core.logging import get_logger
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.core.security import hash_password
+from app.modules.accounting.models.transaction import Transaction
+from app.modules.accounting.models.transaction_line import TransactionLine
 from app.modules.audit.service import record_audit
-from app.modules.finance.models.transaction import Transaction
-from app.modules.finance.models.transaction_line import TransactionLine
 from app.modules.inventory.models.product import Product
 from app.modules.sales.models.order import Order
 from app.modules.tenants import service

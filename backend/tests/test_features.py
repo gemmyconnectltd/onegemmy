@@ -7,7 +7,7 @@ from app.core.exceptions import QuotaExceededError
 from app.modules.tenants import service
 from app.modules.tenants.schemas import FeatureOverrideUpdate, TenantLimitsUpdate
 
-FLAG_KEYS = ["inventory", "sales", "finance", "hr", "procurement", "crm", "manufacturing"]
+FLAG_KEYS = ["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing"]
 
 
 def _flag(key, default_enabled=True):
@@ -86,7 +86,7 @@ async def test_set_tenant_features_replaces_overrides(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_set_tenant_features_empty_clears_all_overrides(monkeypatch):
-    tenant = _FakeTenant(features={"sales": True, "finance": False})
+    tenant = _FakeTenant(features={"sales": True, "accounting": False})
     repo = _FakeRepo(tenant)
     monkeypatch.setattr(service.feature.TenantRepository, "get", repo.get)
     monkeypatch.setattr(service.feature.TenantRepository, "save", repo.save)

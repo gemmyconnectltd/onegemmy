@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
-from app.modules.finance.service.transaction import create_return_transaction
+from app.modules.accounting.service.transaction import create_return_transaction
 from app.modules.inventory.service.serial import mark_serials_returned
 from app.modules.sales.models.return_ import Return
 from app.modules.sales.models.return_item import ReturnItem
@@ -74,7 +74,7 @@ async def update_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
     for field, value in updates.items():
         setattr(obj, field, value)
     await ReturnRepository(db).save(obj)
-    # auto-create finance transaction when status flips to Approved
+    # auto-create accounting transaction when status flips to Approved
     if not was_approved and obj.status == "Approved":
         await create_return_transaction(
             db, tenant_id, user_id, obj.id, float(obj.refund_amount), obj.return_number
