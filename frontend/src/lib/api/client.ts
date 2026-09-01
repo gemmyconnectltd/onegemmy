@@ -113,4 +113,15 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   return res.json();
 }
 
+/** Backend origin, derived from API_BASE (which includes the `/api/v1` path). */
+const API_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, "");
+
+/** Resolves a backend-relative upload path (e.g. "/uploads/logos/x.png") to an
+ *  absolute URL. Already-absolute URLs and null/empty values pass through. */
+export function resolveUploadUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_ORIGIN}${path}`;
+}
+
 export { API_BASE };
