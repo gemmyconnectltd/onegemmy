@@ -44,7 +44,7 @@ ACTIONS = ["create", "read", "update", "delete", "approve"]
 
 ROLE_RESOURCES: dict[str, list[str]] = {
     "Inventory Manager":   ["items", "warehouses", "stock", "orders", "pricing", "returns"],
-    "Finance Manager":     ["invoices", "chart_of_accounts", "journal_entries", "accounts_payable",
+    "Accounting Manager":     ["invoices", "chart_of_accounts", "journal_entries", "accounts_payable",
                             "accounts_receivable", "banking", "fixed_assets", "budgeting", "tax"],
     "HR Manager":          ["employees", "organization", "recruitment", "attendance", "leave",
                             "payroll", "performance"],
@@ -82,8 +82,8 @@ TENANTS: list[TenantDef] = [
         business_users=[
             ("inventory.manager@onegemmy.com",   "Inventory Manager",   "Inventory Manager"),
             ("inventory.staff@onegemmy.com",     "Inventory Staff",     "Inventory Manager"),
-            ("finance.manager@onegemmy.com",     "Finance Manager",     "Finance Manager"),
-            ("finance.staff@onegemmy.com",       "Finance Staff",       "Finance Manager"),
+            ("accounting.manager@onegemmy.com",     "Accounting Manager",     "Accounting Manager"),
+            ("accounting.staff@onegemmy.com",       "Accounting Staff",       "Accounting Manager"),
             ("hr.manager@onegemmy.com",          "HR Manager",          "HR Manager"),
             ("hr.staff@onegemmy.com",            "HR Staff",            "HR Manager"),
             ("sales.manager@onegemmy.com",       "Sales Manager",       "Sales Manager"),
@@ -128,7 +128,7 @@ TENANTS: list[TenantDef] = [
         admin_name="FreshMart Admin",
         business_users=[
             ("inventory.manager@freshmart.rw",   "Inventory Manager",   "Inventory Manager"),
-            ("finance.manager@freshmart.rw",     "Finance Manager",     "Finance Manager"),
+            ("accounting.manager@freshmart.rw",     "Accounting Manager",     "Accounting Manager"),
             ("sales.manager@freshmart.rw",       "Sales Manager",       "Sales Manager"),
             ("procurement.manager@freshmart.rw", "Procurement Manager", "Procurement Manager"),
             ("hr.manager@freshmart.rw",          "HR Manager",          "HR Manager"),
