@@ -433,6 +433,15 @@ export const useCreateProductionOrder = mutation((d: object) => manufacturingApi
 export const useCompleteProductionOrder = mutation((id: string) => manufacturingApi.completeProductionOrder(id), [[...PRODUCTION_KEY], [...PRODUCTS], [...VALUATION]]);
 export const useDeleteProductionOrder = mutation((id: string) => manufacturingApi.deleteProductionOrder(id), [[...PRODUCTION_KEY]]);
 
+const BOMS_KEY = ["manufacturing", "boms"] as const;
+
+export const useBoms = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...BOMS_KEY, page, pageSize], () => manufacturingApi.listBoms(page, pageSize), (r) => r.data, opts);
+
+export const useCreateBom = mutation((d: object) => manufacturingApi.createBom(d), [[...BOMS_KEY]]);
+export const useUpdateBom = mutation(({ id, data }: { id: string; data: object }) => manufacturingApi.updateBom(id, data), [[...BOMS_KEY]]);
+export const useDeleteBom = mutation((id: string) => manufacturingApi.deleteBom(id), [[...BOMS_KEY]]);
+
 // ── Re-export the response types for convenience ────────────────────────────
 
 export type {

@@ -43,15 +43,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </div>
   );
 
-  const sidebarW = sidebarCollapsed ? 64 : 200;
+  const sidebarW = sidebarCollapsed ? 64 : 96;
 
   return (
     <div className="min-h-screen bg-surface" suppressHydrationWarning>
       <Sidebar
         expanded={false}
         onExpandChange={() => {}}
-        layout="vertical"
-        onLayoutChange={() => {}}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
         variant="admin"

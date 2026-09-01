@@ -3,14 +3,13 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Sidebar, type SidebarLayout } from "@/components/dashboard/Sidebar";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 import { pageTitleForPath } from "@/lib/pageTitles";
 
-const LAYOUT_KEY = "sidebar_layout";
 const COLLAPSED_KEY = "sidebar_collapsed";
 
 const STORE_LISTENERS = new Set<() => void>();
@@ -43,23 +42,10 @@ function useStoredSidebarCollapsed(): boolean {
   );
 }
 
-function useStoredSidebarLayout(): SidebarLayout {
-  return useSyncExternalStore(
-    subscribeStore,
-    () => {
-      const v = readStored(LAYOUT_KEY);
-      return v === "horizontal" || v === "vertical" || v === "grid" ? v : "vertical";
-    },
-    () => "vertical",
-  );
-}
-
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const sidebarCollapsed = useStoredSidebarCollapsed();
-  const sidebarLayout = useStoredSidebarLayout();
 
   const setSidebarCollapsed = (v: boolean) => writeStored(COLLAPSED_KEY, v ? "1" : "0");
-  const handleLayoutChange = (l: SidebarLayout) => writeStored(LAYOUT_KEY, l);
 
   const [isMobile, setIsMobile] = useState(false);
   const { user, isLoading } = useAuth();
@@ -81,9 +67,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!isLoading && !user) router.replace("/login");
   }, [isLoading, user, router]);
 
-  const isTopLayout = sidebarLayout !== "vertical";
-  const sidebarW = isTopLayout ? 0 : sidebarCollapsed ? 64 : 200;
-  const topBarH = sidebarLayout === "grid" ? 64 : sidebarLayout === "horizontal" ? 56 : 0;
+  const sidebarW = sidebarCollapsed ? 64 : 96;
 
   if (isLoading || !user) return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-6">
@@ -96,8 +80,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Sidebar
         expanded={false}
         onExpandChange={() => {}}
-        layout={sidebarLayout}
-        onLayoutChange={handleLayoutChange}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
       />
@@ -105,7 +87,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         className="flex flex-col min-h-screen transition-all duration-200"
         style={{
           marginLeft: isMobile ? 0 : sidebarW,
-          marginTop: isMobile ? 0 : topBarH,
           paddingBottom: isMobile ? 64 : 0,
         }}
       >
