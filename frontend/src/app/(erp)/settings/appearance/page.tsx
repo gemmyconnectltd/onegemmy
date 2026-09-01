@@ -1,11 +1,49 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useAppConfig } from "@/lib/appConfig";
-import { businessThemes, businessThemesDark, type BusinessType } from "@/lib/config";
-import { Check, Moon, Sun } from "lucide-react";
+import { DEFAULT_BRAND_COLOR } from "@/lib/config";
+import { useCurrentTenant, useUpdateMyTenant, useUploadMyTenantLogo } from "@/lib/api/hooks";
+import { Check, Moon, Sun, Upload, Loader2, Building2, X } from "lucide-react";
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 export default function AppearancePage() {
-  const { businessType, setBusinessType, businessTypes, locale, setLocale, locales, currency, setCurrency, currencies, theme, setTheme } = useAppConfig();
+  const {
+    theme, setTheme, brandColor, setBrandColor, logoUrl, setLogoUrl, brandColorPresets,
+    locale, setLocale, locales, currency, setCurrency, currencies,
+  } = useAppConfig();
+  const { data: tenant } = useCurrentTenant();
+  const updateTenant = useUpdateMyTenant();
+  const uploadLogo = useUploadMyTenantLogo();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [hexInput, setHexInput] = useState(brandColor);
+  const [error, setError] = useState<string | null>(null);
+
+  const applyBrandColor = async (hex: string) => {
+    if (!tenant) return;
+    const previous = brandColor;
+    setBrandColor(hex);
+    setHexInput(hex);
+    try {
+      await updateTenant.mutateAsync({ id: tenant.id, data: { brand_color: hex } });
+    } catch {
+      setBrandColor(previous);
+      setHexInput(previous);
+      setError("Couldn't save your brand color. Try again.");
+    }
+  };
+
+  const handleLogoFile = async (file: File) => {
+    if (!tenant) return;
+    setError(null);
+    try {
+      const res = await uploadLogo.mutateAsync({ id: tenant.id, file });
+      setLogoUrl(res.data.logo_url);
+    } catch {
+      setError("Couldn't upload that logo. Use a PNG, JPEG or WEBP under 2MB.");
+    }
+  };
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -13,6 +51,13 @@ export default function AppearancePage() {
         <h1 className="text-xl font-bold text-foreground">Appearance</h1>
         <p className="text-sm text-muted mt-1">Customize the look and feel of your dashboard.</p>
       </div>
+
+      {error && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border border-red-200 bg-red-50 text-red-700 text-[13px] rounded-lg">
+          {error}
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600"><X size={14} /></button>
+        </div>
+      )}
 
       {/* Theme */}
       <section className="space-y-3">
@@ -26,7 +71,6 @@ export default function AppearancePage() {
             { id: "dark" as const, name: "Dark", icon: Moon },
           ]).map((t) => {
             const isActive = theme === t.id;
-            const preview = t.id === "dark" ? businessThemesDark[businessType] : businessThemes[businessType];
             return (
               <button
                 key={t.id}
@@ -40,17 +84,6 @@ export default function AppearancePage() {
                     <Check size={11} strokeWidth={3} />
                   </span>
                 )}
-                <div
-                  className="w-full h-16 mb-3 border border-border/50 overflow-hidden flex"
-                  style={{ backgroundColor: preview.background }}
-                >
-                  <div className="w-4 h-full" style={{ backgroundColor: preview.accent }} />
-                  <div className="flex-1 p-1.5 space-y-1">
-                    <div className="h-2 rounded-full w-3/4" style={{ backgroundColor: preview.foreground, opacity: 0.3 }} />
-                    <div className="h-2 rounded-full w-1/2" style={{ backgroundColor: preview.primary, opacity: 0.5 }} />
-                    <div className="h-2 rounded-full w-2/3" style={{ backgroundColor: preview.muted, opacity: 0.3 }} />
-                  </div>
-                </div>
                 <div className="flex items-center gap-2">
                   <t.icon size={16} className={isActive ? "text-accent" : "text-muted"} />
                   <p className="text-[13px] font-semibold text-foreground">{t.name}</p>
@@ -61,51 +94,84 @@ export default function AppearancePage() {
         </div>
       </section>
 
-      {/* Business Type */}
+      {/* Brand Color */}
       <section className="space-y-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-foreground">Business Type</h2>
-          <p className="text-[13px] text-muted mt-0.5">Each type applies its own color theme across the whole dashboard.</p>
+          <h2 className="text-[15px] font-semibold text-foreground">Brand Color</h2>
+          <p className="text-[13px] text-muted mt-0.5">
+            Applies everywhere across your dashboard — same for everyone at your company.
+          </p>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {businessTypes.map((bt) => {
-            const theme = businessThemes[bt.code as BusinessType];
-            const isActive = businessType === bt.code;
+        <div className="flex flex-wrap items-center gap-2.5">
+          {brandColorPresets.map((hex) => {
+            const isActive = brandColor.toLowerCase() === hex.toLowerCase();
             return (
               <button
-                key={bt.code}
-                onClick={() => setBusinessType(bt.code as BusinessType)}
-                className={`relative p-4 border-2 text-left transition-all ${
-                  isActive ? "border-accent" : "border-border hover:border-foreground/20"
-                }`}
+                key={hex}
+                onClick={() => applyBrandColor(hex)}
+                title={hex}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform ${isActive ? "scale-110 ring-2 ring-offset-2 ring-foreground/30" : "hover:scale-105"}`}
+                style={{ backgroundColor: hex }}
               >
-                {isActive && (
-                  <span className="absolute top-2 right-2 w-5 h-5 bg-accent text-white flex items-center justify-center rounded-full">
-                    <Check size={11} strokeWidth={3} />
-                  </span>
-                )}
-                {/* Mini theme preview */}
-                <div
-                  className="w-full h-10 mb-3 border border-border/50 overflow-hidden flex"
-                  style={{ backgroundColor: theme.background }}
-                >
-                  <div className="w-4 h-full" style={{ backgroundColor: theme.accent }} />
-                  <div className="flex-1 p-1 space-y-1">
-                    <div className="h-1.5 rounded-full w-3/4" style={{ backgroundColor: theme.foreground, opacity: 0.3 }} />
-                    <div className="h-1.5 rounded-full w-1/2" style={{ backgroundColor: theme.primary, opacity: 0.5 }} />
-                    <div className="h-1.5 rounded-full w-2/3" style={{ backgroundColor: theme.muted, opacity: 0.3 }} />
-                  </div>
-                </div>
-                <div className="text-xl mb-1">{bt.icon}</div>
-                <p className="text-[13px] font-semibold text-foreground">{bt.name}</p>
-                <div className="flex gap-1 mt-2">
-                  {[theme.accent, theme.primary, theme.surface, theme.border].map((c, i) => (
-                    <div key={i} className="w-4 h-4 rounded-full border border-border/30" style={{ backgroundColor: c }} />
-                  ))}
-                </div>
+                {isActive && <Check size={14} className="text-white" strokeWidth={3} />}
               </button>
             );
           })}
+          <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+            <input
+              type="color"
+              value={HEX_RE.test(hexInput) ? hexInput : DEFAULT_BRAND_COLOR}
+              onChange={(e) => setHexInput(e.target.value)}
+              onBlur={() => HEX_RE.test(hexInput) && applyBrandColor(hexInput)}
+              className="w-9 h-9 rounded-full border-0 cursor-pointer bg-transparent"
+            />
+            <input
+              type="text"
+              value={hexInput}
+              onChange={(e) => setHexInput(e.target.value)}
+              onBlur={() => HEX_RE.test(hexInput) ? applyBrandColor(hexInput) : setHexInput(brandColor)}
+              placeholder="#6f1a07"
+              className="w-24 px-2.5 py-2 text-[13px] font-mono border border-border rounded-lg bg-card text-foreground focus:outline-none focus:border-accent"
+            />
+          </div>
+          {updateTenant.isPending && <Loader2 size={14} className="animate-spin text-muted" />}
+        </div>
+      </section>
+
+      {/* Company Logo */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-[15px] font-semibold text-foreground">Company Logo</h2>
+          <p className="text-[13px] text-muted mt-0.5">PNG, JPEG or WEBP, up to 2MB.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-xl border border-border bg-surface flex items-center justify-center overflow-hidden flex-shrink-0">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Company logo" className="w-full h-full object-contain" />
+            ) : (
+              <Building2 size={22} className="text-muted" />
+            )}
+          </div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadLogo.isPending || !tenant}
+            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-[13px] font-semibold text-foreground hover:border-accent transition-colors disabled:opacity-50"
+          >
+            {uploadLogo.isPending ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {logoUrl ? "Replace logo" : "Upload logo"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleLogoFile(file);
+              e.target.value = "";
+            }}
+          />
         </div>
       </section>
 
@@ -118,9 +184,8 @@ export default function AppearancePage() {
               key={l.code}
               onClick={() => setLocale(l.code)}
               className={`px-4 py-2 text-[13px] font-semibold border rounded-lg transition-colors ${
-                locale === l.code ? "text-white border-transparent" : "border-border text-foreground/60 hover:text-foreground"
+                locale === l.code ? "bg-accent text-white border-transparent" : "border-border text-foreground/60 hover:text-foreground"
               }`}
-              style={locale === l.code ? { backgroundColor: "#4f46e5" } : undefined}
             >
               {l.name}
             </button>
