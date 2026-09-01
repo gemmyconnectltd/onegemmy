@@ -47,7 +47,7 @@ function mapTxn(t: AccountingTransaction): Tx {
 }
 
 export default function AccountingPage() {
-  const { currencySymbol, theme } = useAppConfig();
+  const { currencySymbol, theme, brandColor } = useAppConfig();
   const c = chartPalette(theme === "dark");
   const sales = useSyncExternalStore(subscribeSales, getSalesSnapshot, () => EMPTY_SALES);
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
@@ -171,7 +171,7 @@ export default function AccountingPage() {
           <button
             onClick={() => setShowIncome(true)}
             className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-            style={{ backgroundColor: "#b45309" }}
+            style={{ backgroundColor: brandColor }}
           >
             <Plus size={16} />Add Income
           </button>

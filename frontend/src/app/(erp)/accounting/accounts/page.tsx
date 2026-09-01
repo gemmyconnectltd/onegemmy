@@ -7,6 +7,7 @@ import { useAccounts, useCreateAccount, useSeedAccounts } from "@/lib/api/hooks"
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState } from "@/components/hr/State";
+import { useAppConfig } from "@/lib/appConfig";
 
 const ACCOUNT_TYPES = ["Assets", "Liabilities", "Equity", "Revenue", "Expense"];
 const TYPE_FILTERS = ["All", ...ACCOUNT_TYPES];
@@ -19,6 +20,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function AccountsPage() {
+  const { brandColor } = useAppConfig();
   const [type, setType] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export default function AccountsPage() {
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-            style={{ backgroundColor: "#b45309" }}
+            style={{ backgroundColor: brandColor }}
           >
             <Plus size={15} /> Add Account
           </button>
@@ -102,7 +104,7 @@ export default function AccountsPage() {
             type="button"
             onClick={() => setType(t)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${type === t ? "text-white" : "text-muted hover:bg-surface"}`}
-            style={type === t ? { backgroundColor: "#b45309" } : undefined}
+            style={type === t ? { backgroundColor: brandColor } : undefined}
           >
             {t}
           </button>
@@ -134,8 +136,8 @@ export default function AccountsPage() {
                 <tr key={a.id} className="hover:bg-surface/50 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#b4530915" }}>
-                        <CreditCard size={14} style={{ color: "#b45309" }} />
+                      <div className="w-8 h-8 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${brandColor}15` }}>
+                        <CreditCard size={14} style={{ color: brandColor }} />
                       </div>
                       <span className="text-xs text-muted font-mono">{a.code}</span>
                     </div>

@@ -438,6 +438,7 @@ function LedgerCard() {
 }
 
 export default function AccountingReportsPage() {
+  const { brandColor } = useAppConfig();
   const [tab, setTab] = useState<TabKey>("income");
   return (
     <div className="space-y-6">
@@ -455,7 +456,7 @@ export default function AccountingReportsPage() {
             className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all ${
               tab === t.key ? "text-white shadow-sm" : "text-foreground/60 hover:bg-surface hover:text-foreground"
             }`}
-            style={tab === t.key ? { backgroundColor: "#b45309" } : undefined}
+            style={tab === t.key ? { backgroundColor: brandColor } : undefined}
           >
             {t.label}
           </button>

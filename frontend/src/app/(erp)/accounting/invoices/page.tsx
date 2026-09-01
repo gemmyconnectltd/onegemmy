@@ -33,7 +33,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function InvoicesPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const { data, isLoading } = useOrders(1, 200);
   const orders = data?.items ?? [];
   const [search, setSearch] = useState("");
@@ -86,7 +86,7 @@ export default function InvoicesPage() {
           </button>
           <button
             className="flex items-center gap-2 px-3.5 py-2 text-[13px] font-semibold text-white rounded-lg transition-colors"
-            style={{ backgroundColor: "#b45309" }}
+            style={{ backgroundColor: brandColor }}
           >
             <Plus size={14} /> New Invoice
           </button>
@@ -119,7 +119,7 @@ export default function InvoicesPage() {
               className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
                 statusFilter === t.key ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
-              style={statusFilter === t.key ? { backgroundColor: "#b45309" } : undefined}
+              style={statusFilter === t.key ? { backgroundColor: brandColor } : undefined}
             >
               {t.label}
               {t.count > 0 && <span className="ml-1.5 opacity-60">({t.count})</span>}
@@ -142,8 +142,8 @@ export default function InvoicesPage() {
         <PageLoader variant="compact" />
       ) : filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-16 flex flex-col items-center justify-center text-center gap-3">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "#b4530915" }}>
-            <FileText size={20} style={{ color: "#b45309" }} />
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: `${brandColor}15` }}>
+            <FileText size={20} style={{ color: brandColor }} />
           </div>
           <p className="text-sm font-semibold text-foreground">No invoices found</p>
           <p className="text-[13px] text-muted">Try adjusting your filters or create a new invoice.</p>
@@ -244,7 +244,7 @@ export default function InvoicesPage() {
                   <BadgeCheck size={15} /> Mark as Paid
                 </button>
               )}
-              <button className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: "#b45309" }}>
+              <button className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: brandColor }}>
                 <Printer size={15} /> Print
               </button>
               <button onClick={() => setViewing(null)} className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">

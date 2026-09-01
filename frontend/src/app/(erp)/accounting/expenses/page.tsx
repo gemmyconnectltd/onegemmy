@@ -15,7 +15,7 @@ const CATEGORIES = ["Rent", "Utilities", "Salaries", "Inventory", "Transport", "
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
 export default function ExpensesPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [filter, setFilter] = useState("All");
@@ -95,7 +95,7 @@ export default function ExpensesPage() {
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: "#b45309" }}
+          style={{ backgroundColor: brandColor }}
         >
           <Plus size={15} /> Add Expense
         </button>
@@ -110,7 +110,7 @@ export default function ExpensesPage() {
             type="button"
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f ? "text-white" : "text-muted hover:bg-surface"}`}
-            style={filter === f ? { backgroundColor: "#b45309" } : undefined}
+            style={filter === f ? { backgroundColor: brandColor } : undefined}
           >
             {f}
           </button>
