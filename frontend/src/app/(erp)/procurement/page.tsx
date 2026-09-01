@@ -18,7 +18,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function ProcurementPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const stats = [
@@ -32,7 +32,7 @@ export default function ProcurementPage() {
     { label: "Purchase orders", desc: "Create and track orders", href: "/procurement/orders", icon: ShoppingBag, color: "#0284c7" },
     { label: "Suppliers", desc: "Manage supplier accounts", href: "/procurement/suppliers", icon: Users, color: "#4f46e5" },
     { label: "Requests", desc: "Approve team requisitions", href: "/procurement/requests", icon: ClipboardList, color: "#b45309" },
-    { label: "Returns", desc: "Track returns and refunds", href: "/procurement/returns", icon: RotateCcw, color: "#0e7490" },
+    { label: "Returns", desc: "Track returns and refunds", href: "/procurement/returns", icon: RotateCcw, color: brandColor },
   ];
 
   return (
@@ -46,7 +46,7 @@ export default function ProcurementPage() {
           <Link href="/procurement/requests" className="flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium hover:bg-surface transition-colors">
             <Plus size={16} />New Request
           </Link>
-          <Link href="/procurement/orders" className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium rounded-lg" style={{ backgroundColor: "#0e7490" }}>
+          <Link href="/procurement/orders" className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium rounded-lg" style={{ backgroundColor: brandColor }}>
             <Plus size={16} />New Purchase Order
           </Link>
         </div>

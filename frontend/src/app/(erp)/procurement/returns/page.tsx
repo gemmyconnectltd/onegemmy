@@ -31,7 +31,7 @@ const STATUS_STYLES: Record<ReturnStatus, string> = {
 };
 
 export default function PurchaseReturnsPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const [search, setSearch] = useState("");
 
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
@@ -52,7 +52,7 @@ export default function PurchaseReturnsPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {[
-          { label: "Returns", value: INITIAL_RETURNS.length, color: "#0e7490" },
+          { label: "Returns", value: INITIAL_RETURNS.length, color: brandColor },
           { label: "Refunded", value: fmt(totalRefunded), color: "#059669" },
           { label: "Processing", value: INITIAL_RETURNS.filter((r) => r.status === "Processing").length, color: "#b45309" },
         ].map((s) => (

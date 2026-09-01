@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, ClipboardList, Plus, Search, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, FormFooter } from "@/components/ui/Form";
+import { useAppConfig } from "@/lib/appConfig";
 
 type ReqStatus = "Pending" | "Approved" | "Rejected";
 
@@ -32,6 +33,7 @@ const STATUS_STYLES: Record<ReqStatus, string> = {
 };
 
 export default function PurchaseRequestsPage() {
+  const { brandColor } = useAppConfig();
   const [reqs, setReqs] = useState<Requisition[]>(INITIAL_REQS);
   const [filter, setFilter] = useState<ReqStatus | "All">("All");
   const [search, setSearch] = useState("");
@@ -78,7 +80,7 @@ export default function PurchaseRequestsPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: "#0e7490" }}
+          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: brandColor }}
         >
           <Plus size={16} /> New Request
         </button>
@@ -93,7 +95,7 @@ export default function PurchaseRequestsPage() {
               className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
                 filter === s ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
-              style={filter === s ? { backgroundColor: "#0e7490" } : undefined}
+              style={filter === s ? { backgroundColor: brandColor } : undefined}
             >
               {s} <span className="opacity-70">({s === "All" ? reqs.length : reqs.filter((r) => r.status === s).length})</span>
             </button>

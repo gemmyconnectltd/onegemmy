@@ -26,7 +26,7 @@ const INITIAL_SUPPLIERS: Supplier[] = [
 ];
 
 export default function SuppliersPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -70,7 +70,7 @@ export default function SuppliersPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: "#0e7490" }}
+          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: brandColor }}
         >
           <Plus size={16} /> Add Supplier
         </button>

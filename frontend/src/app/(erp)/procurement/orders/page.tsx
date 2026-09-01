@@ -38,7 +38,7 @@ const STATUS_STYLES: Record<PoStatus, string> = {
 const STATUS_ORDER: (PoStatus | "All")[] = ["All", "Draft", "Approved", "Received", "Cancelled"];
 
 export default function PurchaseOrdersPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
   const [pos, setPos] = useState<PurchaseOrder[]>(INITIAL_POS);
   const [filter, setFilter] = useState<PoStatus | "All">("All");
   const [search, setSearch] = useState("");
@@ -95,7 +95,7 @@ export default function PurchaseOrdersPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: "#0e7490" }}
+          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: brandColor }}
         >
           <Plus size={16} /> New Purchase Order
         </button>
@@ -122,7 +122,7 @@ export default function PurchaseOrdersPage() {
               className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
                 filter === s ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
-              style={filter === s ? { backgroundColor: "#0e7490" } : undefined}
+              style={filter === s ? { backgroundColor: brandColor } : undefined}
             >
               {s} <span className="opacity-70">({s === "All" ? pos.length : pos.filter((p) => p.status === s).length})</span>
             </button>
