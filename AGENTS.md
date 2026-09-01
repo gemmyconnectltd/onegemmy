@@ -11,13 +11,13 @@ Multi-tenant ERP (SaaS) for small/medium businesses. Monorepo: FastAPI backend +
 backend/app/
   main.py, api_router.py          # app factory; routers prefixed /api/v1, tenant routers under /tenants
   core/                           # config, database, deps, exceptions, pagination, repository, response, security
-  modules/<module>/               # one dir per domain: admin, auth, finance, hr, inventory, procurement, sales, tenants
+  modules/<module>/               # one dir per domain: admin, auth, accounting, hr, inventory, procurement, sales, tenants
     models/  routes/  service/  repository/  schemas/
   alembic/                        # every schema change = a migration
 frontend/src/
   app/(admin)/ (auth)/ (erp)/ (mobile)/ (pos)/   # route groups; pages colocate under each group
     (auth)/login|register|forgot-password        # auth screens (no sidebar)
-    (erp)/<module>/…                             # web ERP: dashboard, sales, inventory, finance, hr, reports, settings…
+    (erp)/<module>/…                             # web ERP: dashboard, sales, inventory, accounting, hr, reports, settings…
     (admin)/admin/…                              # super-admin console (tenants, platform users, plans)
     (pos)/pos/                                   # desktop POS (uses shared pos/ components)
     (mobile)/m/…                                 # mobile app (see mobile UX rules below)
