@@ -70,8 +70,7 @@ export default function BatchesPage() {
           <p className="text-sm text-muted mt-0.5">{batches.length} batch{batches.length !== 1 ? "es" : ""}</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90"
-          style={{ backgroundColor: "#059669" }}>
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-accent hover:opacity-90">
           <Plus size={15} /> Add Batch
         </button>
       </div>
@@ -135,8 +134,7 @@ export default function BatchesPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={handleSubmit} disabled={createBatch.isPending}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: "#059669" }}>
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-accent hover:opacity-90 disabled:opacity-50">
               {createBatch.isPending ? "Saving…" : "Save Batch"}
             </button>
             <button onClick={() => setShowForm(false)}

@@ -71,8 +71,7 @@ export default function RepairsPage() {
           <p className="text-sm text-muted mt-0.5">{jobs.length} job{jobs.length !== 1 ? "s" : ""}</p>
         </div>
         <button onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "#7c3aed" }}>
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-accent transition-opacity hover:opacity-90">
           <Plus size={15} /> New Job
         </button>
       </div>
@@ -134,8 +133,7 @@ export default function RepairsPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={handleSubmit} disabled={createJob.isPending}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: "#7c3aed" }}>
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-accent hover:opacity-90 disabled:opacity-50">
               {createJob.isPending ? "Saving…" : "Create Job"}
             </button>
             <button onClick={() => setShowForm(false)}
