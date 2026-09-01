@@ -1,16 +1,19 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import {
-  currencies, locales, businessTypes, businessThemes, businessThemesDark,
-  type LocaleCode, type BusinessType, type Theme,
+  currencies, locales, baseThemeLight, baseThemeDark, DEFAULT_BRAND_COLOR, brandColorPresets,
+  type LocaleCode, type Theme,
 } from "./config";
+import { getStoredToken, resolveUploadUrl } from "./api/client";
+import { tenantsApi, type Tenant } from "./api/tenants";
 
 // All English base strings — single source of truth
 const BASE_STRINGS: Record<string, string> = {
   // ── Nav ──
   dashboard: "Dashboard", sales: "Sales", inventory: "Inventory",
-  finance: "Finance", procurement: "Procurement", hr: "HR",
+  accounting: "Accounting", procurement: "Procurement", hr: "HR",
   customers: "Customers", crm: "CRM", manufacturing: "Mfg",
   reports: "Reports", settings: "Settings", overview: "Overview",
   orders: "Orders", targets: "Targets", returns: "Returns",
@@ -114,7 +117,6 @@ const LOCALE_LANG_MAP: Record<LocaleCode, string> = {
 };
 
 const VALID_LOCALES: LocaleCode[] = ["en", "rw", "sw"];
-const VALID_BUSINESS_TYPES: BusinessType[] = ["retail", "restaurant", "service"];
 export type NavOrientation = "top" | "left" | "big";
 const VALID_ORIENTATIONS: NavOrientation[] = ["top", "left", "big"];
 
@@ -148,38 +150,49 @@ async function fetchTranslations(targetLang: string): Promise<Record<string, str
   }
 }
 
-function applyTheme(type: BusinessType, theme: Theme) {
-  const palette = theme === "dark" ? businessThemesDark[type] : businessThemes[type];
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+function applyTheme(theme: Theme, accent: string) {
+  const base = theme === "dark" ? baseThemeDark : baseThemeLight;
+  const safeAccent = HEX_COLOR_RE.test(accent) ? accent : DEFAULT_BRAND_COLOR;
   const root = document.documentElement;
-  root.style.setProperty("--background", palette.background);
-  root.style.setProperty("--surface", palette.surface);
-  root.style.setProperty("--card", palette.card);
-  root.style.setProperty("--border", palette.border);
-  root.style.setProperty("--accent", palette.accent);
-  root.style.setProperty("--primary", palette.primary);
-  root.style.setProperty("--foreground", palette.foreground);
-  root.style.setProperty("--muted", palette.muted);
+  root.style.setProperty("--background", base.background);
+  root.style.setProperty("--surface", base.surface);
+  root.style.setProperty("--card", base.card);
+  root.style.setProperty("--border", base.border);
+  root.style.setProperty("--accent", safeAccent);
+  root.style.setProperty("--primary", safeAccent);
+  root.style.setProperty("--foreground", base.foreground);
+  root.style.setProperty("--muted", base.muted);
 }
 
 interface AppConfig {
   currency: string;
   currencySymbol: string;
   locale: LocaleCode;
-  businessType: BusinessType;
   theme: Theme;
   navOrientation: NavOrientation;
   vatEnabled: boolean;
   translating: boolean;
+  /** The tenant's brand accent color (hex). Set once in Settings > Appearance
+   *  by the tenant's admin — applies to every user at that company. */
+  brandColor: string;
+  /** The tenant's logo URL, or null if not set. */
+  logoUrl: string | null;
   t: (key: string) => string;
   setCurrency: (code: string) => void;
   setLocale: (code: LocaleCode) => void;
-  setBusinessType: (type: BusinessType) => void;
   setTheme: (theme: Theme) => void;
   setNavOrientation: (orientation: NavOrientation) => void;
   setVatEnabled: (enabled: boolean) => void;
+  /** Applies a new brand color to the live theme. Callers are responsible for
+   *  persisting it (see `useUpdateTenant`) — this only updates what's shown. */
+  setBrandColor: (hex: string) => void;
+  /** Applies a new logo URL after it's been uploaded (see `useUploadTenantLogo`). */
+  setLogoUrl: (url: string | null) => void;
   currencies: typeof currencies;
   locales: typeof locales;
-  businessTypes: typeof businessTypes;
+  brandColorPresets: typeof brandColorPresets;
 }
 
 const AppConfigContext = createContext<AppConfig | null>(null);
@@ -187,10 +200,12 @@ const AppConfigContext = createContext<AppConfig | null>(null);
 export function AppConfigProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState("RWF");
   const [locale, setLocaleState] = useState<LocaleCode>("en");
-  const [businessType, setBusinessTypeState] = useState<BusinessType>("retail");
   const [theme, setThemeState] = useState<Theme>("light");
   const [navOrientation, setNavOrientationState] = useState<NavOrientation>("left");
   const [vatEnabled, setVatEnabledState] = useState(true);
+  const [brandColor, setBrandColor] = useState(DEFAULT_BRAND_COLOR);
+  const [logoUrl, setLogoUrlRaw] = useState<string | null>(null);
+  const setLogoUrl = (url: string | null) => setLogoUrlRaw(resolveUploadUrl(url));
 
   // Restore persisted settings client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
@@ -198,8 +213,6 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("app_currency", "RWF");
     const l = localStorage.getItem("app_locale");
     if (l && VALID_LOCALES.includes(l as LocaleCode)) setLocaleState(l as LocaleCode);
-    const b = localStorage.getItem("app_business_type");
-    if (b && VALID_BUSINESS_TYPES.includes(b as BusinessType)) setBusinessTypeState(b as BusinessType);
     const t = localStorage.getItem("app_theme");
     if (t === "dark" || t === "light") setThemeState(t);
     const o = localStorage.getItem("app_nav_orientation");
@@ -207,6 +220,37 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     const v = localStorage.getItem("app_vat_enabled");
     if (v !== null) setVatEnabledState(v !== "false");
   }, []);
+
+  // Load the tenant's branding (brand color + logo) whenever the signed-in
+  // token changes — covers first load, and login/logout happening client-side
+  // without a full page reload (the token itself never renders, so we can't
+  // depend on it directly; re-checking on each navigation is cheap and catches
+  // the transition). Deferred to a timeout so this has no synchronous setState
+  // in the effect body (see hydration-safety rule above).
+  const pathname = usePathname();
+  const lastTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    const token = getStoredToken();
+    if (token === lastTokenRef.current) return;
+    lastTokenRef.current = token;
+    const id = window.setTimeout(() => {
+      if (!token) {
+        setBrandColor(DEFAULT_BRAND_COLOR);
+        setLogoUrl(null);
+        return;
+      }
+      tenantsApi.getCurrent()
+        .then((res: { data: Tenant }) => {
+          setBrandColor(res.data.brand_color || DEFAULT_BRAND_COLOR);
+          setLogoUrl(res.data.logo_url ?? null);
+        })
+        .catch(() => {
+          // Request failed — keep whatever brand color is already applied.
+        });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [pathname]);
+
   const [strings, setStrings] = useState<Record<string, string>>(BASE_STRINGS);
   const [translating, setTranslating] = useState(false);
 
@@ -223,8 +267,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   // Apply the theme palette (DOM side effects only — no setState).
   useEffect(() => {
-    applyTheme(businessType, theme);
-  }, [businessType, theme]);
+    applyTheme(theme, brandColor);
+  }, [theme, brandColor]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -244,11 +288,6 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   const setLocale = (code: LocaleCode) => {
     setLocaleState(code);
     localStorage.setItem("app_locale", code);
-  };
-
-  const setBusinessType = (type: BusinessType) => {
-    setBusinessTypeState(type);
-    localStorage.setItem("app_business_type", type);
   };
 
   const setTheme = (next: Theme) => {
@@ -271,9 +310,10 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppConfigContext.Provider value={{
-      currency, currencySymbol, locale, businessType, theme, navOrientation, vatEnabled, translating,
-      t, setCurrency, setLocale, setBusinessType, setTheme, setNavOrientation, setVatEnabled,
-      currencies, locales, businessTypes,
+      currency, currencySymbol, locale, theme, navOrientation, vatEnabled, translating,
+      brandColor, logoUrl,
+      t, setCurrency, setLocale, setTheme, setNavOrientation, setVatEnabled, setBrandColor, setLogoUrl,
+      currencies, locales, brandColorPresets,
     }}>
       {children}
     </AppConfigContext.Provider>
