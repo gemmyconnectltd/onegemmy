@@ -1,6 +1,7 @@
 "use client";
 
 import { Layers } from "lucide-react";
+import { useAppConfig } from "@/lib/appConfig";
 
 interface PageLoaderProps {
   label?: string;
@@ -13,6 +14,7 @@ function Skeleton({ className = "" }: { className?: string }) {
 }
 
 function Brand({ size }: { size: "sm" | "md" }) {
+  const { logoUrl } = useAppConfig();
   const box = size === "sm" ? "w-9 h-9" : "w-12 h-12";
   const ring = size === "sm" ? "inset-0 rounded-xl border-2" : "inset-0 rounded-2xl border-[2.5px]";
   const inner = size === "sm" ? "inset-[9px] rounded-md" : "inset-[12px] rounded-lg";
@@ -20,8 +22,13 @@ function Brand({ size }: { size: "sm" | "md" }) {
   return (
     <div className={`relative ${box} flex-shrink-0`}>
       <div className={`absolute ${ring} border-accent/25 border-t-accent animate-spin`} />
-      <div className={`absolute ${inner} bg-foreground flex items-center justify-center`}>
-        <Layers size={icon} className="text-white" />
+      <div className={`absolute ${inner} bg-foreground flex items-center justify-center overflow-hidden`}>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <Layers size={icon} className="text-white" />
+        )}
       </div>
     </div>
   );
