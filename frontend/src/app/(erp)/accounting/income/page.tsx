@@ -14,8 +14,6 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 
-const FIN = "#b45309";
-
 const STATUS_STYLES: Record<string, { cls: string; Icon: typeof CheckCircle2 }> = {
   Posted: { cls: "bg-emerald-100 text-emerald-700", Icon: CheckCircle2 },
   Draft:  { cls: "bg-amber-100 text-amber-700",    Icon: Clock },
@@ -31,7 +29,8 @@ function txnSource(t: AccountingTransaction) {
 }
 
 export default function IncomePage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const FIN = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [statusFilter, setStatusFilter] = useState("All");

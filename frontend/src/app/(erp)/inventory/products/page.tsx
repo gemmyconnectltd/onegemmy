@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Upload } from "lucide-react";
@@ -12,8 +13,6 @@ import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
 import { type ApiProduct } from "@/lib/api";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage } from "@/lib/api/hooks";
-
-const INV_COLOR = "#059669";
 
 const fmt = (v: number) => fmtMoney(v);
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
@@ -40,6 +39,8 @@ function toFormValues(p: ApiProduct): ProductFormValues {
 }
 
 export default function ProductsPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [openMenu, setOpenMenu] = useState<string | null>(null);

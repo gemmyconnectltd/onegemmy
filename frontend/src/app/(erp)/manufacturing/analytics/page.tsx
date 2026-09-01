@@ -7,11 +7,11 @@ import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
 import { useProductionOrders } from "@/lib/api/hooks";
 
-const COLOR = "#0f766e";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function ManufacturingAnalyticsPage() {
-  const { theme } = useAppConfig();
+  const { theme, brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const c = chartPalette(theme === "dark");
   const teal = theme === "dark" ? "#2dd4bf" : COLOR;
 

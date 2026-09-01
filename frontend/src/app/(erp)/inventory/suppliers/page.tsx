@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Check, X } from "lucide-react";
@@ -7,12 +8,12 @@ import { type ApiSupplier } from "@/lib/api";
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
-const INV_COLOR = "#059669";
-
 type SupplierForm = { name: string; email: string; phone: string; address: string };
 const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "" });
 
 export default function SuppliersPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<SupplierForm>(emptyForm());

@@ -5,8 +5,6 @@ import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "@/components/charts/lazy";
 
-const COLOR = "#0f766e";
-
 const MONTHLY = [
   { month: "Feb", customers: 38, revenue: 420000 },
   { month: "Mar", customers: 42, revenue: 510000 },
@@ -25,7 +23,8 @@ const TOP_CUSTOMERS = [
 ];
 
 export default function CustomerAnalyticsPage() {
-  const { currencySymbol, theme } = useAppConfig();
+  const { currencySymbol, theme, brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const c = chartPalette(theme === "dark");
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const main = theme === "dark" ? "#2dd4bf" : COLOR;

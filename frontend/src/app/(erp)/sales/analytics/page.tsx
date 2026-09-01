@@ -8,10 +8,9 @@ import { chartPalette } from "@/lib/chartColors";
 import { useState } from "react";
 import { useOrders, useDeals } from "@/lib/api/hooks";
 
-const SAL = "#0284c7";
-
 export default function SalesAnalyticsPage() {
-  const { currencySymbol, theme } = useAppConfig();
+  const { currencySymbol, theme, brandColor } = useAppConfig();
+  const SAL = brandColor;
   const c = chartPalette(theme === "dark");
   const sal = theme === "dark" ? "#38bdf8" : SAL;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);

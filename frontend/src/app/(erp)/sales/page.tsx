@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { useDeals, useCreateDeal, useUpdateDeal, useDeleteDeal } from "@/lib/api/hooks";
 import type { ApiDeal } from "@/lib/api";
 
-const SAL = "#0284c7";
 const STAGES = ["Leads", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
 
 const STAGE_STYLE: Record<string, string> = {
@@ -30,7 +29,8 @@ const STAGE_COLOR: Record<string, string> = {
 const EMPTY_FORM = { name: "", value: "", stage: "Leads", probability: "50", expected_close_date: "", notes: "" };
 
 export default function SalesPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const SAL = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [error, setError] = useState<string | null>(null);

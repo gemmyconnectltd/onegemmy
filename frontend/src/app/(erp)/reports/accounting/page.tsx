@@ -7,11 +7,10 @@ import { useOrders, useReturns } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 
-const ACCENT = "#b45309";
-const ACCENT_DARK = "#fbbf24";
-
 export default function AccountingReportPage() {
-  const { theme } = useAppConfig();
+  const { theme, brandColor } = useAppConfig();
+  const ACCENT = brandColor;
+  const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const ordersQ = useOrders(1, 500);
   const returnsQ = useReturns(1, 500);

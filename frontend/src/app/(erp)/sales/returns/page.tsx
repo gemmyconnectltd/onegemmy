@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { useReturns, useCustomers, useOrders, useCreateReturn, useUpdateReturn, useDeleteReturn } from "@/lib/api/hooks";
 import type { ApiReturn } from "@/lib/api";
 
-const SAL = "#0284c7";
-
 const STATUS_STYLE: Record<string, string> = {
   Approved: "bg-emerald-100 text-emerald-700",
   Pending:  "bg-amber-100 text-amber-700",
@@ -24,7 +22,8 @@ const STATUS_ICON: Record<string, React.ElementType> = {
 const EMPTY_FORM = { order_id: "", customer_id: "", reason: "", status: "Pending", return_date: new Date().toISOString().slice(0, 10) };
 
 export default function SalesReturnsPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const SAL = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [error, setError] = useState<string | null>(null);

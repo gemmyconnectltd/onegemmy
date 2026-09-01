@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Tag, Plus, Search, Edit2, Trash2, Check, X } from "lucide-react";
@@ -7,9 +8,9 @@ import { type ApiBrand } from "@/lib/api";
 import { useBrands, useCreateBrand, useUpdateBrand, useDeleteBrand } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
-const INV_COLOR = "#059669";
-
 export default function BrandsPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");

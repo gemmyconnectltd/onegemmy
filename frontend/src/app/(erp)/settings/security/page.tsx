@@ -1,12 +1,13 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Shield, Lock, Eye, EyeOff, Check, Smartphone, Clock } from "lucide-react";
 import { Field, Input } from "@/components/ui/Form";
 
-const C = "#4f46e5";
-
 export default function SecurityPage() {
+  const { brandColor } = useAppConfig();
+  const C = brandColor;
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);

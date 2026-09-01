@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Layers, Search, PackagePlus, Trash2, Edit2, Plus, Loader2 } from "lucide-react";
@@ -7,8 +8,6 @@ import { type ApiVariantListItem } from "@/lib/api";
 import { useAllVariants, useProducts, useCreateVariant, useUpdateVariant, useRestockVariant, useDeleteVariant } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { Button } from "@/components/ui/Button";
-
-const INV_COLOR = "#059669";
 
 const fmt = (v: number) => fmtMoney(v);
 function margin(v: ApiVariantListItem) { return v.price > 0 ? Math.round(((v.price - v.cost) / v.price) * 100) : 0; }
@@ -55,6 +54,8 @@ function AttributeEditor({ attrs, onChange }: { attrs: Record<string, string>; o
 }
 
 export default function VariantsPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [search, setSearch] = useState(() => {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("q") ?? "";

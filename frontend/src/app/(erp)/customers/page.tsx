@@ -14,8 +14,6 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 
-const COLOR = "#0f766e";
-
 const TYPE_OPTS = ["individual", "business", "vip", "wholesale"];
 
 const EMPTY_FORM = {
@@ -39,7 +37,8 @@ function typeBadge(type: string) {
 }
 
 export default function CustomersPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [error, setError] = useState<string | null>(null);

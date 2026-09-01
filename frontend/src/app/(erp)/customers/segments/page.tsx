@@ -4,8 +4,6 @@ import { useState } from "react";
 import { Tag, Users, TrendingUp, Clock, UserX } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
-const COLOR = "#0f766e";
-
 type Segment = "VIP" | "Regular" | "New" | "At Risk";
 
 const SEGMENT_STYLE: Record<Segment, { bg: string; text: string; color: string }> = {
@@ -29,7 +27,8 @@ const SEGMENT_ICONS: Record<Segment, React.ElementType> = {
 };
 
 export default function SegmentsPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const [active, setActive] = useState<Segment | "All">("All");
 

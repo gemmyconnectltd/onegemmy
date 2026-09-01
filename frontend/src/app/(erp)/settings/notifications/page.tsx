@@ -1,10 +1,9 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Bell, Mail, Smartphone, AlertTriangle, ShoppingCart, DollarSign, Package } from "lucide-react";
 import { Toggle } from "@/components/ui/Toggle";
-
-const C = "#4f46e5";
 
 type NotifSetting = { id: string; label: string; desc: string; icon: React.ElementType; color: string; email: boolean; push: boolean };
 
@@ -16,6 +15,8 @@ const INITIAL: NotifSetting[] = [
 ];
 
 export default function NotificationsPage() {
+  const { brandColor } = useAppConfig();
+  const C = brandColor;
   const [settings, setSettings] = useState<NotifSetting[]>(INITIAL);
   const [saved, setSaved] = useState(false);
 

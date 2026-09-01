@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import {
@@ -13,8 +14,6 @@ import { ProductFormDrawer, type ProductFormValues } from "@/components/inventor
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { Button } from "@/components/ui/Button";
-
-const INV_COLOR = "#059669";
 
 function getStatus(stock: number, min: number) {
   if (stock === 0) return "out";
@@ -62,6 +61,8 @@ function toRow(p: ApiProduct) {
 }
 
 export default function InventoryOverviewPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);

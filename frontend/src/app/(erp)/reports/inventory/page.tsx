@@ -10,9 +10,6 @@ import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import type { ValuationLine } from "@/lib/api/inventory";
 
-const ACCENT = "#059669";
-const ACCENT_DARK = "#34d399";
-
 const STATUS_STYLE: Record<ValuationLine["status"], string> = {
   out: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300",
   low: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
@@ -25,7 +22,9 @@ const STATUS_LABEL: Record<ValuationLine["status"], string> = {
 };
 
 export default function InventoryReportPage() {
-  const { theme } = useAppConfig();
+  const { theme, brandColor } = useAppConfig();
+  const ACCENT = brandColor;
+  const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
   const { data: report, isLoading } = useValuationReport();
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");

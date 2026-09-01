@@ -4,8 +4,6 @@ import { useState } from "react";
 import { Star, Crown, Award, Users } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
-const COLOR = "#0f766e";
-
 type Tier = "Bronze" | "Silver" | "Gold" | "Platinum";
 
 const TIER_STYLE: Record<Tier, { bg: string; text: string; icon: React.ElementType }> = {
@@ -31,7 +29,8 @@ const CUSTOMERS = [
 ];
 
 export default function LoyaltyPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const [filter, setFilter] = useState<Tier | "All">("All");
 

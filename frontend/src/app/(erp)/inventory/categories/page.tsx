@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Layers, Plus, Search, Edit2, Trash2, Package, Check, X } from "lucide-react";
@@ -6,8 +7,6 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiCategory } from "@/lib/api";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
-
-const INV_COLOR = "#059669";
 
 const COLORS = [
   "bg-violet-100 text-violet-600", "bg-blue-100 text-blue-600",
@@ -18,6 +17,8 @@ const COLORS = [
 function colorFor(name: string) { return COLORS[name.charCodeAt(0) % COLORS.length]; }
 
 export default function CategoriesPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");

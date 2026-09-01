@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import {
   Factory, Plus, Layers, CheckCircle2, Boxes, Trash2, AlertCircle,
@@ -10,8 +11,6 @@ import type { ApiProductionOrder } from "@/lib/api/manufacturing";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-
-const COLOR = "#0f766e";
 
 const STATUS_OPTS = ["Draft", "Scheduled", "In Progress", "Completed", "Cancelled"];
 const statusBadge: Record<string, string> = {
@@ -26,6 +25,8 @@ type ComponentRow = { id: string; product_id: string; quantity_required: number 
 const EMPTY_FORM = { product_id: "", quantity: 1, scheduled_date: "", notes: "", components: [] as ComponentRow[] };
 
 export default function WorkOrdersPage() {
+  const { brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const [error, setError] = useState<string | null>(null);
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState("All");

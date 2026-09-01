@@ -1,11 +1,10 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Users, Plus, Edit2, Trash2, Shield, UserCheck } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-
-const C = "#4f46e5";
 
 type User = { id: number; name: string; email: string; role: string; status: string };
 
@@ -28,6 +27,8 @@ const STATUS_STYLE: Record<string, string> = {
 const EMPTY_FORM = { name: "", email: "", role: "Admin", status: "Active" };
 
 export default function UsersPage() {
+  const { brandColor } = useAppConfig();
+  const C = brandColor;
   const [users, setUsers] = useState<User[]>(INITIAL_USERS);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);

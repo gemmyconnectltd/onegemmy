@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 import Link from "next/link";
 import {
   Factory, Layers, CheckCircle2, Boxes, ClipboardList, Package,
@@ -7,8 +8,6 @@ import {
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useProductionOrders, useBoms } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
-
-const COLOR = "#0f766e";
 
 const statusBadge: Record<string, string> = {
   "Draft": "bg-surface text-muted border border-border",
@@ -26,6 +25,8 @@ const QUICK_LINKS = [
 ];
 
 export default function ManufacturingPage() {
+  const { brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const ordersQ = useProductionOrders(1, 500);
   const bomsQ = useBoms(1, 500);
   const loading = ordersQ.isLoading || bomsQ.isLoading;

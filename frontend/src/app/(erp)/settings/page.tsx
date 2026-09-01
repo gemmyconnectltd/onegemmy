@@ -1,12 +1,13 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Settings, Store, Phone, MapPin, Download, Shield, Info, Save, Check } from "lucide-react";
 import { Field, Input, FormFooter } from "@/components/ui/Form";
 
-const C = "#4f46e5";
-
 export default function SettingsPage() {
+  const { brandColor } = useAppConfig();
+  const C = brandColor;
   const [shopName, setShopName] = useState("My Shop");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");

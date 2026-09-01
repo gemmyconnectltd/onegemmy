@@ -13,8 +13,6 @@ import { Button } from "@/components/ui/Button";
 import { useTargets, useCreateTarget, useUpdateTarget, useDeleteTarget } from "@/lib/api/hooks";
 import type { ApiTarget } from "@/lib/api";
 
-const SAL = "#0284c7";
-
 // ── Metric type presets — makes the form self-explanatory ─────────────────────
 const METRIC_TYPES = [
   { value: "revenue",   label: "Revenue",       unit: "currency", placeholder: "e.g. 5,000,000" },
@@ -72,6 +70,7 @@ function QuickUpdateDrawer({
   onClose: () => void;
   currencySymbol: string;
 }) {
+  const { brandColor: SAL } = useAppConfig();
   const fmt = (v: number) => target.unit === "currency" ? fmtMoney(v, currencySymbol) : v.toLocaleString();
   const [value, setValue] = useState(String(target.achieved_value));
   const [error, setError] = useState<string | null>(null);
@@ -134,7 +133,8 @@ function QuickUpdateDrawer({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SalesTargetsPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const SAL = brandColor;
   const fmt = (v: number, unit: string) =>
     unit === "currency" ? fmtMoney(v, currencySymbol) : v.toLocaleString();
 

@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import { Layers, Plus, Trash2, Edit2, Package, AlertCircle, X } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -8,13 +9,13 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 
-const COLOR = "#0f766e";
-
 type ComponentRow = { id: string; product_id: string; quantity_required: number };
 type FormState = { name: string; product_id: string; notes: string; components: ComponentRow[] };
 const EMPTY_FORM: FormState = { name: "", product_id: "", notes: "", components: [] };
 
 export default function BomPage() {
+  const { brandColor } = useAppConfig();
+  const COLOR = brandColor;
   const [error, setError] = useState<string | null>(null);
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ApiBom | null>(null);

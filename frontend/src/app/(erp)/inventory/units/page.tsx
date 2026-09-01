@@ -1,4 +1,5 @@
 "use client";
+import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Ruler, Plus, Edit2, Trash2, Check, X } from "lucide-react";
@@ -7,9 +8,9 @@ import { type ApiUnit } from "@/lib/api";
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 
-const INV_COLOR = "#059669";
-
 export default function UnitsPage() {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newAbbr, setNewAbbr] = useState("");

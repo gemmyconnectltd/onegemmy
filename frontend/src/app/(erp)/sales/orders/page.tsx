@@ -14,8 +14,6 @@ import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, u
 import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
 import { accountingApi } from "@/lib/api/accounting";
 
-const SAL = "#0284c7";
-
 const STATUS_STYLE: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
   Pending:   "bg-amber-100 text-amber-700",
@@ -59,6 +57,7 @@ function ProductPicker({
   const [q, setQ] = useState("");
   const [variantsOf, setVariantsOf] = useState<ApiProduct | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const { brandColor: SAL } = useAppConfig();
 
   // close on outside click
   useEffect(() => {
@@ -206,7 +205,8 @@ function ProductPicker({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SalesOrdersPage() {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, brandColor } = useAppConfig();
+  const SAL = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [error, setError] = useState<string | null>(null);
