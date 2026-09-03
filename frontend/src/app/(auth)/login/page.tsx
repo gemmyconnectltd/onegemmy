@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
+import { Logo } from "@/components/ui/Logo";
 
 export default function LoginPage() {
   usePageTitle("Sign In");
@@ -71,7 +72,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-between w-full p-12">
           <div>
             <div className="flex items-center gap-2.5 mb-16">
-              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
                 <Layers className="text-white" size={20} />
               </div>
               <span className="text-xl font-bold text-white">OneGemmy</span>
@@ -111,11 +112,8 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-card">
         <div className="w-full max-w-[380px]">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">
-              <Layers className="text-white" size={20} />
-            </div>
-            <span className="text-xl font-bold text-foreground">OneGemmy</span>
+          <div className="lg:hidden mb-10">
+            <Logo size="md" />
           </div>
 
           <div className="mb-8">
@@ -124,7 +122,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 mb-6 text-sm rounded-lg">
+            <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 mb-6 text-sm">
               <AlertCircle size={16} className="flex-shrink-0" />
               {error}
             </div>
@@ -174,7 +172,7 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between pt-0.5">
               <label className="flex items-center gap-2 text-sm text-foreground/60 cursor-pointer">
-                <input type="checkbox" className="w-3.5 h-3.5 accent-[#6f1a07] rounded" />
+                <input type="checkbox" className="w-3.5 h-3.5 accent-accent" />
                 Remember me
               </label>
               <Link href="/forgot-password" className="text-sm text-foreground/50 hover:text-foreground transition-colors">
@@ -185,7 +183,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#6f1a07] text-white py-2.5 text-sm font-medium hover:bg-[#5a1506] active:bg-[#4a1205] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-accent text-white py-2.5 text-sm font-medium hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <>
@@ -263,7 +261,7 @@ export default function LoginPage() {
                             onClick={() => fillDemo(demo, group.slug)}
                             className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
                           >
-                            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 bg-violet-500/20 flex items-center justify-center flex-shrink-0">
                               <Shield size={14} className="text-violet-400" />
                             </div>
                             <div>
@@ -279,7 +277,7 @@ export default function LoginPage() {
                             onClick={() => fillDemo(demo, group.slug)}
                             className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
                           >
-                            <p className="text-xs font-semibold text-foreground group-hover:text-[#6f1a07] transition-colors">{demo.label}</p>
+                            <p className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors">{demo.label}</p>
                             <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>
                           </button>
                         )

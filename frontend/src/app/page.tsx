@@ -10,16 +10,10 @@ import {
   ArrowRight,
   Layers,
   Zap,
-  Shield,
   Globe,
-  LineChart,
-  Clock,
-  Building2,
-  FileSpreadsheet,
   Calculator,
   Briefcase,
   Target,
-  Settings,
 } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -31,44 +25,44 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Hero Section */}
-      <section className="pt-28 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] via-[#3d2f22] to-primary overflow-hidden">
+      <section className="pt-28 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22] overflow-hidden">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-8">
           {/* Left - Text */}
           <div className="w-full lg:w-1/2 text-left">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6">
-              <Zap size={16} />
+            <div className="inline-flex items-center gap-2 text-accent text-sm font-semibold mb-6 border-b-2 border-accent pb-1">
+              <Zap size={15} />
               All-in-One Business Management Platform
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
               Run Your Business
               <br />
-              <span className="text-white/80">From One Place</span>
+              <span className="text-white/60">From One Place</span>
             </h1>
-            <p className="text-lg text-white/70 max-w-xl mb-8">
+            <p className="text-lg text-white/60 max-w-xl mb-8">
               OneGemmy brings sales, inventory, accounting, HR, projects, and CRM
               together in a single powerful platform. Stop juggling multiple tools
               — manage everything with OneGemmy.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <a
                 href="/register"
-                className="bg-white text-accent px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2 shadow-xl"
+                className="bg-accent text-white px-8 py-4 font-bold text-lg hover:bg-accent/90 transition-colors inline-flex items-center justify-center gap-2"
               >
                 Start Free Trial
                 <ArrowRight size={20} />
               </a>
               <a
                 href="#demo"
-                className="border-2 border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors"
+                className="border border-white/20 text-white px-8 py-4 font-bold text-lg hover:bg-white/5 transition-colors"
               >
                 Watch Demo
               </a>
             </div>
-            <div className="flex flex-wrap gap-6 text-white/70 text-sm">
+            <div className="flex flex-wrap gap-6 text-white/60 text-sm">
               <div className="flex items-center gap-2">
                 <Check size={18} className="text-emerald-400" />
                 No credit card required
@@ -95,8 +89,8 @@ export default function Home() {
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-foreground/5 text-foreground px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Zap size={16} />
+            <div className="inline-flex items-center gap-2 text-accent text-sm font-semibold mb-4 border-b-2 border-accent pb-1">
+              <Zap size={15} />
               Powerful Features
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -112,12 +106,12 @@ export default function Home() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="p-6 rounded-xl border border-border hover:border-primary/30 hover:shadow-lg transition-all group"
+                className="p-6 border border-border hover:border-accent/40 transition-colors group"
               >
-                <div className="w-12 h-12 bg-foreground/5 rounded-xl flex items-center justify-center mb-4 group-hover:bg-foreground transition-colors">
+                <div className="w-12 h-12 bg-accent/10 flex items-center justify-center mb-4 group-hover:bg-accent transition-colors">
                   <feature.icon
                     size={24}
-                    className="text-foreground group-hover:text-white transition-colors"
+                    className="text-accent group-hover:text-white transition-colors"
                   />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-2">
@@ -136,8 +130,8 @@ export default function Home() {
       <section id="modules" className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-foreground/5 text-foreground px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Layers size={16} />
+            <div className="inline-flex items-center gap-2 text-accent text-sm font-semibold mb-4 border-b-2 border-accent pb-1">
+              <Layers size={15} />
               Complete Modules
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -153,10 +147,10 @@ export default function Home() {
             {modules.map((module) => (
               <div
                 key={module.title}
-                className="bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-border"
+                className="bg-card p-6 border border-border hover:border-accent/40 transition-colors"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 bg-accent flex items-center justify-center flex-shrink-0">
                     <module.icon size={24} className="text-white" />
                   </div>
                   <div className="flex-1">
@@ -185,11 +179,11 @@ export default function Home() {
       </section>
 
       {/* Business Size Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Globe size={16} />
+            <div className="inline-flex items-center gap-2 text-accent text-sm font-semibold mb-4 border-b-2 border-accent pb-1">
+              <Globe size={15} />
               Scalable Solutions
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -205,14 +199,14 @@ export default function Home() {
             {businessSizes.map((size) => (
               <div
                 key={size.title}
-                className={`rounded-xl p-6 border-2 transition-all ${
+                className={`p-6 border transition-colors ${
                   size.featured
-                    ? "border-foreground bg-foreground/5 shadow-lg scale-105"
-                    : "border-border hover:border-primary/30"
+                    ? "border-accent bg-accent/5"
+                    : "border-border hover:border-accent/40"
                 }`}
               >
                 {size.featured && (
-                  <div className="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-4">
+                  <div className="bg-accent text-white text-xs font-bold px-3 py-1 inline-block mb-4">
                     MOST POPULAR
                   </div>
                 )}
@@ -254,26 +248,26 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#2b2118] to-primary">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Ready to Transform Your Business?
           </h2>
-          <p className="text-xl text-white/70 mb-10">
+          <p className="text-xl text-white/60 mb-10">
             Join thousands of businesses already using OneGemmy to manage their
             operations, boost sales, and grow faster.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
               href="/register"
-              className="bg-white text-accent px-8 py-4 rounded-lg font-bold text-lg hover:bg-surface transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-accent text-white px-8 py-4 font-bold text-lg hover:bg-accent/90 transition-colors inline-flex items-center justify-center gap-2"
             >
               Start Your Free Trial
               <ArrowRight size={20} />
             </a>
             <a
               href="/contact"
-              className="border-2 border-white/30 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors"
+              className="border border-white/20 text-white px-8 py-4 font-bold text-lg hover:bg-white/5 transition-colors"
             >
               Contact Sales
             </a>
