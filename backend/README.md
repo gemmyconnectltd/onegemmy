@@ -14,13 +14,19 @@ no `tenant_id` and are managed under the `/global/permissions` prefix.
 ## Quick start (first time)
 
 ```bash
-uv sync                          # install dependencies
-alembic upgrade head             # create tables
-python -m scripts.seed           # seed base tenant, admin user, roles, permissions
-uv run fastapi dev app/main.py   # start server at http://localhost:8000
+uv sync                              # install dependencies
+alembic upgrade head                 # create tables
+python -m scripts.seed               # seed base tenant, admin user, roles, permissions
+uv run python scripts/dev.py         # start server — auto-picks a free port if 8000 is taken
 ```
 
 Login at `/docs` with `admin@onegemmy.com` / `admin123`.
+
+`scripts/dev.py` wraps `fastapi dev app/main.py`: if port 8000 is already in use (e.g. another
+instance is already running), it starts on the next free port instead of failing, so you never
+need to kill an existing server to start a new one. Pass `--port` to change the preferred port.
+Use `uv run fastapi dev app/main.py` directly if you specifically need the hard-fail-on-conflict
+behavior.
 
 ## Layout
 
@@ -81,9 +87,9 @@ Role-permission assignment and current-user permissions live under
 3. Install deps: `uv sync`
 4. Run migrations: `uv run alembic upgrade head`
 5. Seed: `python -m scripts.seed`
-6. Start the API: `uv run fastapi dev app/main.py`
+6. Start the API: `uv run python scripts/dev.py`
 
-API docs at `http://localhost:8000/docs`.
+API docs at `http://localhost:8000/docs` (or whichever port it printed, if 8000 was taken).
 
 Login with `admin@onegemmy.com` / `admin123` after seeding.
 
