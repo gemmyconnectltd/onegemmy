@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Check } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
+import { Logo } from "@/components/ui/Logo";
 
 export default function RegisterPage() {
   usePageTitle("Create Account");
@@ -95,11 +96,8 @@ export default function RegisterPage() {
       {/* Right - Form */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-card">
         <div className="w-full max-w-[380px]">
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">
-              <Layers className="text-white" size={20} />
-            </div>
-            <span className="text-xl font-bold text-foreground">OneGemmy</span>
+          <div className="lg:hidden mb-10">
+            <Logo size="md" />
           </div>
 
           <div className="mb-8">
@@ -125,7 +123,7 @@ export default function RegisterPage() {
                 onBlur={() => setFocusedField(null)}
                 placeholder="John Doe"
                 required
-                className={`w-full px-3.5 py-2.5 border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                   focusedField === "name" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                 }`}
               />
@@ -140,7 +138,7 @@ export default function RegisterPage() {
                 onBlur={() => setFocusedField(null)}
                 placeholder="Acme Corp"
                 required
-                className={`w-full px-3.5 py-2.5 border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                   focusedField === "company" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                 }`}
               />
@@ -155,7 +153,7 @@ export default function RegisterPage() {
                 onBlur={() => setFocusedField(null)}
                 placeholder="you@company.com"
                 required
-                className={`w-full px-3.5 py-2.5 border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                   focusedField === "email" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                 }`}
               />
@@ -172,7 +170,7 @@ export default function RegisterPage() {
                   placeholder="Create a strong password"
                   required
                   minLength={8}
-                  className={`w-full px-3.5 py-2.5 pr-10 border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                  className={`w-full px-3.5 py-2.5 pr-10 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                     focusedField === "password" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                   }`}
                 />
@@ -196,13 +194,13 @@ export default function RegisterPage() {
               )}
             </div>
             <label className="flex items-start gap-2 text-sm text-foreground/60 cursor-pointer pt-1">
-              <input type="checkbox" className="w-3.5 h-3.5 accent-[#6f1a07] rounded mt-0.5" required />
+              <input type="checkbox" className="w-3.5 h-3.5 accent-accent rounded mt-0.5" required />
               <span>I agree to the <Link href="/terms" className="text-foreground font-medium hover:underline">Terms</Link> and <Link href="/privacy" className="text-foreground font-medium hover:underline">Privacy Policy</Link></span>
             </label>
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#6f1a07] text-white py-2.5 text-sm font-medium hover:bg-[#5a1506] active:bg-[#4a1205] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-accent text-white py-2.5 rounded-lg text-sm font-medium hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <>

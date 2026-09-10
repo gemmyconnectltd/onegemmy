@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Layers, ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { usePageTitle } from "@/lib/pageTitles";
+import { Logo } from "@/components/ui/Logo";
 
 export default function ForgotPasswordPage() {
   usePageTitle("Forgot Password");
@@ -25,11 +26,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12 bg-card">
       <div className="w-full max-w-[380px]">
-        <div className="flex items-center gap-2.5 mb-10">
-          <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">
-            <Layers className="text-white" size={20} />
-          </div>
-          <span className="text-xl font-bold text-foreground">OneGemmy</span>
+        <div className="mb-10">
+          <Logo size="md" />
         </div>
 
         {sent ? (
@@ -68,14 +66,14 @@ export default function ForgotPasswordPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   required
-                  className="w-full px-3.5 py-2.5 border border-border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 transition-all"
+                  className="w-full px-3.5 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#6f1a07] text-white py-2.5 text-sm font-medium hover:bg-[#5a1506] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                className="w-full bg-accent text-white py-2.5 rounded-lg text-sm font-medium hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
               >
                 {loading ? (
                   <><Loader2 size={16} className="animate-spin" /> Sending...</>

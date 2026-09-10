@@ -72,7 +72,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-between w-full p-12">
           <div>
             <div className="flex items-center gap-2.5 mb-16">
-              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
+              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
                 <Layers className="text-white" size={20} />
               </div>
               <span className="text-xl font-bold text-white">OneGemmy</span>
@@ -122,7 +122,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 mb-6 text-sm">
+            <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 mb-6 text-sm rounded-lg">
               <AlertCircle size={16} className="flex-shrink-0" />
               {error}
             </div>
@@ -140,7 +140,7 @@ export default function LoginPage() {
                 onBlur={() => setFocusedField(null)}
                 placeholder="you@company.com"
                 required
-                className={`w-full px-3.5 py-2.5 border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                   focusedField === "email" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                 }`}
               />
@@ -156,7 +156,7 @@ export default function LoginPage() {
                   onBlur={() => setFocusedField(null)}
                   placeholder="Enter your password"
                   required
-                  className={`w-full px-3.5 py-2.5 pr-10 border text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                  className={`w-full px-3.5 py-2.5 pr-10 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                     focusedField === "password" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                   }`}
                 />
@@ -183,7 +183,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent text-white py-2.5 text-sm font-medium hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-accent text-white py-2.5 rounded-lg text-sm font-medium hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <>
@@ -259,9 +259,9 @@ export default function LoginPage() {
                             type="button"
                             disabled={loading}
                             onClick={() => fillDemo(demo, group.slug)}
-                            className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
+                            className="col-span-3 border border-violet-500/30 bg-violet-500/5 p-3 rounded-lg hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-left cursor-pointer group disabled:opacity-50 flex items-center gap-3"
                           >
-                            <div className="w-8 h-8 bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
                               <Shield size={14} className="text-violet-400" />
                             </div>
                             <div>
@@ -275,7 +275,7 @@ export default function LoginPage() {
                             type="button"
                             disabled={loading}
                             onClick={() => fillDemo(demo, group.slug)}
-                            className="border border-border p-2.5 hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
+                            className="border border-border p-2.5 rounded-lg hover:border-foreground/20 hover:bg-surface/50 transition-all text-left cursor-pointer group disabled:opacity-50"
                           >
                             <p className="text-xs font-semibold text-foreground group-hover:text-accent transition-colors">{demo.label}</p>
                             <p className="text-[10px] text-muted/60 mt-0.5">{demo.desc}</p>

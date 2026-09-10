@@ -50,14 +50,14 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <a
                 href="/register"
-                className="bg-accent text-white px-8 py-4 font-bold text-lg hover:bg-accent/90 transition-colors inline-flex items-center justify-center gap-2"
+                className="bg-accent text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-accent/90 transition-colors inline-flex items-center justify-center gap-2"
               >
                 Start Free Trial
                 <ArrowRight size={20} />
               </a>
               <a
                 href="#demo"
-                className="border border-white/20 text-white px-8 py-4 font-bold text-lg hover:bg-white/5 transition-colors"
+                className="border border-white/20 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/5 transition-colors"
               >
                 Watch Demo
               </a>
@@ -85,6 +85,42 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Feature Showcase — alternating text/screenshot per flagship module */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-24">
+          {showcase.map((item, i) => (
+            <div
+              key={item.title}
+              className={`flex flex-col ${i % 2 === 1 ? "lg:flex-row-reverse" : "lg:flex-row"} items-center gap-12`}
+            >
+              <div className="w-full lg:w-1/2">
+                <div className="inline-flex items-center gap-2 text-accent text-sm font-semibold mb-4 border-b-2 border-accent pb-1">
+                  <item.icon size={15} />
+                  {item.eyebrow}
+                </div>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+                  {item.title}
+                </h2>
+                <p className="text-lg text-muted mb-6 leading-relaxed">
+                  {item.description}
+                </p>
+                <ul className="space-y-3">
+                  {item.points.map((p) => (
+                    <li key={p} className="flex items-center gap-2.5 text-foreground/80">
+                      <Check size={18} className="text-emerald-500 flex-shrink-0" />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="w-full lg:w-1/2">
+                <DashboardMockup highlight={item.highlight} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Features Section */}
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -106,9 +142,9 @@ export default function Home() {
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="p-6 border border-border hover:border-accent/40 transition-colors group"
+                className="bg-card p-6 rounded-xl border border-border hover:border-accent/40 hover:shadow-md transition-all group"
               >
-                <div className="w-12 h-12 bg-accent/10 flex items-center justify-center mb-4 group-hover:bg-accent transition-colors">
+                <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-4 group-hover:bg-accent transition-colors">
                   <feature.icon
                     size={24}
                     className="text-accent group-hover:text-white transition-colors"
@@ -147,10 +183,10 @@ export default function Home() {
             {modules.map((module) => (
               <div
                 key={module.title}
-                className="bg-card p-6 border border-border hover:border-accent/40 transition-colors"
+                className="bg-card p-6 rounded-xl border border-border hover:border-accent/40 hover:shadow-md transition-all"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-accent flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
                     <module.icon size={24} className="text-white" />
                   </div>
                   <div className="flex-1">
@@ -164,7 +200,7 @@ export default function Home() {
                       {module.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="text-xs bg-surface text-foreground/70 px-3 py-1"
+                          className="text-xs bg-surface text-foreground/70 px-3 py-1 rounded-md"
                         >
                           {tag}
                         </span>
@@ -199,14 +235,14 @@ export default function Home() {
             {businessSizes.map((size) => (
               <div
                 key={size.title}
-                className={`p-6 border transition-colors ${
+                className={`p-6 rounded-xl border transition-colors ${
                   size.featured
-                    ? "border-accent bg-accent/5"
+                    ? "border-accent bg-accent/5 shadow-md"
                     : "border-border hover:border-accent/40"
                 }`}
               >
                 {size.featured && (
-                  <div className="bg-accent text-white text-xs font-bold px-3 py-1 inline-block mb-4">
+                  <div className="bg-accent text-white text-xs font-bold px-3 py-1 rounded-md inline-block mb-4">
                     MOST POPULAR
                   </div>
                 )}
@@ -247,6 +283,32 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Getting Started Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Up and Running in Minutes
+            </h2>
+            <p className="text-xl text-muted max-w-2xl mx-auto">
+              No lengthy onboarding, no implementation team required.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {gettingStarted.map((step, i) => (
+              <div key={step.title} className="text-center md:text-left">
+                <div className="w-10 h-10 rounded-lg bg-accent text-white flex items-center justify-center font-bold text-lg mb-4 mx-auto md:mx-0">
+                  {i + 1}
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">{step.title}</h3>
+                <p className="text-muted text-sm leading-relaxed">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
         <div className="max-w-4xl mx-auto text-center">
@@ -260,14 +322,14 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
               href="/register"
-              className="bg-accent text-white px-8 py-4 font-bold text-lg hover:bg-accent/90 transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-accent text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-accent/90 transition-colors inline-flex items-center justify-center gap-2"
             >
               Start Your Free Trial
               <ArrowRight size={20} />
             </a>
             <a
               href="/contact"
-              className="border border-white/20 text-white px-8 py-4 font-bold text-lg hover:bg-white/5 transition-colors"
+              className="border border-white/20 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/5 transition-colors"
             >
               Contact Sales
             </a>
@@ -279,6 +341,43 @@ export default function Home() {
     </div>
   );
 }
+
+const showcase: {
+  icon: typeof Target;
+  eyebrow: string;
+  title: string;
+  description: string;
+  points: string[];
+  highlight: "Sales" | "Inventory" | "Accounting";
+}[] = [
+  {
+    icon: Target,
+    eyebrow: "Sales",
+    title: "Close deals faster, never lose track of a lead",
+    description:
+      "A visual pipeline from first contact to closed deal, with quotes, commissions, and targets built in — so your whole sales team works from one source of truth.",
+    points: ["Drag-and-drop pipeline", "Quotes & commissions", "Team targets & performance"],
+    highlight: "Sales",
+  },
+  {
+    icon: Package,
+    eyebrow: "Inventory",
+    title: "Know exactly what's in stock, everywhere",
+    description:
+      "Track stock across every warehouse in real time, with low-stock alerts and purchase orders that keep you ahead of demand instead of reacting to it.",
+    points: ["Multi-warehouse tracking", "Low-stock alerts", "Purchase orders & transfers"],
+    highlight: "Inventory",
+  },
+  {
+    icon: Calculator,
+    eyebrow: "Accounting",
+    title: "Your books, always up to date",
+    description:
+      "Invoicing, expenses, and financial reports stay in sync with every sale and purchase automatically — no manual reconciliation, no surprises at month end.",
+    points: ["Automated invoicing", "Expense tracking", "Real-time P&L"],
+    highlight: "Accounting",
+  },
+];
 
 const features = [
   {
@@ -441,4 +540,19 @@ const stats = [
   { value: "50K+", label: "Users" },
   { value: "99.9%", label: "Uptime" },
   { value: "24/7", label: "Support" },
+];
+
+const gettingStarted = [
+  {
+    title: "Create your account",
+    description: "Sign up with your business name and email — no credit card required to start.",
+  },
+  {
+    title: "Set up your business",
+    description: "Add your products, team, and the modules you need. Import existing data or start fresh.",
+  },
+  {
+    title: "Start managing",
+    description: "Make your first sale, track your first shipment, run your first report — you're live.",
+  },
 ];
