@@ -5,6 +5,7 @@ import { Upload, Download, CheckCircle2, XCircle, FileText, ImagePlus, X } from 
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { useCategories, useBrands, useUnits } from "@/lib/api/hooks";
+import { resolveUploadUrl } from "@/lib/api/client";
 
 export interface ProductFormValues {
   name: string;
@@ -19,6 +20,7 @@ export interface ProductFormValues {
   cost: number;
   stock: number;
   minStock: number;
+  image_url?: string | null;
 }
 
 const FALLBACK_CATEGORIES = ["Accessories", "Cables", "Audio", "Chargers", "Storage", "Networking"];
@@ -81,7 +83,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(() => resolveUploadUrl(initial?.image_url));
   const imageInputRef = useRef<HTMLInputElement>(null);
   const valid = Boolean(isValid(form));
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));

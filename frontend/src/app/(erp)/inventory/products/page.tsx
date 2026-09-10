@@ -35,6 +35,7 @@ function toFormValues(p: ApiProduct): ProductFormValues {
     cost: p.cost,
     stock: p.stock,
     minStock: p.min_stock,
+    image_url: p.image_url,
   };
 }
 

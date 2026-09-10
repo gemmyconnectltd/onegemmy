@@ -1,4 +1,5 @@
 import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
+import { resolveUploadUrl } from "@/lib/api/client";
 
 import { LOW_STOCK_THRESHOLD } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
@@ -44,7 +45,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
             {product.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={product.image_url}
+                src={resolveUploadUrl(product.image_url) ?? undefined}
                 alt={product.name}
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
@@ -150,7 +151,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={product.image_url}
+              src={resolveUploadUrl(product.image_url) ?? undefined}
               alt={product.name}
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}

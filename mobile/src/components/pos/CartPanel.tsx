@@ -5,6 +5,7 @@ import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart
 
 import { DISCOUNT_PRESETS } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
+import { resolveUploadUrl } from "@/lib/api/client";
 import type { CartItem } from "./types";
 import type { ApiCustomer } from "@/lib/api";
 
@@ -169,7 +170,7 @@ export function CartPanel({
                   {/* Thumbnail */}
                   {item.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.image_url} alt={item.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                    <img src={resolveUploadUrl(item.image_url) ?? undefined} alt={item.name} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
                   ) : (
                     <IconBadge Icon={getProductIcon({ emoji: item.emoji })} size={15} color={accent} className="w-9 h-9 flex-shrink-0" />
                   )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { resolveUploadUrl } from "@/lib/api/client";
 
 const COLORS: [string, string][] = [
   ["#fde68a", "#92400e"],
@@ -34,7 +35,8 @@ interface ProductAvatarProps {
 
 export function ProductAvatar({ name, imageUrl, size = 32, className = "" }: ProductAvatarProps) {
   const [imgError, setImgError] = useState(false);
-  const showImage = imageUrl && !imgError;
+  const resolvedUrl = resolveUploadUrl(imageUrl);
+  const showImage = resolvedUrl && !imgError;
   const [bg, text] = colorFor(name);
   const fontSize = size <= 28 ? 10 : size <= 40 ? 12 : 14;
 
@@ -42,7 +44,7 @@ export function ProductAvatar({ name, imageUrl, size = 32, className = "" }: Pro
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={imageUrl}
+        src={resolvedUrl}
         alt={name}
         onError={() => setImgError(true)}
         className={`object-cover flex-shrink-0 ${className}`}

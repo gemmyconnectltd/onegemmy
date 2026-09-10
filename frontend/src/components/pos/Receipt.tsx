@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { BarcodeStripe } from "./BarcodeStripe";
 import { getProductIcon, IconBadge } from "./icons";
+import { resolveUploadUrl } from "@/lib/api/client";
 import type { SaleResult } from "./types";
 
 interface ReceiptProps {
@@ -85,7 +86,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
               <div className="flex items-center gap-2.5 min-w-0">
                 {item.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.image_url} alt={item.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                  <img src={resolveUploadUrl(item.image_url) ?? undefined} alt={item.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
                 ) : (
                   <IconBadge
                     Icon={getProductIcon({ emoji: item.emoji })}
