@@ -28,7 +28,7 @@ export function Navbar() {
             </a>
             <a
               href="/register"
-              className="bg-accent text-white px-5 py-2.5 font-medium text-sm hover:bg-accent/90 transition-colors"
+              className="bg-[#6f1a07] text-white px-5 py-2.5 font-medium text-sm hover:bg-[#591506] transition-colors"
             >
               Get Started
             </a>
@@ -56,7 +56,7 @@ export function Navbar() {
           </a>
           <a
             href="/register"
-            className="block bg-accent text-white px-5 py-2.5 font-medium text-center mt-3 hover:bg-accent/90 transition-colors"
+            className="block bg-[#6f1a07] text-white px-5 py-2.5 font-medium text-center mt-3 hover:bg-[#591506] transition-colors"
           >
             Get Started
           </a>

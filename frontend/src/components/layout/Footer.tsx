@@ -3,7 +3,7 @@ import { siteConfig } from "@/lib/config";
 
 export function Footer() {
   return (
-    <footer style={{ background: "var(--sidebar)" }} className="text-white py-16 px-4 sm:px-6 lg:px-8">
+    <footer className="bg-[#1a1209] text-white py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
@@ -58,7 +58,6 @@ export function Footer() {
               <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
               <li><a href="#modules" className="hover:text-white transition-colors">Modules</a></li>
               <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
-              <li><a href="/docs" className="hover:text-white transition-colors">Documentation</a></li>
             </ul>
           </div>
           <div>
@@ -66,10 +65,10 @@ export function Footer() {
               Company
             </h4>
             <ul className="space-y-3 text-white/50 text-sm">
-              <li><a href="#about" className="hover:text-white transition-colors">About Us</a></li>
               <li><a href="/contact" className="hover:text-white transition-colors">Contact</a></li>
               <li><a href="/careers" className="hover:text-white transition-colors">Careers</a></li>
-              <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
+              <li><a href="/login" className="hover:text-white transition-colors">Sign In</a></li>
+              <li><a href="/register" className="hover:text-white transition-colors">Get Started</a></li>
             </ul>
           </div>
           <div>
