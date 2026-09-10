@@ -23,10 +23,12 @@ import {
   ShieldCheck,
   Lock,
 } from "lucide-react";
+import Image from "next/image";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { AppScreenshot } from "@/components/ui/AppScreenshot";
 import { PhoneScreenshot } from "@/components/ui/PhoneScreenshot";
+import { PhoneJourney } from "@/components/ui/PhoneJourney";
 import { AppJourney } from "@/components/ui/AppJourney";
 
 export const metadata: Metadata = {
@@ -263,17 +265,76 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="w-full lg:w-1/2 flex justify-center items-end gap-4">
-            <PhoneScreenshot
-              src="/screenshots/mobile-home.png"
-              alt="OneGemmy mobile app home screen showing today's sales and quick actions"
-              className="-rotate-3 relative z-10"
-            />
-            <PhoneScreenshot
-              src="/screenshots/mobile-pos.png"
-              alt="OneGemmy mobile point of sale screen showing the product list for checkout"
-              className="rotate-3 -ml-16 mt-8 hidden sm:block"
-            />
+          <div className="w-full lg:w-1/2 flex justify-center">
+            <PhoneJourney />
+          </div>
+        </div>
+      </section>
+
+      {/* Who It's For Section */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-surface">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">
+              Who it&apos;s for
+            </p>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Built for Every Kind of Business
+            </h2>
+            <p className="text-xl text-muted max-w-2xl mx-auto">
+              From supermarkets to repair shops, OneGemmy adapts to how you
+              actually sell — not the other way around.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            {businessTypes.map((v) => (
+              <div
+                key={v.title}
+                className="group relative rounded-xl overflow-hidden aspect-[4/5]"
+              >
+                <Image
+                  src={v.image}
+                  alt={v.alt}
+                  fill
+                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <h3 className="text-white font-bold text-lg leading-tight mb-1">{v.title}</h3>
+                  <p className="text-white/70 text-sm leading-snug">{v.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="max-w-4xl mx-auto text-center">
+            <p className="text-sm font-semibold text-foreground mb-4">Also great for</p>
+            <div className="flex flex-wrap justify-center gap-2 mb-12">
+              {retailTags.map((t) => (
+                <span
+                  key={t}
+                  className="text-sm bg-card border border-border text-foreground/70 px-3.5 py-1.5 rounded-full"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+
+            <p className="text-sm font-semibold text-foreground mb-4">
+              Expanding next — accommodation &amp; service businesses
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {serviceTags.map((t) => (
+                <span
+                  key={t}
+                  className="text-sm bg-card border border-dashed border-border text-foreground/50 px-3.5 py-1.5 rounded-full"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -606,6 +667,46 @@ const modules = [
       "Build and maintain customer relationships with contact profiles, interaction history, and deal tracking.",
     tags: ["Contacts", "Deals", "Interactions", "Segmentation"],
   },
+];
+
+const businessTypes = [
+  {
+    title: "Supermarkets & Grocery Shops",
+    description: "Fast checkout, stock across every shelf, and supplier orders in one place.",
+    image: "/verticals/grocery.jpg",
+    alt: "Shelves inside a small grocery shop stocked with everyday products",
+  },
+  {
+    title: "Pharmacies",
+    description: "Track stock closely, watch what's running low, and keep the counter moving.",
+    image: "/verticals/pharmacy.jpg",
+    alt: "Pharmacist organizing medicine on shelves in a pharmacy",
+  },
+  {
+    title: "Electronics & Phone Shops",
+    description: "Handle variants, serials, and a fast-moving catalog without losing track.",
+    image: "/verticals/electronics.jpg",
+    alt: "Close-up of electronics on display in a shop",
+  },
+  {
+    title: "Repairs & Service Shops",
+    description: "Job intake to delivery, with device details and status at every step.",
+    image: "/verticals/repairs.jpg",
+    alt: "Technician repairing an electronic device on a workbench",
+  },
+];
+
+const retailTags = [
+  "Supermarkets", "Grocery Shops", "Electronics Stores", "Clothing & Fashion Boutiques",
+  "Shoe Stores", "Hardware Stores", "Pharmacies", "Bookstores & Stationery",
+  "Furniture Stores", "Cosmetics & Beauty Shops", "Mobile Phone & Accessories Shops",
+  "Pet Supply Stores", "Bakeries", "Liquor Stores",
+];
+
+const serviceTags = [
+  "Barber Shops", "Salons & Spas", "Car Washes", "Auto Repair Garages",
+  "Laundry & Dry Cleaning", "Tailoring Shops", "Printing & Copy Centers",
+  "Internet Cafés", "Accommodation & Hospitality",
 ];
 
 const plans = [
