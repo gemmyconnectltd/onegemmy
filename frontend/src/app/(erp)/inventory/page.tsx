@@ -57,6 +57,7 @@ function toRow(p: ApiProduct) {
     value: variantValue(p),
     hasVariants: p.has_variants && (p.variants?.length ?? 0) > 0,
     variantCount: p.variants?.length ?? 0,
+    imageUrl: p.image_url,
   };
 }
 
@@ -293,7 +294,7 @@ export default function InventoryOverviewPage() {
                   <tr key={item.id} className="hover:bg-surface/40 transition-colors group">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <ProductAvatar name={item.name} size={32} />
+                        <ProductAvatar name={item.name} imageUrl={item.imageUrl} size={32} className="rounded-lg" />
                         <div>
                           <span className="text-sm font-medium text-foreground">{item.name}</span>
                           {item.hasVariants && (

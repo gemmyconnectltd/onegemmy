@@ -493,8 +493,8 @@ const showcase: {
     description:
       "Track stock across every warehouse in real time, with low-stock alerts and purchase orders that keep you ahead of demand instead of reacting to it.",
     points: ["Multi-warehouse tracking", "Low-stock alerts", "Purchase orders & transfers"],
-    screenshot: "/screenshots/inventory.png",
-    screenshotAlt: "OneGemmy inventory overview showing stock health, top products by value, and low-stock alerts",
+    screenshot: "/screenshots/inventory-electronics.png",
+    screenshotAlt: "OneGemmy inventory overview for an electronics shop, showing stock health, top products by value, and real product photos",
     path: "inventory",
   },
   {
