@@ -57,3 +57,21 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         }},
     )
     return error_response(message=exc.detail, status_code=exc.status_code)
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catches anything AppError doesn't (DB errors, bugs, etc). Without this,
+    FastAPI/Starlette falls through to its default handler, which in debug
+    mode returns the full traceback — file paths, SQL, table/column names —
+    to whoever sent the request. Always log the real detail server-side and
+    only ever return a generic message to the client.
+    """
+    log.exception(
+        "app.unhandled_error",
+        extra={"_extra_fields": {
+            "path": request.url.path,
+            "method": request.method,
+            "exception_type": type(exc).__name__,
+        }},
+    )
+    return error_response(message="Internal server error", status_code=500)

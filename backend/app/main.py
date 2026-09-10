@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api_router import api_router
 from app.core.config import settings
-from app.core.exceptions import AppError, app_error_handler
+from app.core.exceptions import AppError, app_error_handler, unhandled_exception_handler
 from app.core.logging import get_logger, setup_logging
 from app.core.middleware import RequestLoggingMiddleware
 
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_exception_handler(AppError, app_error_handler)
+    app.add_exception_handler(Exception, unhandled_exception_handler)
 
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
