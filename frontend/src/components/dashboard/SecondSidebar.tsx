@@ -127,7 +127,7 @@ interface SecondSidebarProps {
   onSelect?: (key: string) => void;
   /** Optional header label rendered in the left/big rails (e.g. tenant name). */
   label?: string;
-  /** Starting orientation if uncontrolled (default "top"). Ignored on re-render once the user has toggled, unless `orientation` is also passed to force control. */
+  /** Starting orientation if uncontrolled (default "left"). Ignored on re-render once the user has toggled, unless `orientation` is also passed to force control. */
   defaultOrientation?: Orientation;
   /** Pass this to fully control orientation from the parent (e.g. persist it, sync with other layout). */
   orientation?: Orientation;
@@ -145,7 +145,7 @@ export function SecondSidebar({
   activeKey,
   onSelect,
   label,
-  defaultOrientation = "top",
+  defaultOrientation = "left",
   orientation: controlledOrientation,
   onOrientationChange,
   showToggle = true,

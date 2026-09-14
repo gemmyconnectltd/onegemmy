@@ -159,7 +159,63 @@ function SalesChart({ chart, title, sub, c }: { chart: { label: string; sales: n
   );
 }
 
-function TargetAndActions({ sales, target, label, c }: { sales: number; target: number; label: string; c: ChartPalette }) {
+function EarningsBreakdown({ sales, expenses, profit, label, c }: { sales: number; expenses: number; profit: number; label: string; c: ChartPalette }) {
+  const hasData = sales > 0;
+  const isLoss = profit < 0;
+  const data = [
+    { name: "Profit", value: Math.max(0, profit) },
+    { name: "Expenses", value: Math.max(0, expenses) },
+  ].filter((d) => d.value > 0);
+  const margin = hasData ? Math.round((profit / sales) * 100) : 0;
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <h2 className="text-sm font-bold text-foreground">Earnings Breakdown</h2>
+        <p className="text-[11px] text-muted mt-0.5">How {label.toLowerCase()}&apos;s revenue split</p>
+      </div>
+      {!hasData ? (
+        <p className="px-4 py-6 text-[12px] text-muted text-center">No sales data yet</p>
+      ) : (
+        <div className="p-4 flex items-center gap-4">
+          <div className="w-[92px] h-[92px] flex-shrink-0 relative">
+            {data.length > 0 && (
+              <DonutChart
+                data={data}
+                colors={[c.profit, c.expenses]}
+                innerRadius={28}
+                outerRadius={44}
+                tooltipStyle={c.tooltip}
+                tooltipFormatter={(v, n) => [fmtMoney(Number(v)), String(n)]}
+              />
+            )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className={`text-[15px] font-extrabold ${isLoss ? "text-red-500" : "text-foreground"}`}>{margin}%</span>
+              <span className="text-[8px] text-muted uppercase tracking-wide">margin</span>
+            </div>
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.profit }} />
+              <span className="text-[12px] text-foreground/80 flex-1">Profit</span>
+              <span className="text-[11px] font-bold font-mono" style={{ color: isLoss ? "#ef4444" : c.profit }}>{fmtMoney(profit)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.expenses }} />
+              <span className="text-[12px] text-foreground/80 flex-1">Expenses</span>
+              <span className="text-[11px] font-bold font-mono text-muted">{fmtMoney(expenses)}</span>
+            </div>
+            {isLoss && (
+              <p className="text-[10px] text-red-500 font-medium pt-0.5">Expenses exceeded revenue this period.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TargetAndActions({ sales, expenses, profit, target, label, c }: { sales: number; expenses: number; profit: number; target: number; label: string; c: ChartPalette }) {
   const targetPct = target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
   const actions = [
     { label: "Record Sale",    href: "/sales",         icon: ShoppingCart, color: c.income   },
@@ -182,6 +238,7 @@ function TargetAndActions({ sales, target, label, c }: { sales: number; target: 
         </div>
         {target > 0 && <p className="text-[11px] text-muted"><span className="font-semibold text-foreground">{fmtMoney(Math.max(0, target - sales))}</span> left to target</p>}
       </div>
+      <EarningsBreakdown sales={sales} expenses={expenses} profit={profit} label={label} c={c} />
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Zap size={13} style={{ color: c.gold }} />
@@ -444,7 +501,7 @@ export default function DashboardPage() {
           sub="Revenue vs expenses"
           c={c}
         />
-        <TargetAndActions sales={sales} target={target} label={label} c={c} />
+        <TargetAndActions sales={sales} expenses={expenses} profit={profit} target={target} label={label} c={c} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
