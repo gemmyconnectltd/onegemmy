@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, LifeBuoy, Mail, Phone, Send } from "lucide-react";
 
 import { PageHeader } from "@/components/mobile/PageHeader";
+import { siteConfig } from "@/lib/config";
 
 const FAQS = [
   {
@@ -43,7 +44,7 @@ export default function MobileSupportPage() {
               <LifeBuoy size={17} />
             </div>
             <div>
-              <p className="text-[13px] font-bold">OneGemmy support team</p>
+              <p className="text-[13px] font-bold">{siteConfig.name} support team</p>
               <p className="text-[10px] text-white/75">We usually reply within 24 hours</p>
             </div>
           </div>
@@ -65,7 +66,7 @@ export default function MobileSupportPage() {
 
         {/* Report a problem */}
         <a
-          href={`mailto:support@onegemmy.com?subject=${encodeURIComponent("Report a problem — OneGemmy mobile")}&body=${encodeURIComponent("Hi OneGemmy support,\n\nI ran into an issue:\n\n[describe what happened]\n\nThanks!")}`}
+          href={`mailto:support@onegemmy.com?subject=${encodeURIComponent(`Report a problem — ${siteConfig.name} mobile`)}&body=${encodeURIComponent(`Hi ${siteConfig.name} support,\n\nI ran into an issue:\n\n[describe what happened]\n\nThanks!`)}`}
           className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 active:bg-surface transition-colors"
         >
           <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 flex-shrink-0">
@@ -106,7 +107,7 @@ export default function MobileSupportPage() {
         </div>
 
         <p className="text-[10px] text-muted text-center pb-2">
-          OneGemmy · support@onegemmy.com
+          {siteConfig.name} · support@onegemmy.com
         </p>
       </div>
     </div>

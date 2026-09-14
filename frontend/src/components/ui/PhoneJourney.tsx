@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PhoneScreenshot } from "@/components/ui/PhoneScreenshot";
+import { siteConfig } from "@/lib/config";
 
 const STEP_DURATION = 4000;
 
@@ -9,22 +10,22 @@ const STEPS = [
   {
     label: "Open the app, see today's sales",
     src: "/screenshots/mobile-home.png",
-    alt: "OneGemmy mobile app home screen showing today's sales",
+    alt: `${siteConfig.name} mobile app home screen showing today's sales`,
   },
   {
     label: "Ring up a sale from anywhere",
     src: "/screenshots/mobile-pos.png",
-    alt: "OneGemmy mobile point of sale screen with the product list",
+    alt: `${siteConfig.name} mobile point of sale screen with the product list`,
   },
   {
     label: "Check how the day's going",
     src: "/screenshots/mobile-stats.png",
-    alt: "OneGemmy mobile stats screen showing revenue, profit, and top products",
+    alt: `${siteConfig.name} mobile stats screen showing revenue, profit, and top products`,
   },
   {
     label: "Look back at every sale",
     src: "/screenshots/mobile-transactions.png",
-    alt: "OneGemmy mobile transactions screen listing recent sales",
+    alt: `${siteConfig.name} mobile transactions screen listing recent sales`,
   },
 ];
 

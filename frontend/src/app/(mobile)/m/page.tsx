@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { getSales, subscribeSales } from "@/lib/invoices";
 import { useProducts } from "@/lib/api/hooks";
 import { LOW_STOCK_THRESHOLD } from "@/components/pos/constants";
+import { siteConfig } from "@/lib/config";
 
 function greeting() {
   const h = new Date().getHours();
@@ -48,7 +49,7 @@ export default function MobileHomePage() {
   const lowStock = products.filter((p) => p.stock <= Math.max(p.min_stock, LOW_STOCK_THRESHOLD));
 
   const firstName = (user?.name ?? "there").split(" ")[0];
-  const businessName = user?.tenantName ?? "OneGemmy";
+  const businessName = user?.tenantName ?? siteConfig.name;
 
   const tiles = [
     { href: "/m/purchase/new", label: "Purchases",  icon: ShoppingBag,    color: "#6366f1" },

@@ -8,7 +8,7 @@ import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
-import { pageTitleForPath } from "@/lib/pageTitles";
+import { pageTitleForPath, APP_NAME } from "@/lib/pageTitles";
 
 const COLLAPSED_KEY = "sidebar_collapsed";
 
@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   if (isLoading || !user) return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-6">
-      <PageLoader variant="screen" label="OneGemmy" sub="Signing you in" />
+      <PageLoader variant="screen" label={APP_NAME} sub="Signing you in" />
     </div>
   );
 

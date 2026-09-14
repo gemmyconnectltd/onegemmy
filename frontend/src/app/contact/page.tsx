@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { Mail, MapPin, ArrowRight } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Contact - OneGemmy",
+  title: `Contact - ${siteConfig.name}`,
 };
 
 export default function ContactPage() {
@@ -18,7 +19,7 @@ export default function ContactPage() {
             Get in Touch
           </h1>
           <p className="text-lg text-muted mb-12 max-w-xl mx-auto">
-            Questions about OneGemmy, need help choosing a plan, or want to
+            Questions about {siteConfig.name}, need help choosing a plan, or want to
             talk about your business&apos;s specific needs? We&apos;d love to
             hear from you.
           </p>
@@ -53,7 +54,7 @@ export default function ContactPage() {
 
           <div className="mt-12">
             <a
-              href="mailto:info@gemmyconnect.com?subject=OneGemmy%20inquiry"
+              href={`mailto:info@gemmyconnect.com?subject=${siteConfig.name}%20inquiry`}
               className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
             >
               Send Us an Email

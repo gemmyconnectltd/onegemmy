@@ -7,6 +7,7 @@ import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Check } from "lu
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
 import { Logo } from "@/components/ui/Logo";
+import { siteConfig } from "@/lib/config";
 
 export default function RegisterPage() {
   usePageTitle("Create Account");
@@ -63,7 +64,7 @@ export default function RegisterPage() {
               <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
                 <Layers className="text-white" size={20} />
               </div>
-              <span className="text-xl font-bold text-white">OneGemmy</span>
+              <span className="text-xl font-bold text-white">{siteConfig.name}</span>
             </div>
 
             <h1 className="text-[40px] font-bold text-white mb-4 leading-[1.15]">
@@ -88,7 +89,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="text-white/20 text-xs mt-12">
-            &copy; {new Date().getFullYear()} Gemmy Connect Ltd. All rights reserved.
+            &copy; {new Date().getFullYear()} {siteConfig.company}. All rights reserved.
           </div>
         </div>
       </div>
@@ -102,7 +103,7 @@ export default function RegisterPage() {
 
           <div className="mb-8">
             <h1 className="text-[26px] font-bold text-foreground tracking-tight">Create your account</h1>
-            <p className="text-sm text-muted mt-1.5">Get started with OneGemmy for free</p>
+            <p className="text-sm text-muted mt-1.5">Get started with {siteConfig.name} for free</p>
           </div>
 
           {error && (

@@ -5,6 +5,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { AppConfigProvider } from "@/lib/appConfig";
 import { Providers } from "./providers";
+import { siteConfig } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +26,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "OneGemmy - Business Management Tool | Gemmy Connect Ltd",
-  description:
-    "OneGemmy is an all-in-one business management platform by Gemmy Connect Ltd. Manage sales, inventory, accounting, HR, projects, and CRM from a single dashboard.",
+  title: `${siteConfig.name} - Business Management Tool | ${siteConfig.company}`,
+  description: `${siteConfig.name} is an all-in-one business management platform by ${siteConfig.company}. Manage sales, inventory, accounting, HR, projects, and CRM from a single dashboard.`,
   keywords: [
     "business management",
     "CRM",
@@ -36,10 +36,10 @@ export const metadata: Metadata = {
     "project management",
     "accounting",
     "HR management",
-    "OneGemmy",
+    siteConfig.name,
     "Gemmy Connect",
   ],
-  authors: [{ name: "Gemmy Connect Ltd" }],
+  authors: [{ name: siteConfig.company }],
   manifest: "/manifest.json",
   icons: {
     apple: "/icons/icon-192x192.png",
@@ -47,23 +47,23 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "OneGemmy",
+    title: siteConfig.name,
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
-    title: "OneGemmy - Business Management Tool",
+    title: `${siteConfig.name} - Business Management Tool`,
     description:
       "All-in-one business management platform for sales, inventory, accounting, HR, and more.",
-    url: "https://onegemmy.com",
-    siteName: "OneGemmy",
+    url: siteConfig.url,
+    siteName: siteConfig.name,
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "OneGemmy - Business Management Tool",
+    title: `${siteConfig.name} - Business Management Tool`,
     description:
       "All-in-one business management platform for sales, inventory, accounting, HR, and more.",
   },

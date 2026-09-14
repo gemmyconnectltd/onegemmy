@@ -1,4 +1,5 @@
 import { Layers } from "lucide-react";
+import { siteConfig } from "@/lib/config";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
@@ -26,7 +27,7 @@ export function Logo({ size = "md" }: LogoProps) {
       </div>
       <div>
         <span className={`${textSizes[size]} font-bold block leading-none text-foreground`}>
-          OneGemmy
+          {siteConfig.name}
         </span>
 
       </div>

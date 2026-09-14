@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMobileHost } from "@/lib/mobileHost";
+import { siteConfig } from "@/lib/config";
 
 // Dynamic PWA manifest (served at /manifest.json). The mobile app gets a
 // mobile-focused manifest — start_url /m, portrait, mobile shortcuts — so an
@@ -20,10 +21,9 @@ const ICONS = [
 ];
 
 const MOBILE_MANIFEST = {
-  name: "OneGemmy Shop",
-  short_name: "OneGemmy",
-  description:
-    "OneGemmy mobile — sell, track inventory, and run your shop from your phone.",
+  name: `${siteConfig.name} Shop`,
+  short_name: siteConfig.name,
+  description: `${siteConfig.name} mobile — sell, track inventory, and run your shop from your phone.`,
   start_url: "/m",
   display: "standalone",
   background_color: "#f8f8f6",
@@ -58,8 +58,8 @@ const MOBILE_MANIFEST = {
 };
 
 const ERP_MANIFEST = {
-  name: "OneGemmy - Business Management",
-  short_name: "OneGemmy",
+  name: `${siteConfig.name} - Business Management`,
+  short_name: siteConfig.name,
   description:
     "All-in-one business management platform for sales, inventory, accounting, HR, projects, and CRM.",
   start_url: "/dashboard",

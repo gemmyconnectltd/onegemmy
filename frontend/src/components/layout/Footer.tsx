@@ -13,7 +13,7 @@ export function Footer() {
               </div>
               <div>
                 <span className="text-xl font-bold block leading-none">
-                  OneGemmy
+                  {siteConfig.name}
                 </span>
 
               </div>

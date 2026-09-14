@@ -1,6 +1,8 @@
 import { useEffect } from "react";
+import { siteConfig } from "./config";
 
-export const APP_NAME = "OneGemmy";
+/** Re-exported so existing imports keep working — the actual name lives in siteConfig.name. */
+export const APP_NAME = siteConfig.name;
 
 const ERP_PAGE_TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -53,7 +55,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/admin/tenants": "Tenants",
 };
 
-const DEFAULT_TITLE = "OneGemmy - Business Management Tool | Gemmy Connect Ltd";
+const DEFAULT_TITLE = `${APP_NAME} - Business Management Tool | ${siteConfig.company}`;
 
 export function pageTitleForPath(pathname: string): string {
   const title = ERP_PAGE_TITLES[pathname];

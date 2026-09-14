@@ -30,9 +30,10 @@ import { AppScreenshot } from "@/components/ui/AppScreenshot";
 import { PhoneScreenshot } from "@/components/ui/PhoneScreenshot";
 import { PhoneJourney } from "@/components/ui/PhoneJourney";
 import { AppJourney } from "@/components/ui/AppJourney";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Home - OneGemmy",
+  title: `Home - ${siteConfig.name}`,
 };
 
 const DOT_GRID = {
@@ -100,7 +101,7 @@ export default function Home() {
             <div className="lg:-rotate-2 transition-transform hover:rotate-0 duration-500">
               <AppScreenshot
                 src="/screenshots/dashboard.png"
-                alt="OneGemmy web dashboard showing this year's sales, recent orders, and top products"
+                alt={`${siteConfig.name} web dashboard showing this year's sales, recent orders, and top products`}
                 path="dashboard"
                 priority
               />
@@ -108,7 +109,7 @@ export default function Home() {
             <div className="absolute bottom-0 left-0 rotate-3 hover:rotate-0 transition-transform duration-500 z-10">
               <PhoneScreenshot
                 src="/screenshots/mobile-home.png"
-                alt="OneGemmy mobile app home screen showing today's sales, in sync with the same account"
+                alt={`${siteConfig.name} mobile app home screen showing today's sales, in sync with the same account`}
                 width={130}
                 priority
               />
@@ -125,7 +126,7 @@ export default function Home() {
               See it in action
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              A day with OneGemmy
+              A day with {siteConfig.name}
             </h2>
             <p className="text-xl text-muted max-w-2xl mx-auto">
               Same real account, same real data, followed through an ordinary
@@ -282,7 +283,7 @@ export default function Home() {
               Built for Every Kind of Business
             </h2>
             <p className="text-xl text-muted max-w-2xl mx-auto">
-              From supermarkets to repair shops, OneGemmy adapts to how you
+              From supermarkets to repair shops, {siteConfig.name} adapts to how you
               actually sell — not the other way around.
             </p>
           </div>
@@ -351,7 +352,7 @@ export default function Home() {
             </h2>
             <p className="text-xl text-muted max-w-2xl mx-auto">
               Whether you&apos;re a solo shop owner or running multiple
-              branches, OneGemmy scales with you.
+              branches, {siteConfig.name} scales with you.
             </p>
           </div>
 
@@ -533,7 +534,7 @@ const showcase: {
       "Search or scan a product, ring up the sale, and take cash, mobile money, or card — fast enough for a real line at the register, on any browser you already have.",
     points: ["No special terminal hardware needed", "Cash, Mobile Money, and Card", "Hold a sale and come back to it later"],
     screenshot: "/screenshots/pos-terminal.png",
-    screenshotAlt: "OneGemmy point of sale screen with products in the cart, totals, and a payment method selector",
+    screenshotAlt: `${siteConfig.name} point of sale screen with products in the cart, totals, and a payment method selector`,
     path: "pos",
   },
   {
@@ -544,7 +545,7 @@ const showcase: {
       "A visual pipeline from first contact to closed deal, with quotes, commissions, and targets built in — so your whole sales team works from one source of truth.",
     points: ["Drag-and-drop pipeline", "Quotes & commissions", "Team targets & performance"],
     screenshot: "/screenshots/sales-pipeline.png",
-    screenshotAlt: "OneGemmy CRM pipeline showing leads, qualified deals, and closed-won value by stage",
+    screenshotAlt: `${siteConfig.name} CRM pipeline showing leads, qualified deals, and closed-won value by stage`,
     path: "crm",
   },
   {
@@ -555,7 +556,7 @@ const showcase: {
       "Track stock across every warehouse in real time, with low-stock alerts and purchase orders that keep you ahead of demand instead of reacting to it.",
     points: ["Multi-warehouse tracking", "Low-stock alerts", "Purchase orders & transfers"],
     screenshot: "/screenshots/inventory-electronics.png",
-    screenshotAlt: "OneGemmy inventory overview for an electronics shop, showing stock health, top products by value, and real product photos",
+    screenshotAlt: `${siteConfig.name} inventory overview for an electronics shop, showing stock health, top products by value, and real product photos`,
     path: "inventory",
   },
   {
@@ -566,7 +567,7 @@ const showcase: {
       "Invoicing, expenses, and financial reports stay in sync with every sale and purchase automatically — no manual reconciliation, no surprises at month end.",
     points: ["Automated invoicing", "Expense tracking", "Real-time P&L"],
     screenshot: "/screenshots/accounting.png",
-    screenshotAlt: "OneGemmy accounting overview showing income vs expenses and recent activity",
+    screenshotAlt: `${siteConfig.name} accounting overview showing income vs expenses and recent activity`,
     path: "accounting",
   },
 ];
@@ -765,7 +766,7 @@ const trust = [
   {
     icon: Lock,
     title: "Encrypted in transit",
-    description: "OneGemmy is served over HTTPS, so data moving to and from your browser is encrypted.",
+    description: `${siteConfig.name} is served over HTTPS, so data moving to and from your browser is encrypted.`,
   },
 ];
 

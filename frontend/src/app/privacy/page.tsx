@@ -3,7 +3,7 @@ import { LegalLayout } from "@/components/layout/LegalLayout";
 import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "OneGemmy Privacy Policy | Gemmy Connect Ltd",
+  title: `${siteConfig.name} Privacy Policy | ${siteConfig.company}`,
 };
 
 export default function PrivacyPage() {
@@ -11,30 +11,30 @@ export default function PrivacyPage() {
     <LegalLayout title="Privacy Policy" lastUpdated="September 14, 2026">
       <p>
         {siteConfig.company}{" "}
-        (&quot;Gemmy Connect&quot;, &quot;OneGemmy&quot;, &quot;we&quot;,
+        (&quot;Gemmy Connect&quot;, &quot;{siteConfig.name}&quot;, &quot;we&quot;,
         &quot;us&quot;, or &quot;our&quot;) respects your privacy and is
         committed to protecting personal data.
       </p>
       <p>
         This Privacy Policy explains how we collect, use, store, share, and
-        protect personal information when you access or use OneGemmy, our
+        protect personal information when you access or use {siteConfig.name}, our
         business management platform, including our website, web
         application, mobile applications, and related services.
       </p>
-      <p>By using OneGemmy, you acknowledge the practices described in this Privacy Policy.</p>
+      <p>By using {siteConfig.name}, you acknowledge the practices described in this Privacy Policy.</p>
 
-      <h2>1. About OneGemmy</h2>
+      <h2>1. About {siteConfig.name}</h2>
       <p>
-        OneGemmy is a business management platform provided by{" "}
+        {siteConfig.name} is a business management platform provided by{" "}
         <strong>{siteConfig.company}</strong>, a company based in Rwanda.
       </p>
       <p>
-        Businesses can use OneGemmy to manage activities such as sales,
+        Businesses can use {siteConfig.name} to manage activities such as sales,
         customers, inventory, expenses, accounting records, employees,
         reporting, and other business information.
       </p>
       <p>
-        Because OneGemmy is a multi-tenant platform, each business operates
+        Because {siteConfig.name} is a multi-tenant platform, each business operates
         within its own account and workspace.
       </p>
 
@@ -46,20 +46,20 @@ export default function PrivacyPage() {
         determines how that information is processed.
       </p>
       <p>
-        When a business uses OneGemmy to store information about its
+        When a business uses {siteConfig.name} to store information about its
         customers, employees, suppliers, transactions, or other business
         activities, we generally process that information on behalf of that
         business and according to its instructions.
       </p>
       <p>
-        If your personal information has been entered into OneGemmy by a
+        If your personal information has been entered into {siteConfig.name} by a
         business that you interact with, you should normally contact that
         business first if you wish to access, correct, or delete that
         information.
       </p>
 
       <h2>3. Information we collect</h2>
-      <p>Depending on how you use OneGemmy, we may collect:</p>
+      <p>Depending on how you use {siteConfig.name}, we may collect:</p>
       <ul>
         <li>
           <strong>Account and profile information</strong>, including your
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
       <h2>4. How we use information</h2>
       <p>We may use information to:</p>
       <ul>
-        <li>provide and operate OneGemmy;</li>
+        <li>provide and operate {siteConfig.name};</li>
         <li>create and manage user and business accounts;</li>
         <li>authenticate users and protect accounts;</li>
         <li>process subscriptions and service-related transactions;</li>
@@ -105,7 +105,7 @@ export default function PrivacyPage() {
         <li>maintain separation between business accounts;</li>
         <li>detect fraud, misuse, unauthorized access, and security threats;</li>
         <li>monitor reliability and improve platform performance;</li>
-        <li>develop and improve OneGemmy features;</li>
+        <li>develop and improve {siteConfig.name} features;</li>
         <li>communicate important service, security, and account updates;</li>
         <li>comply with applicable legal and regulatory obligations; and</li>
         <li>
@@ -124,24 +124,24 @@ export default function PrivacyPage() {
 
       <h2>5. Business customer data</h2>
       <p>
-        Businesses using OneGemmy remain responsible for the personal
+        Businesses using {siteConfig.name} remain responsible for the personal
         information they collect and enter into the platform.
       </p>
       <p>
-        A business using OneGemmy should ensure that it has an appropriate
+        A business using {siteConfig.name} should ensure that it has an appropriate
         legal basis or authorization to collect and process information
         about its customers, employees, suppliers, and other individuals.
       </p>
       <p>
         Gemmy Connect processes such information as necessary to provide the
-        OneGemmy service and according to the applicable agreement with the
+        {siteConfig.name} service and according to the applicable agreement with the
         business.
       </p>
       <p>We do not use one business&apos;s confidential business data for the benefit of another business.</p>
 
       <h2>6. Data separation and security</h2>
       <p>
-        OneGemmy is designed to keep each business&apos;s data logically
+        {siteConfig.name} is designed to keep each business&apos;s data logically
         separated from the data of other businesses using the platform.
       </p>
       <p>
@@ -164,7 +164,7 @@ export default function PrivacyPage() {
       <h2>7. When we share information</h2>
       <p>
         We may share information with trusted service providers that help us
-        operate OneGemmy, such as providers of cloud infrastructure,
+        operate {siteConfig.name}, such as providers of cloud infrastructure,
         communications, analytics, security, customer support, and payment
         services.
       </p>
@@ -190,7 +190,7 @@ export default function PrivacyPage() {
       <h2>8. Data retention</h2>
       <p>
         We retain personal and business information for as long as
-        reasonably necessary to provide OneGemmy and fulfill the purposes
+        reasonably necessary to provide {siteConfig.name} and fulfill the purposes
         described in this Privacy Policy.
       </p>
       <p>
@@ -208,13 +208,13 @@ export default function PrivacyPage() {
         to request access, correction, deletion, or other appropriate action
         concerning your information.
       </p>
-      <p>Account holders may be able to manage certain information directly through OneGemmy.</p>
+      <p>Account holders may be able to manage certain information directly through {siteConfig.name}.</p>
       <p>
         You may also contact us at{" "}
         <a href="mailto:info@gemmyconnect.com">info@gemmyconnect.com</a>.
       </p>
       <p>
-        If your information was collected and entered into OneGemmy by a
+        If your information was collected and entered into {siteConfig.name} by a
         business using our platform, please contact that business first.
         Because that business controls its records, we may need to refer
         your request to it.
@@ -233,7 +233,7 @@ export default function PrivacyPage() {
       <h2>11. International data processing</h2>
       <p>
         Gemmy Connect is based in Rwanda, while some of the technology and
-        service providers supporting OneGemmy may operate infrastructure in
+        service providers supporting {siteConfig.name} may operate infrastructure in
         other countries.
       </p>
       <p>As a result, information may be processed or stored outside the country in which it was originally collected.</p>
@@ -245,7 +245,7 @@ export default function PrivacyPage() {
 
       <h2>12. Children&apos;s privacy</h2>
       <p>
-        OneGemmy is designed primarily for businesses and their authorized
+        {siteConfig.name} is designed primarily for businesses and their authorized
         users and is not intended for children to create independent
         business accounts.
       </p>
@@ -257,17 +257,17 @@ export default function PrivacyPage() {
       </p>
 
       <h2>13. Third-party services</h2>
-      <p>OneGemmy may integrate with or contain links to third-party services.</p>
+      <p>{siteConfig.name} may integrate with or contain links to third-party services.</p>
       <p>
         Those services may have their own privacy policies and data-handling
         practices. This Privacy Policy does not govern how independent third
-        parties process information outside OneGemmy.
+        parties process information outside {siteConfig.name}.
       </p>
       <p>We encourage users to review the privacy policies of relevant third-party services.</p>
 
       <h2>14. Changes to this Privacy Policy</h2>
       <p>
-        We may update this Privacy Policy as OneGemmy evolves or as legal,
+        We may update this Privacy Policy as {siteConfig.name} evolves or as legal,
         regulatory, security, or operational requirements change.
       </p>
       <p>
@@ -276,14 +276,14 @@ export default function PrivacyPage() {
       </p>
       <p>
         If changes materially affect how we process personal information, we
-        may provide additional notice through OneGemmy, by email, or through
+        may provide additional notice through {siteConfig.name}, by email, or through
         another appropriate communication channel.
       </p>
 
       <h2>15. Contact us</h2>
       <p>
         If you have questions, concerns, or requests regarding this Privacy
-        Policy or how OneGemmy handles personal information, please contact:
+        Policy or how {siteConfig.name} handles personal information, please contact:
       </p>
       <p>
         <strong>{siteConfig.company}</strong>

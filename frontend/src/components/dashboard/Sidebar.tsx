@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { useRouter } from "next/navigation";
 import { useMyEntitlements } from "@/lib/api/hooks";
+import { siteConfig } from "@/lib/config";
 import {
   LayoutDashboard, ShoppingCart, Warehouse,
   Users, BarChart3, Settings, LogOut,
@@ -99,17 +100,26 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
         className="hidden lg:flex fixed top-0 left-0 h-screen bg-card border-r border-border z-40 flex-col select-none transition-all duration-200 overflow-hidden"
         style={{ width: w }}
       >
-        {/* Logo */}
-        <div className="flex items-center justify-center h-[60px] border-b border-border flex-shrink-0">
-          <div className="w-8 h-8 bg-accent flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden">
+        {/* Logo — click to go home */}
+        <Link
+          href={admin ? "/admin" : "/dashboard"}
+          title={collapsed ? siteConfig.name : undefined}
+          className="flex flex-col items-center justify-center gap-1 h-[60px] border-b border-border flex-shrink-0 hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden">
             {!admin && logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="Company logo" className="w-full h-full object-cover" />
+              <img src={logoUrl} alt={`${siteConfig.name} logo`} className="w-full h-full object-cover" />
             ) : (
               <Layers size={16} className="text-white" strokeWidth={2.5} />
             )}
           </div>
-        </div>
+          {!collapsed && (
+            <span className="text-[9.5px] font-bold leading-none text-foreground/80 tracking-tight">
+              {siteConfig.name}
+            </span>
+          )}
+        </Link>
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-clip py-2 flex flex-col gap-0.5">
@@ -196,7 +206,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
         </div>
       </aside>
 
-      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems: items, mobileNavItems: mobileItems, includeSettings: !admin })}
+      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems: items, mobileNavItems: mobileItems, includeSettings: !admin, admin })}
     </>
   );
 }
@@ -206,7 +216,7 @@ type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: 
 // ── Shared mobile bottom nav ─────────────────────────────────────────────────
 function mobileBottomNav({
   mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick,
-  handleLogout, initials, user, navItems, mobileNavItems, includeSettings = true,
+  handleLogout, initials, user, navItems, mobileNavItems, includeSettings = true, admin = false,
 }: {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (v: boolean) => void;
@@ -218,15 +228,23 @@ function mobileBottomNav({
   navItems: NavItem[];
   mobileNavItems: NavItem[];
   includeSettings?: boolean;
+  admin?: boolean;
 }) {
   return (
     <>
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-card">
           <div className="flex items-center justify-between px-5 h-[60px] border-b border-border flex-shrink-0">
-            <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center">
-              <Layers size={17} className="text-white" strokeWidth={2.5} />
-            </div>
+            <Link
+              href={admin ? "/admin" : "/dashboard"}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2.5"
+            >
+              <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center flex-shrink-0">
+                <Layers size={17} className="text-white" strokeWidth={2.5} />
+              </div>
+              <span className="text-[15px] font-bold text-foreground">{siteConfig.name}</span>
+            </Link>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-muted hover:text-foreground">
               <X size={20} />
             </button>

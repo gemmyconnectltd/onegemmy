@@ -7,6 +7,7 @@ import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "l
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
 import { Logo } from "@/components/ui/Logo";
+import { siteConfig } from "@/lib/config";
 
 export default function LoginPage() {
   usePageTitle("Sign In");
@@ -75,7 +76,7 @@ export default function LoginPage() {
               <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
                 <Layers className="text-white" size={20} />
               </div>
-              <span className="text-xl font-bold text-white">OneGemmy</span>
+              <span className="text-xl font-bold text-white">{siteConfig.name}</span>
             </div>
 
             <h1 className="text-[40px] font-bold text-white mb-4 leading-[1.15]">

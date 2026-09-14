@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { ShieldCheck, KeyRound, Building2, Lock, Mail } from "lucide-react";
 import { LegalLayout } from "@/components/layout/LegalLayout";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Security - OneGemmy",
+  title: `Security - ${siteConfig.name}`,
 };
 
 const practices = [
@@ -29,7 +30,7 @@ const practices = [
     icon: Lock,
     title: "Encrypted in transit",
     description:
-      "OneGemmy is served over HTTPS, so data moving between your browser and our servers is encrypted.",
+      `${siteConfig.name} is served over HTTPS, so data moving between your browser and our servers is encrypted.`,
   },
 ];
 
@@ -37,7 +38,7 @@ export default function SecurityPage() {
   return (
     <LegalLayout title="Security" lastUpdated="September 10, 2026">
       <p>
-        We know you&apos;re trusting OneGemmy with real business data — sales,
+        We know you&apos;re trusting {siteConfig.name} with real business data — sales,
         customers, inventory, and finances. Here&apos;s a plain look at how
         we protect it.
       </p>
@@ -56,14 +57,14 @@ export default function SecurityPage() {
 
       <h2>Infrastructure</h2>
       <p>
-        OneGemmy runs on managed cloud infrastructure rather than
+        {siteConfig.name} runs on managed cloud infrastructure rather than
         self-hosted servers, so the underlying hardware, network, and
         database are operated by established infrastructure providers.
       </p>
 
       <h2>Our approach</h2>
       <p>
-        We&apos;re a growing team building OneGemmy for businesses across
+        We&apos;re a growing team building {siteConfig.name} for businesses across
         East Africa, and security is something we invest in continuously
         rather than treat as a one-time checklist. If you have specific
         security or compliance requirements for your business, reach out —
