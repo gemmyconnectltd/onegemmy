@@ -46,3 +46,21 @@ export const METHOD_COLOR: Record<string, string> = {
   mobile: "text-blue-600 dark:text-blue-400",
   card:   "text-purple-600 dark:text-purple-400",
 };
+
+/**
+ * Rwanda's fiscal year is the calendar year, so quarters line up Jan-Mar /
+ * Apr-Jun / Jul-Sep / Oct-Dec. RRA's quarterly VAT payment (due 15 days
+ * after a quarter ends) and quarterly CIT instalment (due the 15th of the
+ * quarter's first month) land on the same four dates every year: Jan 15,
+ * Apr 15, Jul 15, Oct 15. This only applies to VAT-quarterly filers
+ * (annual turnover ≤ RWF 200M) — larger taxpayers file VAT monthly.
+ */
+export function nextTaxDeadline(from = new Date()): { date: Date; daysAway: number } {
+  const year = from.getFullYear();
+  const candidates = [0, 3, 6, 9].map((month) => new Date(year, month, 15));
+  candidates.push(new Date(year + 1, 0, 15));
+  const startOfToday = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const next = candidates.find((d) => d.getTime() >= startOfToday.getTime())!;
+  const daysAway = Math.round((next.getTime() - startOfToday.getTime()) / 86_400_000);
+  return { date: next, daysAway };
+}

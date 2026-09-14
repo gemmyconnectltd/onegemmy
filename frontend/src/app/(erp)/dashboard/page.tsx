@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, Package, BarChart3, Target, Zap, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, Activity, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, Package, BarChart3, Target, Zap, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, Activity, AlertTriangle, Landmark } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, DonutChart } from "@/components/charts/lazy";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
 import { useProducts, useCustomers, useOrders, useTargets, useIncomeStatement, useCashFlow, type ApiProduct, type ApiOrder } from "@/lib/api/hooks";
-import { PERIODS, PAST_YEARS, periodDateRange, METHOD_COLOR, type Period } from "./data";
+import { PERIODS, PAST_YEARS, periodDateRange, METHOD_COLOR, nextTaxDeadline, type Period } from "./data";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -370,6 +370,7 @@ export default function DashboardPage() {
     .slice(0, 6);
 
   const recentOrders = orderItems.slice(0, 5);
+  const taxDeadline = nextTaxDeadline();
 
   return (
     <div className="space-y-5">
@@ -419,6 +420,20 @@ export default function DashboardPage() {
           <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
           <p className="text-[13px] text-muted"><span className="font-semibold text-foreground">{lowStock.length} products</span> are running low on stock.</p>
           <a href="/inventory" className="ml-auto text-[12px] font-semibold text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">View all <ChevronRight size={11} /></a>
+        </div>
+      )}
+
+      {taxDeadline.daysAway <= 21 && (
+        <div className="flex items-center gap-2 px-1">
+          <Landmark size={13} className="text-blue-500 flex-shrink-0" />
+          <p className="text-[13px] text-muted">
+            Quarterly VAT &amp; CIT instalment due{" "}
+            <span className="font-semibold text-foreground">
+              {taxDeadline.date.toLocaleDateString(undefined, { month: "long", day: "numeric" })}
+            </span>
+            {" "}({taxDeadline.daysAway === 0 ? "today" : `${taxDeadline.daysAway} day${taxDeadline.daysAway === 1 ? "" : "s"}`}) — applies if you file VAT quarterly.
+          </p>
+          <a href="/accounting" className="ml-auto text-[12px] font-semibold text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap">Accounting <ChevronRight size={11} /></a>
         </div>
       )}
 
