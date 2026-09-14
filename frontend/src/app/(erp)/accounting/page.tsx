@@ -2,7 +2,7 @@
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowRight, Plus, AlertTriangle, RefreshCw, Landmark } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowRight, Plus, AlertTriangle, RefreshCw, Landmark, Percent, Receipt } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { BreakdownCard, breakdownColors, groupSum } from "@/components/charts/BreakdownCard";
@@ -13,7 +13,7 @@ import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useExpenses, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
+import { useAccounts, useIncomeStatement, useCashFlow, useBalanceSheet, useTransactions, useExpenses, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
 import type { AccountingTransaction } from "@/lib/api/accounting";
 
 const EMPTY_SALES: SaleResult[] = [];
@@ -60,6 +60,7 @@ export default function AccountingPage() {
   const accounts = useAccounts();
   const income = useIncomeStatement(from, to);
   const cash = useCashFlow(from, to);
+  const balance = useBalanceSheet();
   const tx = useTransactions();
   const expenses = useExpenses();
   const monthQueries = [
@@ -75,16 +76,22 @@ export default function AccountingPage() {
   const createExpense = useCreateExpense();
   const createTransaction = useCreateTransaction();
 
-  const loading = [accounts, income, cash, tx, ...monthQueries].some((q) => q.isLoading);
-  const error = [accounts, income, cash, tx, ...monthQueries].some((q) => q.isError)
+  const loading = [accounts, income, cash, balance, tx, ...monthQueries].some((q) => q.isLoading);
+  const error = [accounts, income, cash, balance, tx, ...monthQueries].some((q) => q.isError)
     ? "Could not load the accounting overview."
     : null;
+
+  const receivable = (balance.data?.current_assets.accounts ?? [])
+    .filter((a) => /receivable/i.test(a.name))
+    .reduce((s, a) => s + a.amount, 0);
 
   const stats = {
     income: income.data?.total_revenue ?? 0,
     expenses: income.data?.total_operating_expenses ?? 0,
     net: income.data?.net_income ?? 0,
+    marginPct: income.data?.net_margin_pct ?? 0,
     cash: cash.data?.ending_cash ?? 0,
+    receivable,
   };
   const transactions = (tx.data?.items ?? []).slice(0, 8).map(mapTxn);
   const monthly = MONTH_RANGES.map((r, i) => ({
@@ -199,20 +206,22 @@ export default function AccountingPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { label: "Total Income", value: fmt(stats.income), icon: TrendingUp, color: c.income },
               { label: "Total Expenses", value: fmt(stats.expenses), icon: TrendingDown, color: c.expenses },
               { label: "Net Profit", value: fmt(stats.net), icon: DollarSign, color: c.profit },
+              { label: "Net Margin", value: `${stats.marginPct.toFixed(1)}%`, icon: Percent, color: c.gold },
               { label: "Cash Balance", value: fmt(stats.cash), icon: PiggyBank, color: c.blue },
+              { label: "Accounts Receivable", value: fmt(stats.receivable), icon: Receipt, color: c.gray },
             ].map((s) => (
-              <div key={s.label} className="bg-card border border-border rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}14` }}>
-                    <s.icon size={16} style={{ color: s.color }} />
+              <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}18` }}>
+                    <s.icon size={17} style={{ color: s.color }} />
                   </div>
                 </div>
-                <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
+                <p className="text-lg font-extrabold text-foreground tracking-tight truncate" title={s.value}>{s.value}</p>
                 <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
               </div>
             ))}
