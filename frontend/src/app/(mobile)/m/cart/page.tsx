@@ -14,9 +14,9 @@ export default function MobileCartPage() {
   const customers = data?.items ?? [];
 
   const {
-    cart, customerId, customerName, notes, currencySymbol, fmt,
+    cart, customerId, customerName, notes, currencySymbol, fmt, payment,
     totalItems, total, subtotal, tax, discount,
-    setCustomer, setNotes, updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    setCustomer, setNotes, updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart, holdSale,
   } = useMobilePos();
 
   if (cart.length === 0) {
@@ -57,6 +57,8 @@ export default function MobileCartPage() {
           onRemoveItem={removeItem}
           onClear={clearCart}
           onHold={holdSale}
+          showCashReceived={payment === "cash"}
+          onUpdateCashReceived={updateItemCashReceived}
         />
       </div>
 

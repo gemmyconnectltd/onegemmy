@@ -35,6 +35,8 @@ interface PaymentPanelProps {
   fmt: (v: number) => string;
   saving?: boolean;
   saleError?: string | null;
+  /** Sum of cash recorded per cart line, when itemizing instead of one lump sum. */
+  itemsCashReceivedSum?: number;
   onPaymentChange: (m: PaymentMethod) => void;
   onCashChange: (v: string) => void;
   onCharge: () => void;
@@ -43,7 +45,7 @@ interface PaymentPanelProps {
 export function PaymentPanel({
   payment, cashGiven, subtotal, discount, tax, total,
   change, cashShort, cartCount, vatEnabled, currencySymbol, fmt,
-  saving, saleError,
+  saving, saleError, itemsCashReceivedSum,
   onPaymentChange, onCashChange, onCharge,
 }: PaymentPanelProps) {
   const chargeDisabled = cartCount === 0 || saving || cashShort;
@@ -97,8 +99,19 @@ export function PaymentPanel({
       {/* Cash received */}
       {payment === "cash" && cartCount > 0 && (
         <div className="bg-surface rounded-xl px-3.5 py-3 space-y-2.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide">
-            <Wallet size={12} className="text-accent" /> Cash Received
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide">
+              <Wallet size={12} className="text-accent" /> Cash Received
+            </div>
+            {!!itemsCashReceivedSum && itemsCashReceivedSum > 0 && String(itemsCashReceivedSum) !== cashGiven && (
+              <button
+                type="button"
+                onClick={() => onCashChange(String(itemsCashReceivedSum))}
+                className="text-[10.5px] font-semibold text-accent hover:underline whitespace-nowrap"
+              >
+                Use itemized: {currencySymbol} {fmt(itemsCashReceivedSum)}
+              </button>
+            )}
           </div>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-mono text-muted">{currencySymbol}</span>

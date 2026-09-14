@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
 
 import { IconBadge, getProductIcon, productAccent } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
@@ -23,11 +23,15 @@ interface CartPanelProps {
   onRemoveItem: (id: string) => void;
   onClear: () => void;
   onHold: () => void;
+  /** Show a per-line "Received" input so cash can be recorded item-by-item. */
+  showCashReceived?: boolean;
+  onUpdateCashReceived?: (id: string, value: number) => void;
 }
 
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
   onCustomerChange, onNotesChange, onUpdateQty, onUpdateDiscount, onRemoveItem, onClear, onHold,
+  showCashReceived, onUpdateCashReceived,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -183,7 +187,7 @@ export function CartPanel({
                     )}
                     <p className="text-[11px] text-muted font-mono mt-0.5">{currencySymbol} {fmt(item.price)} each</p>
                     {/* Discount */}
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       <div className="flex items-center gap-1 bg-surface rounded-md px-1.5 py-0.5 focus-within:ring-1 focus-within:ring-accent">
                         <Percent size={9} className="text-muted/60 flex-shrink-0" />
                         <input
@@ -197,6 +201,19 @@ export function CartPanel({
                       </div>
                       {item.discount > 0 && (
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">-{fmt(item.discount)}</span>
+                      )}
+                      {showCashReceived && onUpdateCashReceived && (
+                        <div className="flex items-center gap-1 bg-surface rounded-md px-1.5 py-0.5 focus-within:ring-1 focus-within:ring-accent" title="Cash received for this item">
+                          <Wallet size={9} className="text-muted/60 flex-shrink-0" />
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.cashReceived || ""}
+                            onChange={(e) => onUpdateCashReceived(item.id, Number(e.target.value) || 0)}
+                            placeholder="Received"
+                            className="w-16 text-[11px] outline-none bg-transparent text-foreground font-mono"
+                          />
+                        </div>
                       )}
                     </div>
                   </div>

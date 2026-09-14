@@ -65,9 +65,9 @@ export default function MobilePosPage() {
   const customersQ = useCustomers(1, 500);
   const { theme, setTheme } = useAppConfig();
   const {
-    cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total,
+    cart, addToCart, addVariantToCart, heldOrders, currencySymbol, fmt, totalItems, total, payment,
     customerId, customerName, notes, subtotal, tax, discount,
-    setCustomer, setNotes, updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    setCustomer, setNotes, updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart, holdSale,
     saving, completeSale,
   } = useMobilePos();
 
@@ -364,6 +364,8 @@ export default function MobilePosPage() {
                 onNotesChange={setNotes}
                 onUpdateQty={updateQty}
                 onUpdateDiscount={updateDiscount}
+                onUpdateCashReceived={updateItemCashReceived}
+                showCashReceived={payment === "cash"}
                 onRemoveItem={removeItem}
                 onClear={() => {
                   clearCart();

@@ -164,6 +164,10 @@ export default function POSPage() {
     setCashGiven("");
   };
 
+  const updateItemCashReceived = (id: string, value: number) => {
+    setCart((prev) => prev.map((i) => i.id === id ? { ...i, cashReceived: Math.max(0, value) } : i));
+  };
+
   const removeItem = (id: string) => setCart((prev) => prev.filter((i) => i.id !== id));
 
   const clearCart = () => {
@@ -184,6 +188,7 @@ export default function POSPage() {
   // ── totals ───────────────────────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const discount = cart.reduce((s, i) => s + i.discount, 0);
+  const itemsCashReceivedSum = cart.reduce((s, i) => s + (i.cashReceived || 0), 0);
   const gross = subtotal - discount;
   const taxable = Math.round(gross / (1 + TAX_RATE));
   const tax = gross - taxable;
@@ -424,6 +429,8 @@ export default function POSPage() {
               onRemoveItem={removeItem}
               onClear={clearCart}
               onHold={holdSale}
+              showCashReceived={payment === "cash"}
+              onUpdateCashReceived={updateItemCashReceived}
             />
           </div>
           {/* Payment — never grows, scrolls its own content if needed */}
@@ -444,6 +451,7 @@ export default function POSPage() {
                 fmt={fmt}
                 saving={saving}
                 saleError={saleError}
+                itemsCashReceivedSum={itemsCashReceivedSum}
                 onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
                 onCashChange={setCashGiven}
                 onCharge={completeSale}
