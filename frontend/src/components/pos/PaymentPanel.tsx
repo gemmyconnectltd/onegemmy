@@ -40,45 +40,45 @@ export function PaymentPanel({
   const chargeDisabled = cartCount === 0 || saving;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
 
       {/* Totals */}
-      <div className="space-y-1 font-mono text-[12px]">
-        <div className="flex justify-between text-muted">
+      <div className="bg-surface rounded-xl px-3.5 py-3 space-y-1.5">
+        <div className="flex justify-between text-[12px] font-mono text-muted">
           <span>{vatEnabled ? "Subtotal (incl. VAT)" : "Subtotal"}</span>
           <span>{currencySymbol} {fmt(subtotal)}</span>
         </div>
         {discount > 0 && (
-          <div className="flex justify-between text-emerald-600 font-semibold">
+          <div className="flex justify-between text-[12px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
             <span>Discount</span>
             <span>-{currencySymbol} {fmt(discount)}</span>
           </div>
         )}
         {vatEnabled && (
-          <div className="flex justify-between text-muted">
+          <div className="flex justify-between text-[12px] font-mono text-muted">
             <span>VAT (18%, included)</span>
             <span>{currencySymbol} {fmt(tax)}</span>
           </div>
         )}
-        <div className="flex justify-between text-[14px] font-bold text-foreground border-t border-border pt-1.5">
-          <span>Total</span>
-          <span className="text-accent">{currencySymbol} {fmt(total)}</span>
+        <div className="flex justify-between items-baseline border-t border-border pt-2 mt-1.5">
+          <span className="text-[12px] font-bold text-foreground uppercase tracking-wide">Total</span>
+          <span className="text-[24px] font-extrabold text-accent font-mono tabular-nums tracking-tight">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
 
       {/* Payment method tabs */}
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-3 gap-2">
         {PAYMENT_METHODS.map((m) => (
           <button
             key={m.id}
             onClick={() => onPaymentChange(m.id)}
-            className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold border-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center justify-center gap-1.5 py-3 text-[11px] font-bold rounded-xl border-2 transition-all ${
               payment === m.id
-                ? "border-accent bg-accent text-white shadow-sm"
-                : "border-border text-foreground/60 hover:border-accent/50 hover:text-foreground"
+                ? "border-accent bg-accent text-white shadow-md shadow-accent/20"
+                : "border-border text-foreground/70 hover:border-accent/40 hover:bg-surface"
             }`}
           >
-            <m.icon size={13} />
+            <m.icon size={18} strokeWidth={2} />
             <span>{m.label}</span>
           </button>
         ))}
@@ -94,11 +94,16 @@ export function PaymentPanel({
       <button
         disabled={chargeDisabled}
         onClick={onCharge}
-        className="w-full py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+        className="w-full py-4 bg-accent text-white font-bold text-[16px] rounded-xl shadow-lg shadow-accent/25 hover:brightness-110 active:scale-[0.98] transition disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2"
       >
-        {saving
-          ? "Saving sale…"
-          : `Charge${cartCount > 0 ? ` ${currencySymbol} ${fmt(total)}` : ""}`}
+        {saving ? (
+          "Saving sale…"
+        ) : (
+          <>
+            Charge
+            {cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(total)}</span>}
+          </>
+        )}
       </button>
     </div>
   );

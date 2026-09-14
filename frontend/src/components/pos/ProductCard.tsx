@@ -125,17 +125,17 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
 
   return (
     <div
-      className={`bg-card border-2 rounded-2xl text-left transition-all relative overflow-hidden flex flex-col ${
+      className={`bg-card border-2 rounded-2xl text-left transition-all duration-150 relative overflow-hidden flex flex-col ${
         disabled
           ? "opacity-40 border-border"
           : inCartQty > 0
-          ? "border-accent shadow-sm"
-          : "border-border hover:border-accent/40 hover:shadow-md"
+          ? "border-accent shadow-md shadow-accent/10 -translate-y-0.5"
+          : "border-border hover:border-accent/40 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5"
       } ${bumping ? "scale-[0.96]" : ""}`}
     >
       {/* Cart qty badge */}
       {inCartQty > 0 && (
-        <span className="absolute top-2 right-2 z-10 w-6 h-6 bg-accent text-white text-[11px] font-bold flex items-center justify-center rounded-full shadow">
+        <span className="absolute top-2 right-2 z-10 min-w-[24px] h-6 px-1 bg-accent text-white text-[12px] font-bold flex items-center justify-center rounded-full shadow-md ring-2 ring-card">
           {inCartQty}
         </span>
       )}
@@ -183,15 +183,15 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
             </div>
           )}
           {outOfStock && (
-            <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-red-500 bg-white/90 px-2 py-0.5 rounded-full">Out of stock</span>
+            <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
+              <span className="text-[10px] font-bold text-white bg-red-500/90 px-2.5 py-1 rounded-full shadow-sm">Out of stock</span>
             </div>
           )}
         </div>
 
         {/* Info */}
-        <div className="p-3 flex flex-col gap-0.5 flex-1">
-          <p className="text-[12px] font-semibold text-foreground leading-tight line-clamp-2">{product.name}</p>
+        <div className="p-3 flex flex-col gap-1 flex-1">
+          <p className="text-[12.5px] font-semibold text-foreground leading-tight line-clamp-2 min-h-[2.4em]">{product.name}</p>
           {isVariantGroup ? (
             <p className="text-[10px] text-accent font-semibold flex items-center gap-0.5">
               {product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -199,17 +199,17 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           ) : product.sku ? (
             <p className="text-[10px] text-muted font-mono truncate">{product.sku}</p>
           ) : null}
-          <p className="text-[13px] text-accent font-bold mt-auto pt-1 font-mono">
-            {currencySymbol} {fmt(product.price)}
-          </p>
-          <div className="flex items-center justify-between mt-0.5">
-            <p className="text-[10px] text-muted truncate">{product.category}</p>
+          <div className="flex items-center justify-between mt-auto pt-1.5">
+            <p className="text-[15px] text-accent font-bold font-mono tracking-tight">
+              {currencySymbol} {fmt(product.price)}
+            </p>
             {lowStock && !isVariantGroup && (
-              <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 flex-shrink-0">
+              <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
                 <AlertTriangle size={9} /> {product.stock}
               </span>
             )}
           </div>
+          <p className="text-[10px] text-muted truncate">{product.category}</p>
         </div>
       </button>
 

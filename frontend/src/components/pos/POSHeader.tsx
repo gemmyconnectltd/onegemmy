@@ -34,41 +34,44 @@ export function POSHeader({
   onToggleLang, showLang, onSetLocale, onToggleTheme,
 }: POSHeaderProps) {
   return (
-    <header className="flex-shrink-0 z-20 bg-card border-b border-border">
-      <div className="h-12 flex items-center px-3 gap-2">
+    <header className="flex-shrink-0 z-20 bg-card border-b border-border shadow-sm">
+      <div className="h-16 flex items-center px-4 gap-3">
         {/* Back */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-1.5 text-[12px] font-medium text-muted hover:text-foreground transition-colors px-2 py-1.5 rounded-lg hover:bg-surface"
+          className="flex items-center gap-1.5 text-[13px] font-medium text-muted hover:text-foreground transition-colors px-2.5 py-2 rounded-lg hover:bg-surface"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={15} />
           <span className="hidden sm:inline">Dashboard</span>
         </Link>
 
-        <div className="w-px h-4 bg-border" />
+        <div className="w-px h-5 bg-border" />
 
-        <span className="text-[13px] font-bold text-foreground">Point of Sale</span>
+        <span className="text-[15px] font-bold text-foreground tracking-tight">Point of Sale</span>
 
         {/* Today stats */}
-        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-accent/10 rounded-lg text-accent ml-2">
-          <TrendingUp size={12} />
-          <span className="text-[11px] font-bold">{todayCount} sold</span>
-          <span className="w-px h-3 bg-accent/30" />
-          <span className="text-[11px] font-bold font-mono">{currencySymbol} {fmt(todayRevenue)}</span>
+        <div className="hidden md:flex items-center gap-3 pl-3.5 pr-4 py-2 bg-accent/[0.07] border border-accent/10 rounded-xl ml-2">
+          <div className="flex items-center gap-1.5 text-accent">
+            <TrendingUp size={13} />
+            <span className="text-[12px] font-bold">{todayCount}</span>
+            <span className="text-[11px] font-medium text-accent/70">sold today</span>
+          </div>
+          <span className="w-px h-4 bg-accent/20" />
+          <span className="text-[13px] font-bold font-mono text-foreground">{currencySymbol} {fmt(todayRevenue)}</span>
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2">
           {/* Held orders */}
           <button
             onClick={onToggleHeld}
-            className={`relative flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg text-[12px] font-medium transition-colors ${
+            className={`relative flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[12px] font-semibold transition-colors ${
               showHeld ? "border-accent bg-accent/5 text-accent" : "border-border text-foreground hover:bg-surface"
             }`}
           >
-            <History size={13} />
+            <History size={14} />
             <span className="hidden sm:inline">Held</span>
             {heldCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-accent text-white text-[9px] font-bold flex items-center justify-center rounded-full">
+              <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-1 bg-accent text-white text-[9px] font-bold flex items-center justify-center rounded-full ring-2 ring-card">
                 {heldCount}
               </span>
             )}
@@ -78,9 +81,9 @@ export function POSHeader({
           <div className="relative">
             <button
               onClick={onToggleLang}
-              className="flex items-center gap-1 px-2.5 py-1.5 border border-border rounded-lg text-[12px] font-medium text-foreground hover:bg-surface transition-colors"
+              className="flex items-center gap-1 px-3 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground hover:bg-surface transition-colors"
             >
-              <Globe size={13} />
+              <Globe size={14} />
               <span className="hidden sm:inline">{locales.find((l) => l.code === locale)?.name}</span>
               <ChevronDown size={11} className={`text-muted transition-transform ${showLang ? "rotate-180" : ""}`} />
             </button>
@@ -104,10 +107,10 @@ export function POSHeader({
           {/* Theme toggle */}
           <button
             onClick={onToggleTheme}
-            className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground hover:bg-surface transition-colors"
+            className="w-9 h-9 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground hover:bg-surface transition-colors"
             aria-label="Toggle theme"
           >
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>
         </div>
       </div>
