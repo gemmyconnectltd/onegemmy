@@ -60,12 +60,12 @@ export default function RegisterPage() {
 
         <div className="relative z-10 flex flex-col justify-between w-full p-12">
           <div>
-            <div className="flex items-center gap-2.5 mb-16">
+            <Link href="/" className="flex items-center gap-2.5 mb-16 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
               <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
                 <Layers className="text-white" size={20} />
               </div>
               <span className="text-xl font-bold text-white">{siteConfig.name}</span>
-            </div>
+            </Link>
 
             <h1 className="text-[40px] font-bold text-white mb-4 leading-[1.15]">
               Start Managing

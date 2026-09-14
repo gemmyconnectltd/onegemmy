@@ -14,6 +14,8 @@ import { ProductFormDrawer, type ProductFormValues } from "@/components/inventor
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { Button } from "@/components/ui/Button";
+import { BreakdownCard, breakdownColors, groupSum } from "@/components/charts/BreakdownCard";
+import { chartPalette } from "@/lib/chartColors";
 
 function getStatus(stock: number, min: number) {
   if (stock === 0) return "out";
@@ -62,8 +64,9 @@ function toRow(p: ApiProduct) {
 }
 
 export default function InventoryOverviewPage() {
-  const { brandColor } = useAppConfig();
+  const { brandColor, theme } = useAppConfig();
   const INV_COLOR = brandColor;
+  const c = chartPalette(theme === "dark");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
   const [showForm, setShowForm] = useState(false);
@@ -120,6 +123,7 @@ export default function InventoryOverviewPage() {
   const inCount    = inventory.filter((i) => getStatus(i.stock, i.minStock) === "in_stock").length;
   const totalVariants = inventory.reduce((s, i) => s + i.variantCount, 0);
   const topByValue = [...inventory].sort((a, b) => b.value - a.value).slice(0, 4);
+  const valueByCategory = groupSum(inventory, (i) => i.category || "Uncategorized", (i) => i.value);
 
   if (isLoading) return <PageLoader />;
 
@@ -156,9 +160,9 @@ export default function InventoryOverviewPage() {
           { label: "Low Stock",      value: String(lowCount),         sub: "Need reorder",     icon: AlertTriangle, color: "#f59e0b", change: null },
           { label: "Out of Stock",   value: String(outCount),         sub: "Immediate action", icon: XCircle,       color: "#ef4444", change: null },
         ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-start justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && (
@@ -173,10 +177,19 @@ export default function InventoryOverviewPage() {
         ))}
       </div>
 
-      {/* Stock health + top products */}
+      {/* Value by category, stock health + top products */}
       {inventory.length > 0 && (
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="bg-card border border-border p-5">
+          <BreakdownCard
+            title="Stock Value by Category"
+            sub="Inventory · current"
+            icon={Package}
+            data={valueByCategory}
+            colors={breakdownColors(c)}
+            tooltipStyle={c.tooltip}
+            empty="No inventory value yet"
+          />
+          <div className="bg-card border border-border rounded-xl p-5">
             <p className="text-sm font-bold text-foreground mb-4">Stock Health</p>
             <div className="space-y-3">
               {[
@@ -203,7 +216,7 @@ export default function InventoryOverviewPage() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-card border border-border p-5">
+          <div className="bg-card border border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-bold text-foreground">Top Products by Value</p>
               <span className="text-[11px] text-muted">At cost price</span>

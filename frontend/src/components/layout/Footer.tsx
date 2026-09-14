@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Layers, Mail } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 
@@ -7,7 +8,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
-            <div className="flex items-center gap-2.5 mb-4">
+            <Link href="/" className="flex items-center gap-2.5 mb-4 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
               <div className="w-10 h-10 bg-foreground flex items-center justify-center">
                 <Layers className="text-white" size={20} />
               </div>
@@ -17,7 +18,7 @@ export function Footer() {
                 </span>
 
               </div>
-            </div>
+            </Link>
             <p className="text-white/50 text-sm leading-relaxed">
               All-in-one business management platform by {siteConfig.company}.
             </p>

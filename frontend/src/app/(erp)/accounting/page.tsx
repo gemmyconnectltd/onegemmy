@@ -2,9 +2,10 @@
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowRight, Plus, AlertTriangle, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowRight, Plus, AlertTriangle, RefreshCw, Landmark } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
+import { BreakdownCard, breakdownColors, groupSum } from "@/components/charts/BreakdownCard";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
 import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
@@ -12,7 +13,7 @@ import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
+import { useAccounts, useIncomeStatement, useCashFlow, useTransactions, useExpenses, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
 import type { AccountingTransaction } from "@/lib/api/accounting";
 
 const EMPTY_SALES: SaleResult[] = [];
@@ -60,6 +61,7 @@ export default function AccountingPage() {
   const income = useIncomeStatement(from, to);
   const cash = useCashFlow(from, to);
   const tx = useTransactions();
+  const expenses = useExpenses();
   const monthQueries = [
     useIncomeStatement(MONTH_RANGES[0].from, MONTH_RANGES[0].to),
     useIncomeStatement(MONTH_RANGES[1].from, MONTH_RANGES[1].to),
@@ -90,6 +92,11 @@ export default function AccountingPage() {
     income: monthQueries[i].data?.total_revenue ?? 0,
     expenses: monthQueries[i].data?.total_operating_expenses ?? 0,
   }));
+  const expensesInRange = (expenses.data?.items ?? []).filter((e) => {
+    const d = (e.expense_date ?? "").slice(0, 10);
+    return d >= from && d <= to;
+  });
+  const expensesByCategory = groupSum(expensesInRange, (e) => e.category || "Uncategorized", (e) => e.amount);
 
   const retry = () => { qc.invalidateQueries({ queryKey: ["accounting"] }); };
 
@@ -199,9 +206,9 @@ export default function AccountingPage() {
               { label: "Net Profit", value: fmt(stats.net), icon: DollarSign, color: c.profit },
               { label: "Cash Balance", value: fmt(stats.cash), icon: PiggyBank, color: c.blue },
             ].map((s) => (
-              <div key={s.label} className="bg-card p-4">
+              <div key={s.label} className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}14` }}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}14` }}>
                     <s.icon size={16} style={{ color: s.color }} />
                   </div>
                 </div>
@@ -211,30 +218,42 @@ export default function AccountingPage() {
             ))}
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-foreground mb-4">Income vs Expenses (6 months)</h2>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthly}>
-                  <defs>
-                    <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={c.income} stopOpacity={0.15} />
-                      <stop offset="95%" stopColor={c.income} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={c.expenses} stopOpacity={0.1} />
-                      <stop offset="95%" stopColor={c.expenses} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v, n) => [fmt(Number(v)), n === "income" ? "Income" : "Expenses"]} contentStyle={c.tooltip} />
-                  <Area type="monotone" dataKey="income" stroke={c.income} strokeWidth={2} fill="url(#gIncome)" dot={false} />
-                  <Area type="monotone" dataKey="expenses" stroke={c.expenses} strokeWidth={2} fill="url(#gExp)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
+          <div className="grid lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm">
+              <h2 className="text-sm font-bold text-foreground mb-4">Income vs Expenses (6 months)</h2>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthly}>
+                    <defs>
+                      <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={c.income} stopOpacity={0.15} />
+                        <stop offset="95%" stopColor={c.income} stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={c.expenses} stopOpacity={0.1} />
+                        <stop offset="95%" stopColor={c.expenses} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v, n) => [fmt(Number(v)), n === "income" ? "Income" : "Expenses"]} contentStyle={c.tooltip} />
+                    <Area type="monotone" dataKey="income" stroke={c.income} strokeWidth={2} fill="url(#gIncome)" dot={false} />
+                    <Area type="monotone" dataKey="expenses" stroke={c.expenses} strokeWidth={2} fill="url(#gExp)" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
+            <BreakdownCard
+              title="Expenses by Category"
+              sub="Year to date · costs"
+              icon={Landmark}
+              data={expensesByCategory}
+              colors={breakdownColors(c)}
+              tooltipStyle={c.tooltip}
+              loading={expenses.isLoading}
+              empty="No expenses recorded yet"
+            />
           </div>
 
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">

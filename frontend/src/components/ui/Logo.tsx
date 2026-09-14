@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { Layers } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
+  /** Where clicking the logo navigates. Defaults to the marketing home page. */
+  href?: string;
 }
 
 const containerSizes = {
@@ -17,9 +20,9 @@ const textSizes = {
   lg: "text-xl",
 };
 
-export function Logo({ size = "md" }: LogoProps) {
+export function Logo({ size = "md", href = "/" }: LogoProps) {
   return (
-    <div className="flex items-center gap-2">
+    <Link href={href} className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg">
       <div
         className={`${containerSizes[size]} bg-foreground rounded-xl flex items-center justify-center`}
       >
@@ -31,6 +34,6 @@ export function Logo({ size = "md" }: LogoProps) {
         </span>
 
       </div>
-    </div>
+    </Link>
   );
 }
