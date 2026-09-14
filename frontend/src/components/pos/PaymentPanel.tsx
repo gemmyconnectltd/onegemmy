@@ -1,8 +1,17 @@
 "use client";
 
-import { AlertCircle, Banknote, CreditCard, Smartphone } from "lucide-react";
+import { AlertCircle, Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
 
 import type { PaymentMethod } from "./types";
+
+/** Quick cash-received suggestions: the exact total, then rounded up to the
+ * nearest common note denominations — mirrors how cashiers actually think. */
+function quickCashAmounts(total: number): number[] {
+  const roundUps = [100, 500, 1000, 5000]
+    .map((step) => Math.ceil(total / step) * step)
+    .filter((v) => v > total);
+  return [...new Set([total, ...roundUps])].slice(0, 4);
+}
 
 const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { id: "cash",    label: "Cash",    icon: Banknote   },
@@ -32,12 +41,13 @@ interface PaymentPanelProps {
 }
 
 export function PaymentPanel({
-  payment, subtotal, discount, tax, total,
-  cartCount, vatEnabled, currencySymbol, fmt,
+  payment, cashGiven, subtotal, discount, tax, total,
+  change, cashShort, cartCount, vatEnabled, currencySymbol, fmt,
   saving, saleError,
-  onPaymentChange, onCharge,
+  onPaymentChange, onCashChange, onCharge,
 }: PaymentPanelProps) {
-  const chargeDisabled = cartCount === 0 || saving;
+  const chargeDisabled = cartCount === 0 || saving || cashShort;
+  const quickAmounts = quickCashAmounts(total);
 
   return (
     <div className="space-y-3">
@@ -83,6 +93,53 @@ export function PaymentPanel({
           </button>
         ))}
       </div>
+
+      {/* Cash received */}
+      {payment === "cash" && cartCount > 0 && (
+        <div className="bg-surface rounded-xl px-3.5 py-3 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide">
+            <Wallet size={12} className="text-accent" /> Cash Received
+          </div>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-mono text-muted">{currencySymbol}</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={cashGiven}
+              onChange={(e) => onCashChange(e.target.value)}
+              placeholder={fmt(total)}
+              className={`w-full pl-11 pr-3 py-2.5 rounded-lg border-2 bg-card text-[15px] font-mono font-bold tabular-nums outline-none transition-colors ${
+                cashShort ? "border-red-400 focus:border-red-500" : "border-border focus:border-accent"
+              }`}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {quickAmounts.map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                onClick={() => onCashChange(String(amt))}
+                className="px-2.5 py-1 rounded-md bg-card border border-border text-[11px] font-semibold text-foreground/70 hover:border-accent/50 hover:text-accent transition-colors"
+              >
+                {currencySymbol} {fmt(amt)}
+              </button>
+            ))}
+          </div>
+          {cashGiven !== "" && (
+            cashShort ? (
+              <p className="text-[12px] font-semibold text-red-500">
+                Short by {currencySymbol} {fmt(total - Number(cashGiven))}
+              </p>
+            ) : (
+              <div className="flex justify-between items-center pt-1.5 border-t border-border">
+                <span className="text-[12px] font-bold text-foreground">Change Due</span>
+                <span className="text-[16px] font-extrabold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">{currencySymbol} {fmt(change)}</span>
+              </div>
+            )
+          )}
+        </div>
+      )}
 
       {/* Error + Charge */}
       {saleError && (
