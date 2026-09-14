@@ -10,6 +10,7 @@ import { chartPalette, type ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
 import { useProducts, useCustomers, useOrders, useTargets, useIncomeStatement, useCashFlow, type ApiProduct, type ApiOrder } from "@/lib/api/hooks";
 import { PERIODS, PAST_YEARS, periodDateRange, METHOD_COLOR, nextTaxDeadline, type Period } from "./data";
+import { ModuleBreakdown } from "./ModuleBreakdown";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -286,42 +287,7 @@ function TopProducts({ orders }: { orders: ApiOrder[] }) {
   );
 }
 
-function CategoryPie({ data, c }: { data: { name: string; value: number }[]; c: ChartPalette }) {
-  const colors = [c.income, c.blue, c.gold, c.expenses, c.profit, c.gray];
-  const total = data.reduce((s, d) => s + d.value, 0);
-  return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-bold text-foreground">Sales by Category</h2>
-      </div>
-      {total <= 0 ? (
-        <p className="px-4 py-6 text-[12px] text-muted text-center">No sales data yet</p>
-      ) : (
-        <div className="p-4 flex items-center gap-4">
-          <div className="w-[110px] h-[110px] flex-shrink-0">
-            <DonutChart
-              data={data}
-              colors={colors}
-              tooltipStyle={c.tooltip}
-              tooltipFormatter={(v, n) => [fmtMoney(Number(v)), String(n)]}
-            />
-          </div>
-          <div className="flex-1 min-w-0 space-y-2">
-            {data.slice(0, 5).map((d, i) => (
-              <div key={d.name} className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
-                <span className="text-[12px] text-foreground/80 truncate flex-1">{d.name}</span>
-                <span className="text-[11px] font-bold text-muted flex-shrink-0">{Math.round((d.value / total) * 100)}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SidePanel({ orders, lowStock, categoryData, c }: { orders: ApiOrder[]; lowStock: { id: string; name: string; stock: number; min: number }[]; categoryData: { name: string; value: number }[]; c: ChartPalette }) {
+function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { id: string; name: string; stock: number; min: number }[] }) {
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -331,7 +297,6 @@ function SidePanel({ orders, lowStock, categoryData, c }: { orders: ApiOrder[]; 
         </div>
         <TopProducts orders={orders} />
       </div>
-      <CategoryPie data={categoryData} c={c} />
       {lowStock.length > 0 ? (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
@@ -538,8 +503,10 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-        <SidePanel orders={allOrderItems} lowStock={lowStock} categoryData={categoryData} c={c} />
+        <SidePanel orders={allOrderItems} lowStock={lowStock} />
         </div>
+
+        <ModuleBreakdown salesData={categoryData} inventory={inventory} from={from} to={to} label={label} c={c} />
       </>
       )}
     </div>
