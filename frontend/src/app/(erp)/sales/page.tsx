@@ -1,12 +1,14 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
-import { Plus, Search, TrendingUp, ShoppingCart, Target, ArrowUpRight, Users, Edit2, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Search, TrendingUp, ShoppingCart, Target, ArrowUpRight, Users, Edit2, Trash2, AlertCircle, Handshake } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useState } from "react";
 import { useAppConfig } from "@/lib/appConfig";
+import { chartPalette } from "@/lib/chartColors";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
+import { BreakdownCard, breakdownColors, groupSum } from "@/components/charts/BreakdownCard";
 import { useDeals, useCreateDeal, useUpdateDeal, useDeleteDeal } from "@/lib/api/hooks";
 import type { ApiDeal } from "@/lib/api";
 
@@ -29,8 +31,9 @@ const STAGE_COLOR: Record<string, string> = {
 const EMPTY_FORM = { name: "", value: "", stage: "Leads", probability: "50", expected_close_date: "", notes: "" };
 
 export default function SalesPage() {
-  const { currencySymbol, brandColor } = useAppConfig();
+  const { currencySymbol, brandColor, theme } = useAppConfig();
   const SAL = brandColor;
+  const c = chartPalette(theme === "dark");
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +74,7 @@ export default function SalesPage() {
     value: deals.filter((d) => d.stage === s).reduce((t, d) => t + d.value, 0),
     color: STAGE_COLOR[s],
   }));
+  const pipelineByStage = groupSum(deals, (d) => d.stage, (d) => d.value);
 
   const filtered = deals.filter((d) => {
     const q = search.toLowerCase();
@@ -123,9 +127,9 @@ export default function SalesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card p-4">
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}10` }}>
                 <s.icon size={16} style={{ color: s.color }} />
               </div>
               {s.change && <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600"><ArrowUpRight size={11} />live</span>}
@@ -136,18 +140,30 @@ export default function SalesPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {stageCards.map((s) => (
-          <button key={s.name} onClick={() => setStageFilter(stageFilter === s.name ? "All" : s.name)}
-            className={`bg-card border rounded-xl p-4 hover:shadow-md transition-all text-left ${stageFilter === s.name ? "border-foreground/20 shadow-sm" : "border-border"}`}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-              <span className="text-xs font-semibold text-muted bg-surface px-2 py-0.5 rounded-full">{s.count}</span>
-            </div>
-            <p className="text-sm font-bold text-foreground">{s.name}</p>
-            <p className="text-xs text-muted mt-0.5">{fmt(s.value)}</p>
-          </button>
-        ))}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <BreakdownCard
+          title="Pipeline by Stage"
+          sub="All deals · by value"
+          icon={Handshake}
+          data={pipelineByStage}
+          colors={breakdownColors(c)}
+          tooltipStyle={c.tooltip}
+          loading={isLoading}
+          empty="No deals in the pipeline yet"
+        />
+        <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {stageCards.map((s) => (
+            <button key={s.name} onClick={() => setStageFilter(stageFilter === s.name ? "All" : s.name)}
+              className={`bg-card border rounded-xl p-4 hover:shadow-md transition-all text-left ${stageFilter === s.name ? "border-foreground/20 shadow-sm" : "border-border"}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                <span className="text-xs font-semibold text-muted bg-surface px-2 py-0.5 rounded-full">{s.count}</span>
+              </div>
+              <p className="text-sm font-bold text-foreground">{s.name}</p>
+              <p className="text-xs text-muted mt-0.5">{fmt(s.value)}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
