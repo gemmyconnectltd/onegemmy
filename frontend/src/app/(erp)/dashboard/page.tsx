@@ -437,6 +437,8 @@ export default function DashboardPage() {
           label={label} c={c}
         />
 
+      <ModuleBreakdown salesData={categoryData} inventory={inventory} from={from} to={to} label={label} c={c} />
+
       {lowStock.length > 0 && (
         <div className="flex items-center gap-2 px-1">
           <AlertTriangle size={13} className="text-amber-500 flex-shrink-0" />
@@ -505,8 +507,6 @@ export default function DashboardPage() {
         </div>
         <SidePanel orders={allOrderItems} lowStock={lowStock} />
         </div>
-
-        <ModuleBreakdown salesData={categoryData} inventory={inventory} from={from} to={to} label={label} c={c} />
       </>
       )}
     </div>
