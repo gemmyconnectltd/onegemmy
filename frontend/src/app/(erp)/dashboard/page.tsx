@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, Users, ShoppingCart, Package, BarChart3, Target, Zap, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, Activity, AlertTriangle } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, DonutChart } from "@/components/charts/lazy";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
@@ -62,8 +62,21 @@ function buildChart(orders: ApiOrder[], period: Period): { label: string; sales:
       expenses: 0,
     }));
   }
-  // year / year_YYYY — monthly
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  if (period === "quarter") {
+    const startMonth = Math.floor(new Date().getMonth() / 3) * 3;
+    return [0, 1, 2].map((i) => {
+      const m = startMonth + i;
+      return {
+        label: months[m],
+        sales: orders
+          .filter((o) => new Date(o.ordered_at ?? o.created_at ?? "").getMonth() === m)
+          .reduce((s, o) => s + o.total, 0),
+        expenses: 0,
+      };
+    });
+  }
+  // year / year_YYYY — monthly
   return months.map((label, i) => ({
     label,
     sales: orders
@@ -216,7 +229,42 @@ function TopProducts({ orders }: { orders: ApiOrder[] }) {
   );
 }
 
-function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { id: string; name: string; stock: number; min: number }[] }) {
+function CategoryPie({ data, c }: { data: { name: string; value: number }[]; c: ChartPalette }) {
+  const colors = [c.income, c.blue, c.gold, c.expenses, c.profit, c.gray];
+  const total = data.reduce((s, d) => s + d.value, 0);
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <h2 className="text-sm font-bold text-foreground">Sales by Category</h2>
+      </div>
+      {total <= 0 ? (
+        <p className="px-4 py-6 text-[12px] text-muted text-center">No sales data yet</p>
+      ) : (
+        <div className="p-4 flex items-center gap-4">
+          <div className="w-[110px] h-[110px] flex-shrink-0">
+            <DonutChart
+              data={data}
+              colors={colors}
+              tooltipStyle={c.tooltip}
+              tooltipFormatter={(v, n) => [fmtMoney(Number(v)), String(n)]}
+            />
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            {data.slice(0, 5).map((d, i) => (
+              <div key={d.name} className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
+                <span className="text-[12px] text-foreground/80 truncate flex-1">{d.name}</span>
+                <span className="text-[11px] font-bold text-muted flex-shrink-0">{Math.round((d.value / total) * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidePanel({ orders, lowStock, categoryData, c }: { orders: ApiOrder[]; lowStock: { id: string; name: string; stock: number; min: number }[]; categoryData: { name: string; value: number }[]; c: ChartPalette }) {
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -226,6 +274,7 @@ function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { id: s
         </div>
         <TopProducts orders={orders} />
       </div>
+      <CategoryPie data={categoryData} c={c} />
       {lowStock.length > 0 ? (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
@@ -299,6 +348,20 @@ export default function DashboardPage() {
 
   const label = [...PERIODS, ...PAST_YEARS].find((p) => p.key === period)!.label;
   const chart = buildChart(allOrderItems, period);
+
+  const categoryMap = new Map<string, number>();
+  for (const o of allOrderItems) {
+    const d = (o.ordered_at ?? o.created_at ?? "").slice(0, 10);
+    if (d < from || d > to) continue;
+    for (const item of o.items ?? []) {
+      const product = inventory.find((p) => p.id === item.product_id);
+      const catName = product?.category?.name ?? "Uncategorized";
+      categoryMap.set(catName, (categoryMap.get(catName) ?? 0) + item.line_total);
+    }
+  }
+  const categoryData = [...categoryMap.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
 
   const lowStock = inventory
     .map((p) => ({ id: p.id, name: p.name, stock: variantStock(p), min: variantMinStock(p) }))
@@ -403,7 +466,7 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-        <SidePanel orders={allOrderItems} lowStock={lowStock} />
+        <SidePanel orders={allOrderItems} lowStock={lowStock} categoryData={categoryData} c={c} />
         </div>
       </>
       )}

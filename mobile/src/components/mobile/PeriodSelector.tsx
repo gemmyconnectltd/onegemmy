@@ -1,11 +1,12 @@
 "use client";
 
-export type PeriodKey = "today" | "7d" | "month" | "all";
+export type PeriodKey = "today" | "7d" | "month" | "quarter" | "all";
 
 export const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "7d", label: "7 days" },
   { key: "month", label: "This month" },
+  { key: "quarter", label: "Quarter" },
   { key: "all", label: "All time" },
 ];
 
@@ -23,6 +24,10 @@ export function inPeriod(ts: Date, period: PeriodKey): boolean {
     case "month": {
       return ts.getFullYear() === now.getFullYear() && ts.getMonth() === now.getMonth();
     }
+    case "quarter": {
+      const quarter = Math.floor(now.getMonth() / 3);
+      return ts.getFullYear() === now.getFullYear() && Math.floor(ts.getMonth() / 3) === quarter;
+    }
     case "all":
       return true;
   }
@@ -35,7 +40,7 @@ interface PeriodSelectorProps {
 
 export function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   return (
-    <div className="grid grid-cols-4 gap-1 bg-surface border border-border rounded-xl p-1">
+    <div className="grid grid-cols-5 gap-1 bg-surface border border-border rounded-xl p-1">
       {PERIODS.map((p) => (
         <button
           key={p.key}

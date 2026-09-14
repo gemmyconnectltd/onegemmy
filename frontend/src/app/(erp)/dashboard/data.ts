@@ -1,4 +1,4 @@
-export type Period = "today" | "week" | "month" | "last_month" | "year" | `year_${number}`;
+export type Period = "today" | "week" | "month" | "last_month" | "quarter" | "year" | `year_${number}`;
 
 const THIS_YEAR = new Date().getFullYear();
 
@@ -7,6 +7,7 @@ export const PERIODS: { key: Period; label: string }[] = [
   { key: "week",       label: "This Week" },
   { key: "month",      label: "This Month" },
   { key: "last_month", label: "Last Month" },
+  { key: "quarter",    label: "This Quarter" },
   { key: "year",       label: "This Year" },
 ];
 
@@ -30,6 +31,10 @@ export function periodDateRange(period: Period): { from: string; to: string } {
     const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const last = new Date(now.getFullYear(), now.getMonth(), 0);
     return { from: fmt(d), to: fmt(last) };
+  }
+  if (period === "quarter") {
+    const startMonth = Math.floor(now.getMonth() / 3) * 3;
+    return { from: `${now.getFullYear()}-${pad(startMonth + 1)}-01`, to: fmt(now) };
   }
   if (period === "year") return { from: `${now.getFullYear()}-01-01`, to: fmt(now) };
   const y = Number(period.replace("year_", ""));

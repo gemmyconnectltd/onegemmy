@@ -11,12 +11,13 @@ import { useMobilePos } from "@/components/mobile/MobilePosProvider";
 import { useOrders, useProducts } from "@/lib/api/hooks";
 import { orderToSale } from "@/lib/orders";
 import { PeriodSelector, inPeriod, type PeriodKey } from "@/components/mobile/PeriodSelector";
+import { DonutChart } from "@/components/mobile/DonutChart";
 import type { PaymentMethod } from "@/components/pos/types";
 
-const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote }[] = [
-  { key: "cash", label: "Cash", icon: Banknote },
-  { key: "mobile", label: "Mobile Money", icon: Smartphone },
-  { key: "card", label: "Card", icon: CreditCard },
+const PAYMENT_META: { key: PaymentMethod; label: string; icon: typeof Banknote; color: string }[] = [
+  { key: "cash", label: "Cash", icon: Banknote, color: "#10B981" },
+  { key: "mobile", label: "Mobile Money", icon: Smartphone, color: "#3b82f6" },
+  { key: "card", label: "Card", icon: CreditCard, color: "#af9164" },
 ];
 
 export default function MobileStatsPage() {
@@ -134,6 +135,20 @@ export default function MobileStatsPage() {
         {/* Payment breakdown */}
         <div className="bg-card border border-border rounded-2xl p-4">
           <p className="text-[10px] text-muted uppercase tracking-wider font-semibold mb-3">By payment method</p>
+          <div className="flex items-center gap-4 mb-4">
+            <DonutChart segments={paymentBreakdown.map((p) => ({ label: p.label, value: p.amount, color: p.color }))} />
+            <div className="flex-1 min-w-0 space-y-1.5">
+              {paymentBreakdown.map((p) => (
+                <div key={p.key} className="flex items-center gap-1.5 text-[11px]">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                  <span className="text-foreground/80 truncate flex-1">{p.label}</span>
+                  <span className="font-mono font-semibold text-foreground shrink-0">
+                    {revenue > 0 ? Math.round((p.amount / revenue) * 100) : 0}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="space-y-3">
             {paymentBreakdown.map((p) => (
               <div key={p.key}>
