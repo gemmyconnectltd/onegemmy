@@ -34,7 +34,7 @@ export const siteConfig = {
   description:
     "Manage sales, inventory, expenses, and profits for your one-person shop.",
   company: "Gemmy Connect Ltd",
-  url: "https://onegemmy.com",
+  url: "https://app.gemmyconnect.com",
   links: {
     github: "https://github.com/gemmyconnectltd",
     linkedin: "https://linkedin.com/company/gemmyconnectltd",
