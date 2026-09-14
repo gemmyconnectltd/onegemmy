@@ -7,6 +7,20 @@ from jose import JWTError, jwt
 from app.core.config import settings
 
 
+def validate_password_strength(password: str) -> None:
+    """Server-side mirror of the register form's password checklist — the
+    frontend check alone doesn't stop a direct API call with a weak password.
+    """
+    from app.core.exceptions import ValidationError
+
+    if len(password) < 8:
+        raise ValidationError("Password must be at least 8 characters long")
+    if not any(c.isdigit() for c in password):
+        raise ValidationError("Password must contain at least one number")
+    if not any(c.isupper() for c in password):
+        raise ValidationError("Password must contain at least one uppercase letter")
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 

@@ -9,7 +9,7 @@ import { useAdminStats } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { chartPalette } from "@/lib/chartColors";
 import { useAppConfig } from "@/lib/appConfig";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "@/components/charts/lazy";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, DonutChart } from "@/components/charts/lazy";
 import Link from "next/link";
 
 const PLAN_COLORS: Record<string, string> = {
@@ -36,6 +36,18 @@ export default function AdminOverviewPage() {
   const completionRate = stats.total_orders > 0
     ? Math.round((stats.completed_orders / stats.total_orders) * 100)
     : 0;
+
+  const planData = Object.entries(stats.plans)
+    .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+    .sort((a, b) => b.value - a.value);
+  const planColors = planData.map((p) => PLAN_COLORS[p.name.toLowerCase()] ?? "#64748b");
+  const totalPlans = planData.reduce((s, p) => s + p.value, 0);
+
+  const statusData = [
+    { name: "Active", value: stats.active_tenants },
+    { name: "Suspended", value: stats.suspended_tenants },
+  ];
+  const statusColors = ["#059669", "#ef4444"];
 
   const cards = [
     { label: "Total Tenants",    value: stats.total_tenants,    sub: `${stats.active_tenants} active`,    icon: Building2,    color: "#0284c7", href: "/admin/tenants" },
@@ -123,7 +135,7 @@ export default function AdminOverviewPage() {
           {/* Platform health */}
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-sm font-bold text-foreground mb-4">Platform Health</h2>
-            <div className="space-y-3">
+            <div className="space-y-3 mb-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[12px] font-medium text-foreground">Tenant Health</span>
@@ -142,15 +154,28 @@ export default function AdminOverviewPage() {
                   <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${completionRate}%` }} />
                 </div>
               </div>
-              <div className="pt-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                  <CheckCircle size={13} /> {stats.active_tenants} Active
+            </div>
+            {stats.total_tenants > 0 ? (
+              <div className="flex items-center gap-4 pt-4 border-t border-border">
+                <div className="w-[72px] h-[72px] flex-shrink-0">
+                  <DonutChart data={statusData} colors={statusColors} innerRadius={22} outerRadius={36} tooltipStyle={c.tooltip} />
                 </div>
-                <div className="flex items-center gap-1.5 text-[12px] text-red-500 font-semibold">
-                  <XCircle size={13} /> {stats.suspended_tenants} Suspended
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColors[0] }} />
+                    <CheckCircle size={12} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                    {stats.active_tenants} Active
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColors[1] }} />
+                    <XCircle size={12} className="text-red-500 flex-shrink-0" />
+                    {stats.suspended_tenants} Suspended
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <p className="text-sm text-muted text-center py-2 border-t border-border pt-4">No tenants yet</p>
+            )}
           </div>
 
           {/* Plan breakdown */}
@@ -161,29 +186,24 @@ export default function AdminOverviewPage() {
                 View all <ArrowRight size={11} />
               </Link>
             </div>
-            <div className="space-y-2.5">
-              {Object.entries(stats.plans).map(([plan, count]) => {
-                const pct = stats.total_tenants > 0 ? Math.round((count / stats.total_tenants) * 100) : 0;
-                const color = PLAN_COLORS[plan] ?? "#64748b";
-                return (
-                  <div key={plan}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <Crown size={11} style={{ color }} />
-                        <span className="text-[12px] font-semibold text-foreground capitalize">{plan}</span>
-                      </div>
-                      <span className="text-[11px] text-muted">{count} · {pct}%</span>
+            {totalPlans === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No plan data yet</p>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="w-[84px] h-[84px] flex-shrink-0">
+                  <DonutChart data={planData} colors={planColors} innerRadius={26} outerRadius={42} tooltipStyle={c.tooltip} />
+                </div>
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  {planData.map((p, i) => (
+                    <div key={p.name} className="flex items-center gap-1.5">
+                      <Crown size={11} style={{ color: planColors[i] }} className="flex-shrink-0" />
+                      <span className="text-[12px] font-semibold text-foreground truncate flex-1">{p.name}</span>
+                      <span className="text-[11px] text-muted flex-shrink-0">{p.value} · {Math.round((p.value / totalPlans) * 100)}%</span>
                     </div>
-                    <div className="h-1 bg-border rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-                    </div>
-                  </div>
-                );
-              })}
-              {Object.keys(stats.plans).length === 0 && (
-                <p className="text-sm text-muted text-center py-4">No plan data yet</p>
-              )}
-            </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

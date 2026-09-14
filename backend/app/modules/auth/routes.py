@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.deps import CurrentUser, DbSession
+from app.core.rate_limit import rate_limit
 from app.core.response import success_response
 from app.modules.auth import service
 from app.modules.auth.schemas import (
@@ -16,7 +17,7 @@ from app.modules.tenants.schemas import ChangePasswordRequest
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(rate_limit("register", limit=5, window_seconds=3600))])
 async def register(data: RegisterRequest, db: DbSession):
     result = await service.register(db, data)
     return success_response(
@@ -37,7 +38,7 @@ async def token(db: DbSession, form: OAuth2PasswordRequestForm = Depends()):
     }
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limit("login", limit=10, window_seconds=300))])
 async def login(data: LoginRequest, db: DbSession):
     result = await service.login(db, data)
     return success_response(
@@ -55,7 +56,7 @@ async def refresh(data: RefreshRequest, db: DbSession):
     )
 
 
-@router.post("/forgot-password")
+@router.post("/forgot-password", dependencies=[Depends(rate_limit("forgot_password", limit=5, window_seconds=3600))])
 async def forgot_password(data: ForgotPasswordRequest, db: DbSession):
     result = await service.forgot_password(db, data)
     return success_response(

@@ -22,30 +22,35 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  const passwordChecks = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "Contains a number", met: /\d/.test(password) },
+    { label: "Contains uppercase letter", met: /[A-Z]/.test(password) },
+  ];
+  const passwordValid = passwordChecks.every((c) => c.met);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!passwordValid) {
+      setError("Please meet all password requirements below");
+      return;
+    }
     setLoading(true);
-    const success = await register({
+    const result = await register({
       fullName: name,
       email,
       password,
       tenantName: company,
       tenantSlug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
     });
-    if (success) {
+    if (result.ok) {
       router.push("/dashboard");
     } else {
-      setError("Email already registered");
+      setError(result.error ?? "Registration failed. Please try again.");
     }
     setLoading(false);
   };
-
-  const passwordChecks = [
-    { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "Contains a number", met: /\d/.test(password) },
-    { label: "Contains uppercase letter", met: /[A-Z]/.test(password) },
-  ];
 
   return (
     <div className="min-h-screen flex">
@@ -200,7 +205,7 @@ export default function RegisterPage() {
             </label>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (password.length > 0 && !passwordValid)}
               className="w-full bg-accent text-white py-2.5 rounded-lg text-sm font-medium hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (

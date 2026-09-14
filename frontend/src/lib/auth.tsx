@@ -45,7 +45,7 @@ const MODULE_RESOURCES: Record<string, string[]> = {
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, tenantSlug?: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }) => Promise<boolean>;
+  register: (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
   hasPermission: (permission: string) => boolean;
@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }): Promise<boolean> => {
+  const register = useCallback(async (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await authApi.register({
         tenant_name: data.tenantName,
@@ -168,9 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStoredToken(res.data.access_token);
       setStoredRefreshToken(res.data.refresh_token);
       setUser(mapUser(res.data.user));
-      return true;
-    } catch {
-      return false;
+      return { ok: true };
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const detail = (err as { detail?: string })?.detail;
+      if (!status) {
+        return { ok: false, error: "Can't reach the server. Check your connection and try again in a moment." };
+      }
+      return { ok: false, error: detail || "Registration failed. Please try again." };
     }
   }, []);
 

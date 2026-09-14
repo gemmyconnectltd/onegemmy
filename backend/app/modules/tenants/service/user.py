@@ -1,3 +1,4 @@
+import secrets
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.email import send_invite_email
 from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from app.core.logging import get_logger
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password, validate_password_strength, verify_password
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import UserRepository
 from app.modules.tenants.schemas import ChangePasswordRequest, UserCreate, UserRead, UserUpdate
@@ -58,10 +59,14 @@ async def create_user(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) 
 
     await service.enforce_limit(db, tenant_id, "max_users", await count_users(db, tenant_id), noun="user")
 
+    # Never trust a password an inviter typed for someone else — generate a
+    # strong random temporary one server-side and email it instead.
+    temp_password = secrets.token_urlsafe(12)
+
     user = User(
         tenant_id=tenant_id,
         email=data.email,
-        hashed_password=hash_password(data.password),
+        hashed_password=hash_password(temp_password),
         full_name=data.full_name,
         role=data.role,
         role_id=data.role_id,
@@ -76,7 +81,7 @@ async def create_user(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) 
         to=user.email,
         full_name=user.full_name,
         tenant_name=tenant.name if tenant else str(tenant_id),
-        temp_password=data.password,
+        temp_password=temp_password,
     )
     return UserRead.model_validate(user)
 
@@ -111,6 +116,7 @@ async def change_password(db: AsyncSession, user: User, data: ChangePasswordRequ
     if not verify_password(data.current_password, user.hashed_password):
         log.warning("users.change_password.wrong_password", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise UnauthorizedError("Current password is incorrect")
+    validate_password_strength(data.new_password)
     user.hashed_password = hash_password(data.new_password)
     await UserRepository(db).save(user)
     await db.commit()

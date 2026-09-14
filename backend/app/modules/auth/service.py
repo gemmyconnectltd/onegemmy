@@ -1,10 +1,11 @@
+import re
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.email import send_password_reset_email, send_welcome_email
-from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError
+from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from app.core.logging import get_logger
 from app.core.security import (
     create_access_token,
@@ -12,6 +13,7 @@ from app.core.security import (
     create_refresh_token,
     decode_token,
     hash_password,
+    validate_password_strength,
     verify_password,
 )
 from app.modules.audit.service import record_audit
@@ -27,6 +29,8 @@ from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
 
 log = get_logger("auth")
+
+SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
 def _build_user_info(user: User, permission_names: list[str] | None = None) -> TokenUserInfo:
@@ -80,6 +84,14 @@ def _issue_tokens(user: User) -> TokenResponse:
 
 async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
     log.info("auth.register.attempt", extra={"_extra_fields": {"email": data.email, "tenant_slug": data.tenant_slug}})
+
+    if not data.tenant_name.strip():
+        raise ValidationError("Business name is required")
+    if not data.full_name.strip():
+        raise ValidationError("Full name is required")
+    if not SLUG_RE.match(data.tenant_slug):
+        raise ValidationError("Business URL must be lowercase letters, numbers, and hyphens only")
+    validate_password_strength(data.password)
 
     existing_tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
     if existing_tenant is not None:
@@ -203,6 +215,8 @@ async def forgot_password(db: AsyncSession, data: ForgotPasswordRequest) -> dict
 async def reset_password(db: AsyncSession, data: ResetPasswordRequest) -> None:
     log.info("auth.reset_password.attempt")
 
+    validate_password_strength(data.new_password)
+
     payload = decode_token(data.token)
     if payload is None or payload.get("type") != "password_reset":
         log.warning("auth.reset_password.invalid_token")
@@ -231,6 +245,7 @@ async def change_password(db: AsyncSession, user: User, data) -> None:
     if not verify_password(data.current_password, user.hashed_password):
         log.warning("auth.change_password.wrong_password", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise UnauthorizedError("Current password is incorrect")
+    validate_password_strength(data.new_password)
 
     user.hashed_password = hash_password(data.new_password)
     await UserRepository(db).save(user)

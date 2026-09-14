@@ -48,7 +48,7 @@ export default function TenantDetailPage() {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member", password: "" });
+  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member" });
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
   const [roleForm, setRoleForm] = useState({ name: "", description: "" });
   const [branchForm, setBranchForm] = useState({ name: "", location: "" });
@@ -94,12 +94,19 @@ export default function TenantDetailPage() {
     });
   };
 
+  const openInvite = () => {
+    setNotice(null);
+    setTempPassword(null);
+    setCopied(false);
+    setShowInvite(true);
+  };
+
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     inviteUser.mutate({ tenantId: id, data: inviteForm }, {
-      onSuccess: () => {
-        setShowInvite(false);
-        setInviteForm({ email: "", full_name: "", role: "member", password: "" });
+      onSuccess: (res) => {
+        setInviteForm({ email: "", full_name: "", role: "member" });
+        setTempPassword(res.data?.temp_password ?? null);
         setNotice({ kind: "success", text: "User invited" });
       },
       onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to invite user" }),
@@ -256,7 +263,7 @@ export default function TenantDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowInvite(true)}
+            onClick={openInvite}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold transition-colors"
           >
             <UserPlus size={14} /> Invite User
@@ -342,7 +349,7 @@ export default function TenantDetailPage() {
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Users ({users.length})</h2>
-            <button onClick={() => setShowInvite(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
+            <button onClick={openInvite} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
               <UserPlus size={13} /> Invite
             </button>
           </div>
@@ -411,7 +418,7 @@ export default function TenantDetailPage() {
             <div className="py-12 text-center">
               <Users size={28} className="text-muted/30 mx-auto mb-2" />
               <p className="text-sm text-muted">No users yet</p>
-              <button onClick={() => setShowInvite(true)} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[12px] font-semibold transition-colors">
+              <button onClick={openInvite} className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[12px] font-semibold transition-colors">
                 <UserPlus size={13} /> Invite the first user
               </button>
             </div>
@@ -554,26 +561,56 @@ export default function TenantDetailPage() {
       </div>
 
       {/* Invite drawer */}
-      <Drawer open={showInvite} onClose={() => setShowInvite(false)} title="Invite User" description={`Add a user to ${tenant.name}`}>
-        <form onSubmit={handleInvite} className="space-y-4 p-5">
-          <Field label="Full Name" required>
-            <Input required value={inviteForm.full_name} onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })} placeholder="John Doe" />
-          </Field>
-          <Field label="Email" required>
-            <Input type="email" required value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="john@example.com" />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
+      <Drawer
+        open={showInvite}
+        onClose={() => { setShowInvite(false); setTempPassword(null); setCopied(false); }}
+        title="Invite User"
+        description={`Add a user to ${tenant.name}`}
+      >
+        {tempPassword === null ? (
+          <form onSubmit={handleInvite} className="space-y-4 p-5">
+            <Field label="Full Name" required>
+              <Input required value={inviteForm.full_name} onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })} placeholder="John Doe" />
+            </Field>
+            <Field label="Email" required>
+              <Input type="email" required value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="john@example.com" />
+            </Field>
             <Field label="Role">
               <Select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}>
                 {["admin", "member", "viewer"].map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
               </Select>
             </Field>
-            <Field label="Temporary Password" required>
-              <Input type="password" required value={inviteForm.password} onChange={(e) => setInviteForm({ ...inviteForm, password: e.target.value })} placeholder="••••••••" />
-            </Field>
+            <p className="text-xs text-muted">
+              A strong temporary password is generated automatically and emailed to the user — you&apos;ll also see it here once, in case email delivery isn&apos;t set up.
+            </p>
+            <FormFooter submitLabel={inviteUser.isPending ? "Inviting…" : "Invite User"} onCancel={() => setShowInvite(false)} disabled={inviteUser.isPending} />
+          </form>
+        ) : (
+          <div className="p-5 space-y-4">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[13px] px-4 py-3">
+              User invited. Temporary password shown once — copy it now and share it with them securely (it was also emailed to them).
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-surface border border-border rounded-lg px-4 py-3 font-mono text-sm text-foreground break-all">
+                {tempPassword}
+              </code>
+              <button
+                onClick={copyPassword}
+                className="flex items-center gap-1.5 px-3 h-10 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => { setShowInvite(false); setTempPassword(null); setCopied(false); }}
+                className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
+              >
+                Done
+              </button>
+            </div>
           </div>
-          <FormFooter submitLabel={inviteUser.isPending ? "Inviting…" : "Invite User"} onCancel={() => setShowInvite(false)} disabled={inviteUser.isPending} />
-        </form>
+        )}
       </Drawer>
 
       {/* Add department drawer */}

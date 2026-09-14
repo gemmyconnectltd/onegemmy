@@ -133,8 +133,8 @@ export const adminApi = {
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
   tenantUsers: (id: string, page = 1) =>
     request<PaginatedResponse<AdminUser>>(`${B}/tenants/${id}/users?page=${page}&page_size=50`),
-  inviteUser: (tenantId: string, data: { email: string; full_name: string; role: string; password: string }) =>
-    request<SingleResponse<AdminUser>>(`${B}/tenants/${tenantId}/invite`, { method: "POST", body: JSON.stringify(data) }),
+  inviteUser: (tenantId: string, data: { email: string; full_name: string; role: string }) =>
+    request<SingleResponse<AdminUser & { temp_password: string }>>(`${B}/tenants/${tenantId}/invite`, { method: "POST", body: JSON.stringify(data) }),
   deleteUser: (tenantId: string, userId: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/users/${userId}`, { method: "DELETE" }),
 

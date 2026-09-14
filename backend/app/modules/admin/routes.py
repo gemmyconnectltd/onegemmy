@@ -234,7 +234,6 @@ class InviteUserPayload(BaseModel):
     email: EmailStr
     full_name: str
     role: str = "member"
-    password: str
 
 
 @router.post("/tenants/{tenant_id}/invite", status_code=201)
@@ -247,12 +246,16 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
     if not tenant:
         raise NotFoundError("Tenant not found")
     await service.enforce_limit(db, tenant_id, "max_users", await service.count_users(db, tenant_id), noun="user")
+    # Generate a strong random temp password server-side rather than trusting
+    # one the inviting admin typed — returned once below and emailed to the
+    # invitee, same pattern as the reset-password endpoint.
+    temp_password = secrets.token_urlsafe(12)
     user = User(
         tenant_id=tenant_id,
         email=data.email,
         full_name=data.full_name,
         role=data.role,
-        hashed_password=hash_password(data.password),
+        hashed_password=hash_password(temp_password),
         is_active=True,
         is_superuser=False,
     )
@@ -269,10 +272,11 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
         to=user.email,
         full_name=user.full_name,
         tenant_name=tenant.name,
-        temp_password=data.password,
+        temp_password=temp_password,
     )
-    return success_response(data={"id": str(user.id), "email": user.email, "full_name": user.full_name},
-                            message="User invited successfully", status_code=201)
+    return success_response(
+        data={"id": str(user.id), "email": user.email, "full_name": user.full_name, "temp_password": temp_password},
+        message="User invited successfully", status_code=201)
 
 
 @router.get("/tenants/{tenant_id}/branches")
