@@ -100,10 +100,12 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     setCart((prev) => prev
       .map((i) => (i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i))
       .filter((i) => i.qty > 0));
+    setCashGiven("");
   }, []);
 
   const updateDiscount = useCallback((id: string, discount: number) => {
     setCart((prev) => prev.map((i) => (i.id === id ? { ...i, discount: Math.max(0, discount) } : i)));
+    setCashGiven("");
   }, []);
 
   const updateItemCashReceived = useCallback((id: string, value: number) => {
@@ -112,6 +114,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
 
   const removeItem = useCallback((id: string) => {
     setCart((prev) => prev.filter((i) => i.id !== id));
+    setCashGiven("");
   }, []);
 
   const clearCart = useCallback(() => {

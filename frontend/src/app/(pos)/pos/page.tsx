@@ -168,7 +168,10 @@ export default function POSPage() {
     setCart((prev) => prev.map((i) => i.id === id ? { ...i, cashReceived: Math.max(0, value) } : i));
   };
 
-  const removeItem = (id: string) => setCart((prev) => prev.filter((i) => i.id !== id));
+  const removeItem = (id: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== id));
+    setCashGiven("");
+  };
 
   const clearCart = () => {
     setCart([]);
