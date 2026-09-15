@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:onegemmy_pos/core/config.dart';
 import 'package:onegemmy_pos/core/theme.dart';
 import 'package:onegemmy_pos/core/utils/format.dart';
+import 'package:onegemmy_pos/core/widgets/product_thumbnail.dart';
+import 'package:onegemmy_pos/core/widgets/surface_card.dart';
 import 'package:onegemmy_pos/features/pos/models/cart_item.dart';
 import 'package:onegemmy_pos/features/pos/models/sale_result.dart';
 import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
@@ -49,8 +50,7 @@ class CartScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Total', style: TextStyle(color: Colors.black54)),
-                        Text('${AppConfig.currencySymbol} ${fmtMoney(cart.total)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                        Text(fmtCurrency(cart.total), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -80,22 +80,14 @@ class _CartRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(10)),
-            clipBehavior: Clip.antiAlias,
-            child: item.imageUrl != null
-                ? Image.network(item.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.inventory_2_outlined, color: Colors.black26))
-                : const Icon(Icons.inventory_2_outlined, color: Colors.black26),
-          ),
+          ProductThumbnail(imageUrl: item.imageUrl, size: 48),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5), maxLines: 2, overflow: TextOverflow.ellipsis),
-                Text('${AppConfig.currencySymbol} ${fmtMoney(item.price)} each', style: const TextStyle(color: Colors.black45, fontSize: 11.5)),
+                Text('${fmtCurrency(item.price)} each', style: const TextStyle(color: Colors.black45, fontSize: 11.5)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -123,7 +115,7 @@ class _CartRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${AppConfig.currencySymbol} ${fmtMoney(item.lineTotal)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              Text(fmtCurrency(item.lineTotal), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
               const SizedBox(height: 6),
               Row(
                 children: [
@@ -150,30 +142,32 @@ class _MiniField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 90),
+    return SurfaceCard(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(6)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: Colors.black45),
-          const SizedBox(width: 3),
-          Flexible(
-            child: TextFormField(
-              initialValue: initialValue,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 11),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: hint,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 6),
+      borderRadius: 6,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 90),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: Colors.black45),
+            const SizedBox(width: 3),
+            Flexible(
+              child: TextFormField(
+                initialValue: initialValue,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 11),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: hint,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                ),
+                onChanged: onChanged,
               ),
-              onChanged: onChanged,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

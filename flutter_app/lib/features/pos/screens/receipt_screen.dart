@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:onegemmy_pos/core/config.dart';
 import 'package:onegemmy_pos/core/theme.dart';
 import 'package:onegemmy_pos/core/utils/format.dart';
+import 'package:onegemmy_pos/core/widgets/money_row.dart';
 import 'package:onegemmy_pos/features/pos/models/sale_result.dart';
 import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
 
@@ -38,7 +38,7 @@ class ReceiptScreen extends StatelessWidget {
               const SizedBox(height: 20),
               _dashedDivider(),
               const SizedBox(height: 12),
-              Align(
+              const Align(
                 alignment: Alignment.centerLeft,
                 child: Text('ITEMS PURCHASED', style: TextStyle(fontSize: 10.5, letterSpacing: 0.5, color: Colors.black45, fontWeight: FontWeight.bold)),
               ),
@@ -49,22 +49,22 @@ class ReceiptScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text('${i.name}\n${i.qty} × ${AppConfig.currencySymbol} ${fmtMoney(i.price)}',
-                              style: const TextStyle(fontSize: 12.5)),
+                          child: Text('${i.name}\n${i.qty} × ${fmtCurrency(i.price)}', style: const TextStyle(fontSize: 12.5)),
                         ),
-                        Text('${AppConfig.currencySymbol} ${fmtMoney(i.lineTotal)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        Text(fmtCurrency(i.lineTotal), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       ],
                     ),
                   )),
               const SizedBox(height: 12),
               const Divider(),
-              _row('Subtotal', fmtMoney(sale.subtotal)),
-              _row('VAT (18%)', fmtMoney(sale.tax)),
+              MoneyRow(label: 'Subtotal', value: fmtCurrency(sale.subtotal)),
+              MoneyRow(label: 'VAT (18%)', value: fmtCurrency(sale.tax)),
               const SizedBox(height: 6),
-              _row('Total', fmtMoney(sale.total), bold: true),
+              MoneyRow(label: 'Total', value: fmtCurrency(sale.total), bold: true),
               const SizedBox(height: 6),
-              _row('Paid via', sale.payment.label),
-              if (sale.payment == PaymentMethod.cash && sale.cashGiven.isNotEmpty) _row('Change', fmtMoney(sale.change)),
+              MoneyRow(label: 'Paid via', value: sale.payment.label),
+              if (sale.payment == PaymentMethod.cash && sale.cashGiven.isNotEmpty)
+                MoneyRow(label: 'Change', value: fmtCurrency(sale.change)),
               const SizedBox(height: 20),
               const Text('Thank you for your purchase!', style: TextStyle(color: Colors.black45, fontStyle: FontStyle.italic)),
               const SizedBox(height: 24),
@@ -78,20 +78,6 @@ class ReceiptScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _row(String label, String value, {bool bold = false}) {
-    final style = TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, fontSize: bold ? 15 : 13);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: style.copyWith(color: bold ? Colors.black : Colors.black54)),
-          Text(value.contains('%') || label == 'Paid via' ? value : '${AppConfig.currencySymbol} $value', style: style),
-        ],
       ),
     );
   }

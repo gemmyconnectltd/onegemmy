@@ -54,10 +54,14 @@ Cross-cutting code that every feature depends on lives in `core/`.
 ```
 lib/
   core/
-    config.dart              # API base URL, app constants
-    theme.dart                 # Brand colors (matches the web app's accent)
-    network/api_client.dart      # Shared HTTP client (auth header, 401 refresh)
-    utils/format.dart              # Money formatting, quick-cash-amount helper
+    config.dart                    # API base URL, app constants
+    theme.dart                       # Brand colors (matches the web app's accent)
+    network/api_client.dart            # Shared HTTP client (auth header, 401 refresh)
+    utils/format.dart                    # fmtMoney/fmtCurrency, quick-cash-amount helper
+    widgets/                                # Small reusable pieces shared across features —
+                                              #   product_thumbnail.dart (image + fallback icon)
+                                              #   surface_card.dart (rounded surface-tinted panel)
+                                              #   money_row.dart ("label ... value" line)
   features/
     auth/
       models/user.dart
@@ -71,6 +75,12 @@ lib/
       screens/                             # pos_screen, cart_screen, payment_screen, receipt_screen
   main.dart                                 # Wires providers + routes to the app gate
 ```
+
+Anything repeated more than once — a formatted price, a product thumbnail with
+its fallback icon, a rounded info panel, a "label ... value" row — lives in
+`core/utils` or `core/widgets` instead of being retyped per screen. If you
+add a UI pattern in a third place, that's the signal it belongs in `core/`
+too, not proof it was fine to duplicate the first two times.
 
 Adding a new module (inventory, sales history, reports, …) means adding a
 new `features/<name>/` folder with the same internal shape — it shouldn't

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:onegemmy_pos/core/config.dart';
 import 'package:onegemmy_pos/core/theme.dart';
 import 'package:onegemmy_pos/core/utils/format.dart';
+import 'package:onegemmy_pos/core/widgets/product_thumbnail.dart';
 import 'package:onegemmy_pos/features/auth/providers/auth_provider.dart';
 import 'package:onegemmy_pos/features/pos/models/product.dart';
 import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
@@ -143,7 +143,7 @@ class _PosScreenState extends State<PosScreen> {
                       const SizedBox(width: 10),
                       const Text('View cart', style: TextStyle(fontWeight: FontWeight.bold)),
                       const Spacer(),
-                      Text('${AppConfig.currencySymbol} ${fmtMoney(cart.total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(fmtCurrency(cart.total), style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -223,9 +223,7 @@ class _ProductCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    product.imageUrl != null
-                        ? Image.network(product.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, _, _) => _placeholder())
-                        : _placeholder(),
+                    ProductThumbnail(imageUrl: product.imageUrl, borderRadius: 0, iconSize: 28),
                     if (inCartQty > 0)
                       Positioned(
                         top: 6,
@@ -256,7 +254,7 @@ class _ProductCard extends StatelessWidget {
                   children: [
                     Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
                     const SizedBox(height: 3),
-                    Text('${AppConfig.currencySymbol} ${fmtMoney(product.price)}', style: const TextStyle(color: kAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(fmtCurrency(product.price), style: const TextStyle(color: kAccent, fontWeight: FontWeight.bold, fontSize: 13)),
                   ],
                 ),
               ),
@@ -266,12 +264,6 @@ class _ProductCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _placeholder() => Container(
-        color: kSurface,
-        alignment: Alignment.center,
-        child: const Icon(Icons.inventory_2_outlined, color: Colors.black26, size: 28),
-      );
 
   void _showVariantPicker(BuildContext context, Product product) {
     final cart = context.read<CartProvider>();
@@ -293,7 +285,7 @@ class _ProductCard extends StatelessWidget {
                   enabled: !out,
                   title: Text(v.label),
                   subtitle: Text(out ? 'Out of stock' : '${v.stock} left'),
-                  trailing: Text('${AppConfig.currencySymbol} ${fmtMoney(v.price)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: Text(fmtCurrency(v.price), style: const TextStyle(fontWeight: FontWeight.bold)),
                   onTap: out
                       ? null
                       : () {

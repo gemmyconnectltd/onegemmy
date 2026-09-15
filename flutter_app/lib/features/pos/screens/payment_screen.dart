@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:onegemmy_pos/core/config.dart';
 import 'package:onegemmy_pos/core/theme.dart';
 import 'package:onegemmy_pos/core/utils/format.dart';
+import 'package:onegemmy_pos/core/widgets/money_row.dart';
+import 'package:onegemmy_pos/core/widgets/surface_card.dart';
 import 'package:onegemmy_pos/features/pos/models/sale_result.dart';
 import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
 
@@ -62,21 +64,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(14)),
+            SurfaceCard(
               child: Column(
                 children: [
-                  _totalsRow('Subtotal (incl. VAT)', cart.subtotal),
-                  if (cart.discount > 0) _totalsRow('Discount', -cart.discount, color: Colors.green),
-                  _totalsRow('VAT (18%, included)', cart.tax),
+                  MoneyRow(label: 'Subtotal (incl. VAT)', value: fmtCurrency(cart.subtotal)),
+                  if (cart.discount > 0) MoneyRow(label: 'Discount', value: '-${fmtCurrency(cart.discount)}', color: Colors.green),
+                  MoneyRow(label: 'VAT (18%, included)', value: fmtCurrency(cart.tax)),
                   const Divider(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                      Text('${AppConfig.currencySymbol} ${fmtMoney(cart.total)}',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 24, color: kAccent)),
+                      Text(fmtCurrency(cart.total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 24, color: kAccent)),
                     ],
                   ),
                 ],
@@ -84,38 +83,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             const SizedBox(height: 16),
             Row(
-              children: PaymentMethod.values.map((m) {
-                final selected = cart.payment == m;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () => context.read<CartProvider>().setPayment(m),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: selected ? kAccent : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: selected ? kAccent : kBorder, width: 2),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(_iconFor(m), color: selected ? Colors.white : Colors.black87, size: 20),
-                            const SizedBox(height: 4),
-                            Text(m.label, style: TextStyle(color: selected ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 11.5)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+              children: PaymentMethod.values.map((m) => Expanded(child: _PaymentMethodTile(method: m))).toList(),
             ),
             if (cart.payment == PaymentMethod.cash && cart.items.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(14)),
+              SurfaceCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -126,7 +98,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         if (cart.itemsCashReceivedSum > 0 && cart.itemsCashReceivedSum.toStringAsFixed(0) != cart.cashGiven)
                           GestureDetector(
                             onTap: () => _setCash(cart.itemsCashReceivedSum.toStringAsFixed(0)),
-                            child: Text('Use itemized: ${AppConfig.currencySymbol} ${fmtMoney(cart.itemsCashReceivedSum)}',
+                            child: Text('Use itemized: ${fmtCurrency(cart.itemsCashReceivedSum)}',
                                 style: const TextStyle(color: kAccent, fontWeight: FontWeight.w600, fontSize: 11)),
                           ),
                       ],
@@ -155,24 +127,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         return OutlinedButton(
                           onPressed: () => _setCash(amt.toStringAsFixed(0)),
                           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
-                          child: Text('${AppConfig.currencySymbol} ${fmtMoney(amt)}', style: const TextStyle(fontSize: 11.5)),
+                          child: Text(fmtCurrency(amt), style: const TextStyle(fontSize: 11.5)),
                         );
                       }).toList(),
                     ),
                     if (cart.cashGiven.isNotEmpty) ...[
                       const Divider(height: 24),
                       if (cart.cashShort)
-                        Text('Short by ${AppConfig.currencySymbol} ${fmtMoney(cart.total - (double.tryParse(cart.cashGiven) ?? 0))}',
+                        Text('Short by ${fmtCurrency(cart.total - (double.tryParse(cart.cashGiven) ?? 0))}',
                             style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
                       else
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Change Due', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text('${AppConfig.currencySymbol} ${fmtMoney(cart.change)}',
-                                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w800, fontSize: 16)),
-                          ],
-                        ),
+                        MoneyRow(label: 'Change Due', value: fmtCurrency(cart.change), bold: true, color: Colors.green),
                     ],
                   ],
                 ),
@@ -191,35 +156,48 @@ class _PaymentScreenState extends State<PaymentScreen> {
               onPressed: chargeDisabled ? null : _charge,
               child: cart.saving
                   ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text('Charge ${AppConfig.currencySymbol} ${fmtMoney(cart.total)}'),
+                  : Text('Charge ${fmtCurrency(cart.total)}'),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _totalsRow(String label, double value, {Color? color}) {
+class _PaymentMethodTile extends StatelessWidget {
+  final PaymentMethod method;
+  const _PaymentMethodTile({required this.method});
+
+  IconData get _icon => switch (method) {
+        PaymentMethod.cash => Icons.payments_outlined,
+        PaymentMethod.mobile => Icons.phone_iphone,
+        PaymentMethod.card => Icons.credit_card,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = context.watch<CartProvider>().payment == method;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: color ?? Colors.black54, fontSize: 13)),
-          Text('${value < 0 ? '-' : ''}${AppConfig.currencySymbol} ${fmtMoney(value.abs())}', style: TextStyle(color: color ?? Colors.black87, fontSize: 13)),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: GestureDetector(
+        onTap: () => context.read<CartProvider>().setPayment(method),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? kAccent : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? kAccent : kBorder, width: 2),
+          ),
+          child: Column(
+            children: [
+              Icon(_icon, color: selected ? Colors.white : Colors.black87, size: 20),
+              const SizedBox(height: 4),
+              Text(method.label, style: TextStyle(color: selected ? Colors.white : Colors.black87, fontWeight: FontWeight.bold, fontSize: 11.5)),
+            ],
+          ),
+        ),
       ),
     );
-  }
-
-  IconData _iconFor(PaymentMethod m) {
-    switch (m) {
-      case PaymentMethod.cash:
-        return Icons.payments_outlined;
-      case PaymentMethod.mobile:
-        return Icons.phone_iphone;
-      case PaymentMethod.card:
-        return Icons.credit_card;
-    }
   }
 }
