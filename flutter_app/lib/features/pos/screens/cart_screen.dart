@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config.dart';
-import '../models/cart_item.dart';
-import '../models/sale_result.dart';
-import '../state/cart_provider.dart';
-import '../theme.dart';
-import '../utils/format.dart';
+import 'package:onegemmy_pos/core/config.dart';
+import 'package:onegemmy_pos/core/theme.dart';
+import 'package:onegemmy_pos/core/utils/format.dart';
+import 'package:onegemmy_pos/features/pos/models/cart_item.dart';
+import 'package:onegemmy_pos/features/pos/models/sale_result.dart';
+import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
+
 import 'payment_screen.dart';
 
 class CartScreen extends StatelessWidget {

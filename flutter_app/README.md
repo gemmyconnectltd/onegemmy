@@ -46,17 +46,41 @@ Android emulator, or your machine's LAN IP for a physical device.
 
 ## Project layout
 
+Feature-based, not layer-based: each business capability owns its full
+vertical slice (models, services, state, screens), rather than one big
+`models/`, `services/`, `screens/` grab-bag shared across the whole app.
+Cross-cutting code that every feature depends on lives in `core/`.
+
 ```
 lib/
-  config.dart           # API base URL, app constants
-  theme.dart             # Brand colors (matches the web app's accent)
-  models/                 # Plain Dart data classes for API responses
-  services/                # HTTP client + per-resource API wrappers
-  state/                    # ChangeNotifier providers (auth, cart)
-  screens/                   # One file per screen
+  core/
+    config.dart              # API base URL, app constants
+    theme.dart                 # Brand colors (matches the web app's accent)
+    network/api_client.dart      # Shared HTTP client (auth header, 401 refresh)
+    utils/format.dart              # Money formatting, quick-cash-amount helper
+  features/
+    auth/
+      models/user.dart
+      services/auth_service.dart
+      providers/auth_provider.dart
+      screens/login_screen.dart
+    pos/
+      models/                        # product.dart, cart_item.dart, sale_result.dart
+      services/                        # product_service.dart, order_service.dart
+      providers/cart_provider.dart       # cart + checkout + sale-completion state
+      screens/                             # pos_screen, cart_screen, payment_screen, receipt_screen
+  main.dart                                 # Wires providers + routes to the app gate
 ```
 
-`lib/state/cart_provider.dart` mirrors
+Adding a new module (inventory, sales history, reports, …) means adding a
+new `features/<name>/` folder with the same internal shape — it shouldn't
+require touching `core/` or any other feature.
+
+Imports use absolute `package:onegemmy_pos/...` paths across feature
+boundaries (so a file's import list doesn't depend on how deep it happens to
+be nested) and plain relative imports only within the same folder.
+
+`features/pos/providers/cart_provider.dart` mirrors
 `frontend/src/components/mobile/MobilePosProvider.tsx` closely on purpose —
 same cart math, same payment/cash-received behavior — so the two clients
 don't drift apart in how they calculate totals, change, and shortfalls.

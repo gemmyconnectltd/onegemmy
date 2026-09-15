@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config.dart';
-import '../state/auth_provider.dart';
-import '../theme.dart';
-import 'pos_screen.dart';
+import 'package:onegemmy_pos/core/config.dart';
+import 'package:onegemmy_pos/core/theme.dart';
+import 'package:onegemmy_pos/features/auth/providers/auth_provider.dart';
+import 'package:onegemmy_pos/features/pos/screens/pos_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

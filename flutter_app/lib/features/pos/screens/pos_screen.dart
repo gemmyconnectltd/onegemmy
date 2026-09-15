@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config.dart';
-import '../models/product.dart';
-import '../services/product_service.dart';
-import '../state/auth_provider.dart';
-import '../state/cart_provider.dart';
-import '../theme.dart';
-import '../utils/format.dart';
+import 'package:onegemmy_pos/core/config.dart';
+import 'package:onegemmy_pos/core/theme.dart';
+import 'package:onegemmy_pos/core/utils/format.dart';
+import 'package:onegemmy_pos/features/auth/providers/auth_provider.dart';
+import 'package:onegemmy_pos/features/pos/models/product.dart';
+import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
+import 'package:onegemmy_pos/features/pos/services/product_service.dart';
+
 import 'cart_screen.dart';
 
 class PosScreen extends StatefulWidget {

@@ -4,8 +4,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:onegemmy_pos/core/network/api_client.dart';
 import 'package:onegemmy_pos/main.dart';
-import 'package:onegemmy_pos/services/api_client.dart';
 
 void main() {
   testWidgets('Shows the login screen on a fresh install', (WidgetTester tester) async {

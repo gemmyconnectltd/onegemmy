@@ -1,5 +1,5 @@
-import '../models/product.dart';
-import 'api_client.dart';
+import 'package:onegemmy_pos/core/network/api_client.dart';
+import 'package:onegemmy_pos/features/pos/models/product.dart';
 
 class ProductService {
   final ApiClient _client;

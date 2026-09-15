@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'config.dart';
-import 'screens/login_screen.dart';
-import 'screens/pos_screen.dart';
-import 'services/api_client.dart';
-import 'state/auth_provider.dart';
-import 'state/cart_provider.dart';
-import 'theme.dart';
+import 'core/config.dart';
+import 'core/network/api_client.dart';
+import 'core/theme.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/login_screen.dart';
+import 'features/pos/providers/cart_provider.dart';
+import 'features/pos/screens/pos_screen.dart';
 
 void main() {
   final apiClient = ApiClient();
