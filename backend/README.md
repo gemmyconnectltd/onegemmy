@@ -141,6 +141,54 @@ there is a single head again.
 docker compose up --build
 ```
 
+## Environments
+
+The app reads `ENVIRONMENT` (`local` | `staging` | `production`) from its env
+file and adjusts behavior accordingly:
+
+- **production** forces `DEBUG=false`, disables `/docs`, `/redoc`, and
+  `/openapi.json`, and refuses to start if `SECRET_KEY` is still the
+  insecure default or `CORS_ORIGINS` is `*`.
+- **staging** behaves like production traffic-wise but keeps `/docs` open
+  for QA.
+- **local** is the permissive default used in dev.
+
+## Deploying to staging / production
+
+Both environments run the same image and the same Compose file
+(`docker-compose.prod.yml`); only the env file differs. Docker is only used
+to run the API — Postgres is installed natively on the VPS (not
+containerized). The `api` service uses `network_mode: host`, so
+`DATABASE_URL` connects the same way a native process would
+(`@localhost:5432/...`).
+
+1. Install and configure Postgres directly on the VPS, with a separate
+   database for staging and for production (never share one database
+   between them).
+2. Copy the matching template and fill in real secrets —
+   `.env.staging.example` → `.env.staging`, or `.env.production.example` →
+   `.env.production`. Each environment needs its own `SECRET_KEY` and its
+   own database.
+3. Build and start:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.staging up -d --build
+   # or
+   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+   ```
+
+   `docker-entrypoint.sh` runs `alembic upgrade head` before serving, so
+   migrations apply automatically on every deploy.
+4. To ship a new release, `git pull` and re-run the same `up -d --build`
+   command for that environment.
+
+If staging and production run on the same host: use a separate project
+directory (checkout) per environment (or `-p <name>` on the compose
+command) so their containers, volumes, and `uploads/` don't collide, and
+set a distinct `PORT` for one of them (the `api` service uses
+`network_mode: host`, so both can't bind 8000 at once) — see
+`.env.staging.example`.
+
 ## Tests
 
 ```

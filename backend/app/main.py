@@ -18,7 +18,13 @@ log = get_logger("app")
 def create_app() -> FastAPI:
     setup_logging()
 
-    app = FastAPI(title="OneGemmy API", debug=settings.DEBUG)
+    app = FastAPI(
+        title="OneGemmy API",
+        debug=settings.DEBUG,
+        docs_url=None if settings.is_production else "/docs",
+        redoc_url=None if settings.is_production else "/redoc",
+        openapi_url=None if settings.is_production else "/openapi.json",
+    )
 
     app.add_middleware(RequestLoggingMiddleware)
     cors_origins = settings.cors_origins_list

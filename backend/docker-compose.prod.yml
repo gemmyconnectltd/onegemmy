@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env # overridden per-environment via `--env-file`
+    # Postgres runs natively on the VPS host, not in a container. Host
+    # networking lets DATABASE_URL use `localhost` exactly like a native
+    # process would — no bridge networking or extra hostnames needed.
+    network_mode: host
+    volumes:
+      - ./uploads:/app/uploads

@@ -1,12 +1,16 @@
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+Environment = Literal["local", "staging", "production"]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    ENVIRONMENT: str = "local"
+    ENVIRONMENT: Environment = "local"
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql+asyncpg://onegemmy:onegemmy@localhost:5432/onegemmy"
@@ -43,6 +47,24 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
         return ["*"] if "*" in origins else origins
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT == "production"
+
+    @model_validator(mode="after")
+    def _enforce_production_safety(self) -> "Settings":
+        if not self.is_production:
+            return self
+
+        # Defense in depth: these must hold in production regardless of what
+        # a misconfigured .env says, since a mistake here is a security issue.
+        if self.SECRET_KEY == "insecure-dev-key-change-me":
+            raise ValueError("SECRET_KEY must be set to a real secret in production")
+        if "*" in self.cors_origins_list:
+            raise ValueError("CORS_ORIGINS must not be '*' in production")
+        self.DEBUG = False
+        return self
 
 
 @lru_cache
