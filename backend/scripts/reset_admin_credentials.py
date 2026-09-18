@@ -26,7 +26,7 @@ log = get_logger("reset-admin-credentials")
 async def reset_superadmin(password: str) -> None:
     async with AsyncSessionLocal() as session:
         user = (
-            await session.execute(select(User).where(User.email == "superadmin@onegemmy.com"))
+            await session.execute(select(User).where(User.email == "pesaa.customer@gmail.com"))
         ).scalar_one_or_none()
         if user is None:
             log.warning("reset.superadmin.missing")

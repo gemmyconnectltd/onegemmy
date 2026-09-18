@@ -55,7 +55,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/admin/tenants": "Tenants",
 };
 
-const DEFAULT_TITLE = `${APP_NAME} - Business Management Tool | ${siteConfig.company}`;
+const DEFAULT_TITLE = `${APP_NAME} - Business Management Tool`;
 
 export function pageTitleForPath(pathname: string): string {
   const title = ERP_PAGE_TITLES[pathname];

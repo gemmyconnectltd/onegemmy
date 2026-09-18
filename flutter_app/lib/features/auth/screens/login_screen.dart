@@ -51,7 +51,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   height: 56,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(color: kAccent, borderRadius: BorderRadius.circular(14)),
-                  child: const Icon(Icons.layers, color: Colors.white, size: 28),
+                  // Coin-with-"P" monogram, matching the app icon/favicon —
+                  // drawn from basic shapes rather than a bundled asset so
+                  // there's no new dependency (e.g. flutter_svg) for one badge.
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.4)),
+                    child: const Text(
+                      'P',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15, height: 1),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(AppConfig.appName, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),

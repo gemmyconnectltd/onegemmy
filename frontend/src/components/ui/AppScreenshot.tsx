@@ -20,7 +20,7 @@ export function AppScreenshot({ src, alt, path, priority }: AppScreenshotProps) 
           <div className="w-2 h-2 rounded-full bg-white/20" />
           <div className="flex-1 mx-3">
             <div className="bg-white/5 border border-white/10 rounded-md px-3 py-1 text-[11px] text-white/40 text-center">
-              app.gemmyconnect.com/{path}
+              pesaa.io/{path}
             </div>
           </div>
         </div>

@@ -8,7 +8,7 @@ from app.core.logging import get_logger
 
 log = get_logger("email")
 
-LOGO_URL = "https://app.gemmyconnect.com/icons/icon-192x192.png"
+LOGO_URL = "https://pesaa.io/icons/icon-192x192.png"
 
 
 def _preheader(text: str) -> str:
@@ -56,7 +56,7 @@ def _branded_html(title: str, body: str, preheader: str = "") -> str:
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #eeeae5;background:#faf9f7;">
               <p style="margin:0 0 4px;font-size:12.5px;color:#8a857c;line-height:1.6;">
-                <strong style="color:#6a655c;">Pesaa</strong> by Gemmy Connect Ltd &middot; Kigali, Rwanda
+                <strong style="color:#6a655c;">Pesaa</strong> &middot; Kigali, Rwanda
               </p>
               <p style="margin:0;font-size:11.5px;color:#a8a39a;line-height:1.6;">
                 This is a transactional email sent because of activity on your Pesaa account. If you have questions, just reply to this email.

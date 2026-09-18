@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Pesaa Mobile - Business Management",
     short_name: "Pesaa",
     description:
-      "Pesaa mobile app. Sell, track stock, and manage your business on the go by Gemmy Connect Ltd.",
+      "Pesaa mobile app. Sell, track stock, and manage your business on the go.",
     id: "/",
     start_url: "/",
     scope: "/",

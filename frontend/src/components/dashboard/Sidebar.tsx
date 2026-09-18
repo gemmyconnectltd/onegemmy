@@ -8,10 +8,11 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useRouter } from "next/navigation";
 import { useMyEntitlements } from "@/lib/api/hooks";
 import { siteConfig } from "@/lib/config";
+import { LogoMark } from "@/components/ui/LogoMark";
 import {
   LayoutDashboard, ShoppingCart, Warehouse,
   Users, BarChart3, Settings, LogOut,
-  UserCog, Layers, HandCoins,
+  UserCog, HandCoins,
   Factory, ShoppingBag, Building2, Menu, X,
   PanelLeft, Crown,
 } from "lucide-react";
@@ -111,7 +112,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt={`${siteConfig.name} logo`} className="w-full h-full object-cover" />
             ) : (
-              <Layers size={16} className="text-white" strokeWidth={2.5} />
+              <LogoMark size={16} className="text-white" strokeWidth={2.5} />
             )}
           </div>
           {!collapsed && (
@@ -243,7 +244,7 @@ function mobileBottomNav({
               className="flex items-center gap-2.5"
             >
               <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center flex-shrink-0">
-                <Layers size={17} className="text-white" strokeWidth={2.5} />
+                <LogoMark size={17} className="text-white" strokeWidth={2.5} />
               </div>
               <span className="text-[15px] font-bold text-foreground">{siteConfig.name}</span>
             </Link>

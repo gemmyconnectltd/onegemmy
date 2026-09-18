@@ -83,7 +83,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-bold text-foreground">About</h2>
         </div>
         <p className="text-sm text-muted">Version <span className="font-semibold text-foreground">v0.1.0</span></p>
-        <p className="text-sm text-muted">Built by <span className="font-semibold text-foreground">Gemmy Connect Ltd</span></p>
+        <p className="text-sm text-muted">Built by <span className="font-semibold text-foreground">Pesaa</span></p>
       </div>
     </div>
   );

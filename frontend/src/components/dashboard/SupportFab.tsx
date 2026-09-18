@@ -19,7 +19,7 @@ export function SupportFab() {
             </div>
           </div>
           <a
-            href="mailto:support@onegemmy.com"
+            href="mailto:support@pesaa.io"
             className="flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-foreground hover:bg-surface transition-colors border-b border-border"
           >
             <Mail size={16} className="text-foreground/40" /> Contact support

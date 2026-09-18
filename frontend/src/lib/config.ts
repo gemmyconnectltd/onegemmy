@@ -33,8 +33,8 @@ export const siteConfig = {
   title: "Pesaa — Simple Shop Management",
   description:
     "Manage sales, inventory, expenses, and profits for your one-person shop.",
-  company: "Gemmy Connect Ltd",
-  url: "https://app.gemmyconnect.com",
+  company: "Pesaa",
+  url: "https://pesaa.io",
   links: {
     github: "https://github.com/gemmyconnectltd",
     linkedin: "https://linkedin.com/company/gemmyconnectltd",

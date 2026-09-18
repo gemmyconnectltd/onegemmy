@@ -34,10 +34,10 @@ export default function ContactPage() {
                 For sales, support, or anything else.
               </p>
               <a
-                href="mailto:info@gemmyconnect.com"
+                href="mailto:info@pesaa.io"
                 className="text-sm font-semibold text-[#6f1a07] hover:underline"
               >
-                info@gemmyconnect.com
+                info@pesaa.io
               </a>
             </div>
 
@@ -54,7 +54,7 @@ export default function ContactPage() {
 
           <div className="mt-12">
             <a
-              href={`mailto:info@gemmyconnect.com?subject=${siteConfig.name}%20inquiry`}
+              href={`mailto:info@pesaa.io?subject=${siteConfig.name}%20inquiry`}
               className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
             >
               Send Us an Email

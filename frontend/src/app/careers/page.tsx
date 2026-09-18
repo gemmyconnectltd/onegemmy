@@ -25,7 +25,7 @@ export default function CareersPage() {
             who want to build with us.
           </p>
           <a
-            href={`mailto:info@gemmyconnect.com?subject=Interested%20in%20joining%20${siteConfig.name}`}
+            href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}
             className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
           >
             <Mail size={20} />

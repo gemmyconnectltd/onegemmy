@@ -145,7 +145,7 @@ export default function MobileLoginPage() {
       </div>
 
       <p className="text-center text-[10px] text-muted pb-[env(safe-area-inset-bottom)] py-4">
-        Pesaa · Gemmy Connect Ltd
+        Pesaa · Kigali, Rwanda
       </p>
     </div>
   );

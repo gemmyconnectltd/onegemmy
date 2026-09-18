@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { Layers, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { siteConfig } from "@/lib/config";
 
 export function Footer() {
   return (
     <footer className="bg-[#1a1209] text-white py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="grid md:grid-cols-4 gap-12 mb-12">
+        <div className="grid md:grid-cols-5 gap-12 mb-12">
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-4 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
               <div className="w-10 h-10 bg-foreground flex items-center justify-center">
-                <Layers className="text-white" size={20} />
+                <LogoMark className="text-white" size={20} />
               </div>
               <div>
                 <span className="text-xl font-bold block leading-none">
@@ -44,7 +45,7 @@ export function Footer() {
                 </svg>
               </a>
               <a
-                href="mailto:info@gemmyconnect.com"
+                href="mailto:info@pesaa.io"
                 className="text-white/50 hover:text-white transition-colors"
               >
                 <Mail size={20} />
@@ -56,9 +57,11 @@ export function Footer() {
               Product
             </h4>
             <ul className="space-y-3 text-white/50 text-sm">
-              <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-              <li><a href="#modules" className="hover:text-white transition-colors">Modules</a></li>
-              <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
+              <li><a href="/solutions#pos" className="hover:text-white transition-colors">Point of Sale</a></li>
+              <li><a href="/solutions#inventory" className="hover:text-white transition-colors">Inventory</a></li>
+              <li><a href="/solutions#accounting" className="hover:text-white transition-colors">Accounting</a></li>
+              <li><a href="/solutions#sales" className="hover:text-white transition-colors">Sales &amp; CRM</a></li>
+              <li><Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
             </ul>
           </div>
           <div>
@@ -66,8 +69,20 @@ export function Footer() {
               Company
             </h4>
             <ul className="space-y-3 text-white/50 text-sm">
-              <li><a href="/contact" className="hover:text-white transition-colors">Contact</a></li>
+              <li><a href="/company#about" className="hover:text-white transition-colors">About us</a></li>
+              <li><a href="/company#mission" className="hover:text-white transition-colors">Our mission</a></li>
+              <li><a href="/company#values" className="hover:text-white transition-colors">Our values</a></li>
               <li><a href="/careers" className="hover:text-white transition-colors">Careers</a></li>
+              <li><a href="/contact" className="hover:text-white transition-colors">Contact</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-bold mb-4 text-sm uppercase tracking-wider">
+              Resources
+            </h4>
+            <ul className="space-y-3 text-white/50 text-sm">
+              <li><a href="/resources" className="hover:text-white transition-colors">Blog</a></li>
+              <li><a href="/impact" className="hover:text-white transition-colors">Impact</a></li>
               <li><a href="/login" className="hover:text-white transition-colors">Sign In</a></li>
               <li><a href="/register" className="hover:text-white transition-colors">Get Started</a></li>
             </ul>

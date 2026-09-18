@@ -264,12 +264,12 @@ async def seed_tenant(session: AsyncSession, td: TenantDef, all_permissions: lis
 async def seed_superadmin(session: AsyncSession) -> None:
     """Seed the global superadmin (no tenant). Idempotent."""
     exists = (await session.execute(
-        select(User).where(User.email == "superadmin@onegemmy.com")
+        select(User).where(User.email == "pesaa.customer@gmail.com")
     )).scalar_one_or_none()
     if exists:
         return
     session.add(User(
-        tenant_id=None, email="superadmin@onegemmy.com",
+        tenant_id=None, email="pesaa.customer@gmail.com",
         hashed_password=hash_password(settings.SEED_SUPER_ADMIN_PASSWORD),
         full_name="Global Super Admin", role="superadmin",
         is_active=True, is_superuser=True,

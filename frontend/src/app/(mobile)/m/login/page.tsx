@@ -144,7 +144,7 @@ export default function MobileLoginPage() {
       </div>
 
       <p className="text-center text-[10px] text-muted pb-[env(safe-area-inset-bottom)] py-4">
-        {siteConfig.name} · {siteConfig.company}
+        {siteConfig.name}
       </p>
     </div>
   );

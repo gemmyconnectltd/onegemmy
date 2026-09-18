@@ -3,7 +3,7 @@ import { LegalLayout } from "@/components/layout/LegalLayout";
 import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: `${siteConfig.name} Privacy Policy | ${siteConfig.company}`,
+  title: `${siteConfig.name} Privacy Policy`,
 };
 
 export default function PrivacyPage() {
@@ -11,9 +11,8 @@ export default function PrivacyPage() {
     <LegalLayout title="Privacy Policy" lastUpdated="September 14, 2026">
       <p>
         {siteConfig.company}{" "}
-        (&quot;Gemmy Connect&quot;, &quot;{siteConfig.name}&quot;, &quot;we&quot;,
-        &quot;us&quot;, or &quot;our&quot;) respects your privacy and is
-        committed to protecting personal data.
+        (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) respects your
+        privacy and is committed to protecting personal data.
       </p>
       <p>
         This Privacy Policy explains how we collect, use, store, share, and
@@ -25,8 +24,7 @@ export default function PrivacyPage() {
 
       <h2>1. About {siteConfig.name}</h2>
       <p>
-        {siteConfig.name} is a business management platform provided by{" "}
-        <strong>{siteConfig.company}</strong>, a company based in Rwanda.
+        {siteConfig.name} is a business management platform, based in Rwanda.
       </p>
       <p>
         Businesses can use {siteConfig.name} to manage activities such as sales,
@@ -39,10 +37,10 @@ export default function PrivacyPage() {
       </p>
 
       <h2>2. Our role when processing data</h2>
-      <p>The role Gemmy Connect plays depends on the type of information involved.</p>
+      <p>The role {siteConfig.company} plays depends on the type of information involved.</p>
       <p>
         For information you provide directly to us when creating an account,
-        communicating with us, or using our services, Gemmy Connect
+        communicating with us, or using our services, {siteConfig.company}{" "}
         determines how that information is processed.
       </p>
       <p>
@@ -109,7 +107,7 @@ export default function PrivacyPage() {
         <li>communicate important service, security, and account updates;</li>
         <li>comply with applicable legal and regulatory obligations; and</li>
         <li>
-          protect the rights, property, and security of Gemmy Connect, our
+          protect the rights, property, and security of {siteConfig.company}, our
           customers, and users.
         </li>
       </ul>
@@ -133,9 +131,7 @@ export default function PrivacyPage() {
         about its customers, employees, suppliers, and other individuals.
       </p>
       <p>
-        Gemmy Connect processes such information as necessary to provide the
-        {siteConfig.name} service and according to the applicable agreement with the
-        business.
+        {`${siteConfig.company} processes such information as necessary to provide the ${siteConfig.name} service and according to the applicable agreement with the business.`}
       </p>
       <p>We do not use one business&apos;s confidential business data for the benefit of another business.</p>
 
@@ -211,7 +207,7 @@ export default function PrivacyPage() {
       <p>Account holders may be able to manage certain information directly through {siteConfig.name}.</p>
       <p>
         You may also contact us at{" "}
-        <a href="mailto:info@gemmyconnect.com">info@gemmyconnect.com</a>.
+        <a href="mailto:info@pesaa.io">info@pesaa.io</a>.
       </p>
       <p>
         If your information was collected and entered into {siteConfig.name} by a
@@ -232,9 +228,7 @@ export default function PrivacyPage() {
 
       <h2>11. International data processing</h2>
       <p>
-        Gemmy Connect is based in Rwanda, while some of the technology and
-        service providers supporting {siteConfig.name} may operate infrastructure in
-        other countries.
+        {`${siteConfig.company} is based in Rwanda, while some of the technology and service providers supporting ${siteConfig.name} may operate infrastructure in other countries.`}
       </p>
       <p>As a result, information may be processed or stored outside the country in which it was originally collected.</p>
       <p>
@@ -290,7 +284,7 @@ export default function PrivacyPage() {
         <br />
         Kigali, Rwanda
         <br />
-        Email: <a href="mailto:info@gemmyconnect.com">info@gemmyconnect.com</a>
+        Email: <a href="mailto:info@pesaa.io">info@pesaa.io</a>
         <br />
         Website: <a href={siteConfig.url}>{siteConfig.url}</a>
       </p>

@@ -26,8 +26,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: `${siteConfig.name} - Business Management Tool | ${siteConfig.company}`,
-  description: `${siteConfig.name} is an all-in-one business management platform by ${siteConfig.company}. Manage sales, inventory, accounting, HR, projects, and CRM from a single dashboard.`,
+  title: `${siteConfig.name} - Business Management Tool`,
+  description: `${siteConfig.name} is an all-in-one business management platform. Manage sales, inventory, accounting, HR, projects, and CRM from a single dashboard.`,
   keywords: [
     "business management",
     "CRM",
@@ -37,7 +37,6 @@ export const metadata: Metadata = {
     "accounting",
     "HR management",
     siteConfig.name,
-    "Gemmy Connect",
   ],
   authors: [{ name: siteConfig.company }],
   manifest: "/manifest.json",

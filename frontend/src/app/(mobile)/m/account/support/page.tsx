@@ -50,7 +50,7 @@ export default function MobileSupportPage() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <a
-              href="mailto:support@onegemmy.com"
+              href="mailto:support@pesaa.io"
               className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white text-accent text-[12px] font-bold active:scale-[0.98] transition"
             >
               <Mail size={14} /> Email us
@@ -66,7 +66,7 @@ export default function MobileSupportPage() {
 
         {/* Report a problem */}
         <a
-          href={`mailto:support@onegemmy.com?subject=${encodeURIComponent(`Report a problem — ${siteConfig.name} mobile`)}&body=${encodeURIComponent(`Hi ${siteConfig.name} support,\n\nI ran into an issue:\n\n[describe what happened]\n\nThanks!`)}`}
+          href={`mailto:support@pesaa.io?subject=${encodeURIComponent(`Report a problem — ${siteConfig.name} mobile`)}&body=${encodeURIComponent(`Hi ${siteConfig.name} support,\n\nI ran into an issue:\n\n[describe what happened]\n\nThanks!`)}`}
           className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 active:bg-surface transition-colors"
         >
           <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 flex-shrink-0">
@@ -107,7 +107,7 @@ export default function MobileSupportPage() {
         </div>
 
         <p className="text-[10px] text-muted text-center pb-2">
-          {siteConfig.name} · support@onegemmy.com
+          {siteConfig.name} · support@pesaa.io
         </p>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Layers } from "lucide-react";
+import { LogoMark } from "./LogoMark";
 import { siteConfig } from "@/lib/config";
 
 interface LogoProps {
@@ -26,7 +26,7 @@ export function Logo({ size = "md", href = "/" }: LogoProps) {
       <div
         className={`${containerSizes[size]} bg-foreground rounded-xl flex items-center justify-center`}
       >
-        <Layers className="text-white" size={size === "sm" ? 14 : size === "md" ? 18 : 22} />
+        <LogoMark className="text-white" size={size === "sm" ? 14 : size === "md" ? 18 : 22} />
       </div>
       <div>
         <span className={`${textSizes[size]} font-bold block leading-none text-foreground`}>

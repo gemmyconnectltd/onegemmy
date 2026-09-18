@@ -1,7 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Layers, ShoppingCart, Warehouse, HandCoins, UserCog, ShoppingBag, BarChart3,
+  ShoppingCart, Warehouse, HandCoins, UserCog, ShoppingBag, BarChart3,
 } from "lucide-react";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { siteConfig } from "@/lib/config";
 
 // Positioned as percentages of their own scoped badge-zone box below — never
@@ -21,8 +23,17 @@ const FEATURE_BADGES = [
  *  component so login/register never drift apart visually by accident. */
 export function AuthBrandingPanel() {
   return (
-    <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
-      <div className="absolute inset-0 opacity-[0.03]" style={{
+    <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden bg-[#1a1209]">
+      <Image
+        src="/verticals/pharmacy.jpg"
+        alt=""
+        fill
+        priority
+        sizes="45vw"
+        className="object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#1a1209]/95 via-[#1a1209]/85 to-[#3d2f22]/70" />
+      <div className="absolute inset-0 opacity-[0.05]" style={{
         backgroundImage: "linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)",
         backgroundSize: "40px 40px",
       }} />
@@ -33,7 +44,7 @@ export function AuthBrandingPanel() {
         <div>
           <Link href="/" className="flex items-center gap-2.5 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
             <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
-              <Layers className="text-white" size={20} />
+              <LogoMark className="text-white" size={20} />
             </div>
             <span className="text-xl font-bold text-white">{siteConfig.name}</span>
           </Link>

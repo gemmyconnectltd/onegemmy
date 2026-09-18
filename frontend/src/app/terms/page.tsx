@@ -11,7 +11,7 @@ export default function TermsPage() {
     <LegalLayout title="Terms of Service" lastUpdated="September 10, 2026">
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your access to and
-        use of {siteConfig.name}, provided by {siteConfig.company} (&quot;we&quot;,
+        use of {siteConfig.name} (&quot;we&quot;,
         &quot;us&quot;). By creating an account or using {siteConfig.name}, you agree
         to these Terms on behalf of yourself and, if applicable, the
         business you represent (&quot;you&quot;, your &quot;tenant&quot;).
@@ -95,7 +95,7 @@ export default function TermsPage() {
       <h2>10. Contact</h2>
       <p>
         Questions about these Terms can be sent to{" "}
-        <a href="mailto:info@gemmyconnect.com">info@gemmyconnect.com</a>.
+        <a href="mailto:info@pesaa.io">info@pesaa.io</a>.
       </p>
     </LegalLayout>
   );

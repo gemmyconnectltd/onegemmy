@@ -177,7 +177,7 @@ export default function LoginPage() {
                   {
                     tenant: "Global", slug: undefined,
                     users: [
-                      { label: "Super Admin", email: "superadmin@onegemmy.com", password: "superadmin123", desc: "Admin dashboard", isSuper: true },
+                      { label: "Super Admin", email: "pesaa.customer@gmail.com", password: "superadmin123", desc: "Admin dashboard", isSuper: true },
                     ],
                   },
                   {

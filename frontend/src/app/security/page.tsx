@@ -78,7 +78,7 @@ export default function SecurityPage() {
         <span>
           If you believe you&apos;ve found a security issue, please email us
           at{" "}
-          <a href="mailto:info@gemmyconnect.com">info@gemmyconnect.com</a>{" "}
+          <a href="mailto:info@pesaa.io">info@pesaa.io</a>{" "}
           with details. We take reports seriously and will follow up
           directly.
         </span>

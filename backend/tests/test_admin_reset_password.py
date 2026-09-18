@@ -20,7 +20,7 @@ class _FakeUser:
 class _FakeAdmin:
     def __init__(self):
         self.id = uuid.uuid4()
-        self.email = "superadmin@onegemmy.com"
+        self.email = "pesaa.customer@gmail.com"
         self.full_name = "Super Admin"
 
 
