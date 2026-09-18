@@ -61,9 +61,9 @@ export default function ResourcesPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#e8a488] uppercase tracking-wide mb-3">Resources</p>
+          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Resources</p>
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
             Practical notes on running sales, stock, and books
           </h1>
@@ -79,10 +79,10 @@ export default function ResourcesPage() {
           {articles.map((a) => (
             <article key={a.title} className="border-b border-border pb-16 last:border-0 last:pb-0">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-lg bg-[#6f1a07]/10 flex items-center justify-center flex-shrink-0">
-                  <a.icon size={17} className="text-[#6f1a07]" />
+                <div className="w-9 h-9 rounded-lg bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
+                  <a.icon size={17} className="text-[#16a34a]" />
                 </div>
-                <span className="text-xs font-semibold text-[#6f1a07] uppercase tracking-wide">{a.category}</span>
+                <span className="text-xs font-semibold text-[#16a34a] uppercase tracking-wide">{a.category}</span>
                 <span className="text-xs text-muted flex items-center gap-1">
                   <Clock size={12} />
                   {a.readTime}

@@ -156,7 +156,7 @@ export default function InventoryOverviewPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Total Products", value: String(inventory.length + totalVariants), sub: "SKUs tracked",     icon: Package,       color: "#af9164", change: null },
-          { label: "Stock Value",    value: fmt(totalValue),          sub: "At cost price",    icon: BarChart3,     color: "#6f1a07", change: "+4.2%" },
+          { label: "Stock Value",    value: fmt(totalValue),          sub: "At cost price",    icon: BarChart3,     color: "#16a34a", change: "+4.2%" },
           { label: "Low Stock",      value: String(lowCount),         sub: "Need reorder",     icon: AlertTriangle, color: "#f59e0b", change: null },
           { label: "Out of Stock",   value: String(outCount),         sub: "Immediate action", icon: XCircle,       color: "#ef4444", change: null },
         ].map((s) => (

@@ -61,10 +61,10 @@ export function AppJourney() {
             type="button"
             onClick={() => setActive(i)}
             className={`w-full text-left px-4 py-3 rounded-lg transition-colors cursor-pointer ${
-              i === active ? "bg-[#6f1a07]/10" : "hover:bg-surface"
+              i === active ? "bg-[#16a34a]/10" : "hover:bg-surface"
             }`}
           >
-            <span className={`block text-xs font-mono mb-1 ${i === active ? "text-[#6f1a07]" : "text-muted/60"}`}>
+            <span className={`block text-xs font-mono mb-1 ${i === active ? "text-[#16a34a]" : "text-muted/60"}`}>
               {step.time}
             </span>
             <span className={`block text-sm font-semibold ${i === active ? "text-foreground" : "text-muted"}`}>
@@ -74,7 +74,7 @@ export function AppJourney() {
               <span className="block h-0.5 bg-border rounded-full mt-2.5 overflow-hidden">
                 <span
                   key={active}
-                  className="block h-full bg-[#6f1a07] rounded-full"
+                  className="block h-full bg-[#16a34a] rounded-full"
                   style={{
                     animation: `journeyProgress ${STEP_DURATION}ms linear forwards`,
                     animationPlayState: paused ? "paused" : "running",

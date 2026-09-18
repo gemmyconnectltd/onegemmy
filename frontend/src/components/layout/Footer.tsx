@@ -5,12 +5,12 @@ import { siteConfig } from "@/lib/config";
 
 export function Footer() {
   return (
-    <footer className="bg-[#1a1209] text-white py-16 px-4 sm:px-6 lg:px-8">
+    <footer className="bg-[#052e16] text-white py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-5 gap-12 mb-12">
           <div>
             <Link href="/" className="flex items-center gap-2.5 mb-4 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
-              <div className="w-10 h-10 bg-foreground flex items-center justify-center">
+              <div className="w-10 h-10 bg-accent flex items-center justify-center">
                 <LogoMark className="text-white" size={20} />
               </div>
               <div>

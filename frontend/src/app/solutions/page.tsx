@@ -112,9 +112,9 @@ export default function ProductsPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#e8a488] uppercase tracking-wide mb-3">Products</p>
+          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Products</p>
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
             Everything your business runs on, in one login
           </h1>
@@ -129,7 +129,7 @@ export default function ProductsPage() {
           <div className="max-w-7xl mx-auto">
             <div className={`flex flex-col ${i % 2 === 1 ? "lg:flex-row-reverse" : "lg:flex-row"} items-center gap-12`}>
               <div className="w-full lg:w-1/2">
-                <div className="inline-flex items-center gap-2 text-[#6f1a07] text-sm font-semibold mb-4 border-b-2 border-[#6f1a07] pb-1">
+                <div className="inline-flex items-center gap-2 text-[#16a34a] text-sm font-semibold mb-4 border-b-2 border-[#16a34a] pb-1">
                   <m.icon size={15} />
                   {m.eyebrow}
                 </div>
@@ -153,12 +153,12 @@ export default function ProductsPage() {
       ))}
 
       {/* CTA */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
+      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="relative max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">See it running with your own data</h2>
           <a
             href="/register"
-            className="inline-flex items-center gap-2 bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors"
+            className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"
           >
             Start Free Trial
           </a>

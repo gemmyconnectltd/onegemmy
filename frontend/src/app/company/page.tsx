@@ -37,9 +37,9 @@ export default function CompanyPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#e8a488] uppercase tracking-wide mb-3">Company</p>
+          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Company</p>
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
             We build the back office so you don&apos;t have to run one
           </h1>
@@ -52,7 +52,7 @@ export default function CompanyPage() {
       {/* About */}
       <section id="about" className="py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
         <div className="max-w-3xl mx-auto">
-          <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">About us</p>
+          <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">About us</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
             A small team building the tool we couldn&apos;t find
           </h2>
@@ -70,7 +70,7 @@ export default function CompanyPage() {
       {/* Mission */}
       <section id="mission" className="py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">Our mission</p>
+          <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our mission</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
             Give every small business the tools bigger companies take for granted
           </h2>
@@ -88,14 +88,14 @@ export default function CompanyPage() {
       <section id="values" className="py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">Our values</p>
+            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our values</p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">How we build {siteConfig.name}</h2>
           </div>
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {values.map((v) => (
               <div key={v.title} className="flex gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#6f1a07]/10 flex items-center justify-center flex-shrink-0">
-                  <v.icon size={20} className="text-[#6f1a07]" />
+                <div className="w-11 h-11 rounded-xl bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
+                  <v.icon size={20} className="text-[#16a34a]" />
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground mb-1.5">{v.title}</h3>
@@ -110,7 +110,7 @@ export default function CompanyPage() {
       {/* Team / Careers */}
       <section id="careers" className="py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">Our team</p>
+          <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our team</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
             Small on purpose, for now
           </h2>
@@ -122,7 +122,7 @@ export default function CompanyPage() {
           </p>
           <a
             href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}
-            className="inline-flex items-center gap-2 bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors"
+            className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"
           >
             <Mail size={18} />
             Introduce Yourself

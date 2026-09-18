@@ -106,8 +106,8 @@ export function FeatureShowcaseTabs() {
             onClick={() => setActive(i)}
             className={`snap-start flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold border transition-colors whitespace-nowrap ${
               i === active
-                ? "bg-[#6f1a07] border-[#6f1a07] text-white"
-                : "border-border text-foreground/60 hover:border-[#6f1a07]/40 hover:text-foreground"
+                ? "bg-[#16a34a] border-[#16a34a] text-white"
+                : "border-border text-foreground/60 hover:border-[#16a34a]/40 hover:text-foreground"
             }`}
           >
             <it.icon size={15} />

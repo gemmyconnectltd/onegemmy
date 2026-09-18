@@ -26,8 +26,8 @@ export default function ContactPage() {
 
           <div className="grid sm:grid-cols-2 gap-6 max-w-xl mx-auto">
             <div className="bg-card p-6 rounded-xl border border-border text-left">
-              <div className="w-10 h-10 rounded-lg bg-[#6f1a07]/10 flex items-center justify-center mb-3">
-                <Mail size={20} className="text-[#6f1a07]" />
+              <div className="w-10 h-10 rounded-lg bg-[#16a34a]/10 flex items-center justify-center mb-3">
+                <Mail size={20} className="text-[#16a34a]" />
               </div>
               <h3 className="font-bold text-foreground mb-1.5">Email us</h3>
               <p className="text-sm text-muted mb-3">
@@ -35,15 +35,15 @@ export default function ContactPage() {
               </p>
               <a
                 href="mailto:info@pesaa.io"
-                className="text-sm font-semibold text-[#6f1a07] hover:underline"
+                className="text-sm font-semibold text-[#16a34a] hover:underline"
               >
                 info@pesaa.io
               </a>
             </div>
 
             <div className="bg-card p-6 rounded-xl border border-border text-left">
-              <div className="w-10 h-10 rounded-lg bg-[#6f1a07]/10 flex items-center justify-center mb-3">
-                <MapPin size={20} className="text-[#6f1a07]" />
+              <div className="w-10 h-10 rounded-lg bg-[#16a34a]/10 flex items-center justify-center mb-3">
+                <MapPin size={20} className="text-[#16a34a]" />
               </div>
               <h3 className="font-bold text-foreground mb-1.5">Based in</h3>
               <p className="text-sm text-muted">
@@ -55,7 +55,7 @@ export default function ContactPage() {
           <div className="mt-12">
             <a
               href={`mailto:info@pesaa.io?subject=${siteConfig.name}%20inquiry`}
-              className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors inline-flex items-center justify-center gap-2"
             >
               Send Us an Email
               <ArrowRight size={20} />

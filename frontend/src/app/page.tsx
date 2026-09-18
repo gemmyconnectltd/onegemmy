@@ -40,7 +40,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
             <a
               href="/register"
-              className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors inline-flex items-center justify-center gap-2"
             >
               Start Free Trial
               <ArrowRight size={20} />
@@ -73,7 +73,7 @@ export default function Home() {
       <section id="showcase" className="py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">
+            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
               Explore the product
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
@@ -88,7 +88,7 @@ export default function Home() {
       <section className="py-24 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">
+            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
               Who it&apos;s for
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -141,7 +141,7 @@ export default function Home() {
       <section id="pricing" className="py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#6f1a07] uppercase tracking-wide mb-3">
+            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
               Plans
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -158,12 +158,12 @@ export default function Home() {
                 key={plan.title}
                 className={`p-6 rounded-xl border transition-colors ${
                   plan.featured
-                    ? "border-[#6f1a07] bg-[#6f1a07]/5 shadow-md"
-                    : "border-border hover:border-[#6f1a07]/40"
+                    ? "border-[#16a34a] bg-[#16a34a]/5 shadow-md"
+                    : "border-border hover:border-[#16a34a]/40"
                 }`}
               >
                 {plan.featured && (
-                  <div className="bg-[#6f1a07] text-white text-xs font-bold px-3 py-1 rounded-md inline-block mb-4">
+                  <div className="bg-[#16a34a] text-white text-xs font-bold px-3 py-1 rounded-md inline-block mb-4">
                     MOST POPULAR
                   </div>
                 )}
@@ -189,7 +189,7 @@ export default function Home() {
       </section>
 
       {/* 5. Highlights — quick numbers */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#1a1209]">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {highlights.map((item) => (
@@ -205,7 +205,7 @@ export default function Home() {
       </section>
 
       {/* 6. Final CTA */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22] overflow-hidden">
+      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534] overflow-hidden">
         <div className="relative max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Stop Juggling Tools. Start Today.
@@ -227,7 +227,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
               href="/register"
-              className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors inline-flex items-center justify-center gap-2"
             >
               Start Your Free Trial
               <ArrowRight size={20} />

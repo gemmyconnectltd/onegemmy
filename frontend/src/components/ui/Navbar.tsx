@@ -103,7 +103,7 @@ export function Navbar() {
             </a>
             <a
               href="/register"
-              className="flex items-center gap-1.5 bg-[#6f1a07] text-white px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-[#591506] transition-colors"
+              className="flex items-center gap-1.5 bg-[#16a34a] text-white px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-[#15803d] transition-colors"
             >
               <Sparkles size={14} />
               Get Started
@@ -144,7 +144,7 @@ export function Navbar() {
           </a>
           <a
             href="/register"
-            className="block bg-[#6f1a07] text-white px-5 py-2.5 rounded-lg font-medium text-center mt-3 hover:bg-[#591506] transition-colors"
+            className="block bg-[#16a34a] text-white px-5 py-2.5 rounded-lg font-medium text-center mt-3 hover:bg-[#15803d] transition-colors"
           >
             Get Started
           </a>

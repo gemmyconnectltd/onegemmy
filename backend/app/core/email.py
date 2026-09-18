@@ -34,7 +34,7 @@ def _branded_html(title: str, body: str, preheader: str = "") -> str:
       <td align="center">
         <table role="presentation" width="540" cellpadding="0" cellspacing="0" style="max-width:540px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e8e4df;box-shadow:0 1px 3px rgba(20,16,10,0.04);">
           <tr>
-            <td style="background:linear-gradient(135deg,#6f1a07 0%,#4a1205 100%);padding:28px 32px;">
+            <td style="background:linear-gradient(135deg,#16a34a 0%,#166534 100%);padding:28px 32px;">
               <table role="presentation" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding-right:10px;">
@@ -75,7 +75,7 @@ def _button_html(url: str, label: str) -> str:
     safe_url = html.escape(url, quote=True)
     return (
         f'<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 4px;">'
-        f'<tr><td style="border-radius:10px;background:#6f1a07;">'
+        f'<tr><td style="border-radius:10px;background:#16a34a;">'
         f'<a href="{safe_url}" style="display:inline-block;padding:13px 26px;font-size:14px;font-weight:600;'
         f'color:#ffffff;text-decoration:none;border-radius:10px;">{html.escape(label)}</a>'
         f"</td></tr></table>"

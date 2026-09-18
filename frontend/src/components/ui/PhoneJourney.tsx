@@ -79,7 +79,7 @@ export function PhoneJourney() {
               {i === active && (
                 <span
                   key={active}
-                  className="block h-full bg-[#e8a488] rounded-full"
+                  className="block h-full bg-[#4ade80] rounded-full"
                   style={{
                     animation: `journeyProgress ${STEP_DURATION}ms linear forwards`,
                     animationPlayState: paused ? "paused" : "running",

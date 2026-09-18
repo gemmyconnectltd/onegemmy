@@ -28,7 +28,7 @@ export default function CRMPage() {
   const pipelineByStage = groupSum(deals, (d) => d.stage, (d) => d.value);
 
   const stats = [
-    { label: "Total Leads",    value: String(deals.length),        icon: Users,      color: "#6f1a07" },
+    { label: "Total Leads",    value: String(deals.length),        icon: Users,      color: "#16a34a" },
     { label: "Pipeline Value", value: fmt(pipelineValue),          icon: TrendingUp, color: "#10B981" },
     { label: "Closed Won",     value: String(closedWon.length),    icon: Target,     color: "#3b82f6" },
   ];

@@ -21,10 +21,10 @@ export const baseThemeDark: BaseTheme = {
   foreground: "#f1f1f4", muted: "#a0a2ab",
 };
 
-export const DEFAULT_BRAND_COLOR = "#6f1a07";
+export const DEFAULT_BRAND_COLOR = "#16a34a";
 
 export const brandColorPresets = [
-  "#6f1a07", "#b45309", "#1d4ed8", "#059669",
+  "#16a34a", "#b45309", "#1d4ed8", "#059669",
   "#7c3aed", "#0e7490", "#be123c", "#0f766e",
 ];
 
@@ -42,7 +42,7 @@ export const siteConfig = {
   colors: {
     primary: "#af9164",
     secondary: "#6f5a3a",
-    accent: "#6f1a07",
+    accent: "#16a34a",
     success: "#10B981",
     background: "#ffffff",
     surface: "#f8f8f6",

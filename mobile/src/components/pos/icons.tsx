@@ -81,7 +81,7 @@ export function getBusinessIcon(b: { icon: string }): IconComponent {
 }
 
 const TILE_COLORS = [
-  "#6f1a07", "#0f766e", "#b45309", "#1d4ed8", "#be185d", "#7c3aed",
+  "#16a34a", "#0f766e", "#b45309", "#1d4ed8", "#be185d", "#7c3aed",
   "#059669", "#b91c1c", "#4338ca", "#0e7490", "#a16207", "#be123c",
 ];
 

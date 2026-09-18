@@ -46,7 +46,7 @@ export function chartPalette(dark: boolean): ChartPalette {
     },
     income: "#10B981",
     expenses: "#ef4444",
-    profit: "#6f1a07",
+    profit: "#16a34a",
     primary: "#af9164",
     gold: "#af9164",
     blue: "#3b82f6",

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Same brand accent used across the web app (DEFAULT_BRAND_COLOR in
 /// frontend/src/lib/config.ts) and the marketing site.
-const Color kAccent = Color(0xFF6F1A07);
+const Color kAccent = Color(0xFF16A34A);
 const Color kSurface = Color(0xFFF8F8F6);
 const Color kBorder = Color(0xFFE8E4DE);
 

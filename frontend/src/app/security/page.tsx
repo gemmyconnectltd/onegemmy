@@ -46,8 +46,8 @@ export default function SecurityPage() {
       <div className="grid sm:grid-cols-2 gap-6 my-8">
         {practices.map((p) => (
           <div key={p.title} className="bg-card border border-border rounded-xl p-5">
-            <div className="w-10 h-10 rounded-lg bg-[#6f1a07]/10 flex items-center justify-center mb-3">
-              <p.icon size={20} className="text-[#6f1a07]" />
+            <div className="w-10 h-10 rounded-lg bg-[#16a34a]/10 flex items-center justify-center mb-3">
+              <p.icon size={20} className="text-[#16a34a]" />
             </div>
             <h3 className="font-bold text-foreground mb-1.5">{p.title}</h3>
             <p className="text-sm text-muted leading-relaxed">{p.description}</p>
@@ -74,7 +74,7 @@ export default function SecurityPage() {
 
       <h2>Report a concern</h2>
       <p className="flex items-start gap-2">
-        <Mail size={18} className="text-[#6f1a07] mt-0.5 flex-shrink-0" />
+        <Mail size={18} className="text-[#16a34a] mt-0.5 flex-shrink-0" />
         <span>
           If you believe you&apos;ve found a security issue, please email us
           at{" "}

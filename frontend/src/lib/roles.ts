@@ -97,7 +97,7 @@ export const defaultRoles: Role[] = [
     id: "admin",
     name: "Admin",
     description: "Full access except company settings and user management.",
-    color: "#6f1a07",
+    color: "#16a34a",
     permissions: permissions
       .filter((p) => !["settings.company", "settings.users.manage", "settings.roles.manage"].includes(p.id))
       .map((p) => p.id),

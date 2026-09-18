@@ -24,7 +24,7 @@ export function Logo({ size = "md", href = "/" }: LogoProps) {
   return (
     <Link href={href} className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg">
       <div
-        className={`${containerSizes[size]} bg-foreground rounded-xl flex items-center justify-center`}
+        className={`${containerSizes[size]} bg-accent rounded-xl flex items-center justify-center`}
       >
         <LogoMark className="text-white" size={size === "sm" ? 14 : size === "md" ? 18 : 22} />
       </div>

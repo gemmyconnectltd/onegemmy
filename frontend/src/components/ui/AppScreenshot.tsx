@@ -10,7 +10,7 @@ interface AppScreenshotProps {
 export function AppScreenshot({ src, alt, path, priority }: AppScreenshotProps) {
   return (
     <div className="relative">
-      <div className="absolute -inset-6 bg-[#6f1a07]/10 blur-3xl" />
+      <div className="absolute -inset-6 bg-[#16a34a]/10 blur-3xl" />
 
       <div className="relative bg-[#12100d] rounded-2xl p-1.5 shadow-2xl">
         {/* Window chrome */}

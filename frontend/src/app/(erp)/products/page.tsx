@@ -112,7 +112,7 @@ export default function ProductsPage() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Package className="h-6 w-6 text-accent" style={{ color: "#6f1a07" }} />
+          <Package className="h-6 w-6 text-accent" style={{ color: "#16a34a" }} />
           <h1 className="text-2xl font-bold" style={{ color: "#2b2118" }}>
             Products
           </h1>
@@ -120,7 +120,7 @@ export default function ProductsPage() {
         <button
           onClick={openAdd}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium transition-colors"
-          style={{ backgroundColor: "#6f1a07" }}
+          style={{ backgroundColor: "#16a34a" }}
         >
           <Plus className="h-4 w-4" />
           Add Product

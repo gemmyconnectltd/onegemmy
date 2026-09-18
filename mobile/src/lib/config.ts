@@ -15,7 +15,7 @@ export type BusinessTheme = {
 export const businessThemes: Record<BusinessType, BusinessTheme> = {
   retail: {
     background: "#ffffff", surface: "#f8f8f6", card: "#ffffff", border: "#e8e4de",
-    accent: "#6f1a07",    primary: "#af9164",  foreground: "#2b2118", muted: "#7a7d7e",
+    accent: "#16a34a",    primary: "#af9164",  foreground: "#2b2118", muted: "#7a7d7e",
   },
   restaurant: {
     background: "#fffbf5", surface: "#fdf3e3", card: "#ffffff", border: "#f0dfc0",
@@ -56,7 +56,7 @@ export const siteConfig = {
   colors: {
     primary: "#af9164",
     secondary: "#6f5a3a",
-    accent: "#6f1a07",
+    accent: "#16a34a",
     success: "#10B981",
     background: "#ffffff",
     surface: "#f8f8f6",

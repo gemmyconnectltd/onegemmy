@@ -45,9 +45,9 @@ export default function ImpactPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#e8a488] uppercase tracking-wide mb-3">Our approach</p>
+          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Our approach</p>
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
             Small businesses run the East African economy. Our software should treat them that way
           </h1>
@@ -58,9 +58,9 @@ export default function ImpactPage() {
       </section>
 
       {/* By the numbers — real product facts, not fabricated business claims */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#1a1209]">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
         <div className="max-w-7xl mx-auto">
-          <p className="text-center text-sm font-semibold text-[#e8a488] uppercase tracking-wide mb-12">
+          <p className="text-center text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-12">
             By the numbers
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -82,8 +82,8 @@ export default function ImpactPage() {
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {pillars.map((p) => (
               <div key={p.title} className="flex gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#6f1a07]/10 flex items-center justify-center flex-shrink-0">
-                  <p.icon size={20} className="text-[#6f1a07]" />
+                <div className="w-11 h-11 rounded-xl bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
+                  <p.icon size={20} className="text-[#16a34a]" />
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground mb-1.5">{p.title}</h3>
@@ -115,13 +115,13 @@ export default function ImpactPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
+      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="relative max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Be one of our first stories</h2>
           <p className="text-white/60 mb-8">Start free, and if it works for you, we&apos;d love to tell your story here one day.</p>
           <a
             href="/register"
-            className="inline-flex items-center gap-2 bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors"
+            className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"
           >
             Start Free Trial
           </a>

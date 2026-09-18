@@ -26,7 +26,7 @@ export default function CareersPage() {
           </p>
           <a
             href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}
-            className="bg-[#6f1a07] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#591506] transition-colors inline-flex items-center justify-center gap-2"
+            className="bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors inline-flex items-center justify-center gap-2"
           >
             <Mail size={20} />
             Introduce Yourself

@@ -130,7 +130,7 @@ export default function AppearancePage() {
               value={hexInput}
               onChange={(e) => setHexInput(e.target.value)}
               onBlur={() => HEX_RE.test(hexInput) ? applyBrandColor(hexInput) : setHexInput(brandColor)}
-              placeholder="#6f1a07"
+              placeholder="#16a34a"
               className="w-24 px-2.5 py-2 text-[13px] font-mono border border-border rounded-lg bg-card text-foreground focus:outline-none focus:border-accent"
             />
           </div>
