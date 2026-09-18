@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMobileHost } from "@/lib/mobileHost";
 
 // Mobile-app subdomains (Next.js 16: proxy, formerly middleware).
-// Point e.g. shop.onegemmy.com or m.onegemmy.com at the same deployment and
+// Point e.g. shop.pesaa.com or m.pesaa.com at the same deployment and
 // phone users always land in the /m/* mobile experience — the ERP pages are
 // never shown there. The main domain keeps serving both surfaces.
 //

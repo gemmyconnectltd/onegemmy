@@ -1,6 +1,9 @@
 import { clearApiQueryCache } from "./queryClient";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://onegemmy.onrender.com/api/v1";
+// The backend now runs on a VPS, not Render — there's no fixed production
+// URL to fall back to here. NEXT_PUBLIC_API_URL must be set explicitly for
+// any real deployment; this default only covers local dev.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 const REQUEST_TIMEOUT_MS = 60_000;
 

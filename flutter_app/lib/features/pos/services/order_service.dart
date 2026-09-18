@@ -1,6 +1,6 @@
-import 'package:onegemmy_pos/core/network/api_client.dart';
-import 'package:onegemmy_pos/features/pos/models/cart_item.dart';
-import 'package:onegemmy_pos/features/pos/models/sale_result.dart';
+import 'package:pesaa_pos/core/network/api_client.dart';
+import 'package:pesaa_pos/features/pos/models/cart_item.dart';
+import 'package:pesaa_pos/features/pos/models/sale_result.dart';
 
 class OrderService {
   final ApiClient _client;

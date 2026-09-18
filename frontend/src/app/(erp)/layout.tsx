@@ -13,7 +13,7 @@ import { pageTitleForPath, APP_NAME } from "@/lib/pageTitles";
 
 const TOUR_STEPS: TourStep[] = [
   {
-    title: "Welcome to OneGemmy 👋",
+    title: "Welcome to Pesaa 👋",
     body: "Quick tour of where everything lives — takes about 30 seconds. Skip anytime.",
   },
   {

@@ -43,7 +43,7 @@ export default function MobileAccountPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `onegemmy-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `pesaa-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -70,7 +70,7 @@ export default function MobileAccountPage() {
               <p className="text-[15px] font-bold text-foreground truncate">{user?.name}</p>
               <p className="text-[11px] text-muted truncate">{user?.email}</p>
               <p className="text-[10px] text-muted mt-0.5 truncate capitalize">
-                {user?.role} · {user?.tenantName ?? "OneGemmy"}
+                {user?.role} · {user?.tenantName ?? "Pesaa"}
               </p>
             </div>
           </div>
@@ -160,7 +160,7 @@ export default function MobileAccountPage() {
         </button>
 
         <p className="flex items-center justify-center gap-1 text-[10px] text-muted pb-2">
-          <UserRound size={11} /> OneGemmy · Mobile ERP
+          <UserRound size={11} /> Pesaa · Mobile ERP
         </p>
       </div>
     </div>

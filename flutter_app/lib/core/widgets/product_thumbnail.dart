@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:onegemmy_pos/core/theme.dart';
+import 'package:pesaa_pos/core/theme.dart';
 
 /// A product image with a consistent rounded frame, falling back to a
 /// placeholder icon when there's no image or the network load fails.

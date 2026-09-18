@@ -1,5 +1,5 @@
-import 'package:onegemmy_pos/core/network/api_client.dart';
-import 'package:onegemmy_pos/features/auth/models/user.dart';
+import 'package:pesaa_pos/core/network/api_client.dart';
+import 'package:pesaa_pos/features/auth/models/user.dart';
 
 class AuthService {
   final ApiClient _client;

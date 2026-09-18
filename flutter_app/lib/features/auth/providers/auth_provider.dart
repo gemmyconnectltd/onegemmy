@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:onegemmy_pos/core/network/api_client.dart';
-import 'package:onegemmy_pos/features/auth/models/user.dart';
-import 'package:onegemmy_pos/features/auth/services/auth_service.dart';
+import 'package:pesaa_pos/core/network/api_client.dart';
+import 'package:pesaa_pos/features/auth/models/user.dart';
+import 'package:pesaa_pos/features/auth/services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiClient client;

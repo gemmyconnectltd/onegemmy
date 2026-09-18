@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-import 'package:onegemmy_pos/core/config.dart';
+import 'package:pesaa_pos/core/config.dart';
 
 final NumberFormat _moneyFormat = NumberFormat('#,##0', 'en_US');
 

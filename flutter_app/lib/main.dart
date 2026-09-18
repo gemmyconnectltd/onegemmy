@@ -11,12 +11,12 @@ import 'features/pos/screens/pos_screen.dart';
 
 void main() {
   final apiClient = ApiClient();
-  runApp(OneGemmyApp(apiClient: apiClient));
+  runApp(PesaaApp(apiClient: apiClient));
 }
 
-class OneGemmyApp extends StatelessWidget {
+class PesaaApp extends StatelessWidget {
   final ApiClient apiClient;
-  const OneGemmyApp({super.key, required this.apiClient});
+  const PesaaApp({super.key, required this.apiClient});
 
   @override
   Widget build(BuildContext context) {

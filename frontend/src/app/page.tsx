@@ -118,7 +118,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* App in Use — animated walkthrough of a day in OneGemmy, real screenshots */}
+      {/* App in Use — animated walkthrough of a day in Pesaa, real screenshots */}
       <section className="py-24 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">

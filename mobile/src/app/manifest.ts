@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "OneGemmy Mobile - Business Management",
-    short_name: "OneGemmy",
+    name: "Pesaa Mobile - Business Management",
+    short_name: "Pesaa",
     description:
-      "OneGemmy mobile app. Sell, track stock, and manage your business on the go by Gemmy Connect Ltd.",
+      "Pesaa mobile app. Sell, track stock, and manage your business on the go by Gemmy Connect Ltd.",
     id: "/",
     start_url: "/",
     scope: "/",

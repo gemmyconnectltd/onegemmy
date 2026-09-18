@@ -41,7 +41,7 @@ def _branded_html(title: str, body: str, preheader: str = "") -> str:
                     <img src="{LOGO_URL}" width="30" height="30" alt="" style="display:block;border-radius:7px;" />
                   </td>
                   <td>
-                    <span style="color:#ffffff;font-size:19px;font-weight:700;letter-spacing:-0.01em;">OneGemmy</span>
+                    <span style="color:#ffffff;font-size:19px;font-weight:700;letter-spacing:-0.01em;">Pesaa</span>
                   </td>
                 </tr>
               </table>
@@ -56,10 +56,10 @@ def _branded_html(title: str, body: str, preheader: str = "") -> str:
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #eeeae5;background:#faf9f7;">
               <p style="margin:0 0 4px;font-size:12.5px;color:#8a857c;line-height:1.6;">
-                <strong style="color:#6a655c;">OneGemmy</strong> by Gemmy Connect Ltd &middot; Kigali, Rwanda
+                <strong style="color:#6a655c;">Pesaa</strong> by Gemmy Connect Ltd &middot; Kigali, Rwanda
               </p>
               <p style="margin:0;font-size:11.5px;color:#a8a39a;line-height:1.6;">
-                This is a transactional email sent because of activity on your OneGemmy account. If you have questions, just reply to this email.
+                This is a transactional email sent because of activity on your Pesaa account. If you have questions, just reply to this email.
               </p>
             </td>
           </tr>
@@ -125,7 +125,7 @@ def _welcome_body(full_name: str, tenant_name: str, tenant_slug: str, dashboard_
     name = html.escape(full_name or "there")
     return (
         f"<p style='margin:0 0 14px;'>Hi {name},</p>"
-        f"<p style='margin:0 0 14px;'>Your business account <strong>{html.escape(tenant_name)}</strong> is ready on OneGemmy. "
+        f"<p style='margin:0 0 14px;'>Your business account <strong>{html.escape(tenant_name)}</strong> is ready on Pesaa. "
         f"You can now record sales, manage inventory, track expenses, and run your shop from anywhere.</p>"
         f"<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
         f"<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:12px 16px;'>"
@@ -134,7 +134,7 @@ def _welcome_body(full_name: str, tenant_name: str, tenant_slug: str, dashboard_
         f"</td></tr></table>"
         + _button_html(dashboard_url, "Open your dashboard")
         + _security_note(
-            "For your security, never share your OneGemmy password with anyone — our team will never ask for it. "
+            "For your security, never share your Pesaa password with anyone — our team will never ask for it. "
             "If you didn't create this account, reply to this email and let us know."
         )
     )
@@ -147,17 +147,17 @@ async def send_welcome_email(
     tenant_slug: str,
     dashboard_url: str | None = None,
 ) -> bool:
-    subject = "Welcome to OneGemmy — your account is ready"
+    subject = "Welcome to Pesaa — your account is ready"
     body = _welcome_body(full_name, tenant_name, tenant_slug, dashboard_url or f"{settings.FRONTEND_URL}/login")
-    preheader = f"{tenant_name} is set up on OneGemmy. Open your dashboard to get started."
-    return await send_email(to, subject, _branded_html("Welcome to OneGemmy 🎉", body, preheader), text_body=None)
+    preheader = f"{tenant_name} is set up on Pesaa. Open your dashboard to get started."
+    return await send_email(to, subject, _branded_html("Welcome to Pesaa 🎉", body, preheader), text_body=None)
 
 
 def _registration_received_body(full_name: str, tenant_name: str) -> str:
     name = html.escape(full_name or "there")
     return (
         f"<p style='margin:0 0 14px;'>Hi {name},</p>"
-        f"<p style='margin:0 0 14px;'>Thanks for registering <strong>{html.escape(tenant_name)}</strong> on OneGemmy. "
+        f"<p style='margin:0 0 14px;'>Thanks for registering <strong>{html.escape(tenant_name)}</strong> on Pesaa. "
         "Your account is now waiting for a quick review by our team.</p>"
         "<p style='margin:0;'>Once approved, we'll email you a password so you can sign in and get started — "
         "no action is needed from you in the meantime.</p>"
@@ -165,7 +165,7 @@ def _registration_received_body(full_name: str, tenant_name: str) -> str:
 
 
 async def send_registration_received_email(to: str, full_name: str, tenant_name: str) -> bool:
-    subject = "We've received your OneGemmy registration"
+    subject = "We've received your Pesaa registration"
     body = _registration_received_body(full_name, tenant_name)
     preheader = f"{tenant_name} is pending a quick review before you can sign in."
     return await send_email(to, subject, _branded_html("Registration received", body, preheader), text_body=None)
@@ -175,7 +175,7 @@ def _reset_body(full_name: str, reset_link: str) -> str:
     name = html.escape(full_name or "there")
     return (
         f"<p style='margin:0 0 14px;'>Hi {name},</p>"
-        f"<p style='margin:0 0 4px;'>We received a request to reset the password on your OneGemmy account.</p>"
+        f"<p style='margin:0 0 4px;'>We received a request to reset the password on your Pesaa account.</p>"
         f"<p style='margin:0;'>This link expires in 30 minutes and can only be used once.</p>"
         + _button_html(reset_link, "Reset your password")
         + _security_note(
@@ -190,7 +190,7 @@ async def send_password_reset_email(
     full_name: str,
     reset_link: str,
 ) -> bool:
-    subject = "Reset your OneGemmy password"
+    subject = "Reset your Pesaa password"
     body = _reset_body(full_name, reset_link)
     preheader = "This password reset link expires in 30 minutes."
     return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None)
@@ -198,7 +198,7 @@ async def send_password_reset_email(
 
 def _pending_signup_body(tenant_name: str, tenant_slug: str, review_url: str) -> str:
     return (
-        "<p style='margin:0 0 14px;'>A new business just registered on OneGemmy and is waiting for approval.</p>"
+        "<p style='margin:0 0 14px;'>A new business just registered on Pesaa and is waiting for approval.</p>"
         "<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
         "<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:12px 16px;'>"
         "<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Business</p>"
@@ -235,9 +235,9 @@ def _account_approved_body(full_name: str, tenant_name: str, login_email: str, t
 
 
 async def send_account_approved_email(to: str, full_name: str, tenant_name: str, dashboard_url: str, temp_password: str) -> bool:
-    subject = "Your OneGemmy account is approved"
+    subject = "Your Pesaa account is approved"
     body = _account_approved_body(full_name, tenant_name, to, temp_password, dashboard_url)
-    preheader = f"{tenant_name} is approved and ready on OneGemmy."
+    preheader = f"{tenant_name} is approved and ready on Pesaa."
     return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None)
 
 
@@ -245,14 +245,14 @@ def _invite_body(full_name: str, tenant_name: str, temp_password: str, login_url
     name = html.escape(full_name or "there")
     return (
         f"<p style='margin:0 0 14px;'>Hi {name},</p>"
-        f"<p style='margin:0 0 14px;'>You've been added to <strong>{html.escape(tenant_name)}</strong> on OneGemmy. "
+        f"<p style='margin:0 0 14px;'>You've been added to <strong>{html.escape(tenant_name)}</strong> on Pesaa. "
         f"Use the temporary password below to sign in for the first time.</p>"
         f"<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
         f"<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:14px 16px;'>"
         f"<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Temporary password</p>"
         f"<p style='margin:4px 0 0;font-size:17px;font-weight:700;color:#1c1b18;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.02em;'>{html.escape(temp_password)}</p>"
         f"</td></tr></table>"
-        + _button_html(login_url, "Log in to OneGemmy")
+        + _button_html(login_url, "Log in to Pesaa")
         + _security_note(
             "This password is temporary and known to whoever invited you — for your security, "
             "<strong>change it immediately after your first sign-in</strong> (Settings &rarr; Security). "
@@ -268,7 +268,7 @@ async def send_invite_email(
     temp_password: str,
     login_url: str | None = None,
 ) -> bool:
-    subject = f"You've been invited to {tenant_name} on OneGemmy"
+    subject = f"You've been invited to {tenant_name} on Pesaa"
     body = _invite_body(full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login")
-    preheader = f"Join {tenant_name} on OneGemmy — your temporary password is inside."
+    preheader = f"Join {tenant_name} on Pesaa — your temporary password is inside."
     return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None)

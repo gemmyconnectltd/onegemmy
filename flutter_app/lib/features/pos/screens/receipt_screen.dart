@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:onegemmy_pos/core/theme.dart';
-import 'package:onegemmy_pos/core/utils/format.dart';
-import 'package:onegemmy_pos/core/widgets/money_row.dart';
-import 'package:onegemmy_pos/features/pos/models/sale_result.dart';
-import 'package:onegemmy_pos/features/pos/providers/cart_provider.dart';
+import 'package:pesaa_pos/core/theme.dart';
+import 'package:pesaa_pos/core/utils/format.dart';
+import 'package:pesaa_pos/core/widgets/money_row.dart';
+import 'package:pesaa_pos/features/pos/models/sale_result.dart';
+import 'package:pesaa_pos/features/pos/providers/cart_provider.dart';
 
 import 'pos_screen.dart';
 

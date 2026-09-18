@@ -43,8 +43,8 @@ export const businessThemesDark: Record<BusinessType, BusinessTheme> = {
 };
 
 export const siteConfig = {
-  name: "OneGemmy",
-  title: "OneGemmy — Simple Shop Management",
+  name: "Pesaa",
+  title: "Pesaa — Simple Shop Management",
   description:
     "Manage sales, inventory, expenses, and profits for your one-person shop.",
   company: "Gemmy Connect Ltd",

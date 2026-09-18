@@ -10,8 +10,8 @@ import { siteConfig } from "@/lib/config";
 const DEMO_ACCOUNTS = [
   { label: "FreshMart Admin", email: "admin@freshmart.rw", password: "admin123", slug: "freshmart" },
   { label: "FreshMart Sales", email: "sales.manager@freshmart.rw", password: "user123", slug: "freshmart" },
-  { label: "OneGemmy Admin", email: "admin@onegemmy.com", password: "admin123", slug: "onegemmy" },
-  { label: "OneGemmy Sales", email: "sales.manager@onegemmy.com", password: "user123", slug: "onegemmy" },
+  { label: "Pesaa Admin", email: "admin@onegemmy.com", password: "admin123", slug: "onegemmy" },
+  { label: "Pesaa Sales", email: "sales.manager@onegemmy.com", password: "user123", slug: "onegemmy" },
 ] as const;
 
 export default function MobileLoginPage() {

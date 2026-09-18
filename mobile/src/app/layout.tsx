@@ -26,9 +26,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "OneGemmy - Business Management Tool | Gemmy Connect Ltd",
+  title: "Pesaa - Business Management Tool | Gemmy Connect Ltd",
   description:
-    "OneGemmy is an all-in-one business management platform by Gemmy Connect Ltd. Manage sales, inventory, finance, HR, projects, and CRM from a single dashboard.",
+    "Pesaa is an all-in-one business management platform by Gemmy Connect Ltd. Manage sales, inventory, finance, HR, projects, and CRM from a single dashboard.",
   keywords: [
     "business management",
     "CRM",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     "project management",
     "accounting",
     "HR management",
-    "OneGemmy",
+    "Pesaa",
     "Gemmy Connect",
   ],
   authors: [{ name: "Gemmy Connect Ltd" }],
@@ -47,23 +47,23 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "OneGemmy",
+    title: "Pesaa",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
-    title: "OneGemmy - Business Management Tool",
+    title: "Pesaa - Business Management Tool",
     description:
       "All-in-one business management platform for sales, inventory, finance, HR, and more.",
     url: "https://onegemmy.com",
-    siteName: "OneGemmy",
+    siteName: "Pesaa",
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "OneGemmy - Business Management Tool",
+    title: "Pesaa - Business Management Tool",
     description:
       "All-in-one business management platform for sales, inventory, finance, HR, and more.",
   },

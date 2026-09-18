@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:onegemmy_pos/core/theme.dart';
+import 'package:pesaa_pos/core/theme.dart';
 
 /// The recurring "rounded, surface-tinted panel" container used for totals,
 /// cash-received, and similar grouped-info blocks — one definition instead

@@ -20,7 +20,7 @@ def create_app() -> FastAPI:
     setup_logging()
 
     app = FastAPI(
-        title="OneGemmy API",
+        title="Pesaa API",
         debug=settings.DEBUG,
         docs_url=None if settings.is_production else "/docs",
         redoc_url=None if settings.is_production else "/redoc",

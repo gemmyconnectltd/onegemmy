@@ -181,7 +181,7 @@ export default function LoginPage() {
                     ],
                   },
                   {
-                    tenant: "OneGemmy", slug: "onegemmy",
+                    tenant: "Pesaa", slug: "onegemmy",
                     users: [
                       { label: "Admin",        email: "admin@onegemmy.com",               password: "admin123", desc: "Full access" },
                       { label: "Inv. Manager", email: "inventory.manager@onegemmy.com",   password: "user123",  desc: "Inventory" },

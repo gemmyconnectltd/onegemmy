@@ -54,7 +54,7 @@ export default function MobileHomePage() {
   const lowStock = products.filter((p) => p.stock <= Math.max(p.min_stock, LOW_STOCK_THRESHOLD));
 
   const firstName = (user?.name ?? "there").split(" ")[0];
-  const businessName = user?.tenantName ?? "OneGemmy";
+  const businessName = user?.tenantName ?? "Pesaa";
 
   const tiles = [
     { href: "/purchase/new", label: "Purchases",  icon: ShoppingBag,    color: "#6366f1" },

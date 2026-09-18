@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""  # Gmail App Password
-    EMAIL_FROM: str = "OneGemmy <eplotrobert@gmail.com>"
+    EMAIL_FROM: str = "Pesaa <eplotrobert@gmail.com>"
     FRONTEND_URL: str = "http://localhost:3000"
 
     UPLOAD_DIR: str = "uploads"

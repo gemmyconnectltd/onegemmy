@@ -159,7 +159,7 @@ def _start_pdf(tenant: Tenant, styles: dict, title: str, subtitle: str, footer_l
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=18 * mm,
         title=f"{title} — {tenant.name or 'Company'}",
-        author=tenant.name or "OneGemmy",
+        author=tenant.name or "Pesaa",
     )
     flow: list = []
 
@@ -202,7 +202,7 @@ def _start_pdf(tenant: Tenant, styles: dict, title: str, subtitle: str, footer_l
         canvas.line(MARGIN, 14 * mm, PAGE_W - MARGIN, 14 * mm)
         canvas.setFont(FONT, 7.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN, 10 * mm, f"{tenant.name or 'OneGemmy'} · {footer_label}")
+        canvas.drawString(MARGIN, 10 * mm, f"{tenant.name or 'Pesaa'} · {footer_label}")
         canvas.drawRightString(PAGE_W - MARGIN, 10 * mm, f"Page {doc_.page}")
         canvas.restoreState()
 

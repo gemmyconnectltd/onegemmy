@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:onegemmy_pos/core/config.dart';
+import 'package:pesaa_pos/core/config.dart';
 
 /// Thrown for any non-2xx response. Mirrors the {status, detail} shape the
 /// web app throws in frontend/src/lib/api/client.ts, so error messages read

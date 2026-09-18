@@ -242,7 +242,7 @@ def _build_pdf(report, tenant: Tenant, styles: dict) -> bytes:
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=18 * mm,
         title=f"Inventory Valuation Report — {tenant.name or 'Company'}",
-        author=tenant.name or "OneGemmy",
+        author=tenant.name or "Pesaa",
     )
 
     flow: list = []
@@ -347,7 +347,7 @@ def _build_pdf(report, tenant: Tenant, styles: dict) -> bytes:
         canvas.line(MARGIN, 14 * mm, PAGE_W - MARGIN, 14 * mm)
         canvas.setFont(FONT, 7.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN, 10 * mm, f"{tenant.name or 'OneGemmy'} · Inventory Valuation Report")
+        canvas.drawString(MARGIN, 10 * mm, f"{tenant.name or 'Pesaa'} · Inventory Valuation Report")
         canvas.drawRightString(PAGE_W - MARGIN, 10 * mm, f"Page {doc_.page}")
         canvas.restoreState()
 

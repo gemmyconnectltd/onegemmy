@@ -9,8 +9,8 @@ import { useAuth } from "@/lib/auth";
 const DEMO_ACCOUNTS = [
   { label: "FreshMart Admin", email: "admin@freshmart.rw", password: "admin123", slug: "freshmart" },
   { label: "FreshMart Sales", email: "sales.manager@freshmart.rw", password: "user123", slug: "freshmart" },
-  { label: "OneGemmy Admin", email: "admin@onegemmy.com", password: "admin123", slug: "onegemmy" },
-  { label: "OneGemmy Sales", email: "sales.manager@onegemmy.com", password: "user123", slug: "onegemmy" },
+  { label: "Pesaa Admin", email: "admin@onegemmy.com", password: "admin123", slug: "onegemmy" },
+  { label: "Pesaa Sales", email: "sales.manager@onegemmy.com", password: "user123", slug: "onegemmy" },
 ] as const;
 
 export default function MobileLoginPage() {
@@ -53,7 +53,7 @@ export default function MobileLoginPage() {
             <Smartphone size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground leading-tight">OneGemmy</h1>
+            <h1 className="text-lg font-bold text-foreground leading-tight">Pesaa</h1>
             <p className="text-[11px] text-muted">Mobile Point of Sale</p>
           </div>
         </div>
@@ -145,7 +145,7 @@ export default function MobileLoginPage() {
       </div>
 
       <p className="text-center text-[10px] text-muted pb-[env(safe-area-inset-bottom)] py-4">
-        OneGemmy · Gemmy Connect Ltd
+        Pesaa · Gemmy Connect Ltd
       </p>
     </div>
   );
