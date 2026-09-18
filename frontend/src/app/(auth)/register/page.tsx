@@ -147,13 +147,14 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    // Personal-info step (phone, gender, country, password) is still UI-only
-    // — those belong to the person, not the business, and aren't persisted
-    // anywhere yet. The business-information step below now maps to real
-    // columns on Tenant (see backend Tenant model + auth.service.register).
+    // Personal-info step's phone/gender/country are still UI-only — those
+    // belong to the person, not the business, and aren't persisted anywhere
+    // yet. The business-information step below now maps to real columns on
+    // Tenant (see backend Tenant model + auth.service.register).
     const result = await register({
       fullName: `${firstName} ${lastName}`.trim(),
       email,
+      password,
       tenantName: company,
       tenantSlug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
       businessType: businessType || undefined,
@@ -197,8 +198,8 @@ export default function RegisterPage() {
               <h1 className="text-[22px] font-bold text-foreground tracking-tight">Registration received</h1>
               <p className="text-sm text-muted mt-2 leading-relaxed">
                 Thanks for signing up <strong className="text-foreground">{company}</strong>! Your account is
-                pending approval — we&apos;ll reach out to <strong className="text-foreground">{email}</strong> with
-                your login details once it&apos;s activated.
+                pending approval — we&apos;ll email <strong className="text-foreground">{email}</strong> once it&apos;s
+                activated. You can then sign in with the password you just created.
               </p>
               <Link href="/login" className="inline-block mt-6 text-sm text-foreground font-medium hover:underline">
                 Back to sign in

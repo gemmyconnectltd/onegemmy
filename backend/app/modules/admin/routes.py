@@ -175,19 +175,8 @@ async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Super
     return success_response(data=tenant.model_dump(), message="Tenant suspended")
 
 
-class ActivateTenantPayload(BaseModel):
-    # Only meaningful when approving a pending signup: the owner has no
-    # usable password yet (see auth.service.register), so approving one
-    # sets a real one here — typed by the admin to share directly, or
-    # auto-generated if left blank, same pattern as inviting a user.
-    password: str | None = None
-
-
 @router.post("/tenants/{tenant_id}/activate")
-async def admin_activate_tenant(
-    tenant_id: uuid.UUID, db: DbSession, admin: SuperUser, data: ActivateTenantPayload | None = None,
-):
-    password_input = data.password if data else None
+async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
     existing = await db.get(Tenant, tenant_id)
     was_pending_signup = existing is not None and existing.subscription_status == "pending"
     update = TenantUpdate(is_active=True, subscription_status="active") if was_pending_signup else TenantUpdate(is_active=True)
@@ -199,31 +188,18 @@ async def admin_activate_tenant(
     )
     await db.commit()
 
-    temp_password = None
     if was_pending_signup:
         owner = (await db.execute(
             select(User).where(User.tenant_id == tenant_id, User.role == "owner")
         )).scalar_one_or_none()
         if owner:
-            if password_input:
-                validate_password_strength(password_input)
-                temp_password = password_input
-            else:
-                temp_password = secrets.token_urlsafe(12)
-            owner.hashed_password = hash_password(temp_password)
-            await UserRepository(db).save(owner)
-            await db.commit()
             await send_account_approved_email(
                 to=owner.email,
                 full_name=owner.full_name,
                 tenant_name=tenant.name,
                 dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
-                temp_password=temp_password,
             )
-    return success_response(
-        data={**tenant.model_dump(), "temp_password": temp_password},
-        message="Tenant activated",
-    )
+    return success_response(data=tenant.model_dump(), message="Tenant activated")
 
 
 @router.delete("/tenants/{tenant_id}")

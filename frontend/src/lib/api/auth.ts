@@ -26,6 +26,7 @@ export interface ApiRegisterRequest {
   tenant_slug: string;
   email: string;
   full_name: string;
+  password: string;
   business_type?: string;
   industry?: string;
   business_category?: string;

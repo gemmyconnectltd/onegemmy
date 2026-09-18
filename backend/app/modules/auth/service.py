@@ -93,6 +93,7 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         raise ValidationError("Full name is required")
     if not SLUG_RE.match(data.tenant_slug):
         raise ValidationError("Business URL must be lowercase letters, numbers, and hyphens only")
+    validate_password_strength(data.password)
 
     existing_tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
     if existing_tenant is not None:
@@ -123,13 +124,10 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
     )
     tenant = await TenantRepository(db).save(tenant)
 
-    # No usable password yet — hash a random, never-shared value as a
-    # placeholder. A real one is set when a platform admin approves the
-    # account (POST /admin/tenants/{id}/activate) and shares it directly.
     user = User(
         tenant_id=tenant.id,
         email=data.email,
-        hashed_password=hash_password(uuid.uuid4().hex),
+        hashed_password=hash_password(data.password),
         full_name=data.full_name,
         role="owner",
         is_superuser=True,

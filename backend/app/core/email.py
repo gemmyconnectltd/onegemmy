@@ -159,8 +159,8 @@ def _registration_received_body(full_name: str, tenant_name: str) -> str:
         f"<p style='margin:0 0 14px;'>Hi {name},</p>"
         f"<p style='margin:0 0 14px;'>Thanks for registering <strong>{html.escape(tenant_name)}</strong> on Pesaa. "
         "Your account is now waiting for a quick review by our team.</p>"
-        "<p style='margin:0;'>Once approved, we'll email you a password so you can sign in and get started — "
-        "no action is needed from you in the meantime.</p>"
+        "<p style='margin:0;'>Once approved, we'll email you and you can sign in with the password you already "
+        "chose — no action is needed from you in the meantime.</p>"
     )
 
 
@@ -216,27 +216,24 @@ async def send_pending_signup_email(to: str, tenant_name: str, tenant_slug: str,
     return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None)
 
 
-def _account_approved_body(full_name: str, tenant_name: str, login_email: str, temp_password: str, dashboard_url: str) -> str:
+def _account_approved_body(full_name: str, tenant_name: str, login_email: str, dashboard_url: str) -> str:
     name = html.escape(full_name or "there")
     return (
         f"<p style='margin:0 0 14px;'>Hi {name},</p>"
         f"<p style='margin:0 0 14px;'>Good news — your business account <strong>{html.escape(tenant_name)}</strong> "
-        "has been approved and is ready to use. Sign in with the password below.</p>"
+        "has been approved and is ready to use. Sign in with the email and password you registered with.</p>"
         f"<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
         f"<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:14px 16px;'>"
         f"<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Email</p>"
-        f"<p style='margin:2px 0 10px;font-size:14px;font-weight:600;color:#1c1b18;'>{html.escape(login_email)}</p>"
-        f"<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Password</p>"
-        f"<p style='margin:4px 0 0;font-size:17px;font-weight:700;color:#1c1b18;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.02em;'>{html.escape(temp_password)}</p>"
+        f"<p style='margin:2px 0 0;font-size:14px;font-weight:600;color:#1c1b18;'>{html.escape(login_email)}</p>"
         f"</td></tr></table>"
         + _button_html(dashboard_url, "Log in now")
-        + _security_note("For your security, change this password after your first sign-in (Settings &rarr; Security).")
     )
 
 
-async def send_account_approved_email(to: str, full_name: str, tenant_name: str, dashboard_url: str, temp_password: str) -> bool:
+async def send_account_approved_email(to: str, full_name: str, tenant_name: str, dashboard_url: str) -> bool:
     subject = "Your Pesaa account is approved"
-    body = _account_approved_body(full_name, tenant_name, to, temp_password, dashboard_url)
+    body = _account_approved_body(full_name, tenant_name, to, dashboard_url)
     preheader = f"{tenant_name} is approved and ready on Pesaa."
     return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None)
 

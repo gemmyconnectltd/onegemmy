@@ -348,7 +348,7 @@ export const useTenantBranches = (id: string | undefined, opts?: QueryOpts) =>
 export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS]]);
 export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS]]);
 export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
-export const useActivateTenant = mutation(({ id, password }: { id: string; password?: string }) => adminApi.activateTenant(id, password), [[...TENANTS], [...ADMIN_STATS]]);
+export const useActivateTenant = mutation(({ id }: { id: string }) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
 export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
 export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS]]);
 export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS]]);

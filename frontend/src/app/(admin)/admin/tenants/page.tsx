@@ -7,7 +7,6 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { tenantStatusLabel, type AdminTenant } from "@/lib/api/admin";
 import { useTenants, useCreateTenant, useSuspendTenant, useActivateTenant, useDeleteTenant } from "@/lib/api/hooks";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
@@ -21,7 +20,6 @@ const PLAN_COLORS: Record<string, string> = {
 };
 
 export default function AdminTenantsPage() {
-  const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -61,13 +59,6 @@ export default function AdminTenantsPage() {
   };
 
   const toggleStatus = (t: AdminTenant) => {
-    // Approving a pending signup needs to set/share the owner's password —
-    // that flow lives on the detail page (mirrors the invite-user drawer),
-    // so send them there instead of trying to do it from this row.
-    if (!t.is_active && t.subscription_status === "pending") {
-      router.push(`/admin/tenants/${t.id}`);
-      return;
-    }
     const run = () => {
       setActing(t.id);
       if (t.is_active) {

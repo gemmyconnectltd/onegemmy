@@ -140,11 +140,8 @@ export const adminApi = {
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   suspendTenant: (id: string) =>
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/suspend`, { method: "POST" }),
-  activateTenant: (id: string, password?: string) =>
-    request<SingleResponse<AdminTenant & { temp_password: string | null }>>(`${B}/tenants/${id}/activate`, {
-      method: "POST",
-      body: JSON.stringify(password ? { password } : {}),
-    }),
+  activateTenant: (id: string) =>
+    request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/activate`, { method: "POST" }),
   deleteTenant: (id: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${id}`, { method: "DELETE" }),
 

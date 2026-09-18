@@ -56,8 +56,6 @@ export default function TenantDetailPage() {
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [tab, setTab] = useState<Tab>("users");
   const [showInvite, setShowInvite] = useState(false);
-  const [showApprove, setShowApprove] = useState(false);
-  const [approvePassword, setApprovePassword] = useState("");
   const [showAddDept, setShowAddDept] = useState(false);
   const [showAddRole, setShowAddRole] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
@@ -168,18 +166,6 @@ export default function TenantDetailPage() {
 
   const toggleStatus = () => {
     if (!tenant) return;
-    const isPendingSignup = !tenant.is_active && tenant.subscription_status === "pending";
-
-    // Approving a pending signup needs to set/share the owner's password —
-    // open the dedicated drawer for that instead of a plain confirm.
-    if (isPendingSignup) {
-      setNotice(null);
-      setTempPassword(null);
-      setCopied(false);
-      setApprovePassword("");
-      setShowApprove(true);
-      return;
-    }
 
     const action = tenant.is_active ? "suspend" : "activate";
     const run = () => {
@@ -200,19 +186,6 @@ export default function TenantDetailPage() {
       confirmLabel: tenant.is_active ? "Suspend" : "Activate",
       danger: action === "suspend",
       onConfirm: run,
-    });
-  };
-
-  const handleApprove = (e: React.FormEvent) => {
-    e.preventDefault();
-    setNotice(null);
-    activateTenant.mutate({ id, password: approvePassword || undefined }, {
-      onSuccess: (res) => {
-        setApprovePassword("");
-        setTempPassword(res.data?.temp_password ?? null);
-        setNotice({ kind: "success", text: "Tenant approved" });
-      },
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to approve tenant" }),
     });
   };
 
@@ -857,59 +830,6 @@ export default function TenantDetailPage() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => { setShowInvite(false); setTempPassword(null); setCopied(false); }}
-                className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        )}
-      </Drawer>
-
-      {/* Approve pending signup drawer */}
-      <Drawer
-        open={showApprove}
-        onClose={() => { setShowApprove(false); setTempPassword(null); setCopied(false); }}
-        title="Approve Organization"
-        description={`Set the owner's password for ${tenant.name}`}
-      >
-        {tempPassword === null ? (
-          <form onSubmit={handleApprove} className="space-y-4 p-5">
-            <Field label="Owner password (optional)">
-              <Input
-                value={approvePassword}
-                onChange={(e) => setApprovePassword(e.target.value)}
-                placeholder="Leave blank to auto-generate"
-                minLength={8}
-              />
-            </Field>
-            <p className="text-xs text-muted">
-              Set a password here if you&apos;ll share it with the business owner yourself (min. 8 characters, one
-              number, one uppercase letter). Leave it blank to have a strong one generated automatically — either
-              way it&apos;s emailed to them and shown here once.
-            </p>
-            <FormFooter submitLabel={activateTenant.isPending ? "Approving…" : "Approve"} onCancel={() => setShowApprove(false)} disabled={activateTenant.isPending} />
-          </form>
-        ) : (
-          <div className="p-5 space-y-4">
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[13px] px-4 py-3">
-              Organization approved. Temporary password shown once — copy it now and share it with the owner
-              securely (it was also emailed to them).
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-surface border border-border rounded-lg px-4 py-3 font-mono text-sm text-foreground break-all">
-                {tempPassword}
-              </code>
-              <button
-                onClick={copyPassword}
-                className="flex items-center gap-1.5 px-3 h-10 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold"
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => { setShowApprove(false); setTempPassword(null); setCopied(false); }}
                 className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
               >
                 Done

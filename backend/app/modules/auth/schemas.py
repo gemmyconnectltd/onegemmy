@@ -4,14 +4,11 @@ from pydantic import BaseModel, EmailStr
 
 
 class RegisterRequest(BaseModel):
-    """No password here on purpose: the owner doesn't set their own password
-    at signup — a platform admin sets/generates one when approving the
-    account and shares it with them directly. See auth.service.register."""
-
     tenant_name: str
     tenant_slug: str
     email: EmailStr
     full_name: str
+    password: str
 
     # Business information — collected on the register form's second step.
     # All optional, so the endpoint keeps working if the frontend ever
