@@ -7,8 +7,50 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
+import { ProductTour, type TourStep } from "@/components/tour/ProductTour";
 import { useAuth } from "@/lib/auth";
 import { pageTitleForPath, APP_NAME } from "@/lib/pageTitles";
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    title: "Welcome to OneGemmy 👋",
+    body: "Quick tour of where everything lives — takes about 30 seconds. Skip anytime.",
+  },
+  {
+    target: '[data-tour="nav-dashboard"]',
+    title: "Dashboard",
+    body: "Your home base — a snapshot of sales, inventory, and activity across your business.",
+  },
+  {
+    target: '[data-tour="nav-sales"]',
+    title: "Sales",
+    body: "Record sales, run the POS, and manage orders and customers here.",
+  },
+  {
+    target: '[data-tour="nav-inventory"]',
+    title: "Inventory",
+    body: "Track stock levels, products, and suppliers.",
+  },
+  {
+    target: '[data-tour="nav-accounting"]',
+    title: "Accounting",
+    body: "Expenses, invoices, and reports — the money side of the business.",
+  },
+  {
+    target: '[data-tour="nav-settings"]',
+    title: "Settings",
+    body: "Manage your team, branding, and company details.",
+  },
+  {
+    target: '[data-tour="user-menu"]',
+    title: "Your account",
+    body: "Your profile and sign-out live here.",
+  },
+  {
+    title: "You're all set 🎉",
+    body: "Look for the support button in the bottom-right corner anytime you want to replay this tour or get help.",
+  },
+];
 
 const COLLAPSED_KEY = "sidebar_collapsed";
 
@@ -76,7 +118,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen bg-surface print:hidden">
       <Sidebar
         expanded={false}
         onExpandChange={() => {}}
@@ -94,6 +136,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <main className="flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
       <SupportFab />
+      <ProductTour steps={TOUR_STEPS} storageKey="onegemmy_tour_seen" />
     </div>
   );
 }

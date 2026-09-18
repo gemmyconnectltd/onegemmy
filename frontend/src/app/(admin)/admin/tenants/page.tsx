@@ -1,12 +1,17 @@
 "use client";
 import { useState, useMemo } from "react";
-import { Plus, Building2, CheckCircle, XCircle, Trash2, Eye, PauseCircle, PlayCircle, Loader2, Search, Filter, AlertTriangle } from "lucide-react";
+import { Plus, Building2, Trash2, Eye, Search, Filter, AlertTriangle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import type { AdminTenant } from "@/lib/api/admin";
+import { Toggle } from "@/components/ui/Toggle";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { tenantStatusLabel, type AdminTenant } from "@/lib/api/admin";
 import { useTenants, useCreateTenant, useSuspendTenant, useActivateTenant, useDeleteTenant } from "@/lib/api/hooks";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "bg-surface text-muted border border-border",
@@ -16,6 +21,7 @@ const PLAN_COLORS: Record<string, string> = {
 };
 
 export default function AdminTenantsPage() {
+  const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -32,6 +38,7 @@ export default function AdminTenantsPage() {
   const suspendTenant = useSuspendTenant();
   const activateTenant = useActivateTenant();
   const deleteTenant = useDeleteTenant();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const filtered = useMemo(() => {
     return tenants.filter((t) => {
@@ -53,30 +60,74 @@ export default function AdminTenantsPage() {
     });
   };
 
-  const suspend = (t: AdminTenant) => {
-    setActing(t.id);
-    suspendTenant.mutate(t.id, {
-      onError: () => setError("Failed to suspend tenant"),
-      onSettled: () => setActing(null),
-    });
-  };
-
-  const activate = (t: AdminTenant) => {
-    setActing(t.id);
-    activateTenant.mutate(t.id, {
-      onError: () => setError("Failed to activate tenant"),
-      onSettled: () => setActing(null),
-    });
+  const toggleStatus = (t: AdminTenant) => {
+    // Approving a pending signup needs to set/share the owner's password —
+    // that flow lives on the detail page (mirrors the invite-user drawer),
+    // so send them there instead of trying to do it from this row.
+    if (!t.is_active && t.subscription_status === "pending") {
+      router.push(`/admin/tenants/${t.id}`);
+      return;
+    }
+    const run = () => {
+      setActing(t.id);
+      if (t.is_active) {
+        suspendTenant.mutate(t.id, {
+          onError: () => setError("Failed to suspend tenant"),
+          onSettled: () => setActing(null),
+        });
+      } else {
+        activateTenant.mutate({ id: t.id }, {
+          onError: () => setError("Failed to activate tenant"),
+          onSettled: () => setActing(null),
+        });
+      }
+    };
+    if (t.is_active) {
+      confirm({
+        title: "Suspend organization?",
+        message: `Suspend "${t.name}"? This logs out everyone in the company immediately.`,
+        confirmLabel: "Suspend",
+        danger: true,
+        onConfirm: run,
+      });
+    } else {
+      run();
+    }
   };
 
   const remove = (t: AdminTenant) => {
-    if (!confirm(`Delete "${t.name}"? This is irreversible.`)) return;
-    setActing(t.id);
-    deleteTenant.mutate(t.id, {
-      onError: () => setError("Failed to delete tenant"),
-      onSettled: () => setActing(null),
+    confirm({
+      title: "Delete organization?",
+      message: `Delete "${t.name}"? This is irreversible.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => {
+        setActing(t.id);
+        deleteTenant.mutate(t.id, {
+          onError: () => setError("Failed to delete tenant"),
+          onSettled: () => setActing(null),
+        });
+      },
     });
   };
+
+  const bulk = useBulkSelection(filtered.map((t) => t.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete organizations?",
+      message: `Permanently delete ${bulk.count} selected business${bulk.count === 1 ? "" : "es"} and ALL of their data (users, products, sales, everything)? This is irreversible.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteTenant.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const handleNameChange = (name: string) => {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -102,6 +153,8 @@ export default function AdminTenantsPage() {
           <Plus size={15} /> New Tenant
         </button>
       </div>
+
+      {confirmDialog}
 
       {error && (
         <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
@@ -153,9 +206,17 @@ export default function AdminTenantsPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {bulk.count > 0 && (
+            <div className="px-5 py-3 border-b border-border">
+              <BulkActionBar count={bulk.count} label="organization" pluralLabel="organizations" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
+                <th className="px-5 py-3 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                </th>
                 <th className="px-5 py-3 font-semibold">Business</th>
                 <th className="px-5 py-3 font-semibold">Plan</th>
                 <th className="px-5 py-3 font-semibold">Status</th>
@@ -167,6 +228,9 @@ export default function AdminTenantsPage() {
             <tbody className="divide-y divide-border">
               {filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-surface/40 transition-colors group">
+                  <td className="px-5 py-4">
+                    <input type="checkbox" checked={bulk.selected.has(t.id)} onChange={() => bulk.toggle(t.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0 border border-violet-500/10">
@@ -186,10 +250,18 @@ export default function AdminTenantsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`flex items-center gap-1.5 text-[11px] font-semibold w-fit px-2 py-1 rounded-lg ${t.is_active ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
-                      {t.is_active ? <CheckCircle size={11} /> : <XCircle size={11} />}
-                      {t.is_active ? "Active" : "Suspended"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Toggle
+                        checked={t.is_active}
+                        onChange={() => toggleStatus(t)}
+                        loading={acting === t.id}
+                        size="sm"
+                        label={t.is_active ? `Suspend ${t.name}` : `${t.subscription_status === "pending" ? "Approve" : "Activate"} ${t.name}`}
+                      />
+                      <span className={`text-[11px] font-semibold ${t.is_active ? "text-emerald-600 dark:text-emerald-400" : t.subscription_status === "pending" ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
+                        {tenantStatusLabel(t)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-5 py-4 hidden sm:table-cell text-[12px] text-muted">
                     {[t.city, t.country].filter(Boolean).join(", ") || "—"}
@@ -204,19 +276,6 @@ export default function AdminTenantsPage() {
                       >
                         <Eye size={13} /> Manage
                       </Link>
-                      {t.is_active ? (
-                        <button onClick={() => suspend(t)} disabled={acting === t.id}
-                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors text-[12px] font-semibold disabled:opacity-40"
-                        >
-                          {acting === t.id ? <Loader2 size={12} className="animate-spin" /> : <PauseCircle size={13} />} Suspend
-                        </button>
-                      ) : (
-                        <button onClick={() => activate(t)} disabled={acting === t.id}
-                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors text-[12px] font-semibold disabled:opacity-40"
-                        >
-                          {acting === t.id ? <Loader2 size={12} className="animate-spin" /> : <PlayCircle size={13} />} Activate
-                        </button>
-                      )}
                       <button onClick={() => remove(t)} disabled={acting === t.id}
                         className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
                       >

@@ -25,6 +25,14 @@ export interface Tenant {
   country: string | null;
   subscription_plan: string;
   subscription_status: string;
+  currency: string;
+  business_type: string | null;
+  industry: string | null;
+  business_category: string | null;
+  employee_count: string | null;
+  business_location: string | null;
+  heard_about: string | null;
+  referral_code: string | null;
 }
 
 export interface TenantUpdateInput {
@@ -35,6 +43,13 @@ export interface TenantUpdateInput {
   address?: string | null;
   city?: string | null;
   country?: string | null;
+  business_type?: string | null;
+  industry?: string | null;
+  business_category?: string | null;
+  employee_count?: string | null;
+  business_location?: string | null;
+  heard_about?: string | null;
+  referral_code?: string | null;
 }
 
 const T = "/tenants";

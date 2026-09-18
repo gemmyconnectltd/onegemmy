@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -48,8 +48,12 @@ class OrderRepository(BaseRepository[Order]):
         return result.scalar_one_or_none()
 
     async def next_order_number(self, tenant_id: uuid.UUID) -> str:
+        # MAX of the existing numeric suffix, not COUNT(*) — COUNT undercounts
+        # (and collides with a still-existing higher number) as soon as any
+        # order has ever been deleted for this tenant.
         result = await self.db.execute(
-            select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)
+            select(func.max(cast(func.substring(Order.order_number, 5), Integer)))
+            .where(Order.tenant_id == tenant_id)
         )
-        count = result.scalar_one()
-        return f"ORD-{str(count + 1).zfill(4)}"
+        current_max = result.scalar_one() or 0
+        return f"ORD-{str(current_max + 1).zfill(4)}"

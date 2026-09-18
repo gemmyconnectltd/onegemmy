@@ -16,7 +16,7 @@ export type { ApiTokenUserInfo, ApiTokenResponse, ApiRegisterRequest } from "./a
 export { authApi } from "./auth";
 
 // Inventory
-export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiBrand, ApiUnit, ApiSupplier, InventoryValuationReport } from "./inventory";
+export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCategoryTemplate, ApiCategoryTemplateGroup, ApiCategoryTemplates, ApiCategoryImportResult, ApiBrand, ApiUnit, ApiUnitSuggestion, ApiUnitSuggestions, ApiUnitImportResult, ApiSupplier, InventoryValuationReport } from "./inventory";
 export { inventoryApi } from "./inventory";
 
 // Sales
@@ -53,7 +53,10 @@ export type {
 export { hrApi, departmentsApi } from "./hr";
 
 // Procurement
-export type { PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput } from "./procurement";
+export type {
+  PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
+  Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,
+} from "./procurement";
 export { procurementApi } from "./procurement";
 
 // Repairs, Batches, Serials, Transfers & Warranty

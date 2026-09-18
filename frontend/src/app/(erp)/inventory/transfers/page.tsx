@@ -6,6 +6,9 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiStockTransfer } from "@/lib/api";
 import { useTransfers, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -64,15 +67,40 @@ export default function TransfersPage() {
     try { await updateTransfer.mutateAsync({ id, data: { status: next } }); } catch { /* ignore */ }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this transfer?")) return;
-    try { await deleteTransfer.mutateAsync(id); } catch { /* ignore */ }
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(filtered.map((t) => t.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Transfer",
+      message: "Delete this transfer? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteTransfer.mutate(id),
+    });
+  }
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Transfers",
+      message: `Delete ${bulk.count} selected transfer${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteTransfer.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
   }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Branch Stock Transfers</h1>
@@ -161,13 +189,27 @@ export default function TransfersPage() {
           <option value="">All statuses</option>
           {Object.keys(STATUS_COLORS).map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
         </select>
+        {filtered.length > 0 && (
+          <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer">
+            <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+            Select all
+          </label>
+        )}
       </div>
+
+      <BulkActionBar count={bulk.count} label="transfer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
 
       <div className="space-y-3">
         {filtered.map((t: ApiStockTransfer) => (
-          <div key={t.id} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow">
+          <div key={t.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-shadow ${bulk.selected.has(t.id) ? "border-accent" : "border-border"}`}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={bulk.selected.has(t.id)}
+                  onChange={() => bulk.toggle(t.id)}
+                  className="w-4 h-4 rounded"
+                />
                 <span className="font-mono text-sm font-bold text-foreground">{t.transfer_number}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[t.status] ?? "bg-surface text-muted"}`}>
                   {t.status.replace("_", " ")}

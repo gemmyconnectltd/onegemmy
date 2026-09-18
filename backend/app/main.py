@@ -11,6 +11,7 @@ from app.core.logging import get_logger, setup_logging
 from app.core.middleware import RequestLoggingMiddleware
 
 UPLOADS_DIR = Path(settings.UPLOAD_DIR).resolve()
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 log = get_logger("app")
 
@@ -42,6 +43,8 @@ def create_app() -> FastAPI:
 
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+    # Bundled (non-user-uploaded) assets, e.g. per-industry default product images.
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     app.include_router(api_router)
 

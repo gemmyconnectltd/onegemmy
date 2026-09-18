@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -43,7 +43,11 @@ class TransferRepository(BaseRepository[StockTransfer]):
         return result.scalar_one()
 
     async def next_transfer_number(self, tenant_id: uuid.UUID) -> str:
+        # MAX of the existing numeric suffix, not COUNT(*) — see sales/order.py's
+        # next_order_number for why COUNT collides once anything is deleted.
         result = await self.db.execute(
-            select(func.count()).select_from(StockTransfer).where(StockTransfer.tenant_id == tenant_id)
+            select(func.max(cast(func.substring(StockTransfer.transfer_number, 5), Integer)))
+            .where(StockTransfer.tenant_id == tenant_id)
         )
-        return f"TRF-{str(result.scalar_one() + 1).zfill(4)}"
+        current_max = result.scalar_one() or 0
+        return f"TRF-{str(current_max + 1).zfill(4)}"

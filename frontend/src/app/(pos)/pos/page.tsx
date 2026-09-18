@@ -197,7 +197,9 @@ export default function POSPage() {
   const tax = gross - taxable;
   const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
-  const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;
+  // Amount received applies no matter the payment method — blank just means
+  // "charge the full amount", so only an explicitly-entered short amount blocks the sale.
+  const cashShort = cashGiven !== "" && Number(cashGiven) < total;
   const fmt = (v: number) => v.toLocaleString();
 
   // ── hold / resume ────────────────────────────────────────────────────────
@@ -236,6 +238,10 @@ export default function POSPage() {
         notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
         discount: 0,
         tax,
+        payment_method: payment,
+        // Applies no matter the payment method — blank means "received the full amount".
+        amount_tendered: cashGiven !== "" ? Number(cashGiven) : total,
+        change_due: change,
         items: cart.map((i) => ({
           product_id: i.product_id ?? null,
           variant_id: i.variant_id ?? null,

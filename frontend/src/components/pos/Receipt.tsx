@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BarcodeStripe } from "./BarcodeStripe";
 import { getProductIcon, IconBadge } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
+import { fmtDateTime } from "@/lib/date";
 import type { SaleResult } from "./types";
 
 interface ReceiptProps {
@@ -27,7 +28,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
   const handleCopySummary = () => {
     const lines = [
       `Receipt ${sale.orderId}`,
-      sale.timestamp.toLocaleString(),
+      fmtDateTime(sale.timestamp),
       "",
       ...sale.items.map((i) => {
         const line = `  ${i.name}  ${i.qty}× ${currencySymbol} ${fmt(i.price)}`;
@@ -39,7 +40,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
       ...(vatEnabled && sale.tax > 0 ? [`VAT (18%): ${currencySymbol} ${fmt(sale.tax)}`] : []),
       `Total: ${currencySymbol} ${fmt(sale.total)}`,
       `Paid: ${PAYMENT_LABELS[sale.payment] ?? sale.payment}`,
-      ...(sale.payment === "cash" && sale.cashGiven ? [`Change: ${currencySymbol} ${fmt(sale.change)}`] : []),
+      ...(sale.cashGiven ? [`Change: ${currencySymbol} ${fmt(sale.change)}`] : []),
       "",
       "Thank you!",
     ];
@@ -67,7 +68,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
         </div>
         <h2 className="text-[17px] font-bold text-foreground">Payment received</h2>
         <p className="text-[12px] text-muted mt-1 font-mono tracking-wide">{sale.orderId}</p>
-        <p className="text-[11px] text-muted/70 mt-0.5">{sale.timestamp.toLocaleString()}</p>
+        <p className="text-[11px] text-muted/70 mt-0.5">{fmtDateTime(sale.timestamp)}</p>
         {sale.customerName && (
           <p className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-surface text-[11px] text-foreground/70 font-medium">
             <UserRound size={11} /> {sale.customerName}
@@ -141,7 +142,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
             <span>Paid via</span>
             <span className="font-semibold text-foreground">{PAYMENT_LABELS[sale.payment] ?? sale.payment}</span>
           </div>
-          {sale.payment === "cash" && sale.cashGiven && (
+          {sale.cashGiven && (
             <div className="flex justify-between text-[11px] text-muted">
               <span>Change</span><span className="font-semibold text-foreground">{currencySymbol} {fmt(sale.change)}</span>
             </div>

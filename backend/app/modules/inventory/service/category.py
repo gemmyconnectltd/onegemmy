@@ -3,9 +3,18 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.modules.inventory.data.category_templates import CATEGORY_TEMPLATES
 from app.modules.inventory.models.category import Category
 from app.modules.inventory.repository import CategoryRepository
-from app.modules.inventory.schemas import CategoryCreate, CategoryRead, CategoryUpdate
+from app.modules.inventory.schemas import (
+    CategoryCreate,
+    CategoryImportResult,
+    CategoryRead,
+    CategoryTemplateRead,
+    CategoryTemplatesRead,
+    CategoryUpdate,
+)
+from app.modules.tenants.repository import TenantRepository
 
 
 async def get_category(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> CategoryRead:
@@ -48,3 +57,34 @@ async def delete_category(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID)
         raise NotFoundError("Category not found")
     await CategoryRepository(db).delete(obj)
     await db.commit()
+
+
+async def get_category_templates(db: AsyncSession, tenant_id: uuid.UUID) -> CategoryTemplatesRead:
+    tenant = await TenantRepository(db).get(tenant_id)
+    existing = await CategoryRepository(db).list_all_for_tenant(tenant_id)
+
+    return CategoryTemplatesRead(
+        tenant_industry=tenant.industry if tenant else None,
+        existing=[c.name for c in existing],
+        templates=[CategoryTemplateRead.model_validate(t) for t in CATEGORY_TEMPLATES],
+    )
+
+
+async def import_categories(db: AsyncSession, tenant_id: uuid.UUID, names: list[str]) -> CategoryImportResult:
+    existing = await CategoryRepository(db).list_all_for_tenant(tenant_id)
+    existing_names_lower = {c.name.strip().lower() for c in existing}
+
+    created: list[CategoryRead] = []
+    skipped: list[str] = []
+    for raw_name in names:
+        name = raw_name.strip()
+        if not name or name.lower() in existing_names_lower:
+            skipped.append(raw_name)
+            continue
+        obj = Category(tenant_id=tenant_id, name=name)
+        obj = await CategoryRepository(db).save(obj)
+        created.append(CategoryRead.model_validate(obj))
+        existing_names_lower.add(name.lower())
+
+    await db.commit()
+    return CategoryImportResult(created=created, skipped=skipped)

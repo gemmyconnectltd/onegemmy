@@ -153,8 +153,10 @@ async def create_sale_transaction(
     order_id: uuid.UUID,
     total: float,
     order_number: str,
+    cogs: float = 0.0,
 ) -> None:
-    """Auto-called when an order is Completed. Debit AR, Credit Revenue."""
+    """Auto-called when an order is Completed. Debit AR, Credit Revenue, plus
+    Debit COGS / Credit Inventory for the cost of goods sold, if any."""
     ar_id = await _get_account_by_code(db, tenant_id, "1100")
     rev_id = await _get_account_by_code(db, tenant_id, "4000")
     if not ar_id or not rev_id:
@@ -175,6 +177,13 @@ async def create_sale_transaction(
     txn = await repo.save(txn)
     db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="debit",  amount=total, description="Accounts Receivable"))
     db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=total, description="Sales Revenue"))
+
+    if cogs > 0:
+        cogs_id = await _get_account_by_code(db, tenant_id, "5000")
+        inv_id = await _get_account_by_code(db, tenant_id, "1200")
+        if cogs_id and inv_id:
+            db.add(TransactionLine(transaction_id=txn.id, account_id=cogs_id, type="debit",  amount=round(cogs, 2), description="Cost of Goods Sold"))
+            db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id,  type="credit", amount=round(cogs, 2), description="Inventory"))
 
 
 async def create_expense_transaction(

@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
+import { fmtDateTime } from "@/lib/date";
 import { useProducts, useCustomers, useOrders, useTargets, useIncomeStatement, useCashFlow, type ApiProduct, type ApiOrder } from "@/lib/api/hooks";
 import { PERIODS, PAST_YEARS, periodDateRange, METHOD_COLOR, nextTaxDeadline, type Period } from "./data";
 import { ModuleBreakdown } from "./ModuleBreakdown";
@@ -496,7 +497,12 @@ export default function DashboardPage() {
                       <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{fmtMoney(o.total)}</td>
                       <td className={`px-4 py-3 text-right text-[11px] font-bold ${METHOD_COLOR["cash"]}`}>{o.order_number}</td>
                       <td className="px-4 py-3 text-right text-[11px] text-muted">
-                        <span className="flex items-center gap-1 justify-end"><Clock size={10} />{relativeTime(o.ordered_at ?? o.created_at)}</span>
+                        <span
+                          className="flex items-center gap-1 justify-end cursor-default"
+                          title={fmtDateTime(o.ordered_at ?? o.created_at)}
+                        >
+                          <Clock size={10} />{relativeTime(o.ordered_at ?? o.created_at)}
+                        </span>
                       </td>
                     </tr>
                   ))}

@@ -3,25 +3,40 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Users, ShoppingCart, TrendingUp, Package, UserPlus, Loader2,
-  CheckCircle, XCircle, PauseCircle, PlayCircle, Building2, Layers, Shield,
+  CheckCircle, XCircle, Building2, Layers, Shield,
   Plus, Trash2, X, KeyRound, Copy, Check, SlidersHorizontal,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
+import { Toggle } from "@/components/ui/Toggle";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   useTenant, useTenantStats, useTenantUsers, useSuspendTenant, useActivateTenant,
   useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
   useTenantBranches, useCreateBranch, useDeleteBranch, useResetUserPassword,
+  useUpdateTenant,
 } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
+import { tenantStatusLabel } from "@/lib/api/admin";
 import { chartPalette } from "@/lib/chartColors";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
 import Link from "next/link";
 import FeaturesPanel from "./FeaturesPanel";
 
 type Tab = "features" | "users" | "departments" | "roles" | "branches";
+
+// Mirrors the value->label mapping on the register form's step 2 (the only
+// place this value is ever set) since the DB stores the raw value, not the label.
+const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  sole: "Sole Proprietorship",
+  partnership: "Partnership",
+  llc: "Limited Liability (LLC)",
+  unregistered: "Not Registered",
+};
 
 type SectionItem = {
   key: string;
@@ -34,13 +49,15 @@ type SectionItem = {
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { theme } = useAppConfig();
+  const { theme, currencies } = useAppConfig();
   const c = chartPalette(theme === "dark");
 
   const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [tab, setTab] = useState<Tab>("users");
   const [showInvite, setShowInvite] = useState(false);
+  const [showApprove, setShowApprove] = useState(false);
+  const [approvePassword, setApprovePassword] = useState("");
   const [showAddDept, setShowAddDept] = useState(false);
   const [showAddRole, setShowAddRole] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
@@ -48,7 +65,7 @@ export default function TenantDetailPage() {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member" });
+  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member", password: "" });
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
   const [roleForm, setRoleForm] = useState({ name: "", description: "" });
   const [branchForm, setBranchForm] = useState({ name: "", location: "" });
@@ -70,6 +87,8 @@ export default function TenantDetailPage() {
 
   const suspendTenant = useSuspendTenant();
   const activateTenant = useActivateTenant();
+  const updateTenant = useUpdateTenant();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const inviteUser = useInviteUser();
   const deleteUser = useDeleteUser();
   const createDepartment = useCreateDepartment();
@@ -80,17 +99,136 @@ export default function TenantDetailPage() {
   const deleteBranch = useDeleteBranch();
   const resetPassword = useResetUserPassword();
 
+  const removableUserIds = users.filter((u) => !u.is_superuser).map((u) => u.id);
+  const bulkUsers = useBulkSelection(removableUserIds);
+  const bulkDepartments = useBulkSelection(departments.map((d) => d.id));
+  const bulkRoles = useBulkSelection(roles.map((r) => r.id));
+  const bulkBranches = useBulkSelection(branches.map((b) => b.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDeleteUsers() {
+    confirm({
+      title: "Remove users?",
+      message: `Remove ${bulkUsers.count} selected user${bulkUsers.count === 1 ? "" : "s"} from this tenant? They will lose access immediately.`,
+      confirmLabel: "Remove",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulkUsers.selected).map((userId) => deleteUser.mutateAsync({ tenantId: id, userId })));
+        setBulkDeleting(false);
+        bulkUsers.clear();
+      },
+    });
+  }
+
+  function confirmBulkDeleteDepartments() {
+    confirm({
+      title: "Delete departments?",
+      message: `Delete ${bulkDepartments.count} selected department${bulkDepartments.count === 1 ? "" : "s"}?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulkDepartments.selected).map((departmentId) => deleteDepartment.mutateAsync({ tenantId: id, departmentId })));
+        setBulkDeleting(false);
+        bulkDepartments.clear();
+      },
+    });
+  }
+
+  function confirmBulkDeleteRoles() {
+    confirm({
+      title: "Delete roles?",
+      message: `Delete ${bulkRoles.count} selected role${bulkRoles.count === 1 ? "" : "s"}?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulkRoles.selected).map((roleId) => deleteRole.mutateAsync({ tenantId: id, roleId })));
+        setBulkDeleting(false);
+        bulkRoles.clear();
+      },
+    });
+  }
+
+  function confirmBulkDeleteBranches() {
+    confirm({
+      title: "Delete branches?",
+      message: `Delete ${bulkBranches.count} selected branch${bulkBranches.count === 1 ? "" : "es"}?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulkBranches.selected).map((branchId) => deleteBranch.mutateAsync({ tenantId: id, branchId })));
+        setBulkDeleting(false);
+        bulkBranches.clear();
+      },
+    });
+  }
+
   const toggleStatus = () => {
     if (!tenant) return;
+    const isPendingSignup = !tenant.is_active && tenant.subscription_status === "pending";
+
+    // Approving a pending signup needs to set/share the owner's password —
+    // open the dedicated drawer for that instead of a plain confirm.
+    if (isPendingSignup) {
+      setNotice(null);
+      setTempPassword(null);
+      setCopied(false);
+      setApprovePassword("");
+      setShowApprove(true);
+      return;
+    }
+
     const action = tenant.is_active ? "suspend" : "activate";
-    if (!confirm(`Are you sure you want to ${action} "${tenant.name}"? This affects the whole company.`)) return;
-    setActing(true);
+    const run = () => {
+      setActing(true);
+      setNotice(null);
+      const onSettled = () => setActing(false);
+      const onSuccess = () => setNotice({ kind: "success", text: `Tenant ${action}d` });
+      const onError = () => setNotice({ kind: "error", text: "Failed to update status" });
+      if (tenant.is_active) {
+        suspendTenant.mutate(id, { onSuccess, onError, onSettled });
+      } else {
+        activateTenant.mutate({ id }, { onSuccess, onError, onSettled });
+      }
+    };
+    confirm({
+      title: `${tenant.is_active ? "Suspend" : "Activate"} organization?`,
+      message: `Are you sure you want to ${action} "${tenant.name}"? This affects the whole company.`,
+      confirmLabel: tenant.is_active ? "Suspend" : "Activate",
+      danger: action === "suspend",
+      onConfirm: run,
+    });
+  };
+
+  const handleApprove = (e: React.FormEvent) => {
+    e.preventDefault();
     setNotice(null);
-    const m = tenant.is_active ? suspendTenant : activateTenant;
-    m.mutate(id, {
-      onSuccess: () => setNotice({ kind: "success", text: `Tenant ${action}d` }),
-      onError: () => setNotice({ kind: "error", text: "Failed to update status" }),
-      onSettled: () => setActing(false),
+    activateTenant.mutate({ id, password: approvePassword || undefined }, {
+      onSuccess: (res) => {
+        setApprovePassword("");
+        setTempPassword(res.data?.temp_password ?? null);
+        setNotice({ kind: "success", text: "Tenant approved" });
+      },
+      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to approve tenant" }),
+    });
+  };
+
+  const changeCurrency = (code: string) => {
+    if (!tenant || code === tenant.currency) return;
+    confirm({
+      title: "Change currency?",
+      message: `Change ${tenant.name}'s currency to ${code}? Amounts already recorded are not converted — only new display formatting changes.`,
+      confirmLabel: "Change",
+      onConfirm: () => {
+        setNotice(null);
+        updateTenant.mutate({ id, data: { currency: code } }, {
+          onSuccess: () => setNotice({ kind: "success", text: `Currency changed to ${code}` }),
+          onError: () => setNotice({ kind: "error", text: "Failed to change currency" }),
+        });
+      },
     });
   };
 
@@ -105,7 +243,7 @@ export default function TenantDetailPage() {
     e.preventDefault();
     inviteUser.mutate({ tenantId: id, data: inviteForm }, {
       onSuccess: (res) => {
-        setInviteForm({ email: "", full_name: "", role: "member" });
+        setInviteForm({ email: "", full_name: "", role: "member", password: "" });
         setTempPassword(res.data?.temp_password ?? null);
         setNotice({ kind: "success", text: "User invited" });
       },
@@ -114,10 +252,17 @@ export default function TenantDetailPage() {
   };
 
   const handleRemoveUser = (u: { id: string; full_name: string }) => {
-    if (!confirm(`Remove ${u.full_name} from this tenant? They will lose access immediately.`)) return;
-    deleteUser.mutate({ tenantId: id, userId: u.id }, {
-      onSuccess: () => setNotice({ kind: "success", text: "User removed" }),
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to remove user" }),
+    confirm({
+      title: "Remove user?",
+      message: `Remove ${u.full_name} from this tenant? They will lose access immediately.`,
+      confirmLabel: "Remove",
+      danger: true,
+      onConfirm: () => {
+        deleteUser.mutate({ tenantId: id, userId: u.id }, {
+          onSuccess: () => setNotice({ kind: "success", text: "User removed" }),
+          onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to remove user" }),
+        });
+      },
     });
   };
 
@@ -134,10 +279,17 @@ export default function TenantDetailPage() {
   };
 
   const handleRemoveDepartment = (d: { id: string; name: string }) => {
-    if (!confirm(`Delete department "${d.name}"?`)) return;
-    deleteDepartment.mutate({ tenantId: id, departmentId: d.id }, {
-      onSuccess: () => setNotice({ kind: "success", text: "Department deleted" }),
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete department" }),
+    confirm({
+      title: "Delete department?",
+      message: `Delete department "${d.name}"?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => {
+        deleteDepartment.mutate({ tenantId: id, departmentId: d.id }, {
+          onSuccess: () => setNotice({ kind: "success", text: "Department deleted" }),
+          onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete department" }),
+        });
+      },
     });
   };
 
@@ -154,10 +306,17 @@ export default function TenantDetailPage() {
   };
 
   const handleRemoveRole = (r: { id: string; name: string }) => {
-    if (!confirm(`Delete role "${r.name}"?`)) return;
-    deleteRole.mutate({ tenantId: id, roleId: r.id }, {
-      onSuccess: () => setNotice({ kind: "success", text: "Role deleted" }),
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete role" }),
+    confirm({
+      title: "Delete role?",
+      message: `Delete role "${r.name}"?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => {
+        deleteRole.mutate({ tenantId: id, roleId: r.id }, {
+          onSuccess: () => setNotice({ kind: "success", text: "Role deleted" }),
+          onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete role" }),
+        });
+      },
     });
   };
 
@@ -174,10 +333,17 @@ export default function TenantDetailPage() {
   };
 
   const handleRemoveBranch = (b: { id: string; name: string }) => {
-    if (!confirm(`Delete branch "${b.name}"?`)) return;
-    deleteBranch.mutate({ tenantId: id, branchId: b.id }, {
-      onSuccess: () => setNotice({ kind: "success", text: "Branch deleted" }),
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete branch" }),
+    confirm({
+      title: "Delete branch?",
+      message: `Delete branch "${b.name}"?`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => {
+        deleteBranch.mutate({ tenantId: id, branchId: b.id }, {
+          onSuccess: () => setNotice({ kind: "success", text: "Branch deleted" }),
+          onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete branch" }),
+        });
+      },
     });
   };
 
@@ -242,6 +408,8 @@ export default function TenantDetailPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
+
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -251,8 +419,8 @@ export default function TenantDetailPage() {
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-2xl font-bold text-foreground tracking-tight">{tenant.name}</h1>
-              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md capitalize ${tenant.is_active ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
-                {tenant.is_active ? "Active" : "Suspended"}
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md capitalize ${tenant.is_active ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : tenant.subscription_status === "pending" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>
+                {tenantStatusLabel(tenant)}
               </span>
               <span className={`text-[11px] font-semibold capitalize ${PLAN_COLORS[tenant.subscription_plan] ?? "text-muted"}`}>
                 {tenant.subscription_plan}
@@ -261,25 +429,36 @@ export default function TenantDetailPage() {
             <p className="text-sm text-muted mt-0.5 font-mono">{tenant.slug} {tenant.city && `· ${tenant.city}`} {tenant.country && `· ${tenant.country}`}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
             onClick={openInvite}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold transition-colors"
           >
             <UserPlus size={14} /> Invite User
           </button>
-          <button
-            onClick={toggleStatus}
-            disabled={acting}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
-              tenant.is_active
-                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
-            }`}
+          <Select
+            value={tenant.currency}
+            disabled={updateTenant.isPending}
+            onChange={(e) => changeCurrency(e.target.value)}
+            className="w-auto! text-sm font-semibold"
+            aria-label="Tenant currency"
           >
-            {acting ? <Loader2 size={14} className="animate-spin" /> : tenant.is_active ? <PauseCircle size={14} /> : <PlayCircle size={14} />}
-            {tenant.is_active ? "Suspend" : "Activate"}
-          </button>
+            {currencies.map((c) => (
+              <option key={c.code} value={c.code}>{c.code} &middot; {c.name}</option>
+            ))}
+          </Select>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
+            <Toggle
+              checked={tenant.is_active}
+              onChange={toggleStatus}
+              loading={acting}
+              size="sm"
+              label={tenant.is_active ? `Suspend ${tenant.name}` : `${tenant.subscription_status === "pending" ? "Approve" : "Activate"} ${tenant.name}`}
+            />
+            <span className="text-sm font-medium text-foreground">
+              {tenantStatusLabel(tenant)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -295,6 +474,29 @@ export default function TenantDetailPage() {
           </div>
         ))}
       </div>
+
+      {/* Business information — collected on the register form's step 2, read-only here for now */}
+      {(tenant.business_type || tenant.industry || tenant.business_category || tenant.employee_count || tenant.business_location || tenant.heard_about || tenant.referral_code) && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-sm font-bold text-foreground mb-3">Business Information</h2>
+          <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
+            {[
+              { label: "Business Type", value: BUSINESS_TYPE_LABELS[tenant.business_type ?? ""] ?? tenant.business_type },
+              { label: "Industry", value: tenant.industry },
+              { label: "Category", value: tenant.business_category },
+              { label: "Employees", value: tenant.employee_count },
+              { label: "Location", value: tenant.business_location },
+              { label: "Heard About Us", value: tenant.heard_about },
+              { label: "Referral Code", value: tenant.referral_code },
+            ].filter((row) => row.value).map((row) => (
+              <div key={row.label}>
+                <dt className="text-[11px] text-muted">{row.label}</dt>
+                <dd className="text-sm font-medium text-foreground mt-0.5">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       {notice && (
         <div className={`flex items-center justify-between gap-3 text-sm rounded-xl px-4 py-3 border ${
@@ -353,10 +555,18 @@ export default function TenantDetailPage() {
               <UserPlus size={13} /> Invite
             </button>
           </div>
+          {bulkUsers.count > 0 && (
+            <div className="px-5 py-3 border-b border-border">
+              <BulkActionBar count={bulkUsers.count} label="user" onDelete={confirmBulkDeleteUsers} onClear={bulkUsers.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
+                  <th className="px-5 py-3 w-10">
+                    <input type="checkbox" checked={bulkUsers.allSelected} ref={(el) => { if (el) el.indeterminate = bulkUsers.someSelected; }} onChange={bulkUsers.toggleAll} className="w-4 h-4 rounded" disabled={removableUserIds.length === 0} />
+                  </th>
                   <th className="px-5 py-3 font-semibold">User</th>
                   <th className="px-5 py-3 font-semibold">Role</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
@@ -367,6 +577,11 @@ export default function TenantDetailPage() {
             <tbody className="divide-y divide-border">
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-surface/40 transition-colors">
+                  <td className="px-5 py-3.5">
+                    {!u.is_superuser && (
+                      <input type="checkbox" checked={bulkUsers.selected.has(u.id)} onChange={() => bulkUsers.toggle(u.id)} className="w-4 h-4 rounded" />
+                    )}
+                  </td>
                   <td className="px-5 py-3.5">
                     <p className="text-sm font-medium text-foreground">{u.full_name} {u.is_superuser && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent ml-1">SUPERADMIN</span>}</p>
                     <p className="text-[11px] text-muted">{u.email}</p>
@@ -447,12 +662,21 @@ export default function TenantDetailPage() {
               </button>
             </div>
           ) : (
+            <>
+              {bulkDepartments.count > 0 && (
+                <div className="px-5 py-3 border-b border-border">
+                  <BulkActionBar count={bulkDepartments.count} label="department" onDelete={confirmBulkDeleteDepartments} onClear={bulkDepartments.clear} deleting={bulkDeleting} />
+                </div>
+              )}
             <div className="divide-y divide-border">
               {departments.map((d) => (
                 <div key={d.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{d.name}</p>
-                    {d.description && <p className="text-[11px] text-muted mt-0.5 truncate">{d.description}</p>}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input type="checkbox" checked={bulkDepartments.selected.has(d.id)} onChange={() => bulkDepartments.toggle(d.id)} className="w-4 h-4 rounded shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{d.name}</p>
+                      {d.description && <p className="text-[11px] text-muted mt-0.5 truncate">{d.description}</p>}
+                    </div>
                   </div>
                   <button
                     onClick={() => handleRemoveDepartment(d)}
@@ -466,6 +690,7 @@ export default function TenantDetailPage() {
                 </div>
               ))}
             </div>
+            </>
           )}
         </div>
       )}
@@ -491,12 +716,21 @@ export default function TenantDetailPage() {
               </button>
             </div>
           ) : (
+            <>
+              {bulkRoles.count > 0 && (
+                <div className="px-5 py-3 border-b border-border">
+                  <BulkActionBar count={bulkRoles.count} label="role" onDelete={confirmBulkDeleteRoles} onClear={bulkRoles.clear} deleting={bulkDeleting} />
+                </div>
+              )}
             <div className="divide-y divide-border">
               {roles.map((r) => (
                 <div key={r.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground capitalize">{r.name}</p>
-                    {r.description && <p className="text-[11px] text-muted mt-0.5 truncate">{r.description}</p>}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input type="checkbox" checked={bulkRoles.selected.has(r.id)} onChange={() => bulkRoles.toggle(r.id)} className="w-4 h-4 rounded shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground capitalize">{r.name}</p>
+                      {r.description && <p className="text-[11px] text-muted mt-0.5 truncate">{r.description}</p>}
+                    </div>
                   </div>
                   <button
                     onClick={() => handleRemoveRole(r)}
@@ -510,6 +744,7 @@ export default function TenantDetailPage() {
                 </div>
               ))}
             </div>
+            </>
           )}
         </div>
       )}
@@ -535,12 +770,21 @@ export default function TenantDetailPage() {
               </button>
             </div>
           ) : (
+            <>
+              {bulkBranches.count > 0 && (
+                <div className="px-5 py-3 border-b border-border">
+                  <BulkActionBar count={bulkBranches.count} label="branch" pluralLabel="branches" onDelete={confirmBulkDeleteBranches} onClear={bulkBranches.clear} deleting={bulkDeleting} />
+                </div>
+              )}
             <div className="divide-y divide-border">
               {branches.map((b) => (
                 <div key={b.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">{b.name}</p>
-                    <p className="text-[11px] text-muted mt-0.5">{b.location || "—"} {b.status && <span className="capitalize ml-1">· {b.status}</span>}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input type="checkbox" checked={bulkBranches.selected.has(b.id)} onChange={() => bulkBranches.toggle(b.id)} className="w-4 h-4 rounded shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{b.name}</p>
+                      <p className="text-[11px] text-muted mt-0.5">{b.location || "—"} {b.status && <span className="capitalize ml-1">· {b.status}</span>}</p>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleRemoveBranch(b)}
@@ -554,6 +798,7 @@ export default function TenantDetailPage() {
                 </div>
               ))}
             </div>
+            </>
           )}
         </div>
       )}
@@ -580,8 +825,16 @@ export default function TenantDetailPage() {
                 {["admin", "member", "viewer"].map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
               </Select>
             </Field>
+            <Field label="Password (optional)">
+              <Input
+                value={inviteForm.password}
+                onChange={(e) => setInviteForm({ ...inviteForm, password: e.target.value })}
+                placeholder="Leave blank to auto-generate"
+                minLength={8}
+              />
+            </Field>
             <p className="text-xs text-muted">
-              A strong temporary password is generated automatically and emailed to the user — you&apos;ll also see it here once, in case email delivery isn&apos;t set up.
+              Set a password here if you&apos;ll share it with the user yourself (min. 8 characters, one number, one uppercase letter). Leave it blank to have a strong one generated automatically — either way it&apos;s emailed to them and shown here once.
             </p>
             <FormFooter submitLabel={inviteUser.isPending ? "Inviting…" : "Invite User"} onCancel={() => setShowInvite(false)} disabled={inviteUser.isPending} />
           </form>
@@ -604,6 +857,59 @@ export default function TenantDetailPage() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => { setShowInvite(false); setTempPassword(null); setCopied(false); }}
+                className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
+      {/* Approve pending signup drawer */}
+      <Drawer
+        open={showApprove}
+        onClose={() => { setShowApprove(false); setTempPassword(null); setCopied(false); }}
+        title="Approve Organization"
+        description={`Set the owner's password for ${tenant.name}`}
+      >
+        {tempPassword === null ? (
+          <form onSubmit={handleApprove} className="space-y-4 p-5">
+            <Field label="Owner password (optional)">
+              <Input
+                value={approvePassword}
+                onChange={(e) => setApprovePassword(e.target.value)}
+                placeholder="Leave blank to auto-generate"
+                minLength={8}
+              />
+            </Field>
+            <p className="text-xs text-muted">
+              Set a password here if you&apos;ll share it with the business owner yourself (min. 8 characters, one
+              number, one uppercase letter). Leave it blank to have a strong one generated automatically — either
+              way it&apos;s emailed to them and shown here once.
+            </p>
+            <FormFooter submitLabel={activateTenant.isPending ? "Approving…" : "Approve"} onCancel={() => setShowApprove(false)} disabled={activateTenant.isPending} />
+          </form>
+        ) : (
+          <div className="p-5 space-y-4">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[13px] px-4 py-3">
+              Organization approved. Temporary password shown once — copy it now and share it with the owner
+              securely (it was also emailed to them).
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-surface border border-border rounded-lg px-4 py-3 font-mono text-sm text-foreground break-all">
+                {tempPassword}
+              </code>
+              <button
+                onClick={copyPassword}
+                className="flex items-center gap-1.5 px-3 h-10 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => { setShowApprove(false); setTempPassword(null); setCopied(false); }}
                 className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
               >
                 Done

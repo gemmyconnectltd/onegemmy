@@ -1,89 +1,142 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ClipboardList, Plus, Search, X } from "lucide-react";
+import { CheckCircle2, ClipboardList, Plus, Search, Trash2, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, FormFooter } from "@/components/ui/Form";
+import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
+import { Button } from "@/components/ui/Button";
+import { PageLoader } from "@/components/ui/PageLoader";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
+import {
+  useRequisitions, useDepartments,
+  useCreateRequisition, useApproveRequisition, useRejectRequisition, useDeleteRequisition,
+} from "@/lib/api/hooks";
+import type { Requisition } from "@/lib/api";
 
 type ReqStatus = "Pending" | "Approved" | "Rejected";
-
-type Requisition = {
-  id: string;
-  requestedBy: string;
-  department: string;
-  item: string;
-  qty: number;
-  date: string;
-  status: ReqStatus;
-};
-
-const INITIAL_REQS: Requisition[] = [
-  { id: "REQ-204", requestedBy: "Sarah M.", department: "Kitchen", item: "Cooking oil 20L", qty: 4, date: "2026-07-30", status: "Pending" },
-  { id: "REQ-203", requestedBy: "Jean B.", department: "Sales", item: "Receipt paper rolls", qty: 50, date: "2026-07-29", status: "Approved" },
-  { id: "REQ-202", requestedBy: "Alice U.", department: "Store", item: "Packaging bags (large)", qty: 200, date: "2026-07-28", status: "Pending" },
-  { id: "REQ-201", requestedBy: "David K.", department: "Kitchen", item: "Rice 25kg bags", qty: 10, date: "2026-07-27", status: "Rejected" },
-  { id: "REQ-200", requestedBy: "Marie C.", department: "Admin", item: "Printer toner", qty: 2, date: "2026-07-26", status: "Approved" },
-];
-
 const STATUS_STYLES: Record<ReqStatus, string> = {
   Pending: "bg-amber-100 text-amber-700",
   Approved: "bg-emerald-100 text-emerald-700",
   Rejected: "bg-red-50 text-red-600",
 };
+const EMPTY_FORM = { item_name: "", quantity: "1", department_id: "", notes: "" };
 
 export default function PurchaseRequestsPage() {
   const { brandColor } = useAppConfig();
-  const [reqs, setReqs] = useState<Requisition[]>(INITIAL_REQS);
   const [filter, setFilter] = useState<ReqStatus | "All">("All");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ requestedBy: "", department: "", item: "", qty: "1" });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const { data, isLoading } = useRequisitions();
+  const { data: deptData } = useDepartments();
+  const reqs = data?.items ?? [];
+  const departments = deptData?.items ?? [];
+
+  const createReq = useCreateRequisition();
+  const approveReq = useApproveRequisition();
+  const rejectReq = useRejectRequisition();
+  const deleteReq = useDeleteRequisition();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
   const filtered = reqs.filter((r) => {
     const q = search.trim().toLowerCase();
     return (
       (filter === "All" || r.status === filter) &&
-      (!q || r.item.toLowerCase().includes(q) || r.requestedBy.toLowerCase().includes(q) || r.id.toLowerCase().includes(q))
+      (!q || r.item_name.toLowerCase().includes(q) || (r.requested_by_name ?? "").toLowerCase().includes(q) || r.reference.toLowerCase().includes(q))
     );
   });
 
-  const setStatus = (id: string, status: ReqStatus) =>
-    setReqs((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  const deletableIds = filtered.filter((r) => r.status === "Pending").map((r) => r.id);
+  const bulk = useBulkSelection(deletableIds);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const addReq = () => {
-    if (!form.item.trim()) return;
-    setReqs((prev) => [
-      {
-        id: `REQ-${205 + prev.length}`,
-        requestedBy: form.requestedBy.trim() || "Team",
-        department: form.department.trim() || "General",
-        item: form.item.trim(),
-        qty: Number(form.qty) || 1,
-        date: new Date().toISOString().slice(0, 10),
-        status: "Pending",
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Requisitions",
+      message: `Delete ${bulk.count} selected pending request${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteReq.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
       },
-      ...prev,
-    ]);
-    setForm({ requestedBy: "", department: "", item: "", qty: "1" });
-    setShowModal(false);
+    });
+  }
+
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setFormError(null);
+    setShowModal(true);
+  };
+
+  const addReq = async () => {
+    setFormError(null);
+    if (!form.item_name.trim()) return;
+    try {
+      await createReq.mutateAsync({
+        item_name: form.item_name.trim(),
+        quantity: Number(form.quantity) || 1,
+        department_id: form.department_id || null,
+        notes: form.notes.trim() || null,
+      });
+      setShowModal(false);
+    } catch (e: unknown) {
+      setFormError((e as { detail?: string })?.detail ?? "Failed to submit request");
+    }
+  };
+
+  const handleApprove = (r: Requisition) => {
+    confirm({
+      title: "Approve Requisition",
+      message: `Approve request for "${r.item_name}"?`,
+      confirmLabel: "Approve",
+      onConfirm: () => approveReq.mutate(r.id),
+    });
+  };
+
+  const handleReject = (r: Requisition) => {
+    confirm({
+      title: "Reject Requisition",
+      message: `Reject request for "${r.item_name}"?`,
+      confirmLabel: "Reject",
+      danger: true,
+      onConfirm: () => rejectReq.mutate(r.id),
+    });
+  };
+
+  const handleDelete = (r: Requisition) => {
+    confirm({
+      title: "Delete Requisition",
+      message: `Delete request "${r.reference}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteReq.mutate(r.id),
+    });
   };
 
   const pending = reqs.filter((r) => r.status === "Pending").length;
 
+  if (isLoading) return <PageLoader />;
+
   return (
     <div className="space-y-5">
+      {confirmDialog}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Purchase Requests</h1>
           <p className="text-sm text-muted mt-1">Requisitions from your team, waiting for approval.</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: brandColor }}
-        >
+        <Button onClick={openAdd} color={brandColor}>
           <Plus size={16} /> New Request
-        </button>
+        </Button>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -112,10 +165,17 @@ export default function PurchaseRequestsPage() {
         </div>
       </div>
 
+      {bulk.count > 0 && (
+        <BulkActionBar count={bulk.count} label="request" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+      )}
+
       <div className="bg-card border border-border overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
+              <th className="p-4 w-10">
+                <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={deletableIds.length === 0} />
+              </th>
               <th className="p-4 font-medium">Request</th>
               <th className="p-4 font-medium">Item</th>
               <th className="p-4 font-medium">Department</th>
@@ -130,17 +190,22 @@ export default function PurchaseRequestsPage() {
             {filtered.map((r) => (
               <tr key={r.id} className="hover:bg-surface/50">
                 <td className="p-4">
+                  {r.status === "Pending" && (
+                    <input type="checkbox" checked={bulk.selected.has(r.id)} onChange={() => bulk.toggle(r.id)} className="w-4 h-4 rounded" />
+                  )}
+                </td>
+                <td className="p-4">
                   <span className="flex items-center gap-2 text-[13px] font-bold text-foreground">
-                    <ClipboardList size={14} className="text-accent" />{r.id}
+                    <ClipboardList size={14} className="text-accent" />{r.reference}
                   </span>
                 </td>
-                <td className="p-4 text-[13px] text-foreground">{r.item}</td>
-                <td className="p-4 text-[13px] text-muted">{r.department}</td>
-                <td className="p-4 text-[13px] text-muted">{r.requestedBy}</td>
-                <td className="p-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{r.qty}</td>
-                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{r.date}</td>
+                <td className="p-4 text-[13px] text-foreground">{r.item_name}</td>
+                <td className="p-4 text-[13px] text-muted">{r.department_name ?? "—"}</td>
+                <td className="p-4 text-[13px] text-muted">{r.requested_by_name ?? "—"}</td>
+                <td className="p-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{r.quantity}</td>
+                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
                 <td className="p-4">
-                  <span className={`inline-flex items-center text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${STATUS_STYLES[r.status]}`}>
+                  <span className={`inline-flex items-center text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${STATUS_STYLES[r.status as ReqStatus] ?? "bg-surface text-muted"}`}>
                     {r.status}
                   </span>
                 </td>
@@ -149,16 +214,20 @@ export default function PurchaseRequestsPage() {
                     {r.status === "Pending" && (
                       <>
                         <button
-                          onClick={() => setStatus(r.id, "Approved")}
+                          onClick={() => handleApprove(r)}
                           className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                         >
                           <CheckCircle2 size={13} /> Approve
                         </button>
                         <button
-                          onClick={() => setStatus(r.id, "Rejected")}
+                          onClick={() => handleReject(r)}
                           className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors"
                         >
                           <X size={13} /> Reject
+                        </button>
+                        <button onClick={() => handleDelete(r)}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold">
+                          <Trash2 size={13} />
                         </button>
                       </>
                     )}
@@ -167,7 +236,7 @@ export default function PurchaseRequestsPage() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={8} className="p-10 text-center text-sm text-muted">No requests match.</td></tr>
+              <tr><td colSpan={9} className="p-10 text-center text-sm text-muted">No requests match.</td></tr>
             )}
           </tbody>
         </table>
@@ -182,36 +251,37 @@ export default function PurchaseRequestsPage() {
         description="Raise a requisition for your team to approve."
         side="right"
         footer={
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              addReq();
-            }}
-          >
-            <FormFooter submitLabel="Submit request" onCancel={() => setShowModal(false)} disabled={!form.item.trim()} />
+          <form onSubmit={(e) => { e.preventDefault(); addReq(); }}>
+            <FormFooter submitLabel={createReq.isPending ? "Submitting…" : "Submit request"} onCancel={() => setShowModal(false)} disabled={createReq.isPending || !form.item_name.trim()} />
           </form>
         }
       >
         <div className="p-5 space-y-4">
           <Field label="Item needed" required>
             <Input
-              value={form.item}
-              onChange={(e) => setForm((f) => ({ ...f, item: e.target.value }))}
+              value={form.item_name}
+              onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))}
               placeholder="e.g. Cooking oil 20L"
               autoFocus
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Qty">
-              <Input type="number" min="1" value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} />
+              <Input type="number" min="1" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
             </Field>
             <Field label="Department">
-              <Input value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} placeholder="Kitchen" />
+              <Select value={form.department_id} onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value }))}>
+                <option value="">— None —</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </Select>
             </Field>
           </div>
-          <Field label="Requested by">
-            <Input value={form.requestedBy} onChange={(e) => setForm((f) => ({ ...f, requestedBy: e.target.value }))} placeholder="Your name" />
+          <Field label="Notes">
+            <Textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." />
           </Field>
+          {formError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
+          )}
         </div>
       </Drawer>
     </div>

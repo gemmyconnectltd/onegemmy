@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
@@ -75,7 +76,13 @@ async def delete_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     if tenant is None:
         raise NotFoundError("Company not found")
     log.info("tenants.delete.attempt", extra={"_extra_fields": {"tenant_id": str(tenant_id), "name": tenant.name}})
-    await TenantRepository(db).delete(tenant)
+    # A Core-level DELETE (not session.delete(tenant)) bypasses SQLAlchemy's
+    # ORM relationship management entirely, so it can't preemptively null out
+    # tenant_id on loaded children before the row is removed — the database's
+    # ON DELETE CASCADE (see each child model's tenant_id FK) does the actual
+    # cascade, deleting users/roles/branches/departments for real instead of
+    # orphaning them.
+    await db.execute(delete(Tenant).where(Tenant.id == tenant_id))
     await db.commit()
     log.info("tenants.delete.success", extra={"_extra_fields": {"tenant_id": str(tenant_id)}})
 

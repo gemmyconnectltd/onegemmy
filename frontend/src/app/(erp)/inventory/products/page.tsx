@@ -13,6 +13,9 @@ import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
 import { type ApiProduct } from "@/lib/api";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage } from "@/lib/api/hooks";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const fmt = (v: number) => fmtMoney(v);
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
@@ -70,6 +73,24 @@ export default function ProductsPage() {
     const matchStatus = statusFilter === "all" || (statusFilter === "active" ? p.is_active : !p.is_active);
     return matchSearch && matchStatus;
   });
+  const bulk = useBulkSelection(filtered.map((p) => p.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Products",
+      message: `Delete ${bulk.count} selected product${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteProduct.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const handleSubmit = async (v: ProductFormValues, imageFile?: File) => {
     const payload = {
@@ -115,6 +136,7 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
@@ -149,10 +171,19 @@ export default function ProductsPage() {
           <span className="text-xs text-muted ml-auto">{filtered.length} results</span>
         </div>
 
+        {bulk.count > 0 && (
+          <div className="px-5 py-3 border-b border-border">
+            <BulkActionBar count={bulk.count} label="product" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
+                <th className="px-5 py-3 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                </th>
                 {["Product", "Category", "Brand", "Cost", "Price", "Margin", "Stock", "Status", ""].map((h, i) => (
                   <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
                 ))}
@@ -161,6 +192,9 @@ export default function ProductsPage() {
             <tbody className="divide-y divide-border">
               {filtered.map((p) => (
                 <tr key={p.id} className="hover:bg-surface/40 transition-colors group">
+                  <td className="px-5 py-3.5">
+                    <input type="checkbox" checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <ProductAvatar name={p.name} imageUrl={p.image_url ?? undefined} size={32} className="rounded-lg" />
@@ -227,7 +261,7 @@ export default function ProductsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center">
+                  <td colSpan={10} className="py-16 text-center">
                     <Package size={36} className="text-border mx-auto mb-3" />
                     <p className="text-sm font-semibold text-muted">No products found</p>
                     <p className="text-xs text-muted/70 mt-1">Try adjusting your search or filters</p>

@@ -4,11 +4,25 @@ from pydantic import BaseModel, EmailStr
 
 
 class RegisterRequest(BaseModel):
+    """No password here on purpose: the owner doesn't set their own password
+    at signup — a platform admin sets/generates one when approving the
+    account and shares it with them directly. See auth.service.register."""
+
     tenant_name: str
     tenant_slug: str
     email: EmailStr
-    password: str
     full_name: str
+
+    # Business information — collected on the register form's second step.
+    # All optional, so the endpoint keeps working if the frontend ever
+    # trims this step down or a field is left blank.
+    business_type: str | None = None
+    industry: str | None = None
+    business_category: str | None = None
+    employee_count: str | None = None
+    business_location: str | None = None
+    heard_about: str | None = None
+    referral_code: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -39,6 +53,14 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: TokenUserInfo
+
+
+class RegisterResponse(BaseModel):
+    """Self-service signups land inactive until a platform admin approves
+    them — see auth.service.register — so no tokens are issued yet."""
+
+    pending_approval: bool = True
+    tenant_slug: str
 
 
 class ForgotPasswordRequest(BaseModel):

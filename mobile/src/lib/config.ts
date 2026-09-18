@@ -89,16 +89,6 @@ export const expenseCategories = [
   "Other",
 ];
 
-export const CURRENCY = "RWF";
-export const CURRENCY_SYMBOL = "RWF";
-
-/** Format a money value as full number with comma separators e.g. "RWF 1,250,000" */
-export function fmtMoney(value: number | null | undefined, symbol = CURRENCY_SYMBOL): string {
-  const v = Number(value ?? 0);
-  if (isNaN(v)) return `${symbol} 0`;
-  return `${symbol} ${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
 export const currencies = [
   { code: "RWF", symbol: "RWF", name: "Rwandan Franc" },
   { code: "USD", symbol: "$",   name: "US Dollar" },
@@ -107,6 +97,26 @@ export const currencies = [
   { code: "UGX", symbol: "USh", name: "Ugandan Shilling" },
   { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling" },
 ];
+
+// Mutable module state: the tenant's actual currency, set once by
+// AppConfigProvider after it fetches the tenant record. Exported as `let`
+// bindings so every importer (including fmtMoney's default parameter,
+// evaluated live at call time) picks up the change without needing to
+// route through React context.
+export let CURRENCY = "RWF";
+export let CURRENCY_SYMBOL = "RWF";
+
+export function setActiveCurrency(code: string) {
+  CURRENCY = code;
+  CURRENCY_SYMBOL = currencies.find((c) => c.code === code)?.symbol ?? code;
+}
+
+/** Format a money value as full number with comma separators e.g. "RWF 1,250,000" */
+export function fmtMoney(value: number | null | undefined, symbol = CURRENCY_SYMBOL): string {
+  const v = Number(value ?? 0);
+  if (isNaN(v)) return `${symbol} 0`;
+  return `${symbol} ${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
 
 export const locales = [
   { code: "en", name: "English" },

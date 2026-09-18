@@ -1,6 +1,15 @@
 from app.modules.inventory.schemas.batch import BatchCreate, BatchRead, BatchUpdate
 from app.modules.inventory.schemas.brand import BrandCreate, BrandRead, BrandUpdate
-from app.modules.inventory.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
+from app.modules.inventory.schemas.category import (
+    CategoryCreate,
+    CategoryImportRequest,
+    CategoryImportResult,
+    CategoryRead,
+    CategoryTemplateGroup,
+    CategoryTemplateRead,
+    CategoryTemplatesRead,
+    CategoryUpdate,
+)
 from app.modules.inventory.schemas.markdown import (
     GenerateVariantsRequest,
     GenerateVariantsResult,
@@ -39,7 +48,15 @@ from app.modules.inventory.schemas.transfer import (
     TransferItemCreate,
     TransferItemRead,
 )
-from app.modules.inventory.schemas.unit import UnitCreate, UnitRead, UnitUpdate
+from app.modules.inventory.schemas.unit import (
+    UnitCreate,
+    UnitImportRequest,
+    UnitImportResult,
+    UnitRead,
+    UnitSuggestion,
+    UnitSuggestionsRead,
+    UnitUpdate,
+)
 from app.modules.inventory.schemas.valuation import (
     CategoryValuation,
     InventoryValuationReport,
@@ -55,7 +72,12 @@ __all__ = [
     "BrandRead",
     "BrandUpdate",
     "CategoryCreate",
+    "CategoryImportRequest",
+    "CategoryImportResult",
     "CategoryRead",
+    "CategoryTemplateGroup",
+    "CategoryTemplateRead",
+    "CategoryTemplatesRead",
     "CategoryUpdate",
     "CategoryValuation",
     "GenerateVariantsRequest",
@@ -86,7 +108,11 @@ __all__ = [
     "TransferItemCreate",
     "TransferItemRead",
     "UnitCreate",
+    "UnitImportRequest",
+    "UnitImportResult",
     "UnitRead",
+    "UnitSuggestion",
+    "UnitSuggestionsRead",
     "UnitUpdate",
     "ValuationLine",
     "ValuationSummary",

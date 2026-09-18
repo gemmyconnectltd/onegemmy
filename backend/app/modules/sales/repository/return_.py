@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -42,8 +42,11 @@ class ReturnRepository(BaseRepository[Return]):
         return result.scalar_one()
 
     async def next_return_number(self, tenant_id: uuid.UUID) -> str:
+        # MAX of the existing numeric suffix, not COUNT(*) — see order.py's
+        # next_order_number for why COUNT collides once anything is deleted.
         result = await self.db.execute(
-            select(func.count()).select_from(Return).where(Return.tenant_id == tenant_id)
+            select(func.max(cast(func.substring(Return.return_number, 5), Integer)))
+            .where(Return.tenant_id == tenant_id)
         )
-        count = result.scalar_one()
-        return f"RET-{str(count + 1).zfill(4)}"
+        current_max = result.scalar_one() or 0
+        return f"RET-{str(current_max + 1).zfill(4)}"

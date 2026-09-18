@@ -23,3 +23,30 @@ class CategoryRead(BaseModel):
     description: str | None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class CategoryTemplateGroup(BaseModel):
+    name: str
+    items: list[str]
+
+
+class CategoryTemplateRead(BaseModel):
+    id: str
+    name: str
+    industry: str
+    groups: list[CategoryTemplateGroup]
+
+
+class CategoryTemplatesRead(BaseModel):
+    tenant_industry: str | None
+    existing: list[str]
+    templates: list[CategoryTemplateRead]
+
+
+class CategoryImportRequest(BaseModel):
+    names: list[str]
+
+
+class CategoryImportResult(BaseModel):
+    created: list[CategoryRead]
+    skipped: list[str]

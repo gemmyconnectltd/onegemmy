@@ -44,8 +44,16 @@ export interface ApiProduct {
 }
 
 export interface ApiCategory { id: string; name: string; description: string | null; }
+
+export interface ApiCategoryTemplateGroup { name: string; items: string[]; }
+export interface ApiCategoryTemplate { id: string; name: string; industry: string; groups: ApiCategoryTemplateGroup[]; }
+export interface ApiCategoryTemplates { tenant_industry: string | null; existing: string[]; templates: ApiCategoryTemplate[]; }
+export interface ApiCategoryImportResult { created: ApiCategory[]; skipped: string[]; }
 export interface ApiBrand    { id: string; name: string; description: string | null; }
 export interface ApiUnit     { id: string; name: string; abbreviation: string | null; }
+export interface ApiUnitSuggestion { name: string; abbreviation: string | null; }
+export interface ApiUnitSuggestions { suggested: ApiUnitSuggestion[]; existing: string[]; }
+export interface ApiUnitImportResult { created: ApiUnit[]; skipped: string[]; }
 export interface ApiSupplier { id: string; name: string; email: string | null; phone: string | null; address: string | null; is_active: boolean; }
 
 export interface ValuationLine {
@@ -147,6 +155,10 @@ export const inventoryApi = {
     request<SingleResponse<ApiCategory>>(`${BASE}/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCategory: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/categories/${id}`, { method: "DELETE" }),
+  categoryTemplates: () =>
+    request<SingleResponse<ApiCategoryTemplates>>(`${BASE}/categories/templates`),
+  importCategories: (names: string[]) =>
+    request<SingleResponse<ApiCategoryImportResult>>(`${BASE}/categories/import`, { method: "POST", body: JSON.stringify({ names }) }),
 
   // Brands
   listBrands: () =>
@@ -167,6 +179,10 @@ export const inventoryApi = {
     request<SingleResponse<ApiUnit>>(`${BASE}/units/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteUnit: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/units/${id}`, { method: "DELETE" }),
+  unitSuggestions: () =>
+    request<SingleResponse<ApiUnitSuggestions>>(`${BASE}/units/suggestions`),
+  importUnits: (units: ApiUnitSuggestion[]) =>
+    request<SingleResponse<ApiUnitImportResult>>(`${BASE}/units/import`, { method: "POST", body: JSON.stringify({ units }) }),
 
   // Suppliers
   listSuppliers: () =>

@@ -22,7 +22,7 @@ export interface ApiDeal {
   owner_id: string | null;
   expected_close_date: string | null;
   notes: string | null;
-  customer: { id: string; name: string } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
   created_at: string | null;
 }
 
@@ -53,8 +53,11 @@ export interface ApiOrder {
   tax: number;
   total: number;
   notes: string | null;
+  payment_method: string | null;
+  amount_tendered: number | null;
+  change_due: number | null;
   ordered_at: string | null;
-  customer: { id: string; name: string } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
   items: ApiOrderItem[];
   created_at: string | null;
 }
@@ -80,7 +83,7 @@ export interface ApiReturn {
   status: string;
   processed_by: string | null;
   return_date: string;
-  customer: { id: string; name: string } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
   items: ApiReturnItem[];
   created_at: string | null;
 }

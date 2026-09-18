@@ -16,6 +16,9 @@ class OrderCreate(BaseModel):
     tax: float = 0
     notes: str | None = None
     client_order_id: str | None = None
+    payment_method: str | None = None
+    amount_tendered: float | None = None
+    change_due: float | None = None
     items: list[OrderItemCreate] = []
 
 
@@ -27,6 +30,9 @@ class OrderUpdate(BaseModel):
     discount: float | None = None
     tax: float | None = None
     notes: str | None = None
+    payment_method: str | None = None
+    amount_tendered: float | None = None
+    change_due: float | None = None
 
 
 class OrderRead(BaseModel):
@@ -45,6 +51,9 @@ class OrderRead(BaseModel):
     tax: float
     total: float
     notes: str | None
+    payment_method: str | None = None
+    amount_tendered: float | None = None
+    change_due: float | None = None
     ordered_at: datetime | None = None
     customer: CustomerRead | None = None
     items: list[OrderItemRead] = []

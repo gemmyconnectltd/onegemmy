@@ -8,6 +8,9 @@ import { useApplicants, useCreateApplicant, useUpdateApplicant, useDeleteApplica
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STAGES = ["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"];
 const FILTERS = ["All", ...STAGES];
@@ -57,16 +60,41 @@ export default function RecruitingPage() {
     });
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(applicants.map((a) => a.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const remove = (a: ApiApplicant) => {
-    if (!window.confirm(`Remove ${a.name}?`)) return;
-    deleteApplicant.mutate(a.id, { onError: () => setNotice("Could not remove the applicant.") });
+    confirm({
+      title: "Remove Applicant",
+      message: `Remove ${a.name}? This cannot be undone.`,
+      confirmLabel: "Remove",
+      danger: true,
+      onConfirm: () => deleteApplicant.mutate(a.id, { onError: () => setNotice("Could not remove the applicant.") }),
+    });
   };
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Remove Applicants",
+      message: `Remove ${bulk.count} selected applicant${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Remove",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteApplicant.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const stageCounts = (stage: string) =>
     stage === "All" ? applicants.length : applicants.filter((a) => a.stage === stage).length;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Recruiting</h1>
@@ -106,9 +134,17 @@ export default function RecruitingPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          {bulk.count > 0 && (
+            <div className="p-4 border-b border-border">
+              <BulkActionBar count={bulk.count} label="applicant" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={applicants.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Applicant</th>
                 <th className="p-4 font-semibold">Position</th>
                 <th className="p-4 font-semibold">Applied</th>
@@ -122,6 +158,9 @@ export default function RecruitingPage() {
                 const next = idx >= 0 && idx < STAGES.length - 1 ? STAGES[idx + 1] : null;
                 return (
                   <tr key={a.id} className="hover:bg-surface/50 transition-colors">
+                    <td className="p-4">
+                      <input type="checkbox" checked={bulk.selected.has(a.id)} onChange={() => bulk.toggle(a.id)} className="w-4 h-4 rounded" />
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent">

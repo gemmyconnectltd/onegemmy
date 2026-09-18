@@ -134,6 +134,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: "Can't reach the server. Check your connection and try again in a moment." };
       }
       if (status === 401) {
+        // The backend returns 401 for wrong credentials AND for a suspended
+        // account/tenant — those need very different messages, so the
+        // generic "invalid credentials" fallback below must not swallow
+        // the specific ones the backend already gives us in `detail`.
+        if (detail === "This account has been suspended") {
+          return { ok: false, error: "Your business account has been suspended. Please contact support@onegemmy.com to have it reactivated." };
+        }
+        if (detail === "User is inactive") {
+          return { ok: false, error: "Your account has been deactivated. Please contact your company admin." };
+        }
         return { ok: false, error: "Invalid email or password" };
       }
       return { ok: false, error: detail || "Login failed. Please try again." };

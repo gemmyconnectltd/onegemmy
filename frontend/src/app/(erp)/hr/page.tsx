@@ -9,6 +9,9 @@ import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_COLORS: Record<string, string> = {
   Active: "bg-emerald-50 text-emerald-700",
@@ -92,16 +95,41 @@ export default function EmployeesPage() {
     });
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(employees.map((e) => e.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const remove = (emp: ApiEmployee) => {
-    if (!window.confirm(`Delete ${emp.full_name}?`)) return;
-    deleteEmployee.mutate(emp.id, { onError: () => setNotice("Could not delete employee.") });
+    confirm({
+      title: "Delete Employee",
+      message: `Delete ${emp.full_name}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteEmployee.mutate(emp.id, { onError: () => setNotice("Could not delete employee.") }),
+    });
   };
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Employees",
+      message: `Delete ${bulk.count} selected employee${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteEmployee.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const active = employees.filter((e) => e.employment_status === "Active").length;
   const onLeave = employees.filter((e) => e.employment_status === "On Leave").length;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Employees</h1>
@@ -158,9 +186,17 @@ export default function EmployeesPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          {bulk.count > 0 && (
+            <div className="p-4 border-b border-border">
+              <BulkActionBar count={bulk.count} label="employee" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={employees.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Employee</th>
                 <th className="p-4 font-semibold">Department</th>
                 <th className="p-4 font-semibold">Hire Date</th>
@@ -172,6 +208,9 @@ export default function EmployeesPage() {
             <tbody className="divide-y divide-border">
               {employees.map((e) => (
                 <tr key={e.id} className="hover:bg-surface/50 transition-colors">
+                  <td className="p-4">
+                    <input type="checkbox" checked={bulk.selected.has(e.id)} onChange={() => bulk.toggle(e.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent">

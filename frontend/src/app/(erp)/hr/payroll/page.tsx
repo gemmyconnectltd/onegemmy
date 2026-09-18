@@ -10,6 +10,9 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function PayrollPage() {
   const { currencySymbol, brandColor } = useAppConfig();
@@ -59,16 +62,41 @@ export default function PayrollPage() {
     markPaid.mutate(p.id, { onError: () => setNotice("Could not mark as paid.") });
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(entries.map((p) => p.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const remove = (p: ApiPayroll) => {
-    if (!window.confirm("Delete this payroll entry?")) return;
-    deletePayroll.mutate(p.id, { onError: () => setNotice("Could not delete the entry.") });
+    confirm({
+      title: "Delete Payroll Entry",
+      message: "Delete this payroll entry? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deletePayroll.mutate(p.id, { onError: () => setNotice("Could not delete the entry.") }),
+    });
   };
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Payroll Entries",
+      message: `Delete ${bulk.count} selected entr${bulk.count === 1 ? "y" : "ies"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deletePayroll.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const totalNet = entries.reduce((s, p) => s + p.net_pay, 0);
   const totalPayable = entries.filter((p) => p.status === "Pending").reduce((s, p) => s + p.net_pay, 0);
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Payroll</h1>
@@ -106,9 +134,17 @@ export default function PayrollPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          {bulk.count > 0 && (
+            <div className="p-4 border-b border-border">
+              <BulkActionBar count={bulk.count} label="entry" pluralLabel="entries" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={entries.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Employee</th>
                 <th className="p-4 font-semibold text-right">Base Salary</th>
                 <th className="p-4 font-semibold text-right">Bonus</th>
@@ -121,6 +157,9 @@ export default function PayrollPage() {
             <tbody className="divide-y divide-border">
               {entries.map((p) => (
                 <tr key={p.id} className="hover:bg-surface/50 transition-colors">
+                  <td className="p-4">
+                    <input type="checkbox" checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="p-4">
                     <p className="text-sm font-medium text-foreground">{p.employee?.full_name ?? "—"}</p>
                     {p.employee?.job_title && <p className="text-xs text-muted">{p.employee.job_title}</p>}

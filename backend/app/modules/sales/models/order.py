@@ -23,6 +23,13 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     ordered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     client_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # POS payment capture — how the customer paid, what they handed over in
+    # cash, and the change given back. Null for non-POS orders and for any
+    # order placed before this was tracked.
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    amount_tendered: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+    change_due: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
+
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_customers.id", ondelete="SET NULL"), nullable=True
     )

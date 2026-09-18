@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BadgeCheck, Clock, FileText, Search, Eye, Printer,
   TrendingUp, AlertCircle, Plus,
-  Download, MoreHorizontal,
+  Download, MoreHorizontal, Mail, Phone, MapPin, Globe,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
-import { useOrders } from "@/lib/api/hooks";
-import type { ApiOrder } from "@/lib/api";
+import { useOrders, useCurrentTenant } from "@/lib/api/hooks";
+import type { ApiOrder, Tenant } from "@/lib/api";
+import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtMoney } from "@/lib/config";
+import { fmtDateTime } from "@/lib/date";
 
 type StatusFilter = "all" | "pending" | "completed" | "cancelled";
 
@@ -32,15 +35,159 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** The invoice itself — business branding, bill-to, line items, totals. Rendered
+ *  both in the on-screen detail drawer and (via a portal) as the print-only view. */
+function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: ApiOrder; tenant: Tenant | undefined; brandColor: string; fmt: (v: number) => string }) {
+  const businessLocation = [tenant?.address, tenant?.city, tenant?.country].filter(Boolean).join(", ");
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Business branding strip */}
+      <div className="h-1.5 flex-shrink-0" style={{ backgroundColor: brandColor }} />
+
+      {/* Business header */}
+      <div className="p-6 border-b border-border">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {tenant?.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resolveUploadUrl(tenant.logo_url) ?? undefined}
+                alt={tenant.name}
+                className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-border"
+              />
+            ) : (
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-extrabold text-lg"
+                style={{ backgroundColor: brandColor }}
+              >
+                {(tenant?.name ?? "?").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-[16px] font-extrabold text-foreground truncate">{tenant?.name ?? "Your Business"}</p>
+              <div className="mt-1 space-y-0.5">
+                {businessLocation && (
+                  <p className="flex items-center gap-1.5 text-[12px] text-muted"><MapPin size={11} className="flex-shrink-0" /> {businessLocation}</p>
+                )}
+                {tenant?.phone && (
+                  <p className="flex items-center gap-1.5 text-[12px] text-muted"><Phone size={11} className="flex-shrink-0" /> {tenant.phone}</p>
+                )}
+                {tenant?.website && (
+                  <p className="flex items-center gap-1.5 text-[12px] text-muted"><Globe size={11} className="flex-shrink-0" /> {tenant.website}</p>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: brandColor }}>Invoice</p>
+            <p className="text-[18px] font-extrabold text-foreground font-mono mt-0.5">{order.order_number}</p>
+            <div className="mt-2"><StatusBadge status={order.status} /></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bill to / dates */}
+      <div className="px-6 py-4 border-b border-border bg-surface/30">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Bill To</p>
+            <p className="text-[13px] font-semibold text-foreground">{order.customer?.name ?? "Walk-in customer"}</p>
+            {order.customer?.email && (
+              <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><Mail size={11} className="flex-shrink-0" /> {order.customer.email}</p>
+            )}
+            {order.customer?.phone && (
+              <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><Phone size={11} className="flex-shrink-0" /> {order.customer.phone}</p>
+            )}
+            {order.customer?.address && (
+              <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><MapPin size={11} className="flex-shrink-0" /> {order.customer.address}</p>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] text-muted uppercase tracking-wide mb-1">Date Issued</p>
+            <p className="text-[13px] font-semibold text-foreground">
+              {fmtDateTime(order.ordered_at)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Line items */}
+      <div className="flex-1 overflow-y-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border bg-surface/50">
+              <th className="px-5 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wide">Item</th>
+              <th className="px-5 py-2.5 text-center text-[11px] font-semibold text-muted uppercase tracking-wide">Qty</th>
+              <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted uppercase tracking-wide">Unit Price</th>
+              <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted uppercase tracking-wide">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {order.items.map((item) => (
+              <tr key={item.id}>
+                <td className="px-5 py-3">
+                  <p className="text-[13px] font-medium text-foreground">{item.product_name}</p>
+                  {item.sku && <p className="text-[11px] text-muted font-mono">{item.sku}</p>}
+                </td>
+                <td className="px-5 py-3 text-center text-[13px] text-muted">{item.quantity}</td>
+                <td className="px-5 py-3 text-right text-[13px] text-muted tabular-nums">{fmt(item.unit_price)}</td>
+                <td className="px-5 py-3 text-right text-[13px] font-semibold text-foreground tabular-nums">{fmt(item.line_total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Totals */}
+        <div className="px-5 py-4 border-t border-border space-y-2 bg-surface/20">
+          <div className="flex justify-between text-[13px] text-muted">
+            <span>Subtotal</span><span className="tabular-nums">{fmt(order.subtotal)}</span>
+          </div>
+          {order.discount > 0 && (
+            <div className="flex justify-between text-[13px] text-emerald-600">
+              <span>Discount</span><span className="tabular-nums">-{fmt(order.discount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-[13px] text-muted">
+            <span>Tax</span><span className="tabular-nums">{fmt(order.tax)}</span>
+          </div>
+          <div className="flex justify-between text-[15px] font-extrabold text-foreground border-t border-border pt-2.5 mt-1">
+            <span>Total Due</span><span className="tabular-nums">{fmt(order.total)}</span>
+          </div>
+        </div>
+
+        {order.notes && (
+          <div className="px-5 py-4 border-t border-border">
+            <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Notes</p>
+            <p className="text-[13px] text-foreground/70">{order.notes}</p>
+          </div>
+        )}
+
+        <div className="px-5 py-4 border-t border-border text-center">
+          <p className="text-[12px] font-semibold text-foreground">Thank you for your business{tenant?.name ? ` — ${tenant.name}` : ""}!</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InvoicesPage() {
   const { currencySymbol, brandColor } = useAppConfig();
   const { data, isLoading } = useOrders(1, 200);
+  const { data: tenant } = useCurrentTenant();
   const orders = data?.items ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewing, setViewing] = useState<ApiOrder | null>(null);
 
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
+
+  const printInvoice = (order: ApiOrder) => {
+    setViewing(order);
+    // Wait a tick for the drawer (and its printable content) to render before
+    // invoking the browser's print dialog.
+    window.setTimeout(() => window.print(), 50);
+  };
 
   const filtered = orders.filter((o) => {
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
@@ -180,7 +327,7 @@ export default function InvoicesPage() {
                     <p className="text-[13px] font-semibold text-foreground">{o.customer?.name ?? "—"}</p>
                   </td>
                   <td className="px-4 py-3.5 text-[13px] text-muted whitespace-nowrap">
-                    {o.ordered_at ? new Date(o.ordered_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                    {fmtDateTime(o.ordered_at)}
                   </td>
                   <td className="px-4 py-3.5 text-[13px] text-muted">
                     {o.items.length} {o.items.length === 1 ? "item" : "items"}
@@ -202,6 +349,7 @@ export default function InvoicesPage() {
                         <Eye size={13} />
                       </button>
                       <button
+                        onClick={() => printInvoice(o)}
                         title="Print"
                         className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground transition-colors"
                       >
@@ -244,7 +392,7 @@ export default function InvoicesPage() {
                   <BadgeCheck size={15} /> Mark as Paid
                 </button>
               )}
-              <button className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: brandColor }}>
+              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: brandColor }}>
                 <Printer size={15} /> Print
               </button>
               <button onClick={() => setViewing(null)} className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
@@ -254,85 +402,17 @@ export default function InvoicesPage() {
           )
         }
       >
-        {viewing && (
-          <div className="flex flex-col h-full">
-            {/* Invoice header */}
-            <div className="p-6 border-b border-border bg-surface/30">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Invoice Number</p>
-                  <p className="text-[20px] font-extrabold text-foreground font-mono">{viewing.order_number}</p>
-                </div>
-                <StatusBadge status={viewing.status} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[11px] text-muted uppercase tracking-wide mb-1">Bill To</p>
-                  <p className="text-[13px] font-semibold text-foreground">{viewing.customer?.name ?? "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted uppercase tracking-wide mb-1">Date Issued</p>
-                  <p className="text-[13px] font-semibold text-foreground">
-                    {viewing.ordered_at ? new Date(viewing.ordered_at).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) : "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Line items */}
-            <div className="flex-1 overflow-y-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-surface/50">
-                    <th className="px-5 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wide">Item</th>
-                    <th className="px-5 py-2.5 text-center text-[11px] font-semibold text-muted uppercase tracking-wide">Qty</th>
-                    <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted uppercase tracking-wide">Unit Price</th>
-                    <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted uppercase tracking-wide">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {viewing.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="px-5 py-3">
-                        <p className="text-[13px] font-medium text-foreground">{item.product_name}</p>
-                        {item.sku && <p className="text-[11px] text-muted font-mono">{item.sku}</p>}
-                      </td>
-                      <td className="px-5 py-3 text-center text-[13px] text-muted">{item.quantity}</td>
-                      <td className="px-5 py-3 text-right text-[13px] text-muted tabular-nums">{fmt(item.unit_price)}</td>
-                      <td className="px-5 py-3 text-right text-[13px] font-semibold text-foreground tabular-nums">{fmt(item.line_total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Totals */}
-              <div className="px-5 py-4 border-t border-border space-y-2 bg-surface/20">
-                <div className="flex justify-between text-[13px] text-muted">
-                  <span>Subtotal</span><span className="tabular-nums">{fmt(viewing.subtotal)}</span>
-                </div>
-                {viewing.discount > 0 && (
-                  <div className="flex justify-between text-[13px] text-emerald-600">
-                    <span>Discount</span><span className="tabular-nums">-{fmt(viewing.discount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-[13px] text-muted">
-                  <span>Tax</span><span className="tabular-nums">{fmt(viewing.tax)}</span>
-                </div>
-                <div className="flex justify-between text-[15px] font-extrabold text-foreground border-t border-border pt-2.5 mt-1">
-                  <span>Total Due</span><span className="tabular-nums">{fmt(viewing.total)}</span>
-                </div>
-              </div>
-
-              {viewing.notes && (
-                <div className="px-5 py-4 border-t border-border">
-                  <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Notes</p>
-                  <p className="text-[13px] text-foreground/70">{viewing.notes}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={brandColor} fmt={fmt} />}
       </Drawer>
+
+      {/* Print-only view: portaled out of the app shell (which is hidden via
+          print:hidden) so printing shows just the invoice, nothing else. */}
+      {viewing && typeof document !== "undefined" && createPortal(
+        <div className="hidden print:block">
+          <InvoiceDocument order={viewing} tenant={tenant} brandColor={brandColor} fmt={fmt} />
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

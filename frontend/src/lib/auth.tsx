@@ -27,6 +27,21 @@ export interface User {
   permissions: string[];
 }
 
+export interface RegisterInput {
+  tenantName: string;
+  tenantSlug: string;
+  email: string;
+  fullName: string;
+  // Business information — collected on the register form's second step.
+  businessType?: string;
+  industry?: string;
+  businessCategory?: string;
+  employeeCount?: string;
+  businessLocation?: string;
+  heardAbout?: string;
+  referralCode?: string;
+}
+
 // Backend permission resources (resource:action, see backend/app/scripts/seed.py)
 // that grant access to each ERP module the sidebar/nav exposes.
 const MODULE_RESOURCES: Record<string, string[]> = {
@@ -44,8 +59,8 @@ const MODULE_RESOURCES: Record<string, string[]> = {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, tenantSlug?: string) => Promise<{ ok: boolean; error?: string }>;
-  register: (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }) => Promise<{ ok: boolean; error?: string }>;
+  login: (email: string, password: string, tenantSlug?: string, rememberMe?: boolean) => Promise<{ ok: boolean; error?: string }>;
+  register: (data: RegisterInput) => Promise<{ ok: boolean; pending?: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
   hasPermission: (permission: string) => boolean;
@@ -136,11 +151,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string, tenantSlug?: string): Promise<{ ok: boolean; error?: string }> => {
+  const login = useCallback(async (email: string, password: string, tenantSlug?: string, rememberMe = true): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await authApi.login(email, password, tenantSlug);
-      setStoredToken(res.data.access_token);
-      setStoredRefreshToken(res.data.refresh_token);
+      setStoredToken(res.data.access_token, rememberMe);
+      setStoredRefreshToken(res.data.refresh_token, rememberMe);
       setUser(mapUser(res.data.user));
       return { ok: true };
     } catch (err) {
@@ -150,25 +165,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: "Can't reach the server. Check your connection and try again in a moment." };
       }
       if (status === 401) {
+        // The backend returns 401 for wrong credentials AND for a suspended
+        // account/tenant — those need very different messages, so the
+        // generic "invalid credentials" fallback below must not swallow
+        // the specific ones the backend already gives us in `detail`.
+        if (detail === "This account has been suspended") {
+          return { ok: false, error: "Your business account has been suspended. Please contact support@onegemmy.com to have it reactivated." };
+        }
+        if (detail === "User is inactive") {
+          return { ok: false, error: "Your account has been deactivated. Please contact your company admin." };
+        }
         return { ok: false, error: "Invalid email or password" };
       }
       return { ok: false, error: detail || "Login failed. Please try again." };
     }
   }, []);
 
-  const register = useCallback(async (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }): Promise<{ ok: boolean; error?: string }> => {
+  const register = useCallback(async (data: RegisterInput): Promise<{ ok: boolean; pending?: boolean; error?: string }> => {
     try {
       const res = await authApi.register({
         tenant_name: data.tenantName,
         tenant_slug: data.tenantSlug,
         email: data.email,
-        password: data.password,
         full_name: data.fullName,
+        business_type: data.businessType,
+        industry: data.industry,
+        business_category: data.businessCategory,
+        employee_count: data.employeeCount,
+        business_location: data.businessLocation,
+        heard_about: data.heardAbout,
+        referral_code: data.referralCode,
       });
-      setStoredToken(res.data.access_token);
-      setStoredRefreshToken(res.data.refresh_token);
-      setUser(mapUser(res.data.user));
-      return { ok: true };
+      // New signups land inactive until a platform admin approves them — no
+      // tokens are issued yet, see backend auth.service.register.
+      return { ok: true, pending: res.data.pending_approval };
     } catch (err) {
       const status = (err as { status?: number })?.status;
       const detail = (err as { detail?: string })?.detail;

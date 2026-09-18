@@ -12,6 +12,9 @@ import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { useTargets, useCreateTarget, useUpdateTarget, useDeleteTarget } from "@/lib/api/hooks";
 import type { ApiTarget } from "@/lib/api";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 // ── Metric type presets — makes the form self-explanatory ─────────────────────
 const METRIC_TYPES = [
@@ -167,6 +170,24 @@ export default function SalesTargetsPage() {
   }, [targets]);
 
   const displayed = periodFilter === "All" ? targets : targets.filter((t) => t.period === periodFilter);
+  const bulk = useBulkSelection(displayed.map((t) => t.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Targets",
+      message: `Delete ${bulk.count} selected target${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteTarget.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const achieved = targets.filter((t) => t.target_value > 0 && t.achieved_value / t.target_value >= 1).length;
   const onTrack  = targets.filter((t) => { const p = t.target_value > 0 ? t.achieved_value / t.target_value : 0; return p >= 0.6 && p < 1; }).length;
@@ -227,8 +248,13 @@ export default function SalesTargetsPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this target?")) return;
-    deleteTarget.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete target") });
+    confirm({
+      title: "Delete Target",
+      message: "Delete this target? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteTarget.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete target") }),
+    });
   };
 
   // live preview pct in form
@@ -240,6 +266,7 @@ export default function SalesTargetsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
@@ -270,17 +297,27 @@ export default function SalesTargetsPage() {
       </div>
 
       {/* ── Period filter tabs ── */}
-      {periods.length > 2 && (
-        <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1 w-fit flex-wrap">
-          {periods.map((p) => (
-            <button key={p} onClick={() => setPeriodFilter(p)}
-              className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors whitespace-nowrap ${periodFilter === p ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
-              style={periodFilter === p ? { backgroundColor: SAL } : undefined}>
-              {p}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {periods.length > 2 && (
+          <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1 w-fit flex-wrap">
+            {periods.map((p) => (
+              <button key={p} onClick={() => setPeriodFilter(p)}
+                className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors whitespace-nowrap ${periodFilter === p ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
+                style={periodFilter === p ? { backgroundColor: SAL } : undefined}>
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+        {displayed.length > 0 && (
+          <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer">
+            <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+            Select all
+          </label>
+        )}
+      </div>
+
+      <BulkActionBar count={bulk.count} label="target" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
 
       {/* ── Cards ── */}
       {loading ? (
@@ -306,10 +343,16 @@ export default function SalesTargetsPage() {
               : { label: "Behind",   cls: "bg-red-100 text-red-600",        Icon: XCircle };
 
             return (
-              <div key={t.id} className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-foreground/15 transition-all space-y-4 group">
+              <div key={t.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-all space-y-4 group ${bulk.selected.has(t.id) ? "border-accent" : "border-border hover:border-foreground/15"}`}>
                 {/* top row */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={bulk.selected.has(t.id)}
+                      onChange={() => bulk.toggle(t.id)}
+                      className="w-4 h-4 rounded flex-shrink-0"
+                    />
                     <div className="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0" style={{ backgroundColor: `${SAL}15` }}>
                       <Target size={16} style={{ color: SAL }} />
                     </div>

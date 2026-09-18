@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -41,8 +41,11 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder]):
         return result.scalar_one()
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
+        # MAX of the existing numeric suffix, not COUNT(*) — see sales/order.py's
+        # next_order_number for why COUNT collides once anything is deleted.
         result = await self.db.execute(
-            select(func.count()).select_from(PurchaseOrder).where(PurchaseOrder.tenant_id == tenant_id)
+            select(func.max(cast(func.substring(PurchaseOrder.reference, 5), Integer)))
+            .where(PurchaseOrder.tenant_id == tenant_id)
         )
-        count = result.scalar_one()
-        return f"PUR-{str(count + 1).zfill(4)}"
+        current_max = result.scalar_one() or 0
+        return f"PUR-{str(current_max + 1).zfill(4)}"

@@ -9,6 +9,9 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 import { useAppConfig } from "@/lib/appConfig";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const LEAVE_TYPES = ["Annual", "Sick", "Maternity", "Study", "Unpaid"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
@@ -67,15 +70,40 @@ export default function LeavePage() {
     m.mutate(leave.id, { onError: () => setNotice("Could not update the request.") });
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(leaves.map((l) => l.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const remove = (leave: ApiLeave) => {
-    if (!window.confirm("Delete this leave request?")) return;
-    deleteLeave.mutate(leave.id, { onError: () => setNotice("Could not delete the request.") });
+    confirm({
+      title: "Delete Leave Request",
+      message: "Delete this leave request? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteLeave.mutate(leave.id, { onError: () => setNotice("Could not delete the request.") }),
+    });
   };
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Leave Requests",
+      message: `Delete ${bulk.count} selected request${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteLeave.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const pendingCount = leaves.filter((l) => l.status === "Pending").length;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Leave Management</h1>
@@ -116,9 +144,17 @@ export default function LeavePage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          {bulk.count > 0 && (
+            <div className="p-4 border-b border-border">
+              <BulkActionBar count={bulk.count} label="request" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={leaves.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Employee</th>
                 <th className="p-4 font-semibold">Type</th>
                 <th className="p-4 font-semibold">From</th>
@@ -131,6 +167,9 @@ export default function LeavePage() {
             <tbody className="divide-y divide-border">
               {leaves.map((l) => (
                 <tr key={l.id} className="hover:bg-surface/50 transition-colors">
+                  <td className="p-4">
+                    <input type="checkbox" checked={bulk.selected.has(l.id)} onChange={() => bulk.toggle(l.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="p-4">
                     <p className="text-sm font-medium text-foreground">{l.employee?.full_name ?? "—"}</p>
                     {l.reason && <p className="text-xs text-muted">{l.reason}</p>}

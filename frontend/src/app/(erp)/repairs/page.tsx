@@ -5,6 +5,9 @@ import { Plus, Wrench, X, ChevronDown } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type RepairJob } from "@/lib/api";
 import { useRepairJobs, useCreateRepairJob, useUpdateRepairJob, useDeleteRepairJob } from "@/lib/api/hooks";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_COLORS: Record<string, string> = {
   received:       "bg-blue-100 text-blue-700",
@@ -61,10 +64,40 @@ export default function RepairsPage() {
     await updateJob.mutateAsync({ id, data: { status } });
   }
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(jobs.map((j) => j.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Repair Job",
+      message: "Delete this repair job? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteJob.mutate(id),
+    });
+  }
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Repair Jobs",
+      message: `Delete ${bulk.count} selected job${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteJob.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
+
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Repair Jobs</h1>
@@ -146,9 +179,17 @@ export default function RepairsPage() {
 
       {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {bulk.count > 0 && (
+          <div className="px-4 py-3 border-b border-border">
+            <BulkActionBar count={bulk.count} label="job" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
+              <th className="px-4 py-3 w-10">
+                <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={jobs.length === 0} />
+              </th>
               <th className="px-4 py-3 font-semibold">Job #</th>
               <th className="px-4 py-3 font-semibold">Device</th>
               <th className="px-4 py-3 font-semibold">Issue</th>
@@ -161,6 +202,9 @@ export default function RepairsPage() {
           <tbody>
             {jobs.map((job) => (
               <tr key={job.id} className="border-b border-border/60 last:border-0 hover:bg-surface/50">
+                <td className="px-4 py-3">
+                  <input type="checkbox" checked={bulk.selected.has(job.id)} onChange={() => bulk.toggle(job.id)} className="w-4 h-4 rounded" />
+                </td>
                 <td className="px-4 py-3 font-mono font-semibold text-foreground">{job.job_number}</td>
                 <td className="px-4 py-3">
                   <div className="font-semibold text-foreground">{job.device_type}</div>
@@ -181,7 +225,7 @@ export default function RepairsPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => { if (confirm("Delete this repair job?")) deleteJob.mutateAsync(job.id); }}
+                  <button onClick={() => handleDelete(job.id)}
                     className="text-xs text-muted hover:text-red-500 transition-colors font-semibold">
                     Delete
                   </button>
@@ -189,8 +233,8 @@ export default function RepairsPage() {
               </tr>
             ))}
             {jobs.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-16 text-center text-muted text-sm">
-                No repair jobs yet. Click "New Job" to log a device for repair.
+              <tr><td colSpan={8} className="px-4 py-16 text-center text-muted text-sm">
+                No repair jobs yet. Click &quot;New Job&quot; to log a device for repair.
               </td></tr>
             )}
           </tbody>

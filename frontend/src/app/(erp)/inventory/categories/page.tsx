@@ -2,11 +2,15 @@
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Layers, Plus, Search, Edit2, Trash2, Package, Check, X } from "lucide-react";
+import { Layers, Plus, Search, Edit2, Trash2, Package, Check, X, Sparkles } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiCategory } from "@/lib/api";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import ImportTemplatesModal from "./ImportTemplatesModal";
 
 const COLORS = [
   "bg-violet-100 text-violet-600", "bg-blue-100 text-blue-600",
@@ -26,6 +30,7 @@ export default function CategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   const { data, isLoading } = useCategories();
   const createCategory = useCreateCategory();
@@ -34,6 +39,24 @@ export default function CategoriesPage() {
   const categories = data?.items ?? [];
 
   const filtered = categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
+  const bulk = useBulkSelection(filtered.map((c) => c.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Categories",
+      message: `Delete ${bulk.count} selected categor${bulk.count === 1 ? "y" : "ies"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteCategory.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   async function handleAdd() {
     if (!newName.trim() || createCategory.isPending) return;
@@ -51,25 +74,34 @@ export default function CategoriesPage() {
     } catch { /* ignore */ }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this category?")) return;
-    try {
-      await deleteCategory.mutateAsync(id);
-    } catch { /* ignore */ }
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Category",
+      message: "Delete this category? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteCategory.mutate(id),
+    });
   }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Categories</h1>
           <p className="text-sm text-muted mt-0.5">{categories.length} categories</p>
         </div>
-        <Button onClick={() => setAdding(!adding)} color={INV_COLOR} className="rounded-lg">
-          <Plus size={15} /> Add Category
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)} className="rounded-lg">
+            <Sparkles size={15} /> Import Category Templates
+          </Button>
+          <Button onClick={() => setAdding(!adding)} color={INV_COLOR} className="rounded-lg">
+            <Plus size={15} /> Add Category
+          </Button>
+        </div>
       </div>
 
       {adding && (
@@ -99,15 +131,25 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-        <input type="text" placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-card" />
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input type="text" placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-card" />
+        </div>
+        {filtered.length > 0 && (
+          <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer flex-shrink-0">
+            <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+            Select all
+          </label>
+        )}
       </div>
+
+      <BulkActionBar count={bulk.count} label="category" pluralLabel="categories" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((c) => (
-          <div key={c.id} className="bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-foreground/15 transition-all group">
+          <div key={c.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-all group ${bulk.selected.has(c.id) ? "border-accent" : "border-border hover:border-foreground/15"}`}>
             {editingId === c.id ? (
               <div className="space-y-2">
                 <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)}
@@ -126,8 +168,16 @@ export default function CategoriesPage() {
             ) : (
               <>
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorFor(c.name)}`}>
-                    <Layers size={18} />
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={bulk.selected.has(c.id)}
+                      onChange={() => bulk.toggle(c.id)}
+                      className="w-4 h-4 rounded flex-shrink-0"
+                    />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorFor(c.name)}`}>
+                      <Layers size={18} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => { setEditingId(c.id); setEditName(c.name); setEditDesc(c.description ?? ""); }}
@@ -159,6 +209,8 @@ export default function CategoriesPage() {
           </div>
         )}
       </div>
+
+      <ImportTemplatesModal open={showImport} onClose={() => setShowImport(false)} color={INV_COLOR} />
     </div>
   );
 }

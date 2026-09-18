@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
@@ -89,6 +89,8 @@ async def update_tenant(
     tenant_id: uuid.UUID, data: TenantUpdate, db: DbSession, current_user: CurrentUser
 ):
     _require_own_tenant(current_user, tenant_id)
+    if data.currency is not None:
+        raise ForbiddenError("Contact support to change your currency")
     tenant = await service.update_tenant(db, tenant_id, data)
     return success_response(
         data=tenant.model_dump(),

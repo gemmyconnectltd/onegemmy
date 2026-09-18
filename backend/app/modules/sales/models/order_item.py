@@ -28,6 +28,9 @@ class OrderItem(UUIDPKMixin, Base):
     quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False, default=1)
     discount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     line_total: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    # Snapshotted from product/variant cost when the sale completes, so a later cost edit
+    # doesn't retroactively change this line's historical COGS.
+    cost_at_sale: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     order = relationship("Order", back_populates="items")

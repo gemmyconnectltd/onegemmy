@@ -77,6 +77,12 @@ async function tryRefreshToken(): Promise<string | null> {
   return _refreshPromise;
 }
 
+// A 401 from these means "wrong credentials" / "expired reset link", not
+// "your session died" — they're the entry points to a session, not calls
+// made during one, so they must never trigger the refresh-then-session-
+// expired flow below (that flow assumes an existing session went stale).
+const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password"];
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
@@ -88,7 +94,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers }, REQUEST_TIMEOUT_MS);
 
   // Auto-refresh on 401
-  if (res.status === 401) {
+  if (res.status === 401 && !PUBLIC_AUTH_PATHS.some((p) => path.startsWith(p))) {
     const newToken = await tryRefreshToken();
     if (newToken) {
       const retryHeaders = { ...headers, "Authorization": `Bearer ${newToken}` };

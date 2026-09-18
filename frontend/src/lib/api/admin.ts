@@ -8,6 +8,7 @@ export interface AdminTenant {
   is_active: boolean;
   subscription_plan: string;
   subscription_status: string;
+  currency: string;
   logo_url: string | null;
   website: string | null;
   phone: string | null;
@@ -15,6 +16,21 @@ export interface AdminTenant {
   city: string | null;
   country: string | null;
   created_at: string | null;
+  business_type: string | null;
+  industry: string | null;
+  business_category: string | null;
+  employee_count: string | null;
+  business_location: string | null;
+  heard_about: string | null;
+  referral_code: string | null;
+}
+
+/** A tenant that registered itself but hasn't been approved yet is
+ *  distinguished from one an admin suspended after the fact — both are
+ *  `is_active: false`, but only the former has `subscription_status: "pending"`. */
+export function tenantStatusLabel(t: Pick<AdminTenant, "is_active" | "subscription_status">): "Active" | "Pending Approval" | "Suspended" {
+  if (t.is_active) return "Active";
+  return t.subscription_status === "pending" ? "Pending Approval" : "Suspended";
 }
 
 export interface AdminTenantStats {
@@ -124,8 +140,11 @@ export const adminApi = {
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   suspendTenant: (id: string) =>
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/suspend`, { method: "POST" }),
-  activateTenant: (id: string) =>
-    request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/activate`, { method: "POST" }),
+  activateTenant: (id: string, password?: string) =>
+    request<SingleResponse<AdminTenant & { temp_password: string | null }>>(`${B}/tenants/${id}/activate`, {
+      method: "POST",
+      body: JSON.stringify(password ? { password } : {}),
+    }),
   deleteTenant: (id: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${id}`, { method: "DELETE" }),
 
@@ -133,7 +152,7 @@ export const adminApi = {
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
   tenantUsers: (id: string, page = 1) =>
     request<PaginatedResponse<AdminUser>>(`${B}/tenants/${id}/users?page=${page}&page_size=50`),
-  inviteUser: (tenantId: string, data: { email: string; full_name: string; role: string }) =>
+  inviteUser: (tenantId: string, data: { email: string; full_name: string; role: string; password?: string }) =>
     request<SingleResponse<AdminUser & { temp_password: string }>>(`${B}/tenants/${tenantId}/invite`, { method: "POST", body: JSON.stringify(data) }),
   deleteUser: (tenantId: string, userId: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/users/${userId}`, { method: "DELETE" }),

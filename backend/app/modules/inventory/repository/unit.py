@@ -26,3 +26,9 @@ class UnitRepository(BaseRepository[Unit]):
             select(func.count()).select_from(Unit).where(Unit.tenant_id == tenant_id)
         )
         return result.scalar_one()
+
+    async def list_all_for_tenant(self, tenant_id: uuid.UUID) -> list[Unit]:
+        result = await self.db.execute(
+            select(Unit).where(Unit.tenant_id == tenant_id).order_by(Unit.name)
+        )
+        return list(result.scalars().all())

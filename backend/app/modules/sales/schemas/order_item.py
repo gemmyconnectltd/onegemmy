@@ -37,4 +37,5 @@ class OrderItemRead(BaseModel):
     quantity: float
     discount: float
     line_total: float
+    cost_at_sale: float | None = None
     created_at: datetime | None = None

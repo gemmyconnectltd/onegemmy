@@ -6,7 +6,8 @@ import { Settings, Store, Phone, MapPin, Download, Shield, Info, Save, Check } f
 import { Field, Input, FormFooter } from "@/components/ui/Form";
 
 export default function SettingsPage() {
-  const { brandColor } = useAppConfig();
+  const { brandColor, currency, currencySymbol, currencies } = useAppConfig();
+  const currencyName = currencies.find((c) => c.code === currency)?.name ?? currency;
   const C = brandColor;
   const [shopName, setShopName] = useState("My Shop");
   const [phone, setPhone] = useState("");
@@ -55,7 +56,7 @@ export default function SettingsPage() {
           <h2 className="text-sm font-bold text-foreground">Currency</h2>
         </div>
         <div className="flex items-center justify-between py-2 border-b border-border">
-          <span className="text-sm font-medium text-foreground">RWF (Frw)</span>
+          <span className="text-sm font-medium text-foreground">{currency} ({currencySymbol}) &middot; {currencyName}</span>
           <span className="text-xs font-semibold text-muted bg-surface px-2.5 py-1 rounded-full">Locked</span>
         </div>
         <p className="text-xs text-muted">Contact support to change your currency.</p>

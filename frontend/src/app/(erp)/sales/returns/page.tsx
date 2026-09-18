@@ -9,6 +9,9 @@ import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form
 import { Button } from "@/components/ui/Button";
 import { useReturns, useCustomers, useOrders, useCreateReturn, useUpdateReturn, useDeleteReturn } from "@/lib/api/hooks";
 import type { ApiReturn } from "@/lib/api";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_STYLE: Record<string, string> = {
   Approved: "bg-emerald-100 text-emerald-700",
@@ -65,6 +68,24 @@ export default function SalesReturnsPage() {
   ];
 
   const filtered = filter === "All" ? returns : returns.filter((r) => r.status === filter);
+  const bulk = useBulkSelection(filtered.map((r) => r.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Returns",
+      message: `Delete ${bulk.count} selected return${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteReturn.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const openAdd = () => { setForm(EMPTY_FORM); setShowAdd(true); };
   const openEdit = (r: ApiReturn) => {
@@ -93,12 +114,18 @@ export default function SalesReturnsPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this return?")) return;
-    deleteReturn.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete return") });
+    confirm({
+      title: "Delete Return",
+      message: "Delete this return? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteReturn.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete return") }),
+    });
   };
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Sales Returns</h1>
@@ -137,12 +164,21 @@ export default function SalesReturnsPage() {
           </div>
         </div>
 
+        {bulk.count > 0 && (
+          <div className="p-4 border-b border-border">
+            <BulkActionBar count={bulk.count} label="return" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
+
         {loading ? (
           <PageLoader variant="compact" />
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Return ID</th>
                 <th className="p-4 font-semibold">Order</th>
                 <th className="p-4 font-semibold">Customer</th>
@@ -159,6 +195,9 @@ export default function SalesReturnsPage() {
                 const orderNum = orders.find((o) => o.id === r.order_id)?.order_number;
                 return (
                   <tr key={r.id} className="hover:bg-surface/50 transition-colors group">
+                    <td className="p-4">
+                      <input type="checkbox" checked={bulk.selected.has(r.id)} onChange={() => bulk.toggle(r.id)} className="w-4 h-4 rounded" />
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${SAL}15` }}>

@@ -1,10 +1,11 @@
 import re
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.email import send_password_reset_email, send_welcome_email
+from app.core.email import send_password_reset_email, send_pending_signup_email, send_registration_received_email
 from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from app.core.logging import get_logger
 from app.core.security import (
@@ -21,6 +22,7 @@ from app.modules.auth.schemas import (
     ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
+    RegisterResponse,
     ResetPasswordRequest,
     TokenResponse,
     TokenUserInfo,
@@ -82,7 +84,7 @@ def _issue_tokens(user: User) -> TokenResponse:
     )
 
 
-async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
+async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
     log.info("auth.register.attempt", extra={"_extra_fields": {"email": data.email, "tenant_slug": data.tenant_slug}})
 
     if not data.tenant_name.strip():
@@ -91,7 +93,6 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
         raise ValidationError("Full name is required")
     if not SLUG_RE.match(data.tenant_slug):
         raise ValidationError("Business URL must be lowercase letters, numbers, and hyphens only")
-    validate_password_strength(data.password)
 
     existing_tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
     if existing_tenant is not None:
@@ -103,13 +104,32 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
         log.warning("auth.register.email_conflict", extra={"_extra_fields": {"email": data.email}})
         raise ConflictError("Email already registered")
 
-    tenant = Tenant(name=data.tenant_name, slug=data.tenant_slug)
+    # New signups land inactive — a platform superadmin must approve them
+    # (POST /admin/tenants/{id}/activate) before anyone can log in. This is
+    # the same is_active flag suspend/activate already uses, so an unapproved
+    # signup and a suspended tenant are both blocked identically at login.
+    tenant = Tenant(
+        name=data.tenant_name,
+        slug=data.tenant_slug,
+        is_active=False,
+        subscription_status="pending",
+        business_type=data.business_type,
+        industry=data.industry,
+        business_category=data.business_category,
+        employee_count=data.employee_count,
+        business_location=data.business_location,
+        heard_about=data.heard_about,
+        referral_code=data.referral_code,
+    )
     tenant = await TenantRepository(db).save(tenant)
 
+    # No usable password yet — hash a random, never-shared value as a
+    # placeholder. A real one is set when a platform admin approves the
+    # account (POST /admin/tenants/{id}/activate) and shares it directly.
     user = User(
         tenant_id=tenant.id,
         email=data.email,
-        hashed_password=hash_password(data.password),
+        hashed_password=hash_password(uuid.uuid4().hex),
         full_name=data.full_name,
         role="owner",
         is_superuser=True,
@@ -118,17 +138,25 @@ async def register(db: AsyncSession, data: RegisterRequest) -> TokenResponse:
 
     await db.commit()
 
-    log.info("auth.register.success", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(tenant.id)}})
+    log.info("auth.register.pending", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(tenant.id)}})
 
-    await send_welcome_email(
-        to=user.email,
-        full_name=user.full_name,
-        tenant_name=tenant.name,
-        tenant_slug=tenant.slug,
-        dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
-    )
+    await send_registration_received_email(to=user.email, full_name=user.full_name, tenant_name=tenant.name)
 
-    return _issue_tokens(user)
+    # role == "superadmin" specifically — not just tenant_id is None +
+    # is_superuser, which an orphaned ex-tenant-owner could also match
+    # (see Tenant cascade-delete fix in tenants/service.py).
+    superadmins = (await db.execute(
+        select(User).where(User.tenant_id.is_(None), User.role == "superadmin")
+    )).scalars().all()
+    for admin in superadmins:
+        await send_pending_signup_email(
+            to=admin.email,
+            tenant_name=tenant.name,
+            tenant_slug=tenant.slug,
+            review_url=f"{settings.FRONTEND_URL}/admin/tenants/{tenant.id}",
+        )
+
+    return RegisterResponse(pending_approval=True, tenant_slug=tenant.slug)
 
 
 async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
@@ -149,6 +177,9 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
     if not user.is_active:
         log.warning("auth.login.inactive_user", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise UnauthorizedError("User is inactive")
+    if user.tenant is not None and not user.tenant.is_active:
+        log.warning("auth.login.suspended_tenant", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(user.tenant_id)}})
+        raise UnauthorizedError("This account has been suspended")
 
     log.info("auth.login.success", extra={"_extra_fields": {"user_id": str(user.id)}})
     await record_audit(

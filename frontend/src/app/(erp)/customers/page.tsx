@@ -1,5 +1,6 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
+import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
 import { useState, useMemo } from "react";
 import {
@@ -13,6 +14,9 @@ import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const TYPE_OPTS = ["individual", "business", "vip", "wholesale"];
 
@@ -88,7 +92,7 @@ export default function CustomersPage() {
     const os = (ordersByCustomer[id] ?? []).sort((a, b) =>
       new Date(b.ordered_at ?? 0).getTime() - new Date(a.ordered_at ?? 0).getTime()
     );
-    return os[0]?.ordered_at?.slice(0, 10) ?? null;
+    return os[0]?.ordered_at ?? null;
   };
 
   // stats
@@ -110,6 +114,24 @@ export default function CustomersPage() {
     const matchType = typeFilter === "All" || c.customer_type === typeFilter;
     return matchSearch && matchType;
   });
+  const bulk = useBulkSelection(displayed.map((c) => c.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Customers",
+      message: `Delete ${bulk.count} selected customer${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteCustomer.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   // form helpers
   const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setShowAdd(true); };
@@ -142,10 +164,17 @@ export default function CustomersPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this customer? This cannot be undone.")) return;
-    deleteCustomer.mutate(id, {
-      onSuccess: () => { if (viewing?.id === id) setViewing(null); },
-      onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete customer"),
+    confirm({
+      title: "Delete Customer",
+      message: "Delete this customer? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => {
+        deleteCustomer.mutate(id, {
+          onSuccess: () => { if (viewing?.id === id) setViewing(null); },
+          onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete customer"),
+        });
+      },
     });
   };
 
@@ -155,6 +184,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -214,10 +244,17 @@ export default function CustomersPage() {
           <Button color={COLOR} size="sm" onClick={openAdd}><Plus size={13} /> Add Customer</Button>
         </div>
       ) : (
+        <div className="space-y-3">
+          {bulk.count > 0 && (
+            <BulkActionBar count={bulk.count} label="customer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          )}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left">
+                <th className="px-4 py-3 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+                </th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Customer</th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Contact</th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Type</th>
@@ -236,6 +273,9 @@ export default function CustomersPage() {
                 return (
                   <tr key={c.id} className="hover:bg-surface/50 transition-colors group cursor-pointer"
                     onClick={() => setViewing(c)}>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={bulk.selected.has(c.id)} onChange={() => bulk.toggle(c.id)} className="w-4 h-4 rounded" />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
@@ -258,7 +298,7 @@ export default function CustomersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted tabular-nums">{orderCount}</td>
-                    <td className="px-4 py-3 text-sm text-muted">{last ?? "—"}</td>
+                    <td className="px-4 py-3 text-sm text-muted whitespace-nowrap">{last ? fmtDateTime(last) : "—"}</td>
                     <td className="px-4 py-3 text-right text-sm font-bold text-foreground tabular-nums font-mono">
                       {spent > 0 ? fmt(spent) : "—"}
                     </td>
@@ -286,6 +326,7 @@ export default function CustomersPage() {
               })}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 
@@ -334,7 +375,7 @@ export default function CustomersPage() {
                     <div key={o.id} className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5">
                       <div>
                         <p className="text-[13px] font-semibold text-foreground">{o.order_number}</p>
-                        <p className="text-[11px] text-muted">{o.ordered_at?.slice(0, 10) ?? "—"} · {o.items.length} item{o.items.length !== 1 ? "s" : ""}</p>
+                        <p className="text-[11px] text-muted">{fmtDateTime(o.ordered_at)} · {o.items.length} item{o.items.length !== 1 ? "s" : ""}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[13px] font-bold text-foreground tabular-nums font-mono">{fmt(o.total)}</p>

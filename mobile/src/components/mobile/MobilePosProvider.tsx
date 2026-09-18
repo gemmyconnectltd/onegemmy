@@ -171,7 +171,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
   const tax = vatEnabled ? gross - taxable : 0;
   const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
-  const cashShort = payment === "cash" && cashGiven !== "" && Number(cashGiven) < total;
+  const cashShort = cashGiven !== "" && Number(cashGiven) < total;
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const fmt = (v: number) => v.toLocaleString();
 
@@ -191,6 +191,9 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
       discount,
       tax,
       client_order_id: clientOrderId,
+      payment_method: pay,
+      amount_tendered: cash !== "" ? Number(cash) : total,
+      change_due: changeAmt,
       items: cart.map((i) => ({
         product_id: i.product_id,
         variant_id: i.variant_id,

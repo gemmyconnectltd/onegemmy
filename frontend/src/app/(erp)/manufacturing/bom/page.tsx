@@ -8,6 +8,9 @@ import type { ApiBom } from "@/lib/api/manufacturing";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type ComponentRow = { id: string; product_id: string; quantity_required: number };
 type FormState = { name: string; product_id: string; notes: string; components: ComponentRow[] };
@@ -107,15 +110,40 @@ export default function BomPage() {
     }
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(boms.map((b) => b.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const handleDelete = (bom: ApiBom) => {
-    if (!confirm(`Delete "${bom.name}"?`)) return;
-    deleteBom.mutate(bom.id, {
-      onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete BOM"),
+    confirm({
+      title: "Delete BOM",
+      message: `Delete "${bom.name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteBom.mutate(bom.id, {
+        onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete BOM"),
+      }),
     });
   };
 
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete BOMs",
+      message: `Delete ${bulk.count} selected BOM${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteBom.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
+
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Bill of Materials</h1>
@@ -129,6 +157,10 @@ export default function BomPage() {
           <AlertCircle size={15} /> {error}
           <button className="ml-auto text-xs underline" onClick={() => setError(null)}>Dismiss</button>
         </div>
+      )}
+
+      {bulk.count > 0 && (
+        <BulkActionBar count={bulk.count} label="BOM" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
       )}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -145,6 +177,9 @@ export default function BomPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left">
+                <th className="px-4 py-3 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={boms.length === 0} />
+                </th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Name</th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Finished Product</th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Components</th>
@@ -154,6 +189,9 @@ export default function BomPage() {
             <tbody className="divide-y divide-border">
               {boms.map((b) => (
                 <tr key={b.id} className="hover:bg-surface/50 transition-colors group">
+                  <td className="px-4 py-3">
+                    <input type="checkbox" checked={bulk.selected.has(b.id)} onChange={() => bulk.toggle(b.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="px-4 py-3 text-sm font-bold text-foreground">{b.name}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

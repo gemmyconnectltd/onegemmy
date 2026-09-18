@@ -2,11 +2,15 @@
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Ruler, Plus, Edit2, Trash2, Check, X } from "lucide-react";
+import { Ruler, Plus, Edit2, Trash2, Check, X, Sparkles } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiUnit } from "@/lib/api";
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import ImportUnitsModal from "./ImportUnitsModal";
 
 export default function UnitsPage() {
   const { brandColor } = useAppConfig();
@@ -17,12 +21,31 @@ export default function UnitsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editAbbr, setEditAbbr] = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   const { data, isLoading } = useUnits();
   const createUnit = useCreateUnit();
   const updateUnit = useUpdateUnit();
   const deleteUnit = useDeleteUnit();
   const units = data?.items ?? [];
+  const bulk = useBulkSelection(units.map((u) => u.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Units",
+      message: `Delete ${bulk.count} selected unit${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteUnit.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   async function handleAdd() {
     if (!newName.trim() || createUnit.isPending) return;
@@ -40,25 +63,34 @@ export default function UnitsPage() {
     } catch { /* ignore */ }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this unit?")) return;
-    try {
-      await deleteUnit.mutateAsync(id);
-    } catch { /* ignore */ }
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Unit",
+      message: "Delete this unit? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteUnit.mutate(id),
+    });
   }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Units of Measure</h1>
           <p className="text-xs text-muted mt-0.5">{units.length} units defined</p>
         </div>
-        <Button onClick={() => setAdding(true)} color={INV_COLOR}>
-          <Plus size={15} /> Add Unit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)}>
+            <Sparkles size={15} /> Import Common Units
+          </Button>
+          <Button onClick={() => setAdding(true)} color={INV_COLOR}>
+            <Plus size={15} /> Add Unit
+          </Button>
+        </div>
       </div>
 
       {adding && (
@@ -86,10 +118,27 @@ export default function UnitsPage() {
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Ruler size={14} className="text-muted" />
           <p className="text-xs font-semibold text-muted uppercase tracking-wider">All Units</p>
+          {units.length > 0 && (
+            <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer ml-auto">
+              <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+              Select all
+            </label>
+          )}
         </div>
+        {bulk.count > 0 && (
+          <div className="px-4 py-3 border-b border-border">
+            <BulkActionBar count={bulk.count} label="unit" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
         <div className="divide-y divide-border">
           {units.map((u) => (
             <div key={u.id} className="px-4 py-3 flex items-center gap-4 hover:bg-surface/40 transition-colors">
+              <input
+                type="checkbox"
+                checked={bulk.selected.has(u.id)}
+                onChange={() => bulk.toggle(u.id)}
+                className="w-4 h-4 rounded flex-shrink-0"
+              />
               <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${INV_COLOR}15` }}>
                 <span className="text-xs font-bold" style={{ color: INV_COLOR }}>{u.abbreviation || u.name[0]}</span>
               </div>
@@ -137,6 +186,8 @@ export default function UnitsPage() {
           )}
         </div>
       </div>
+
+      <ImportUnitsModal open={showImport} onClose={() => setShowImport(false)} />
     </div>
   );
 }

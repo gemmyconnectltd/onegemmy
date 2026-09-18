@@ -5,6 +5,7 @@ import { ShoppingCart, TrendingUp, RotateCcw, Target } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useOrders, useReturns, useTargets } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
+import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
 
 export default function SalesReportPage() {
@@ -147,7 +148,7 @@ export default function SalesReportPage() {
                   </td>
                   <td className="py-2.5 font-semibold" style={{ color: theme === "dark" ? "#818cf8" : "#6366f1" }}>{fmtMoney(o.tax)}</td>
                   <td className="py-2.5 font-semibold text-foreground">{fmtMoney(o.total)}</td>
-                  <td className="py-2.5 text-muted text-xs">{o.ordered_at ? new Date(o.ordered_at).toLocaleDateString() : "—"}</td>
+                  <td className="py-2.5 text-muted text-xs whitespace-nowrap">{fmtDateTime(o.ordered_at)}</td>
                 </tr>
               ))}
             </tbody>

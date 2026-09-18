@@ -6,6 +6,9 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiSerial } from "@/lib/api";
 import { useSerials, useCreateSerials, useDeleteSerial } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_COLORS: Record<string, string> = {
   in_stock: "bg-emerald-100 text-emerald-700",
@@ -52,15 +55,40 @@ export default function SerialsPage() {
     } catch { setResult("Failed to register serials"); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this serial? Only unsold serials can be removed.")) return;
-    try { await deleteSerial.mutateAsync(id); } catch { /* ignore */ }
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulkSel = useBulkSelection(serials.map((s) => s.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Serial",
+      message: "Delete this serial? Only unsold serials can be removed. This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteSerial.mutate(id),
+    });
+  }
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Serials",
+      message: `Delete ${bulkSel.count} selected serial${bulkSel.count === 1 ? "" : "s"}? Only unsold serials can be removed. This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulkSel.selected).map((id) => deleteSerial.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulkSel.clear();
+      },
+    });
   }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Serials & IMEI</h1>
@@ -143,9 +171,17 @@ export default function SerialsPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {bulkSel.count > 0 && (
+          <div className="px-4 py-3 border-b border-border">
+            <BulkActionBar count={bulkSel.count} label="serial" onDelete={confirmBulkDelete} onClear={bulkSel.clear} deleting={bulkDeleting} />
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
+              <th className="px-4 py-3 w-10">
+                <input type="checkbox" checked={bulkSel.allSelected} ref={(el) => { if (el) el.indeterminate = bulkSel.someSelected; }} onChange={bulkSel.toggleAll} className="w-4 h-4 rounded" disabled={serials.length === 0} />
+              </th>
               <th className="px-4 py-3 font-semibold">Serial</th>
               <th className="px-4 py-3 font-semibold">Product</th>
               <th className="px-4 py-3 font-semibold">IMEI</th>
@@ -157,6 +193,9 @@ export default function SerialsPage() {
           <tbody>
             {serials.map((s: ApiSerial) => (
               <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-surface/50">
+                <td className="px-4 py-3">
+                  <input type="checkbox" checked={bulkSel.selected.has(s.id)} onChange={() => bulkSel.toggle(s.id)} className="w-4 h-4 rounded" />
+                </td>
                 <td className="px-4 py-3 font-mono text-foreground">{s.serial_number}</td>
                 <td className="px-4 py-3">
                   <div className="font-semibold text-foreground">{s.product_name ?? s.product_id}</div>
@@ -179,7 +218,7 @@ export default function SerialsPage() {
             ))}
             {serials.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-muted text-sm">No serials registered yet. Use “Register Serial” to add stock with trackable units.</td>
+                <td colSpan={7} className="px-4 py-16 text-center text-muted text-sm">No serials registered yet. Use “Register Serial” to add stock with trackable units.</td>
               </tr>
             )}
           </tbody>

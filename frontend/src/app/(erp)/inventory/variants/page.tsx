@@ -8,6 +8,9 @@ import { type ApiVariantListItem } from "@/lib/api";
 import { useAllVariants, useProducts, useCreateVariant, useUpdateVariant, useRestockVariant, useDeleteVariant } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const fmt = (v: number) => fmtMoney(v);
 function margin(v: ApiVariantListItem) { return v.price > 0 ? Math.round(((v.price - v.cost) / v.price) * 100) : 0; }
@@ -89,6 +92,25 @@ export default function VariantsPage() {
     const matchStatus = statusFilter === "all" || (statusFilter === "active" ? v.is_active : !v.is_active);
     return matchSearch && matchStatus;
   });
+  const bulk = useBulkSelection(filtered.map((v) => v.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Variants",
+      message: `Delete ${bulk.count} selected variant${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        const targets = variants.filter((v) => bulk.selected.has(v.id));
+        await Promise.allSettled(targets.map((v) => deleteVariant.mutateAsync({ productId: v.product_id, id: v.id })));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const handleRestock = async () => {
     if (!restocking || restockVariant.isPending) return;
@@ -139,6 +161,7 @@ export default function VariantsPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Variants</h1>
@@ -168,10 +191,19 @@ export default function VariantsPage() {
           <span className="text-xs text-muted ml-auto">{filtered.length} results</span>
         </div>
 
+        {bulk.count > 0 && (
+          <div className="px-5 py-3 border-b border-border">
+            <BulkActionBar count={bulk.count} label="variant" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
+                <th className="px-5 py-3 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                </th>
                 {["Product", "Attributes", "SKU", "Cost", "Price", "Margin", "Stock", "Status", ""].map((h, i) => (
                   <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
                 ))}
@@ -180,6 +212,9 @@ export default function VariantsPage() {
             <tbody className="divide-y divide-border">
               {filtered.map((v) => (
                 <tr key={v.id} className="hover:bg-surface/40 transition-colors group">
+                  <td className="px-5 py-3.5">
+                    <input type="checkbox" checked={bulk.selected.has(v.id)} onChange={() => bulk.toggle(v.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="px-5 py-3.5">
                     <p className="text-sm font-semibold text-foreground">{v.product_name ?? "—"}</p>
                     {v.product_sku && <p className="text-[11px] text-muted font-mono">{v.product_sku}</p>}
@@ -222,7 +257,7 @@ export default function VariantsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center">
+                  <td colSpan={10} className="py-16 text-center">
                     <Layers size={36} className="text-border mx-auto mb-3" />
                     <p className="text-sm font-semibold text-muted">No variants found</p>
                     <p className="text-xs text-muted/70 mt-1">Try adjusting your search or filters</p>

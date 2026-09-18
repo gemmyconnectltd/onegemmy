@@ -11,6 +11,9 @@ import type { ApiProductionOrder } from "@/lib/api/manufacturing";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_OPTS = ["Draft", "Scheduled", "In Progress", "Completed", "Cancelled"];
 const statusBadge: Record<string, string> = {
@@ -65,6 +68,25 @@ export default function WorkOrdersPage() {
   ];
 
   const displayed = orders.filter((o) => filter === "All" || o.status === filter);
+  const deletableIds = displayed.filter((o) => o.status !== "Completed").map((o) => o.id);
+  const bulk = useBulkSelection(deletableIds);
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Work Orders",
+      message: `Delete ${bulk.count} selected work order${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteOrder.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const openAdd = () => {
     setForm({ ...EMPTY_FORM, components: [] });
@@ -110,21 +132,31 @@ export default function WorkOrdersPage() {
   };
 
   const handleComplete = (o: ApiProductionOrder) => {
-    if (!confirm(`Complete work order ${o.order_number}?\nThis consumes ${o.items.length} component(s) from stock and adds ${o.quantity} × ${o.product_name ?? "product"} to stock.`)) return;
-    completeOrder.mutate(o.id, {
-      onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to complete work order"),
+    confirm({
+      title: "Complete Work Order",
+      message: `Complete work order ${o.order_number}? This consumes ${o.items.length} component(s) from stock and adds ${o.quantity} × ${o.product_name ?? "product"} to stock.`,
+      confirmLabel: "Complete",
+      onConfirm: () => completeOrder.mutate(o.id, {
+        onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to complete work order"),
+      }),
     });
   };
 
   const handleDelete = (o: ApiProductionOrder) => {
-    if (!confirm(`Delete work order ${o.order_number}?`)) return;
-    deleteOrder.mutate(o.id, {
-      onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete work order"),
+    confirm({
+      title: "Delete Work Order",
+      message: `Delete work order ${o.order_number}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteOrder.mutate(o.id, {
+        onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete work order"),
+      }),
     });
   };
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Work Orders</h1>
@@ -162,6 +194,10 @@ export default function WorkOrdersPage() {
         ))}
       </div>
 
+      {bulk.count > 0 && (
+        <BulkActionBar count={bulk.count} label="work order" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+      )}
+
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
           <PageLoader variant="compact" />
@@ -176,6 +212,9 @@ export default function WorkOrdersPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left">
+                <th className="px-4 py-3 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={deletableIds.length === 0} />
+                </th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Order</th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Product</th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide text-right">Qty</th>
@@ -188,6 +227,11 @@ export default function WorkOrdersPage() {
             <tbody className="divide-y divide-border">
               {displayed.map((o) => (
                 <tr key={o.id} className="hover:bg-surface/50 transition-colors group">
+                  <td className="px-4 py-3">
+                    {o.status !== "Completed" && (
+                      <input type="checkbox" checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} className="w-4 h-4 rounded" />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm font-bold text-foreground">{o.order_number}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

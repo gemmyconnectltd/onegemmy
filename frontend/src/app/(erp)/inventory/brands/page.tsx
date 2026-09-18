@@ -7,6 +7,9 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiBrand } from "@/lib/api";
 import { useBrands, useCreateBrand, useUpdateBrand, useDeleteBrand } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function BrandsPage() {
   const { brandColor } = useAppConfig();
@@ -26,6 +29,24 @@ export default function BrandsPage() {
   const brands = data?.items ?? [];
 
   const filtered = brands.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()));
+  const bulk = useBulkSelection(filtered.map((b) => b.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Brands",
+      message: `Delete ${bulk.count} selected brand${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteBrand.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   async function handleAdd() {
     if (!newName.trim() || createBrand.isPending) return;
@@ -43,17 +64,21 @@ export default function BrandsPage() {
     } catch { /* ignore */ }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this brand?")) return;
-    try {
-      await deleteBrand.mutateAsync(id);
-    } catch { /* ignore */ }
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Brand",
+      message: "Delete this brand? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteBrand.mutate(id),
+    });
   }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Brands</h1>
@@ -92,11 +117,28 @@ export default function BrandsPage() {
             <input type="text" placeholder="Search brands..." value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-border text-sm focus:border-foreground/30 outline-none bg-surface/50" />
           </div>
+          {filtered.length > 0 && (
+            <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer flex-shrink-0">
+              <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+              Select all
+            </label>
+          )}
           <span className="text-xs text-muted">{filtered.length} results</span>
         </div>
+        {bulk.count > 0 && (
+          <div className="px-5 py-3 border-b border-border">
+            <BulkActionBar count={bulk.count} label="brand" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
         <div className="divide-y divide-border">
           {filtered.map((b) => (
             <div key={b.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-surface/40 transition-colors group">
+              <input
+                type="checkbox"
+                checked={bulk.selected.has(b.id)}
+                onChange={() => bulk.toggle(b.id)}
+                className="w-4 h-4 rounded flex-shrink-0"
+              />
               <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold"
                 style={{ backgroundColor: `${INV_COLOR}15`, color: INV_COLOR }}>
                 {b.name[0].toUpperCase()}

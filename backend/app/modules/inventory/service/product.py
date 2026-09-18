@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.integrations.storage import storage
+from app.modules.inventory.data.product_defaults import default_product_image
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.repository import ProductRepository, VariantRepository
 from app.modules.inventory.schemas import (
@@ -18,6 +19,19 @@ from app.modules.inventory.schemas import (
     RestockRequest,
     VariantListRead,
 )
+from app.modules.tenants.repository import TenantRepository
+
+
+def _is_uploaded_file(url: str) -> bool:
+    """True for a real tenant-uploaded file under /uploads — false for a
+    bundled default image (/static/...), which storage.delete() must never
+    be pointed at."""
+    return url.startswith("/uploads/")
+
+
+async def _tenant_industry(db: AsyncSession, tenant_id: uuid.UUID) -> str | None:
+    tenant = await TenantRepository(db).get(tenant_id)
+    return tenant.industry if tenant else None
 
 
 async def get_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> ProductRead:
@@ -55,7 +69,10 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
     from app.modules.tenants import service
 
     await service.enforce_limit(db, tenant_id, "max_products", await count_products(db, tenant_id), noun="product")
-    obj = Product(tenant_id=tenant_id, **data.model_dump())
+    payload = data.model_dump()
+    if not payload.get("image_url"):
+        payload["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
+    obj = Product(tenant_id=tenant_id, **payload)
     obj = await ProductRepository(db).save(obj)
     await db.commit()
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, obj.id)
@@ -64,11 +81,15 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
 
 async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: ProductBulkCreate) -> ProductBulkResult:
     repo = ProductRepository(db)
+    default_image = default_product_image(await _tenant_industry(db, tenant_id))
     created = 0
     errors: list[str] = []
     for item in data.items:
         try:
-            obj = Product(tenant_id=tenant_id, **item.model_dump())
+            payload = item.model_dump()
+            if not payload.get("image_url"):
+                payload["image_url"] = default_image
+            obj = Product(tenant_id=tenant_id, **payload)
             await repo.save(obj)
             created += 1
         except SQLAlchemyError as e:
@@ -83,7 +104,10 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if "image_url" in updates and not updates["image_url"]:
+        updates["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
+    for field, value in updates.items():
         setattr(obj, field, value)
     obj = await ProductRepository(db).save(obj)
     await db.commit()
@@ -95,7 +119,7 @@ async def delete_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) 
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
-    if obj.image_url:
+    if obj.image_url and _is_uploaded_file(obj.image_url):
         await storage.delete(obj.image_url)
     await ProductRepository(db).delete(obj)
     await db.commit()
@@ -105,7 +129,7 @@ async def upload_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
-    if obj.image_url:
+    if obj.image_url and _is_uploaded_file(obj.image_url):
         await storage.delete(obj.image_url)
     url = await storage.save("products", filename, content)
     obj.image_url = url
@@ -118,11 +142,11 @@ async def delete_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
-    if obj.image_url:
+    if obj.image_url and _is_uploaded_file(obj.image_url):
         await storage.delete(obj.image_url)
-        obj.image_url = None
-        obj = await ProductRepository(db).save(obj)
-        await db.commit()
+    obj.image_url = default_product_image(await _tenant_industry(db, tenant_id))
+    obj = await ProductRepository(db).save(obj)
+    await db.commit()
     return ProductRead.model_validate(obj)
 
 

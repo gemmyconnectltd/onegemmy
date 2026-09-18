@@ -153,6 +153,24 @@ async def send_welcome_email(
     return await send_email(to, subject, _branded_html("Welcome to OneGemmy 🎉", body, preheader), text_body=None)
 
 
+def _registration_received_body(full_name: str, tenant_name: str) -> str:
+    name = html.escape(full_name or "there")
+    return (
+        f"<p style='margin:0 0 14px;'>Hi {name},</p>"
+        f"<p style='margin:0 0 14px;'>Thanks for registering <strong>{html.escape(tenant_name)}</strong> on OneGemmy. "
+        "Your account is now waiting for a quick review by our team.</p>"
+        "<p style='margin:0;'>Once approved, we'll email you a password so you can sign in and get started — "
+        "no action is needed from you in the meantime.</p>"
+    )
+
+
+async def send_registration_received_email(to: str, full_name: str, tenant_name: str) -> bool:
+    subject = "We've received your OneGemmy registration"
+    body = _registration_received_body(full_name, tenant_name)
+    preheader = f"{tenant_name} is pending a quick review before you can sign in."
+    return await send_email(to, subject, _branded_html("Registration received", body, preheader), text_body=None)
+
+
 def _reset_body(full_name: str, reset_link: str) -> str:
     name = html.escape(full_name or "there")
     return (
@@ -176,6 +194,51 @@ async def send_password_reset_email(
     body = _reset_body(full_name, reset_link)
     preheader = "This password reset link expires in 30 minutes."
     return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None)
+
+
+def _pending_signup_body(tenant_name: str, tenant_slug: str, review_url: str) -> str:
+    return (
+        "<p style='margin:0 0 14px;'>A new business just registered on OneGemmy and is waiting for approval.</p>"
+        "<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
+        "<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:12px 16px;'>"
+        "<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Business</p>"
+        f"<p style='margin:2px 0 0;font-size:14px;font-weight:600;color:#1c1b18;'>{html.escape(tenant_name)} "
+        f"<span style='color:#a8a39a;font-weight:400;'>({html.escape(tenant_slug)})</span></p>"
+        "</td></tr></table>"
+        + _button_html(review_url, "Review in admin portal")
+    )
+
+
+async def send_pending_signup_email(to: str, tenant_name: str, tenant_slug: str, review_url: str) -> bool:
+    subject = f"New signup pending approval: {tenant_name}"
+    body = _pending_signup_body(tenant_name, tenant_slug, review_url)
+    preheader = f"{tenant_name} is waiting for approval."
+    return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None)
+
+
+def _account_approved_body(full_name: str, tenant_name: str, login_email: str, temp_password: str, dashboard_url: str) -> str:
+    name = html.escape(full_name or "there")
+    return (
+        f"<p style='margin:0 0 14px;'>Hi {name},</p>"
+        f"<p style='margin:0 0 14px;'>Good news — your business account <strong>{html.escape(tenant_name)}</strong> "
+        "has been approved and is ready to use. Sign in with the password below.</p>"
+        f"<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
+        f"<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:14px 16px;'>"
+        f"<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Email</p>"
+        f"<p style='margin:2px 0 10px;font-size:14px;font-weight:600;color:#1c1b18;'>{html.escape(login_email)}</p>"
+        f"<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Password</p>"
+        f"<p style='margin:4px 0 0;font-size:17px;font-weight:700;color:#1c1b18;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.02em;'>{html.escape(temp_password)}</p>"
+        f"</td></tr></table>"
+        + _button_html(dashboard_url, "Log in now")
+        + _security_note("For your security, change this password after your first sign-in (Settings &rarr; Security).")
+    )
+
+
+async def send_account_approved_email(to: str, full_name: str, tenant_name: str, dashboard_url: str, temp_password: str) -> bool:
+    subject = "Your OneGemmy account is approved"
+    body = _account_approved_body(full_name, tenant_name, to, temp_password, dashboard_url)
+    preheader = f"{tenant_name} is approved and ready on OneGemmy."
+    return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None)
 
 
 def _invite_body(full_name: str, tenant_name: str, temp_password: str, login_url: str) -> str:

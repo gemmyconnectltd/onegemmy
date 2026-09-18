@@ -22,7 +22,7 @@ async def register(data: RegisterRequest, db: DbSession):
     result = await service.register(db, data)
     return success_response(
         data=result.model_dump(),
-        message="Registration successful",
+        message="Registration received — pending approval",
         status_code=201,
     )
 

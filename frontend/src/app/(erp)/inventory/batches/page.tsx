@@ -5,6 +5,9 @@ import { Plus, AlertTriangle, X } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type InventoryBatch } from "@/lib/api";
 import { useBatches, useCreateBatch, useDeleteBatch } from "@/lib/api/hooks";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const EMPTY_FORM = {
   product_id: "", batch_number: "", quantity: "",
@@ -57,6 +60,25 @@ export default function BatchesPage() {
     setForm(EMPTY_FORM);
   }
 
+  const bulk = useBulkSelection(batches.map((b) => b.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Batches",
+      message: `Delete ${bulk.count} selected batch${bulk.count === 1 ? "" : "es"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteBatch.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
+
   const expiredCount = batches.filter((b) => b.days_to_expiry !== null && b.days_to_expiry < 0).length;
   const soonCount = batches.filter((b) => b.days_to_expiry !== null && b.days_to_expiry >= 0 && b.days_to_expiry <= 30).length;
 
@@ -64,6 +86,7 @@ export default function BatchesPage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Batches & Expiry</h1>
@@ -147,9 +170,17 @@ export default function BatchesPage() {
 
       {/* Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {bulk.count > 0 && (
+          <div className="px-4 py-3 border-b border-border">
+            <BulkActionBar count={bulk.count} label="batch" pluralLabel="batches" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
+              <th className="px-4 py-3 w-10">
+                <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={batches.length === 0} />
+              </th>
               <th className="px-4 py-3 font-semibold">Batch #</th>
               <th className="px-4 py-3 font-semibold">Product</th>
               <th className="px-4 py-3 font-semibold">Qty Remaining</th>
@@ -162,6 +193,9 @@ export default function BatchesPage() {
           <tbody>
             {batches.map((b) => (
               <tr key={b.id} className="border-b border-border/60 last:border-0 hover:bg-surface/50">
+                <td className="px-4 py-3">
+                  <input type="checkbox" checked={bulk.selected.has(b.id)} onChange={() => bulk.toggle(b.id)} className="w-4 h-4 rounded" />
+                </td>
                 <td className="px-4 py-3 font-mono font-semibold text-foreground">{b.batch_number}</td>
                 <td className="px-4 py-3 font-semibold text-foreground">{b.product_name ?? b.product_id}</td>
                 <td className="px-4 py-3 text-foreground">{b.quantity_remaining} / {b.quantity}</td>
@@ -175,7 +209,13 @@ export default function BatchesPage() {
                 </td>
                 <td className="px-4 py-3 text-muted">{b.supplier_name ?? "—"}</td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => { if (confirm("Delete this batch?")) deleteBatch.mutateAsync(b.id); }}
+                  <button onClick={() => confirm({
+                    title: "Delete Batch",
+                    message: "Delete this batch? This cannot be undone.",
+                    confirmLabel: "Delete",
+                    danger: true,
+                    onConfirm: () => deleteBatch.mutateAsync(b.id),
+                  })}
                     className="text-xs text-muted hover:text-red-500 transition-colors font-semibold">
                     Delete
                   </button>
@@ -183,7 +223,7 @@ export default function BatchesPage() {
               </tr>
             ))}
             {batches.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-16 text-center text-muted text-sm">
+              <tr><td colSpan={8} className="px-4 py-16 text-center text-muted text-sm">
                 No batches recorded yet. Add a batch to start tracking expiry dates.
               </td></tr>
             )}

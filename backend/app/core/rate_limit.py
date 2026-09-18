@@ -12,6 +12,7 @@ from collections import defaultdict
 
 from fastapi import Request, status
 
+from app.core.config import settings
 from app.core.exceptions import AppError
 
 _buckets: dict[str, list[float]] = defaultdict(list)
@@ -34,6 +35,12 @@ def rate_limit(bucket: str, limit: int, window_seconds: int):
     `window_seconds` for the given `bucket` name."""
 
     async def dependency(request: Request) -> None:
+        # Same IP hits the same bucket regardless of browser/incognito state —
+        # rate limiting is IP-based, not session-based. Skip it entirely in
+        # local dev so repeated manual testing doesn't get locked out;
+        # staging/production keep the real limit.
+        if settings.ENVIRONMENT == "local":
+            return
         key = f"{bucket}:{_client_ip(request)}"
         now = time.monotonic()
         cutoff = now - window_seconds

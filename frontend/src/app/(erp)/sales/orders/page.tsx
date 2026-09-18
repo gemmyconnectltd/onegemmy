@@ -1,5 +1,6 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
+import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
   Eye, Edit2, Trash2, AlertCircle, Package, ChevronDown,
@@ -13,6 +14,9 @@ import { Button } from "@/components/ui/Button";
 import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder } from "@/lib/api/hooks";
 import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
 import { accountingApi } from "@/lib/api/accounting";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STATUS_STYLE: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
@@ -257,6 +261,24 @@ export default function SalesOrdersPage() {
     const matchStatus = statusFilter === "All" || o.status === statusFilter;
     return matchSearch && matchStatus;
   });
+  const bulk = useBulkSelection(filtered.map((o) => o.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Orders",
+      message: `Delete ${bulk.count} selected order${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteOrder.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const itemsSubtotal = items.reduce((s, i) => s + (Number(i.unit_price) * Number(i.quantity)) - Number(i.discount), 0);
   const orderTotal = Math.max(0, itemsSubtotal - Number(form.discount) + Number(form.tax));
@@ -316,12 +338,18 @@ export default function SalesOrdersPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this order?")) return;
-    deleteOrder.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete order") });
+    confirm({
+      title: "Delete Order",
+      message: "Delete this order? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteOrder.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete order") }),
+    });
   };
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Orders</h1>
@@ -365,12 +393,21 @@ export default function SalesOrdersPage() {
           </div>
         </div>
 
+        {bulk.count > 0 && (
+          <div className="p-4 border-b border-border">
+            <BulkActionBar count={bulk.count} label="order" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
+
         {loading ? (
           <PageLoader variant="compact" />
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Order ID</th>
                 <th className="p-4 font-semibold">Customer</th>
                 <th className="p-4 font-semibold">Items</th>
@@ -386,10 +423,13 @@ export default function SalesOrdersPage() {
                 const Icon = STATUS_ICON[o.status] ?? Clock;
                 return (
                   <tr key={o.id} className="hover:bg-surface/50 transition-colors group">
+                    <td className="p-4">
+                      <input type="checkbox" checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} className="w-4 h-4 rounded" />
+                    </td>
                     <td className="p-4 text-sm font-mono font-bold" style={{ color: SAL }}>{o.order_number}</td>
                     <td className="p-4 text-sm font-medium text-foreground">{o.customer?.name ?? <span className="italic text-muted">Walk-in</span>}</td>
                     <td className="p-4 text-sm text-muted">{o.items.length} item{o.items.length !== 1 ? "s" : ""}</td>
-                    <td className="p-4 text-sm text-muted">{o.ordered_at ? new Date(o.ordered_at).toLocaleDateString() : "—"}</td>
+                    <td className="p-4 text-sm text-muted whitespace-nowrap">{fmtDateTime(o.ordered_at)}</td>
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[o.status] ?? "bg-slate-100 text-slate-600"}`}>
                         <Icon size={11} /> {o.status}
@@ -570,7 +610,7 @@ export default function SalesOrdersPage() {
             {[
               { label: "Customer", value: viewing.customer?.name ?? "Walk-in" },
               { label: "Status",   value: viewing.status },
-              { label: "Date",     value: viewing.ordered_at ? new Date(viewing.ordered_at).toLocaleDateString() : "—" },
+              { label: "Date",     value: fmtDateTime(viewing.ordered_at) },
               { label: "Subtotal", value: fmt(viewing.subtotal) },
               { label: "Discount", value: fmt(viewing.discount) },
               { label: "Tax",      value: fmt(viewing.tax) },

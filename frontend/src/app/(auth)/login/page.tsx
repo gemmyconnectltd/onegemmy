@@ -3,11 +3,11 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Layers, Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
 import { Logo } from "@/components/ui/Logo";
-import { siteConfig } from "@/lib/config";
+import { AuthBrandingPanel } from "@/components/auth/AuthBrandingPanel";
 
 export default function LoginPage() {
   usePageTitle("Sign In");
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [tenantSlug, setTenantSlug] = useState<string | undefined>(undefined);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export default function LoginPage() {
   const submitLogin = async (emailToUse: string, passwordToUse: string, slug: string | undefined) => {
     setError("");
     setLoading(true);
-    const result = await login(emailToUse, passwordToUse, slug);
+    const result = await login(emailToUse, passwordToUse, slug, rememberMe);
     if (result.ok) {
       redirectAfterLogin();
     } else {
@@ -59,55 +60,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left - Branding */}
-      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden bg-gradient-to-br from-[#1a1209] via-[#2b2118] to-[#3d2f22]">
-        {/* Decorative grid */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }} />
-        {/* Glow */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/10 rounded-full blur-[100px]" />
-
-        <div className="relative z-10 flex flex-col justify-between w-full p-12">
-          <div>
-            <Link href="/" className="flex items-center gap-2.5 mb-16 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
-              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl flex items-center justify-center">
-                <Layers className="text-white" size={20} />
-              </div>
-              <span className="text-xl font-bold text-white">{siteConfig.name}</span>
-            </Link>
-
-            <h1 className="text-[40px] font-bold text-white mb-4 leading-[1.15]">
-              Run Your Business
-              <br />
-              <span className="text-white/50">From One Place</span>
-            </h1>
-            <p className="text-base text-white/40 max-w-sm leading-relaxed">
-              Sales, inventory, accounting, HR, projects, and CRM — everything you need in a single platform.
-            </p>
-          </div>
-
-          {/* Stats */}
-          <div className="flex gap-8 mt-12">
-            {[
-              { value: "10K+", label: "Businesses" },
-              { value: "99.9%", label: "Uptime" },
-              { value: "24/7", label: "Support" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-lg font-bold text-white">{stat.value}</p>
-                <p className="text-xs text-white/30">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-white/20 text-xs mt-12">
-            &copy; {new Date().getFullYear()} Gemmy Connect Ltd. All rights reserved.
-          </div>
-        </div>
-      </div>
+      <AuthBrandingPanel />
 
       {/* Right - Form */}
       <div className="flex-1 flex items-center justify-center px-6 py-12 bg-card">
@@ -173,7 +126,12 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between pt-0.5">
               <label className="flex items-center gap-2 text-sm text-foreground/60 cursor-pointer">
-                <input type="checkbox" className="w-3.5 h-3.5 accent-accent" />
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-accent"
+                />
                 Remember me
               </label>
               <Link href="/forgot-password" className="text-sm text-foreground/50 hover:text-foreground transition-colors">

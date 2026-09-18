@@ -133,6 +133,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 title={collapsed ? item.name : undefined}
+                data-tour={admin ? undefined : `nav-${item.name.toLowerCase()}`}
                 className={
                   "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" +
                   (isActive ? " bg-accent" : "")
@@ -163,6 +164,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
               <Link
                 href="/settings"
                 title={collapsed ? "Settings" : undefined}
+                data-tour="nav-settings"
                 className={
                   "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none" +
                   (pathname.startsWith("/settings") ? " bg-accent" : "")
@@ -175,7 +177,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
           )}
 
           {/* User */}
-          <div className="w-full pb-2 relative" onMouseEnter={() => setTooltip("user")} onMouseLeave={() => setTooltip(null)}>
+          <div className="w-full pb-2 relative" data-tour={admin ? undefined : "user-menu"} onMouseEnter={() => setTooltip("user")} onMouseLeave={() => setTooltip(null)}>
             <button type="button" className="flex flex-col items-center gap-1.5 py-2 w-full hover:bg-surface transition-colors">
               <div className="w-7 h-7 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
                 {initials}

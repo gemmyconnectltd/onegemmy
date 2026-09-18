@@ -96,12 +96,14 @@ export function PaymentPanel({
         ))}
       </div>
 
-      {/* Cash received */}
-      {payment === "cash" && cartCount > 0 && (
+      {/* Amount received — applies to every payment method, not just cash;
+          left blank it defaults to the full total (see the page's payload
+          builder), matching what actually gets charged for card/mobile. */}
+      {cartCount > 0 && (
         <div className="bg-surface rounded-xl px-3.5 py-3 space-y-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide">
-              <Wallet size={12} className="text-accent" /> Cash Received
+              <Wallet size={12} className="text-accent" /> Amount Received
             </div>
             {!!itemsCashReceivedSum && itemsCashReceivedSum > 0 && String(itemsCashReceivedSum) !== cashGiven && (
               <button
@@ -127,6 +129,9 @@ export function PaymentPanel({
               }`}
             />
           </div>
+          {cashGiven === "" && (
+            <p className="text-[11px] text-muted">Leave blank to charge the full amount — {currencySymbol} {fmt(total)}</p>
+          )}
           <div className="flex items-center gap-1.5 flex-wrap">
             {quickAmounts.map((amt) => (
               <button

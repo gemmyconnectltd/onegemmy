@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -35,7 +35,10 @@ class RepairJobRepository(BaseRepository[RepairJob]):
         return (await self.db.execute(stmt)).scalar_one()
 
     async def next_job_number(self, tenant_id: uuid.UUID) -> str:
-        count = (await self.db.execute(
-            select(func.count()).select_from(RepairJob).where(RepairJob.tenant_id == tenant_id)
-        )).scalar_one()
-        return f"REP-{str(count + 1).zfill(4)}"
+        # MAX of the existing numeric suffix, not COUNT(*) — see sales/order.py's
+        # next_order_number for why COUNT collides once anything is deleted.
+        current_max = (await self.db.execute(
+            select(func.max(cast(func.substring(RepairJob.job_number, 5), Integer)))
+            .where(RepairJob.tenant_id == tenant_id)
+        )).scalar_one() or 0
+        return f"REP-{str(current_max + 1).zfill(4)}"

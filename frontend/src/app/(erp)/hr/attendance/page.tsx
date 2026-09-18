@@ -9,6 +9,9 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 import { useAppConfig } from "@/lib/appConfig";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const statusIcon: Record<string, React.ReactNode> = {
   Present: <CheckCircle size={14} className="text-emerald-500" />,
@@ -56,10 +59,34 @@ export default function AttendancePage() {
     });
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(records.map((r) => r.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const remove = (r: ApiAttendance) => {
-    if (!window.confirm("Delete this attendance record?")) return;
-    deleteAttendance.mutate(r.id, { onError: () => setNotice("Could not delete record.") });
+    confirm({
+      title: "Delete Attendance Record",
+      message: "Delete this attendance record? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteAttendance.mutate(r.id, { onError: () => setNotice("Could not delete record.") }),
+    });
   };
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Attendance Records",
+      message: `Delete ${bulk.count} selected record${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteAttendance.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const present = records.filter((r) => r.status === "Present").length;
   const late = records.filter((r) => r.status === "Late").length;
@@ -67,6 +94,7 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Attendance</h1>
@@ -109,9 +137,17 @@ export default function AttendancePage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          {bulk.count > 0 && (
+            <div className="p-4 border-b border-border">
+              <BulkActionBar count={bulk.count} label="record" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={records.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Employee</th>
                 <th className="p-4 font-semibold">Date</th>
                 <th className="p-4 font-semibold">Check In</th>
@@ -123,6 +159,9 @@ export default function AttendancePage() {
             <tbody className="divide-y divide-border">
               {records.map((r) => (
                 <tr key={r.id} className="hover:bg-surface/50 transition-colors">
+                  <td className="p-4">
+                    <input type="checkbox" checked={bulk.selected.has(r.id)} onChange={() => bulk.toggle(r.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="p-4 text-sm font-medium text-foreground">{r.employee?.full_name ?? "—"}</td>
                   <td className="p-4 text-sm text-muted">{r.date}</td>
                   <td className="p-4 text-sm text-muted">{r.check_in ?? "—"}</td>

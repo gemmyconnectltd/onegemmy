@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/Button";
 import { BreakdownCard, breakdownColors, groupSum } from "@/components/charts/BreakdownCard";
 import { useDeals, useCreateDeal, useUpdateDeal, useDeleteDeal } from "@/lib/api/hooks";
 import type { ApiDeal } from "@/lib/api";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const STAGES = ["Leads", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
 
@@ -82,6 +85,24 @@ export default function SalesPage() {
     const matchStage = stageFilter === "All" || d.stage === stageFilter;
     return matchSearch && matchStage;
   });
+  const bulk = useBulkSelection(filtered.map((d) => d.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Deals",
+      message: `Delete ${bulk.count} selected deal${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteDeal.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const openAdd = () => { setForm(EMPTY_FORM); setShowAdd(true); };
   const openEdit = (d: ApiDeal) => {
@@ -104,12 +125,18 @@ export default function SalesPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this deal?")) return;
-    deleteDeal.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete deal") });
+    confirm({
+      title: "Delete Deal",
+      message: "Delete this deal? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteDeal.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete deal") }),
+    });
   };
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Sales Pipeline</h1>
@@ -181,12 +208,21 @@ export default function SalesPage() {
           </div>
         </div>
 
+        {bulk.count > 0 && (
+          <div className="p-4 border-b border-border">
+            <BulkActionBar count={bulk.count} label="deal" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+          </div>
+        )}
+
         {isLoading ? (
           <PageLoader variant="compact" />
         ) : (
           <table className="w-full">
             <thead>
               <tr className="text-left text-xs text-muted border-b border-border">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Deal Name</th>
                 <th className="p-4 font-semibold">Customer</th>
                 <th className="p-4 font-semibold">Value</th>
@@ -199,6 +235,9 @@ export default function SalesPage() {
             <tbody className="divide-y divide-border">
               {filtered.map((deal) => (
                 <tr key={deal.id} className="hover:bg-surface/50 transition-colors group">
+                  <td className="p-4">
+                    <input type="checkbox" checked={bulk.selected.has(deal.id)} onChange={() => bulk.toggle(deal.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="p-4 text-sm font-medium text-foreground max-w-[200px] truncate">{deal.name}</td>
                   <td className="p-4 text-sm text-muted">{deal.customer?.name ?? <span className="italic text-muted/50">—</span>}</td>
                   <td className="p-4 text-sm font-bold text-foreground tabular-nums">{fmt(deal.value)}</td>

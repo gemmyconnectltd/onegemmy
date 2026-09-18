@@ -54,6 +54,45 @@ export const Line = dynamic(
   { ssr: false },
 );
 
+// Bars + a cumulative line together on two independent y-axes, bundled into
+// one component for the same reason as DonutChart below: ComposedChart,
+// Bar, Line, XAxis, YAxis etc. resolving from independent dynamic() imports
+// at different times previously left Bar with no rectangles ever rendered
+// (ComposedChart's first real commit found no matching yAxisId and never
+// recovered on the late re-render) — bundling guarantees they mount together.
+export interface TenantGrowthDatum { month: string; count: number; cumulative: number }
+export const TenantGrowthChart = dynamic(
+  () =>
+    import("recharts").then((m) => {
+      function Comp({
+        data, barColor, lineColor, gridColor, tickColor, tooltipStyle,
+      }: {
+        data: TenantGrowthDatum[];
+        barColor: string;
+        lineColor: string;
+        gridColor: string;
+        tickColor: string;
+        tooltipStyle?: CSSProperties;
+      }) {
+        return (
+          <m.ResponsiveContainer width="100%" height="100%">
+            <m.ComposedChart data={data}>
+              <m.CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+              <m.XAxis dataKey="month" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
+              <m.YAxis yAxisId="left" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <m.YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <m.Tooltip contentStyle={tooltipStyle} cursor={{ fill: `${barColor}10` }} />
+              <m.Bar yAxisId="left" dataKey="count" name="New signups" fill={barColor} radius={[4, 4, 0, 0]} barSize={28} />
+              <m.Line yAxisId="right" type="monotone" dataKey="cumulative" name="Total tenants" stroke={lineColor} strokeWidth={2.5} dot={{ r: 3, fill: lineColor }} />
+            </m.ComposedChart>
+          </m.ResponsiveContainer>
+        );
+      }
+      return Comp;
+    }),
+  { ssr: false, loading: ChartSkeleton },
+);
+
 // Pie/Cell/PieChart are loaded together as one component, not as separate
 // dynamic() wrappers like the others above. Recharts' <Pie> reads its slice
 // colors from <Cell> children at the moment it renders; if Pie and Cell

@@ -10,6 +10,9 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const CATEGORIES = ["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
@@ -72,18 +75,41 @@ export default function ExpensesPage() {
     });
   };
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const bulk = useBulkSelection(expenses.map((e) => e.id));
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   const remove = (e: AccountingExpense) => {
-    if (!window.confirm(`Delete expense “${e.title}”?`)) return;
-    deleteExpense.mutate(e.id, {
-      onError: () => setNotice("Could not delete the expense."),
+    confirm({
+      title: "Delete Expense",
+      message: `Delete expense "${e.title}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteExpense.mutate(e.id, { onError: () => setNotice("Could not delete the expense.") }),
     });
   };
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Expenses",
+      message: `Delete ${bulk.count} selected expense${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteExpense.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
 
   const total = expenses.reduce((s, e) => s + e.amount, 0);
   const pendingTotal = expenses.filter((e) => e.status === "Pending").reduce((s, e) => s + e.amount, 0);
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Expenses</h1>
@@ -127,9 +153,17 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+          {bulk.count > 0 && (
+            <div className="p-4 border-b border-border">
+              <BulkActionBar count={bulk.count} label="expense" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
+                <th className="p-4 w-10">
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={expenses.length === 0} />
+                </th>
                 <th className="p-4 font-semibold">Description</th>
                 <th className="p-4 font-semibold">Category</th>
                 <th className="p-4 font-semibold">Date</th>
@@ -141,6 +175,9 @@ export default function ExpensesPage() {
             <tbody className="divide-y divide-border">
               {expenses.map((e) => (
                 <tr key={e.id} className="hover:bg-surface/50 transition-colors">
+                  <td className="p-4">
+                    <input type="checkbox" checked={bulk.selected.has(e.id)} onChange={() => bulk.toggle(e.id)} className="w-4 h-4 rounded" />
+                  </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <TrendingDown size={14} className="text-red-400 flex-shrink-0" />

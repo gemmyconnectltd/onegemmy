@@ -41,6 +41,9 @@ async def get_current_user(
     if not user or not user.is_active:
         log.warning("auth.inactive_user", extra={"_extra_fields": {"user_id": user_id}})
         raise UnauthorizedError("User is inactive")
+    if user.tenant is not None and not user.tenant.is_active:
+        log.warning("auth.suspended_tenant", extra={"_extra_fields": {"user_id": user_id, "tenant_id": tenant_id}})
+        raise UnauthorizedError("This account has been suspended")
 
     log.debug("auth.user_authenticated", extra={"_extra_fields": {
         "user_id": user_id,
@@ -57,7 +60,10 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 async def get_current_active_superuser(user: CurrentUser) -> User:
     # Platform superadmin only: a tenant admin is `is_superuser=True` within
     # their own tenant but must never reach the global /admin/* console.
-    if not user.is_superuser or user.tenant_id is not None:
+    # role == "superadmin" is checked explicitly (not just tenant_id is None)
+    # since a deleted tenant's owner can be left with tenant_id=NULL while
+    # still is_superuser=True and role="owner" — that must never satisfy this.
+    if not user.is_superuser or user.tenant_id is not None or user.role != "superadmin":
         log.warning("auth.forbidden_not_superuser", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise ForbiddenError("Superuser privileges required")
     return user

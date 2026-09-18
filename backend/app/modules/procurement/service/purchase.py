@@ -87,13 +87,13 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
                 raise ValidationError(f"Variant for '{item.product_name}' not found")
             product = await db.get(Product, variant.product_id)
             factor = float(product.conversion_factor) if product else 1.0
-            variant.stock = variant.stock + (item.quantity * factor)
+            variant.stock = float(variant.stock) + (float(item.quantity) * factor)
         elif item.product_id:
             product = await db.get(Product, item.product_id)
             if product is None:
                 raise ValidationError(f"Product '{item.product_name}' not found")
             factor = float(product.conversion_factor)
-            product.stock = product.stock + (item.quantity * factor)
+            product.stock = float(product.stock) + (float(item.quantity) * factor)
 
     purchase.status = "Received"
     purchase.received_at = datetime.now(UTC)

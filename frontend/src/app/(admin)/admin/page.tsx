@@ -1,25 +1,100 @@
 "use client";
 import {
   Building2, Users, ShoppingCart, TrendingUp, Activity, CheckCircle,
-  XCircle, Package, ArrowUpRight, ArrowRight, Crown,
-  AlertTriangle, Server,
+  XCircle, Package, ArrowUpRight, ArrowRight, Crown, UserPlus,
+  AlertTriangle, Server, Clock, Globe2, Factory, Megaphone,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useAdminStats } from "@/lib/api/hooks";
+import { useAdminStats, useTenants } from "@/lib/api/hooks";
+import { tenantStatusLabel } from "@/lib/api/admin";
 import { fmtMoney } from "@/lib/config";
 import { chartPalette } from "@/lib/chartColors";
 import { useAppConfig } from "@/lib/appConfig";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, DonutChart } from "@/components/charts/lazy";
+import { TenantGrowthChart, DonutChart } from "@/components/charts/lazy";
 import Link from "next/link";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "#64748b", starter: "#0284c7", professional: "#8b5cf6", enterprise: "#d97706",
 };
 
+// ── UI preview only ──────────────────────────────────────────────────────
+// The register form collects country, business type, industry, and "how did
+// you hear about us" (see /register), but none of it is sent to the backend
+// yet — see the note in that page's handleSubmit. These numbers are static
+// placeholders standing in for what these widgets will show once that data
+// is actually persisted and there's a real endpoint to aggregate it.
+const MOCK_COUNTRY_STATS = [
+  { name: "Rwanda", value: 42 },
+  { name: "Kenya", value: 28 },
+  { name: "Uganda", value: 12 },
+  { name: "Tanzania", value: 6 },
+  { name: "Other", value: 3 },
+];
+const COUNTRY_COLORS = ["#0284c7", "#38bdf8", "#7dd3fc", "#bae6fd", "#e0f2fe"];
+
+const MOCK_INDUSTRY_STATS = [
+  { name: "Retail", value: 35 },
+  { name: "Services", value: 22 },
+  { name: "Wholesale", value: 15 },
+  { name: "Technology", value: 10 },
+  { name: "Other", value: 9 },
+];
+const INDUSTRY_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"];
+
+const MOCK_BUSINESS_TYPE_STATS = [
+  { name: "Sole Proprietorship", value: 48 },
+  { name: "Limited Liability (LLC)", value: 24 },
+  { name: "Partnership", value: 14 },
+  { name: "Not Registered", value: 5 },
+];
+const BUSINESS_TYPE_COLORS = ["#059669", "#34d399", "#6ee7b7", "#a7f3d0"];
+
+const MOCK_HEARD_ABOUT_STATS = [
+  { name: "Social media", value: 38 },
+  { name: "Friend or colleague", value: 26 },
+  { name: "Search engine", value: 19 },
+  { name: "Advertisement", value: 8 },
+  { name: "Other", value: 1 },
+];
+const HEARD_ABOUT_COLORS = ["#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"];
+
+function CategoryDonut({
+  data, colors, tooltipStyle,
+}: {
+  data: { name: string; value: number }[];
+  colors: string[];
+  tooltipStyle: React.CSSProperties;
+}) {
+  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-24 h-24 flex-shrink-0">
+        <DonutChart data={data} colors={colors} innerRadius={30} outerRadius={48} tooltipStyle={tooltipStyle} />
+      </div>
+      <div className="flex-1 min-w-0 space-y-2">
+        {data.map((d, i) => (
+          <div key={d.name} className="flex items-center gap-2 text-[12.5px]">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i] }} />
+            <span className="font-semibold text-foreground truncate flex-1">{d.name}</span>
+            <span className="text-muted flex-shrink-0">{d.value} · {Math.round((d.value / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOverviewPage() {
   const { theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
   const { data: stats, isLoading, isError } = useAdminStats();
+  // Signup-specific data isn't in /admin/stats — derived client-side from
+  // the same tenant list /admin/tenants already uses, so pending-approval
+  // signups can be told apart from tenants an admin suspended after the
+  // fact (both are is_active: false; only subscription_status distinguishes
+  // them — see tenantStatusLabel).
+  const { data: tenantsData } = useTenants(1, 200);
+  const allTenants = tenantsData?.items ?? [];
 
   if (isLoading) return <PageLoader />;
 
@@ -27,6 +102,26 @@ export default function AdminOverviewPage() {
     <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
       <AlertTriangle size={16} /> Failed to load platform stats. Check your connection.
     </div>
+  );
+
+  const pendingSignups = allTenants.filter((t) => tenantStatusLabel(t) === "Pending Approval");
+  const trueSuspended = allTenants.filter((t) => tenantStatusLabel(t) === "Suspended").length;
+  const recentSignups = [...pendingSignups]
+    .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+    .slice(0, 5);
+
+  // Cumulative running total ending exactly at stats.total_tenants (the
+  // known current count), even though monthly_signups only covers the last
+  // 6 months — the gap before that window is folded into the baseline so
+  // the line's last point always matches the real total.
+  const signupsInWindow = stats.monthly_signups.reduce((s, m) => s + m.count, 0);
+  const baselineTotal = stats.total_tenants - signupsInWindow;
+  const tenantGrowthData = stats.monthly_signups.reduce<{ month: string; count: number; cumulative: number }[]>(
+    (acc, m) => {
+      const previous = acc.length ? acc[acc.length - 1].cumulative : baselineTotal;
+      return [...acc, { month: m.month, count: m.count, cumulative: previous + m.count }];
+    },
+    [],
   );
 
   const healthScore = stats.total_tenants > 0
@@ -43,11 +138,13 @@ export default function AdminOverviewPage() {
   const planColors = planData.map((p) => PLAN_COLORS[p.name.toLowerCase()] ?? "#64748b");
   const totalPlans = planData.reduce((s, p) => s + p.value, 0);
 
+  const STATUS_COLORS: Record<string, string> = { Active: "#059669", Pending: "#d97706", Suspended: "#ef4444" };
   const statusData = [
     { name: "Active", value: stats.active_tenants },
-    { name: "Suspended", value: stats.suspended_tenants },
-  ];
-  const statusColors = ["#059669", "#ef4444"];
+    { name: "Pending", value: pendingSignups.length },
+    { name: "Suspended", value: trueSuspended },
+  ].filter((s) => s.value > 0);
+  const statusColors = statusData.map((s) => STATUS_COLORS[s.name]);
 
   const cards = [
     { label: "Total Tenants",    value: stats.total_tenants,    sub: `${stats.active_tenants} active`,    icon: Building2,    color: "#0284c7", href: "/admin/tenants" },
@@ -55,7 +152,8 @@ export default function AdminOverviewPage() {
     { label: "Total Orders",     value: stats.total_orders,     sub: `${completionRate}% completed`,      icon: ShoppingCart, color: "#059669", href: null },
     { label: "Platform Revenue", value: fmtMoney(stats.total_revenue), sub: "all time", icon: TrendingUp, color: "#d97706", href: null, isString: true },
     { label: "Products",         value: stats.total_products,   sub: "in catalog",                        icon: Package,      color: "#0e7490", href: null },
-    { label: "Suspended",        value: stats.suspended_tenants,sub: "need attention",                    icon: XCircle,      color: stats.suspended_tenants > 0 ? "#ef4444" : "#64748b", href: "/admin/tenants" },
+    { label: "Pending Signups",  value: pendingSignups.length,  sub: "awaiting approval",                 icon: UserPlus,     color: pendingSignups.length > 0 ? "#d97706" : "#64748b", href: "/admin/tenants" },
+    { label: "Suspended",        value: trueSuspended,          sub: "need attention",                    icon: XCircle,      color: trueSuspended > 0 ? "#ef4444" : "#64748b", href: "/admin/tenants" },
   ];
 
   return (
@@ -74,11 +172,20 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      {/* Suspended warning */}
-      {stats.suspended_tenants > 0 && (
+      {/* Pending signups + suspended warnings */}
+      {pendingSignups.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-accent/10 border border-accent/20 rounded-xl text-accent text-sm font-medium">
+          <UserPlus size={15} />
+          {pendingSignups.length} new signup{pendingSignups.length > 1 ? "s are" : " is"} waiting for approval.
+          <Link href="/admin/tenants" className="ml-auto flex items-center gap-1 text-[12px] font-semibold hover:underline">
+            Review <ArrowRight size={12} />
+          </Link>
+        </div>
+      )}
+      {trueSuspended > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-400 text-sm font-medium">
           <AlertTriangle size={15} />
-          {stats.suspended_tenants} tenant{stats.suspended_tenants > 1 ? "s are" : " is"} currently suspended.
+          {trueSuspended} tenant{trueSuspended > 1 ? "s are" : " is"} currently suspended.
           <Link href="/admin/tenants" className="ml-auto flex items-center gap-1 text-[12px] font-semibold hover:underline">
             Review <ArrowRight size={12} />
           </Link>
@@ -86,7 +193,7 @@ export default function AdminOverviewPage() {
       )}
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {cards.map((card) => (
           <div key={card.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-5" style={{ backgroundColor: card.color }} />
@@ -108,25 +215,31 @@ export default function AdminOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Monthly signups chart */}
+        {/* Monthly signups + cumulative growth */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-bold text-foreground">New Tenants</h2>
-              <p className="text-[11px] text-muted">Last 6 months</p>
+              <p className="text-[11px] text-muted">Last 6 months · monthly signups vs. total tenants</p>
             </div>
-            <Activity size={15} className="text-muted" />
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.primary }} /> New signups
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#d97706" }} /> Total tenants
+              </span>
+            </div>
           </div>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.monthly_signups}>
-                <CartesianGrid strokeDasharray="3 3" stroke={c.grid} vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip contentStyle={c.tooltip} cursor={{ fill: `${c.primary}10` }} />
-                <Bar dataKey="count" fill={c.primary} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-56">
+            <TenantGrowthChart
+              data={tenantGrowthData}
+              barColor={c.primary}
+              lineColor="#d97706"
+              gridColor={c.grid}
+              tickColor={c.tick}
+              tooltipStyle={c.tooltip}
+            />
           </div>
         </div>
 
@@ -157,20 +270,19 @@ export default function AdminOverviewPage() {
             </div>
             {stats.total_tenants > 0 ? (
               <div className="flex items-center gap-4 pt-4 border-t border-border">
-                <div className="w-[72px] h-[72px] flex-shrink-0">
-                  <DonutChart data={statusData} colors={statusColors} innerRadius={22} outerRadius={36} tooltipStyle={c.tooltip} />
+                <div className="w-24 h-24 flex-shrink-0">
+                  <DonutChart data={statusData} colors={statusColors} innerRadius={30} outerRadius={48} tooltipStyle={c.tooltip} />
                 </div>
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColors[0] }} />
-                    <CheckCircle size={12} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                    {stats.active_tenants} Active
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: statusColors[1] }} />
-                    <XCircle size={12} className="text-red-500 flex-shrink-0" />
-                    {stats.suspended_tenants} Suspended
-                  </div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  {statusData.map((s) => (
+                    <div key={s.name} className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[s.name] }} />
+                      {s.name === "Active" && <CheckCircle size={13} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
+                      {s.name === "Pending" && <Clock size={13} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />}
+                      {s.name === "Suspended" && <XCircle size={13} className="text-red-500 flex-shrink-0" />}
+                      {s.value} {s.name}
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -190,20 +302,114 @@ export default function AdminOverviewPage() {
               <p className="text-sm text-muted text-center py-4">No plan data yet</p>
             ) : (
               <div className="flex items-center gap-4">
-                <div className="w-[84px] h-[84px] flex-shrink-0">
-                  <DonutChart data={planData} colors={planColors} innerRadius={26} outerRadius={42} tooltipStyle={c.tooltip} />
+                <div className="w-28 h-28 flex-shrink-0">
+                  <DonutChart data={planData} colors={planColors} innerRadius={34} outerRadius={54} tooltipStyle={c.tooltip} />
                 </div>
-                <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="flex-1 min-w-0 space-y-2">
                   {planData.map((p, i) => (
                     <div key={p.name} className="flex items-center gap-1.5">
-                      <Crown size={11} style={{ color: planColors[i] }} className="flex-shrink-0" />
-                      <span className="text-[12px] font-semibold text-foreground truncate flex-1">{p.name}</span>
-                      <span className="text-[11px] text-muted flex-shrink-0">{p.value} · {Math.round((p.value / totalPlans) * 100)}%</span>
+                      <Crown size={12} style={{ color: planColors[i] }} className="flex-shrink-0" />
+                      <span className="text-[13px] font-semibold text-foreground truncate flex-1">{p.name}</span>
+                      <span className="text-[12px] text-muted flex-shrink-0">{p.value} · {Math.round((p.value / totalPlans) * 100)}%</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent signups awaiting approval */}
+      {recentSignups.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Recent Signups</h2>
+              <p className="text-[11px] text-muted">Newest businesses awaiting approval</p>
+            </div>
+            <Link href="/admin/tenants" className="text-[11px] text-accent font-semibold hover:underline flex items-center gap-1">
+              View all <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="divide-y divide-border">
+            {recentSignups.map((t) => (
+              <Link
+                key={t.id}
+                href={`/admin/tenants/${t.id}`}
+                className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:bg-surface/60 -mx-2 px-2 rounded-lg transition-colors group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 flex items-center justify-center flex-shrink-0 border border-violet-500/10">
+                  <span className="text-[13px] font-bold text-violet-600 dark:text-violet-400">
+                    {t.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{t.name}</p>
+                  <p className="text-[11px] text-muted font-mono truncate">{t.slug}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[11px] text-muted">
+                    {t.created_at ? new Date(t.created_at).toLocaleDateString() : "—"}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <Clock size={10} /> Pending
+                  </span>
+                  <ArrowUpRight size={13} className="text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Signup insights — UI preview, see MOCK_* comment above */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-bold text-foreground">Signup Insights</h2>
+            <p className="text-[11px] text-muted">Preview — not yet wired to real signup data</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                <Globe2 size={13} className="text-blue-500" />
+              </div>
+              <h3 className="text-[13px] font-bold text-foreground">By Country</h3>
+            </div>
+            <CategoryDonut data={MOCK_COUNTRY_STATS} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                <Factory size={13} className="text-violet-500" />
+              </div>
+              <h3 className="text-[13px] font-bold text-foreground">By Industry</h3>
+            </div>
+            <CategoryDonut data={MOCK_INDUSTRY_STATS} colors={INDUSTRY_COLORS} tooltipStyle={c.tooltip} />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <Building2 size={13} className="text-emerald-600" />
+              </div>
+              <h3 className="text-[13px] font-bold text-foreground">By Business Type</h3>
+            </div>
+            <CategoryDonut data={MOCK_BUSINESS_TYPE_STATS} colors={BUSINESS_TYPE_COLORS} tooltipStyle={c.tooltip} />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <Megaphone size={13} className="text-amber-600" />
+              </div>
+              <h3 className="text-[13px] font-bold text-foreground">How They Heard About Us</h3>
+            </div>
+            <CategoryDonut data={MOCK_HEARD_ABOUT_STATS} colors={HEARD_ABOUT_COLORS} tooltipStyle={c.tooltip} />
           </div>
         </div>
       </div>

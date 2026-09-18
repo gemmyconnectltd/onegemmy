@@ -61,6 +61,26 @@ async def _bump_order_targets(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     )
 
 
+def _complete_sale_item(item: OrderItem, product_name: str, quantity: float, variant: ProductVariant | None, product: Product | None) -> float:
+    """Validates stock, decrements it, snapshots cost_at_sale on the line, and returns this line's COGS."""
+    if variant and float(variant.stock) < quantity:
+        raise ValidationError(
+            f"Insufficient stock for '{product_name}' ({_attr_label(variant.attributes)}): "
+            f"{variant.stock} available, {quantity} requested"
+        )
+    if product and not variant and float(product.stock) < quantity:
+        raise ValidationError(
+            f"Insufficient stock for '{product_name}': {product.stock} available, {quantity} requested"
+        )
+    cost = float(variant.cost) if variant else (float(product.cost) if product else 0.0)
+    item.cost_at_sale = cost
+    if variant:
+        variant.stock = max(0, float(variant.stock) - quantity)
+    elif product:
+        product.stock = max(0, float(product.stock) - quantity)
+    return cost * quantity
+
+
 async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, tax_amount: float, total: float) -> None:
     """Write a VAT TaxCalculation record for a completed order."""
     if tax_amount <= 0:
@@ -123,9 +143,13 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         total=total,
         notes=data.notes,
         client_order_id=data.client_order_id,
+        payment_method=data.payment_method,
+        amount_tendered=data.amount_tendered,
+        change_due=data.change_due,
     )
     order = await repo.save(order)
 
+    cogs_total = 0.0
     for item_data in data.items:
         variant = None
         product = None
@@ -153,19 +177,6 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
             if product.has_variants:
                 raise ValidationError(f"Product '{product.name}' has variants — pick a specific variant")
 
-        # stock check + decrement for Completed orders
-        if data.status == "Completed":
-            if variant and float(variant.stock) < item_data.quantity:
-                raise ValidationError(
-                    f"Insufficient stock for '{product_name}' ({_attr_label(variant.attributes)}): "
-                    f"{variant.stock} available, {item_data.quantity} requested"
-                )
-            if product and not variant and float(product.stock) < item_data.quantity:
-                raise ValidationError(
-                    f"Insufficient stock for '{product_name}': "
-                    f"{product.stock} available, {item_data.quantity} requested"
-                )
-
         item = OrderItem(
             order_id=order.id,
             product_id=variant.product_id if variant else item_data.product_id,
@@ -180,12 +191,9 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         )
         db.add(item)
 
-        # deduct stock when order is Completed — variants decrement variant stock
+        # deduct stock + snapshot cost + post COGS when order is Completed
         if data.status == "Completed":
-            if variant:
-                variant.stock = max(0, float(variant.stock) - item_data.quantity)
-            elif product:
-                product.stock = max(0, float(product.stock) - item_data.quantity)
+            cogs_total += _complete_sale_item(item, product_name, item_data.quantity, variant, product)
 
             await _assign_serials(
                 db,
@@ -199,7 +207,7 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     if data.status == "Completed":
         await _bump_revenue_targets(db, tenant_id, total)
         await _bump_order_targets(db, tenant_id)
-        await create_sale_transaction(db, tenant_id, user_id, order.id, total, order_number)
+        await create_sale_transaction(db, tenant_id, user_id, order.id, total, order_number, cogs=round(cogs_total, 2))
         await _record_vat(db, tenant_id, order.id, data.tax, total)
 
     await record_audit(
@@ -249,11 +257,14 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, field, value)
     obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
-    # if status just flipped to Completed, bump targets
+    # if status just flipped to Completed, deduct stock, post COGS, and bump targets
     if not was_completed and obj.status == "Completed":
+        cogs_total = 0.0
+        for item in obj.items:
+            cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product)
         await _bump_revenue_targets(db, tenant_id, float(obj.total))
         await _bump_order_targets(db, tenant_id)
-        await create_sale_transaction(db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number)
+        await create_sale_transaction(db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number, cogs=round(cogs_total, 2))
         await _record_vat(db, tenant_id, obj.id, float(obj.tax), float(obj.total))
     await OrderRepository(db).save(obj)
     await record_audit(

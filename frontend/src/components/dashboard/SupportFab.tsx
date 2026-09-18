@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, LifeBuoy, Mail, MessagesSquare, X } from "lucide-react";
+import { BookOpen, Compass, LifeBuoy, Mail, MessagesSquare, X } from "lucide-react";
+import { START_TOUR_EVENT } from "@/components/tour/ProductTour";
 
 export function SupportFab() {
   const [open, setOpen] = useState(false);
@@ -23,6 +24,12 @@ export function SupportFab() {
           >
             <Mail size={16} className="text-foreground/40" /> Contact support
           </a>
+          <button
+            onClick={() => { setOpen(false); window.dispatchEvent(new Event(START_TOUR_EVENT)); }}
+            className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-foreground hover:bg-surface transition-colors text-left border-b border-border"
+          >
+            <Compass size={16} className="text-foreground/40" /> Take a tour
+          </button>
           <button
             onClick={() => { setOpen(false); window.alert("Help Center is coming soon."); }}
             className="w-full flex items-center gap-3 px-4 py-3 text-[13px] font-medium text-foreground hover:bg-surface transition-colors text-left border-b border-border"

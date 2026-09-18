@@ -5,13 +5,14 @@ from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select, text
 
+from app.core.config import settings
 from app.core.deps import DbSession, SuperUser
-from app.core.email import send_invite_email
+from app.core.email import send_account_approved_email, send_invite_email
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.logging import get_logger
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
-from app.core.security import hash_password
+from app.core.security import hash_password, validate_password_strength
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
 from app.modules.audit.service import record_audit
@@ -174,16 +175,55 @@ async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Super
     return success_response(data=tenant.model_dump(), message="Tenant suspended")
 
 
+class ActivateTenantPayload(BaseModel):
+    # Only meaningful when approving a pending signup: the owner has no
+    # usable password yet (see auth.service.register), so approving one
+    # sets a real one here — typed by the admin to share directly, or
+    # auto-generated if left blank, same pattern as inviting a user.
+    password: str | None = None
+
+
 @router.post("/tenants/{tenant_id}/activate")
-async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
-    tenant = await service.update_tenant(db, tenant_id, TenantUpdate(is_active=True))
+async def admin_activate_tenant(
+    tenant_id: uuid.UUID, db: DbSession, admin: SuperUser, data: ActivateTenantPayload | None = None,
+):
+    password_input = data.password if data else None
+    existing = await db.get(Tenant, tenant_id)
+    was_pending_signup = existing is not None and existing.subscription_status == "pending"
+    update = TenantUpdate(is_active=True, subscription_status="active") if was_pending_signup else TenantUpdate(is_active=True)
+    tenant = await service.update_tenant(db, tenant_id, update)
     await record_audit(
         db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
         action="tenant.activate", entity_type="tenant", entity_id=str(tenant_id),
         summary=f"Tenant '{tenant.name}' activated",
     )
     await db.commit()
-    return success_response(data=tenant.model_dump(), message="Tenant activated")
+
+    temp_password = None
+    if was_pending_signup:
+        owner = (await db.execute(
+            select(User).where(User.tenant_id == tenant_id, User.role == "owner")
+        )).scalar_one_or_none()
+        if owner:
+            if password_input:
+                validate_password_strength(password_input)
+                temp_password = password_input
+            else:
+                temp_password = secrets.token_urlsafe(12)
+            owner.hashed_password = hash_password(temp_password)
+            await UserRepository(db).save(owner)
+            await db.commit()
+            await send_account_approved_email(
+                to=owner.email,
+                full_name=owner.full_name,
+                tenant_name=tenant.name,
+                dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
+                temp_password=temp_password,
+            )
+    return success_response(
+        data={**tenant.model_dump(), "temp_password": temp_password},
+        message="Tenant activated",
+    )
 
 
 @router.delete("/tenants/{tenant_id}")
@@ -234,6 +274,10 @@ class InviteUserPayload(BaseModel):
     email: EmailStr
     full_name: str
     role: str = "member"
+    # Optional: set by the inviting admin when they intend to hand the
+    # credentials to the person directly. Left blank, a strong random one is
+    # generated instead (same pattern as the reset-password endpoint).
+    password: str | None = None
 
 
 @router.post("/tenants/{tenant_id}/invite", status_code=201)
@@ -246,10 +290,11 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
     if not tenant:
         raise NotFoundError("Tenant not found")
     await service.enforce_limit(db, tenant_id, "max_users", await service.count_users(db, tenant_id), noun="user")
-    # Generate a strong random temp password server-side rather than trusting
-    # one the inviting admin typed — returned once below and emailed to the
-    # invitee, same pattern as the reset-password endpoint.
-    temp_password = secrets.token_urlsafe(12)
+    if data.password:
+        validate_password_strength(data.password)
+        temp_password = data.password
+    else:
+        temp_password = secrets.token_urlsafe(12)
     user = User(
         tenant_id=tenant_id,
         email=data.email,

@@ -31,6 +31,7 @@ import {
   type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
+  type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
   type RepairJob, type InventoryBatch,
 } from "@/lib/api";
 
@@ -91,11 +92,17 @@ export const useProductVariants = (productId: string | undefined, opts?: QueryOp
 export const useCategories = (opts?: QueryOpts) =>
   useQ([...CATEGORIES], () => inventoryApi.listCategories(), (r) => r.data, opts);
 
+export const useCategoryTemplates = (opts?: QueryOpts) =>
+  useQ([...CATEGORIES, "templates"], () => inventoryApi.categoryTemplates(), (r) => r.data, opts);
+
 export const useBrands = (opts?: QueryOpts) =>
   useQ([...BRANDS], () => inventoryApi.listBrands(), (r) => r.data, opts);
 
 export const useUnits = (opts?: QueryOpts) =>
   useQ([...UNITS], () => inventoryApi.listUnits(), (r) => r.data, opts);
+
+export const useUnitSuggestions = (opts?: QueryOpts) =>
+  useQ([...UNITS, "suggestions"], () => inventoryApi.unitSuggestions(), (r) => r.data, opts);
 
 export const useSuppliers = (opts?: QueryOpts) =>
   useQ([...SUPPLIERS], () => inventoryApi.listSuppliers(), (r) => r.data, opts);
@@ -118,6 +125,7 @@ export const useDeleteVariant = mutation(({ productId, id }: { productId: string
 export const useCreateCategory = mutation((d: object) => inventoryApi.createCategory(d), [[...CATEGORIES], [...VALUATION]]);
 export const useUpdateCategory = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateCategory(id, data), [[...CATEGORIES], [...VALUATION]]);
 export const useDeleteCategory = mutation((id: string) => inventoryApi.deleteCategory(id), [[...CATEGORIES], [...VALUATION]]);
+export const useImportCategories = mutation((names: string[]) => inventoryApi.importCategories(names), [[...CATEGORIES], [...VALUATION]]);
 
 export const useCreateBrand = mutation((d: object) => inventoryApi.createBrand(d), [[...BRANDS], [...VALUATION]]);
 export const useUpdateBrand = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateBrand(id, data), [[...BRANDS], [...VALUATION]]);
@@ -126,6 +134,7 @@ export const useDeleteBrand = mutation((id: string) => inventoryApi.deleteBrand(
 export const useCreateUnit = mutation((d: object) => inventoryApi.createUnit(d), [[...UNITS], [...VALUATION]]);
 export const useUpdateUnit = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateUnit(id, data), [[...UNITS], [...VALUATION]]);
 export const useDeleteUnit = mutation((id: string) => inventoryApi.deleteUnit(id), [[...UNITS], [...VALUATION]]);
+export const useImportUnits = mutation((units: { name: string; abbreviation: string | null }[]) => inventoryApi.importUnits(units), [[...UNITS], [...VALUATION]]);
 
 export const useCreateSupplier = mutation((d: object) => inventoryApi.createSupplier(d), [[...SUPPLIERS]]);
 export const useUpdateSupplier = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateSupplier(id, data), [[...SUPPLIERS]]);
@@ -284,6 +293,26 @@ export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.r
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
 
+const REQUISITIONS = ["procurement", "requisitions"] as const;
+
+export const useRequisitions = (status?: string, opts?: QueryOpts) =>
+  useQ([...REQUISITIONS, status ?? "all"], () => procurementApi.listRequisitions(status), (r) => r.data, opts);
+
+export const useCreateRequisition = mutation((d: RequisitionCreateInput) => procurementApi.createRequisition(d), [[...REQUISITIONS]]);
+export const useApproveRequisition = mutation((id: string) => procurementApi.approveRequisition(id), [[...REQUISITIONS]]);
+export const useRejectRequisition = mutation((id: string) => procurementApi.rejectRequisition(id), [[...REQUISITIONS]]);
+export const useDeleteRequisition = mutation((id: string) => procurementApi.deleteRequisition(id), [[...REQUISITIONS]]);
+
+const PURCHASE_RETURNS = ["procurement", "purchase-returns"] as const;
+
+export const usePurchaseReturns = (opts?: QueryOpts) =>
+  useQ([...PURCHASE_RETURNS], () => procurementApi.listPurchaseReturns(), (r) => r.data, opts);
+
+export const useCreatePurchaseReturn = mutation((d: PurchaseReturnCreateInput) => procurementApi.createPurchaseReturn(d), [[...PURCHASE_RETURNS], [...PRODUCTS], [...VALUATION]]);
+export const useRefundPurchaseReturn = mutation((id: string) => procurementApi.refundPurchaseReturn(id), [[...PURCHASE_RETURNS]]);
+export const useReplacePurchaseReturn = mutation((id: string) => procurementApi.replacePurchaseReturn(id), [[...PURCHASE_RETURNS]]);
+export const useDeletePurchaseReturn = mutation((id: string) => procurementApi.deletePurchaseReturn(id), [[...PURCHASE_RETURNS], [...PRODUCTS], [...VALUATION]]);
+
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 const ADMIN_STATS = ["admin", "stats"] as const;
@@ -319,7 +348,7 @@ export const useTenantBranches = (id: string | undefined, opts?: QueryOpts) =>
 export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS]]);
 export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS]]);
 export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
-export const useActivateTenant = mutation((id: string) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
+export const useActivateTenant = mutation(({ id, password }: { id: string; password?: string }) => adminApi.activateTenant(id, password), [[...TENANTS], [...ADMIN_STATS]]);
 export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
 export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS]]);
 export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS]]);
@@ -454,5 +483,6 @@ export type {
   AdminTenant, AdminTenantStats, AdminPlatformStats, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
+  Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,
   RepairJob, InventoryBatch, ApiSerial, ApiStockTransfer, ApiWarrantyClaim, ApiProductionOrder,
 };

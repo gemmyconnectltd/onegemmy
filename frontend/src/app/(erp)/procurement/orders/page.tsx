@@ -1,104 +1,184 @@
 "use client";
 import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
-import { Ban, CheckCircle2, FileText, Plus, Search, Truck, X } from "lucide-react";
+import { Ban, CheckCircle2, Eye, FileText, Plus, Search, Trash2, Truck, X } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, FormFooter } from "@/components/ui/Form";
+import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
+import { Button } from "@/components/ui/Button";
+import { PageLoader } from "@/components/ui/PageLoader";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { fmtDateTime } from "@/lib/date";
+import {
+  usePurchaseOrders, useSuppliers, useProducts,
+  useCreatePurchaseOrder, useReceivePurchaseOrder, useCancelPurchaseOrder, useDeletePurchaseOrder,
+} from "@/lib/api/hooks";
+import type { PurchaseOrder, PurchaseItemInput } from "@/lib/api";
 
-type PoStatus = "Draft" | "Approved" | "Received" | "Cancelled";
-
-type PurchaseOrder = {
-  id: string;
-  supplier: string;
-  date: string;
-  items: number;
-  total: number;
-  status: PoStatus;
-  expected?: string;
-};
-
-const INITIAL_POS: PurchaseOrder[] = [
-  { id: "PO-1008", supplier: "Rwanda Supply Co", date: "2026-07-29", items: 12, total: 1850000, status: "Received", expected: "2026-07-30" },
-  { id: "PO-1007", supplier: "Kigali Wholesalers", date: "2026-07-26", items: 8, total: 1240000, status: "Received", expected: "2026-07-28" },
-  { id: "PO-1006", supplier: "East Africa Distributors", date: "2026-07-24", items: 5, total: 890000, status: "Approved", expected: "2026-08-02" },
-  { id: "PO-1005", supplier: "Nyabugogo Traders", date: "2026-07-20", items: 15, total: 2200000, status: "Received", expected: "2026-07-23" },
-  { id: "PO-1004", supplier: "Rwanda Supply Co", date: "2026-07-15", items: 6, total: 640000, status: "Draft", expected: "2026-08-01" },
-  { id: "PO-1003", supplier: "Kigali Wholesalers", date: "2026-07-11", items: 9, total: 1370000, status: "Cancelled" },
-  { id: "PO-1002", supplier: "Musanze Fresh Foods", date: "2026-07-08", items: 11, total: 980000, status: "Received", expected: "2026-07-10" },
-];
-
-const STATUS_STYLES: Record<PoStatus, string> = {
+type Status = "Draft" | "Received" | "Cancelled";
+const STATUS_ORDER: (Status | "All")[] = ["All", "Draft", "Received", "Cancelled"];
+const STATUS_STYLES: Record<Status, string> = {
   Draft: "bg-slate-100 text-slate-700",
-  Approved: "bg-blue-50 text-blue-700",
   Received: "bg-emerald-100 text-emerald-700",
   Cancelled: "bg-red-50 text-red-600",
 };
 
-const STATUS_ORDER: (PoStatus | "All")[] = ["All", "Draft", "Approved", "Received", "Cancelled"];
+type ItemRow = { rowId: string; product_id: string; unit_cost: string; quantity: string };
+const newRow = (): ItemRow => ({ rowId: crypto.randomUUID(), product_id: "", unit_cost: "", quantity: "1" });
+const EMPTY_FORM = { supplier_id: "", expected_date: "", notes: "" };
 
 export default function PurchaseOrdersPage() {
   const { currencySymbol, brandColor } = useAppConfig();
-  const [pos, setPos] = useState<PurchaseOrder[]>(INITIAL_POS);
-  const [filter, setFilter] = useState<PoStatus | "All">("All");
-  const [search, setSearch] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [newSupplier, setNewSupplier] = useState("");
-  const [newItem, setNewItem] = useState("");
-  const [newQty, setNewQty] = useState("1");
-  const [newPrice, setNewPrice] = useState("");
-
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const filtered = pos.filter((p) => {
+  const [filter, setFilter] = useState<Status | "All">("All");
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [items, setItems] = useState<ItemRow[]>([newRow()]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+
+  const { data, isLoading } = usePurchaseOrders();
+  const { data: suppliersData } = useSuppliers();
+  const { data: productsData } = useProducts(1, 500);
+  const orders = data?.items ?? [];
+  const suppliers = suppliersData?.items ?? [];
+  const products = productsData?.items ?? [];
+
+  const createPurchase = useCreatePurchaseOrder();
+  const receivePurchase = useReceivePurchaseOrder();
+  const cancelPurchase = useCancelPurchaseOrder();
+  const deletePurchase = useDeletePurchaseOrder();
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+
+  const filtered = orders.filter((p) => {
     const q = search.trim().toLowerCase();
     return (
       (filter === "All" || p.status === filter) &&
-      (!q || p.id.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q))
+      (!q || p.reference.toLowerCase().includes(q) || (p.supplier?.name ?? "").toLowerCase().includes(q))
     );
   });
 
+  const deletableIds = filtered.filter((p) => p.status === "Draft").map((p) => p.id);
+  const bulk = useBulkSelection(deletableIds);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Purchase Orders",
+      message: `Delete ${bulk.count} selected draft order${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deletePurchase.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
+
   const stats = [
-    { label: "Drafts", value: pos.filter((p) => p.status === "Draft").length, color: "#64748b" },
-    { label: "Approved", value: pos.filter((p) => p.status === "Approved").length, color: "#2563eb" },
-    { label: "Received", value: pos.filter((p) => p.status === "Received").length, color: "#059669" },
-    { label: "Awaiting delivery", value: pos.filter((p) => p.status === "Approved").length, color: "#b45309" },
+    { label: "Drafts", value: orders.filter((p) => p.status === "Draft").length, color: "#64748b" },
+    { label: "Received", value: orders.filter((p) => p.status === "Received").length, color: "#059669" },
+    { label: "Cancelled", value: orders.filter((p) => p.status === "Cancelled").length, color: "#dc2626" },
+    { label: "Total Value", value: fmt(orders.reduce((s, p) => s + p.total, 0)), color: "#b45309", isStr: true },
   ];
 
-  const setStatus = (id: string, status: PoStatus) =>
-    setPos((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
-
-  const createPo = () => {
-    if (!newSupplier.trim()) return;
-    const items = newItem.trim() ? 1 : 0;
-    const total = items ? Math.round((Number(newQty) || 0) * (Number(newPrice) || 0)) : 0;
-    const next: PurchaseOrder = {
-      id: `PO-${1009 + pos.length}`,
-      supplier: newSupplier.trim(),
-      date: new Date().toISOString().slice(0, 10),
-      items,
-      total,
-      status: "Draft",
-      expected: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
-    };
-    setPos((prev) => [next, ...prev]);
-    setNewSupplier(""); setNewItem(""); setNewQty("1"); setNewPrice("");
-    setShowModal(false);
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setItems([newRow()]);
+    setFormError(null);
+    setShowModal(true);
   };
+
+  const updateRow = (i: number, patch: Partial<ItemRow>) =>
+    setItems((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  const pickProduct = (i: number, productId: string) => {
+    const p = products.find((x) => x.id === productId);
+    updateRow(i, { product_id: productId, unit_cost: p ? String(p.cost) : "" });
+  };
+
+  const itemsTotal = items.reduce((s, r) => s + (Number(r.unit_cost) || 0) * (Number(r.quantity) || 0), 0);
+
+  const createPo = async () => {
+    setFormError(null);
+    const validItems: PurchaseItemInput[] = items
+      .filter((r) => r.product_id)
+      .map((r) => {
+        const p = products.find((x) => x.id === r.product_id)!;
+        return {
+          product_id: p.id,
+          product_name: p.name,
+          sku: p.sku ?? null,
+          unit_cost: Number(r.unit_cost) || 0,
+          quantity: Number(r.quantity) || 1,
+        };
+      });
+    if (validItems.length === 0) {
+      setFormError("Add at least one item.");
+      return;
+    }
+    try {
+      await createPurchase.mutateAsync({
+        supplier_id: form.supplier_id || null,
+        expected_date: form.expected_date || null,
+        notes: form.notes.trim() || null,
+        status: "Draft",
+        items: validItems,
+      });
+      setShowModal(false);
+    } catch (e: unknown) {
+      setFormError((e as { detail?: string })?.detail ?? "Failed to create purchase order");
+    }
+  };
+
+  const handleReceive = (p: PurchaseOrder) => {
+    confirm({
+      title: "Receive Purchase Order",
+      message: `Mark ${p.reference} as received? This adds ${p.items.length} item(s) to your inventory stock.`,
+      confirmLabel: "Receive",
+      onConfirm: () => receivePurchase.mutate(p.id),
+    });
+  };
+
+  const handleCancel = (p: PurchaseOrder) => {
+    confirm({
+      title: "Cancel Purchase Order",
+      message: `Cancel ${p.reference}? This cannot be undone.`,
+      confirmLabel: "Cancel Order",
+      danger: true,
+      onConfirm: () => cancelPurchase.mutate(p.id),
+    });
+  };
+
+  const handleDelete = (p: PurchaseOrder) => {
+    confirm({
+      title: "Delete Purchase Order",
+      message: `Delete draft ${p.reference}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deletePurchase.mutate(p.id),
+    });
+  };
+
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
+      {confirmDialog}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Purchase Orders</h1>
           <p className="text-sm text-muted mt-1">Create and track orders from your suppliers.</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium transition-colors rounded-lg" style={{ backgroundColor: brandColor }}
-        >
+        <Button onClick={openAdd} color={brandColor}>
           <Plus size={16} /> New Purchase Order
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -107,7 +187,7 @@ export default function PurchaseOrdersPage() {
             <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{s.isStr ? s.value : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -124,7 +204,7 @@ export default function PurchaseOrdersPage() {
               }`}
               style={filter === s ? { backgroundColor: brandColor } : undefined}
             >
-              {s} <span className="opacity-70">({s === "All" ? pos.length : pos.filter((p) => p.status === s).length})</span>
+              {s} <span className="opacity-70">({s === "All" ? orders.length : orders.filter((p) => p.status === s).length})</span>
             </button>
           ))}
         </div>
@@ -133,17 +213,24 @@ export default function PurchaseOrdersPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search PO or supplier..."
+            placeholder="Search reference or supplier..."
             className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
           />
         </div>
       </div>
 
+      {bulk.count > 0 && (
+        <BulkActionBar count={bulk.count} label="purchase order" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+      )}
+
       <div className="bg-card border border-border overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
-              <th className="p-4 font-medium">PO Number</th>
+              <th className="p-4 w-10">
+                <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={deletableIds.length === 0} />
+              </th>
+              <th className="p-4 font-medium">Reference</th>
               <th className="p-4 font-medium">Supplier</th>
               <th className="p-4 font-medium">Ordered</th>
               <th className="p-4 font-medium">Items</th>
@@ -156,43 +243,48 @@ export default function PurchaseOrdersPage() {
           <tbody className="divide-y divide-border">
             {filtered.map((p) => (
               <tr key={p.id} className="hover:bg-surface/50">
-                <td className="p-4 text-[13px] font-bold text-foreground">{p.id}</td>
-                <td className="p-4 text-[13px] text-foreground">{p.supplier}</td>
-                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{p.date}</td>
-                <td className="p-4 text-[13px] text-muted">{p.items}</td>
-                <td className="p-4 text-right text-[13px] font-bold text-foreground tabular-nums">{fmt(p.total)}</td>
-                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{p.expected ?? "—"}</td>
                 <td className="p-4">
-                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${STATUS_STYLES[p.status]}`}>
-                    {p.status === "Received" ? <CheckCircle2 size={11} /> : p.status === "Approved" ? <Truck size={11} /> : p.status === "Cancelled" ? <Ban size={11} /> : <FileText size={11} />}
+                  {p.status === "Draft" && (
+                    <input type="checkbox" checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} className="w-4 h-4 rounded" />
+                  )}
+                </td>
+                <td className="p-4 text-[13px] font-bold text-foreground">{p.reference}</td>
+                <td className="p-4 text-[13px] text-foreground">{p.supplier?.name ?? "—"}</td>
+                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{fmtDateTime(p.created_at)}</td>
+                <td className="p-4 text-[13px] text-muted">{p.items.length}</td>
+                <td className="p-4 text-right text-[13px] font-bold text-foreground tabular-nums">{fmt(p.total)}</td>
+                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{p.expected_date ?? "—"}</td>
+                <td className="p-4">
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${STATUS_STYLES[p.status as Status] ?? "bg-surface text-muted"}`}>
+                    {p.status === "Received" ? <CheckCircle2 size={11} /> : p.status === "Cancelled" ? <Ban size={11} /> : <FileText size={11} />}
                     {p.status}
                   </span>
                 </td>
                 <td className="p-4">
                   <div className="flex items-center justify-end gap-1.5">
+                    <button onClick={() => setViewing(p)}
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold">
+                      <Eye size={13} /> View
+                    </button>
                     {p.status === "Draft" && (
                       <>
                         <button
-                          onClick={() => setStatus(p.id, "Approved")}
-                          className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                          onClick={() => handleReceive(p)}
+                          className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                         >
-                          <CheckCircle2 size={13} /> Approve
+                          <Truck size={13} /> Receive
                         </button>
                         <button
-                          onClick={() => setStatus(p.id, "Cancelled")}
-                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                          onClick={() => handleCancel(p)}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold"
                         >
                           <X size={14} /> Cancel
                         </button>
+                        <button onClick={() => handleDelete(p)}
+                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold">
+                          <Trash2 size={13} /> Delete
+                        </button>
                       </>
-                    )}
-                    {p.status === "Approved" && (
-                      <button
-                        onClick={() => setStatus(p.id, "Received")}
-                        className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                      >
-                        <Truck size={13} /> Mark received
-                      </button>
                     )}
                   </div>
                 </td>
@@ -200,57 +292,116 @@ export default function PurchaseOrdersPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-10 text-center text-sm text-muted">No purchase orders match.</td>
+                <td colSpan={9} className="p-10 text-center text-sm text-muted">No purchase orders match.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
+      {/* New Purchase Order */}
       <Drawer
         open={showModal}
         onClose={() => setShowModal(false)}
         title="New Purchase Order"
         description="Create a draft order for a supplier."
         side="right"
+        size="lg"
         footer={
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              createPo();
-            }}
-          >
-            <FormFooter submitLabel="Create draft order" onCancel={() => setShowModal(false)} disabled={!newSupplier.trim()} />
+          <form onSubmit={(e) => { e.preventDefault(); createPo(); }}>
+            <FormFooter submitLabel={createPurchase.isPending ? "Creating…" : "Create draft order"} onCancel={() => setShowModal(false)} disabled={createPurchase.isPending} />
           </form>
         }
       >
         <div className="p-5 space-y-4">
-          <Field label="Supplier" required>
-            <Input
-              value={newSupplier}
-              onChange={(e) => setNewSupplier(e.target.value)}
-              placeholder="e.g. Rwanda Supply Co"
-              autoFocus
-            />
-          </Field>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Qty">
-              <Input type="number" min="1" value={newQty} onChange={(e) => setNewQty(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Supplier">
+              <Select value={form.supplier_id} onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}>
+                <option value="">— Select supplier —</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Select>
             </Field>
-            <Field label="Item" className="col-span-2">
-              <Input value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="e.g. Rice 25kg" />
+            <Field label="Expected Date">
+              <Input type="date" value={form.expected_date} onChange={(e) => setForm((f) => ({ ...f, expected_date: e.target.value }))} />
             </Field>
           </div>
-          <Field label={`Unit price (${currencySymbol})`}>
-            <Input
-              type="number"
-              min="0"
-              value={newPrice}
-              onChange={(e) => setNewPrice(e.target.value)}
-              className="font-mono"
-            />
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[12px] font-semibold text-muted">Items</p>
+              <button type="button" onClick={() => setItems((rows) => [...rows, newRow()])}
+                className="text-[12px] font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity" style={{ color: brandColor }}>
+                <Plus size={13} /> Add item
+              </button>
+            </div>
+            <div className="space-y-2">
+              {items.map((row, i) => (
+                <div key={row.rowId} className="flex items-center gap-2">
+                  <Select value={row.product_id} onChange={(e) => pickProduct(i, e.target.value)} className="flex-1">
+                    <option value="">Select product...</option>
+                    {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock)</option>)}
+                  </Select>
+                  <Input type="number" min={1} value={row.quantity} onChange={(e) => updateRow(i, { quantity: e.target.value })} className="w-20 text-center" placeholder="Qty" />
+                  <Input type="number" min={0} value={row.unit_cost} onChange={(e) => updateRow(i, { unit_cost: e.target.value })} className="w-28 font-mono" placeholder="Unit cost" />
+                  {items.length > 1 && (
+                    <button type="button" onClick={() => setItems((rows) => rows.filter((_, idx) => idx !== i))}
+                      className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors flex-shrink-0">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[12px] text-muted text-right mt-2">
+              Items total: <span className="font-semibold text-foreground">{fmt(itemsTotal)}</span>
+            </p>
+          </div>
+
+          <Field label="Notes">
+            <Textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." />
           </Field>
+
+          {formError && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
+          )}
         </div>
+      </Drawer>
+
+      {/* View */}
+      <Drawer open={!!viewing} onClose={() => setViewing(null)} title="Purchase Order" description={viewing?.reference} size="md">
+        {viewing && (
+          <div className="p-5 space-y-4">
+            {[
+              { label: "Supplier", value: viewing.supplier?.name ?? "—" },
+              { label: "Status", value: viewing.status },
+              { label: "Ordered", value: fmtDateTime(viewing.created_at) },
+              { label: "Expected", value: viewing.expected_date ?? "—" },
+              { label: "Received", value: viewing.received_at ? fmtDateTime(viewing.received_at) : "—" },
+              { label: "Total", value: fmt(viewing.total) },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <span className="text-[13px] text-muted font-medium">{label}</span>
+                <span className="text-[13px] font-semibold text-foreground">{value}</span>
+              </div>
+            ))}
+            {viewing.items.length > 0 && (
+              <div className="pt-2">
+                <p className="text-[12px] font-semibold text-muted mb-2">Line Items</p>
+                <div className="space-y-2">
+                  {viewing.items.map((it) => (
+                    <div key={it.id} className="flex items-center justify-between bg-surface rounded-lg px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-medium text-foreground truncate">{it.product_name}</p>
+                        <p className="text-[11px] text-muted">×{it.quantity} @ {fmt(it.unit_cost)}</p>
+                      </div>
+                      <span className="text-[13px] font-bold text-foreground tabular-nums flex-shrink-0 ml-2">{fmt(it.line_total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Drawer>
     </div>
   );

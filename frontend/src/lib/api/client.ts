@@ -25,28 +25,49 @@ export function clearApiCache() {
   clearApiQueryCache();
 }
 
-export function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("onegemmy_token");
+// "Remember me" decides where tokens live: localStorage survives browser
+// restarts, sessionStorage clears when the tab/browser closes. Reads check
+// sessionStorage first so an unremembered session takes priority if both
+// happen to be set. Writes with no explicit `remember` (e.g. token refresh)
+// reuse whichever storage already holds the token, preserving the choice
+// made at login.
+function activeStorage(key: string): Storage {
+  if (typeof window === "undefined") return localStorage;
+  return sessionStorage.getItem(key) !== null ? sessionStorage : localStorage;
 }
 
-export function setStoredToken(token: string) {
-  if (typeof window !== "undefined") localStorage.setItem("onegemmy_token", token);
+function setStored(key: string, value: string, remember?: boolean) {
+  if (typeof window === "undefined") return;
+  const storage = remember === undefined ? activeStorage(key) : remember ? localStorage : sessionStorage;
+  const other = storage === localStorage ? sessionStorage : localStorage;
+  other.removeItem(key);
+  storage.setItem(key, value);
+}
+
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem("onegemmy_token") ?? localStorage.getItem("onegemmy_token");
+}
+
+export function setStoredToken(token: string, remember?: boolean) {
+  setStored("onegemmy_token", token, remember);
 }
 
 export function getStoredRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("onegemmy_refresh_token");
+  return sessionStorage.getItem("onegemmy_refresh_token") ?? localStorage.getItem("onegemmy_refresh_token");
 }
 
-export function setStoredRefreshToken(token: string) {
-  if (typeof window !== "undefined") localStorage.setItem("onegemmy_refresh_token", token);
+export function setStoredRefreshToken(token: string, remember?: boolean) {
+  setStored("onegemmy_refresh_token", token, remember);
 }
 
 export function clearStoredTokens() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("onegemmy_token");
     localStorage.removeItem("onegemmy_refresh_token");
+    sessionStorage.removeItem("onegemmy_token");
+    sessionStorage.removeItem("onegemmy_refresh_token");
   }
 }
 
@@ -78,6 +99,12 @@ async function tryRefreshToken(): Promise<string | null> {
   return _refreshPromise;
 }
 
+// A 401 from these means "wrong credentials" / "expired reset link", not
+// "your session died" — they're the entry points to a session, not calls
+// made during one, so they must never trigger the refresh-then-session-
+// expired flow below (that flow assumes an existing session went stale).
+const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password"];
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
@@ -89,7 +116,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers }, REQUEST_TIMEOUT_MS);
 
   // Auto-refresh on 401
-  if (res.status === 401) {
+  if (res.status === 401 && !PUBLIC_AUTH_PATHS.some((p) => path.startsWith(p))) {
     const newToken = await tryRefreshToken();
     if (newToken) {
       // Retry original request with new token

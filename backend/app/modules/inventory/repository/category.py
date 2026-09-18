@@ -26,3 +26,9 @@ class CategoryRepository(BaseRepository[Category]):
             select(func.count()).select_from(Category).where(Category.tenant_id == tenant_id)
         )
         return result.scalar_one()
+
+    async def list_all_for_tenant(self, tenant_id: uuid.UUID) -> list[Category]:
+        result = await self.db.execute(
+            select(Category).where(Category.tenant_id == tenant_id).order_by(Category.name)
+        )
+        return list(result.scalars().all())

@@ -8,14 +8,46 @@ from app.modules.procurement.service.purchase import (
     receive_purchase,
     update_purchase,
 )
+from app.modules.procurement.service.purchase_return import (
+    count_returns,
+    create_return,
+    delete_return,
+    get_return,
+    list_returns,
+    mark_refunded,
+    mark_replaced,
+)
+from app.modules.procurement.service.requisition import (
+    approve_requisition,
+    count_requisitions,
+    create_requisition,
+    delete_requisition,
+    get_requisition,
+    list_requisitions,
+    reject_requisition,
+)
 
 __all__ = [
+    "approve_requisition",
     "cancel_purchase",
     "count_purchases",
+    "count_requisitions",
+    "count_returns",
     "create_purchase",
+    "create_requisition",
+    "create_return",
     "delete_purchase",
+    "delete_requisition",
+    "delete_return",
     "get_purchase",
+    "get_requisition",
+    "get_return",
     "list_purchases",
+    "list_requisitions",
+    "list_returns",
+    "mark_refunded",
+    "mark_replaced",
     "receive_purchase",
+    "reject_requisition",
     "update_purchase",
 ]

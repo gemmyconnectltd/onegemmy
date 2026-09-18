@@ -4,11 +4,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.modules.accounting.service.transaction import create_return_transaction
+from app.modules.inventory.models.product import Product
+from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.service.serial import mark_serials_returned
+from app.modules.sales.models.order_item import OrderItem
 from app.modules.sales.models.return_ import Return
 from app.modules.sales.models.return_item import ReturnItem
 from app.modules.sales.repository import ReturnRepository
 from app.modules.sales.schemas import ReturnCreate, ReturnRead, ReturnUpdate
+
+
+async def _restock(db: AsyncSession, product_id: uuid.UUID | None, variant_id: uuid.UUID | None, quantity: float) -> None:
+    """Puts a returned quantity back into sellable stock."""
+    if variant_id:
+        variant = await db.get(ProductVariant, variant_id)
+        if variant is not None:
+            variant.stock = float(variant.stock) + quantity
+    elif product_id:
+        product = await db.get(Product, product_id)
+        if product is not None:
+            product.stock = float(product.stock) + quantity
+
+
+async def _restock_return_item(db: AsyncSession, item: ReturnItem) -> None:
+    """Resolves a persisted return line's product/variant and restocks it."""
+    variant_id = item.order_item.variant_id if item.order_item else None
+    product_id = item.product_id or (item.order_item.product_id if item.order_item else None)
+    await _restock(db, product_id, variant_id, item.quantity)
 
 
 async def list_returns(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[ReturnRead]:
@@ -57,6 +79,23 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
         )
         db.add(item)
 
+        # a return can be recorded as already Approved in one step (not just via a later
+        # Pending -> Approved edit) — restock immediately so this path isn't missed
+        if data.status == "Approved":
+            variant_id = None
+            product_id = item_data.product_id
+            if item_data.order_item_id:
+                order_item = await db.get(OrderItem, item_data.order_item_id)
+                if order_item is not None:
+                    variant_id = order_item.variant_id
+                    product_id = product_id or order_item.product_id
+            await _restock(db, product_id, variant_id, item_data.quantity)
+
+    if data.status == "Approved":
+        await create_return_transaction(db, tenant_id, user_id, ret.id, float(refund_amount), return_number)
+        order_item_ids = [i.order_item_id for i in data.items if i.order_item_id]
+        await mark_serials_returned(db, tenant_id, order_item_ids)
+
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, ret.id)
     return ReturnRead.model_validate(obj)
@@ -74,8 +113,10 @@ async def update_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
     for field, value in updates.items():
         setattr(obj, field, value)
     await ReturnRepository(db).save(obj)
-    # auto-create accounting transaction when status flips to Approved
+    # auto-create accounting transaction + restock inventory when status flips to Approved
     if not was_approved and obj.status == "Approved":
+        for item in obj.items:
+            await _restock_return_item(db, item)
         await create_return_transaction(
             db, tenant_id, user_id, obj.id, float(obj.refund_amount), obj.return_number
         )

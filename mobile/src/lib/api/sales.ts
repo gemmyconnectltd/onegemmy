@@ -53,6 +53,9 @@ export interface ApiOrder {
   tax: number;
   total: number;
   notes: string | null;
+  payment_method: string | null;
+  amount_tendered: number | null;
+  change_due: number | null;
   ordered_at: string | null;
   customer: { id: string; name: string } | null;
   items: ApiOrderItem[];

@@ -25,8 +25,19 @@ export interface ApiRegisterRequest {
   tenant_name: string;
   tenant_slug: string;
   email: string;
-  password: string;
   full_name: string;
+  business_type?: string;
+  industry?: string;
+  business_category?: string;
+  employee_count?: string;
+  business_location?: string;
+  heard_about?: string;
+  referral_code?: string;
+}
+
+export interface ApiRegisterResponse {
+  pending_approval: boolean;
+  tenant_slug: string;
 }
 
 export const authApi = {
@@ -36,7 +47,7 @@ export const authApi = {
       body: JSON.stringify({ email, password, tenant_slug }),
     }),
   register: (data: ApiRegisterRequest) =>
-    request<{ data: ApiTokenResponse }>("/auth/register", {
+    request<{ data: ApiRegisterResponse }>("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
     }),

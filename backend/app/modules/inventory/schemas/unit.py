@@ -23,3 +23,22 @@ class UnitRead(BaseModel):
     abbreviation: str | None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class UnitSuggestion(BaseModel):
+    name: str
+    abbreviation: str | None = None
+
+
+class UnitSuggestionsRead(BaseModel):
+    suggested: list[UnitSuggestion]
+    existing: list[str]
+
+
+class UnitImportRequest(BaseModel):
+    units: list[UnitSuggestion]
+
+
+class UnitImportResult(BaseModel):
+    created: list[UnitRead]
+    skipped: list[str]

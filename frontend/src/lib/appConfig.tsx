@@ -3,11 +3,12 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {
-  currencies, locales, baseThemeLight, baseThemeDark, DEFAULT_BRAND_COLOR, brandColorPresets,
-  type LocaleCode, type Theme,
+  currencies as fallbackCurrencies, locales, baseThemeLight, baseThemeDark, DEFAULT_BRAND_COLOR, brandColorPresets,
+  setActiveCurrency, type LocaleCode, type Theme,
 } from "./config";
 import { getStoredToken, resolveUploadUrl } from "./api/client";
 import { tenantsApi, type Tenant } from "./api/tenants";
+import { globalApi, type Currency } from "./api/global";
 
 // All English base strings — single source of truth
 const BASE_STRINGS: Record<string, string> = {
@@ -190,7 +191,7 @@ interface AppConfig {
   setBrandColor: (hex: string) => void;
   /** Applies a new logo URL after it's been uploaded (see `useUploadTenantLogo`). */
   setLogoUrl: (url: string | null) => void;
-  currencies: typeof currencies;
+  currencies: Currency[];
   locales: typeof locales;
   brandColorPresets: typeof brandColorPresets;
 }
@@ -206,11 +207,19 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   const [brandColor, setBrandColor] = useState(DEFAULT_BRAND_COLOR);
   const [logoUrl, setLogoUrlRaw] = useState<string | null>(null);
   const setLogoUrl = (url: string | null) => setLogoUrlRaw(resolveUploadUrl(url));
+  // Fallback list only covers the gap before the real catalog loads from the
+  // API (or if that request fails) — the backend's /global/currencies is the
+  // actual source of truth.
+  const [currencyCatalog, setCurrencyCatalog] = useState<Currency[]>(fallbackCurrencies);
 
   // Restore persisted settings client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
-    // Always reset currency to RWF — clear any stale non-RWF value
-    localStorage.setItem("app_currency", "RWF");
+    // Best-effort cache of the tenant's currency so there's no flash of the
+    // wrong symbol before the tenant fetch below resolves. The DB value is
+    // always the source of truth and overwrites this once it loads.
+    const cachedCurrency = localStorage.getItem("app_currency");
+    if (cachedCurrency) setCurrencyState(cachedCurrency);
+    if (cachedCurrency) setActiveCurrency(cachedCurrency);
     const l = localStorage.getItem("app_locale");
     if (l && VALID_LOCALES.includes(l as LocaleCode)) setLocaleState(l as LocaleCode);
     const t = localStorage.getItem("app_theme");
@@ -243,9 +252,21 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         .then((res: { data: Tenant }) => {
           setBrandColor(res.data.brand_color || DEFAULT_BRAND_COLOR);
           setLogoUrl(res.data.logo_url ?? null);
+          if (res.data.currency) {
+            setCurrencyState(res.data.currency);
+            setActiveCurrency(res.data.currency);
+            localStorage.setItem("app_currency", res.data.currency);
+          }
         })
         .catch(() => {
           // Request failed — keep whatever brand color is already applied.
+        });
+      globalApi.currencies()
+        .then((res) => {
+          if (res.data.length) setCurrencyCatalog(res.data);
+        })
+        .catch(() => {
+          // Request failed — keep the fallback list already in state.
         });
     }, 0);
     return () => window.clearTimeout(id);
@@ -282,6 +303,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   const setCurrency = (code: string) => {
     setCurrencyState(code);
+    setActiveCurrency(code);
     localStorage.setItem("app_currency", code);
   };
 
@@ -305,7 +327,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("app_vat_enabled", String(next));
   };
 
-  const currencySymbol = currencies.find((c) => c.code === "RWF")?.symbol ?? "RWF";
+  const currencySymbol = currencyCatalog.find((c) => c.code === currency)?.symbol ?? currency;
   const t = (key: string) => strings[key] ?? BASE_STRINGS[key] ?? key;
 
   return (
@@ -313,7 +335,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
       currency, currencySymbol, locale, theme, navOrientation, vatEnabled, translating,
       brandColor, logoUrl,
       t, setCurrency, setLocale, setTheme, setNavOrientation, setVatEnabled, setBrandColor, setLogoUrl,
-      currencies, locales, brandColorPresets,
+      currencies: currencyCatalog, locales, brandColorPresets,
     }}>
       {children}
     </AppConfigContext.Provider>
