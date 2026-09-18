@@ -94,19 +94,26 @@ def calculate_paye(gross_salary: Decimal) -> dict:
     }
 
 
-def calculate_vat(amount: Decimal, inclusive: bool = True) -> dict:
-    """Calculate VAT (Value Added Tax) at 18%
-    
+def calculate_vat(amount: Decimal, inclusive: bool = True, rate: Decimal | None = None) -> dict:
+    """Calculate VAT (Value Added Tax).
+
     Args:
-        amount: Amount in RWF
+        amount: Amount in the tenant's currency
         inclusive: If True, amount includes VAT; if False, amount is exclusive
-        
+        rate: The VAT rate as a percentage (e.g. Decimal("18.00")). Defaults to
+            the standard 18% reference rate — callers with a tenant in scope
+            should resolve the tenant's configured rate via
+            `get_effective_vat_rate` and pass it in here instead of relying
+            on this default, so a tenant-specific rate is never silently
+            ignored.
+
     Returns:
         Dictionary with VAT details
     """
     amount = Decimal(str(amount))
-    vat_rate = TAX_RATES["vat"] / 100
-    
+    rate = rate if rate is not None else TAX_RATES["vat"]
+    vat_rate = rate / 100
+
     if inclusive:
         # VAT inclusive: extract VAT from amount
         net_amount = (amount / (1 + vat_rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -115,14 +122,23 @@ def calculate_vat(amount: Decimal, inclusive: bool = True) -> dict:
         # VAT exclusive: add VAT to amount
         net_amount = amount
         vat_amount = (amount * vat_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    
+
     return {
         "net_amount": float(net_amount),
-        "vat_rate": 18.0,
+        "vat_rate": float(rate),
         "vat_amount": float(vat_amount),
         "gross_amount": float(net_amount + vat_amount),
         "is_inclusive": inclusive,
     }
+
+
+async def get_effective_vat_rate(db: AsyncSession, tenant_id: uuid.UUID) -> Decimal:
+    """The tenant's configured VAT rate (accounting_tax_configs, tax_type="vat"),
+    falling back to the standard 18% reference rate if the tenant hasn't set
+    one up yet. This is the single place sale/return posting should resolve
+    the rate from — never hardcode it at the call site."""
+    config = await get_tax_config(db, tenant_id, "vat")
+    return Decimal(str(config.rate)) if config is not None else TAX_RATES["vat"]
 
 
 def calculate_withholding_tax(amount: Decimal, payment_type: str = "resident") -> dict:

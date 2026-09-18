@@ -10,9 +10,12 @@ from app.modules.accounting.schemas import AccountCreate, AccountRead, AccountUp
 # Default chart of accounts seeded per tenant on first use
 DEFAULT_ACCOUNTS = [
     ("1000", "Cash",                    "Assets",      "debit"),
+    ("1010", "Bank",                    "Assets",      "debit"),
+    ("1020", "Mobile Money",            "Assets",      "debit"),
     ("1100", "Accounts Receivable",     "Assets",      "debit"),
     ("1200", "Inventory",               "Assets",      "debit"),
     ("2000", "Accounts Payable",        "Liabilities", "credit"),
+    ("2100", "VAT Payable",             "Liabilities", "credit"),
     ("3000", "Owner Equity",            "Equity",      "credit"),
     ("4000", "Sales Revenue",           "Revenue",     "credit"),
     ("5000", "Cost of Goods Sold",      "Expense",     "debit"),

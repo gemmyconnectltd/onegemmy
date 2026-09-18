@@ -4,10 +4,12 @@ from datetime import UTC, date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
 from app.modules.accounting.repository import AccountRepository, TransactionRepository
 from app.modules.accounting.schemas import TransactionCreate, TransactionRead, TransactionUpdate
+from app.modules.accounting.service.account import DEFAULT_ACCOUNTS
 from app.modules.audit.service import record_audit
 
 
@@ -142,8 +144,34 @@ async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
 # ── Internal helpers called by sales service hooks ──────────────────────────
 
 async def _get_account_by_code(db: AsyncSession, tenant_id: uuid.UUID, code: str) -> uuid.UUID | None:
-    acc = await AccountRepository(db).get_by_code(tenant_id, code)
-    return acc.id if acc else None
+    """Resolves a chart-of-accounts code to its account id, self-healing by
+    creating it from DEFAULT_ACCOUNTS if a tenant seeded their chart before
+    this code existed (e.g. VAT Payable added later) — so posting logic
+    never silently no-ops just because a tenant hasn't re-run the seed."""
+    repo = AccountRepository(db)
+    acc = await repo.get_by_code(tenant_id, code)
+    if acc is not None:
+        return acc.id
+    default = next((d for d in DEFAULT_ACCOUNTS if d[0] == code), None)
+    if default is None:
+        return None
+    _, name, type_, normal_balance = default
+    acc = await repo.save(Account(tenant_id=tenant_id, code=code, name=name, type=type_, normal_balance=normal_balance))
+    return acc.id
+
+
+# Maps an Order.payment_method value to the (code, label) of the asset
+# account that actually received the money. "card" settles to the bank
+# account, same as a bank transfer — Pesaa doesn't model a separate card
+# clearing account. Anything not listed here (including None) is treated as
+# unpaid at sale time and goes to Accounts Receivable instead.
+_PAYMENT_METHOD_ACCOUNTS: dict[str, tuple[str, str]] = {
+    "cash": ("1000", "Cash"),
+    "bank": ("1010", "Bank"),
+    "card": ("1010", "Bank"),
+    "mobile": ("1020", "Mobile Money"),
+    "mobile_money": ("1020", "Mobile Money"),
+}
 
 
 async def create_sale_transaction(
@@ -154,13 +182,42 @@ async def create_sale_transaction(
     total: float,
     order_number: str,
     cogs: float = 0.0,
+    tax: float = 0.0,
+    payment_method: str | None = None,
+    amount_paid: float | None = None,
 ) -> None:
-    """Auto-called when an order is Completed. Debit AR, Credit Revenue, plus
-    Debit COGS / Credit Inventory for the cost of goods sold, if any."""
-    ar_id = await _get_account_by_code(db, tenant_id, "1100")
+    """Auto-called when an order is Completed.
+
+    Debits whichever account(s) the money actually landed in: the
+    payment-method account (Cash/Bank/Mobile Money) for however much was
+    paid right away, and Accounts Receivable for anything still owed — a
+    sale with no payment info at all (payment_method=None, e.g. a manually
+    invoiced order) debits AR for the full total, same as before this
+    routing existed. `amount_paid` is capped at `total`; any excess is
+    change handed back to the customer, not money the business is owed or
+    banked twice.
+
+    Credits Revenue for the net (VAT-exclusive) amount and VAT Payable for
+    the tax portion — `total` is VAT-inclusive throughout Pesaa, so
+    Revenue must never include the tax collected on the business's behalf.
+    Also Debit COGS / Credit Inventory for the cost of goods sold, if any.
+    """
     rev_id = await _get_account_by_code(db, tenant_id, "4000")
-    if not ar_id or not rev_id:
+    ar_id = await _get_account_by_code(db, tenant_id, "1100")
+    if not rev_id or not ar_id:
         return  # accounts not seeded yet — skip silently
+
+    paid = 0.0
+    method_id = None
+    method_label = None
+    if payment_method and amount_paid:
+        code, method_label = _PAYMENT_METHOD_ACCOUNTS.get(payment_method.lower(), ("1000", "Cash"))
+        method_id = await _get_account_by_code(db, tenant_id, code)
+        if method_id is not None:
+            paid = round(min(float(amount_paid), total), 2)
+    credit_remaining = round(total - paid, 2)
+
+    net_revenue = round(total - tax, 2)
 
     repo = TransactionRepository(db)
     reference = await repo.next_reference(tenant_id)
@@ -175,8 +232,18 @@ async def create_sale_transaction(
         created_by=user_id,
     )
     txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="debit",  amount=total, description="Accounts Receivable"))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=total, description="Sales Revenue"))
+
+    if paid > 0 and method_id is not None:
+        db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="debit", amount=paid, description=method_label))
+    if credit_remaining > 0:
+        db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id, type="debit", amount=credit_remaining, description="Accounts Receivable"))
+
+    db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=net_revenue, description="Sales Revenue"))
+
+    if tax > 0:
+        vat_id = await _get_account_by_code(db, tenant_id, "2100")
+        if vat_id:
+            db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="credit", amount=round(tax, 2), description="VAT Payable"))
 
     if cogs > 0:
         cogs_id = await _get_account_by_code(db, tenant_id, "5000")
@@ -256,10 +323,14 @@ async def create_purchase_transaction(
     total: float,
     reference: str,
 ) -> None:
-    """Auto-called when a purchase order is received. Debit Inventory, Credit Cash."""
+    """Auto-called when a purchase order is received and its supplier bill is
+    raised. Debit Inventory, Credit Accounts Payable — receiving goods creates
+    a liability to the supplier, not an assumption that they were paid in
+    cash on the spot. See create_supplier_payment_transaction for the
+    settlement of that liability."""
     inv_id = await _get_account_by_code(db, tenant_id, "1200")
-    cash_id = await _get_account_by_code(db, tenant_id, "1000")
-    if not inv_id or not cash_id:
+    ap_id = await _get_account_by_code(db, tenant_id, "2000")
+    if not inv_id or not ap_id:
         return  # accounts not seeded yet — skip silently
 
     repo = TransactionRepository(db)
@@ -275,8 +346,43 @@ async def create_purchase_transaction(
         created_by=user_id,
     )
     txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id,  type="debit",  amount=total, description="Inventory"))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=cash_id, type="credit", amount=total, description="Cash"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id, type="debit",  amount=total, description="Inventory"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ap_id,  type="credit", amount=total, description="Accounts Payable"))
+
+
+async def create_supplier_payment_transaction(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    purchase_id: uuid.UUID | None,
+    amount: float,
+    reference: str,
+    payment_method: str | None,
+) -> None:
+    """Auto-called when a supplier bill payment is recorded. Debit Accounts
+    Payable (reduces the liability), Credit whichever asset account the money
+    actually came from — resolved the same way a customer payment is."""
+    ap_id = await _get_account_by_code(db, tenant_id, "2000")
+    code, label = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
+    method_id = await _get_account_by_code(db, tenant_id, code)
+    if not ap_id or not method_id:
+        return  # accounts not seeded yet — skip silently
+
+    repo = TransactionRepository(db)
+    txn_ref = await repo.next_reference(tenant_id)
+    txn = Transaction(
+        tenant_id=tenant_id,
+        reference=txn_ref,
+        type="supplier_payment",
+        status="Posted",
+        transaction_date=datetime.now(UTC).date(),
+        description=f"Supplier payment {reference}",
+        purchase_id=purchase_id,
+        created_by=user_id,
+    )
+    txn = await repo.save(txn)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ap_id,     type="debit",  amount=round(amount, 2), description="Accounts Payable"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=round(amount, 2), description=label))
 
 
 async def backfill_sale_transactions(
@@ -324,8 +430,14 @@ async def backfill_sale_transactions(
             created_by=user_id,
         )
         txn = await repo.save(txn)
+        order_tax = float(order.tax or 0)
+        net_revenue = round(float(order.total) - order_tax, 2)
         db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="debit",  amount=float(order.total), description="Accounts Receivable"))
-        db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=float(order.total), description="Sales Revenue"))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=net_revenue, description="Sales Revenue"))
+        if order_tax > 0:
+            vat_id = await _get_account_by_code(db, tenant_id, "2100")
+            if vat_id:
+                db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="credit", amount=round(order_tax, 2), description="VAT Payable"))
         count += 1
 
     await db.commit()

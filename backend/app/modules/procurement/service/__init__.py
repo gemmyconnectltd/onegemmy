@@ -26,10 +26,18 @@ from app.modules.procurement.service.requisition import (
     list_requisitions,
     reject_requisition,
 )
+from app.modules.procurement.service.supplier_bill import (
+    count_bills,
+    get_bill,
+    list_bills,
+    list_payments,
+    record_payment,
+)
 
 __all__ = [
     "approve_requisition",
     "cancel_purchase",
+    "count_bills",
     "count_purchases",
     "count_requisitions",
     "count_returns",
@@ -39,15 +47,19 @@ __all__ = [
     "delete_purchase",
     "delete_requisition",
     "delete_return",
+    "get_bill",
     "get_purchase",
     "get_requisition",
     "get_return",
+    "list_bills",
+    "list_payments",
     "list_purchases",
     "list_requisitions",
     "list_returns",
     "mark_refunded",
     "mark_replaced",
     "receive_purchase",
+    "record_payment",
     "reject_requisition",
     "update_purchase",
 ]

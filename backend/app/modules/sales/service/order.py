@@ -1,12 +1,17 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.accounting.schemas.tax import TaxCalculationCreate
-from app.modules.accounting.service.tax import create_tax_calculation
+from app.modules.accounting.service.tax import (
+    calculate_vat,
+    create_tax_calculation,
+    get_effective_vat_rate,
+)
 from app.modules.accounting.service.transaction import create_sale_transaction
 from app.modules.audit.service import record_audit
 from app.modules.inventory.models.product import Product
@@ -81,7 +86,19 @@ def _complete_sale_item(item: OrderItem, product_name: str, quantity: float, var
     return cost * quantity
 
 
-async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, tax_amount: float, total: float) -> None:
+async def _apply_vat(db: AsyncSession, tenant_id: uuid.UUID, gross: float) -> tuple[float, float, float]:
+    """Every price in Pesaa (product selling price, POS line total, manual
+    order unit price) is VAT-inclusive — `gross` already includes tax, so it
+    is never added a second time. Returns (tax, total, vat_rate); `total`
+    always equals `gross`, and `tax` is the VAT portion extracted from it
+    using the tenant's configured rate (accounting_tax_configs), for
+    reporting/posting purposes only."""
+    rate = await get_effective_vat_rate(db, tenant_id)
+    vat = calculate_vat(Decimal(str(gross)), inclusive=True, rate=rate)
+    return round(vat["vat_amount"], 2), round(gross, 2), float(rate)
+
+
+async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, tax_amount: float, total: float, vat_rate: float) -> None:
     """Write a VAT TaxCalculation record for a completed order."""
     if tax_amount <= 0:
         return
@@ -92,7 +109,7 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
         reference_id=str(order_id),
         period=period,
         taxable_amount=round(total - tax_amount, 2),
-        tax_rate=18.0,
+        tax_rate=vat_rate,
         tax_amount=round(tax_amount, 2),
         description=f"VAT on order {order_id}",
     ))
@@ -127,7 +144,8 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     order_number = await repo.next_order_number(tenant_id)
 
     subtotal = sum(item.line_total for item in data.items)
-    total = round(subtotal - data.discount + data.tax, 2)
+    gross = round(subtotal - data.discount, 2)
+    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
 
     order = Order(
         tenant_id=tenant_id,
@@ -139,7 +157,7 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         status=data.status,
         subtotal=subtotal,
         discount=data.discount,
-        tax=data.tax,
+        tax=tax,
         total=total,
         notes=data.notes,
         client_order_id=data.client_order_id,
@@ -207,8 +225,11 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     if data.status == "Completed":
         await _bump_revenue_targets(db, tenant_id, total)
         await _bump_order_targets(db, tenant_id)
-        await create_sale_transaction(db, tenant_id, user_id, order.id, total, order_number, cogs=round(cogs_total, 2))
-        await _record_vat(db, tenant_id, order.id, data.tax, total)
+        await create_sale_transaction(
+            db, tenant_id, user_id, order.id, total, order_number, cogs=round(cogs_total, 2), tax=tax,
+            payment_method=data.payment_method, amount_paid=data.amount_tendered,
+        )
+        await _record_vat(db, tenant_id, order.id, tax, total, vat_rate)
 
     await record_audit(
         db,
@@ -256,7 +277,14 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     before = obj.status
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, field, value)
-    obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
+    # Every price is VAT-inclusive — tax is always recomputed from the gross
+    # (subtotal - discount) using the tenant's configured rate, never taken
+    # from client input, so it can never be double-counted or drift from the
+    # rest of the system's calculation.
+    gross = round(float(obj.subtotal) - float(obj.discount), 2)
+    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+    obj.tax = tax
+    obj.total = total
     # if status just flipped to Completed, deduct stock, post COGS, and bump targets
     if not was_completed and obj.status == "Completed":
         cogs_total = 0.0
@@ -264,8 +292,11 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
             cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product)
         await _bump_revenue_targets(db, tenant_id, float(obj.total))
         await _bump_order_targets(db, tenant_id)
-        await create_sale_transaction(db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number, cogs=round(cogs_total, 2))
-        await _record_vat(db, tenant_id, obj.id, float(obj.tax), float(obj.total))
+        await create_sale_transaction(
+            db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number, cogs=round(cogs_total, 2), tax=tax,
+            payment_method=obj.payment_method, amount_paid=float(obj.amount_tendered) if obj.amount_tendered is not None else None,
+        )
+        await _record_vat(db, tenant_id, obj.id, tax, total, vat_rate)
     await OrderRepository(db).save(obj)
     await record_audit(
         db,

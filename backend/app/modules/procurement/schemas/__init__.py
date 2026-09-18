@@ -7,6 +7,11 @@ from app.modules.procurement.schemas.purchase import (
 )
 from app.modules.procurement.schemas.purchase_return import PurchaseReturnCreate, PurchaseReturnRead
 from app.modules.procurement.schemas.requisition import RequisitionCreate, RequisitionRead
+from app.modules.procurement.schemas.supplier_bill import (
+    SupplierBillRead,
+    SupplierPaymentCreate,
+    SupplierPaymentRead,
+)
 
 __all__ = [
     "PurchaseCreate",
@@ -18,4 +23,7 @@ __all__ = [
     "PurchaseUpdate",
     "RequisitionCreate",
     "RequisitionRead",
+    "SupplierBillRead",
+    "SupplierPaymentCreate",
+    "SupplierPaymentRead",
 ]
