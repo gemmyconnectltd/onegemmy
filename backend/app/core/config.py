@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from typing import Literal
 
@@ -46,7 +47,24 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-        return ["*"] if "*" in origins else origins
+        if "*" in origins:
+            return ["*"]
+        # Wildcard-subdomain entries (e.g. "https://*.pesaa.io") are matched
+        # via cors_origin_regex instead of an exact-match origin here.
+        return [origin for origin in origins if "*" not in origin]
+
+    @property
+    def cors_origin_regex(self) -> str | None:
+        """Turn any "https://*.domain.tld" entries in CORS_ORIGINS into a
+        regex so every subdomain of an owned domain (app., mobile., etc.) is
+        allowed without listing each one individually — exact origins are
+        still matched via cors_origins_list."""
+        patterns = [
+            "^" + re.escape(origin.strip()).replace(r"\*", r"[a-z0-9-]+(?:\.[a-z0-9-]+)*") + "$"
+            for origin in self.CORS_ORIGINS.split(",")
+            if "*" in origin.strip() and origin.strip() != "*"
+        ]
+        return "|".join(patterns) if patterns else None
 
     @property
     def is_production(self) -> bool:
