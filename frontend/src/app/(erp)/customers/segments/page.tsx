@@ -69,7 +69,7 @@ export default function SegmentsPage() {
             </button>
           ))}
         </div>
-        <table className="w-full">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 font-semibold">Customer</th>

@@ -127,7 +127,7 @@ export default function ReportsPage() {
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Top Products by Revenue</h2>
         {topProducts.length > 0 ? (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="pb-3 text-[11px] font-semibold text-muted uppercase tracking-wider">#</th>

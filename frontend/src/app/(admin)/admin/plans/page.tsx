@@ -92,7 +92,7 @@ export default function AdminPlansPage() {
         const list = plansByTenant[plan] ?? [];
         const meta = PLANS[plan];
         return (
-          <div key={plan} className="bg-card border border-border rounded-xl overflow-hidden">
+          <div key={plan} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-surface/30">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${meta.color}18` }}>
@@ -113,7 +113,7 @@ export default function AdminPlansPage() {
                 <p className="text-sm text-muted">No tenants on this plan</p>
               </div>
             ) : (
-              <table className="w-full">
+              <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
                     <th className="px-5 py-3 font-semibold">Business</th>
@@ -151,7 +151,7 @@ export default function AdminPlansPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
         );

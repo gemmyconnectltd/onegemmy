@@ -101,7 +101,7 @@ export default function ProcurementPage() {
           tooltipStyle={c.tooltip}
           empty="No purchase orders yet"
         />
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Recent purchase orders</h2>
             <Link href="/procurement/orders" className="flex items-center gap-1 text-[12px] font-semibold text-accent">

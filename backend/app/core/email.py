@@ -1,7 +1,10 @@
 import html
+import re
 import smtplib
+import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -9,6 +12,22 @@ from app.core.logging import get_logger
 log = get_logger("email")
 
 LOGO_URL = "https://pesaa.io/icons/icon-192x192.png"
+
+
+def _message_id() -> str:
+    """Unique, RFC 5322 Message-ID with the From domain — some spam filters
+    downgrade mail whose Message-ID lacks a plausible domain."""
+    match = re.search(r"<([^>]+)>", settings.EMAIL_FROM)
+    domain = match.group(1).rsplit("@", 1)[-1] if match and "@" in match.group(1) else "localhost"
+    return f"<{uuid.uuid4()}@{domain}>"
+
+
+def _plain_text(html_body: str) -> str:
+    """Rough plaintext rendition of a template — sent alongside the HTML so the
+    message is never HTML-only (a strong spam signal)."""
+    text = html_body.replace("<br>", "\n").replace("</p>", "\n")
+    text = re.sub(r"<[^>]+>", " ", text)
+    return html.unescape(re.sub(r"[ \t]{2,}", " ", text)).strip()
 
 
 def _preheader(text: str) -> str:
@@ -94,7 +113,7 @@ def _security_note(text: str) -> str:
 
 
 async def send_email(to: str, subject: str, html_body: str, text_body: str | None = None) -> bool:
-    """Send an email via Gmail SMTP. Fails soft — email must never break a request."""
+    """Send an email via SMTP. Fails soft — email must never break a request."""
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject}})
         return False
@@ -103,9 +122,11 @@ async def send_email(to: str, subject: str, html_body: str, text_body: str | Non
     msg["Subject"] = subject
     msg["From"] = settings.EMAIL_FROM
     msg["To"] = to
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = _message_id()
+    msg["MIME-Version"] = "1.0"
 
-    if text_body:
-        msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(text_body or _plain_text(html_body), "plain"))
     msg.attach(MIMEText(html_body, "html"))
 
     try:
@@ -113,7 +134,7 @@ async def send_email(to: str, subject: str, html_body: str, text_body: str | Non
             server.ehlo()
             server.starttls()
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_USER, to, msg.as_string())
+            server.send_message(msg)
         log.info("email.sent", extra={"_extra_fields": {"to": to, "subject": subject}})
         return True
     except Exception:

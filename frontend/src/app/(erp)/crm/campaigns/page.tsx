@@ -17,7 +17,7 @@ export default function CampaignsPage() {
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />New Campaign</button>
       </div>
       <div className="bg-card border border-border">
-        <table className="w-full">
+        <table className="w-full min-w-[640px]">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Campaign</th><th className="p-4 font-medium">Type</th><th className="p-4 font-medium">Start</th><th className="p-4 font-medium text-right">Sent</th><th className="p-4 font-medium text-right">Opened</th><th className="p-4 font-medium">Status</th>
           </tr></thead>

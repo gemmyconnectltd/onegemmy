@@ -206,8 +206,8 @@ export default function IncomePage() {
           <Button color={FIN} size="sm" onClick={() => setShowAdd(true)}><Plus size={13} /> Add Income</Button>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Reference</th>
@@ -271,7 +271,7 @@ export default function IncomePage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 

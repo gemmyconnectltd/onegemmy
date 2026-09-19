@@ -170,7 +170,7 @@ export default function PurchaseRequestsPage() {
       )}
 
       <div className="bg-card border border-border overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 w-10">
@@ -239,7 +239,7 @@ export default function PurchaseRequestsPage() {
               <tr><td colSpan={9} className="p-10 text-center text-sm text-muted">No requests match.</td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <p className="text-[13px] text-muted">{pending} request{pending === 1 ? "" : "s"} awaiting approval.</p>

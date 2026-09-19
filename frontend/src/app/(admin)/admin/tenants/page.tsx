@@ -196,13 +196,13 @@ export default function AdminTenantsPage() {
           <AlertTriangle size={15} /> Failed to load tenants
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           {bulk.count > 0 && (
             <div className="px-5 py-3 border-b border-border">
               <BulkActionBar count={bulk.count} label="organization" pluralLabel="organizations" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
                 <th className="px-5 py-3 w-10">
@@ -277,7 +277,7 @@ export default function AdminTenantsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {filtered.length === 0 && (
             <div className="py-16 text-center">
               <Building2 size={32} className="text-muted/30 mx-auto mb-3" />

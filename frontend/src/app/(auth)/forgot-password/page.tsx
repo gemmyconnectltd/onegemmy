@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { usePageTitle } from "@/lib/pageTitles";
 import { Logo } from "@/components/ui/Logo";
+import { authApi } from "@/lib/api/auth";
 
 export default function ForgotPasswordPage() {
   usePageTitle("Forgot Password");
@@ -12,15 +13,40 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [devLink, setDevLink] = useState<string | null>(null);
+  const [devDelivered, setDevDelivered] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    // TODO: wire up to backend password reset endpoint when available
-    await new Promise((r) => setTimeout(r, 1000));
-    setSent(true);
-    setLoading(false);
+    try {
+      // The backend always responds with the same message whether or not
+      // the email exists, so it can't be used to probe for registered
+      // accounts — we just show the "check your email" state either way.
+      const res = await authApi.forgotPassword(email);
+      // In local/staging the backend returns a debug reset link so the flow
+      // stays testable even when SMTP is unconfigured. Production never
+      // returns it, so this stays dev-only.
+      const data = res?.data as { debug_reset_link?: string; debug_email_delivered?: boolean } | undefined;
+      if (data?.debug_reset_link) {
+        setDevLink(data.debug_reset_link);
+        setDevDelivered(data.debug_email_delivered ?? false);
+      }
+      setSent(true);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const detail = (err as { detail?: string })?.detail;
+      if (!status) {
+        setError("Can't reach the server. Check your connection and try again in a moment.");
+      } else if (status === 429) {
+        setError("Too many reset requests. Please wait a while before trying again.");
+      } else {
+        setError(detail || "Something went wrong. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -39,6 +65,19 @@ export default function ForgotPasswordPage() {
             <p className="text-sm text-muted mb-6">
               If <span className="font-medium text-foreground">{email}</span> is registered, you&apos;ll receive a reset link shortly.
             </p>
+            {devLink && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6 text-left">
+                <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider mb-1">Dev only</p>
+                {!devDelivered && (
+                  <p className="text-[12px] text-amber-700 mb-2">
+                    Email delivery isn&apos;t configured — use the link below directly.
+                  </p>
+                )}
+                <a href={devLink} className="text-[12px] font-medium text-amber-800 break-all hover:underline">
+                  {devLink}
+                </a>
+              </div>
+            )}
             <Link href="/login" className="text-sm font-medium text-foreground hover:underline flex items-center justify-center gap-1.5">
               <ArrowLeft size={14} /> Back to sign in
             </Link>

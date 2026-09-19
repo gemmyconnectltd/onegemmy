@@ -114,7 +114,7 @@ function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: ApiOrder; 
 
       {/* Line items */}
       <div className="flex-1 overflow-y-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border bg-surface/50">
               <th className="px-5 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wide">Item</th>
@@ -136,7 +136,7 @@ function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: ApiOrder; 
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
 
         {/* Totals */}
         <div className="px-5 py-4 border-t border-border space-y-2 bg-surface/20">
@@ -296,8 +296,8 @@ export default function InvoicesPage() {
           <p className="text-[13px] text-muted">Try adjusting your filters or create a new invoice.</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-surface/50">
                 <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted uppercase tracking-wide">Invoice</th>
@@ -366,7 +366,7 @@ export default function InvoicesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <div className="px-4 py-3 border-t border-border flex items-center justify-between">
             <p className="text-[12px] text-muted">{filtered.length} invoice{filtered.length !== 1 ? "s" : ""}</p>
             <p className="text-[12px] font-semibold text-foreground">

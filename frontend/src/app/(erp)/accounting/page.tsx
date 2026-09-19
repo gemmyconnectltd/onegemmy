@@ -275,7 +275,7 @@ export default function AccountingPage() {
             {transactions.length === 0 ? (
               <p className="text-sm text-muted py-10 text-center">No transactions recorded yet.</p>
             ) : (
-              <table className="w-full">
+              <table className="w-full min-w-[640px]">
                 <tbody className="divide-y divide-border">
                   {transactions.map((t) => (
                     <tr key={t.id} className="hover:bg-surface/50 transition-colors">

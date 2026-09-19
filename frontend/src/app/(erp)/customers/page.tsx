@@ -248,8 +248,8 @@ export default function CustomersPage() {
           {bulk.count > 0 && (
             <BulkActionBar count={bulk.count} label="customer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           )}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">
@@ -325,7 +325,7 @@ export default function CustomersPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
         </div>
       )}

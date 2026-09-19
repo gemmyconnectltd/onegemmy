@@ -224,7 +224,7 @@ export default function PurchaseOrdersPage() {
       )}
 
       <div className="bg-card border border-border overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 w-10">
@@ -296,7 +296,7 @@ export default function PurchaseOrdersPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       {/* New Purchase Order */}

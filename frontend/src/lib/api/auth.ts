@@ -57,4 +57,19 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ refresh_token }),
     }),
+  forgotPassword: (email: string) =>
+    request<{ data: { message: string; debug_reset_link?: string; debug_email_delivered?: boolean } }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, new_password: string) =>
+    request<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password }),
+    }),
+  changePassword: (current_password: string, new_password: string) =>
+    request<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
 };

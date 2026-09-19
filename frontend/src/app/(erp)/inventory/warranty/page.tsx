@@ -101,8 +101,8 @@ export default function WarrantyPage() {
         </select>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
               <th className="px-4 py-3 font-semibold">Claim</th>
@@ -150,7 +150,7 @@ export default function WarrantyPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

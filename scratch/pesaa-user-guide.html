@@ -1,0 +1,602 @@
+<title>Pesaa User Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+  :root {
+    --bg: #f6f8f4;
+    --surface: #ffffff;
+    --surface-2: #eef2ea;
+    --border: #dde5d8;
+    --text: #16221a;
+    --text-muted: #5c6b60;
+    --accent: #16a34a;
+    --accent-deep: #166534;
+    --accent-ink: #052e16;
+    --accent-tint: #e6f4ea;
+    --warn-tint: #fdf3e0;
+    --warn-ink: #7a5209;
+    --shadow: 0 1px 2px rgba(5, 46, 22, 0.06), 0 8px 24px -12px rgba(5, 46, 22, 0.14);
+    --measure: 66ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0a120d;
+      --surface: #101c14;
+      --surface-2: #16241a;
+      --border: #223226;
+      --text: #e9f2ec;
+      --text-muted: #93a89b;
+      --accent: #34d17a;
+      --accent-deep: #5fdb98;
+      --accent-ink: #d7f5e2;
+      --accent-tint: #14291c;
+      --warn-tint: #2c2410;
+      --warn-ink: #f0c56a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0a120d;
+    --surface: #101c14;
+    --surface-2: #16241a;
+    --border: #223226;
+    --text: #e9f2ec;
+    --text-muted: #93a89b;
+    --accent: #34d17a;
+    --accent-deep: #5fdb98;
+    --accent-ink: #d7f5e2;
+    --accent-tint: #14291c;
+    --warn-tint: #2c2410;
+    --warn-ink: #f0c56a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: "Lexend", "Public Sans", sans-serif;
+    text-wrap: balance;
+    color: var(--text);
+    margin: 0;
+  }
+
+  a { color: var(--accent-deep); }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  .shell {
+    display: flex;
+    min-height: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 272px;
+    flex-shrink: 0;
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    align-self: flex-start;
+    height: 100dvh;
+    overflow-y: auto;
+    padding: 28px 18px 28px 24px;
+    border-right: 1px solid var(--border);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .brand-mark {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .brand-mark svg { width: 18px; height: 18px; }
+  .brand-name { font-family: "Lexend"; font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+  .brand-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 22px 44px; }
+
+  .nav-group { margin-bottom: 4px; }
+  .nav-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    padding: 14px 10px 6px;
+  }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    scroll-margin-top: 12px;
+  }
+  .nav-link:hover { background: var(--surface-2); }
+  .nav-link.active { background: var(--accent-tint); color: var(--accent-ink); font-weight: 600; }
+  .nav-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--border); flex-shrink: 0;
+  }
+  .nav-link.active .nav-dot { background: var(--accent); }
+
+  .sidebar-foot {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .sidebar-foot a { display: block; margin-top: 4px; }
+
+  /* ---------- Mobile nav toggle ---------- */
+  .mobile-bar {
+    display: none;
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mobile-bar .brand { margin-bottom: 0; }
+  .mobile-bar .brand-sub { display: none; }
+  .nav-toggle {
+    font-family: "Public Sans";
+    font-weight: 600;
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  /* ---------- Main content ---------- */
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 44px 40px 100px;
+  }
+
+  .page-head { max-width: var(--measure); margin-bottom: 40px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono";
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+    margin-bottom: 10px;
+  }
+  .page-head h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; }
+  .page-head p.lede { margin-top: 12px; font-size: 16px; color: var(--text-muted); max-width: 58ch; }
+  .updated { margin-top: 16px; font-size: 12.5px; color: var(--text-muted); }
+
+  section.module {
+    max-width: var(--measure);
+    margin-bottom: 56px;
+    scroll-margin-top: 20px;
+  }
+  section.module h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  section.module .path {
+    font-family: "IBM Plex Mono";
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  section.module .dek {
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+
+  .feature-list {
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .feature-list li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .feature-list .num {
+    font-family: "IBM Plex Mono";
+    font-size: 11.5px;
+    color: var(--accent-deep);
+    background: var(--accent-tint);
+    border-radius: 5px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .feature-list strong { font-weight: 600; }
+
+  .callout {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-size: 14px;
+    display: flex;
+    gap: 10px;
+  }
+  .callout.warn {
+    background: var(--warn-tint);
+    border-color: color-mix(in srgb, var(--warn-ink) 30%, transparent);
+    color: var(--warn-ink);
+  }
+  .callout .icon { flex-shrink: 0; margin-top: 2px; }
+  .callout b { display: block; margin-bottom: 5px; }
+
+  .subpages {
+    margin-top: 16px;
+    font-size: 13.5px;
+    color: var(--text-muted);
+  }
+  .subpages .chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono";
+    font-size: 11.5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin: 3px 4px 0 0;
+  }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 44px 0; max-width: var(--measure); }
+
+  .faq-item { margin-bottom: 18px; }
+  .faq-item h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 5px; }
+  .faq-item p { margin: 0; color: var(--text-muted); font-size: 14.5px; }
+
+  .contact-card {
+    max-width: var(--measure);
+    padding: 20px 22px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent-ink) 0%, var(--accent-deep) 100%);
+    color: #eafbf0;
+    box-shadow: var(--shadow);
+  }
+  .contact-card h2 { color: #ffffff; font-size: 19px; }
+  .contact-card p { color: #cdeedb; font-size: 14px; margin-top: 6px; }
+  .contact-card a {
+    color: #ffffff;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  ::selection { background: var(--accent-tint); }
+
+  @media (max-width: 860px) {
+    .shell { display: block; }
+    .sidebar { display: none; }
+    .sidebar.open {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      height: 100dvh;
+      background: var(--bg);
+      width: 100%;
+      padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+    }
+    .mobile-bar { display: flex; }
+    main { padding: 28px 18px 90px; }
+    .page-head h1 { font-size: 27px; }
+  }
+</style>
+
+<div class="mobile-bar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14"/><path d="M8 5h5a3.5 3.5 0 0 1 0 7h-5"/></svg>
+    </div>
+    <span class="brand-name">Pesaa</span>
+  </div>
+  <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="sidebar">Menu</button>
+</div>
+
+<div class="shell">
+  <nav class="sidebar" id="sidebar" aria-label="Guide sections">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14"/><path d="M8 5h5a3.5 3.5 0 0 1 0 7h-5"/></svg>
+      </div>
+      <span class="brand-name">Pesaa</span>
+    </div>
+    <p class="brand-sub">User Guide</p>
+
+    <div class="nav-group">
+      <p class="nav-label">Start here</p>
+      <a class="nav-link" href="#getting-started"><span class="nav-dot"></span>Getting started</a>
+      <a class="nav-link" href="#dashboard"><span class="nav-dot"></span>Your dashboard</a>
+    </div>
+
+    <div class="nav-group">
+      <p class="nav-label">Modules</p>
+      <a class="nav-link" href="#sales"><span class="nav-dot"></span>Sales</a>
+      <a class="nav-link" href="#inventory"><span class="nav-dot"></span>Inventory</a>
+      <a class="nav-link" href="#accounting"><span class="nav-dot"></span>Accounting</a>
+      <a class="nav-link" href="#procurement"><span class="nav-dot"></span>Procurement</a>
+      <a class="nav-link" href="#hr"><span class="nav-dot"></span>HR</a>
+      <a class="nav-link" href="#customers"><span class="nav-dot"></span>Customers</a>
+      <a class="nav-link" href="#manufacturing"><span class="nav-dot"></span>Manufacturing</a>
+      <a class="nav-link" href="#reports"><span class="nav-dot"></span>Reports</a>
+    </div>
+
+    <div class="nav-group">
+      <p class="nav-label">Configure</p>
+      <a class="nav-link" href="#appearance"><span class="nav-dot"></span>Branding &amp; appearance</a>
+    </div>
+
+    <div class="nav-group">
+      <p class="nav-label">Reference</p>
+      <a class="nav-link" href="#faq"><span class="nav-dot"></span>Good to know</a>
+      <a class="nav-link" href="#help"><span class="nav-dot"></span>Getting help</a>
+    </div>
+
+    <div class="sidebar-foot">
+      <span>Pesaa &middot; run your whole business from one place</span>
+      <a href="https://pesaa.io" target="_blank" rel="noopener">pesaa.io ↗</a>
+    </div>
+  </nav>
+
+  <main id="content">
+    <div class="page-head">
+      <p class="eyebrow">User Guide</p>
+      <h1>Everything Pesaa does, in plain language</h1>
+      <p class="lede">Pesaa is a single place to run sales, stock, books, purchasing, your team, and your customers — from one login. This guide walks through what's actually on screen, module by module, so you know where to go and what each part is for.</p>
+      <p class="updated">What you see may differ slightly depending on your plan — modules are switched on per business.</p>
+    </div>
+
+    <section class="module" id="getting-started">
+      <h2>Getting started</h2>
+      <p class="dek">Every Pesaa account starts with a short sign-up, followed by a quick review before you can sign in.</p>
+      <ul class="feature-list">
+        <li><span class="num">1</span><div><strong>Create your account.</strong> On the sign-up page, step one asks for your name, phone number, email, and a password — your password is yours from the start; nobody sets it for you.</div></li>
+        <li><span class="num">2</span><div><strong>Tell us about your business.</strong> Step two covers your business name, type (sole proprietorship, partnership, LLC, or unregistered), industry, size, and location.</div></li>
+        <li><span class="num">3</span><div><strong>Wait for approval.</strong> New businesses are reviewed before they go live. You'll see a "pending approval" confirmation right away, and an email once your account is active.</div></li>
+        <li><span class="num">4</span><div><strong>Sign in.</strong> Once approved, log in with the email and password you chose at sign-up — you're taken straight to your dashboard.</div></li>
+      </ul>
+      <div class="callout">
+        <span class="icon">💬</span>
+        <div><b>Multiple people at one business</b>Additional staff are added by whoever manages your account, from inside Pesaa — they don't need to go through sign-up themselves.</div>
+      </div>
+    </section>
+
+    <section class="module" id="dashboard">
+      <h2>Your dashboard <span class="path">/dashboard</span></h2>
+      <p class="dek">The first screen you land on after signing in — a quick snapshot of the business before you head into a specific module. Everything on it links through to the fuller module pages covered below.</p>
+    </section>
+
+    <hr class="divider" />
+
+    <section class="module" id="sales">
+      <h2>Sales <span class="path">/sales</span></h2>
+      <p class="dek">The Sales menu covers two different jobs — worth knowing apart, since they're not the same screen.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Sales Pipeline</strong> (the main Sales page) tracks deals as they move through stages — Leads, Qualified, Proposal, Negotiation, Closed Won, Closed Lost. Each deal has a value, a probability, an expected close date, and notes. Use this for anything you're still negotiating: quotes, wholesale orders, ongoing conversations.</div></li>
+        <li><span class="num">→</span><div><strong>Orders</strong> <span class="path">/sales/orders</span> is where an actual sale gets rung up — pick a customer (or leave it as a walk-in), add products or product variants by searching name or SKU, adjust price, quantity, or discount per line, then mark the order Pending, Completed, or Cancelled. Completing an order posts it straight into your books.</div></li>
+      </ul>
+      <div class="callout warn">
+        <span class="icon">⚠️</span>
+        <div><b>VAT is entered by hand</b>Orders show an 18% VAT column, but that figure is typed in per order rather than calculated automatically from a tax rate — double-check it before completing a sale.</div>
+      </div>
+      <p class="subpages">Also on this menu: <span class="chip">Analytics</span><span class="chip">Returns</span><span class="chip">Targets</span></p>
+    </section>
+
+    <section class="module" id="inventory">
+      <h2>Inventory <span class="path">/inventory</span></h2>
+      <p class="dek">Everything you stock, from a single item to a product with several variants.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Add products one at a time</strong> or <strong>import a batch</strong> — each product has a name, SKU, category, brand, unit, price, cost, current stock, and a minimum-stock threshold, plus an optional photo.</div></li>
+        <li><span class="num">→</span><div><strong>Variants</strong> let one product carry several versions — size, color, and so on — each tracked with its own stock and price, rolled up into the parent product's totals.</div></li>
+        <li><span class="num">→</span><div><strong>Restock</strong> any low or out-of-stock item directly from its alert — record the quantity added, the reason, and any notes.</div></li>
+      </ul>
+      <p class="subpages">Also on this menu: <span class="chip">Categories</span><span class="chip">Brands</span><span class="chip">Units</span><span class="chip">Batches</span><span class="chip">Serials</span><span class="chip">Suppliers</span><span class="chip">Transfers</span><span class="chip">Warranty</span></p>
+    </section>
+
+    <section class="module" id="accounting">
+      <h2>Accounting <span class="path">/accounting</span></h2>
+      <p class="dek">Your books, kept in view: income, expenses, profit, and cash — updated automatically as sales come in, plus what you log by hand.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div>A running view of <strong>total income, total expenses, net profit, margin, cash balance, and money owed to you</strong>, alongside a six-month income-vs-expenses chart.</div></li>
+        <li><span class="num">→</span><div><strong>Log an expense</strong> with a title, amount, date, and category, or <strong>log income</strong> received outside of a normal sale — Pesaa records the underlying journal entry for you.</div></li>
+        <li><span class="num">→</span><div>Completed sales from the Orders screen post here automatically — you don't need to re-enter them.</div></li>
+      </ul>
+      <p class="subpages">Also on this menu: <span class="chip">Chart of Accounts</span><span class="chip">Expenses</span><span class="chip">Income</span><span class="chip">Invoices</span><span class="chip">Reports</span></p>
+    </section>
+
+    <section class="module" id="procurement">
+      <h2>Procurement <span class="path">/procurement</span></h2>
+      <p class="dek">What you buy from suppliers, and what your own staff have asked to order.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div>A quick view of <strong>pending and draft purchase orders</strong>, your supplier count, total spend, and a spend-by-supplier breakdown.</div></li>
+        <li><span class="num">→</span><div><strong>Purchase orders</strong> move through Draft → Approved → Received (or Cancelled), so you can see exactly what's on its way.</div></li>
+        <li><span class="num">→</span><div><strong>Staff requests</strong> let your team ask for something to be ordered, for you to approve or decline.</div></li>
+      </ul>
+      <p class="subpages">Also on this menu: <span class="chip">Purchase Orders</span><span class="chip">Suppliers</span><span class="chip">Requests</span><span class="chip">Returns</span></p>
+    </section>
+
+    <section class="module" id="hr">
+      <h2>HR <span class="path">/hr</span></h2>
+      <p class="dek">Your team, in one list.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Add an employee</strong> with their name, contact details, department, job title, hire date, salary, and employment status — Active, On Leave, or Terminated.</div></li>
+        <li><span class="num">→</span><div>Filter your team by status, and see totals for active staff and staff on leave at a glance.</div></li>
+      </ul>
+      <p class="subpages">Also on this menu: <span class="chip">Attendance</span><span class="chip">Leave</span><span class="chip">Payroll</span><span class="chip">Recruiting</span></p>
+    </section>
+
+    <section class="module" id="customers">
+      <h2>Customers <span class="path">/customers</span></h2>
+      <p class="dek">Who buys from you, and what they've bought.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Add a customer</strong> with contact details and a type — individual, business, VIP, or wholesale.</div></li>
+        <li><span class="num">→</span><div>Open any customer to see their <strong>full order history</strong>, total orders, and total amount spent.</div></li>
+        <li><span class="num">→</span><div>See your total customer count, how many are active, total revenue, and your top spender at a glance.</div></li>
+      </ul>
+      <p class="subpages">Also on this menu: <span class="chip">Analytics</span><span class="chip">Loyalty</span><span class="chip">Segments</span></p>
+    </section>
+
+    <section class="module" id="manufacturing">
+      <h2>Manufacturing <span class="path">/manufacturing</span></h2>
+      <p class="dek">For businesses that build or assemble what they sell.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Work orders</strong> move through Draft → Scheduled → In Progress → Completed, each tied to a product, a quantity, and a scheduled date.</div></li>
+        <li><span class="num">→</span><div>See totals for work orders in progress, completed, and units produced overall.</div></li>
+      </ul>
+      <p class="subpages">Also on this menu: <span class="chip">Work Orders</span><span class="chip">Bill of Materials</span><span class="chip">Materials</span><span class="chip">Analytics</span></p>
+    </section>
+
+    <section class="module" id="reports">
+      <h2>Reports <span class="path">/reports</span></h2>
+      <p class="dek">A read-only view across everything else — for when you need the numbers, not the data entry.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Total revenue, VAT collected, refunds, and active customers</strong>, plus revenue by month and orders by status.</div></li>
+        <li><span class="num">→</span><div>A <strong>top products</strong> table ranked by revenue, drawn straight from your real orders.</div></li>
+      </ul>
+    </section>
+
+    <hr class="divider" />
+
+    <section class="module" id="appearance">
+      <h2>Branding &amp; appearance <span class="path">Settings → Appearance</span></h2>
+      <p class="dek">The one screen in Settings that actually changes what your whole team sees.</p>
+      <ul class="feature-list">
+        <li><span class="num">→</span><div><strong>Theme</strong> — switch the whole account between light and dark.</div></li>
+        <li><span class="num">→</span><div><strong>Brand color and logo</strong> — pick an accent color and upload your company logo (PNG, JPEG, or WEBP, up to 2MB); both apply for everyone at your business.</div></li>
+        <li><span class="num">→</span><div><strong>Language</strong> — English, Ikinyarwanda, or Kiswahili.</div></li>
+        <li><span class="num">→</span><div><strong>Currency</strong> — RWF, USD, EUR, KES, UGX, or TZS. This sets one currency for the whole account, not per sale.</div></li>
+      </ul>
+      <div class="callout">
+        <span class="icon">🎨</span>
+        <div><b>Shared, not personal</b>Appearance settings apply to your whole business, not just your own login — changing the logo or currency here changes it for every staff member.</div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <section class="module" id="faq">
+      <h2>Good to know</h2>
+      <div class="faq-item">
+        <h3>Why don't I see every module in this guide?</h3>
+        <p>Modules are switched on per plan, and some screens are limited by your role. If something here isn't in your menu, it isn't part of your current plan.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can different branches use different currencies?</h3>
+        <p>No — currency is one setting for the whole account, chosen in Settings → Appearance.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Does VAT get calculated for me?</h3>
+        <p>Not automatically. The Orders screen shows an 18% VAT column, but the amount is entered per order rather than computed from a stored tax rate.</p>
+      </div>
+      <div class="faq-item">
+        <h3>What's the difference between Sales and Orders?</h3>
+        <p>Sales is your pipeline of deals still in progress. Orders, under Sales, is where a completed sale actually gets recorded and posted to your books.</p>
+      </div>
+    </section>
+
+    <section class="module" id="help" style="margin-bottom:20px;">
+      <div class="contact-card">
+        <h2>Still stuck?</h2>
+        <p>Reach the Pesaa team directly and we'll help you sort it out.</p>
+        <p style="margin-top:10px;"><a href="mailto:support@pesaa.io">support@pesaa.io</a></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  try {
+    var toggle = document.getElementById('navToggle');
+    var sidebar = document.getElementById('sidebar');
+    if (toggle && sidebar) {
+      toggle.addEventListener('click', function () {
+        var open = sidebar.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.textContent = open ? 'Close' : 'Menu';
+      });
+      sidebar.querySelectorAll('a.nav-link').forEach(function (a) {
+        a.addEventListener('click', function () {
+          sidebar.classList.remove('open');
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.textContent = 'Menu';
+        });
+      });
+    }
+
+    var links = Array.prototype.slice.call(document.querySelectorAll('.nav-link'));
+    var sections = links
+      .map(function (a) { return document.querySelector(a.getAttribute('href')); })
+      .filter(Boolean);
+
+    if ('IntersectionObserver' in window && sections.length) {
+      var byId = {};
+      links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var link = byId[entry.target.id];
+          if (!link) return;
+          if (entry.isIntersecting) {
+            links.forEach(function (a) { a.classList.remove('active'); });
+            link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+
+      sections.forEach(function (s) { observer.observe(s); });
+    }
+  } catch (e) {
+    // Non-essential UI sugar — the guide still reads fine without it.
+  }
+})();
+</script>

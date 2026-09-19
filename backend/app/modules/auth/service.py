@@ -5,7 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.email import send_password_reset_email, send_pending_signup_email, send_registration_received_email
+from app.core.email import (
+    send_password_reset_email,
+    send_pending_signup_email,
+    send_registration_received_email,
+)
 from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from app.core.logging import get_logger
 from app.core.security import (
@@ -231,14 +235,23 @@ async def forgot_password(db: AsyncSession, data: ForgotPasswordRequest) -> dict
     )
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
-    await send_password_reset_email(
+    delivered = await send_password_reset_email(
         to=user.email,
         full_name=user.full_name,
         reset_link=reset_link,
     )
 
-    log.info("auth.forgot_password.token_generated", extra={"_extra_fields": {"user_id": str(user.id)}})
-    return {"message": "If the email exists, a password reset link has been sent"}
+    log.info("auth.forgot_password.token_generated", extra={"_extra_fields": {"user_id": str(user.id), "delivered": delivered}})
+
+    # Public response is identical whether or not the account exists (no
+    # account-enumeration oracle). Locally/staging the email infra may be
+    # unconfigured, so surface the link + delivery status there to keep the
+    # flow testable — never in production.
+    result = {"message": "If the email exists, a password reset link has been sent"}
+    if not settings.is_production:
+        result["debug_reset_link"] = reset_link
+        result["debug_email_delivered"] = delivered
+    return result
 
 
 async def reset_password(db: AsyncSession, data: ResetPasswordRequest) -> None:

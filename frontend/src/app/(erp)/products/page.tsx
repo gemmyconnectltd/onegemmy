@@ -155,7 +155,7 @@ export default function ProductsPage() {
         style={{ border: "1px solid #e8e4de" }}
       >
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr style={{ backgroundColor: "#f8f8f6" }}>
                 <th
@@ -314,7 +314,7 @@ export default function ProductsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 

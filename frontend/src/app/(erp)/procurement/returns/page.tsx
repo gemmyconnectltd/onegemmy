@@ -163,7 +163,7 @@ export default function PurchaseReturnsPage() {
       </div>
 
       <div className="bg-card border border-border overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 font-medium">Return</th>
@@ -224,7 +224,7 @@ export default function PurchaseReturnsPage() {
               <tr><td colSpan={10} className="p-10 text-center text-sm text-muted">No returns match.</td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <Drawer

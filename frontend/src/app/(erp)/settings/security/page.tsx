@@ -2,8 +2,9 @@
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Shield, Lock, Eye, EyeOff, Check, Smartphone, Clock } from "lucide-react";
+import { Shield, Lock, Eye, EyeOff, Check, Smartphone, Clock, Loader2, AlertCircle } from "lucide-react";
 import { Field, Input } from "@/components/ui/Form";
+import { authApi } from "@/lib/api/auth";
 
 export default function SecurityPage() {
   const { brandColor } = useAppConfig();
@@ -13,14 +14,37 @@ export default function SecurityPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState({ current: "", newPass: "", confirm: "" });
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [twoFA, setTwoFA] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.current || !form.newPass || form.newPass !== form.confirm) return;
-    setSaved(true);
-    setForm({ current: "", newPass: "", confirm: "" });
-    setTimeout(() => setSaved(false), 2500);
+    if (!form.current || !form.newPass) return;
+    if (form.newPass !== form.confirm) {
+      setError("Passwords do not match");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      await authApi.changePassword(form.current, form.newPass);
+      setForm({ current: "", newPass: "", confirm: "" });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const detail = (err as { detail?: string })?.detail;
+      if (!status) {
+        setError("Can't reach the server. Check your connection and try again in a moment.");
+      } else if (status === 401 && detail === "Session expired") {
+        setError("Your session has expired. Please sign in again.");
+      } else {
+        setError(detail || "Something went wrong. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sessions = [
@@ -44,6 +68,12 @@ export default function SecurityPage() {
           <h2 className="text-sm font-bold text-foreground">Change Password</h2>
         </div>
         <form onSubmit={handleSave} className="space-y-3">
+          {error && (
+            <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 text-sm rounded-lg">
+              <AlertCircle size={16} className="flex-shrink-0" />
+              {error}
+            </div>
+          )}
           <Field label="Current Password" required>
             <div className="relative">
               <Input type={showCurrent ? "text" : "password"} value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} placeholder="••••••••" />
@@ -71,9 +101,15 @@ export default function SecurityPage() {
           {form.newPass && form.confirm && form.newPass !== form.confirm && (
             <p className="text-[12px] text-red-500 font-medium">Passwords do not match</p>
           )}
-          <button type="submit" disabled={!form.current || !form.newPass || form.newPass !== form.confirm}
+          <button type="submit" disabled={loading || !form.current || !form.newPass || form.newPass !== form.confirm}
             className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors disabled:opacity-40" style={{ backgroundColor: C }}>
-            {saved ? <><Check size={14} /> Password updated!</> : <><Lock size={14} /> Update Password</>}
+            {loading ? (
+              <><Loader2 size={14} className="animate-spin" /> Updating...</>
+            ) : saved ? (
+              <><Check size={14} /> Password updated!</>
+            ) : (
+              <><Lock size={14} /> Update Password</>
+            )}
           </button>
         </form>
       </div>

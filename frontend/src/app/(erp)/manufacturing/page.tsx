@@ -93,7 +93,7 @@ export default function ManufacturingPage() {
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <p className="text-[13px] font-semibold text-foreground">Recent Work Orders</p>
           <Link href="/manufacturing/work-orders" className="text-[12px] font-semibold text-accent hover:underline">
@@ -111,7 +111,7 @@ export default function ManufacturingPage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <tbody className="divide-y divide-border">
               {recent.map((o) => (
                 <tr key={o.id} className="hover:bg-surface/50 transition-colors">
@@ -136,7 +136,7 @@ export default function ManufacturingPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

@@ -98,8 +98,8 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <table className="w-full">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
               <th className="px-5 py-3 font-semibold">User</th>
@@ -151,7 +151,7 @@ export default function AdminUsersPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         {filtered.length === 0 && (
           <div className="py-16 text-center">
             <Users size={32} className="text-muted/30 mx-auto mb-3" />

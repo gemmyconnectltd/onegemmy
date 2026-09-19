@@ -198,7 +198,7 @@ export default function WorkOrdersPage() {
         <BulkActionBar count={bulk.count} label="work order" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         {loading ? (
           <PageLoader variant="compact" />
         ) : displayed.length === 0 ? (
@@ -209,7 +209,7 @@ export default function WorkOrdersPage() {
             <Button color={COLOR} size="sm" onClick={openAdd}><Plus size={13} /> New Work Order</Button>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">
@@ -275,7 +275,7 @@ export default function WorkOrdersPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

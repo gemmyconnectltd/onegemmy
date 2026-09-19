@@ -521,7 +521,7 @@ export default function TenantDetailPage() {
 
       {/* Users panel */}
       {tab === "users" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Users ({users.length})</h2>
             <button onClick={openInvite} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
@@ -600,7 +600,7 @@ export default function TenantDetailPage() {
                 </tr>
               ))}
             </tbody>
-            </table>
+            </table></div>
           </div>
           {users.length === 0 && (
             <div className="py-12 text-center">
@@ -616,7 +616,7 @@ export default function TenantDetailPage() {
 
       {/* Departments panel */}
       {tab === "departments" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Departments ({departments.length})</h2>
             <button onClick={() => setShowAddDept(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
@@ -670,7 +670,7 @@ export default function TenantDetailPage() {
 
       {/* Roles panel */}
       {tab === "roles" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Roles ({roles.length})</h2>
             <button onClick={() => setShowAddRole(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
@@ -724,7 +724,7 @@ export default function TenantDetailPage() {
 
       {/* Branches panel */}
       {tab === "branches" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Branches ({branches.length})</h2>
             <button onClick={() => setShowAddBranch(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">

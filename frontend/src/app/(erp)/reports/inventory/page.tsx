@@ -202,7 +202,7 @@ export default function InventoryReportPage() {
                 </tr>
               </tfoot>
             )}
-          </table>
+          </table></div>
         </div>
       </div>
     </div>

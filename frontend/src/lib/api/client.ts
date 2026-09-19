@@ -106,7 +106,7 @@ async function tryRefreshToken(): Promise<string | null> {
 // "your session died" — they're the entry points to a session, not calls
 // made during one, so they must never trigger the refresh-then-session-
 // expired flow below (that flow assumes an existing session went stale).
-const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password"];
+const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/change-password"];
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();

@@ -178,13 +178,13 @@ export default function RepairsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         {bulk.count > 0 && (
           <div className="px-4 py-3 border-b border-border">
             <BulkActionBar count={bulk.count} label="job" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
               <th className="px-4 py-3 w-10">
@@ -238,7 +238,7 @@ export default function RepairsPage() {
               </td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

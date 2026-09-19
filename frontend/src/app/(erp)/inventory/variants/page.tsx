@@ -198,7 +198,7 @@ export default function VariantsPage() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
@@ -265,7 +265,7 @@ export default function VariantsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
         <div className="px-5 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {variants.length} variants</p>

@@ -80,7 +80,7 @@ export default function MaterialsPage() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         {loading ? (
           <PageLoader variant="compact" />
         ) : rows.length === 0 ? (
@@ -90,7 +90,7 @@ export default function MaterialsPage() {
             <p className="text-xs text-muted mt-1">Add components to a work order or BOM to see usage here</p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Component</th>
@@ -123,7 +123,7 @@ export default function MaterialsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

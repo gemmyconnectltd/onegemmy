@@ -126,7 +126,7 @@ function KpiCards({ sales, expenses, profit, cash, customers, salesChange, expCh
 
 function SalesChart({ chart, title, sub, c }: { chart: { label: string; sales: number; expenses: number }[]; title: string; sub: string; c: ChartPalette }) {
   return (
-    <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
+    <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-foreground">{title}</h2>
@@ -171,7 +171,7 @@ function EarningsBreakdown({ sales, expenses, profit, label, c }: { sales: numbe
   const margin = hasData ? Math.round((profit / sales) * 100) : 0;
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
       <div className="px-4 py-3 border-b border-border">
         <h2 className="text-sm font-bold text-foreground">Earnings Breakdown</h2>
         <p className="text-[11px] text-muted mt-0.5">How {label.toLowerCase()}&apos;s revenue split</p>
@@ -241,7 +241,7 @@ function TargetAndActions({ sales, expenses, profit, target, label, c }: { sales
         {target > 0 && <p className="text-[11px] text-muted"><span className="font-semibold text-foreground">{fmtMoney(Math.max(0, target - sales))}</span> left to target</p>}
       </div>
       <EarningsBreakdown sales={sales} expenses={expenses} profit={profit} label={label} c={c} />
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Zap size={13} style={{ color: c.gold }} />
           <h2 className="text-sm font-bold text-foreground">Quick Actions</h2>
@@ -291,7 +291,7 @@ function TopProducts({ orders }: { orders: ApiOrder[] }) {
 function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { id: string; name: string; stock: number; min: number }[] }) {
   return (
     <div className="space-y-4">
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground">Top Products</h2>
           <a href="/inventory" className="text-[11px] font-bold text-accent hover:underline">View all</a>
@@ -299,7 +299,7 @@ function SidePanel({ orders, lowStock }: { orders: ApiOrder[]; lowStock: { id: s
         <TopProducts orders={orders} />
       </div>
       {lowStock.length > 0 ? (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Low Stock</h2>
             <a href="/inventory" className="text-[11px] font-bold text-accent hover:underline">Restock</a>
@@ -474,7 +474,7 @@ export default function DashboardPage() {
 
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Recent Sales */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Recent Sales</h2>
             <a href="/sales/orders" className="text-[11px] font-bold text-accent hover:underline flex items-center gap-0.5">View all <ChevronRight size={11} /></a>
@@ -507,7 +507,7 @@ export default function DashboardPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </div>
         </div>

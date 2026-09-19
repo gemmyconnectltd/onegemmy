@@ -128,7 +128,7 @@ export default function SalesReportPage() {
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Recent Orders</h2>
         {orders.length > 0 ? (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left">
                 {["Order #", "Customer", "Status", "VAT (18%)", "Total", "Date"].map((h) => (
