@@ -33,6 +33,7 @@ export interface RegisterInput {
   email: string;
   fullName: string;
   password: string;
+  country?: string;
   // Business information — collected on the register form's second step.
   businessType?: string;
   industry?: string;
@@ -190,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         full_name: data.fullName,
         password: data.password,
+        country: data.country,
         business_type: data.businessType,
         industry: data.industry,
         business_category: data.businessCategory,

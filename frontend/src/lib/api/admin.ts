@@ -55,6 +55,16 @@ export interface AdminPlatformStats {
   monthly_signups: { month: string; count: number }[];
 }
 
+export interface AdminTenantAnalytics {
+  by_country: { name: string; value: number }[];
+  by_industry: { name: string; value: number }[];
+  by_business_type: { name: string; value: number }[];
+  by_heard_about: { name: string; value: number }[];
+  by_status: { name: string; value: number }[];
+  by_plan: { name: string; value: number }[];
+  monthly_signups: { month: string; count: number }[];
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -128,6 +138,7 @@ const B = "/admin";
 
 export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
+  tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
   listUsers: (page = 1, pageSize = 50) =>
     request<PaginatedResponse<AdminUserRow>>(`${B}/users?page=${page}&page_size=${pageSize}`),
 

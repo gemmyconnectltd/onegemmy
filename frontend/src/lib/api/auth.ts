@@ -34,6 +34,7 @@ export interface ApiRegisterRequest {
   business_location?: string;
   heard_about?: string;
   referral_code?: string;
+  country?: string;
 }
 
 export interface ApiRegisterResponse {

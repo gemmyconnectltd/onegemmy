@@ -157,6 +157,7 @@ export default function RegisterPage() {
       password,
       tenantName: company,
       tenantSlug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+      country: countryName || undefined,
       businessType: businessType || undefined,
       industry: industry || undefined,
       businessCategory: businessCategory || undefined,

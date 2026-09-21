@@ -84,6 +84,56 @@ async def admin_stats(db: DbSession, _: SuperUser):
     }, message="Platform stats retrieved")
 
 
+@router.get("/tenant-analytics")
+async def admin_tenant_analytics(db: DbSession, _: SuperUser):
+    """Breakdown charts: country, industry, business_type, heard_about, status, plan, monthly signups."""
+
+    async def group_by_col(col):
+        expr = func.coalesce(func.nullif(col, ""), "Unknown")
+        rows = (await db.execute(
+            select(expr.label("name"), func.count().label("cnt"))
+            .group_by(expr).order_by(func.count().desc())
+        )).fetchall()
+        return [{"name": r.name, "value": r.cnt} for r in rows if r.name != "Unknown"]
+
+    active = (await db.execute(select(func.count()).select_from(Tenant).where(Tenant.is_active == True))).scalar_one()
+    pending = (await db.execute(select(func.count()).select_from(Tenant).where(
+        Tenant.is_active == False, Tenant.subscription_status == "pending"
+    ))).scalar_one()
+    suspended = (await db.execute(select(func.count()).select_from(Tenant).where(
+        Tenant.is_active == False, Tenant.subscription_status != "pending"
+    ))).scalar_one()
+
+    plan_rows = (await db.execute(
+        select(Tenant.subscription_plan, func.count().label("cnt"))
+        .group_by(Tenant.subscription_plan).order_by(func.count().desc())
+    )).fetchall()
+
+    monthly = (await db.execute(text("""
+        SELECT TO_CHAR(created_at, 'Mon YY') AS month,
+               DATE_TRUNC('month', created_at) AS month_start,
+               COUNT(*) AS cnt
+        FROM tenants
+        WHERE created_at >= NOW() - INTERVAL '12 months'
+        GROUP BY month, month_start
+        ORDER BY month_start
+    """))).fetchall()
+
+    return success_response(data={
+        "by_country":       await group_by_col(Tenant.country),
+        "by_industry":      await group_by_col(Tenant.industry),
+        "by_business_type": await group_by_col(Tenant.business_type),
+        "by_heard_about":   await group_by_col(Tenant.heard_about),
+        "by_status": [
+            {"name": "Active",    "value": active},
+            {"name": "Pending",   "value": pending},
+            {"name": "Suspended", "value": suspended},
+        ],
+        "by_plan": [{"name": r.subscription_plan, "value": r.cnt} for r in plan_rows],
+        "monthly_signups": [{"month": r.month, "count": r.cnt} for r in monthly],
+    }, message="Tenant analytics retrieved")
+
+
 # ── Platform users ────────────────────────────────────────────────────────────
 
 @router.get("/users")

@@ -5,77 +5,59 @@ import {
   AlertTriangle, Server, Clock, Globe2, Factory, Megaphone,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useAdminStats, useTenants } from "@/lib/api/hooks";
+import { useAdminStats, useTenants, useAdminTenantAnalytics } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
 import { fmtMoney } from "@/lib/config";
 import { chartPalette } from "@/lib/chartColors";
 import { useAppConfig } from "@/lib/appConfig";
 import { TenantGrowthChart, DonutChart } from "@/components/charts/lazy";
+import { BrandMark, type BrandKind } from "@/components/charts/BrandMark";
 import Link from "next/link";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "#64748b", starter: "#0284c7", professional: "#8b5cf6", enterprise: "#d97706",
 };
 
-// ── UI preview only ──────────────────────────────────────────────────────
-// The register form collects country, business type, industry, and "how did
-// you hear about us" (see /register), but none of it is sent to the backend
-// yet — see the note in that page's handleSubmit. These numbers are static
-// placeholders standing in for what these widgets will show once that data
-// is actually persisted and there's a real endpoint to aggregate it.
-const MOCK_COUNTRY_STATS = [
-  { name: "Rwanda", value: 42 },
-  { name: "Kenya", value: 28 },
-  { name: "Uganda", value: 12 },
-  { name: "Tanzania", value: 6 },
-  { name: "Other", value: 3 },
-];
-const COUNTRY_COLORS = ["#0284c7", "#38bdf8", "#7dd3fc", "#bae6fd", "#e0f2fe"];
+const COUNTRY_COLORS   = ["#0284c7", "#38bdf8", "#7dd3fc", "#bae6fd", "#93c5fd", "#6366f1", "#64748b"];
+const INDUSTRY_COLORS  = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#e0e7ff", "#6366f1", "#64748b"];
+const BIZ_TYPE_COLORS  = ["#059669", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"];
+const HEARD_COLORS     = ["#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"];
 
-const MOCK_INDUSTRY_STATS = [
-  { name: "Retail", value: 35 },
-  { name: "Services", value: 22 },
-  { name: "Wholesale", value: 15 },
-  { name: "Technology", value: 10 },
-  { name: "Other", value: 9 },
-];
-const INDUSTRY_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"];
+const BIZ_TYPE_LABELS: Record<string, string> = {
+  sole: "Sole Proprietorship",
+  partnership: "Partnership",
+  llc: "Limited Liability (LLC)",
+  unregistered: "Not Registered",
+};
 
-const MOCK_BUSINESS_TYPE_STATS = [
-  { name: "Sole Proprietorship", value: 48 },
-  { name: "Limited Liability (LLC)", value: 24 },
-  { name: "Partnership", value: 14 },
-  { name: "Not Registered", value: 5 },
-];
-const BUSINESS_TYPE_COLORS = ["#059669", "#34d399", "#6ee7b7", "#a7f3d0"];
-
-const MOCK_HEARD_ABOUT_STATS = [
-  { name: "Social media", value: 38 },
-  { name: "Friend or colleague", value: 26 },
-  { name: "Search engine", value: 19 },
-  { name: "Advertisement", value: 8 },
-  { name: "Other", value: 1 },
-];
-const HEARD_ABOUT_COLORS = ["#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"];
+function normalizeBizType(data: { name: string; value: number }[]) {
+  return data.map((d) => ({ ...d, name: BIZ_TYPE_LABELS[d.name] ?? d.name }));
+}
 
 function CategoryDonut({
-  data, colors, tooltipStyle,
+  data, colors, tooltipStyle, empty, kind,
 }: {
   data: { name: string; value: number }[];
   colors: string[];
   tooltipStyle: React.CSSProperties;
+  empty?: string;
+  kind: BrandKind;
 }) {
-  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  const visible = data.filter((d) => d.value > 0 && d.name !== "Unknown");
+  const total = visible.reduce((s, d) => s + d.value, 0) || 1;
+  if (visible.length === 0) return (
+    <p className="text-[12px] text-muted text-center py-6">{empty ?? "No data yet"}</p>
+  );
   return (
     <div className="flex items-center gap-4">
       <div className="w-24 h-24 flex-shrink-0">
-        <DonutChart data={data} colors={colors} innerRadius={30} outerRadius={48} tooltipStyle={tooltipStyle} />
+        <DonutChart data={visible} colors={colors} innerRadius={30} outerRadius={48} tooltipStyle={tooltipStyle} />
       </div>
       <div className="flex-1 min-w-0 space-y-2">
-        {data.map((d, i) => (
+        {visible.slice(0, 5).map((d, i) => (
           <div key={d.name} className="flex items-center gap-2 text-[12.5px]">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: colors[i] }} />
-            <span className="font-semibold text-foreground truncate flex-1">{d.name}</span>
+            <BrandMark kind={kind} name={d.name} color={colors[i % colors.length]} />
+            <span className="font-semibold text-foreground truncate flex-1 capitalize">{d.name}</span>
             <span className="text-muted flex-shrink-0">{d.value} · {Math.round((d.value / total) * 100)}%</span>
           </div>
         ))}
@@ -88,11 +70,7 @@ export default function AdminOverviewPage() {
   const { theme } = useAppConfig();
   const c = chartPalette(theme === "dark");
   const { data: stats, isLoading, isError } = useAdminStats();
-  // Signup-specific data isn't in /admin/stats — derived client-side from
-  // the same tenant list /admin/tenants already uses, so pending-approval
-  // signups can be told apart from tenants an admin suspended after the
-  // fact (both are is_active: false; only subscription_status distinguishes
-  // them — see tenantStatusLabel).
+  const { data: analytics } = useAdminTenantAnalytics();
   const { data: tenantsData } = useTenants(1, 200);
   const allTenants = tenantsData?.items ?? [];
 
@@ -363,12 +341,12 @@ export default function AdminOverviewPage() {
         </div>
       )}
 
-      {/* Signup insights — UI preview, see MOCK_* comment above */}
+      {/* Signup insights — real data from /admin/tenant-analytics */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-sm font-bold text-foreground">Signup Insights</h2>
-            <p className="text-[11px] text-muted">Preview — not yet wired to real signup data</p>
+            <p className="text-[11px] text-muted">Based on registration data from all tenants</p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
@@ -379,7 +357,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">By Country</h3>
             </div>
-            <CategoryDonut data={MOCK_COUNTRY_STATS} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} />
+            <CategoryDonut data={analytics?.by_country ?? []} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} empty="No country data yet" kind="country" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -389,7 +367,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">By Industry</h3>
             </div>
-            <CategoryDonut data={MOCK_INDUSTRY_STATS} colors={INDUSTRY_COLORS} tooltipStyle={c.tooltip} />
+            <CategoryDonut data={analytics?.by_industry ?? []} colors={INDUSTRY_COLORS} tooltipStyle={c.tooltip} empty="No industry data yet" kind="industry" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -399,7 +377,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">By Business Type</h3>
             </div>
-            <CategoryDonut data={MOCK_BUSINESS_TYPE_STATS} colors={BUSINESS_TYPE_COLORS} tooltipStyle={c.tooltip} />
+            <CategoryDonut data={normalizeBizType(analytics?.by_business_type ?? [])} colors={BIZ_TYPE_COLORS} tooltipStyle={c.tooltip} empty="No business type data yet" kind="business_type" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -409,7 +387,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">How They Heard About Us</h3>
             </div>
-            <CategoryDonut data={MOCK_HEARD_ABOUT_STATS} colors={HEARD_ABOUT_COLORS} tooltipStyle={c.tooltip} />
+            <CategoryDonut data={analytics?.by_heard_about ?? []} colors={HEARD_COLORS} tooltipStyle={c.tooltip} empty="No referral data yet" kind="heard_about" />
           </div>
         </div>
       </div>

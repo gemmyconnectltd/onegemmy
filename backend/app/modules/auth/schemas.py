@@ -13,6 +13,7 @@ class RegisterRequest(BaseModel):
     # Business information — collected on the register form's second step.
     # All optional, so the endpoint keeps working if the frontend ever
     # trims this step down or a field is left blank.
+    country: str | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
