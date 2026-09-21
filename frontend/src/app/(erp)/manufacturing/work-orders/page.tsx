@@ -275,8 +275,9 @@ export default function WorkOrdersPage() {
                 </tr>
               ))}
             </tbody>
-          </table></div>
+          </table>
         )}
+        </div>
       </div>
 
       <Drawer open={showAdd} onClose={closeDrawer}

@@ -224,7 +224,7 @@ export default function PurchaseReturnsPage() {
               <tr><td colSpan={10} className="p-10 text-center text-sm text-muted">No returns match.</td></tr>
             )}
           </tbody>
-        </table></div>
+        </table>
       </div>
 
       <Drawer

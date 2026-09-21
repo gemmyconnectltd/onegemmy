@@ -101,7 +101,7 @@ export default function ProcurementPage() {
           tooltipStyle={c.tooltip}
           empty="No purchase orders yet"
         />
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Recent purchase orders</h2>
             <Link href="/procurement/orders" className="flex items-center gap-1 text-[12px] font-semibold text-accent">
@@ -118,7 +118,7 @@ export default function ProcurementPage() {
                     <p className="text-[13px] font-semibold text-foreground">{p.supplier?.name ?? "Unknown supplier"}</p>
                     <p className="text-[11px] text-muted">{p.reference}</p>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-3 shrink-0">
                     <span className="text-[13px] font-bold text-foreground tabular-nums">{fmt(p.total)}</span>
                     <span className={`inline-flex items-center text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${STATUS_STYLES[p.status] ?? ""}`}>
                       {p.status}

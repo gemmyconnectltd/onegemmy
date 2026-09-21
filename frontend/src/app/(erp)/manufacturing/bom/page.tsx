@@ -219,8 +219,9 @@ export default function BomPage() {
                 </tr>
               ))}
             </tbody>
-          </table></div>
+          </table>
         )}
+        </div>
       </div>
 
       <Drawer open={showForm} onClose={closeForm}

@@ -239,7 +239,7 @@ export default function PurchaseRequestsPage() {
               <tr><td colSpan={9} className="p-10 text-center text-sm text-muted">No requests match.</td></tr>
             )}
           </tbody>
-        </table></div>
+        </table>
       </div>
 
       <p className="text-[13px] text-muted">{pending} request{pending === 1 ? "" : "s"} awaiting approval.</p>

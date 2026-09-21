@@ -314,7 +314,7 @@ export default function ProductsPage() {
                 </tr>
               )}
             </tbody>
-          </table></div>
+          </table>
         </div>
       </div>
 

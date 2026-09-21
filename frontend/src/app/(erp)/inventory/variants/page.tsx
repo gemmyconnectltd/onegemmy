@@ -265,8 +265,8 @@ export default function VariantsPage() {
                 </tr>
               )}
             </tbody>
-          </table></div>
-        </div>
+          </table>
+          </div>
         <div className="px-5 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {variants.length} variants</p>
           <p className="text-xs text-muted">Total stock value: <span className="font-semibold text-foreground">{fmt(filtered.reduce((s, v) => s + v.stock * v.cost, 0))}</span></p>

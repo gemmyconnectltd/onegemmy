@@ -521,7 +521,7 @@ export default function TenantDetailPage() {
 
       {/* Users panel */}
       {tab === "users" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Users ({users.length})</h2>
             <button onClick={openInvite} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
@@ -547,60 +547,60 @@ export default function TenantDetailPage() {
                   <th className="px-5 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
-            <tbody className="divide-y divide-border">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-surface/40 transition-colors">
-                  <td className="px-5 py-3.5">
-                    {!u.is_superuser && (
-                      <input type="checkbox" checked={bulkUsers.selected.has(u.id)} onChange={() => bulkUsers.toggle(u.id)} className="w-4 h-4 rounded" />
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <p className="text-sm font-medium text-foreground">{u.full_name} {u.is_superuser && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent ml-1">SUPERADMIN</span>}</p>
-                    <p className="text-[11px] text-muted">{u.email}</p>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-surface text-muted capitalize">{u.role}</span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`flex items-center gap-1 text-[11px] font-semibold w-fit ${u.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                      {u.is_active ? <CheckCircle size={11} /> : <XCircle size={11} />}
-                      {u.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-[12px] text-muted">
-                    {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+              <tbody className="divide-y divide-border">
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-surface/40 transition-colors">
+                    <td className="px-5 py-3.5">
                       {!u.is_superuser && (
-                        <button
-                          onClick={() => handleResetPassword(u)}
-                          disabled={resetPassword.isPending && resetPassword.variables?.userId === u.id}
-                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
-                        >
-                          {resetPassword.isPending && resetPassword.variables?.userId === u.id
-                            ? <Loader2 size={13} className="animate-spin" />
-                            : <KeyRound size={13} />} Reset
-                        </button>
+                        <input type="checkbox" checked={bulkUsers.selected.has(u.id)} onChange={() => bulkUsers.toggle(u.id)} className="w-4 h-4 rounded" />
                       )}
-                      {!u.is_superuser && (
-                        <button
-                          onClick={() => handleRemoveUser(u)}
-                          disabled={deleteUser.isPending && deleteUser.variables?.userId === u.id}
-                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
-                        >
-                          {deleteUser.isPending && deleteUser.variables?.userId === u.id
-                            ? <Loader2 size={13} className="animate-spin" />
-                            : <Trash2 size={13} />} Remove
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            </table></div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <p className="text-sm font-medium text-foreground">{u.full_name} {u.is_superuser && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent ml-1">SUPERADMIN</span>}</p>
+                      <p className="text-[11px] text-muted">{u.email}</p>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-surface text-muted capitalize">{u.role}</span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className={`flex items-center gap-1 text-[11px] font-semibold w-fit ${u.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                        {u.is_active ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                        {u.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-[12px] text-muted">
+                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {!u.is_superuser && (
+                          <button
+                            onClick={() => handleResetPassword(u)}
+                            disabled={resetPassword.isPending && resetPassword.variables?.userId === u.id}
+                            className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                          >
+                            {resetPassword.isPending && resetPassword.variables?.userId === u.id
+                              ? <Loader2 size={13} className="animate-spin" />
+                              : <KeyRound size={13} />} Reset
+                          </button>
+                        )}
+                        {!u.is_superuser && (
+                          <button
+                            onClick={() => handleRemoveUser(u)}
+                            disabled={deleteUser.isPending && deleteUser.variables?.userId === u.id}
+                            className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"
+                          >
+                            {deleteUser.isPending && deleteUser.variables?.userId === u.id
+                              ? <Loader2 size={13} className="animate-spin" />
+                              : <Trash2 size={13} />} Remove
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           {users.length === 0 && (
             <div className="py-12 text-center">
@@ -616,7 +616,7 @@ export default function TenantDetailPage() {
 
       {/* Departments panel */}
       {tab === "departments" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Departments ({departments.length})</h2>
             <button onClick={() => setShowAddDept(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
@@ -670,7 +670,7 @@ export default function TenantDetailPage() {
 
       {/* Roles panel */}
       {tab === "roles" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Roles ({roles.length})</h2>
             <button onClick={() => setShowAddRole(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
@@ -724,7 +724,7 @@ export default function TenantDetailPage() {
 
       {/* Branches panel */}
       {tab === "branches" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Branches ({branches.length})</h2>
             <button onClick={() => setShowAddBranch(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">

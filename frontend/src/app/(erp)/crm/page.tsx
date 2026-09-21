@@ -74,7 +74,7 @@ export default function CRMPage() {
           tooltipStyle={c.tooltip}
           empty="No deals in the pipeline yet"
         />
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Pipeline Stages</h2>
             <Link href="/sales" className="text-[11px] font-bold text-accent hover:underline">View all deals</Link>

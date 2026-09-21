@@ -136,7 +136,7 @@ function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: ApiOrder; 
               </tr>
             ))}
           </tbody>
-        </table></div>
+        </table>
 
         {/* Totals */}
         <div className="px-5 py-4 border-t border-border space-y-2 bg-surface/20">
@@ -366,8 +366,9 @@ export default function InvoicesPage() {
                 </tr>
               ))}
             </tbody>
-          </table></div>
-          <div className="px-4 py-3 border-t border-border flex items-center justify-between">
+          </table>
+        </div>
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between">
             <p className="text-[12px] text-muted">{filtered.length} invoice{filtered.length !== 1 ? "s" : ""}</p>
             <p className="text-[12px] font-semibold text-foreground">
               Total: <span className="font-bold">{fmt(filtered.reduce((s, o) => s + o.total, 0))}</span>

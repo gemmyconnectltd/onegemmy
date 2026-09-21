@@ -93,7 +93,7 @@ export default function ManufacturingPage() {
         ))}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <p className="text-[13px] font-semibold text-foreground">Recent Work Orders</p>
           <Link href="/manufacturing/work-orders" className="text-[12px] font-semibold text-accent hover:underline">
@@ -111,32 +111,34 @@ export default function ManufacturingPage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full min-w-[640px]">
-            <tbody className="divide-y divide-border">
-              {recent.map((o) => (
-                <tr key={o.id} className="hover:bg-surface/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-bold text-foreground whitespace-nowrap">{o.order_number}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Package size={13} className="text-muted" />
-                      <span className="text-sm font-medium text-foreground">{o.product_name ?? "—"}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm font-semibold text-foreground tabular-nums">{o.quantity}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-sm text-muted whitespace-nowrap">
-                      <Calendar size={12} /> {o.scheduled_date ?? "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusBadge[o.status] ?? "bg-surface text-muted"}`}>
-                      {o.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-160">
+              <tbody className="divide-y divide-border">
+                {recent.map((o) => (
+                  <tr key={o.id} className="hover:bg-surface/50 transition-colors">
+                    <td className="px-4 py-3 text-sm font-bold text-foreground whitespace-nowrap">{o.order_number}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Package size={13} className="text-muted" />
+                        <span className="text-sm font-medium text-foreground">{o.product_name ?? "—"}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm font-semibold text-foreground tabular-nums">{o.quantity}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5 text-sm text-muted whitespace-nowrap">
+                        <Calendar size={12} /> {o.scheduled_date ?? "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusBadge[o.status] ?? "bg-surface text-muted"}`}>
+                        {o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

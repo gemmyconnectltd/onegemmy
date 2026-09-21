@@ -178,7 +178,7 @@ export default function ProductsPage() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
@@ -269,8 +269,8 @@ export default function ProductsPage() {
                 </tr>
               )}
             </tbody>
-          </table></div>
-        </div>
+          </table>
+          </div>
         <div className="px-5 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {products.length} products</p>
           <p className="text-xs text-muted">Avg margin: <span className="font-semibold text-foreground">{Math.round(filtered.reduce((s, p) => s + margin(p), 0) / (filtered.length || 1))}%</span></p>

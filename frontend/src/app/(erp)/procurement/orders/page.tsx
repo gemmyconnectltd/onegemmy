@@ -296,7 +296,7 @@ export default function PurchaseOrdersPage() {
               </tr>
             )}
           </tbody>
-        </table></div>
+        </table>
       </div>
 
       {/* New Purchase Order */}

@@ -86,7 +86,7 @@ export default function AdminSettingsPage() {
 
       {/* Settings sections */}
       {sections.map((section) => (
-        <div key={section.title} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <div key={section.title} className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-3 bg-surface/30">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${section.color}18` }}>
               <section.icon size={15} style={{ color: section.color }} />
@@ -130,7 +130,7 @@ export default function AdminSettingsPage() {
       ))}
 
       {/* API Key section */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3 bg-surface/30">
           <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
             <Key size={15} className="text-amber-600 dark:text-amber-400" />

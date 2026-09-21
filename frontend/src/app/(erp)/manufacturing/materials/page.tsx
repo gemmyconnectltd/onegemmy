@@ -123,8 +123,9 @@ export default function MaterialsPage() {
                 );
               })}
             </tbody>
-          </table></div>
+          </table>
         )}
+        </div>
       </div>
     </div>
   );

@@ -232,7 +232,7 @@ export default function InventoryOverviewPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
-                        <span className="text-xs font-bold text-foreground ml-2 flex-shrink-0">{fmt(value)}</span>
+                        <span className="text-xs font-bold text-foreground ml-2 shrink-0">{fmt(value)}</span>
                       </div>
                       <div className="h-1.5 bg-surface rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: `${INV_COLOR}66` }} />
@@ -249,7 +249,7 @@ export default function InventoryOverviewPage() {
       {/* Alerts */}
       {(lowCount > 0 || outCount > 0) && (
         <div className="bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-3">
-          <AlertTriangle size={15} className="text-amber-500 flex-shrink-0" />
+          <AlertTriangle size={15} className="text-amber-500 shrink-0" />
           <p className="text-sm text-amber-800">
             <span className="font-bold">{outCount} product{outCount !== 1 ? "s" : ""} out of stock</span> and{" "}
             <span className="font-bold">{lowCount} running low</span> — review and reorder soon.
@@ -258,7 +258,7 @@ export default function InventoryOverviewPage() {
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3">
           <div className="flex-1 relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -286,7 +286,7 @@ export default function InventoryOverviewPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/40 text-left text-[10px] font-semibold text-muted uppercase tracking-wider">
                 <th className="px-5 py-3">Product</th>
@@ -368,8 +368,8 @@ export default function InventoryOverviewPage() {
                 </tr>
               )}
             </tbody>
-          </table></div>
-        </div>
+          </table>
+          </div>
         <div className="px-5 py-3 border-t border-border flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {inventory.length} products</p>
           <p className="text-xs text-muted">Total value: <span className="font-semibold text-foreground">{fmt(filtered.reduce((s, i) => s + i.value, 0))}</span></p>
