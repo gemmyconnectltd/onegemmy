@@ -9,6 +9,7 @@ export interface AdminTenant {
   subscription_plan: string;
   subscription_status: string;
   currency: string;
+  vat_enabled: boolean;
   logo_url: string | null;
   website: string | null;
   phone: string | null;

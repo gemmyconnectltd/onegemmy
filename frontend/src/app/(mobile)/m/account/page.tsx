@@ -9,6 +9,7 @@ import {
 
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
+import { useCurrentTenant, useUpdateMyTenant } from "@/lib/api/hooks";
 import { getSales } from "@/lib/invoices";
 import { getPurchases } from "@/lib/purchases";
 import { siteConfig } from "@/lib/config";
@@ -26,10 +27,23 @@ export default function MobileAccountPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { theme, setTheme, vatEnabled, setVatEnabled } = useAppConfig();
+  const { data: tenant } = useCurrentTenant();
+  const updateTenant = useUpdateMyTenant();
 
   const handleLogout = () => {
     logout();
     router.replace("/m/login");
+  };
+
+  const toggleVat = async () => {
+    if (!tenant || updateTenant.isPending) return;
+    const next = !vatEnabled;
+    setVatEnabled(next);
+    try {
+      await updateTenant.mutateAsync({ id: tenant.id, data: { vat_enabled: next } });
+    } catch {
+      setVatEnabled(!next);
+    }
   };
 
   const exportData = () => {
@@ -119,7 +133,7 @@ export default function MobileAccountPage() {
               <ChevronRight size={15} className="text-muted flex-shrink-0" />
             </button>
             <button
-              onClick={() => setVatEnabled(!vatEnabled)}
+              onClick={toggleVat}
               className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-surface transition-colors"
             >
               <div className="w-9 h-9 rounded-lg bg-surface flex items-center justify-center text-accent flex-shrink-0">

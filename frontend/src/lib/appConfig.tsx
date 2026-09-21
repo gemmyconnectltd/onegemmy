@@ -185,6 +185,9 @@ interface AppConfig {
   setLocale: (code: LocaleCode) => void;
   setTheme: (theme: Theme) => void;
   setNavOrientation: (orientation: NavOrientation) => void;
+  /** Applies VAT on/off to the live app immediately. Callers are responsible
+   *  for persisting it to the tenant (see `useUpdateMyTenant`/`useUpdateTenant`)
+   *  — this only updates what's shown. */
   setVatEnabled: (enabled: boolean) => void;
   /** Applies a new brand color to the live theme. Callers are responsible for
    *  persisting it (see `useUpdateTenant`) — this only updates what's shown. */
@@ -256,6 +259,12 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
             setCurrencyState(res.data.currency);
             setActiveCurrency(res.data.currency);
             localStorage.setItem("app_currency", res.data.currency);
+          }
+          // VAT is a per-tenant setting — the DB is the source of truth and
+          // overrides the localStorage cache once it loads.
+          if (typeof res.data.vat_enabled === "boolean") {
+            setVatEnabledState(res.data.vat_enabled);
+            localStorage.setItem("app_vat_enabled", String(res.data.vat_enabled));
           }
         })
         .catch(() => {

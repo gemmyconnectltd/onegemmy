@@ -2,22 +2,40 @@
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Settings, Store, Phone, MapPin, Download, Shield, Info, Save, Check } from "lucide-react";
-import { Field, Input, FormFooter } from "@/components/ui/Form";
+import { Store, Download, Shield, Info, Save, Check, ReceiptText } from "lucide-react";
+import { Field, Input } from "@/components/ui/Form";
+import { Toggle } from "@/components/ui/Toggle";
+import { useCurrentTenant, useUpdateMyTenant } from "@/lib/api/hooks";
 
 export default function SettingsPage() {
-  const { brandColor, currency, currencySymbol, currencies } = useAppConfig();
+  const { brandColor, currency, currencySymbol, currencies, vatEnabled, setVatEnabled } = useAppConfig();
   const currencyName = currencies.find((c) => c.code === currency)?.name ?? currency;
   const C = brandColor;
+  const { data: tenant } = useCurrentTenant();
+  const updateTenant = useUpdateMyTenant();
   const [shopName, setShopName] = useState("My Shop");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [saved, setSaved] = useState(false);
+  const [vatError, setVatError] = useState<string | null>(null);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const toggleVat = async () => {
+    if (!tenant) return;
+    const next = !vatEnabled;
+    setVatError(null);
+    setVatEnabled(next);
+    try {
+      await updateTenant.mutateAsync({ id: tenant.id, data: { vat_enabled: next } });
+    } catch {
+      setVatEnabled(!next);
+      setVatError("Couldn't update VAT. Try again.");
+    }
   };
 
   return (
@@ -60,6 +78,33 @@ export default function SettingsPage() {
           <span className="text-xs font-semibold text-muted bg-surface px-2.5 py-1 rounded-full">Locked</span>
         </div>
         <p className="text-xs text-muted">Contact support to change your currency.</p>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
+            <ReceiptText size={15} style={{ color: C }} />
+          </div>
+          <h2 className="text-sm font-bold text-foreground">VAT</h2>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{vatEnabled ? "VAT enabled" : "VAT disabled"}</p>
+            <p className="text-xs text-muted mt-0.5">
+              {vatEnabled
+                ? "18% tax is applied to sales and shown on receipts."
+                : "No tax is applied to sales or shown on receipts."}
+            </p>
+          </div>
+          <Toggle
+            checked={vatEnabled}
+            onChange={toggleVat}
+            loading={updateTenant.isPending}
+            disabled={!tenant}
+            label={vatEnabled ? "Disable VAT" : "Enable VAT"}
+          />
+        </div>
+        {vatError && <p className="text-xs text-red-600 dark:text-red-400">{vatError}</p>}
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">

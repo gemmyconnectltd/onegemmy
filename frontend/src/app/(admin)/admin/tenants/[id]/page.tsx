@@ -205,6 +205,16 @@ export default function TenantDetailPage() {
     });
   };
 
+  const toggleVat = () => {
+    if (!tenant) return;
+    const next = !tenant.vat_enabled;
+    setNotice(null);
+    updateTenant.mutate({ id, data: { vat_enabled: next } }, {
+      onSuccess: () => setNotice({ kind: "success", text: `VAT ${next ? "enabled" : "disabled"} for ${tenant.name}` }),
+      onError: () => setNotice({ kind: "error", text: "Failed to update VAT" }),
+    });
+  };
+
   const openInvite = () => {
     setNotice(null);
     setTempPassword(null);
@@ -420,6 +430,18 @@ export default function TenantDetailPage() {
               <option key={c.code} value={c.code}>{c.code} &middot; {c.name}</option>
             ))}
           </Select>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
+            <Toggle
+              checked={tenant.vat_enabled}
+              onChange={toggleVat}
+              disabled={updateTenant.isPending}
+              size="sm"
+              label={tenant.vat_enabled ? `Disable VAT for ${tenant.name}` : `Enable VAT for ${tenant.name}`}
+            />
+            <span className="text-sm font-medium text-foreground">
+              VAT {tenant.vat_enabled ? "on" : "off"}
+            </span>
+          </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
             <Toggle
               checked={tenant.is_active}

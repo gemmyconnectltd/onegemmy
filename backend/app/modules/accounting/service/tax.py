@@ -25,6 +25,7 @@ from app.modules.accounting.schemas.tax import (
     TaxPaymentCreate,
     TaxPaymentRead,
 )
+from app.modules.tenants.models import Tenant
 
 # ── Rwanda Tax Brackets (PAYE) ─────────────────────────────────────────────────
 
@@ -139,6 +140,18 @@ async def get_effective_vat_rate(db: AsyncSession, tenant_id: uuid.UUID) -> Deci
     the rate from — never hardcode it at the call site."""
     config = await get_tax_config(db, tenant_id, "vat")
     return Decimal(str(config.rate)) if config is not None else TAX_RATES["vat"]
+
+
+async def is_vat_enabled(db: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    """Whether the tenant currently charges VAT at all.
+
+    VAT is opt-out per tenant: a tenant admin or a platform superadmin can
+    disable it, and every sale must then be recorded with zero tax. Returns
+    True when the tenant can't be found so a transient lookup miss never
+    silently drops tax for a legitimate tenant."""
+    result = await db.execute(select(Tenant.vat_enabled).where(Tenant.id == tenant_id))
+    enabled = result.scalar_one_or_none()
+    return True if enabled is None else bool(enabled)
 
 
 def calculate_withholding_tax(amount: Decimal, payment_type: str = "resident") -> dict:

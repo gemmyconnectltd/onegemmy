@@ -18,6 +18,7 @@ class TenantCreate(BaseModel):
     city: str | None = None
     country: str | None = None
     currency: str | None = None
+    vat_enabled: bool | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
@@ -43,6 +44,7 @@ class TenantUpdate(BaseModel):
     # Superadmin-only in practice: the tenant self-service update route
     # rejects this field, see app/modules/tenants/routes/tenant.py.
     currency: str | None = None
+    vat_enabled: bool | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
@@ -69,6 +71,7 @@ class TenantRead(BaseModel):
     subscription_plan: str
     subscription_status: str
     currency: str
+    vat_enabled: bool = True
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None

@@ -41,6 +41,11 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # app doesn't convert historical amounts recorded under the old currency.
     currency: Mapped[str] = mapped_column(String(3), default="RWF")
 
+    # VAT on/off for the whole tenant. When disabled, sales are recorded with
+    # tax = 0 everywhere (receipts, reports, accounting postings). Toggleable
+    # by the tenant's own admin and by a platform superadmin.
+    vat_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # Per-tenant feature overrides, e.g. {"hr": false, "pos": true}.
     # Effective value = catalog default merged with these overrides.
     features: Mapped[dict] = mapped_column(JSONB, default=dict)

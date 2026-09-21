@@ -11,6 +11,7 @@ from app.modules.accounting.service.tax import (
     calculate_vat,
     create_tax_calculation,
     get_effective_vat_rate,
+    is_vat_enabled,
 )
 from app.modules.accounting.service.transaction import create_sale_transaction
 from app.modules.audit.service import record_audit
@@ -92,7 +93,12 @@ async def _apply_vat(db: AsyncSession, tenant_id: uuid.UUID, gross: float) -> tu
     is never added a second time. Returns (tax, total, vat_rate); `total`
     always equals `gross`, and `tax` is the VAT portion extracted from it
     using the tenant's configured rate (accounting_tax_configs), for
-    reporting/posting purposes only."""
+    reporting/posting purposes only.
+
+    When the tenant has VAT disabled, tax is zero and nothing is extracted
+    or posted — the whole gross is revenue."""
+    if not await is_vat_enabled(db, tenant_id):
+        return 0.0, round(gross, 2), 0.0
     rate = await get_effective_vat_rate(db, tenant_id)
     vat = calculate_vat(Decimal(str(gross)), inclusive=True, rate=rate)
     return round(vat["vat_amount"], 2), round(gross, 2), float(rate)

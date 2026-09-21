@@ -26,6 +26,7 @@ export interface Tenant {
   subscription_plan: string;
   subscription_status: string;
   currency: string;
+  vat_enabled: boolean;
   business_type: string | null;
   industry: string | null;
   business_category: string | null;
@@ -38,6 +39,7 @@ export interface Tenant {
 export interface TenantUpdateInput {
   name?: string;
   brand_color?: string | null;
+  vat_enabled?: boolean;
   website?: string | null;
   phone?: string | null;
   address?: string | null;
