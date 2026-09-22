@@ -35,6 +35,8 @@ interface PaymentPanelProps {
   fmt: (v: number) => string;
   saving?: boolean;
   saleError?: string | null;
+  /** Sum of cash recorded per cart line, when itemizing instead of one lump sum. */
+  itemsCashReceivedSum?: number;
   onPaymentChange: (m: PaymentMethod) => void;
   onCashChange: (v: string) => void;
   onCharge: () => void;
@@ -43,7 +45,7 @@ interface PaymentPanelProps {
 export function PaymentPanel({
   payment, cashGiven, subtotal, discount, tax, total,
   change, cashShort, cartCount, vatEnabled, currencySymbol, fmt,
-  saving, saleError,
+  saving, saleError, itemsCashReceivedSum,
   onPaymentChange, onCashChange, onCharge,
 }: PaymentPanelProps) {
   const chargeDisabled = cartCount === 0 || saving || cashShort;
@@ -101,8 +103,19 @@ export function PaymentPanel({
           it defaults to the full total (see the provider's payload builder). */}
       {cartCount > 0 && (
         <div className="bg-white/10 rounded-xl px-3 py-2.5 space-y-2">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground/80">
-            <Wallet size={11} /> Amount Received
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-primary-foreground/80">
+              <Wallet size={11} /> Amount Received
+            </div>
+            {!!itemsCashReceivedSum && itemsCashReceivedSum > 0 && String(itemsCashReceivedSum) !== cashGiven && (
+              <button
+                type="button"
+                onClick={() => onCashChange(String(itemsCashReceivedSum))}
+                className="text-[10px] font-semibold text-primary-foreground/80 hover:text-primary-foreground hover:underline whitespace-nowrap"
+              >
+                Use itemized: {currencySymbol} {fmt(itemsCashReceivedSum)}
+              </button>
+            )}
           </div>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-mono text-primary-foreground/50">{currencySymbol}</span>

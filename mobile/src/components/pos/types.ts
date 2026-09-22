@@ -39,6 +39,9 @@ export type CartItem = {
   stock: number;
   emoji: string;
   discount: number;
+  /** Cash recorded as received against this specific line, for cashiers who
+   * collect payment item-by-item rather than one lump sum at the end. */
+  cashReceived?: number;
   image_url?: string | null;
   sku?: string | null;
   variant_attributes?: Record<string, string> | null;

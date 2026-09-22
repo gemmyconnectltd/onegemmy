@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
 
 import { DISCOUNT_PRESETS } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
@@ -24,11 +24,15 @@ interface CartPanelProps {
   onRemoveItem: (id: string) => void;
   onClear: () => void;
   onHold: () => void;
+  /** Show a per-line "Received" input so cash can be recorded item-by-item. */
+  showCashReceived?: boolean;
+  onUpdateCashReceived?: (id: string, value: number) => void;
 }
 
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
   onCustomerChange, onNotesChange, onUpdateQty, onUpdateDiscount, onRemoveItem, onClear, onHold,
+  showCashReceived, onUpdateCashReceived,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -219,6 +223,20 @@ export function CartPanel({
                       />
                       {item.discount > 0 && (
                         <span className="text-[10px] text-emerald-600 font-medium flex-shrink-0">-{fmt(item.discount)}</span>
+                      )}
+                      {showCashReceived && onUpdateCashReceived && (
+                        <div className="flex items-center gap-0.5 flex-shrink-0" title="Cash received for this item">
+                          <Wallet size={9} className="text-muted-foreground/60 flex-shrink-0" />
+                          <input
+                            type="number"
+                            min={0}
+                            value={item.cashReceived || ""}
+                            onChange={(e) => onUpdateCashReceived(item.id, Math.max(0, Number(e.target.value) || 0))}
+                            placeholder="recv"
+                            aria-label="Cash received for this item"
+                            className="w-14 text-[11px] border border-border rounded px-1.5 py-0.5 outline-none focus:border-primary bg-transparent text-foreground font-mono"
+                          />
+                        </div>
                       )}
                     </div>
                   </div>

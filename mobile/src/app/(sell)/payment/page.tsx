@@ -14,7 +14,7 @@ export default function MobilePaymentPage() {
 
   const {
     cart, payment, cashGiven, subtotal, discount, tax, total, change, cashShort,
-    customerName, currencySymbol, fmt, saving, saleError, completedSale,
+    itemsCashReceivedSum, customerName, currencySymbol, fmt, saving, saleError, completedSale,
     setPayment, setCashGiven, completeSale, startNewSale,
   } = useMobilePos();
   const { vatEnabled } = useAppConfig();
@@ -78,6 +78,7 @@ export default function MobilePaymentPage() {
           fmt={fmt}
           saving={saving}
           saleError={saleError}
+          itemsCashReceivedSum={itemsCashReceivedSum}
           onPaymentChange={setPayment}
           onCashChange={setCashGiven}
           onCharge={completeSale}

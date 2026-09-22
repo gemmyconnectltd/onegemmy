@@ -2,37 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { isMobileHost } from "@/lib/mobileHost";
 
 // Mobile-app subdomains (Next.js 16: proxy, formerly middleware).
-// Point e.g. shop.pesaa.com or m.pesaa.com at the same deployment and
-// phone users always land in the /m/* mobile experience — the ERP pages are
-// never shown there. The main domain keeps serving both surfaces.
+// The mobile app is its own separate deployment (the root mobile/ project),
+// not a route group inside this one — visiting shop.pesaa.com / m.pesaa.com
+// / mobile.pesaa.com (or a host listed in MOBILE_APP_HOSTS) externally
+// redirects there instead of rendering anything from this deployment.
 //
-// On the main domain, visiting /m/* sets an `app_surface=mobile` cookie so the
-// dynamic PWA manifest (see app/manifest.json/route.ts) hands out the mobile
-// manifest — an install from the mobile app opens the mobile app, not the ERP.
+// MOBILE_APP_URL must be set to that deployment's own URL for the redirect to
+// fire; until it is, mobile hosts just fall through to the normal ERP pages
+// on this deployment rather than 404ing.
 const AUTH_PATHS = new Set(["/login", "/register", "/forgot-password"]);
 
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
+  const mobileAppUrl = process.env.MOBILE_APP_URL;
 
-  if (isMobileHost(host)) {
-    if (pathname === "/m" || pathname.startsWith("/m/")) return NextResponse.next();
-
-    // Auth screens exist under /m/login; everything else collapses to the
-    // mobile home (the mobile app's internal nav stays under /m/* untouched).
-    const target = AUTH_PATHS.has(pathname) ? "/m/login" : "/m";
-    const protocol = new URL(request.url).protocol;
-    const url = new URL(target, `${protocol}//${host}`);
-    return NextResponse.redirect(url);
-  }
-
-  if (pathname === "/m" || pathname.startsWith("/m/")) {
-    const res = NextResponse.next();
-    res.cookies.set("app_surface", "mobile", {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-    return res;
+  if (isMobileHost(host) && mobileAppUrl) {
+    const target = AUTH_PATHS.has(pathname) ? "/login" : "/";
+    return NextResponse.redirect(new URL(target, mobileAppUrl));
   }
 
   return NextResponse.next();

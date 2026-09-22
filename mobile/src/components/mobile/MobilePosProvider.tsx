@@ -28,6 +28,7 @@ interface MobilePosContextValue {
   total: number;
   change: number;
   cashShort: boolean;
+  itemsCashReceivedSum: number;
   totalItems: number;
   currencySymbol: string;
   fmt: (v: number) => string;
@@ -35,6 +36,7 @@ interface MobilePosContextValue {
   addVariantToCart: (p: Product, v: Variant) => void;
   updateQty: (id: string, delta: number) => void;
   updateDiscount: (id: string, discount: number) => void;
+  updateItemCashReceived: (id: string, value: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
   holdSale: () => void;
@@ -115,6 +117,10 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     setCart((prev) => prev.map((i) => (i.id === id ? { ...i, discount: Math.max(0, discount) } : i)));
   }, []);
 
+  const updateItemCashReceived = useCallback((id: string, value: number) => {
+    setCart((prev) => prev.map((i) => (i.id === id ? { ...i, cashReceived: Math.max(0, value) } : i)));
+  }, []);
+
   const removeItem = useCallback((id: string) => {
     setCart((prev) => prev.filter((i) => i.id !== id));
   }, []);
@@ -172,6 +178,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
   const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
   const cashShort = cashGiven !== "" && Number(cashGiven) < total;
+  const itemsCashReceivedSum = cart.reduce((s, i) => s + (i.cashReceived || 0), 0);
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
   const fmt = (v: number) => v.toLocaleString();
 
@@ -254,8 +261,8 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
   const value: MobilePosContextValue = {
     cart, heldOrders, customerId, customerName, notes, payment, cashGiven, saleError, saving,
     completedSale, todayCount, todayRevenue, subtotal, discount, tax, total, change, cashShort,
-    totalItems, currencySymbol, fmt,
-    addToCart, addVariantToCart, updateQty, updateDiscount, removeItem, clearCart,
+    itemsCashReceivedSum, totalItems, currencySymbol, fmt,
+    addToCart, addVariantToCart, updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart,
     holdSale, resumeHeld, deleteHeld, setCustomer, setNotes, setPayment, setCashGiven,
     completeSale, startNewSale,
   };

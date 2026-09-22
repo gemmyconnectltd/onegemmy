@@ -3,7 +3,8 @@
 Multi-tenant ERP (SaaS) for small/medium businesses. Monorepo: FastAPI backend + Next.js frontend.
 
 - **Backend** (`backend/`): FastAPI, SQLAlchemy 2 async (`asyncpg`), Alembic, Pydantic v2, ruff, pytest.
-- **Frontend** (`frontend/`): Next.js 16 App Router, React 19, Tailwind v4, @tanstack/react-query, lucide-react. Read `frontend/AGENTS.md` (Next 16 breaking-change warning) before writing frontend code.
+- **Frontend** (`frontend/`): Next.js 16 App Router, React 19, Tailwind v4, @tanstack/react-query, lucide-react. Read `frontend/AGENTS.md` (Next 16 breaking-change warning) before writing frontend code. This is the ERP + desktop POS surface only — it does **not** contain the mobile app.
+- **Mobile** (`mobile/`): a separate Next.js project (own `package.json`, dev server on port 3001, own deployment) — the actual mobile app. Do not build or extend mobile-app screens inside `frontend/`; make those changes here instead. See mobile UX rules below.
 
 ## Repo layout
 
@@ -15,14 +16,17 @@ backend/app/
     models/  routes/  service/  repository/  schemas/
   alembic/                        # every schema change = a migration
 frontend/src/
-  app/(admin)/ (auth)/ (erp)/ (mobile)/ (pos)/   # route groups; pages colocate under each group
+  app/(admin)/ (auth)/ (erp)/ (pos)/             # route groups; pages colocate under each group
     (auth)/login|register|forgot-password        # auth screens (no sidebar)
     (erp)/<module>/…                             # web ERP: dashboard, sales, inventory, accounting, hr, reports, settings…
     (admin)/admin/…                              # super-admin console (tenants, platform users, plans)
     (pos)/pos/                                   # desktop POS (uses shared pos/ components)
-    (mobile)/m/…                                 # mobile app (see mobile UX rules below)
-  components/                     # shared UI (ui/), dashboard shell (Sidebar, Topbar, ModuleLayout), domain (mobile/, pos/, inventory/, hr/, …)
+  components/                     # shared UI (ui/), dashboard shell (Sidebar, Topbar, ModuleLayout), domain (pos/, inventory/, hr/, …)
   lib/                            # api/ (request layer + hooks), auth, appConfig, orders, roles, pageTitles, utils
+mobile/src/
+  app/(sell)/ (people)/ (money)/ (inventory)/ (sales)/ (reports)/ (transactions)/ (account)/ (auth)/   # route groups
+  components/mobile/, pos/        # bottom nav, POS cart/payment/receipt, offline/sync UI
+  lib/                            # its own api/ client + hooks, offline.ts, offlineSync.ts, db.ts
 ```
 
 ## General engineering principles
@@ -57,19 +61,22 @@ frontend/src/
 The web app is a full dashboard ERP — the "big" experience (mobile is the fast/lean one). Requirements:
 
 - **Shell**: pages render inside the `(erp)/layout.tsx` shell — `Sidebar` (vertical/horizontal toggle, collapsible), `Topbar`, `ModuleLayout` for per-module secondary nav, `SupportFab`. New ERP pages go under `app/(erp)/<module>/…` and colocate inside that shell.
-- **Desktop POS** (`(pos)/pos`, `/pos`): shared POS components (`ProductCard` vertical layout, `CartPanel`, `PaymentPanel`, `Receipt`) with local state; VAT math must match mobile (VAT-inclusive).
+- **Desktop POS** (`(pos)/pos`, `/pos`): shared POS components (`ProductCard` vertical layout, `CartPanel`, `PaymentPanel`, `Receipt`) with local state; VAT math must match the mobile app (VAT-inclusive).
 - **Super-admin** (`(admin)/admin/…`): tenant/platform management, gated by `isSuperAdmin`.
 - **Auth screens** (`(auth)`): login/register/forgot-password, no sidebar; unauthenticated users are redirected to `/login`.
 - **Responsive**: layout collapses the sidebar below 1024px; heavy charts/tables stay lazy-loaded.
 - Same data-fetching/hydration/money rules as the rest of the frontend apply here.
 
-### Mobile app (`(mobile)` route group, `/m/*`) UX rules
+### Mobile app (`mobile/`, separate project) UX rules
+
+The mobile app is its own Next.js codebase and deployment at the repo root (`mobile/`) — not a route group inside `frontend/`. Routes there don't carry an `/m` prefix (e.g. `/pos`, `/cart`, `/customers`), since the whole deployment is the mobile app.
 
 - **≤2 screens per task**; complete flows in the fewest taps possible.
 - **Bottom nav order is fixed**: Home → Transactions → **Sell (center pill FAB, cart badge)** → Reports → Account.
 - **Home icon tiles**: 4 per row, icon-only, 6 tiles (Purchases, Inventory, Products, Customers, Suppliers, Expenses). No tiles for Sales/Reports (they are nav tabs).
-- **Sell flow**: fastest path = 2 taps — add product, then **Charge** (exact cash) on the floating cart bar. Cart drawer has Charge + "Other payment methods". `/m/payment` (numpad/change, mobile/card/invoice) is the secondary path. Receipt shows inline after charge.
-- **Mobile subdomain (entry point)**: `frontend/src/proxy.ts` (Next 16 proxy, former middleware) serves the mobile app "alone" on a branded subdomain (hosts prefixed `shop.`/`m.`/`mobile.`, or exact domains via `MOBILE_APP_HOSTS` env). On those hosts, non-`/m/*` paths 307-redirect: `/login|register|forgot-password` → `/m/login`, everything else → `/m` (ERP pages are unreachable there). The main domain keeps serving both surfaces.
+- **Sell flow**: fastest path = 2 taps — add product, then **Charge** (exact cash) on the floating cart bar. Cart drawer has Charge + "Other payment methods". `/payment` (numpad/change, mobile/card/invoice) is the secondary path. Receipt shows inline after charge.
+- **Offline support**: `mobile/src/lib/offline.ts` / `offlineSync.ts` queue POS sales and cache reads when the backend is unreachable, syncing on reconnect — `frontend/`'s POS has no equivalent, don't assume parity there.
+- **Mobile subdomain (entry point)**: `frontend/src/proxy.ts` externally redirects mobile-host visitors (hosts prefixed `shop.`/`m.`/`mobile.`, or exact domains via `MOBILE_APP_HOSTS` env) to `MOBILE_APP_URL` (the `mobile/` deployment) — it no longer renders anything mobile-related itself. `frontend/` must never grow mobile-app screens again.
 - Keep existing screens/components; don't remove buttons that mirror nav tabs without explicit confirmation from the user.
 
 ## Enterprise / large-business rules

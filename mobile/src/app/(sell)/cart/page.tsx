@@ -19,9 +19,9 @@ export default function MobileCartPage() {
   const {
     cart, customerId, customerName, notes, currencySymbol, fmt,
     totalItems, total, subtotal, tax, discount, payment, cashGiven, change, cashShort,
-    saleError, saving, completedSale,
+    itemsCashReceivedSum, saleError, saving, completedSale,
     setCustomer, setNotes, setPayment, setCashGiven,
-    updateQty, updateDiscount, removeItem, clearCart, holdSale,
+    updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart, holdSale,
     completeSale, startNewSale,
   } = useMobilePos();
 
@@ -82,6 +82,8 @@ export default function MobileCartPage() {
           onRemoveItem={removeItem}
           onClear={clearCart}
           onHold={holdSale}
+          showCashReceived={payment === "cash"}
+          onUpdateCashReceived={updateItemCashReceived}
         />
       </div>
 
@@ -104,6 +106,7 @@ export default function MobileCartPage() {
             fmt={fmt}
             saving={saving}
             saleError={saleError}
+            itemsCashReceivedSum={itemsCashReceivedSum}
             onPaymentChange={setPayment}
             onCashChange={setCashGiven}
             onCharge={() => void completeSale()}
