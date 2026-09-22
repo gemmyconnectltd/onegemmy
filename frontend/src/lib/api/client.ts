@@ -154,4 +154,16 @@ export function resolveUploadUrl(path: string | null | undefined): string | null
   return `${API_ORIGIN}${path}`;
 }
 
+/** Builds a "?a=1&b=2" query string, dropping undefined/empty values. Shared
+ *  by every paginated list endpoint so page/pageSize/search/status params are
+ *  built the same way everywhere. */
+export function qs(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== "") search.set(k, String(v));
+  });
+  const s = search.toString();
+  return s ? `?${s}` : "";
+}
+
 export { API_BASE };

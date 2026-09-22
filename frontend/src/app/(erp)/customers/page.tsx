@@ -6,10 +6,10 @@ import { useState, useMemo } from "react";
 import {
   Users, Plus, Search, Phone, Mail, MapPin, TrendingUp, Star,
   Edit2, Trash2, AlertCircle, ShoppingCart, CheckCircle2,
-  UserCheck, UserX, Building2,
+  UserX, Building2, Upload,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useCustomers, useOrders, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from "@/lib/api/hooks";
+import { useCustomers, useOrders, useCreateCustomer, useUpdateCustomer, useDeleteCustomer, useBulkCreateCustomers } from "@/lib/api/hooks";
 import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
@@ -17,6 +17,38 @@ import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
+
+const CUSTOMER_CSV_HEADERS = ["name", "email", "phone", "address", "customerType"];
+
+interface CustomerImportRow {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  customer_type: string;
+  is_active: true;
+}
+
+function parseCustomerRow(raw: Record<string, string>): { data: CustomerImportRow; errors: string[] } {
+  const errors: string[] = [];
+  if (!raw.name) errors.push("name required");
+  const customerType = (raw.customertype || "individual").toLowerCase();
+  if (!TYPE_OPTS.includes(customerType)) errors.push("invalid customerType");
+  return {
+    data: {
+      name: raw.name?.trim() ?? "",
+      email: raw.email?.trim() || null,
+      phone: raw.phone?.trim() || null,
+      address: raw.address?.trim() || null,
+      customer_type: TYPE_OPTS.includes(customerType) ? customerType : "individual",
+      is_active: true,
+    },
+    errors,
+  };
+}
 
 const TYPE_OPTS = ["individual", "business", "vip", "wholesale"];
 
@@ -48,17 +80,28 @@ export default function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [typeFilter, setTypeFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<ApiCustomer | null>(null);
   const [viewing, setViewing] = useState<ApiCustomer | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const customersQ = useCustomers(1, 500);
+  // Reset to page 1 right where a filter changes, not via an effect.
+  const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
+  const onTypeFilterChange = (t: string) => { setTypeFilter(t); setPage(1); };
+
+  const customersQ = useCustomers(page, pageSize, debouncedSearch || undefined, typeFilter === "All" ? undefined : typeFilter);
+  // Order history feeds the revenue/top-spender stats and each row's per-customer
+  // totals; it's independent of which page of customers is showing.
   const ordersQ = useOrders(1, 500);
   const loading = customersQ.isLoading || ordersQ.isLoading;
   const customers = useMemo(() => customersQ.data?.items ?? [], [customersQ.data]);
+  const total = customersQ.data?.total ?? 0;
   const orders = useMemo(() => ordersQ.data?.items ?? [], [ordersQ.data]);
 
   const loadError = customersQ.error ?? ordersQ.error;
@@ -71,9 +114,10 @@ export default function CustomersPage() {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
+  const bulkCreateCustomers = useBulkCreateCustomers();
   const saving = createCustomer.isPending || updateCustomer.isPending;
 
-  // orders grouped by customer_id
+  // orders grouped by customer_id — used for each visible row's order count/spend
   const ordersByCustomer = useMemo(() => {
     const map: Record<string, ApiOrder[]> = {};
     for (const o of orders) {
@@ -95,26 +139,28 @@ export default function CustomersPage() {
     return os[0]?.ordered_at ?? null;
   };
 
-  // stats
-  const totalRevenue = customers.reduce((s, c) => s + totalSpent(c.id), 0);
-  const topSpender = [...customers].sort((a, b) => totalSpent(b.id) - totalSpent(a.id))[0];
-  const activeCount = customers.filter((c) => c.is_active).length;
+  // stats — computed from order history directly (not the current customers
+  // page) so they stay correct regardless of which page/filter is showing.
+  const completedOrders = useMemo(() => orders.filter((o) => o.status === "Completed"), [orders]);
+  const totalRevenue = completedOrders.reduce((s, o) => s + o.total, 0);
+  const topSpender = useMemo(() => {
+    const totals = new Map<string, { name: string; total: number }>();
+    for (const o of completedOrders) {
+      if (!o.customer_id) continue;
+      const entry = totals.get(o.customer_id) ?? { name: o.customer?.name ?? "—", total: 0 };
+      entry.total += o.total;
+      totals.set(o.customer_id, entry);
+    }
+    return [...totals.values()].sort((a, b) => b.total - a.total)[0];
+  }, [completedOrders]);
 
   const stats = [
-    { label: "Total Customers", value: String(customers.length), icon: Users,       color: COLOR },
-    { label: "Active",          value: String(activeCount),       icon: UserCheck,   color: "#10b981" },
+    { label: "Total Customers", value: String(total),             icon: Users,       color: COLOR },
     { label: "Total Revenue",   value: fmt(totalRevenue),         icon: TrendingUp,  color: "#0284c7" },
     { label: "Top Spender",     value: topSpender ? topSpender.name.split(" ")[0] : "—", icon: Star, color: "#b45309" },
   ];
 
-  // filter
-  const displayed = customers.filter((c) => {
-    const q = search.toLowerCase();
-    const matchSearch = c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q) || (c.email ?? "").toLowerCase().includes(q);
-    const matchType = typeFilter === "All" || c.customer_type === typeFilter;
-    return matchSearch && matchType;
-  });
-  const bulk = useBulkSelection(displayed.map((c) => c.id));
+  const bulk = useBulkSelection(customers.map((c) => c.id));
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -189,9 +235,12 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Customers</h1>
-          <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${customers.length} total customers`}</p>
+          <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${total} total customer${total === 1 ? "" : "s"}`}</p>
         </div>
-        <Button color={COLOR} onClick={openAdd}><Plus size={15} /> Add Customer</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
+          <Button color={COLOR} onClick={openAdd}><Plus size={15} /> Add Customer</Button>
+        </div>
       </div>
 
       {error && (
@@ -202,7 +251,7 @@ export default function CustomersPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-all">
             <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
@@ -218,13 +267,13 @@ export default function CustomersPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-64 focus-within:border-foreground/20 transition-colors">
           <Search size={14} className="text-muted flex-shrink-0" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)}
+          <input value={search} onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search name, phone, email..."
             className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
         </div>
         <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
           {["All", ...TYPE_OPTS].map((t) => (
-            <button key={t} onClick={() => setTypeFilter(t)}
+            <button key={t} onClick={() => onTypeFilterChange(t)}
               className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors capitalize ${typeFilter === t ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
               style={typeFilter === t ? { backgroundColor: COLOR } : undefined}>
               {t}
@@ -236,7 +285,7 @@ export default function CustomersPage() {
       {/* Table */}
       {loading ? (
         <PageLoader variant="compact" />
-      ) : displayed.length === 0 ? (
+      ) : customers.length === 0 ? (
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <Users size={32} className="text-border mx-auto mb-3" />
           <p className="text-sm font-semibold text-muted">No customers found</p>
@@ -248,8 +297,8 @@ export default function CustomersPage() {
           {bulk.count > 0 && (
             <BulkActionBar count={bulk.count} label="customer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           )}
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className={`overflow-x-auto transition-opacity ${customersQ.isFetching ? "opacity-60" : ""}`}>
+          <table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">
@@ -266,7 +315,7 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {displayed.map((c) => {
+              {customers.map((c) => {
                 const spent = totalSpent(c.id);
                 const orderCount = (ordersByCustomer[c.id] ?? []).length;
                 const last = lastOrder(c.id);
@@ -326,6 +375,7 @@ export default function CustomersPage() {
               })}
             </tbody>
           </table></div>
+          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="customers" color={COLOR} />
         </div>
         </div>
       )}
@@ -458,6 +508,30 @@ export default function CustomersPage() {
           />
         </form>
       </Drawer>
+
+      {/* Import Drawer */}
+      <CsvImportDrawer<CustomerImportRow>
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onSubmit={async (items) => { await bulkCreateCustomers.mutateAsync(items); }}
+        title="Import Customers"
+        itemNoun="customer"
+        templateFilename="customers_template.xlsx"
+        templateHeaders={CUSTOMER_CSV_HEADERS}
+        templateSampleRows={[
+          ["Jean Pierre", "jean@example.com", "+250 788 123 456", "Kigali", "individual"],
+          ["Kigali Traders Ltd", "sales@kigalitraders.rw", "+250 788 654 321", "Nyarugenge", "business"],
+        ]}
+        previewColumns={[
+          { key: "name", label: "Name", required: true },
+          { key: "email", label: "Email" },
+          { key: "phone", label: "Phone" },
+          { key: "address", label: "Address" },
+          { key: "customertype", label: "Type" },
+        ]}
+        parseRow={parseCustomerRow}
+        color={COLOR}
+      />
     </div>
   );
 }

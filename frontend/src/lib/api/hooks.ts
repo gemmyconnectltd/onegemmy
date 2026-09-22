@@ -12,6 +12,7 @@ import {
   useQuery,
   useMutation,
   useQueryClient,
+  keepPreviousData,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import {
@@ -49,6 +50,11 @@ function useQ<TResponse, TSelected, TKey extends unknown[]>(
     queryKey: key,
     queryFn,
     select,
+    // Keeps the previous page's data on screen (instead of flashing to a
+    // loading state) while a new query key — e.g. the next page, a search
+    // term, a filter — is in flight. `isFetching` still flips true/false so
+    // callers can show a subtle "updating" affordance if they want one.
+    placeholderData: keepPreviousData,
     ...opts,
   });
 }
@@ -80,8 +86,8 @@ const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
-export const useProducts = (page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...PRODUCTS, page, pageSize], () => inventoryApi.listProducts(page, pageSize), (r) => r.data, opts);
+export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts) =>
+  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any"], () => inventoryApi.listProducts(page, pageSize, search, isActive), (r) => r.data, opts);
 
 export const useAllVariants = (page = 1, pageSize = 200, opts?: QueryOpts) =>
   useQ([...VARIANTS, page, pageSize], () => inventoryApi.listAllVariants(page, pageSize), (r) => r.data, opts);
@@ -104,8 +110,8 @@ export const useUnits = (opts?: QueryOpts) =>
 export const useUnitSuggestions = (opts?: QueryOpts) =>
   useQ([...UNITS, "suggestions"], () => inventoryApi.unitSuggestions(), (r) => r.data, opts);
 
-export const useSuppliers = (opts?: QueryOpts) =>
-  useQ([...SUPPLIERS], () => inventoryApi.listSuppliers(), (r) => r.data, opts);
+export const useSuppliers = (page = 1, pageSize = 200, search?: string, opts?: QueryOpts) =>
+  useQ([...SUPPLIERS, page, pageSize, search ?? ""], () => inventoryApi.listSuppliers(page, pageSize, search), (r) => r.data, opts);
 
 export const useValuationReport = (opts?: QueryOpts) =>
   useQ([...VALUATION], () => inventoryApi.valuationReport(), (r) => r.data, opts);
@@ -137,6 +143,7 @@ export const useDeleteUnit = mutation((id: string) => inventoryApi.deleteUnit(id
 export const useImportUnits = mutation((units: { name: string; abbreviation: string | null }[]) => inventoryApi.importUnits(units), [[...UNITS], [...VALUATION]]);
 
 export const useCreateSupplier = mutation((d: object) => inventoryApi.createSupplier(d), [[...SUPPLIERS]]);
+export const useBulkCreateSuppliers = mutation((items: object[]) => inventoryApi.bulkCreateSuppliers(items), [[...SUPPLIERS]]);
 export const useUpdateSupplier = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateSupplier(id, data), [[...SUPPLIERS]]);
 export const useDeleteSupplier = mutation((id: string) => inventoryApi.deleteSupplier(id), [[...SUPPLIERS]]);
 
@@ -148,14 +155,14 @@ const ORDERS = ["sales", "orders"] as const;
 const RETURNS = ["sales", "returns"] as const;
 const TARGETS = ["sales", "targets"] as const;
 
-export const useCustomers = (page = 1, pageSize = 200, opts?: QueryOpts) =>
-  useQ([...CUSTOMERS, page, pageSize], () => salesApi.listCustomers(page, pageSize), (r) => r.data, opts);
+export const useCustomers = (page = 1, pageSize = 200, search?: string, customerType?: string, opts?: QueryOpts) =>
+  useQ([...CUSTOMERS, page, pageSize, search ?? "", customerType ?? "all"], () => salesApi.listCustomers(page, pageSize, search, customerType), (r) => r.data, opts);
 
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
-export const useOrders = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all"], () => salesApi.listOrders(page, pageSize, status), (r) => r.data, opts);
+export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, opts?: QueryOpts) =>
+  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? ""], () => salesApi.listOrders(page, pageSize, status, search), (r) => r.data, opts);
 
 export const useReturns = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
   useQ([...RETURNS, page, pageSize, status ?? "all"], () => salesApi.listReturns(page, pageSize, status), (r) => r.data, opts);
@@ -164,6 +171,7 @@ export const useTargets = (page = 1, pageSize = 100, period?: string, opts?: Que
   useQ([...TARGETS, page, pageSize, period ?? "all"], () => salesApi.listTargets(page, pageSize, period), (r) => r.data, opts);
 
 export const useCreateCustomer = mutation((d: object) => salesApi.createCustomer(d), [[...CUSTOMERS]]);
+export const useBulkCreateCustomers = mutation((items: object[]) => salesApi.bulkCreateCustomers(items), [[...CUSTOMERS]]);
 export const useUpdateCustomer = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateCustomer(id, data), [[...CUSTOMERS]]);
 export const useDeleteCustomer = mutation((id: string) => salesApi.deleteCustomer(id), [[...CUSTOMERS]]);
 
@@ -172,6 +180,7 @@ export const useUpdateDeal = mutation(({ id, data }: { id: string; data: object 
 export const useDeleteDeal = mutation((id: string) => salesApi.deleteDeal(id), [[...DEALS]]);
 
 export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
+export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCreateOrders(items), [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 
@@ -208,8 +217,8 @@ export const useGeneralLedger = (from?: string, to?: string, accountId?: string,
 export const useAccounts = (type?: string, opts?: QueryOpts) =>
   useQ([...ACCOUNTS, type ?? "all"], () => accountingApi.listAccounts(type), (r) => r.data, opts);
 
-export const useExpenses = (status?: string, opts?: QueryOpts) =>
-  useQ([...EXPENSES, status ?? "all"], () => accountingApi.listExpenses(status), (r) => r.data, opts);
+export const useExpenses = (status?: string, page = 1, pageSize = 50, search?: string, opts?: QueryOpts) =>
+  useQ([...EXPENSES, status ?? "all", page, pageSize, search ?? ""], () => accountingApi.listExpenses(status, page, pageSize, search), (r) => r.data, opts);
 
 export const useTransactions = (type?: string, status?: string, opts?: QueryOpts) =>
   useQ([...TRANSACTIONS, type ?? "all", status ?? "all"], () => accountingApi.listTransactions(type, status), (r) => r.data, opts);
@@ -220,6 +229,7 @@ export const useDeleteAccount = mutation((id: string) => accountingApi.deleteAcc
 export const useSeedAccounts = mutation(() => accountingApi.seedAccounts(), [[...ACCOUNTS], [...REPORTS]]);
 
 export const useCreateExpense = mutation((d: Parameters<typeof accountingApi.createExpense>[0]) => accountingApi.createExpense(d), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
+export const useBulkCreateExpenses = mutation((items: object[]) => accountingApi.bulkCreateExpenses(items), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
 export const useApproveExpense = mutation((id: string) => accountingApi.approveExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
 export const useRejectExpense = mutation((id: string) => accountingApi.rejectExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);
 export const useDeleteExpense = mutation((id: string) => accountingApi.deleteExpense(id), [[...EXPENSES], [...REPORTS], [...TRANSACTIONS]]);

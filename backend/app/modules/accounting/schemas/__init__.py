@@ -1,6 +1,12 @@
 from app.modules.accounting.schemas.account import AccountCreate, AccountRead, AccountUpdate
 from app.modules.accounting.schemas.budget import BudgetCreate, BudgetRead, BudgetUpdate
-from app.modules.accounting.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
+from app.modules.accounting.schemas.expense import (
+    ExpenseBulkCreate,
+    ExpenseBulkResult,
+    ExpenseCreate,
+    ExpenseRead,
+    ExpenseUpdate,
+)
 from app.modules.accounting.schemas.report import (
     BalanceSheet,
     BalanceSheetSection,
@@ -46,6 +52,8 @@ __all__ = [
     "CashFlowLine",
     "CashFlowSection",
     "CashFlowStatement",
+    "ExpenseBulkCreate",
+    "ExpenseBulkResult",
     "ExpenseCreate",
     "ExpenseRead",
     "ExpenseUpdate",

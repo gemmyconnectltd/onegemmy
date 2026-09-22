@@ -1,28 +1,69 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, TrendingDown, Check, X, Trash2 } from "lucide-react";
+import { Plus, TrendingDown, Check, X, Trash2, Upload, Search } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useExpenses, useCreateExpense, useApproveExpense, useRejectExpense, useDeleteExpense } from "@/lib/api/hooks";
+import { useExpenses, useCreateExpense, useApproveExpense, useRejectExpense, useDeleteExpense, useBulkCreateExpenses } from "@/lib/api/hooks";
 import type { AccountingExpense } from "@/lib/api/accounting";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { Field, Input, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { SelectWithOther } from "@/components/ui/SelectWithOther";
 
 const CATEGORIES = ["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
+
+const EXPENSE_CSV_HEADERS = ["title", "amount", "expenseDate", "category", "notes"];
+
+interface ExpenseImportRow {
+  title: string;
+  amount: number;
+  expense_date: string;
+  category: string;
+  notes: string | null;
+}
+
+function parseExpenseRow(raw: Record<string, string>): { data: ExpenseImportRow; errors: string[] } {
+  const errors: string[] = [];
+  if (!raw.title) errors.push("title required");
+  if (!raw.amount || isNaN(Number(raw.amount))) errors.push("invalid amount");
+  const date = raw.expensedate || "";
+  if (!date || isNaN(new Date(date).getTime())) errors.push("invalid expenseDate");
+  // Any category text is accepted (the backend has no fixed list) — a value
+  // outside the preset dropdown options just imports as its own free-text
+  // category instead of being silently collapsed into "Other".
+  const category = raw.category?.trim() || "Other";
+  return {
+    data: {
+      title: raw.title?.trim() ?? "",
+      amount: Number(raw.amount),
+      expense_date: date,
+      category,
+      notes: raw.notes?.trim() || null,
+    },
+    errors,
+  };
+}
 
 export default function ExpensesPage() {
   const { currencySymbol, brandColor } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [filter, setFilter] = useState("All");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
@@ -33,15 +74,31 @@ export default function ExpensesPage() {
   });
   const [acting, setActing] = useState<string | null>(null);
 
-  const expensesQ = useExpenses(filter === "All" ? undefined : filter);
+  // Reset to page 1 right where a filter changes, not via an effect.
+  const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
+  const onFilterChange = (f: string) => { setFilter(f); setPage(1); };
+
+  const expensesQ = useExpenses(filter === "All" ? undefined : filter, page, pageSize, debouncedSearch || undefined);
   const expenses = expensesQ.data?.items ?? [];
+  const total = expensesQ.data?.total ?? 0;
   const loading = expensesQ.isLoading;
   const error = expensesQ.isError ? "Could not load expenses." : null;
+
+  // Money totals summarise the whole filtered set, not just the current page —
+  // a separate capped fetch (same pattern used on the Orders page) feeds them,
+  // decoupled from the small page the table itself requests. Pending-approval
+  // total always reflects every Pending expense, regardless of which status
+  // tab is selected.
+  const totalStatsQ = useExpenses(filter === "All" ? undefined : filter, 1, 500);
+  const pendingStatsQ = useExpenses("Pending", 1, 500);
+  const totalAmount = (totalStatsQ.data?.items ?? []).reduce((s, e) => s + e.amount, 0);
+  const pendingTotal = (pendingStatsQ.data?.items ?? []).reduce((s, e) => s + e.amount, 0);
 
   const createExpense = useCreateExpense();
   const approveExpense = useApproveExpense();
   const rejectExpense = useRejectExpense();
   const deleteExpense = useDeleteExpense();
+  const bulkCreateExpenses = useBulkCreateExpenses();
   const saving = createExpense.isPending;
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,9 +161,6 @@ export default function ExpensesPage() {
     });
   }
 
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const pendingTotal = expenses.filter((e) => e.status === "Pending").reduce((s, e) => s + e.amount, 0);
-
   return (
     <div className="space-y-6">
       {confirmDialog}
@@ -114,33 +168,48 @@ export default function ExpensesPage() {
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Expenses</h1>
           <p className="text-sm text-muted mt-0.5">
-            Total: <span className="font-bold text-red-500">{fmt(total)}</span>
+            Total: <span className="font-bold text-red-500">{fmt(totalAmount)}</span>
             {pendingTotal > 0 && <span className="text-muted"> · {fmt(pendingTotal)} pending approval</span>}
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-          style={{ backgroundColor: brandColor }}
-        >
-          <Plus size={15} /> Add Expense
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 border border-border px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg text-foreground hover:bg-surface"
+          >
+            <Upload size={15} /> Import
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
+            style={{ backgroundColor: brandColor }}
+          >
+            <Plus size={15} /> Add Expense
+          </button>
+        </div>
       </div>
 
       {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f ? "text-white" : "text-muted hover:bg-surface"}`}
-            style={filter === f ? { backgroundColor: brandColor } : undefined}
-          >
-            {f}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => onFilterChange(f)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f ? "text-white" : "text-muted hover:bg-surface"}`}
+              style={filter === f ? { backgroundColor: brandColor } : undefined}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-2 w-52">
+          <Search size={14} className="text-muted flex-shrink-0" />
+          <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search expenses..."
+            className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
+        </div>
       </div>
 
       {loading ? (
@@ -158,7 +227,7 @@ export default function ExpensesPage() {
               <BulkActionBar count={bulk.count} label="expense" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className="w-full min-w-[640px]">
+          <table className={`w-full min-w-160 transition-opacity ${expensesQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -224,6 +293,7 @@ export default function ExpensesPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="expenses" color={brandColor} />
         </div>
       )}
 
@@ -241,9 +311,12 @@ export default function ExpensesPage() {
             </Field>
           </div>
           <Field label="Category">
-            <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </Select>
+            <SelectWithOther
+              options={CATEGORIES}
+              value={form.category}
+              onChange={(category) => setForm({ ...form, category })}
+              placeholder="e.g. Bank Fees"
+            />
           </Field>
           <Field label="Notes">
             <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional" />
@@ -251,6 +324,29 @@ export default function ExpensesPage() {
           <FormFooter submitLabel={saving ? "Saving…" : "Add Expense"} onCancel={() => setShowForm(false)} disabled={saving} />
         </form>
       </Drawer>
+
+      <CsvImportDrawer<ExpenseImportRow>
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onSubmit={async (items) => { await bulkCreateExpenses.mutateAsync(items); }}
+        title="Import Expenses"
+        itemNoun="expense"
+        templateFilename="expenses_template.xlsx"
+        templateHeaders={EXPENSE_CSV_HEADERS}
+        templateSampleRows={[
+          ["Rent Payment", "150000", "2025-01-05", "Rent", "January rent"],
+          ["Internet Bill", "45000", "2025-01-10", "Utilities", ""],
+        ]}
+        previewColumns={[
+          { key: "title", label: "Title", required: true },
+          { key: "amount", label: "Amount", align: "right", required: true },
+          { key: "expensedate", label: "Date", required: true },
+          { key: "category", label: "Category" },
+          { key: "notes", label: "Notes" },
+        ]}
+        parseRow={parseExpenseRow}
+        color={brandColor}
+      />
     </div>
   );
 }

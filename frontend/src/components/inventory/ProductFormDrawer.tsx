@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Download, CheckCircle2, XCircle, FileText, ImagePlus, X } from "lucide-react";
+import { XCircle, ImagePlus, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
 import { useCategories, useBrands, useUnits } from "@/lib/api/hooks";
 import { resolveUploadUrl } from "@/lib/api/client";
 
@@ -244,197 +245,49 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
   );
 }
 
-// ── CSV bulk import ──────────────────────────────────────────────────────────
+// ── Bulk import (Excel or CSV) ────────────────────────────────────────────────
 
-type ParsedRow = { data: Record<string, string>; valid: boolean; errors: string[] };
-
-function parseCSV(text: string): ParsedRow[] {
-  const lines = text.trim().split("\n").filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/\s+/g, ""));
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
-    const errors: string[] = [];
-    if (!row.name) errors.push("name required");
-    if (!row.sku) errors.push("sku required");
-    if (!row.price || isNaN(Number(row.price))) errors.push("invalid price");
-    if (!row.cost || isNaN(Number(row.cost))) errors.push("invalid cost");
-    if (row.stock === undefined || isNaN(Number(row.stock))) errors.push("invalid stock");
-    if (row.minstock === undefined || isNaN(Number(row.minstock))) errors.push("invalid minStock");
-    // normalise minstock → minStock
-    if (row.minstock !== undefined) { row.minStock = row.minstock; }
-    return { data: row, valid: errors.length === 0, errors };
-  });
-}
-
-function downloadTemplate() {
-  const sample = [
-    CSV_HEADERS.join(","),
-    "Phone Case - iPhone,PC-001,Accessories,Generic,Piece,2500,5000,45,10",
-    "USB-C Cable 1m,UC-002,Cables,Anker,Piece,1200,3000,120,20",
-  ].join("\n");
-  const blob = new Blob([sample], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "products_template.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+function parseProductRow(row: Record<string, string>): { data: ProductFormValues; errors: string[] } {
+  const errors: string[] = [];
+  if (!row.name) errors.push("name required");
+  if (!row.sku) errors.push("sku required");
+  if (!row.price || isNaN(Number(row.price))) errors.push("invalid price");
+  if (!row.cost || isNaN(Number(row.cost))) errors.push("invalid cost");
+  if (row.stock === undefined || isNaN(Number(row.stock))) errors.push("invalid stock");
+  if (row.minstock === undefined || isNaN(Number(row.minstock))) errors.push("invalid minStock");
+  // normalise minstock → minStock for parseForm()
+  const normalised = row.minstock !== undefined ? { ...row, minStock: row.minstock } : row;
+  return { data: parseForm(normalised), errors };
 }
 
 function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductFormValues[]) => void; color?: string }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [rows, setRows] = useState<ParsedRow[] | null>(null);
-  const [fileName, setFileName] = useState("");
-  const [dragging, setDragging] = useState(false);
-
-  const validRows = rows?.filter((r) => r.valid) ?? [];
-
-  const handleFile = (file: File) => {
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => setRows(parseCSV(e.target?.result as string));
-    reader.readAsText(file);
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file?.name.endsWith(".csv")) handleFile(file);
-  };
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validRows.length) return;
-    onBulkSubmit(validRows.map((r) => parseForm(r.data)));
-    onClose();
-  };
-
   return (
-    <Drawer
+    <CsvImportDrawer<ProductFormValues>
       open
       onClose={onClose}
+      onSubmit={async (items) => onBulkSubmit(items)}
       title="Import Products"
-      description={rows ? `${validRows.length} valid · ${(rows.length - validRows.length)} errors` : "Upload a CSV file"}
-      size="lg"
-      footer={
-        rows && (
-          <form onSubmit={submit}>
-            <FormFooter
-              submitLabel={`Import ${validRows.length} Product${validRows.length !== 1 ? "s" : ""}`}
-              onCancel={onClose}
-              disabled={validRows.length === 0}
-              color={color}
-            />
-          </form>
-        )
-      }
-    >
-      <div className="p-5 space-y-4">
-
-        {/* Download template */}
-        <button
-          type="button"
-          onClick={downloadTemplate}
-          className="w-full flex items-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-surface transition-colors text-left"
-        >
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color ? `${color}15` : "var(--accent-10)" }}>
-            <Download size={15} style={{ color: color ?? "var(--accent)" }} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">Download CSV template</p>
-            <p className="text-xs text-muted">Fill it in Excel or Google Sheets, then upload</p>
-          </div>
-        </button>
-
-        {/* Drop zone */}
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            dragging ? "border-accent bg-accent/5" : "border-border hover:border-foreground/30 hover:bg-surface/50"
-          }`}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
-          <Upload size={24} className="mx-auto mb-2 text-muted" />
-          {fileName ? (
-            <p className="text-sm font-semibold text-foreground">{fileName}</p>
-          ) : (
-            <>
-              <p className="text-sm font-semibold text-foreground">Drop your CSV here or click to browse</p>
-              <p className="text-xs text-muted mt-1">Only .csv files</p>
-            </>
-          )}
-        </div>
-
-        {/* Preview table */}
-        {rows && rows.length > 0 && (
-          <div className="border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-2.5 bg-surface/50 border-b border-border flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground">Preview — {rows.length} rows</span>
-              <button type="button" onClick={() => { setRows(null); setFileName(""); }} className="text-xs text-muted hover:text-foreground">Clear</button>
-            </div>
-            <div className="overflow-x-auto max-h-64">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-surface/30 text-left">
-                    <th className="px-3 py-2 text-muted font-semibold w-6" />
-                    <th className="px-3 py-2 text-muted font-semibold">Name</th>
-                    <th className="px-3 py-2 text-muted font-semibold">SKU</th>
-                    <th className="px-3 py-2 text-muted font-semibold">Category</th>
-                    <th className="px-3 py-2 text-muted font-semibold text-right">Cost</th>
-                    <th className="px-3 py-2 text-muted font-semibold text-right">Price</th>
-                    <th className="px-3 py-2 text-muted font-semibold text-right">Stock</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rows.map((row, i) => (
-                    <tr key={i} className={row.valid ? "bg-white" : "bg-red-50"}>
-                      <td className="px-3 py-2">
-                        {row.valid
-                          ? <CheckCircle2 size={13} className="text-emerald-500" />
-                          : <XCircle size={13} className="text-red-500" />}
-                      </td>
-                      <td className="px-3 py-2 font-medium text-foreground">{row.data.name || <span className="text-red-400">—</span>}</td>
-                      <td className="px-3 py-2 font-mono text-muted">{row.data.sku || <span className="text-red-400">—</span>}</td>
-                      <td className="px-3 py-2 text-muted">{row.data.category || "—"}</td>
-                      <td className="px-3 py-2 text-right text-muted">{row.data.cost || "—"}</td>
-                      <td className="px-3 py-2 text-right text-muted">{row.data.price || "—"}</td>
-                      <td className="px-3 py-2 text-right text-muted">{row.data.stock || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {rows.some((r) => !r.valid) && (
-              <div className="px-4 py-2.5 bg-red-50 border-t border-red-100">
-                <p className="text-xs text-red-600 font-medium">
-                  {rows.filter((r) => !r.valid).length} row(s) have errors and will be skipped on import.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {rows && rows.length === 0 && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <FileText size={14} className="text-amber-500" />
-            <p className="text-xs text-amber-700 font-medium">No rows found. Make sure the file has a header row and data rows.</p>
-          </div>
-        )}
-      </div>
-    </Drawer>
+      itemNoun="product"
+      templateFilename="products_template.xlsx"
+      templateHeaders={CSV_HEADERS}
+      templateSampleRows={[
+        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10"],
+        ["USB-C Cable 1m", "UC-002", "Cables", "Anker", "Piece", "1200", "3000", "120", "20"],
+      ]}
+      previewColumns={[
+        { key: "name", label: "Name", required: true },
+        { key: "sku", label: "SKU", required: true },
+        { key: "category", label: "Category" },
+        { key: "brand", label: "Brand" },
+        { key: "unit", label: "Unit" },
+        { key: "cost", label: "Cost", align: "right", required: true },
+        { key: "price", label: "Price", align: "right", required: true },
+        { key: "stock", label: "Stock", align: "right", required: true },
+        { key: "minstock", label: "Min Stock", align: "right", required: true },
+      ]}
+      parseRow={parseProductRow}
+      color={color}
+    />
   );
 }
 

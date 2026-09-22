@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -20,18 +20,26 @@ class ExpenseRepository(BaseRepository[Expense]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[Expense]:
+    async def list_for_tenant(
+        self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, search: str | None = None
+    ) -> list[Expense]:
         stmt = select(Expense).options(*self._opts()).where(Expense.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(Expense.status == status)
+        if search:
+            like = f"%{search}%"
+            stmt = stmt.where(or_(Expense.title.ilike(like), Expense.reference.ilike(like)))
         stmt = stmt.order_by(Expense.expense_date.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None) -> int:
         stmt = select(func.count()).select_from(Expense).where(Expense.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(Expense.status == status)
+        if search:
+            like = f"%{search}%"
+            stmt = stmt.where(or_(Expense.title.ilike(like), Expense.reference.ilike(like)))
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

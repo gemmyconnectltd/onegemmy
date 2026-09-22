@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { PackagePlus, SlidersHorizontal, XCircle } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
+import { Field, Input, Textarea, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
+import { SelectWithOther } from "@/components/ui/SelectWithOther";
 
 export type RestockMode = "restock" | "adjust";
 
@@ -152,11 +153,13 @@ export function RestockDrawer({ open, onClose, productName, currentStock, onSubm
 
         {/* Reason */}
         <Field label="Reason">
-          <Select value={reason} onChange={(e) => setReason(e.target.value)}>
-            {(mode === "restock" ? RESTOCK_REASONS : ADJUST_REASONS).map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </Select>
+          <SelectWithOther
+            key={mode}
+            options={mode === "restock" ? RESTOCK_REASONS : ADJUST_REASONS}
+            value={reason}
+            onChange={setReason}
+            placeholder="e.g. Vendor sample"
+          />
         </Field>
 
         {/* Notes */}

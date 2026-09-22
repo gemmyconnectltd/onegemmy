@@ -1,4 +1,4 @@
-import { request, getStoredToken, API_BASE } from "./client";
+import { request, getStoredToken, API_BASE, qs } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 export interface ApiVariant {
   id: string;
@@ -109,8 +109,8 @@ const BASE = "/tenants/inventory";
 
 export const inventoryApi = {
   // Products
-  listProducts: (page = 1, pageSize = 100) =>
-    request<PaginatedResponse<ApiProduct>>(`${BASE}/products?page=${page}&page_size=${pageSize}`),
+  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean) =>
+    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, is_active: isActive === undefined ? undefined : String(isActive) })}`),
   createProduct: (data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateProducts: (items: object[]) =>
@@ -185,10 +185,12 @@ export const inventoryApi = {
     request<SingleResponse<ApiUnitImportResult>>(`${BASE}/units/import`, { method: "POST", body: JSON.stringify({ units }) }),
 
   // Suppliers
-  listSuppliers: () =>
-    request<PaginatedResponse<ApiSupplier>>(`${BASE}/suppliers?page_size=200`),
+  listSuppliers: (page = 1, pageSize = 20, search?: string) =>
+    request<PaginatedResponse<ApiSupplier>>(`${BASE}/suppliers${qs({ page, page_size: pageSize, search })}`),
   createSupplier: (data: object) =>
     request<SingleResponse<ApiSupplier>>(`${BASE}/suppliers`, { method: "POST", body: JSON.stringify(data) }),
+  bulkCreateSuppliers: (items: object[]) =>
+    request<SingleResponse<{ created: number; skipped: number; failed: number; errors: string[] }>>(`${BASE}/suppliers/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
   updateSupplier: (id: string, data: object) =>
     request<SingleResponse<ApiSupplier>>(`${BASE}/suppliers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteSupplier: (id: string) =>

@@ -1,24 +1,33 @@
 import uuid
 
 from sqlalchemy import text, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.accounting.models.budget import Budget
 from app.modules.accounting.models.expense import Expense
 from app.modules.accounting.repository import BudgetRepository, ExpenseRepository
-from app.modules.accounting.schemas import ExpenseCreate, ExpenseRead, ExpenseUpdate
+from app.modules.accounting.schemas import (
+    ExpenseBulkCreate,
+    ExpenseBulkResult,
+    ExpenseCreate,
+    ExpenseRead,
+    ExpenseUpdate,
+)
 from app.modules.accounting.service.transaction import create_expense_transaction
 from app.modules.audit.service import record_audit
 
 
-async def list_expenses(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[ExpenseRead]:
-    items = await ExpenseRepository(db).list_for_tenant(tenant_id, status, offset, limit)
+async def list_expenses(
+    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, search: str | None = None
+) -> list[ExpenseRead]:
+    items = await ExpenseRepository(db).list_for_tenant(tenant_id, status, offset, limit, search)
     return [ExpenseRead.model_validate(i) for i in items]
 
 
-async def count_expenses(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None) -> int:
-    return await ExpenseRepository(db).count_for_tenant(tenant_id, status)
+async def count_expenses(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None) -> int:
+    return await ExpenseRepository(db).count_for_tenant(tenant_id, status, search)
 
 
 async def get_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> ExpenseRead:
@@ -52,6 +61,49 @@ async def create_expense(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, obj.id)
     return ExpenseRead.model_validate(obj)
+
+
+async def bulk_create_expenses(
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ExpenseBulkCreate, user_name: str | None = None
+) -> ExpenseBulkResult:
+    """CSV-style bulk import. Every imported expense is created Pending (same as
+    the single form) with a server-assigned EXP- reference. Fail-soft per row:
+    one bad record never aborts the rest."""
+    repo = ExpenseRepository(db)
+    created = 0
+    failed = 0
+    errors: list[str] = []
+
+    for item in data.items:
+        try:
+            reference = await repo.next_reference(tenant_id)
+            obj = Expense(
+                tenant_id=tenant_id,
+                reference=reference,
+                created_by=user_id,
+                **item.model_dump(),
+            )
+            obj = await repo.save(obj)
+            await record_audit(
+                db,
+                tenant_id=tenant_id,
+                actor_user_id=user_id,
+                actor_name=user_name,
+                action="expense.create",
+                entity_type="expense",
+                entity_id=str(obj.id),
+                summary=f"Created expense {reference}",
+                changes={"reference": reference, "amount": obj.amount, "category": item.category},
+            )
+            created += 1
+        except SQLAlchemyError as e:
+            await db.rollback()
+            failed += 1
+            errors.append(f"{item.title}: {e!s}")
+
+    if created > 0:
+        await db.commit()
+    return ExpenseBulkResult(created=created, failed=failed, errors=errors)
 
 
 async def update_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: ExpenseUpdate) -> ExpenseRead:

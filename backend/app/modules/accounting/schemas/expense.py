@@ -16,6 +16,16 @@ class ExpenseCreate(BaseModel):
     order_id: uuid.UUID | None = None
 
 
+class ExpenseBulkCreate(BaseModel):
+    items: list[ExpenseCreate]
+
+
+class ExpenseBulkResult(BaseModel):
+    created: int
+    failed: int
+    errors: list[str] = []
+
+
 class ExpenseUpdate(BaseModel):
     title: str | None = None
     amount: float | None = None

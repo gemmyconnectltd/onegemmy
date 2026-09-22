@@ -64,11 +64,8 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
   ],
   customers: [
     { nameKey: "allCustomers", href: "/customers",           icon: Users, exact: true },
-    { nameKey: "contacts",     href: "/crm/contacts",        icon: UserCheck },
     { nameKey: "segments",     href: "/customers/segments",  icon: Tag },
     { nameKey: "loyalty",      href: "/customers/loyalty",   icon: Star },
-    { nameKey: "campaigns",    href: "/crm/campaigns",       icon: Megaphone },
-    { nameKey: "emails",       href: "/crm/emails",          icon: Mail },
     { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2 },
   ],
   procurement: [

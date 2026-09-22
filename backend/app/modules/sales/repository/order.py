@@ -1,9 +1,10 @@
 import uuid
 
-from sqlalchemy import Integer, cast, func, select
+from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
+from app.modules.sales.models.customer import Customer
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
 
@@ -25,18 +26,30 @@ class OrderRepository(BaseRepository[Order]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[Order]:
+    async def list_for_tenant(
+        self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, search: str | None = None
+    ) -> list[Order]:
         stmt = select(Order).options(*_with_relations()).where(Order.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(Order.status == status)
+        if search:
+            like = f"%{search}%"
+            stmt = stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
+                or_(Order.order_number.ilike(like), Customer.name.ilike(like))
+            )
         stmt = stmt.order_by(Order.ordered_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None) -> int:
         stmt = select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(Order.status == status)
+        if search:
+            like = f"%{search}%"
+            stmt = stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
+                or_(Order.order_number.ilike(like), Customer.name.ilike(like))
+            )
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

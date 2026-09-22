@@ -3,7 +3,7 @@ import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, Trash2, AlertCircle, Package, ChevronDown,
+  Eye, Edit2, Trash2, AlertCircle, Package, ChevronDown, Upload,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useEffect, useRef } from "react";
@@ -11,12 +11,15 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
 import { accountingApi } from "@/lib/api/accounting";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const STATUS_STYLE: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
@@ -47,6 +50,48 @@ function attrLabel(attrs: Record<string, string> | null | undefined) {
   if (!attrs) return "";
   const entries = Object.entries(attrs);
   return entries.length ? entries.map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
+}
+
+// ── CSV order import ─────────────────────────────────────────────────────────
+// One row per order line; rows sharing the same orderReference become one
+// order (the backend groups them), so a multi-item historical sale is just
+// that reference repeated across rows.
+const ORDER_CSV_HEADERS = ["orderReference", "customer", "orderedAt", "status", "paymentMethod", "notes", "sku", "quantity", "unitPrice"];
+
+interface OrderImportRow {
+  order_reference: string;
+  customer: string | null;
+  ordered_at: string | null;
+  status: string;
+  payment_method: string | null;
+  notes: string | null;
+  sku: string;
+  quantity: number;
+  unit_price: number;
+}
+
+function parseOrderRow(raw: Record<string, string>): { data: OrderImportRow; errors: string[] } {
+  const errors: string[] = [];
+  if (!raw.orderreference) errors.push("orderReference required");
+  if (!raw.sku) errors.push("sku required");
+  if (!raw.unitprice || isNaN(Number(raw.unitprice))) errors.push("invalid unitPrice");
+  if (raw.quantity !== undefined && raw.quantity !== "" && isNaN(Number(raw.quantity))) errors.push("invalid quantity");
+  const status = (raw.status || "Completed").trim();
+  if (status && !["Completed", "Pending"].includes(status)) errors.push("status must be Completed or Pending");
+  return {
+    data: {
+      order_reference: raw.orderreference?.trim() ?? "",
+      customer: raw.customer?.trim() || null,
+      ordered_at: raw.orderedat?.trim() || null,
+      status: status || "Completed",
+      payment_method: raw.paymentmethod?.trim() || null,
+      notes: raw.notes?.trim() || null,
+      sku: raw.sku?.trim() ?? "",
+      quantity: raw.quantity ? Number(raw.quantity) : 1,
+      unit_price: Number(raw.unitprice),
+    },
+    errors,
+  };
 }
 
 // ── Product picker cell ───────────────────────────────────────────────────────
@@ -216,20 +261,44 @@ export default function SalesOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<ApiOrder | null>(null);
   const [viewing, setViewing] = useState<ApiOrder | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [items, setItems] = useState<ItemRow[]>([newItem()]);
 
-  const ordersQ = useOrders(1, 200);
+  // Reset to page 1 right where a filter changes, not via an effect.
+  const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
+  const onStatusFilterChange = (s: string) => { setStatusFilter(s); setPage(1); };
+
+  const ordersQ = useOrders(page, pageSize, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined);
+  // Customer/product pickers for the create/edit form need the full lists, not
+  // the current table page — kept as their own, separately-paginated fetches.
   const customersQ = useCustomers(1, 200);
   const productsQ = useProducts(1, 500);
   const loading = ordersQ.isLoading || customersQ.isLoading || productsQ.isLoading;
   const orders = ordersQ.data?.items ?? [];
+  const total = ordersQ.data?.total ?? 0;
   const customers = customersQ.data?.items ?? [];
   const products = productsQ.data?.items ?? [];
+
+  // Stat cards summarise the whole tenant, not just the current filtered page:
+  // cheap page_size=1 calls read `.total` for the status breakdown, and a
+  // capped fetch of Completed orders (same pattern the dashboard uses) feeds
+  // the revenue/VAT sums.
+  const totalOrdersQ = useOrders(1, 1);
+  const completedCountQ = useOrders(1, 1, "Completed");
+  const pendingCountQ = useOrders(1, 1, "Pending");
+  const revenueQ = useOrders(1, 500, "Completed");
+  const statsLoading = totalOrdersQ.isLoading || completedCountQ.isLoading || pendingCountQ.isLoading || revenueQ.isLoading;
+  const revenueOrders = revenueQ.data?.items ?? [];
+  const revenue = revenueOrders.reduce((s, o) => s + o.total, 0);
+  const totalVAT = revenueOrders.reduce((s, o) => s + o.tax, 0);
 
   const loadError = ordersQ.error ?? customersQ.error ?? productsQ.error;
   const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load orders" : null;
@@ -241,27 +310,17 @@ export default function SalesOrdersPage() {
   const createOrder = useCreateOrder();
   const updateOrder = useUpdateOrder();
   const deleteOrder = useDeleteOrder();
+  const bulkCreateOrders = useBulkCreateOrders();
   const saving = createOrder.isPending || updateOrder.isPending;
 
-  const completed = orders.filter((o) => o.status === "Completed");
-  const pending   = orders.filter((o) => o.status === "Pending");
-  const revenue   = completed.reduce((s, o) => s + o.total, 0);
-  const totalVAT  = completed.reduce((s, o) => s + o.tax, 0);
-
   const stats = [
-    { label: "Total Orders", value: String(orders.length),    icon: ShoppingCart, color: SAL },
-    { label: "Completed",    value: String(completed.length), icon: CheckCircle2, color: "#10b981" },
-    { label: "Pending",      value: String(pending.length),   icon: Clock,        color: "#f59e0b" },
-    { label: "Revenue",      value: fmt(revenue),             icon: ShoppingCart, color: "#3b82f6" },
+    { label: "Total Orders", value: String(totalOrdersQ.data?.total ?? 0),    icon: ShoppingCart, color: SAL },
+    { label: "Completed",    value: String(completedCountQ.data?.total ?? 0), icon: CheckCircle2, color: "#10b981" },
+    { label: "Pending",      value: String(pendingCountQ.data?.total ?? 0),   icon: Clock,        color: "#f59e0b" },
+    { label: "Revenue",      value: fmt(revenue),                            icon: ShoppingCart, color: "#3b82f6" },
   ];
 
-  const filtered = orders.filter((o) => {
-    const q = search.toLowerCase();
-    const matchSearch = (o.customer?.name ?? "Walk-in").toLowerCase().includes(q) || o.order_number.toLowerCase().includes(q);
-    const matchStatus = statusFilter === "All" || o.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
-  const bulk = useBulkSelection(filtered.map((o) => o.id));
+  const bulk = useBulkSelection(orders.map((o) => o.id));
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -353,9 +412,12 @@ export default function SalesOrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Orders</h1>
-          <p className="text-sm text-muted mt-0.5">{orders.length} total orders</p>
+          <p className="text-sm text-muted mt-0.5">{total} total order{total === 1 ? "" : "s"}</p>
         </div>
-        <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Order</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
+          <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Order</Button>
+        </div>
       </div>
 
       {error && (
@@ -371,7 +433,7 @@ export default function SalesOrdersPage() {
             <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{loading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{statsLoading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -381,14 +443,14 @@ export default function SalesOrdersPage() {
         <div className="p-4 border-b border-border flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
             {["All", "Completed", "Pending", "Cancelled"].map((s) => (
-              <button key={s} onClick={() => setStatusFilter(s)}
+              <button key={s} onClick={() => onStatusFilterChange(s)}
                 className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${statusFilter === s ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
                 style={statusFilter === s ? { backgroundColor: SAL } : undefined}>{s}</button>
             ))}
           </div>
           <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-2 w-52">
             <Search size={14} className="text-muted flex-shrink-0" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search orders..."
+            <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search orders..."
               className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
           </div>
         </div>
@@ -402,11 +464,11 @@ export default function SalesOrdersPage() {
         {loading ? (
           <PageLoader variant="compact" />
         ) : (
-          <table className="w-full min-w-[640px]">
+          <table className={`w-full min-w-160 transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
-                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={orders.length === 0} />
                 </th>
                 <th className="p-4 font-semibold">Order ID</th>
                 <th className="p-4 font-semibold">Customer</th>
@@ -419,7 +481,7 @@ export default function SalesOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((o) => {
+              {orders.map((o) => {
                 const Icon = STATUS_ICON[o.status] ?? Clock;
                 return (
                   <tr key={o.id} className="hover:bg-surface/50 transition-colors group">
@@ -450,13 +512,16 @@ export default function SalesOrdersPage() {
             </tbody>
           </table>
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && orders.length === 0 && (
           <div className="py-16 text-center">
             <ShoppingCart size={32} className="text-border mx-auto mb-3" />
             <p className="text-sm font-semibold text-muted">No orders found</p>
           </div>
         )}
-        {!loading && completed.length > 0 && (
+        {!loading && orders.length > 0 && (
+          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="orders" color={SAL} />
+        )}
+        {!statsLoading && revenueOrders.length > 0 && (
           <div className="px-4 py-3 border-t border-border bg-surface/50 flex flex-wrap items-center gap-6">
             <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Tax Summary (completed orders)</span>
             <span className="text-[12px] font-bold" style={{ color: "#6366f1" }}>VAT Collected: {fmt(totalVAT)}</span>
@@ -645,6 +710,33 @@ export default function SalesOrdersPage() {
           </div>
         )}
       </Drawer>
+
+      <CsvImportDrawer<OrderImportRow>
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onSubmit={async (items) => { await bulkCreateOrders.mutateAsync(items); }}
+        title="Import Orders"
+        itemNoun="order"
+        templateFilename="orders_template.xlsx"
+        templateHeaders={ORDER_CSV_HEADERS}
+        templateSampleRows={[
+          ["INV-1001", "Jean Pierre", "2025-01-05", "Completed", "Cash", "", "PC-001", "2", "5000"],
+          ["INV-1001", "Jean Pierre", "2025-01-05", "Completed", "Cash", "", "UC-002", "1", "3000"],
+        ]}
+        previewColumns={[
+          { key: "orderreference", label: "Order Ref", required: true },
+          { key: "customer", label: "Customer" },
+          { key: "orderedat", label: "Date" },
+          { key: "sku", label: "SKU", required: true },
+          { key: "quantity", label: "Qty", align: "right" },
+          { key: "unitprice", label: "Unit Price", align: "right", required: true },
+          { key: "status", label: "Status" },
+          { key: "paymentmethod", label: "Payment" },
+          { key: "notes", label: "Notes" },
+        ]}
+        parseRow={parseOrderRow}
+        color={SAL}
+      />
     </div>
   );
 }

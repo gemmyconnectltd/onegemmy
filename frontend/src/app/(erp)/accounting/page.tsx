@@ -12,6 +12,7 @@ import { getSalesSnapshot, subscribeSales } from "@/lib/invoices";
 import type { SaleResult } from "@/components/pos/types";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { SelectWithOther } from "@/components/ui/SelectWithOther";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccounts, useIncomeStatement, useCashFlow, useBalanceSheet, useTransactions, useExpenses, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
 import type { AccountingTransaction } from "@/lib/api/accounting";
@@ -306,11 +307,12 @@ export default function AccountingPage() {
               <Input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
             </Field>
             <Field label="Category">
-              <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                {["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"].map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </Select>
+              <SelectWithOther
+                options={["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"]}
+                value={form.category}
+                onChange={(category) => setForm({ ...form, category })}
+                placeholder="e.g. Bank Fees"
+              />
             </Field>
           </div>
           <Field label="Date">

@@ -7,7 +7,7 @@ from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
-from app.modules.sales.schemas import OrderCreate, OrderUpdate
+from app.modules.sales.schemas import OrderBulkCreate, OrderCreate, OrderUpdate
 
 router = APIRouter(tags=["Sales - Orders"])
 
@@ -18,10 +18,10 @@ def _require_tenant(tenant_id) -> None:
 
 
 @router.get("/sales/orders")
-async def list_orders(db: DbSession, current_user: CurrentUser, page_params: PageQuery, status: str | None = Query(None)):
+async def list_orders(db: DbSession, current_user: CurrentUser, page_params: PageQuery, status: str | None = Query(None), search: str | None = Query(None)):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit)
-    total = await service.count_orders(db, current_user.tenant_id, status)
+    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search)
+    total = await service.count_orders(db, current_user.tenant_id, status, search)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Orders retrieved successfully")
 
 
@@ -30,6 +30,13 @@ async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUs
     _require_tenant(current_user.tenant_id)
     obj = await service.create_order(db, current_user.tenant_id, current_user.id, data)
     return success_response(data=obj.model_dump(), message="Order created successfully", status_code=201)
+
+
+@router.post("/sales/orders/bulk")
+async def bulk_create_orders(data: OrderBulkCreate, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    result = await service.bulk_create_orders(db, current_user.tenant_id, current_user.id, data)
+    return success_response(data=result.model_dump(), message=f"{result.created} orders imported", status_code=201)
 
 
 @router.get("/sales/orders/{id}")

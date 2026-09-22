@@ -35,8 +35,16 @@ class ProductRepository(BaseRepository[Product]):
         )
         return result.scalar_one_or_none()
 
+    async def get_by_sku(self, tenant_id: uuid.UUID, sku: str) -> Product | None:
+        result = await self.db.execute(
+            select(Product)
+            .options(*_with_relations())
+            .where(Product.tenant_id == tenant_id, Product.sku == sku)
+        )
+        return result.scalar_one_or_none()
+
     async def list_for_tenant(
-        self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None
+        self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None, is_active: bool | None = None
     ) -> list[Product]:
         stmt = (
             select(Product)
@@ -46,14 +54,20 @@ class ProductRepository(BaseRepository[Product]):
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like)))
+        if is_active is not None:
+            stmt = stmt.where(Product.is_active == is_active)
         stmt = stmt.order_by(Product.name).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
-        result = await self.db.execute(
-            select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id)
-        )
+    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None) -> int:
+        stmt = select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id)
+        if search:
+            like = f"%{search}%"
+            stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like)))
+        if is_active is not None:
+            stmt = stmt.where(Product.is_active == is_active)
+        result = await self.db.execute(stmt)
         return result.scalar_one()
 
     async def list_low_stock(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50) -> list[Product]:

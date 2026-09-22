@@ -17,6 +17,7 @@ from app.modules.accounting.service.budget import (
 )
 from app.modules.accounting.service.expense import (
     approve_expense,
+    bulk_create_expenses,
     count_expenses,
     create_expense,
     delete_expense,
@@ -51,6 +52,7 @@ __all__ = [
     "approve_expense",
     "backfill_sale_transactions",
     "balance_sheet",
+    "bulk_create_expenses",
     "cash_flow",
     "count_accounts",
     "count_budgets",

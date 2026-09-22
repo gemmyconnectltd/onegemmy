@@ -1,4 +1,5 @@
 from app.modules.sales.service.customer import (
+    bulk_create_customers,
     count_customers,
     create_customer,
     delete_customer,
@@ -15,6 +16,7 @@ from app.modules.sales.service.deal import (
     update_deal,
 )
 from app.modules.sales.service.order import (
+    bulk_create_orders,
     count_orders,
     create_order,
     delete_order,
@@ -40,6 +42,8 @@ from app.modules.sales.service.target import (
 )
 
 __all__ = [
+    "bulk_create_customers",
+    "bulk_create_orders",
     "count_customers",
     "count_deals",
     "count_orders",

@@ -12,6 +12,17 @@ class SupplierCreate(BaseModel):
     is_active: bool = True
 
 
+class SupplierBulkCreate(BaseModel):
+    items: list[SupplierCreate]
+
+
+class SupplierBulkResult(BaseModel):
+    created: int
+    skipped: int
+    failed: int
+    errors: list[str] = []
+
+
 class SupplierUpdate(BaseModel):
     name: str | None = None
     email: str | None = None

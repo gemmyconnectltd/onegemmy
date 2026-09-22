@@ -219,10 +219,12 @@ export const accountingApi = {
   seedAccounts: () =>
     request<SingleResponse<unknown>>(`${BASE}/accounts/seed`, { method: "POST" }),
 
-  listExpenses: (status?: string) =>
-    request<PaginatedResponse<AccountingExpense>>(`${BASE}/expenses${qs({ status })}`),
+  listExpenses: (status?: string, page = 1, pageSize = 20, search?: string) =>
+    request<PaginatedResponse<AccountingExpense>>(`${BASE}/expenses${qs({ status, page, page_size: pageSize, search })}`),
   createExpense: (data: { title: string; amount: number; expense_date: string; category: string; notes?: string | null; account_id?: string | null }) =>
     request<SingleResponse<AccountingExpense>>(`${BASE}/expenses`, { method: "POST", body: JSON.stringify(data) }),
+  bulkCreateExpenses: (items: object[]) =>
+    request<SingleResponse<{ created: number; failed: number; errors: string[] }>>(`${BASE}/expenses/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
   approveExpense: (id: string) =>
     request<SingleResponse<AccountingExpense>>(`${BASE}/expenses/${id}/approve`, { method: "POST" }),
   rejectExpense: (id: string) =>

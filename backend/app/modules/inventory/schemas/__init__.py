@@ -40,7 +40,13 @@ from app.modules.inventory.schemas.serial import (
     WarrantyClaimUpdate,
 )
 from app.modules.inventory.schemas.stock import LowStockLine, LowStockReport
-from app.modules.inventory.schemas.supplier import SupplierCreate, SupplierRead, SupplierUpdate
+from app.modules.inventory.schemas.supplier import (
+    SupplierBulkCreate,
+    SupplierBulkResult,
+    SupplierCreate,
+    SupplierRead,
+    SupplierUpdate,
+)
 from app.modules.inventory.schemas.transfer import (
     StockTransferCreate,
     StockTransferRead,
@@ -102,6 +108,8 @@ __all__ = [
     "StockTransferCreate",
     "StockTransferRead",
     "StockTransferUpdate",
+    "SupplierBulkCreate",
+    "SupplierBulkResult",
     "SupplierCreate",
     "SupplierRead",
     "SupplierUpdate",

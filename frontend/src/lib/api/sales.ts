@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, qs } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
 export interface ApiCustomer {
@@ -103,10 +103,12 @@ const BASE = "/tenants/sales";
 
 export const salesApi = {
   // Customers
-  listCustomers: (page = 1, pageSize = 200) =>
-    request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers?page=${page}&page_size=${pageSize}`),
+  listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string) =>
+    request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers${qs({ page, page_size: pageSize, search, customer_type: customerType })}`),
   createCustomer: (data: object) =>
     request<SingleResponse<ApiCustomer>>(`${BASE}/customers`, { method: "POST", body: JSON.stringify(data) }),
+  bulkCreateCustomers: (items: object[]) =>
+    request<SingleResponse<{ created: number; skipped: number; failed: number; errors: string[] }>>(`${BASE}/customers/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
   updateCustomer: (id: string, data: object) =>
     request<SingleResponse<ApiCustomer>>(`${BASE}/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCustomer: (id: string) =>
@@ -123,10 +125,12 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/deals/${id}`, { method: "DELETE" }),
 
   // Orders
-  listOrders: (page = 1, pageSize = 100, status?: string) =>
-    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders?page=${page}&page_size=${pageSize}${status ? `&status=${status}` : ""}`),
+  listOrders: (page = 1, pageSize = 20, status?: string, search?: string) =>
+    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search })}`),
   createOrder: (data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders`, { method: "POST", body: JSON.stringify(data) }),
+  bulkCreateOrders: (items: object[]) =>
+    request<SingleResponse<{ created: number; failed: number; errors: string[] }>>(`${BASE}/orders/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
   updateOrder: (id: string, data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>

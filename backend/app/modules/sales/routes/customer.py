@@ -7,7 +7,7 @@ from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
-from app.modules.sales.schemas import CustomerCreate, CustomerUpdate
+from app.modules.sales.schemas import CustomerBulkCreate, CustomerCreate, CustomerUpdate
 
 router = APIRouter(tags=["Sales - Customers"])
 
@@ -18,10 +18,10 @@ def _require_tenant(tenant_id) -> None:
 
 
 @router.get("/sales/customers")
-async def list_customers(db: DbSession, current_user: CurrentUser, page_params: PageQuery):
+async def list_customers(db: DbSession, current_user: CurrentUser, page_params: PageQuery, search: str | None = None, customer_type: str | None = None):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_customers(db, current_user.tenant_id, page_params.offset, page_params.limit)
-    total = await service.count_customers(db, current_user.tenant_id)
+    items = await service.list_customers(db, current_user.tenant_id, page_params.offset, page_params.limit, search, customer_type)
+    total = await service.count_customers(db, current_user.tenant_id, search, customer_type)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Customers retrieved successfully")
 
 
@@ -30,6 +30,13 @@ async def create_customer(data: CustomerCreate, db: DbSession, current_user: Cur
     _require_tenant(current_user.tenant_id)
     obj = await service.create_customer(db, current_user.tenant_id, data)
     return success_response(data=obj.model_dump(), message="Customer created successfully", status_code=201)
+
+
+@router.post("/sales/customers/bulk")
+async def bulk_create_customers(data: CustomerBulkCreate, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    result = await service.bulk_create_customers(db, current_user.tenant_id, data)
+    return success_response(data=result.model_dump(), message=f"{result.created} customers imported", status_code=201)
 
 
 @router.get("/sales/customers/{id}")

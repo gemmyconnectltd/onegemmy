@@ -3,18 +3,24 @@ import uuid
 from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, DbSession
+from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.inventory import service
-from app.modules.inventory.schemas import SupplierCreate, SupplierUpdate
+from app.modules.inventory.schemas import SupplierBulkCreate, SupplierCreate, SupplierUpdate
 
 router = APIRouter(tags=["Inventory - Suppliers"])
 
 
+def _require_tenant(tenant_id) -> None:
+    if tenant_id is None:
+        raise ValidationError("This account has no tenant.")
+
+
 @router.get("/inventory/suppliers")
-async def list_suppliers(db: DbSession, current_user: CurrentUser, page_params: PageQuery):
-    items = await service.list_suppliers(db, current_user.tenant_id, page_params.offset, page_params.limit)
-    total = await service.count_suppliers(db, current_user.tenant_id)
+async def list_suppliers(db: DbSession, current_user: CurrentUser, page_params: PageQuery, search: str | None = None):
+    items = await service.list_suppliers(db, current_user.tenant_id, page_params.offset, page_params.limit, search)
+    total = await service.count_suppliers(db, current_user.tenant_id, search)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Suppliers retrieved successfully")
 
 
@@ -22,6 +28,13 @@ async def list_suppliers(db: DbSession, current_user: CurrentUser, page_params: 
 async def create_supplier(data: SupplierCreate, db: DbSession, current_user: CurrentUser):
     obj = await service.create_supplier(db, current_user.tenant_id, data)
     return success_response(data=obj.model_dump(), message="Supplier created successfully", status_code=201)
+
+
+@router.post("/inventory/suppliers/bulk")
+async def bulk_create_suppliers(data: SupplierBulkCreate, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    result = await service.bulk_create_suppliers(db, current_user.tenant_id, data)
+    return success_response(data=result.model_dump(), message=f"{result.created} suppliers imported", status_code=201)
 
 
 @router.get("/inventory/suppliers/{id}")

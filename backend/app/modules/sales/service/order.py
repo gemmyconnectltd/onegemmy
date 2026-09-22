@@ -17,12 +17,21 @@ from app.modules.accounting.service.transaction import create_sale_transaction
 from app.modules.audit.service import record_audit
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
+from app.modules.inventory.repository import ProductRepository
 from app.modules.inventory.service.serial import mark_serial_sold
+from app.modules.sales.models.customer import Customer
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
 from app.modules.sales.models.target import Target
-from app.modules.sales.repository import OrderRepository
-from app.modules.sales.schemas import OrderCreate, OrderRead, OrderUpdate
+from app.modules.sales.repository import CustomerRepository, OrderRepository
+from app.modules.sales.schemas import (
+    OrderBulkCreate,
+    OrderBulkResult,
+    OrderCreate,
+    OrderItemCreate,
+    OrderRead,
+    OrderUpdate,
+)
 
 
 def _current_period() -> str:
@@ -121,13 +130,15 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
     ))
 
 
-async def list_orders(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit)
+async def list_orders(
+    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, search: str | None = None
+) -> list[OrderRead]:
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search)
     return [OrderRead.model_validate(i) for i in items]
 
 
-async def count_orders(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status)
+async def count_orders(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None) -> int:
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search)
 
 
 async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> OrderRead:
@@ -171,6 +182,9 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         amount_tendered=data.amount_tendered,
         change_due=data.change_due,
     )
+    # imported orders may carry their original date; anything else keeps now()
+    if data.ordered_at is not None:
+        order.ordered_at = data.ordered_at if data.ordered_at.tzinfo else data.ordered_at.replace(tzinfo=UTC)
     order = await repo.save(order)
 
     cogs_total = 0.0
@@ -338,3 +352,113 @@ async def delete_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, us
     )
     await OrderRepository(db).delete(obj)
     await db.commit()
+
+
+async def bulk_create_orders(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderBulkCreate) -> OrderBulkResult:
+    """CSV-style order import. Each row is one order line; rows sharing the same
+    `order_reference` are merged into a single order (that reference becomes the
+    `client_order_id`, so re-running an import is idempotent and never double-creates).
+    Products are resolved by SKU (tenant-scoped); the customer column is matched by
+    email or name, and a new customer is created when no match is found. Every order
+    goes through the normal create pipeline — VAT, stock, accounting and audit are
+    all handled the same way a POS sale is.
+    """
+    product_repo = ProductRepository(db)
+    customer_repo = CustomerRepository(db)
+
+    # Load every customer's (id, email, name) once so per-group resolution is
+    # dictionary lookups, not a query per row.
+    by_email: dict[str, uuid.UUID] = {}
+    by_name: dict[str, uuid.UUID] = {}
+    for cust_id, email, name in await customer_repo.list_lookup_for_tenant(tenant_id):
+        if email:
+            by_email[email.strip().lower()] = cust_id
+        if name:
+            by_name[name.strip().lower()] = cust_id
+
+    created = 0
+    failed = 0
+    errors: list[str] = []
+
+    grouped: dict[str, list] = {}
+    for line in data.items:
+        ref = line.order_reference.strip()
+        if not ref:
+            failed += 1
+            errors.append("Row skipped: 'orderReference' is required")
+            continue
+        grouped.setdefault(ref, []).append(line)
+
+    for ref, lines in grouped.items():
+        new_customer_key: str | None = None
+        new_customer_is_email = False
+        try:
+            items: list[OrderItemCreate] = []
+            for line in lines:
+                product = await product_repo.get_by_sku(tenant_id, line.sku.strip())
+                if product is None:
+                    raise ValidationError(f"SKU '{line.sku}' not found")
+                if product.has_variants:
+                    raise ValidationError(
+                        f"Product '{product.name}' has variants — use a variant SKU instead"
+                    )
+                items.append(OrderItemCreate(
+                    product_id=product.id,
+                    product_name=product.name,
+                    sku=product.sku,
+                    unit_price=line.unit_price,
+                    quantity=line.quantity,
+                ))
+
+            if not items:
+                raise ValidationError("Order has no lines")
+
+            customer_id = None
+            customer_value = next((l.customer for l in lines if l.customer and l.customer.strip()), None)
+            if customer_value:
+                value = customer_value.strip()
+                if "@" in value:
+                    key = value.lower()
+                    customer_id = by_email.get(key)
+                else:
+                    key = value.lower()
+                    customer_id = by_name.get(key)
+                if customer_id is None:
+                    customer = await customer_repo.save(Customer(tenant_id=tenant_id, name=value))
+                    customer_id = customer.id
+                    new_customer_key = value.lower()
+                    new_customer_is_email = "@" in value
+                    if new_customer_is_email:
+                        by_email[new_customer_key] = customer.id
+                    else:
+                        by_name[new_customer_key] = customer.id
+
+            status = lines[0].status.strip()
+            if status not in ("Completed", "Pending"):
+                status = "Completed"
+
+            order_data = OrderCreate(
+                customer_id=customer_id,
+                status=status,
+                notes=lines[0].notes or None,
+                client_order_id=ref,
+                payment_method=lines[0].payment_method or None,
+                ordered_at=lines[0].ordered_at,
+                items=items,
+            )
+            await create_order(db, tenant_id, user_id, order_data)
+            created += 1
+        except (ValidationError, NotFoundError) as e:
+            await db.rollback()
+            if new_customer_key is not None:
+                (by_email if new_customer_is_email else by_name).pop(new_customer_key, None)
+            failed += 1
+            errors.append(f"{ref}: {e}")
+        except Exception as e:  # noqa: BLE001 — fail-soft import, re-raise is worse
+            await db.rollback()
+            if new_customer_key is not None:
+                (by_email if new_customer_is_email else by_name).pop(new_customer_key, None)
+            failed += 1
+            errors.append(f"{ref}: {type(e).__name__}: {e}")
+
+    return OrderBulkResult(created=created, failed=failed, errors=errors)

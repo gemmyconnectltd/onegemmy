@@ -13,6 +13,17 @@ class CustomerCreate(BaseModel):
     is_active: bool = True
 
 
+class CustomerBulkCreate(BaseModel):
+    items: list[CustomerCreate]
+
+
+class CustomerBulkResult(BaseModel):
+    created: int
+    skipped: int
+    failed: int
+    errors: list[str] = []
+
+
 class CustomerUpdate(BaseModel):
     name: str | None = None
     email: str | None = None

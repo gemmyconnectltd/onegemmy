@@ -2,16 +2,42 @@
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Check, X } from "lucide-react";
+import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Check, X, Upload } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier } from "@/lib/api/hooks";
+import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useBulkCreateSuppliers } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 type SupplierForm = { name: string; email: string; phone: string; address: string };
 const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "" });
+
+const SUPPLIER_CSV_HEADERS = ["name", "email", "phone", "address"];
+
+interface SupplierImportRow {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+}
+
+function parseSupplierRow(raw: Record<string, string>): { data: SupplierImportRow; errors: string[] } {
+  const errors: string[] = [];
+  if (!raw.name) errors.push("name required");
+  return {
+    data: {
+      name: raw.name?.trim() ?? "",
+      email: raw.email?.trim() || null,
+      phone: raw.phone?.trim() || null,
+      address: raw.address?.trim() || null,
+    },
+    errors,
+  };
+}
 
 /** Shared supplier CRUD UI — rendered from both Inventory > Suppliers and
  *  Procurement > Suppliers, which are two entry points onto the exact same
@@ -20,23 +46,27 @@ export function SuppliersManager() {
   const { brandColor } = useAppConfig();
   const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [adding, setAdding] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [form, setForm] = useState<SupplierForm>(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<SupplierForm>(emptyForm());
 
-  const { data, isLoading } = useSuppliers();
+  // Reset to page 1 right where the search changes, not via an effect.
+  const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
+
+  const { data, isLoading, isFetching } = useSuppliers(page, pageSize, debouncedSearch || undefined);
   const createSupplier = useCreateSupplier();
   const updateSupplier = useUpdateSupplier();
   const deleteSupplier = useDeleteSupplier();
+  const bulkCreateSuppliers = useBulkCreateSuppliers();
   const suppliers = data?.items ?? [];
+  const total = data?.total ?? 0;
 
-  const filtered = suppliers.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    (s.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (s.address ?? "").toLowerCase().includes(search.toLowerCase())
-  );
-  const bulk = useBulkSelection(filtered.map((s) => s.id));
+  const bulk = useBulkSelection(suppliers.map((s) => s.id));
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -102,11 +132,14 @@ export function SuppliersManager() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Suppliers</h1>
-          <p className="text-xs text-muted mt-0.5">{suppliers.length} suppliers</p>
+          <p className="text-xs text-muted mt-0.5">{total} supplier{total === 1 ? "" : "s"}</p>
         </div>
-        <Button onClick={() => setAdding(true)} color={INV_COLOR}>
-          <Plus size={15} /> Add Supplier
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
+          <Button onClick={() => setAdding(true)} color={INV_COLOR}>
+            <Plus size={15} /> Add Supplier
+          </Button>
+        </div>
       </div>
 
       {adding && (
@@ -128,27 +161,14 @@ export function SuppliersManager() {
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { label: "Total Suppliers", value: suppliers.length, color: "#af9164" },
-          { label: "Active", value: suppliers.filter((s) => s.is_active).length, color: "#10B981" },
-        ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={String(s.value)}>{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="bg-card border border-border">
         <div className="p-4 border-b border-border space-y-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input type="text" placeholder="Search suppliers..." value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder="Search suppliers..." value={search} onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
           </div>
-          {filtered.length > 0 && (
+          {suppliers.length > 0 && (
             <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer">
               <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
               Select all
@@ -160,8 +180,8 @@ export function SuppliersManager() {
             <BulkActionBar count={bulk.count} label="supplier" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
-        <div className="divide-y divide-border">
-          {filtered.map((s) => (
+        <div className={`divide-y divide-border transition-opacity ${isFetching ? "opacity-60" : ""}`}>
+          {suppliers.map((s) => (
             <div key={s.id} className="px-4 py-4 flex items-start gap-4 hover:bg-surface/40 transition-colors">
               <input
                 type="checkbox"
@@ -219,14 +239,37 @@ export function SuppliersManager() {
               )}
             </div>
           ))}
-          {filtered.length === 0 && (
+          {suppliers.length === 0 && (
             <div className="px-4 py-10 text-center">
               <Truck size={32} className="text-border mx-auto mb-3" />
               <p className="text-sm text-muted">No suppliers found.</p>
             </div>
           )}
         </div>
+        <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="suppliers" color={INV_COLOR} />
       </div>
+
+      <CsvImportDrawer<SupplierImportRow>
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onSubmit={async (items) => { await bulkCreateSuppliers.mutateAsync(items); }}
+        title="Import Suppliers"
+        itemNoun="supplier"
+        templateFilename="suppliers_template.xlsx"
+        templateHeaders={SUPPLIER_CSV_HEADERS}
+        templateSampleRows={[
+          ["Kigali Wholesale", "orders@kigaliwholesale.rw", "+250 788 111 222", "Kigali"],
+          ["Anker Distribution", "sales@anker.com", "+250 788 333 444", "Nyarugenge"],
+        ]}
+        previewColumns={[
+          { key: "name", label: "Name", required: true },
+          { key: "email", label: "Email" },
+          { key: "phone", label: "Phone" },
+          { key: "address", label: "Address" },
+        ]}
+        parseRow={parseSupplierRow}
+        color={INV_COLOR}
+      />
     </div>
   );
 }

@@ -19,7 +19,35 @@ class OrderCreate(BaseModel):
     payment_method: str | None = None
     amount_tendered: float | None = None
     change_due: float | None = None
+    ordered_at: datetime | None = None
     items: list[OrderItemCreate] = []
+
+
+class OrderBulkLine(BaseModel):
+    """One line of a CSV order import. Lines sharing the same `order_reference`
+    are grouped into a single order (client_order_id), so multi-item orders are
+    one reference repeated. `status` defaults to Completed — importing historical
+    sales as Completed deducts stock and posts them to accounting exactly like a
+    POS sale; use Pending to record rows without touching stock or the ledger."""
+    order_reference: str
+    customer: str | None = None
+    ordered_at: datetime | None = None
+    status: str = "Completed"
+    payment_method: str | None = None
+    notes: str | None = None
+    sku: str = ""
+    quantity: float = 1
+    unit_price: float
+
+
+class OrderBulkCreate(BaseModel):
+    items: list[OrderBulkLine]
+
+
+class OrderBulkResult(BaseModel):
+    created: int
+    failed: int
+    errors: list[str] = []
 
 
 class OrderUpdate(BaseModel):

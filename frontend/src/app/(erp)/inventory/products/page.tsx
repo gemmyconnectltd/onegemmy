@@ -16,6 +16,8 @@ import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useR
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Pagination } from "@/components/ui/Pagination";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const fmt = (v: number) => fmtMoney(v);
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
@@ -46,7 +48,15 @@ export default function ProductsPage() {
   const { brandColor } = useAppConfig();
   const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  // A new search/filter can't still be showing page 4 of the old result set —
+  // reset it right where the filter changes, not via an effect (which would
+  // set state on top of the render that just committed it).
+  const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
+  const onStatusFilterChange = (f: "all" | "active" | "inactive") => { setStatusFilter(f); setPage(1); };
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<"single" | "bulk">("single");
@@ -56,7 +66,8 @@ export default function ProductsPage() {
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
-  const { data, isLoading } = useProducts(1, 200);
+  const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
+  const { data, isLoading, isFetching } = useProducts(page, pageSize, debouncedSearch || undefined, isActive);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -64,16 +75,9 @@ export default function ProductsPage() {
   const bulkCreateProducts = useBulkCreateProducts();
   const uploadProductImage = useUploadProductImage();
   const products = data?.items ?? [];
+  const total = data?.total ?? 0;
 
-  const filtered = products.filter((p) => {
-    const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      (p.category?.name ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || (statusFilter === "active" ? p.is_active : !p.is_active);
-    return matchSearch && matchStatus;
-  });
-  const bulk = useBulkSelection(filtered.map((p) => p.id));
+  const bulk = useBulkSelection(products.map((p) => p.id));
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -140,7 +144,7 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
-          <p className="text-sm text-muted mt-0.5">{products.length} products · {products.filter((p) => p.is_active).length} active</p>
+          <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={() => { setEditing(null); setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }} className="rounded-lg">
@@ -156,19 +160,19 @@ export default function ProductsPage() {
         <div className="px-5 py-4 border-b border-border flex items-center gap-3">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)}
+            <input type="text" placeholder="Search products..." value={search} onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-surface/50" />
           </div>
           <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
             {(["all", "active", "inactive"] as const).map((f) => (
-              <button key={f} onClick={() => setStatusFilter(f)}
+              <button key={f} onClick={() => onStatusFilterChange(f)}
                 style={statusFilter === f ? { backgroundColor: INV_COLOR } : {}}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${statusFilter === f ? "text-white" : "text-muted hover:text-foreground"}`}>
                 {f}
               </button>
             ))}
           </div>
-          <span className="text-xs text-muted ml-auto">{filtered.length} results</span>
+          <span className="text-xs text-muted ml-auto">{total} result{total === 1 ? "" : "s"}</span>
         </div>
 
         {bulk.count > 0 && (
@@ -177,12 +181,12 @@ export default function ProductsPage() {
           </div>
         )}
 
-        <div className="overflow-x-auto">
+        <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
-                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={filtered.length === 0} />
+                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={products.length === 0} />
                 </th>
                 {["Product", "Category", "Brand", "Cost", "Price", "Margin", "Stock", "Status", ""].map((h, i) => (
                   <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
@@ -190,7 +194,7 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((p) => (
+              {products.map((p) => (
                 <tr key={p.id} className="hover:bg-surface/40 transition-colors group">
                   <td className="px-5 py-3.5">
                     <input type="checkbox" checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} className="w-4 h-4 rounded" />
@@ -259,7 +263,7 @@ export default function ProductsPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {products.length === 0 && (
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
                     <Package size={36} className="text-border mx-auto mb-3" />
@@ -271,10 +275,7 @@ export default function ProductsPage() {
             </tbody>
           </table>
           </div>
-        <div className="px-5 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
-          <p className="text-xs text-muted">{filtered.length} of {products.length} products</p>
-          <p className="text-xs text-muted">Avg margin: <span className="font-semibold text-foreground">{Math.round(filtered.reduce((s, p) => s + margin(p), 0) / (filtered.length || 1))}%</span></p>
-        </div>
+        <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="products" color={INV_COLOR} />
       </div>
 
       <ProductFormDrawer

@@ -74,7 +74,7 @@ export default function VariantsPage() {
   const [createForm, setCreateForm] = useState<EditForm & { product_id: string }>(EMPTY_CREATE);
 
   const { data, isLoading } = useAllVariants(1, 200);
-  const { data: productsData, isFetching: loadingProducts } = useProducts(1, 200, { enabled: adding });
+  const { data: productsData, isFetching: loadingProducts } = useProducts(1, 200, undefined, undefined, { enabled: adding });
   const createVariant = useCreateVariant();
   const updateVariant = useUpdateVariant();
   const restockVariant = useRestockVariant();

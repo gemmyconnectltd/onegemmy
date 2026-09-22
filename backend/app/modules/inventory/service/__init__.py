@@ -48,6 +48,7 @@ from app.modules.inventory.service.serial import (
     update_warranty_claim,
 )
 from app.modules.inventory.service.supplier import (
+    bulk_create_suppliers,
     count_suppliers,
     create_supplier,
     delete_supplier,
@@ -90,6 +91,7 @@ from app.modules.inventory.service.variant import (
 __all__ = [
     "active_markdowns",
     "bulk_create_products",
+    "bulk_create_suppliers",
     "count_all_variants",
     "count_brands",
     "count_categories",
