@@ -7,7 +7,7 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
-import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
+import { ProductFormDrawer, type ProductFormValues, type ProductBulkRow } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
@@ -114,13 +114,16 @@ export default function ProductsPage() {
     }
   };
 
-  const handleBulkSubmit = async (items: ProductFormValues[]) => {
+  const handleBulkSubmit = async (items: ProductBulkRow[]) => {
     await bulkCreateProducts.mutateAsync(items.map((v) => ({
       name: v.name, sku: v.sku,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
       price: v.price, cost: v.cost, stock: v.stock, min_stock: v.minStock,
+      batch_number: v.batchNumber || null,
+      expiry_date: v.expiryDate || null,
+      manufactured_date: v.manufacturedDate || null,
     })));
   };
 

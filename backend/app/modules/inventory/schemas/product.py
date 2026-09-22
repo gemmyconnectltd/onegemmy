@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -85,8 +85,19 @@ class ProductCreate(BaseModel):
     supplier_id: uuid.UUID | None = None
 
 
+class ProductBulkLine(ProductCreate):
+    """One row of a product import. `batch_number` is optional — when given,
+    an InventoryBatch is created alongside the product (quantity = this row's
+    stock, unit_cost = this row's cost), so pharmacy/cosmetics imports can
+    carry expiry/lot tracking from the same spreadsheet instead of a second
+    manual step."""
+    batch_number: str | None = None
+    expiry_date: date | None = None
+    manufactured_date: date | None = None
+
+
 class ProductBulkCreate(BaseModel):
-    items: list[ProductCreate]
+    items: list[ProductBulkLine]
 
 
 class ProductBulkResult(BaseModel):

@@ -20,6 +20,7 @@ from app.modules.inventory.schemas.markdown import (
 )
 from app.modules.inventory.schemas.product import (
     ProductBulkCreate,
+    ProductBulkLine,
     ProductBulkResult,
     ProductCreate,
     ProductRead,
@@ -94,6 +95,7 @@ __all__ = [
     "MarkdownLine",
     "MarkdownReport",
     "ProductBulkCreate",
+    "ProductBulkLine",
     "ProductBulkResult",
     "ProductCreate",
     "ProductRead",

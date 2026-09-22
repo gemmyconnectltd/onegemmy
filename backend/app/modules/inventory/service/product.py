@@ -3,11 +3,12 @@ import uuid
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.integrations.storage import storage
 from app.modules.inventory.data.product_defaults import default_product_image
+from app.modules.inventory.models.batch import InventoryBatch
 from app.modules.inventory.models.product import Product
-from app.modules.inventory.repository import ProductRepository, VariantRepository
+from app.modules.inventory.repository import BatchRepository, ProductRepository, VariantRepository
 from app.modules.inventory.schemas import (
     LowStockLine,
     LowStockReport,
@@ -81,18 +82,35 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
 
 async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: ProductBulkCreate) -> ProductBulkResult:
     repo = ProductRepository(db)
+    batch_repo = BatchRepository(db)
     default_image = default_product_image(await _tenant_industry(db, tenant_id))
     created = 0
     errors: list[str] = []
     for item in data.items:
         try:
-            payload = item.model_dump()
+            payload = item.model_dump(exclude={"batch_number", "expiry_date", "manufactured_date"})
             if not payload.get("image_url"):
                 payload["image_url"] = default_image
             obj = Product(tenant_id=tenant_id, **payload)
-            await repo.save(obj)
+            obj = await repo.save(obj)
+
+            if item.batch_number:
+                if await batch_repo.get_by_batch_number(tenant_id, item.batch_number):
+                    raise ValidationError(f"Batch number '{item.batch_number}' already exists")
+                batch = InventoryBatch(
+                    tenant_id=tenant_id,
+                    product_id=obj.id,
+                    batch_number=item.batch_number,
+                    quantity=item.stock,
+                    quantity_remaining=item.stock,
+                    unit_cost=item.cost,
+                    manufactured_date=item.manufactured_date,
+                    expiry_date=item.expiry_date,
+                )
+                await batch_repo.save(batch)
+
             created += 1
-        except SQLAlchemyError as e:
+        except (SQLAlchemyError, ValidationError) as e:
             await db.rollback()
             errors.append(f"{item.name or item.sku}: {e!s}")
     if created > 0:

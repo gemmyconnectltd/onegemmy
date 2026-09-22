@@ -27,7 +27,16 @@ export interface ProductFormValues {
 const FALLBACK_CATEGORIES = ["Accessories", "Cables", "Audio", "Chargers", "Storage", "Networking"];
 const FALLBACK_UNITS = ["Piece", "Box", "Kilogram", "Gram", "Litre", "Metre", "Pack"];
 
-const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock"];
+const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate"];
+
+/** A bulk-import row is a product plus optional batch/lot info — pharmacy,
+ *  cosmetics, and anyone else tracking expiry can carry it in the same
+ *  spreadsheet instead of adding batches one at a time afterward. */
+export interface ProductBulkRow extends ProductFormValues {
+  batchNumber: string;
+  expiryDate: string;
+  manufacturedDate: string;
+}
 
 interface ProductFormDrawerProps {
   open: boolean;
@@ -35,7 +44,7 @@ interface ProductFormDrawerProps {
   onClose: () => void;
   initial?: ProductFormValues | null;
   onSubmit: (values: ProductFormValues, imageFile?: File) => Promise<void>;
-  onBulkSubmit?: (values: ProductFormValues[]) => void;
+  onBulkSubmit?: (values: ProductBulkRow[]) => void;
   color?: string;
 }
 
@@ -247,7 +256,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
 
 // ── Bulk import (Excel or CSV) ────────────────────────────────────────────────
 
-function parseProductRow(row: Record<string, string>): { data: ProductFormValues; errors: string[] } {
+function parseProductRow(row: Record<string, string>): { data: ProductBulkRow; errors: string[] } {
   const errors: string[] = [];
   if (!row.name) errors.push("name required");
   if (!row.sku) errors.push("sku required");
@@ -255,14 +264,24 @@ function parseProductRow(row: Record<string, string>): { data: ProductFormValues
   if (!row.cost || isNaN(Number(row.cost))) errors.push("invalid cost");
   if (row.stock === undefined || isNaN(Number(row.stock))) errors.push("invalid stock");
   if (row.minstock === undefined || isNaN(Number(row.minstock))) errors.push("invalid minStock");
+  if (row.expirydate && isNaN(new Date(row.expirydate).getTime())) errors.push("invalid expiryDate");
+  if (row.manufactureddate && isNaN(new Date(row.manufactureddate).getTime())) errors.push("invalid manufacturedDate");
   // normalise minstock → minStock for parseForm()
   const normalised = row.minstock !== undefined ? { ...row, minStock: row.minstock } : row;
-  return { data: parseForm(normalised), errors };
+  return {
+    data: {
+      ...parseForm(normalised),
+      batchNumber: row.batchnumber?.trim() ?? "",
+      expiryDate: row.expirydate?.trim() ?? "",
+      manufacturedDate: row.manufactureddate?.trim() ?? "",
+    },
+    errors,
+  };
 }
 
-function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductFormValues[]) => void; color?: string }) {
+function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductBulkRow[]) => void; color?: string }) {
   return (
-    <CsvImportDrawer<ProductFormValues>
+    <CsvImportDrawer<ProductBulkRow>
       open
       onClose={onClose}
       onSubmit={async (items) => onBulkSubmit(items)}
@@ -271,8 +290,8 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
       templateFilename="products_template.xlsx"
       templateHeaders={CSV_HEADERS}
       templateSampleRows={[
-        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10"],
-        ["USB-C Cable 1m", "UC-002", "Cables", "Anker", "Piece", "1200", "3000", "120", "20"],
+        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10", "", "", ""],
+        ["Amoxicillin 500mg", "AMX-500", "Antibiotics", "GSK", "Box", "8000", "12000", "60", "10", "LOT-2026-04", "2026-04-01", "2025-10-01"],
       ]}
       previewColumns={[
         { key: "name", label: "Name", required: true },
@@ -284,6 +303,9 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
         { key: "price", label: "Price", align: "right", required: true },
         { key: "stock", label: "Stock", align: "right", required: true },
         { key: "minstock", label: "Min Stock", align: "right", required: true },
+        { key: "batchnumber", label: "Batch #" },
+        { key: "expirydate", label: "Expiry" },
+        { key: "manufactureddate", label: "Manufactured" },
       ]}
       parseRow={parseProductRow}
       color={color}
