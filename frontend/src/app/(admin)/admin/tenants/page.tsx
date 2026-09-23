@@ -9,14 +9,6 @@ import {
   Filter,
   AlertTriangle,
   Activity,
-  ShoppingCart,
-  Package,
-  DollarSign,
-  Users as UsersIcon,
-  Truck,
-  Hammer,
-  Megaphone,
-  Wrench,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
@@ -36,6 +28,9 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
+import { DonutChart } from "@/components/charts/lazy";
+import { chartPalette } from "@/lib/chartColors";
+import { useAppConfig } from "@/lib/appConfig";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "bg-surface text-muted border border-border",
@@ -45,17 +40,6 @@ const PLAN_COLORS: Record<string, string> = {
     "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20",
   enterprise:
     "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
-};
-
-const MODULE_ICONS: Record<string, React.ElementType> = {
-  sales: ShoppingCart,
-  inventory: Package,
-  accounting: DollarSign,
-  hr: UsersIcon,
-  procurement: Truck,
-  manufacturing: Hammer,
-  crm: Megaphone,
-  repairs: Wrench,
 };
 
 const MODULE_COLORS: Record<string, string> = {
@@ -78,6 +62,8 @@ function adoptionBadgeClass(pct: number) {
 }
 
 export default function AdminTenantsPage() {
+  const { theme } = useAppConfig();
+  const chartColors = chartPalette(theme === "dark");
   const [acting, setActing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -255,34 +241,39 @@ export default function AdminTenantsPage() {
       )}
 
       {/* Feature usage — how much each module is actually being used, platform-wide.
-          One compact row of tiles (already sorted by volume from the backend) so
-          this stays short instead of an 8-row list. */}
+          A small donut (share of total activity) plus a compact legend, kept to
+          one short row instead of a tall chart or an 8-row list. */}
       {featureUsage && featureUsage.modules.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Activity size={13} className="text-indigo-500 flex-shrink-0" />
             <h3 className="text-[12.5px] font-bold text-foreground">Feature Usage</h3>
-            <p className="text-[11px] text-muted">— across all {featureUsage.total_tenants} tenants</p>
+            <p className="text-[11px] text-muted">— share of activity across all {featureUsage.total_tenants} tenants</p>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-            {featureUsage.modules.map((m) => {
-              const Icon = MODULE_ICONS[m.key] ?? Activity;
-              const color = MODULE_COLORS[m.key] ?? "#64748b";
-              return (
-                <div key={m.key} className="bg-surface/50 border border-border rounded-lg px-2.5 py-2">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Icon size={11} style={{ color }} className="flex-shrink-0" />
-                    <span className="text-[10.5px] font-semibold text-foreground truncate">{m.label}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[13px] font-extrabold text-foreground tabular-nums">{m.total_records.toLocaleString()}</span>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${adoptionBadgeClass(m.adoption_pct)}`}>
+          <div className="flex items-center gap-4">
+            <div className="w-[76px] h-[76px] flex-shrink-0">
+              <DonutChart
+                data={featureUsage.modules.map((m) => ({ name: m.label, value: m.total_records }))}
+                colors={featureUsage.modules.map((m) => MODULE_COLORS[m.key] ?? "#64748b")}
+                innerRadius={22}
+                outerRadius={38}
+                tooltipStyle={chartColors.tooltip}
+              />
+            </div>
+            <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5">
+              {featureUsage.modules.map((m) => {
+                const color = MODULE_COLORS[m.key] ?? "#64748b";
+                return (
+                  <div key={m.key} className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="text-[10.5px] text-foreground/80 truncate flex-1">{m.label}</span>
+                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${adoptionBadgeClass(m.adoption_pct)}`}>
                       {m.adoption_pct}%
                     </span>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
