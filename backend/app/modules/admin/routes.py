@@ -3,7 +3,8 @@ import uuid
 
 from fastapi import APIRouter
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select, text
+from sqlalchemy import case, func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.deps import DbSession, SuperUser
@@ -16,7 +17,12 @@ from app.core.security import hash_password, validate_password_strength
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
 from app.modules.audit.service import record_audit
+from app.modules.hr.models.employee import Employee
 from app.modules.inventory.models.product import Product
+from app.modules.manufacturing.models.production_order import ProductionOrder
+from app.modules.procurement.models.purchase_order import PurchaseOrder
+from app.modules.repairs.models.job import RepairJob
+from app.modules.sales.models.deal import Deal
 from app.modules.sales.models.order import Order
 from app.modules.tenants import service
 from app.modules.tenants.models import Tenant, User
@@ -34,6 +40,64 @@ from app.modules.tenants.schemas import (
 log = get_logger("admin.routes")
 
 router = APIRouter(prefix="/admin", tags=["Super Admin"])
+
+
+def _empty_usage() -> dict:
+    return {"users": 0, "orders": 0, "completed_orders": 0, "revenue": 0.0, "products": 0, "last_active_at": None}
+
+
+async def _tenant_usage_map(db: AsyncSession, tenant_ids: list[uuid.UUID]) -> dict[uuid.UUID, dict]:
+    """Per-tenant usage (users, orders, revenue, products, last activity) for
+    every tenant in `tenant_ids`, in four grouped queries total — never one
+    query per tenant, so this stays cheap at any page size."""
+    if not tenant_ids:
+        return {}
+    usage: dict[uuid.UUID, dict] = {tid: _empty_usage() for tid in tenant_ids}
+
+    user_rows = (await db.execute(
+        select(User.tenant_id, func.count().label("cnt"))
+        .where(User.tenant_id.in_(tenant_ids))
+        .group_by(User.tenant_id)
+    )).fetchall()
+    for r in user_rows:
+        usage[r.tenant_id]["users"] = r.cnt
+
+    order_rows = (await db.execute(
+        select(
+            Order.tenant_id,
+            func.count().label("cnt"),
+            func.sum(case((Order.status == "Completed", 1), else_=0)).label("completed"),
+            func.max(Order.ordered_at).label("last_order_at"),
+        )
+        .where(Order.tenant_id.in_(tenant_ids))
+        .group_by(Order.tenant_id)
+    )).fetchall()
+    for r in order_rows:
+        usage[r.tenant_id]["orders"] = r.cnt
+        usage[r.tenant_id]["completed_orders"] = int(r.completed or 0)
+        usage[r.tenant_id]["last_active_at"] = r.last_order_at.isoformat() if r.last_order_at else None
+
+    product_rows = (await db.execute(
+        select(Product.tenant_id, func.count().label("cnt"))
+        .where(Product.tenant_id.in_(tenant_ids))
+        .group_by(Product.tenant_id)
+    )).fetchall()
+    for r in product_rows:
+        usage[r.tenant_id]["products"] = r.cnt
+
+    revenue_rows = (await db.execute(
+        select(Transaction.tenant_id, func.coalesce(func.sum(TransactionLine.amount), 0).label("revenue"))
+        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+        .where(
+            Transaction.tenant_id.in_(tenant_ids), Transaction.type == "sale",
+            Transaction.status == "Posted", TransactionLine.type == "credit",
+        )
+        .group_by(Transaction.tenant_id)
+    )).fetchall()
+    for r in revenue_rows:
+        usage[r.tenant_id]["revenue"] = float(r.revenue)
+
+    return usage
 
 
 # ── Platform stats ────────────────────────────────────────────────────────────
@@ -82,6 +146,50 @@ async def admin_stats(db: DbSession, _: SuperUser):
         "plans": plans,
         "monthly_signups": [{"month": r.month, "count": r.cnt} for r in monthly],
     }, message="Platform stats retrieved")
+
+
+# One row per core module — each is a single count query against that
+# module's own table (tenant-scoped), never per-tenant, so this stays cheap
+# no matter how many tenants exist.
+_FEATURE_MODULES = [
+    ("sales", "Sales", Order),
+    ("inventory", "Inventory", Product),
+    ("accounting", "Accounting", Transaction),
+    ("hr", "HR", Employee),
+    ("procurement", "Procurement", PurchaseOrder),
+    ("manufacturing", "Manufacturing", ProductionOrder),
+    ("crm", "CRM", Deal),
+    ("repairs", "Repairs", RepairJob),
+]
+
+
+@router.get("/feature-usage")
+async def admin_feature_usage(db: DbSession, _: SuperUser):
+    """How much each core module is actually being used platform-wide —
+    adoption (tenants with at least one record) and volume (total records)."""
+    total_tenants = (await db.execute(select(func.count()).select_from(Tenant))).scalar_one()
+
+    modules = []
+    for key, label, model in _FEATURE_MODULES:
+        row = (await db.execute(
+            select(
+                func.count(func.distinct(model.tenant_id)).label("tenants_using"),
+                func.count().label("total_records"),
+            ).select_from(model)
+        )).one()
+        modules.append({
+            "key": key,
+            "label": label,
+            "tenants_using": row.tenants_using,
+            "total_records": row.total_records,
+            "adoption_pct": round((row.tenants_using / total_tenants) * 100) if total_tenants else 0,
+        })
+    modules.sort(key=lambda m: m["total_records"], reverse=True)
+
+    return success_response(
+        data={"total_tenants": total_tenants, "modules": modules},
+        message="Feature usage retrieved",
+    )
 
 
 @router.get("/tenant-analytics")
@@ -172,8 +280,10 @@ async def admin_list_all_users(db: DbSession, _: SuperUser, page_params: PageQue
 async def admin_list_tenants(db: DbSession, _: SuperUser, page_params: PageQuery):
     tenants = await service.list_all(db, page_params.offset, page_params.limit)
     total = await service.count_all(db)
+    usage = await _tenant_usage_map(db, [t.id for t in tenants])
+    items = [{**t.model_dump(), "usage": usage.get(t.id, _empty_usage())} for t in tenants]
     return paginated_response(
-        items=[t.model_dump() for t in tenants], total=total,
+        items=items, total=total,
         page=page_params.page, page_size=page_params.page_size,
         message="All tenants retrieved",
     )

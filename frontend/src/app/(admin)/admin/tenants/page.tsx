@@ -8,16 +8,19 @@ import {
   Search,
   Filter,
   AlertTriangle,
-  Globe2,
-  Crown,
-  CheckCircle,
-  XCircle,
-  Clock,
-  TrendingUp,
-  BarChart2,
+  Activity,
+  ShoppingCart,
+  Package,
+  DollarSign,
+  Users as UsersIcon,
+  Truck,
+  Hammer,
+  Megaphone,
+  Wrench,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
+import { fmtRelative } from "@/lib/date";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { tenantStatusLabel, type AdminTenant } from "@/lib/api/admin";
 import {
@@ -26,17 +29,13 @@ import {
   useSuspendTenant,
   useActivateTenant,
   useDeleteTenant,
-  useAdminTenantAnalytics,
+  useAdminFeatureUsage,
 } from "@/lib/api/hooks";
 import Link from "next/link";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
-import { DonutChart, TenantGrowthChart } from "@/components/charts/lazy";
-import { BrandMark, type BrandKind } from "@/components/charts/BrandMark";
-import { chartPalette } from "@/lib/chartColors";
-import { useAppConfig } from "@/lib/appConfig";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "bg-surface text-muted border border-border",
@@ -48,54 +47,37 @@ const PLAN_COLORS: Record<string, string> = {
     "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
 };
 
-const PLAN_CHART_COLORS: Record<string, string> = {
-  free: "#64748b",
-  starter: "#0284c7",
-  professional: "#8b5cf6",
-  enterprise: "#d97706",
+const MODULE_ICONS: Record<string, React.ElementType> = {
+  sales: ShoppingCart,
+  inventory: Package,
+  accounting: DollarSign,
+  hr: UsersIcon,
+  procurement: Truck,
+  manufacturing: Hammer,
+  crm: Megaphone,
+  repairs: Wrench,
 };
 
-const STATUS_CHART_COLORS: Record<string, string> = {
-  Active: "#10b981",
-  Pending: "#f59e0b",
-  Suspended: "#ef4444",
+const MODULE_COLORS: Record<string, string> = {
+  sales: "#6366f1",
+  inventory: "#0ea5e9",
+  accounting: "#10b981",
+  hr: "#8b5cf6",
+  procurement: "#f59e0b",
+  manufacturing: "#f43f5e",
+  crm: "#06b6d4",
+  repairs: "#64748b",
 };
 
-const COUNTRY_COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#f43f5e", "#8b5cf6", "#64748b"];
-
-function MiniDonut({
-  data, colors, tooltipStyle, kind = "none",
-}: {
-  data: { name: string; value: number }[];
-  colors: string[];
-  tooltipStyle: React.CSSProperties;
-  kind?: BrandKind;
-}) {
-  const total = data.reduce((s, d) => s + d.value, 0) || 1;
-  const visible = data.filter((d) => d.value > 0);
-  return (
-    <div className="flex items-center gap-4">
-      <div className="w-[88px] h-[88px] flex-shrink-0">
-        <DonutChart data={visible} colors={colors} innerRadius={26} outerRadius={44} tooltipStyle={tooltipStyle} />
-      </div>
-      <div className="flex-1 min-w-0 space-y-1.5">
-        {visible.slice(0, 5).map((d, i) => (
-          <div key={d.name} className="flex items-center gap-2">
-            <BrandMark kind={kind} name={d.name} color={colors[i % colors.length]} size={11} />
-            <span className="text-[11.5px] text-foreground/80 truncate flex-1 capitalize">{d.name}</span>
-            <span className="text-[10.5px] font-bold text-muted flex-shrink-0">
-              {d.value} · {Math.round((d.value / total) * 100)}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+/** Green/amber/red at a glance — a super-admin scanning this wants to spot
+ *  the neglected feature immediately, not do the math themselves. */
+function adoptionBadgeClass(pct: number) {
+  if (pct >= 66) return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+  if (pct >= 33) return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+  return "bg-red-500/10 text-red-600 dark:text-red-400";
 }
 
 export default function AdminTenantsPage() {
-  const { theme } = useAppConfig();
-  const c = chartPalette(theme === "dark");
   const [acting, setActing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -116,7 +98,7 @@ export default function AdminTenantsPage() {
 
   const { data, isLoading, isError } = useTenants(1, 200);
   const tenants = data?.items ?? [];
-  const { data: analytics } = useAdminTenantAnalytics();
+  const { data: featureUsage } = useAdminFeatureUsage();
 
   const createTenant = useCreateTenant();
   const suspendTenant = useSuspendTenant();
@@ -237,29 +219,6 @@ export default function AdminTenantsPage() {
 
   const plans = [...new Set(tenants.map((t) => t.subscription_plan))];
 
-  // Build growth chart data with cumulative
-  const growthData = useMemo(() => {
-    if (!analytics?.monthly_signups.length) return [];
-    const signupsInWindow = analytics.monthly_signups.reduce((s, m) => s + m.count, 0);
-    const baseline = tenants.length - signupsInWindow;
-    return analytics.monthly_signups.reduce<{ month: string; count: number; cumulative: number }[]>(
-      (acc, m) => {
-        const prev = acc.length ? acc[acc.length - 1].cumulative : baseline;
-        return [...acc, { month: m.month, count: m.count, cumulative: prev + m.count }];
-      },
-      [],
-    );
-  }, [analytics, tenants.length]);
-
-  const planChartData = (analytics?.by_plan ?? []).map((p) => ({
-    name: p.name.charAt(0).toUpperCase() + p.name.slice(1),
-    value: p.value,
-  }));
-  const planChartColors = planChartData.map((p) => PLAN_CHART_COLORS[p.name.toLowerCase()] ?? "#64748b");
-
-  const statusChartData = (analytics?.by_status ?? []).filter((s) => s.value > 0);
-  const statusChartColors = statusChartData.map((s) => STATUS_CHART_COLORS[s.name] ?? "#64748b");
-
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -295,79 +254,35 @@ export default function AdminTenantsPage() {
         </div>
       )}
 
-      {/* Charts */}
-      {analytics && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {/* Monthly signups */}
-          <div className="sm:col-span-2 bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                <TrendingUp size={13} className="text-indigo-500" />
-              </div>
-              <h3 className="text-[13px] font-bold text-foreground">Tenant Growth</h3>
-            </div>
-            <p className="text-[11px] text-muted mb-3 ml-9">Monthly signups vs. cumulative total · last 12 months</p>
-            <div className="h-44">
-              {growthData.length > 0 ? (
-                <TenantGrowthChart
-                  data={growthData}
-                  barColor="#6366f1"
-                  lineColor="#f59e0b"
-                  gridColor={c.grid}
-                  tickColor={c.tick}
-                  tooltipStyle={c.tooltip}
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-[12px] text-muted">No signup data yet</p>
+      {/* Feature usage — how much each module is actually being used, platform-wide.
+          One compact row of tiles (already sorted by volume from the backend) so
+          this stays short instead of an 8-row list. */}
+      {featureUsage && featureUsage.modules.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity size={13} className="text-indigo-500 flex-shrink-0" />
+            <h3 className="text-[12.5px] font-bold text-foreground">Feature Usage</h3>
+            <p className="text-[11px] text-muted">— across all {featureUsage.total_tenants} tenants</p>
+          </div>
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+            {featureUsage.modules.map((m) => {
+              const Icon = MODULE_ICONS[m.key] ?? Activity;
+              const color = MODULE_COLORS[m.key] ?? "#64748b";
+              return (
+                <div key={m.key} className="bg-surface/50 border border-border rounded-lg px-2.5 py-2">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Icon size={11} style={{ color }} className="flex-shrink-0" />
+                    <span className="text-[10.5px] font-semibold text-foreground truncate">{m.label}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[13px] font-extrabold text-foreground tabular-nums">{m.total_records.toLocaleString()}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${adoptionBadgeClass(m.adoption_pct)}`}>
+                      {m.adoption_pct}%
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Plan distribution */}
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
-                <Crown size={13} className="text-violet-500" />
-              </div>
-              <h3 className="text-[13px] font-bold text-foreground">By Plan</h3>
-            </div>
-            {planChartData.length > 0 ? (
-              <MiniDonut data={planChartData} colors={planChartColors} tooltipStyle={c.tooltip} />
-            ) : (
-              <p className="text-[12px] text-muted text-center py-6">No data</p>
-            )}
-          </div>
-
-          {/* Status distribution */}
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                <BarChart2 size={13} className="text-emerald-600" />
-              </div>
-              <h3 className="text-[13px] font-bold text-foreground">By Status</h3>
-            </div>
-            {statusChartData.length > 0 ? (
-              <MiniDonut data={statusChartData} colors={statusChartColors} tooltipStyle={c.tooltip} />
-            ) : (
-              <p className="text-[12px] text-muted text-center py-6">No data</p>
-            )}
-          </div>
-
-          {/* By country */}
-          <div className="sm:col-span-2 xl:col-span-2 bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-sky-500/10 flex items-center justify-center flex-shrink-0">
-                <Globe2 size={13} className="text-sky-500" />
-              </div>
-              <h3 className="text-[13px] font-bold text-foreground">By Country</h3>
-            </div>
-            {analytics.by_country.length > 0 ? (
-              <MiniDonut data={analytics.by_country} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} kind="country" />
-            ) : (
-              <p className="text-[12px] text-muted text-center py-6">No location data</p>
-            )}
+              );
+            })}
           </div>
         </div>
       )}
@@ -455,6 +370,12 @@ export default function AdminTenantsPage() {
                   <th className="px-5 py-3 font-semibold">Business</th>
                   <th className="px-5 py-3 font-semibold">Plan</th>
                   <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-5 py-3 font-semibold hidden lg:table-cell">
+                    Usage
+                  </th>
+                  <th className="px-5 py-3 font-semibold hidden lg:table-cell">
+                    Last Active
+                  </th>
                   <th className="px-5 py-3 font-semibold hidden sm:table-cell">
                     Location
                   </th>
@@ -523,6 +444,26 @@ export default function AdminTenantsPage() {
                           {tenantStatusLabel(t)}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-5 py-4 hidden lg:table-cell">
+                      {t.usage ? (
+                        <div className="flex items-center gap-2">
+                          <Activity size={12} className="text-muted flex-shrink-0" />
+                          <div>
+                            <p className="text-[12px] font-semibold text-foreground">
+                              {t.usage.orders} order{t.usage.orders === 1 ? "" : "s"}
+                            </p>
+                            <p className="text-[11px] text-muted">
+                              {t.currency} {t.usage.revenue.toLocaleString()} · {t.usage.users} user{t.usage.users === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[12px] text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 hidden lg:table-cell text-[12px] text-muted">
+                      {t.usage ? fmtRelative(t.usage.last_active_at) : "—"}
                     </td>
                     <td className="px-5 py-4 hidden sm:table-cell text-[12px] text-muted">
                       {[t.city, t.country].filter(Boolean).join(", ") || "—"}

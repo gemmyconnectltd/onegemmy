@@ -1,6 +1,17 @@
 import { request } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
+/** Attached only by listTenants (one batched query per page, not per tenant —
+ *  see _tenant_usage_map on the backend) — absent on single-tenant fetches. */
+export interface AdminTenantUsage {
+  users: number;
+  orders: number;
+  completed_orders: number;
+  revenue: number;
+  products: number;
+  last_active_at: string | null;
+}
+
 export interface AdminTenant {
   id: string;
   name: string;
@@ -24,6 +35,7 @@ export interface AdminTenant {
   business_location: string | null;
   heard_about: string | null;
   referral_code: string | null;
+  usage?: AdminTenantUsage;
 }
 
 /** A tenant that registered itself but hasn't been approved yet is
@@ -63,6 +75,19 @@ export interface AdminTenantAnalytics {
   by_status: { name: string; value: number }[];
   by_plan: { name: string; value: number }[];
   monthly_signups: { month: string; count: number }[];
+}
+
+export interface AdminFeatureUsageModule {
+  key: string;
+  label: string;
+  tenants_using: number;
+  total_records: number;
+  adoption_pct: number;
+}
+
+export interface AdminFeatureUsage {
+  total_tenants: number;
+  modules: AdminFeatureUsageModule[];
 }
 
 export interface AdminUser {
@@ -139,6 +164,7 @@ const B = "/admin";
 export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
+  featureUsage: () => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage`),
   listUsers: (page = 1, pageSize = 50) =>
     request<PaginatedResponse<AdminUserRow>>(`${B}/users?page=${page}&page_size=${pageSize}`),
 

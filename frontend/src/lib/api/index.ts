@@ -69,7 +69,7 @@ export { manufacturingApi } from "./manufacturing";
 
 // Admin
 export type {
-  AdminTenant, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminUser,
+  AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
 } from "./admin";
 export { adminApi } from "./admin";

@@ -3,7 +3,7 @@ import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, Trash2, AlertCircle, Package, ChevronDown, Upload,
+  Eye, Edit2, AlertCircle, Package, ChevronDown, Upload,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useEffect, useRef } from "react";
@@ -396,16 +396,6 @@ export default function SalesOrdersPage() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    confirm({
-      title: "Delete Order",
-      message: "Delete this order? This cannot be undone.",
-      confirmLabel: "Delete",
-      danger: true,
-      onConfirm: () => deleteOrder.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete order") }),
-    });
-  };
-
   return (
     <div className="space-y-6">
       {confirmDialog}
@@ -500,10 +490,9 @@ export default function SalesOrdersPage() {
                     <td className="p-4 text-right text-sm tabular-nums" style={{ color: "#6366f1" }}>{fmt(o.tax)}</td>
                     <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums">{fmt(o.total)}</td>
                     <td className="p-4">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => setViewing(o)} aria-label="View order" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Eye size={13} /> View</button>
-                        <button onClick={() => openEdit(o)} aria-label="Edit order" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Edit2 size={13} /> Edit</button>
-                        <button onClick={() => handleDelete(o.id)} aria-label="Delete order" className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50"><Trash2 size={13} /> Delete</button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setViewing(o)} aria-label="View order" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
+                        <button onClick={() => openEdit(o)} aria-label="Edit order" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
                       </div>
                     </td>
                   </tr>

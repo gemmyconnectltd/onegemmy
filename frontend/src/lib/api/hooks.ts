@@ -29,7 +29,7 @@ import {
   type AccountingAccount, type AccountingExpense, type AccountingTransaction,
   type ApiDepartment, type ApiEmployee, type ApiAttendance,
   type ApiLeave, type ApiPayroll, type ApiApplicant,
-  type AdminTenant, type AdminTenantStats, type AdminPlatformStats, type AdminTenantAnalytics, type AdminUser,
+  type AdminTenant, type AdminTenantUsage, type AdminTenantStats, type AdminPlatformStats, type AdminTenantAnalytics, type AdminFeatureUsage, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
@@ -334,6 +334,9 @@ export const useAdminStats = (opts?: QueryOpts) =>
 export const useAdminTenantAnalytics = (opts?: QueryOpts) =>
   useQ(["admin", "tenant-analytics"], () => adminApi.tenantAnalytics(), (r) => r.data, opts);
 
+export const useAdminFeatureUsage = (opts?: QueryOpts) =>
+  useQ(["admin", "feature-usage"], () => adminApi.featureUsage(), (r) => r.data, opts);
+
 export const useUsers = (page = 1, pageSize = 50, opts?: QueryOpts) =>
   useQ(["admin", "users", page, pageSize], () => adminApi.listUsers(page, pageSize), (r) => r.data, opts);
 
@@ -493,7 +496,7 @@ export type {
   TrialBalance, IncomeStatement, BalanceSheet, CashFlowStatement, GeneralLedger,
   AccountingAccount, AccountingExpense, AccountingTransaction,
   ApiDepartment, ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
-  AdminTenant, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminUser,
+  AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
   Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,

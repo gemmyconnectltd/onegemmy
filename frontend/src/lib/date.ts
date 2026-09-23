@@ -28,3 +28,21 @@ export function fmtDateTime(value: string | Date | null | undefined): string {
   if (!d) return "—";
   return `${fmtDate(d)}, ${fmtTime(d)}`;
 }
+
+/** e.g. "2 days ago", "Just now" — for "last active"-style glances where the
+ *  exact timestamp matters less than roughly how stale it is. */
+export function fmtRelative(value: string | Date | null | undefined): string {
+  const d = toDate(value);
+  if (!d) return "Never";
+  const seconds = Math.round((Date.now() - d.getTime()) / 1000);
+  if (seconds < 60) return "Just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.round(months / 12)}y ago`;
+}
