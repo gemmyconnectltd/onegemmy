@@ -8,7 +8,7 @@ import {
   TrendingDown, CreditCard, Users, UserPlus, Clock, DollarSign, Award,
   UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
   Hammer, Package, Layers, Tag, Ruler, Star, Settings, Bell,
-  Shield, Palette, PanelTop, PanelLeft, PanelRight,
+  Shield, Palette, PanelTop, PanelLeft, PanelRight, Building2,
 } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -50,11 +50,12 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "reports",   href: "/accounting/reports",  icon: BarChart2 },
   ],
   hr: [
-    { nameKey: "employees",  href: "/hr",             icon: Users, exact: true },
-    { nameKey: "attendance", href: "/hr/attendance",  icon: Clock },
-    { nameKey: "leave",      href: "/hr/leave",       icon: Award },
-    { nameKey: "payroll",    href: "/hr/payroll",     icon: DollarSign },
-    { nameKey: "recruiting", href: "/hr/recruiting",  icon: UserPlus },
+    { nameKey: "employees",   href: "/hr",              icon: Users, exact: true },
+    { nameKey: "departments", href: "/hr/departments",  icon: Building2 },
+    { nameKey: "attendance",  href: "/hr/attendance",   icon: Clock },
+    { nameKey: "leave",       href: "/hr/leave",        icon: Award },
+    { nameKey: "payroll",     href: "/hr/payroll",      icon: DollarSign },
+    { nameKey: "recruiting",  href: "/hr/recruiting",   icon: UserPlus },
   ],
   crm: [
     { nameKey: "overview",   href: "/crm",           icon: LayoutDashboard, exact: true },

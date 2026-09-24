@@ -138,7 +138,11 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         is_superuser=True,
     )
     user = await UserRepository(db).save(user)
+    await db.commit()
 
+    from app.modules.tenants.service.department import seed_default_departments
+
+    await seed_default_departments(db, tenant.id)
     await db.commit()
 
     log.info("auth.register.pending", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(tenant.id)}})

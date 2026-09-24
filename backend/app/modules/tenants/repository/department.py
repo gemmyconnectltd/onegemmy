@@ -36,3 +36,9 @@ class DepartmentRepository(BaseRepository[Department]):
             select(func.count()).select_from(Department).where(Department.tenant_id == tenant_id)
         )
         return result.scalar_one()
+
+    async def list_all_for_tenant(self, tenant_id: uuid.UUID) -> list[Department]:
+        result = await self.db.execute(
+            select(Department).where(Department.tenant_id == tenant_id).order_by(Department.name)
+        )
+        return list(result.scalars().all())

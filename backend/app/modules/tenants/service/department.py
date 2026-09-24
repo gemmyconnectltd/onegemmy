@@ -3,9 +3,17 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.modules.tenants.data.department_templates import DEPARTMENT_TEMPLATES
 from app.modules.tenants.models import Department
-from app.modules.tenants.repository import DepartmentRepository
-from app.modules.tenants.schemas import DepartmentCreate, DepartmentRead, DepartmentUpdate
+from app.modules.tenants.repository import DepartmentRepository, TenantRepository
+from app.modules.tenants.schemas import (
+    DepartmentCreate,
+    DepartmentImportResult,
+    DepartmentRead,
+    DepartmentTemplateRead,
+    DepartmentTemplatesRead,
+    DepartmentUpdate,
+)
 
 
 async def get_department(db: AsyncSession, tenant_id: uuid.UUID, dept_id: uuid.UUID) -> DepartmentRead:
@@ -70,3 +78,34 @@ async def seed_default_departments(db: AsyncSession, tenant_id: uuid.UUID) -> No
         if name not in existing:
             db.add(Department(tenant_id=tenant_id, name=name))
     await db.flush()
+
+
+async def get_department_templates(db: AsyncSession, tenant_id: uuid.UUID) -> DepartmentTemplatesRead:
+    tenant = await TenantRepository(db).get(tenant_id)
+    existing = await DepartmentRepository(db).list_all_for_tenant(tenant_id)
+
+    return DepartmentTemplatesRead(
+        tenant_industry=tenant.industry if tenant else None,
+        existing=[d.name for d in existing],
+        templates=[DepartmentTemplateRead.model_validate(t) for t in DEPARTMENT_TEMPLATES],
+    )
+
+
+async def import_departments(db: AsyncSession, tenant_id: uuid.UUID, names: list[str]) -> DepartmentImportResult:
+    existing = await DepartmentRepository(db).list_all_for_tenant(tenant_id)
+    existing_names_lower = {d.name.strip().lower() for d in existing}
+
+    created: list[DepartmentRead] = []
+    skipped: list[str] = []
+    for raw_name in names:
+        name = raw_name.strip()
+        if not name or name.lower() in existing_names_lower:
+            skipped.append(raw_name)
+            continue
+        obj = Department(tenant_id=tenant_id, name=name)
+        obj = await DepartmentRepository(db).save(obj)
+        created.append(DepartmentRead.model_validate(obj))
+        existing_names_lower.add(name.lower())
+
+    await db.commit()
+    return DepartmentImportResult(created=created, skipped=skipped)

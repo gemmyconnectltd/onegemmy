@@ -37,6 +37,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/accounting/invoices": "Invoices",
   "/accounting/reports": "Accounting Reports",
   "/hr": "Employees",
+  "/hr/departments": "Departments",
   "/hr/attendance": "Attendance",
   "/hr/leave": "Leave Management",
   "/hr/payroll": "Payroll",

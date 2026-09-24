@@ -27,9 +27,10 @@ import {
   type TrialBalance, type IncomeStatement, type BalanceSheet,
   type CashFlowStatement, type GeneralLedger,
   type AccountingAccount, type AccountingExpense, type AccountingTransaction,
-  type ApiDepartment, type ApiEmployee, type ApiAttendance,
+  type ApiDepartment, type ApiDepartmentTemplate, type ApiDepartmentTemplates, type ApiDepartmentImportResult,
+  type ApiEmployee, type ApiAttendance,
   type ApiLeave, type ApiPayroll, type ApiApplicant,
-  type AdminTenant, type AdminTenantUsage, type AdminTenantStats, type AdminPlatformStats, type AdminTenantAnalytics, type AdminFeatureUsage, type AdminUser,
+  type AdminTenant, type AdminTenantUsage, type AdminTenantStats, type AdminPlatformStats, type AdminTenantAnalytics, type AdminFeatureUsage, type AdminUsageBreakdown, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
@@ -251,6 +252,17 @@ const DEPARTMENTS = ["hr", "departments"] as const;
 export const useDepartments = (opts?: QueryOpts) =>
   useQ([...DEPARTMENTS], () => departmentsApi.list(), (r) => r.data, opts);
 
+export const useDepartmentTemplates = (opts?: QueryOpts) =>
+  useQ([...DEPARTMENTS, "templates"], () => departmentsApi.templates(), (r) => r.data, opts);
+
+// Tenant self-service department CRUD — distinct from useCreateDepartment /
+// useDeleteDepartment above, which are the super-admin console's versions
+// (they take a tenantId and hit the /admin/tenants/{id}/departments routes).
+export const useCreateOwnDepartment = mutation((d: Parameters<typeof departmentsApi.create>[0]) => departmentsApi.create(d), [[...DEPARTMENTS]]);
+export const useUpdateOwnDepartment = mutation(({ id, data }: { id: string; data: Parameters<typeof departmentsApi.update>[1] }) => departmentsApi.update(id, data), [[...DEPARTMENTS]]);
+export const useDeleteOwnDepartment = mutation((id: string) => departmentsApi.delete(id), [[...DEPARTMENTS]]);
+export const useImportDepartments = mutation((names: string[]) => departmentsApi.import(names), [[...DEPARTMENTS]]);
+
 export const useEmployees = (status?: string, opts?: QueryOpts) =>
   useQ([...EMPLOYEES, status ?? "all"], () => hrApi.listEmployees(status), (r) => r.data, opts);
 
@@ -336,6 +348,9 @@ export const useAdminTenantAnalytics = (opts?: QueryOpts) =>
 
 export const useAdminFeatureUsage = (opts?: QueryOpts) =>
   useQ(["admin", "feature-usage"], () => adminApi.featureUsage(), (r) => r.data, opts);
+
+export const useAdminUsageBreakdown = (opts?: QueryOpts) =>
+  useQ(["admin", "usage-breakdown"], () => adminApi.usageBreakdown(), (r) => r.data, opts);
 
 export const useUsers = (page = 1, pageSize = 50, opts?: QueryOpts) =>
   useQ(["admin", "users", page, pageSize], () => adminApi.listUsers(page, pageSize), (r) => r.data, opts);
@@ -495,8 +510,9 @@ export type {
   ApiCustomer, ApiDeal, ApiOrder, ApiReturn, ApiTarget,
   TrialBalance, IncomeStatement, BalanceSheet, CashFlowStatement, GeneralLedger,
   AccountingAccount, AccountingExpense, AccountingTransaction,
-  ApiDepartment, ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
-  AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUser,
+  ApiDepartment, ApiDepartmentTemplate, ApiDepartmentTemplates, ApiDepartmentImportResult,
+  ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
+  AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
   Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,

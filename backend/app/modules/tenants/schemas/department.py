@@ -24,3 +24,30 @@ class DepartmentRead(BaseModel):
     description: str | None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class DepartmentTemplateGroup(BaseModel):
+    name: str
+    items: list[str]
+
+
+class DepartmentTemplateRead(BaseModel):
+    id: str
+    name: str
+    industry: str
+    groups: list[DepartmentTemplateGroup]
+
+
+class DepartmentTemplatesRead(BaseModel):
+    tenant_industry: str | None
+    existing: list[str]
+    templates: list[DepartmentTemplateRead]
+
+
+class DepartmentImportRequest(BaseModel):
+    names: list[str]
+
+
+class DepartmentImportResult(BaseModel):
+    created: list[DepartmentRead]
+    skipped: list[str]

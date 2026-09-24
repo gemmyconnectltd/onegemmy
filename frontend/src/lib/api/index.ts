@@ -44,7 +44,9 @@ export { taxApi } from "./tax";
 
 // HR
 export type {
-  ApiDepartment, ApiEmployee, EmployeeCreatePayload,
+  ApiDepartment, DepartmentCreatePayload,
+  ApiDepartmentTemplateGroup, ApiDepartmentTemplate, ApiDepartmentTemplates, ApiDepartmentImportResult,
+  ApiEmployee, EmployeeCreatePayload,
   ApiAttendance, AttendanceCreatePayload,
   ApiLeave, LeaveCreatePayload,
   ApiPayroll, PayrollCreatePayload,
@@ -69,7 +71,7 @@ export { manufacturingApi } from "./manufacturing";
 
 // Admin
 export type {
-  AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUser,
+  AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
 } from "./admin";
 export { adminApi } from "./admin";

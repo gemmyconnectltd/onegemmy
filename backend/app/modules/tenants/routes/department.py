@@ -7,7 +7,7 @@ from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
-from app.modules.tenants.schemas import DepartmentCreate, DepartmentUpdate
+from app.modules.tenants.schemas import DepartmentCreate, DepartmentImportRequest, DepartmentUpdate
 
 router = APIRouter(tags=["Departments"])
 
@@ -36,6 +36,20 @@ async def create_department(data: DepartmentCreate, db: DbSession, current_user:
         message="Department created successfully",
         status_code=201,
     )
+
+
+# Declared before "/departments/{dept_id}" — otherwise FastAPI would try to
+# parse "templates"/"import" as that route's UUID path param first.
+@router.get("/departments/templates")
+async def get_department_templates(db: DbSession, current_user: CurrentUser):
+    result = await service.get_department_templates(db, current_user.tenant_id)
+    return success_response(data=result.model_dump(), message="Department templates retrieved successfully")
+
+
+@router.post("/departments/import")
+async def import_departments(data: DepartmentImportRequest, db: DbSession, current_user: CurrentUser):
+    result = await service.import_departments(db, current_user.tenant_id, data.names)
+    return success_response(data=result.model_dump(), message="Departments imported successfully")
 
 
 @router.get("/departments/{dept_id}")

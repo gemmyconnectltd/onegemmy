@@ -3,10 +3,22 @@ import type { PaginatedResponse, SingleResponse } from "./types";
 
 export interface ApiDepartment {
   id: string;
+  tenant_id: string;
   name: string;
-  code: string;
   description: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
+
+export interface DepartmentCreatePayload {
+  name: string;
+  description?: string | null;
+}
+
+export interface ApiDepartmentTemplateGroup { name: string; items: string[]; }
+export interface ApiDepartmentTemplate { id: string; name: string; industry: string; groups: ApiDepartmentTemplateGroup[]; }
+export interface ApiDepartmentTemplates { tenant_industry: string | null; existing: string[]; templates: ApiDepartmentTemplate[]; }
+export interface ApiDepartmentImportResult { created: ApiDepartment[]; skipped: string[]; }
 
 export interface ApiEmployee {
   id: string;
@@ -132,8 +144,19 @@ const qs = (params: Record<string, string | number | undefined>) => {
 const paginated = <T>(path: string) =>
   request<PaginatedResponse<T>>(path);
 
+const DEPT_BASE = "/tenants/departments";
+
 export const departmentsApi = {
-  list: () => request<PaginatedResponse<ApiDepartment>>("/tenants/departments"),
+  list: () => request<PaginatedResponse<ApiDepartment>>(`${DEPT_BASE}?page_size=200`),
+  create: (data: DepartmentCreatePayload) =>
+    request<SingleResponse<ApiDepartment>>(DEPT_BASE, { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<DepartmentCreatePayload>) =>
+    request<SingleResponse<ApiDepartment>>(`${DEPT_BASE}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request<SingleResponse<unknown>>(`${DEPT_BASE}/${id}`, { method: "DELETE" }),
+  templates: () => request<SingleResponse<ApiDepartmentTemplates>>(`${DEPT_BASE}/templates`),
+  import: (names: string[]) =>
+    request<SingleResponse<ApiDepartmentImportResult>>(`${DEPT_BASE}/import`, { method: "POST", body: JSON.stringify({ names }) }),
 };
 
 export const hrApi = {

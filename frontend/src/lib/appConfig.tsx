@@ -20,7 +20,7 @@ const BASE_STRINGS: Record<string, string> = {
   orders: "Orders", targets: "Targets", returns: "Returns",
   analytics: "Analytics", income: "Income", expenses: "Expenses",
   accounts: "Accounts", invoices: "Invoices", employees: "Employees", recruiting: "Recruiting",
-  attendance: "Attendance", payroll: "Payroll", leave: "Leave",
+  attendance: "Attendance", payroll: "Payroll", leave: "Leave", departments: "Departments",
   contacts: "Contacts", campaigns: "Campaigns", emails: "Emails",
   suppliers: "Suppliers", requests: "Requests", workOrders: "Work Orders",
   bom: "Bill of Materials", materials: "Materials", loyalty: "Loyalty",

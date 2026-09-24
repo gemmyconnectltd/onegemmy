@@ -1,7 +1,12 @@
 from app.modules.tenants.schemas.branch import BranchCreate, BranchRead, BranchUpdate
 from app.modules.tenants.schemas.department import (
     DepartmentCreate,
+    DepartmentImportRequest,
+    DepartmentImportResult,
     DepartmentRead,
+    DepartmentTemplateGroup,
+    DepartmentTemplateRead,
+    DepartmentTemplatesRead,
     DepartmentUpdate,
 )
 from app.modules.tenants.schemas.feature import (
@@ -37,7 +42,12 @@ __all__ = [
     "BranchUpdate",
     "ChangePasswordRequest",
     "DepartmentCreate",
+    "DepartmentImportRequest",
+    "DepartmentImportResult",
     "DepartmentRead",
+    "DepartmentTemplateGroup",
+    "DepartmentTemplateRead",
+    "DepartmentTemplatesRead",
     "DepartmentUpdate",
     "FeatureFlagRead",
     "FeatureOverrideUpdate",
