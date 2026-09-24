@@ -13,9 +13,20 @@ interface TopbarProps {
   variant?: "app" | "admin";
 }
 
+// Overrides for URL segments where naively capitalizing the slug doesn't
+// match the actual display name — either an acronym (HR, CRM) or a segment
+// whose route name differs from what it's now called in the product
+// (procurement → Purchases).
+const SEGMENT_LABELS: Record<string, string> = {
+  hr: "HR",
+  crm: "CRM",
+  pos: "POS",
+  procurement: "Purchases",
+};
+
 function getBreadcrumb(pathname: string) {
   const parts = pathname.split("/").filter(Boolean);
-  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1));
+  return parts.map((p) => SEGMENT_LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1));
 }
 
 export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {

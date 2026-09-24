@@ -14,7 +14,7 @@ import { globalApi, type Currency } from "./api/global";
 const BASE_STRINGS: Record<string, string> = {
   // ── Nav ──
   dashboard: "Dashboard", sales: "Sales", inventory: "Inventory",
-  finance: "Finance", procurement: "Procurement", hr: "HR",
+  finance: "Finance", procurement: "Purchases", hr: "HR",
   customers: "Customers", crm: "CRM", manufacturing: "Mfg",
   reports: "Reports", settings: "Settings", overview: "Overview",
   orders: "Orders", targets: "Targets", returns: "Returns",

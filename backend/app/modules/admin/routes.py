@@ -156,7 +156,7 @@ _FEATURE_MODULES = [
     ("inventory", "Inventory", Product),
     ("accounting", "Accounting", Transaction),
     ("hr", "HR", Employee),
-    ("procurement", "Procurement", PurchaseOrder),
+    ("procurement", "Purchases", PurchaseOrder),
     ("manufacturing", "Manufacturing", ProductionOrder),
     ("crm", "CRM", Deal),
     ("repairs", "Repairs", RepairJob),

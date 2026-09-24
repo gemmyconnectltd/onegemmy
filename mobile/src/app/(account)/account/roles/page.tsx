@@ -9,7 +9,7 @@ function moduleLabel(prefix: string) {
   const map: Record<string, string> = {
     sales: "Sales",
     purchase: "Purchases",
-    procurement: "Procurement",
+    procurement: "Purchases",
     inventory: "Inventory",
     finance: "Finance",
     hr: "HR",

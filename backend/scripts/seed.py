@@ -50,7 +50,7 @@ ROLE_RESOURCES: dict[str, list[str]] = {
                             "payroll", "performance"],
     "Sales Manager":       ["orders", "invoices", "pos", "leads", "accounts", "contacts",
                             "opportunities", "activities", "campaigns", "tickets"],
-    "Procurement Manager": ["vendors", "requisitions", "rfq", "purchase_orders",
+    "Purchases Manager": ["vendors", "requisitions", "rfq", "purchase_orders",
                             "goods_receipt", "contracts"],
 }
 
@@ -88,8 +88,8 @@ TENANTS: list[TenantDef] = [
             ("hr.staff@onegemmy.com",            "HR Staff",            "HR Manager"),
             ("sales.manager@onegemmy.com",       "Sales Manager",       "Sales Manager"),
             ("sales.staff@onegemmy.com",         "Sales Staff",         "Sales Manager"),
-            ("procurement.manager@onegemmy.com", "Procurement Manager", "Procurement Manager"),
-            ("procurement.staff@onegemmy.com",   "Procurement Staff",   "Procurement Manager"),
+            ("procurement.manager@onegemmy.com", "Purchases Manager", "Purchases Manager"),
+            ("procurement.staff@onegemmy.com",   "Purchases Staff",   "Purchases Manager"),
         ],
         categories=["Phones & Accessories", "Computers & Laptops", "Audio", "Cables & Chargers", "Smart Home"],
         brands=["Samsung", "Apple", "Anker", "JBL", "Logitech", "Xiaomi", "Sony"],
@@ -130,7 +130,7 @@ TENANTS: list[TenantDef] = [
             ("inventory.manager@freshmart.rw",   "Inventory Manager",   "Inventory Manager"),
             ("accounting.manager@freshmart.rw",     "Accounting Manager",     "Accounting Manager"),
             ("sales.manager@freshmart.rw",       "Sales Manager",       "Sales Manager"),
-            ("procurement.manager@freshmart.rw", "Procurement Manager", "Procurement Manager"),
+            ("procurement.manager@freshmart.rw", "Purchases Manager", "Purchases Manager"),
             ("hr.manager@freshmart.rw",          "HR Manager",          "HR Manager"),
         ],
         categories=["Beverages", "Dairy & Eggs", "Grains & Cereals", "Snacks", "Cooking Essentials", "Fresh Produce"],

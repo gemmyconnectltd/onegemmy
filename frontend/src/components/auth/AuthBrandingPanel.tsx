@@ -14,7 +14,7 @@ const FEATURE_BADGES = [
   { icon: Warehouse, label: "Inventory", style: { top: "0%", right: "6%" } },
   { icon: HandCoins, label: "Accounting", style: { top: "48%", right: "16%" } },
   { icon: UserCog, label: "HR & Payroll", style: { top: "58%", left: "0%" } },
-  { icon: ShoppingBag, label: "Procurement", style: { top: "30%", left: "30%" } },
+  { icon: ShoppingBag, label: "Purchases", style: { top: "30%", left: "30%" } },
   { icon: BarChart3, label: "Reports", style: { top: "78%", right: "34%" } },
 ];
 

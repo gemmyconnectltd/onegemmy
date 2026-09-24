@@ -17,21 +17,21 @@ DEPARTMENT_TEMPLATES: list[dict] = [
     {
         "id": "retail-shop", "name": "Retail & Shop", "industry": "Retail",
         "groups": [
-            {"name": "Core Functions", "items": ["Sales & Checkout", "Inventory & Stock", "Procurement & Purchasing"]},
+            {"name": "Core Functions", "items": ["Sales & Checkout", "Inventory & Stock", "Purchasing"]},
             {"name": "Support Functions", "items": ["Finance & Accounting", "Human Resources", "Customer Service"]},
         ],
     },
     {
         "id": "wholesale-distribution", "name": "Wholesale & Distribution", "industry": "Wholesale",
         "groups": [
-            {"name": "Core Functions", "items": ["Sales & Accounts", "Warehouse & Logistics", "Procurement"]},
+            {"name": "Core Functions", "items": ["Sales & Accounts", "Warehouse & Logistics", "Purchasing"]},
             {"name": "Support Functions", "items": ["Finance & Accounting", "Human Resources", "Fleet & Delivery"]},
         ],
     },
     {
         "id": "manufacturing", "name": "Manufacturing", "industry": "Manufacturing",
         "groups": [
-            {"name": "Core Functions", "items": ["Production", "Quality Control", "Procurement & Supply Chain"]},
+            {"name": "Core Functions", "items": ["Production", "Quality Control", "Purchasing & Supply Chain"]},
             {"name": "Support Functions", "items": ["Warehouse & Logistics", "Finance & Accounting", "Human Resources"]},
         ],
     },
@@ -46,14 +46,14 @@ DEPARTMENT_TEMPLATES: list[dict] = [
         "id": "hospitality", "name": "Hospitality", "industry": "Hospitality",
         "groups": [
             {"name": "Core Functions", "items": ["Front Desk & Reservations", "Food & Beverage", "Housekeeping"]},
-            {"name": "Support Functions", "items": ["Finance & Accounting", "Human Resources", "Procurement"]},
+            {"name": "Support Functions", "items": ["Finance & Accounting", "Human Resources", "Purchasing"]},
         ],
     },
     {
         "id": "healthcare-pharmacy", "name": "Healthcare & Pharmacy", "industry": "Healthcare",
         "groups": [
             {"name": "Core Functions", "items": ["Dispensing & Pharmacy", "Patient Services", "Compliance & Regulatory"]},
-            {"name": "Support Functions", "items": ["Inventory & Procurement", "Finance & Billing", "Human Resources"]},
+            {"name": "Support Functions", "items": ["Inventory & Purchasing", "Finance & Billing", "Human Resources"]},
         ],
     },
 ]

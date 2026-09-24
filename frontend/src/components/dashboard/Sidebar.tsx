@@ -31,7 +31,7 @@ const navItems = [
   { name: "Sales",       href: "/sales",         icon: ShoppingCart,    feature: "sales",          module: "sales" },
   { name: "Inventory",   href: "/inventory",     icon: Warehouse,       feature: "inventory",      module: "inventory" },
   { name: "Accounting",     href: "/accounting",       icon: HandCoins,       feature: "accounting",        module: "accounting" },
-  { name: "Procurement", href: "/procurement",   icon: ShoppingBag,     feature: "procurement",    module: "procurement" },
+  { name: "Purchases",   href: "/procurement",   icon: ShoppingBag,     feature: "procurement",    module: "procurement" },
   { name: "HR",          href: "/hr",            icon: UserCog,         feature: "hr",             module: "hr" },
   { name: "Customers",   href: "/customers",     icon: Users,           feature: "sales",          module: "customers" },
   { name: "Mfg",         href: "/manufacturing", icon: Factory,         feature: "manufacturing",  module: "manufacturing" },

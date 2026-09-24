@@ -17,7 +17,7 @@ const INITIAL_USERS: User[] = [
   { id: 6, name: "Sales Staff",      email: "salesstaff@pesaa.com", role: "Sales Manager",       status: "Inactive" },
 ];
 
-const ROLES = ["Admin", "Inventory Manager", "Accounting Manager", "HR Manager", "Sales Manager", "Procurement Manager"];
+const ROLES = ["Admin", "Inventory Manager", "Accounting Manager", "HR Manager", "Sales Manager", "Purchases Manager"];
 
 const STATUS_STYLE: Record<string, string> = {
   Active:   "bg-emerald-100 text-emerald-700",

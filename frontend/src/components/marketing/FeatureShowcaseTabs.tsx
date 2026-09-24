@@ -78,7 +78,7 @@ const showcase: ShowcaseItem[] = [
   },
   {
     icon: ShoppingBag,
-    eyebrow: "Procurement",
+    eyebrow: "Purchases",
     title: "Suppliers, purchase orders, and bills in one flow",
     description:
       "Raise a purchase order, receive the goods, and the bill it creates is tracked through to payment — so you always know what you owe and to whom.",
