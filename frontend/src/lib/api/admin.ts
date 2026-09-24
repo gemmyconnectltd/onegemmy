@@ -90,6 +90,56 @@ export interface AdminFeatureUsage {
   modules: AdminFeatureUsageModule[];
 }
 
+export interface AdminUsageSummary {
+  total_tenants: number;
+  engaged_tenants: number;
+  dormant_tenants: number;
+  active_30d: number;
+  avg_users_per_tenant: number;
+  avg_orders_per_tenant: number;
+  total_orders: number;
+  total_users: number;
+  total_products: number;
+  total_revenue: number;
+}
+
+export interface AdminEngagementTier {
+  tier: "dormant" | "light" | "moderate" | "heavy";
+  tenants: number;
+}
+
+export interface AdminPlanUsage {
+  plan: string;
+  tenants: number;
+  users: number;
+  orders: number;
+  completed_orders: number;
+  revenue: number;
+  products: number;
+}
+
+export interface AdminUsageTopTenant {
+  id: string;
+  name: string;
+  slug: string;
+  subscription_plan: string;
+  currency: string;
+  is_active: boolean;
+  users: number;
+  orders: number;
+  completed_orders: number;
+  revenue: number;
+  products: number;
+  last_active_at: string | null;
+}
+
+export interface AdminUsageBreakdown {
+  summary: AdminUsageSummary;
+  engagement: AdminEngagementTier[];
+  by_plan: AdminPlanUsage[];
+  top_tenants: AdminUsageTopTenant[];
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -165,6 +215,7 @@ export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
   featureUsage: () => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage`),
+  usageBreakdown: () => request<SingleResponse<AdminUsageBreakdown>>(`${B}/usage-breakdown`),
   listUsers: (page = 1, pageSize = 50) =>
     request<PaginatedResponse<AdminUserRow>>(`${B}/users?page=${page}&page_size=${pageSize}`),
 

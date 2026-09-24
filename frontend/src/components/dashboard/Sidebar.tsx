@@ -14,7 +14,7 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, HandCoins,
   Factory, ShoppingBag, Building2, Menu, X,
-  PanelLeft, Crown,
+  PanelLeft, Crown, Activity,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -22,6 +22,7 @@ const adminNavItems = [
   { name: "Tenants",  href: "/admin/tenants",   icon: Building2 },
   { name: "Users",    href: "/admin/users",     icon: Users },
   { name: "Plans",    href: "/admin/plans",     icon: Crown },
+  { name: "Usage",    href: "/admin/usage",     icon: Activity },
   { name: "Settings", href: "/admin/settings",  icon: Settings },
 ];
 

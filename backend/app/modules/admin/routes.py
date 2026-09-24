@@ -242,6 +242,160 @@ async def admin_tenant_analytics(db: DbSession, _: SuperUser):
     }, message="Tenant analytics retrieved")
 
 
+@router.get("/usage-breakdown")
+async def admin_usage_breakdown(db: DbSession, _: SuperUser):
+    """Deep-dive into how tenants actually use the platform: engagement tiers
+    (by order volume), per-plan usage (users, orders, revenue, products) and
+    the top tenants by order count. All aggregate queries — one grouped query
+    per metric, never one per tenant — matching the /stats and /feature-usage
+    approach so it stays cheap regardless of tenant count."""
+    # Engagement tiers — bucket every tenant by order volume.
+    order_counts = (
+        select(Order.tenant_id, func.count().label("cnt"))
+        .group_by(Order.tenant_id)
+        .subquery()
+    )
+    tier = case(
+        (func.coalesce(order_counts.c.cnt, 0) == 0, "dormant"),
+        (func.coalesce(order_counts.c.cnt, 0) < 10, "light"),
+        (func.coalesce(order_counts.c.cnt, 0) < 50, "moderate"),
+        else_="heavy",
+    )
+    tier_rows = (await db.execute(
+        select(tier.label("tier"), func.count().label("tenants"))
+        .select_from(Tenant)
+        .outerjoin(order_counts, order_counts.c.tenant_id == Tenant.id)
+        .group_by(tier)
+    )).fetchall()
+    engagement = {r.tier: r.tenants for r in tier_rows}
+    total_tenants = sum(engagement.values())
+    engaged_tenants = total_tenants - engagement.get("dormant", 0)
+
+    active_30d = (await db.execute(
+        select(func.count(func.distinct(Order.tenant_id)))
+        .where(Order.ordered_at >= func.now() - text("INTERVAL '30 days'"))
+    )).scalar_one()
+
+    # Per-plan usage — one grouped query per metric, inner-joined to the plan.
+    plan_tenants = {
+        r.subscription_plan: r.cnt for r in (await db.execute(
+            select(Tenant.subscription_plan, func.count().label("cnt"))
+            .group_by(Tenant.subscription_plan)
+        )).fetchall()
+    }
+    plan_users = {
+        r.subscription_plan: r.cnt for r in (await db.execute(
+            select(Tenant.subscription_plan, func.count().label("cnt"))
+            .select_from(User)
+            .join(Tenant, Tenant.id == User.tenant_id)
+            .group_by(Tenant.subscription_plan)
+        )).fetchall()
+    }
+    plan_orders = {
+        r.subscription_plan: {"orders": r.cnt, "completed_orders": int(r.completed or 0)}
+        for r in (await db.execute(
+            select(
+                Tenant.subscription_plan,
+                func.count().label("cnt"),
+                func.sum(case((Order.status == "Completed", 1), else_=0)).label("completed"),
+            )
+            .select_from(Order)
+            .join(Tenant, Tenant.id == Order.tenant_id)
+            .group_by(Tenant.subscription_plan)
+        )).fetchall()
+    }
+    plan_products = {
+        r.subscription_plan: r.cnt for r in (await db.execute(
+            select(Tenant.subscription_plan, func.count().label("cnt"))
+            .select_from(Product)
+            .join(Tenant, Tenant.id == Product.tenant_id)
+            .group_by(Tenant.subscription_plan)
+        )).fetchall()
+    }
+    plan_revenue = {
+        r.subscription_plan: float(r.revenue) for r in (await db.execute(
+            select(
+                Tenant.subscription_plan,
+                func.coalesce(func.sum(TransactionLine.amount), 0).label("revenue"),
+            )
+            .select_from(Transaction)
+            .join(Tenant, Tenant.id == Transaction.tenant_id)
+            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
+            .where(
+                Transaction.type == "sale", Transaction.status == "Posted",
+                TransactionLine.type == "credit",
+            )
+            .group_by(Tenant.subscription_plan)
+        )).fetchall()
+    }
+
+    plan_keys = set(plan_tenants) | set(plan_users) | set(plan_orders) | set(plan_products) | set(plan_revenue)
+    by_plan = [
+        {
+            "plan": p,
+            "tenants": plan_tenants.get(p, 0),
+            "users": plan_users.get(p, 0),
+            "orders": (plan_orders.get(p) or {}).get("orders", 0),
+            "completed_orders": (plan_orders.get(p) or {}).get("completed_orders", 0),
+            "revenue": plan_revenue.get(p, 0.0),
+            "products": plan_products.get(p, 0),
+        }
+        for p in plan_keys
+    ]
+    by_plan.sort(key=lambda r: r["tenants"], reverse=True)
+
+    # Top tenants by order volume (bounded — response never grows with scale).
+    top_ids = [
+        r.tenant_id for r in (await db.execute(
+            select(Order.tenant_id, func.count().label("cnt"))
+            .group_by(Order.tenant_id)
+            .order_by(func.count().desc())
+            .limit(10)
+        )).fetchall()
+    ]
+    top_usage = await _tenant_usage_map(db, top_ids)
+    top_tenant_rows = {} if not top_ids else {
+        t.id: t for t in (await db.execute(select(Tenant).where(Tenant.id.in_(top_ids)))).scalars()
+    }
+    top_tenants = []
+    for tid in top_ids:
+        t = top_tenant_rows.get(tid)
+        top_tenants.append({
+            "id": str(tid),
+            "name": t.name if t else str(tid)[:8],
+            "slug": t.slug if t else "",
+            "subscription_plan": t.subscription_plan if t else "free",
+            "currency": t.currency if t else "RWF",
+            "is_active": t.is_active if t else False,
+            **top_usage.get(tid, _empty_usage()),
+        })
+
+    totals = {
+        "total_orders": sum(r["orders"] for r in by_plan),
+        "total_users": sum(r["users"] for r in by_plan),
+        "total_products": sum(r["products"] for r in by_plan),
+        "total_revenue": sum(r["revenue"] for r in by_plan),
+    }
+
+    return success_response(data={
+        "summary": {
+            "total_tenants": total_tenants,
+            "engaged_tenants": engaged_tenants,
+            "dormant_tenants": engagement.get("dormant", 0),
+            "active_30d": active_30d,
+            "avg_users_per_tenant": round(totals["total_users"] / total_tenants, 1) if total_tenants else 0,
+            "avg_orders_per_tenant": round(totals["total_orders"] / total_tenants, 1) if total_tenants else 0,
+            **totals,
+        },
+        "engagement": [
+            {"tier": t, "tenants": engagement.get(t, 0)}
+            for t in ("dormant", "light", "moderate", "heavy")
+        ],
+        "by_plan": by_plan,
+        "top_tenants": top_tenants,
+    }, message="Platform usage breakdown retrieved")
+
+
 # ── Platform users ────────────────────────────────────────────────────────────
 
 @router.get("/users")
