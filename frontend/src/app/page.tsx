@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import {
   Check,
   ArrowRight,
+  Building2,
+  ShoppingCart,
+  LayoutGrid,
+  Coins,
 } from "lucide-react";
 import Image from "next/image";
 import { Navbar } from "@/components/ui/Navbar";
@@ -9,19 +13,31 @@ import { Footer } from "@/components/layout/Footer";
 import { FeatureShowcaseTabs } from "@/components/marketing/FeatureShowcaseTabs";
 import { TrustBadges } from "@/components/marketing/TrustBadges";
 import { siteConfig } from "@/lib/config";
-import { getPlatformStats } from "@/lib/publicStats";
+import { getPlatformStats, MIN_BUSINESSES_TO_SHOW, MIN_ORDERS_TO_SHOW } from "@/lib/publicStats";
 
 export const metadata: Metadata = {
   title: `Home - ${siteConfig.name}`,
 };
 
+// Static per possible count, so Tailwind's build-time scanner can see every
+// class literally (a dynamically-interpolated `grid-cols-${n}` gets purged).
+const HIGHLIGHTS_GRID_COLS: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-3",
+  4: "grid-cols-2 md:grid-cols-4",
+};
+
 export default async function Home() {
   const stats = await getPlatformStats();
   const highlights = [
-    { value: String(stats.businesses), label: `Businesses already using ${siteConfig.name}` },
-    { value: String(stats.orders_processed), label: "Orders processed" },
-    { value: String(stats.modules), label: "Modules in one platform" },
-    { value: String(stats.currencies), label: "Currencies supported" },
+    ...(stats.businesses >= MIN_BUSINESSES_TO_SHOW
+      ? [{ icon: Building2, value: String(stats.businesses), label: `Businesses already using ${siteConfig.name}` }]
+      : []),
+    ...(stats.orders_processed >= MIN_ORDERS_TO_SHOW
+      ? [{ icon: ShoppingCart, value: String(stats.orders_processed), label: "Orders processed" }]
+      : []),
+    { icon: LayoutGrid, value: String(stats.modules), label: "Modules in one platform" },
+    { icon: Coins, value: String(stats.currencies), label: "Currencies supported" },
   ];
   return (
     <div className="min-h-screen bg-background">
@@ -150,9 +166,12 @@ export default async function Home() {
       {/* 4. Highlights — quick numbers */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div className={`grid ${HIGHLIGHTS_GRID_COLS[highlights.length] ?? "grid-cols-2 md:grid-cols-4"} gap-8 text-center`}>
             {highlights.map((item) => (
               <div key={item.label}>
+                <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-3">
+                  <item.icon size={20} className="text-[#4ade80]" />
+                </div>
                 <div className="text-4xl md:text-5xl font-bold text-white mb-2">
                   {item.value}
                 </div>

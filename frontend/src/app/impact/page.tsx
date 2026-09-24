@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Languages, Coins, ShieldCheck, Smartphone } from "lucide-react";
+import { Languages, Coins, ShieldCheck, Smartphone, Building2, LayoutGrid } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { siteConfig } from "@/lib/config";
-import { getPlatformStats } from "@/lib/publicStats";
+import { getPlatformStats, MIN_BUSINESSES_TO_SHOW } from "@/lib/publicStats";
 import { TrustBadges } from "@/components/marketing/TrustBadges";
 
 export const metadata: Metadata = {
   title: `Impact - ${siteConfig.name}`,
+};
+
+// Static per possible count, so Tailwind's build-time scanner can see every
+// class literally (a dynamically-interpolated `grid-cols-${n}` gets purged).
+const NUMBERS_GRID_COLS: Record<number, string> = {
+  3: "grid-cols-1 sm:grid-cols-3",
+  4: "grid-cols-2 md:grid-cols-4",
 };
 
 const pillars = [
@@ -38,10 +45,12 @@ const pillars = [
 export default async function ImpactPage() {
   const stats = await getPlatformStats();
   const numbers = [
-    { value: String(stats.businesses), label: `Businesses already using ${siteConfig.name}` },
-    { value: String(stats.modules), label: "Modules in one platform" },
-    { value: String(stats.currencies), label: "Currencies supported" },
-    { value: "100%", label: "Of every business's data kept isolated to their own account" },
+    ...(stats.businesses >= MIN_BUSINESSES_TO_SHOW
+      ? [{ icon: Building2, value: String(stats.businesses), label: `Businesses already using ${siteConfig.name}` }]
+      : []),
+    { icon: LayoutGrid, value: String(stats.modules), label: "Modules in one platform" },
+    { icon: Coins, value: String(stats.currencies), label: "Currencies supported" },
+    { icon: ShieldCheck, value: "100%", label: "Of every business's data kept isolated to their own account" },
   ];
   return (
     <div className="min-h-screen bg-background">
@@ -74,9 +83,12 @@ export default async function ImpactPage() {
           <p className="text-center text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-12">
             By the numbers
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div className={`grid ${NUMBERS_GRID_COLS[numbers.length] ?? "grid-cols-2 md:grid-cols-4"} gap-8 text-center`}>
             {numbers.map((item) => (
               <div key={item.label}>
+                <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-3">
+                  <item.icon size={20} className="text-[#4ade80]" />
+                </div>
                 <div className="text-4xl md:text-5xl font-bold text-white mb-2">
                   {item.value}
                 </div>

@@ -24,6 +24,15 @@ const FALLBACK_STATS: PlatformStats = {
   currencies: 6,
 };
 
+// Today's counts include internal/test tenants and orders created while
+// building the product, not real customers — showing those publicly as
+// "businesses already using Pesaa" would be misleading. These stats only
+// appear once the real counts clear a threshold comfortably above that
+// internal noise, so the page never claims traction that isn't real yet.
+// Bump these down (or remove the gating below) once there's genuine usage.
+export const MIN_BUSINESSES_TO_SHOW = 50;
+export const MIN_ORDERS_TO_SHOW = 200;
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 export async function getPlatformStats(): Promise<PlatformStats> {
