@@ -3,16 +3,18 @@ import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, AlertCircle, Package, ChevronDown, Upload,
+  Eye, Edit2, AlertCircle, ChevronDown, Upload, Printer,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useEffect, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder, useBulkCreateOrders } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder, useBulkCreateOrders, useCurrentTenant } from "@/lib/api/hooks";
 import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
+import { InvoiceDocument } from "@/components/accounting/InvoiceDocument";
 import { accountingApi } from "@/lib/api/accounting";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -257,6 +259,7 @@ export default function SalesOrdersPage() {
   const { currencySymbol, brandColor } = useAppConfig();
   const SAL = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
+  const { data: tenant } = useCurrentTenant();
 
   const [error, setError] = useState<string | null>(null);
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
@@ -657,48 +660,46 @@ export default function SalesOrdersPage() {
         </form>
       </Drawer>
 
-      {/* ── View Drawer ── */}
-      <Drawer open={!!viewing} onClose={() => setViewing(null)} title="Order Details" description={viewing?.order_number} size="md">
-        {viewing && (
-          <div className="p-5 space-y-4">
-            {[
-              { label: "Customer", value: viewing.customer?.name ?? "Walk-in" },
-              { label: "Status",   value: viewing.status },
-              { label: "Date",     value: fmtDateTime(viewing.ordered_at) },
-              { label: "Subtotal", value: fmt(viewing.subtotal) },
-              { label: "Discount", value: fmt(viewing.discount) },
-              { label: "Tax",      value: fmt(viewing.tax) },
-              { label: "Total",    value: fmt(viewing.total) },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-[13px] text-muted font-medium">{label}</span>
-                <span className="text-[13px] font-semibold text-foreground">{value}</span>
-              </div>
-            ))}
-            {viewing.items.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[12px] font-semibold text-muted mb-2">Line Items</p>
-                <div className="space-y-2">
-                  {viewing.items.map((it) => (
-                    <div key={it.id} className="flex items-center justify-between bg-surface rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Package size={13} className="text-muted flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-medium text-foreground truncate">{it.product_name}</p>
-                          {it.variant_attributes && <p className="text-[11px] text-muted">{attrLabel(it.variant_attributes)}</p>}
-                          {it.sku && <p className="text-[11px] text-muted">SKU: {it.sku}</p>}
-                        </div>
-                        <span className="text-[11px] text-muted flex-shrink-0">×{it.quantity}</span>
-                      </div>
-                      <span className="text-[13px] font-bold text-foreground tabular-nums flex-shrink-0 ml-2">{fmt(it.line_total)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+      {/* ── View Drawer — the same branded invoice document used in
+          Accounting > Invoices, so an order looks the same everywhere it's
+          shown or printed. ── */}
+      <Drawer
+        open={!!viewing}
+        onClose={() => setViewing(null)}
+        title="Order Details"
+        description={viewing?.order_number}
+        size="lg"
+        footer={
+          viewing && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg"
+                style={{ backgroundColor: SAL }}
+              >
+                <Printer size={15} /> Print
+              </button>
+              <button
+                onClick={() => setViewing(null)}
+                className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          )
+        }
+      >
+        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={SAL} fmt={fmt} />}
       </Drawer>
+
+      {/* Print-only view: portaled out of the app shell (which is hidden via
+          print:hidden) so printing shows just the invoice, nothing else. */}
+      {viewing && typeof document !== "undefined" && createPortal(
+        <div className="hidden print:block">
+          <InvoiceDocument order={viewing} tenant={tenant} brandColor={SAL} fmt={fmt} />
+        </div>,
+        document.body,
+      )}
 
       <CsvImportDrawer<OrderImportRow>
         open={showImport}

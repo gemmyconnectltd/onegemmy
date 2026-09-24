@@ -6,6 +6,7 @@ import { getProductIcon, IconBadge } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtDateTime } from "@/lib/date";
 import type { SaleResult } from "./types";
+import type { Tenant } from "@/lib/api";
 
 interface ReceiptProps {
   sale: SaleResult;
@@ -14,6 +15,9 @@ interface ReceiptProps {
   vatEnabled: boolean;
   onNewSale: () => void;
   onClose?: () => void;
+  /** The business this receipt is for — shows logo/name/address at the top
+   *  so a printed receipt is recognizably branded, not just a bare total. */
+  tenant?: Tenant;
 }
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -22,7 +26,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   card: "Card",
 };
 
-export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onClose }: ReceiptProps) {
+export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onClose, tenant }: ReceiptProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopySummary = () => {
@@ -52,8 +56,33 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
 
   return (
     <div className="bg-card flex flex-col h-full">
+      {/* Business branding — shows on-screen and on the printed receipt */}
+      {tenant && (
+        <div className="px-5 pt-5 pb-3 border-b border-border">
+          <div className="flex items-center gap-2">
+            {tenant.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resolveUploadUrl(tenant.logo_url) ?? undefined}
+                alt={tenant.name}
+                className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-accent text-white font-extrabold text-[13px]">
+                {tenant.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <p className="text-[15px] font-extrabold text-foreground">{tenant.name}</p>
+          </div>
+          {(tenant.address || tenant.city) && (
+            <p className="text-[10px] text-muted mt-1">{[tenant.address, tenant.city].filter(Boolean).join(", ")}</p>
+          )}
+          {tenant.phone && <p className="text-[10px] text-muted">{tenant.phone}</p>}
+        </div>
+      )}
+
       {/* Header — success state */}
-      <div className="relative px-5 pt-8 pb-5 text-center">
+      <div className="relative px-5 pt-8 pb-5">
         {onClose && (
           <button
             onClick={onClose}
@@ -63,7 +92,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
             <X size={16} />
           </button>
         )}
-        <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-emerald-500/25">
+        <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center mb-3 shadow-lg shadow-emerald-500/25">
           <Check size={24} className="text-white" strokeWidth={3} />
         </div>
         <h2 className="text-[17px] font-bold text-foreground">Payment received</h2>
@@ -150,7 +179,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
         </div>
 
         <div className="px-4 pb-2">
-          <p className="text-center text-[10px] text-muted/60 italic mb-3">Thank you for your purchase!</p>
+          <p className="text-left text-[10px] text-muted/60 italic mb-3">Thank you for your purchase!</p>
         </div>
 
         {/* Actions — fixed at very bottom */}

@@ -15,7 +15,7 @@ export default function MobilePaymentPage() {
   const {
     cart, payment, cashGiven, subtotal, discount, tax, total, change, cashShort,
     itemsCashReceivedSum, customerName, currencySymbol, fmt, saving, saleError, completedSale,
-    setPayment, setCashGiven, completeSale, startNewSale,
+    setPayment, setCashGiven, completeSale, startNewSale, tenant,
   } = useMobilePos();
   const { vatEnabled } = useAppConfig();
 
@@ -31,6 +31,7 @@ export default function MobilePaymentPage() {
             router.replace("/pos");
           }}
           vatEnabled={vatEnabled}
+          tenant={tenant}
         />
       </div>
     );

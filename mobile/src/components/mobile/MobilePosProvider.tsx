@@ -5,9 +5,10 @@ import type { ReactNode } from "react";
 
 import { TAX_RATE, generateClientOrderId, generateOrderId, timeLabel } from "@/components/pos/constants";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
-import { useCreateOrder } from "@/lib/api/hooks";
+import { useCreateOrder, useCurrentTenant } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
 import { addPendingOrder, isNetworkError, decrementLocalStock } from "@/lib/offline";
+import type { Tenant } from "@/lib/api";
 
 interface MobilePosContextValue {
   cart: CartItem[];
@@ -32,6 +33,8 @@ interface MobilePosContextValue {
   totalItems: number;
   currencySymbol: string;
   fmt: (v: number) => string;
+  /** The current business — used to brand receipts (logo, name, address). */
+  tenant: Tenant | undefined;
   addToCart: (p: Product) => void;
   addVariantToCart: (p: Product, v: Variant) => void;
   updateQty: (id: string, delta: number) => void;
@@ -55,6 +58,7 @@ const MobilePosContext = createContext<MobilePosContextValue | null>(null);
 export function MobilePosProvider({ children }: { children: ReactNode }) {
   const { currencySymbol, vatEnabled } = useAppConfig();
   const createOrder = useCreateOrder();
+  const { data: tenant } = useCurrentTenant();
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -261,7 +265,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
   const value: MobilePosContextValue = {
     cart, heldOrders, customerId, customerName, notes, payment, cashGiven, saleError, saving,
     completedSale, todayCount, todayRevenue, subtotal, discount, tax, total, change, cashShort,
-    itemsCashReceivedSum, totalItems, currencySymbol, fmt,
+    itemsCashReceivedSum, totalItems, currencySymbol, fmt, tenant,
     addToCart, addVariantToCart, updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart,
     holdSale, resumeHeld, deleteHeld, setCustomer, setNotes, setPayment, setCashGiven,
     completeSale, startNewSale,

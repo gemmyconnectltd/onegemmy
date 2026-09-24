@@ -70,7 +70,7 @@ export default function MobilePosPage() {
     itemsCashReceivedSum, saleError, saving, completedSale,
     setCustomer, setNotes, setPayment, setCashGiven,
     updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart, holdSale,
-    completeSale, startNewSale,
+    completeSale, startNewSale, tenant,
   } = useMobilePos();
 
   const customers = customersQ.data?.items ?? [];
@@ -163,6 +163,7 @@ export default function MobilePosPage() {
               onNewSale={handleNewSale}
               onClose={handleNewSale}
               vatEnabled={vatEnabled}
+              tenant={tenant}
             />
           </div>
         </div>

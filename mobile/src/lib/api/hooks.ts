@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import {
   inventoryApi, salesApi, financeApi, hrApi, departmentsApi, adminApi, procurementApi,
-  crmApi, manufacturingApi,
+  crmApi, manufacturingApi, tenantsApi,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
@@ -68,6 +68,13 @@ function mutation<TVariables, TResponse>(
     });
   };
 }
+
+// ── Tenant (current business) ─────────────────────────────────────────────
+
+const CURRENT_TENANT = ["tenants", "me", "current"] as const;
+
+export const useCurrentTenant = (opts?: QueryOpts) =>
+  useQ([...CURRENT_TENANT], () => tenantsApi.getCurrent(), (r) => r.data, opts);
 
 // ── Inventory ────────────────────────────────────────────────────────────────
 

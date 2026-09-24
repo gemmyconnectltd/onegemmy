@@ -22,7 +22,7 @@ export default function MobileCartPage() {
     itemsCashReceivedSum, saleError, saving, completedSale,
     setCustomer, setNotes, setPayment, setCashGiven,
     updateQty, updateDiscount, updateItemCashReceived, removeItem, clearCart, holdSale,
-    completeSale, startNewSale,
+    completeSale, startNewSale, tenant,
   } = useMobilePos();
 
   if (completedSale) {
@@ -39,6 +39,7 @@ export default function MobileCartPage() {
             startNewSale();
           }}
           vatEnabled={vatEnabled}
+          tenant={tenant}
         />
       </div>
     );

@@ -9,7 +9,7 @@ import { useAppConfig } from "@/lib/appConfig";
 
 export default function MobileReceiptPage() {
   const router = useRouter();
-  const { completedSale, currencySymbol, fmt, startNewSale } = useMobilePos();
+  const { completedSale, currencySymbol, fmt, startNewSale, tenant } = useMobilePos();
   const { vatEnabled } = useAppConfig();
 
   useEffect(() => {
@@ -32,6 +32,7 @@ export default function MobileReceiptPage() {
         onNewSale={handleNewSale}
         onClose={handleNewSale}
         vatEnabled={vatEnabled}
+        tenant={tenant}
       />
     </div>
   );

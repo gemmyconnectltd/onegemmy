@@ -212,3 +212,13 @@ input, select, textarea {
     @apply font-sans;
   }
 }
+
+/* Printed documents (invoices, receipts) rely on brand-color backgrounds to
+   carry the tenant's branding — browsers strip background colors from print
+   output by default to save ink unless told otherwise. */
+@media print {
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

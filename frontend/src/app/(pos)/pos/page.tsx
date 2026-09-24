@@ -14,7 +14,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
 import { saveSale } from "@/lib/invoices";
-import { useProducts, useCustomers, useCreateOrder } from "@/lib/api/hooks";
+import { useProducts, useCustomers, useCreateOrder, useCurrentTenant } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -41,6 +41,7 @@ function apiToProduct(p: ApiProduct): Product {
 export default function POSPage() {
   usePageTitle("Point of Sale");
   const { currencySymbol, locale, setLocale, locales, theme, setTheme, vatEnabled } = useAppConfig();
+  const { data: tenant } = useCurrentTenant();
 
   // ── inventory ────────────────────────────────────────────────────────────
   const { data: productData, isLoading, isError, refetch } = useProducts(1, 500);
@@ -296,7 +297,7 @@ export default function POSPage() {
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
-          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} onClose={startNewSale} vatEnabled={vatEnabled} />
+          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} onClose={startNewSale} vatEnabled={vatEnabled} tenant={tenant} />
         )}
       </Drawer>
 

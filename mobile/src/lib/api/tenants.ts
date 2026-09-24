@@ -6,6 +6,12 @@ export interface Tenant {
   name: string;
   slug: string;
   currency: string;
+  logo_url: string | null;
+  brand_color: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
 }
 
 export const tenantsApi = {

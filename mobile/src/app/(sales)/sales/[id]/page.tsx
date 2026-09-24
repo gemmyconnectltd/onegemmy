@@ -14,7 +14,7 @@ import { useAppConfig } from "@/lib/appConfig";
 export default function MobileSalesDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { currencySymbol, fmt, startNewSale } = useMobilePos();
+  const { currencySymbol, fmt, startNewSale, tenant } = useMobilePos();
   const { vatEnabled } = useAppConfig();
   const ordersQ = useOrders(1, 500);
 
@@ -55,7 +55,7 @@ export default function MobileSalesDetailPage() {
         <h1 className="text-[15px] font-bold text-foreground">Receipt</h1>
       </header>
       <div className="flex-1">
-        <Receipt sale={sale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={handleNewSale} onClose={() => router.back()} vatEnabled={vatEnabled} />
+        <Receipt sale={sale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={handleNewSale} onClose={() => router.back()} vatEnabled={vatEnabled} tenant={tenant} />
       </div>
     </div>
   );

@@ -3,173 +3,22 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  BadgeCheck, Clock, FileText, Search, Eye, Printer,
-  TrendingUp, AlertCircle, Plus,
-  Download, MoreHorizontal, Mail, Phone, MapPin, Globe,
+  Search, Eye, Printer,
+  BadgeCheck, Clock, FileText, TrendingUp, Plus,
+  Download, MoreHorizontal,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { useOrders, useCurrentTenant } from "@/lib/api/hooks";
-import type { ApiOrder, Tenant } from "@/lib/api";
-import { resolveUploadUrl } from "@/lib/api/client";
+import type { ApiOrder } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
+import { InvoiceDocument, StatusBadge } from "@/components/accounting/InvoiceDocument";
 
-type StatusFilter = "all" | "pending" | "completed" | "cancelled";
-
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-  pending:   { label: "Pending",   bg: "bg-amber-100",   text: "text-amber-700",   icon: Clock },
-  completed: { label: "Paid",      bg: "bg-emerald-100", text: "text-emerald-700", icon: BadgeCheck },
-  cancelled: { label: "Cancelled", bg: "bg-red-100",     text: "text-red-600",     icon: AlertCircle },
-  draft:     { label: "Draft",     bg: "bg-slate-100",   text: "text-slate-600",   icon: FileText },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft;
-  const Icon = cfg.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text}`}>
-      <Icon size={11} /> {cfg.label}
-    </span>
-  );
-}
-
-/** The invoice itself — business branding, bill-to, line items, totals. Rendered
- *  both in the on-screen detail drawer and (via a portal) as the print-only view. */
-function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: ApiOrder; tenant: Tenant | undefined; brandColor: string; fmt: (v: number) => string }) {
-  const businessLocation = [tenant?.address, tenant?.city, tenant?.country].filter(Boolean).join(", ");
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Business branding strip */}
-      <div className="h-1.5 flex-shrink-0" style={{ backgroundColor: brandColor }} />
-
-      {/* Business header */}
-      <div className="p-6 border-b border-border">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            {tenant?.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={resolveUploadUrl(tenant.logo_url) ?? undefined}
-                alt={tenant.name}
-                className="w-12 h-12 rounded-xl object-cover flex-shrink-0 border border-border"
-              />
-            ) : (
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-extrabold text-lg"
-                style={{ backgroundColor: brandColor }}
-              >
-                {(tenant?.name ?? "?").charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-[16px] font-extrabold text-foreground truncate">{tenant?.name ?? "Your Business"}</p>
-              <div className="mt-1 space-y-0.5">
-                {businessLocation && (
-                  <p className="flex items-center gap-1.5 text-[12px] text-muted"><MapPin size={11} className="flex-shrink-0" /> {businessLocation}</p>
-                )}
-                {tenant?.phone && (
-                  <p className="flex items-center gap-1.5 text-[12px] text-muted"><Phone size={11} className="flex-shrink-0" /> {tenant.phone}</p>
-                )}
-                {tenant?.website && (
-                  <p className="flex items-center gap-1.5 text-[12px] text-muted"><Globe size={11} className="flex-shrink-0" /> {tenant.website}</p>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: brandColor }}>Invoice</p>
-            <p className="text-[18px] font-extrabold text-foreground font-mono mt-0.5">{order.order_number}</p>
-            <div className="mt-2"><StatusBadge status={order.status} /></div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bill to / dates */}
-      <div className="px-6 py-4 border-b border-border bg-surface/30">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Bill To</p>
-            <p className="text-[13px] font-semibold text-foreground">{order.customer?.name ?? "Walk-in customer"}</p>
-            {order.customer?.email && (
-              <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><Mail size={11} className="flex-shrink-0" /> {order.customer.email}</p>
-            )}
-            {order.customer?.phone && (
-              <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><Phone size={11} className="flex-shrink-0" /> {order.customer.phone}</p>
-            )}
-            {order.customer?.address && (
-              <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><MapPin size={11} className="flex-shrink-0" /> {order.customer.address}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-[11px] text-muted uppercase tracking-wide mb-1">Date Issued</p>
-            <p className="text-[13px] font-semibold text-foreground">
-              {fmtDateTime(order.ordered_at)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Line items */}
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full min-w-[640px]">
-          <thead>
-            <tr className="border-b border-border bg-surface/50">
-              <th className="px-5 py-2.5 text-left text-[11px] font-semibold text-muted uppercase tracking-wide">Item</th>
-              <th className="px-5 py-2.5 text-center text-[11px] font-semibold text-muted uppercase tracking-wide">Qty</th>
-              <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted uppercase tracking-wide">Unit Price</th>
-              <th className="px-5 py-2.5 text-right text-[11px] font-semibold text-muted uppercase tracking-wide">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {order.items.map((item) => (
-              <tr key={item.id}>
-                <td className="px-5 py-3">
-                  <p className="text-[13px] font-medium text-foreground">{item.product_name}</p>
-                  {item.sku && <p className="text-[11px] text-muted font-mono">{item.sku}</p>}
-                </td>
-                <td className="px-5 py-3 text-center text-[13px] text-muted">{item.quantity}</td>
-                <td className="px-5 py-3 text-right text-[13px] text-muted tabular-nums">{fmt(item.unit_price)}</td>
-                <td className="px-5 py-3 text-right text-[13px] font-semibold text-foreground tabular-nums">{fmt(item.line_total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Totals */}
-        <div className="px-5 py-4 border-t border-border space-y-2 bg-surface/20">
-          <div className="flex justify-between text-[13px] text-muted">
-            <span>Subtotal</span><span className="tabular-nums">{fmt(order.subtotal)}</span>
-          </div>
-          {order.discount > 0 && (
-            <div className="flex justify-between text-[13px] text-emerald-600">
-              <span>Discount</span><span className="tabular-nums">-{fmt(order.discount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-[13px] text-muted">
-            <span>Tax</span><span className="tabular-nums">{fmt(order.tax)}</span>
-          </div>
-          <div className="flex justify-between text-[15px] font-extrabold text-foreground border-t border-border pt-2.5 mt-1">
-            <span>Total Due</span><span className="tabular-nums">{fmt(order.total)}</span>
-          </div>
-        </div>
-
-        {order.notes && (
-          <div className="px-5 py-4 border-t border-border">
-            <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Notes</p>
-            <p className="text-[13px] text-foreground/70">{order.notes}</p>
-          </div>
-        )}
-
-        <div className="px-5 py-4 border-t border-border text-center">
-          <p className="text-[12px] font-semibold text-foreground">Thank you for your business{tenant?.name ? ` — ${tenant.name}` : ""}!</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+// The backend's Order.status is stored Title Case ("Pending"/"Completed"/
+// "Cancelled") — must match exactly, this isn't just a display label.
+type StatusFilter = "all" | "Pending" | "Completed" | "Cancelled";
 
 export default function InvoicesPage() {
   const { currencySymbol, brandColor } = useAppConfig();
@@ -200,8 +49,8 @@ export default function InvoicesPage() {
   });
 
   const total = orders.reduce((s, o) => s + o.total, 0);
-  const paid = orders.filter((o) => o.status === "completed");
-  const pending = orders.filter((o) => o.status === "pending");
+  const paid = orders.filter((o) => o.status === "Completed");
+  const pending = orders.filter((o) => o.status === "Pending");
   const paidTotal = paid.reduce((s, o) => s + o.total, 0);
   const pendingTotal = pending.reduce((s, o) => s + o.total, 0);
 
@@ -214,9 +63,9 @@ export default function InvoicesPage() {
 
   const tabs: { key: StatusFilter; label: string; count: number }[] = [
     { key: "all",       label: "All",       count: orders.length },
-    { key: "pending",   label: "Pending",   count: pending.length },
-    { key: "completed", label: "Paid",      count: paid.length },
-    { key: "cancelled", label: "Cancelled", count: orders.filter((o) => o.status === "cancelled").length },
+    { key: "Pending",   label: "Pending",   count: pending.length },
+    { key: "Completed", label: "Paid",      count: paid.length },
+    { key: "Cancelled", label: "Cancelled", count: orders.filter((o) => o.status === "Cancelled").length },
   ];
 
   return (
@@ -388,7 +237,7 @@ export default function InvoicesPage() {
         footer={
           viewing && (
             <div className="flex gap-2">
-              {viewing.status === "pending" && (
+              {viewing.status === "Pending" && (
                 <button className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 text-[13px] font-bold hover:bg-emerald-700 transition-colors rounded-lg">
                   <BadgeCheck size={15} /> Mark as Paid
                 </button>
