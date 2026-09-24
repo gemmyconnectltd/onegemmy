@@ -7,13 +7,22 @@ import Image from "next/image";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { FeatureShowcaseTabs } from "@/components/marketing/FeatureShowcaseTabs";
+import { TrustBadges } from "@/components/marketing/TrustBadges";
 import { siteConfig } from "@/lib/config";
+import { getPlatformStats } from "@/lib/publicStats";
 
 export const metadata: Metadata = {
   title: `Home - ${siteConfig.name}`,
 };
 
-export default function Home() {
+export default async function Home() {
+  const stats = await getPlatformStats();
+  const highlights = [
+    { value: String(stats.businesses), label: `Businesses already using ${siteConfig.name}` },
+    { value: String(stats.orders_processed), label: "Orders processed" },
+    { value: String(stats.modules), label: "Modules in one platform" },
+    { value: String(stats.currencies), label: "Currencies supported" },
+  ];
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -31,11 +40,12 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/40" />
         <div className="relative max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Run your whole business from one place
+            One Platform to Run Your Entire Business
           </h1>
           <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
-            Sales, stock, books, and your team, in one place — with the
-            spreadsheets and side-notebooks finally put away for good.
+            Sales, inventory, accounting, and HR — unified in a single ERP
+            platform, replacing the spreadsheets and disconnected tools
+            businesses outgrow.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-8">
             <a
@@ -59,11 +69,11 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <Check size={18} className="text-emerald-400" />
-              Web + mobile, always in sync
+              Real-time sync across web and mobile
             </div>
             <div className="flex items-center gap-2">
               <Check size={18} className="text-emerald-400" />
-              Setup in 30 minutes
+              Onboard in under 30 minutes
             </div>
           </div>
         </div>
@@ -74,10 +84,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
-              Explore the product
+              Platform overview
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              One tool, every part of the business
+              A Unified Platform for Every Business Function
             </h2>
           </div>
           <FeatureShowcaseTabs />
@@ -89,13 +99,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
-              Who it&apos;s for
+              Industries we serve
             </p>
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Built for Every Kind of Business
+              Purpose-Built for Every Business Vertical
             </h2>
             <p className="text-xl text-muted max-w-2xl mx-auto">
-              {`From supermarkets to repair shops, ${siteConfig.name} adapts to how you actually sell — not the other way around.`}
+              {`From retail to service industries, ${siteConfig.name} adapts to your operations and workflows — not the other way around.`}
             </p>
           </div>
 
@@ -122,7 +132,7 @@ export default function Home() {
           </div>
 
           <div className="max-w-4xl mx-auto text-center">
-            <p className="text-sm font-semibold text-foreground mb-4">Also great for</p>
+            <p className="text-sm font-semibold text-foreground mb-4">Also serving</p>
             <div className="flex flex-wrap justify-center gap-2">
               {retailTags.map((t) => (
                 <span
@@ -137,58 +147,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 4. Pricing */}
-      <section id="pricing" className="py-24 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
-              Plans
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Built for Every Business Size
-            </h2>
-            <p className="text-xl text-muted max-w-2xl mx-auto">
-              {`Whether you're a solo shop owner or running multiple branches, ${siteConfig.name} scales with you.`}
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {plans.map((plan) => (
-              <div
-                key={plan.title}
-                className={`p-6 rounded-xl border transition-colors ${
-                  plan.featured
-                    ? "border-[#16a34a] bg-[#16a34a]/5 shadow-md"
-                    : "border-border hover:border-[#16a34a]/40"
-                }`}
-              >
-                {plan.featured && (
-                  <div className="bg-[#16a34a] text-white text-xs font-bold px-3 py-1 rounded-md inline-block mb-4">
-                    MOST POPULAR
-                  </div>
-                )}
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  {plan.title}
-                </h3>
-                <p className="text-muted text-sm mb-4">{plan.subtitle}</p>
-                <ul className="space-y-3">
-                  {plan.features.map((f) => (
-                    <li
-                      key={f}
-                      className="flex items-center gap-2 text-foreground/70 text-sm"
-                    >
-                      <Check size={16} className="text-emerald-500 flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 5. Highlights — quick numbers */}
+      {/* 4. Highlights — quick numbers */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -204,15 +163,18 @@ export default function Home() {
         </div>
       </section>
 
+      {/* 5. Certified & Trusted */}
+      <TrustBadges />
+
       {/* 6. Final CTA */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534] overflow-hidden">
         <div className="relative max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Stop Juggling Tools. Start Today.
+            Consolidate Your Business Operations Today
           </h2>
           <p className="text-xl text-white/60 mb-6">
-            Start free, set up in minutes, and manage everything — sales,
-            stock, books, and your team — from one place.
+            Get started at no cost and manage sales, inventory, accounting,
+            and HR from a single, unified platform.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center text-white/60 text-sm mb-10">
             <div className="flex items-center gap-2">
@@ -250,25 +212,25 @@ export default function Home() {
 const businessTypes = [
   {
     title: "Supermarkets & Grocery Shops",
-    description: "Fast checkout, stock across every shelf, and supplier orders in one place.",
+    description: "Point-of-sale checkout, real-time inventory tracking, and supplier order management in one system.",
     image: "/verticals/grocery.jpg",
     alt: "Shelves inside a small grocery shop stocked with everyday products",
   },
   {
     title: "Pharmacies",
-    description: "Track stock closely, watch what's running low, and keep the counter moving.",
+    description: "Monitor stock levels, manage reorder points, and maintain efficient checkout operations.",
     image: "/verticals/pharmacy.jpg",
     alt: "Pharmacist organizing medicine on shelves in a pharmacy",
   },
   {
     title: "Electronics & Phone Shops",
-    description: "Handle variants, serials, and a fast-moving catalog without losing track.",
+    description: "Manage product variants, serial numbers, and a high-turnover catalog with precision.",
     image: "/verticals/electronics.jpg",
     alt: "Close-up of electronics on display in a shop",
   },
   {
     title: "Repairs & Service Shops",
-    description: "Job intake to delivery, with device details and status at every step.",
+    description: "End-to-end job tracking from intake to delivery, with full device history and status visibility.",
     image: "/verticals/repairs.jpg",
     alt: "Technician repairing an electronic device on a workbench",
   },
@@ -281,37 +243,4 @@ const retailTags = [
   "Barber Shops & Salons", "Auto Repair Garages", "Bakeries", "Liquor Stores",
 ];
 
-const plans = [
-  {
-    title: "Free",
-    subtitle: "Trial essentials for small businesses",
-    featured: false,
-    features: ["Basic dashboard", "Up to 2 users", "Core modules", "No credit card required"],
-  },
-  {
-    title: "Starter",
-    subtitle: "Growing teams with core modules",
-    featured: false,
-    features: ["All Free features", "Up to 10 users", "Inventory & sales"],
-  },
-  {
-    title: "Professional",
-    subtitle: "Full modules for scaling operations",
-    featured: true,
-    features: ["All Starter features", "Unlimited users", "HR & accounting"],
-  },
-  {
-    title: "Enterprise",
-    subtitle: "Unlimited everything, priority support",
-    featured: false,
-    features: ["All Professional features", "Custom integrations", "Priority support"],
-  },
-];
-
-const highlights = [
-  { value: "7", label: "Modules in one platform" },
-  { value: "6+", label: "Currencies supported" },
-  { value: "3", label: "Languages, including Kinyarwanda" },
-  { value: "30 min", label: "Average setup time" },
-];
 

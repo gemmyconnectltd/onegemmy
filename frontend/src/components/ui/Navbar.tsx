@@ -56,8 +56,8 @@ export function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Logo size="sm" />
+        <div className="flex items-center justify-between h-20">
+          <Logo size="md" />
 
           <div className="hidden md:flex items-center gap-1">
             {MENUS.map((menu) => (
@@ -89,8 +89,8 @@ export function Navbar() {
                 )}
               </div>
             ))}
-            <Link href="/impact" className="px-3 py-2 text-foreground/60 hover:text-foreground transition-colors font-medium text-sm rounded-lg">
-              Impact
+            <Link href="/pricing" className="px-3 py-2 text-foreground/60 hover:text-foreground transition-colors font-medium text-sm rounded-lg">
+              Pricing
             </Link>
             <Link href="/contact" className="px-3 py-2 text-foreground/60 hover:text-foreground transition-colors font-medium text-sm rounded-lg">
               Contact
@@ -133,8 +133,8 @@ export function Navbar() {
               </div>
             </div>
           ))}
-          <Link href="/impact" className="block text-foreground/60 hover:text-foreground transition-colors font-medium py-3 border-b border-border" onClick={() => setOpen(false)}>
-            Impact
+          <Link href="/pricing" className="block text-foreground/60 hover:text-foreground transition-colors font-medium py-3 border-b border-border" onClick={() => setOpen(false)}>
+            Pricing
           </Link>
           <Link href="/contact" className="block text-foreground/60 hover:text-foreground transition-colors font-medium py-3 border-b border-border" onClick={() => setOpen(false)}>
             Contact

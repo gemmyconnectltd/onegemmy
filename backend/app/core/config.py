@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""  # Gmail App Password
     EMAIL_FROM: str = "Pesaa <eplotrobert@gmail.com>"
+    # Where the public marketing-site contact form is delivered.
+    CONTACT_INBOX: str = "robertniyitanga3@gmail.com"
     FRONTEND_URL: str = "http://localhost:3000"
 
     UPLOAD_DIR: str = "uploads"

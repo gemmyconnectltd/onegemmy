@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Store, Package, Calculator, Handshake, Users, Factory, ShoppingBag, Check } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -24,7 +25,7 @@ const modules: {
     id: "pos",
     icon: Store,
     eyebrow: "Point of Sale",
-    title: "A checkout built for the counter",
+    title: "A Point-of-Sale System Built for Fast Checkout",
     description:
       "Search or scan a product, ring it up, and take cash, mobile money, or card — fast enough for a real line at the register, on any browser you already have. Every sale updates stock and the books at the same time, automatically.",
     points: ["No special terminal hardware needed", "Cash, Mobile Money, and Card", "Hold a sale and come back to it later", "Works on the same account as the web dashboard"],
@@ -112,14 +113,22 @@ export default function ProductsPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Products</p>
+      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <Image
+          src="/verticals/electronics.jpg"
+          alt="Close-up of electronics on display in a shop"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-black/60" />
+        <div className="relative max-w-3xl mx-auto text-center">
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
-            Everything your business runs on, in one login
+            Every Business Function, One Integrated Platform
           </h1>
-          <p className="text-lg text-white/60">
-            Turn on the modules you need today. Add the rest when you&apos;re ready — same account, same data, no migration.
+          <p className="text-lg text-white/70">
+            Activate the modules your business needs today. Add more as you scale — same account, same data, no migration required.
           </p>
         </div>
       </section>
@@ -155,7 +164,7 @@ export default function ProductsPage() {
       {/* CTA */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">See it running with your own data</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">See the Platform Running With Your Own Data</h2>
           <a
             href="/register"
             className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"

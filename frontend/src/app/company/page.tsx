@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Target, Heart, ShieldCheck, Globe2, Mail } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -11,23 +12,23 @@ export const metadata: Metadata = {
 const values = [
   {
     icon: Target,
-    title: "Built for how you actually work",
-    description: "No feature ships because it's technically impressive — it ships because a real shop, warehouse, or back office needed it.",
+    title: "Built around real operational needs",
+    description: "Every feature ships to solve a workflow problem a real shop, warehouse, or back office actually has — not to demonstrate technical capability.",
   },
   {
     icon: ShieldCheck,
-    title: "Your numbers are always right",
-    description: "Stock counts, sales totals, and financial reports stay consistent with each other by construction, not by manual reconciliation.",
+    title: "Data integrity by design",
+    description: "Stock counts, sales totals, and financial reports stay consistent with each other by construction, not through manual reconciliation.",
   },
   {
     icon: Globe2,
-    title: "Local by default",
-    description: "RWF, KES, UGX, TZS, and USD, in English, Kinyarwanda, or Swahili — built for East Africa from day one, not translated as an afterthought.",
+    title: "Localized for East African markets",
+    description: "RWF, KES, UGX, TZS, and USD, in English, Kinyarwanda, or Swahili — built for the region from day one, not translated as an afterthought.",
   },
   {
     icon: Heart,
-    title: "Priced for small businesses",
-    description: "A one-person shop and a multi-branch operation shouldn't pay the same way — plans scale with the business, not against it.",
+    title: "Pricing that scales with you",
+    description: "A single-location business and a multi-branch operation have different needs — our plans scale with the business, not against it.",
   },
 ];
 
@@ -37,14 +38,22 @@ export default function CompanyPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Company</p>
+      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <Image
+          src="/verticals/pharmacy.jpg"
+          alt="Inside a real pharmacy, shelves stocked and organized"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-black/60" />
+        <div className="relative max-w-3xl mx-auto text-center">
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
-            We build the back office so you don&apos;t have to run one
+            Business Management Software Built for Operational Excellence
           </h1>
-          <p className="text-lg text-white/60">
-            {`${siteConfig.name} is based in Kigali, Rwanda.`}
+          <p className="text-lg text-white/70">
+            {`${siteConfig.name} is headquartered in Kigali, Rwanda.`}
           </p>
         </div>
       </section>
@@ -54,14 +63,14 @@ export default function CompanyPage() {
         <div className="max-w-3xl mx-auto">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">About us</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-            A small team building the tool we couldn&apos;t find
+            Built to Solve a Real Operational Problem
           </h2>
           <div className="space-y-4 text-muted leading-relaxed text-lg">
             <p>
-              {`${siteConfig.name} started from a simple observation: small and mid-sized businesses in East Africa were running on a patchwork of spreadsheets, notebooks, and disconnected apps — one for sales, another for stock, another for the books that never quite agreed with each other.`}
+              {`${siteConfig.name} was founded on a clear observation: small and mid-sized businesses across East Africa were operating on a patchwork of spreadsheets, manual records, and disconnected software — separate systems for sales, inventory, and accounting that rarely stayed in sync.`}
             </p>
             <p>
-              {`We're a small team based in Kigali, and we build ${siteConfig.name} to be the one place a business owner opens every morning — for the register, the warehouse, the accounts, and the team — instead of five.`}
+              {`Our team, based in Kigali, built ${siteConfig.name} to be the single platform a business owner relies on daily — for point of sale, inventory, accounting, and workforce management — replacing a stack of five disconnected tools with one.`}
             </p>
           </div>
         </div>
@@ -72,14 +81,14 @@ export default function CompanyPage() {
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our mission</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-            Give every small business the tools bigger companies take for granted
+            Enterprise-Grade Tools, Accessible to Every Business
           </h2>
           <p className="text-lg text-muted leading-relaxed">
-            Running a business shouldn&apos;t require an IT department to set
-            up software correctly. Our mission is to make accurate sales,
-            inventory, and accounting tools simple enough for a single shop
-            owner to run alone, and solid enough for a growing team to run
-            together.
+            Implementing reliable business software shouldn&apos;t require an
+            IT department. Our mission is to deliver accurate sales,
+            inventory, and accounting tools that are simple enough for a
+            single owner-operator, and robust enough for a growing,
+            multi-branch team.
           </p>
         </div>
       </section>
@@ -89,7 +98,7 @@ export default function CompanyPage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our values</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">How we build {siteConfig.name}</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Our operating principles</h2>
           </div>
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {values.map((v) => (
@@ -112,13 +121,14 @@ export default function CompanyPage() {
         <div className="max-w-2xl mx-auto text-center">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our team</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
-            Small on purpose, for now
+            A lean team, by design
           </h2>
           <p className="text-lg text-muted leading-relaxed mb-8">
-            We&apos;re a small team, which means every person who touches
-            {" " + siteConfig.name} talks to the businesses using it. We don&apos;t have
-            open roles listed right now, but we&apos;re always glad to hear
-            from people who want to build with us.
+            We operate with a deliberately small team, which means everyone
+            who works on {siteConfig.name} engages directly with the
+            businesses that use it. We don&apos;t have open positions listed
+            at the moment, but we welcome inquiries from people interested in
+            joining us.
           </p>
           <a
             href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}

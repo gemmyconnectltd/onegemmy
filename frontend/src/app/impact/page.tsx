@@ -1,58 +1,69 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Languages, Coins, ShieldCheck, Smartphone } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { siteConfig } from "@/lib/config";
+import { getPlatformStats } from "@/lib/publicStats";
+import { TrustBadges } from "@/components/marketing/TrustBadges";
 
 export const metadata: Metadata = {
   title: `Impact - ${siteConfig.name}`,
 };
 
-const numbers = [
-  { value: "7", label: "Modules in one platform" },
-  { value: "6+", label: "Currencies supported" },
-  { value: "3", label: "Languages, including Kinyarwanda" },
-  { value: "100%", label: "Of every business's data kept isolated to their own account" },
-];
-
 const pillars = [
   {
     icon: Coins,
-    title: "Affordable for a one-person shop, not just a chain",
+    title: "Accessible pricing for every business size",
     description:
-      "Plans are priced so a solo shop owner can afford real sales and stock tools, not just businesses that can already afford an accountant.",
+      "Plans are priced so a single-location owner can access real point-of-sale and inventory tools — not only businesses that can already afford a dedicated accountant.",
   },
   {
     icon: Languages,
-    title: "Built in the languages people actually run their business in",
+    title: "Localized for the languages businesses actually operate in",
     description: "English, Kinyarwanda, and Swahili, with RWF, KES, UGX, TZS, and USD supported natively — not translated as an afterthought.",
   },
   {
     icon: Smartphone,
-    title: "Works on the phone your staff already carries",
-    description: "A dedicated mobile app handles checkout, stock, and daily sales, in sync with the web dashboard in real time — no extra device to buy.",
+    title: "Mobile-first, for the device your team already carries",
+    description: "A dedicated mobile app handles checkout, inventory, and daily sales, synced with the web dashboard in real time — no additional hardware required.",
   },
   {
     icon: ShieldCheck,
-    title: "Your data belongs to you",
-    description: "Every business's data is isolated to their own account, and export is always available — you're never locked in.",
+    title: "Your data remains your own",
+    description: "Every business's data is isolated to its own account, with export available at any time — no vendor lock-in.",
   },
 ];
 
-export default function ImpactPage() {
+export default async function ImpactPage() {
+  const stats = await getPlatformStats();
+  const numbers = [
+    { value: String(stats.businesses), label: `Businesses already using ${siteConfig.name}` },
+    { value: String(stats.modules), label: "Modules in one platform" },
+    { value: String(stats.currencies), label: "Currencies supported" },
+    { value: "100%", label: "Of every business's data kept isolated to their own account" },
+  ];
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-3">Our approach</p>
+      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <Image
+          src="/verticals/repairs.jpg"
+          alt="Technician repairing an electronic device on a workbench"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-black/60" />
+        <div className="relative max-w-3xl mx-auto text-center">
           <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
-            Small businesses run the East African economy. Our software should treat them that way
+            Small and Mid-Sized Businesses Drive the East African Economy
           </h1>
-          <p className="text-lg text-white/60">
-            {`${siteConfig.name} is early — we're not going to claim numbers or partnerships we don't have yet. Here's what we actually commit to today.`}
+          <p className="text-lg text-white/70">
+            {`${siteConfig.name} is an early-stage company — we don't report figures or partnerships we haven't earned yet. Here's what we're prepared to commit to today.`}
           </p>
         </div>
       </section>
@@ -75,6 +86,8 @@ export default function ImpactPage() {
           </div>
         </div>
       </section>
+
+      <TrustBadges />
 
       {/* Pillars */}
       <section className="py-24 px-4 sm:px-6 lg:px-8">
@@ -99,17 +112,18 @@ export default function ImpactPage() {
       <section className="py-24 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
-            Where we are right now
+            Where we stand today
           </h2>
           <p className="text-muted leading-relaxed mb-4">
-            We&apos;re a small, early-stage team. We don&apos;t yet have
-            formal partnerships, certifications, or a track record we&apos;d
-            want to put a number on — and we&apos;d rather say that plainly
-            than pad this page with claims we can&apos;t back up.
+            We are a small, early-stage company. We do not yet have the
+            formal partnerships, certifications, or track record we&apos;d
+            want to quantify — and we&apos;d rather state that directly than
+            include claims we can&apos;t substantiate.
           </p>
           <p className="text-muted leading-relaxed">
-            What we can point to is the product itself, and the businesses
-            using it. As that grows, this page will grow with it.
+            What we can demonstrate is the product itself, and the
+            businesses running on it. As that track record grows, this page
+            will reflect it.
           </p>
         </div>
       </section>
@@ -117,8 +131,8 @@ export default function ImpactPage() {
       {/* CTA */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Be one of our first stories</h2>
-          <p className="text-white/60 mb-8">Start free, and if it works for you, we&apos;d love to tell your story here one day.</p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Become One of Our Early Customer Stories</h2>
+          <p className="text-white/60 mb-8">Get started at no cost, and if the platform delivers for your business, we&apos;d be glad to feature your story here.</p>
           <a
             href="/register"
             className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"

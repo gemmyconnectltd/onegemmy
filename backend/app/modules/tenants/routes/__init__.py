@@ -4,6 +4,7 @@ from app.modules.tenants.routes.branch import router as branch_router
 from app.modules.tenants.routes.currency import router as currency_router
 from app.modules.tenants.routes.department import router as department_router
 from app.modules.tenants.routes.permission import router as permission_router
+from app.modules.tenants.routes.public import router as public_router
 from app.modules.tenants.routes.role import router as role_router
 from app.modules.tenants.routes.tenant import router as tenant_router
 from app.modules.tenants.routes.user import router as user_router
@@ -19,3 +20,4 @@ tenants_router.include_router(user_router)
 
 global_router.include_router(permission_router)
 global_router.include_router(currency_router)
+global_router.include_router(public_router)

@@ -19,10 +19,10 @@ export default function CareersPage() {
             Careers at {siteConfig.name}
           </h1>
           <p className="text-lg text-muted mb-8 leading-relaxed">
-            We&apos;re a small team building business management software
-            for companies across East Africa. We don&apos;t have open roles
-            listed right now, but we&apos;re always glad to hear from people
-            who want to build with us.
+            We&apos;re a lean team building enterprise-grade business
+            management software for companies across East Africa. We
+            don&apos;t have open positions listed at the moment, but we
+            welcome inquiries from people interested in joining us.
           </p>
           <a
             href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}

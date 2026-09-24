@@ -112,7 +112,9 @@ def _security_note(text: str) -> str:
     )
 
 
-async def send_email(to: str, subject: str, html_body: str, text_body: str | None = None) -> bool:
+async def send_email(
+    to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None
+) -> bool:
     """Send an email via SMTP. Fails soft — email must never break a request."""
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject}})
@@ -125,6 +127,8 @@ async def send_email(to: str, subject: str, html_body: str, text_body: str | Non
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = _message_id()
     msg["MIME-Version"] = "1.0"
+    if reply_to:
+        msg["Reply-To"] = reply_to
 
     msg.attach(MIMEText(text_body or _plain_text(html_body), "plain"))
     msg.attach(MIMEText(html_body, "html"))
@@ -290,3 +294,61 @@ async def send_invite_email(
     body = _invite_body(full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login")
     preheader = f"Join {tenant_name} on Pesaa — your temporary password is inside."
     return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None)
+
+
+def _contact_field_row(label: str, value: str) -> str:
+    return (
+        f"<p style='margin:0 0 4px;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>{html.escape(label)}</p>"
+        f"<p style='margin:2px 0 14px;font-size:14px;font-weight:600;color:#1c1b18;'>{html.escape(value)}</p>"
+    )
+
+
+def _contact_body(
+    name: str,
+    email: str,
+    company: str,
+    phone: str | None,
+    industry: str | None,
+    employee_count: str | None,
+    inquiry_type: str | None,
+    message: str,
+) -> str:
+    safe_message = html.escape(message).replace("\n", "<br>")
+    rows = (
+        _contact_field_row("From", f"{name} <{email}>")
+        + _contact_field_row("Business", company)
+        + (_contact_field_row("Phone", phone) if phone else "")
+        + (_contact_field_row("Industry", industry) if industry else "")
+        + (_contact_field_row("Business size", employee_count) if employee_count else "")
+        + (_contact_field_row("Inquiry type", inquiry_type) if inquiry_type else "")
+    )
+    return (
+        rows
+        + "<p style='margin:0 0 4px;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Message</p>"
+        f"<p style='margin:2px 0 0;'>{safe_message}</p>"
+    )
+
+
+async def send_contact_email(
+    name: str,
+    email: str,
+    company: str,
+    phone: str | None,
+    industry: str | None,
+    employee_count: str | None,
+    inquiry_type: str | None,
+    message: str,
+) -> bool:
+    """Relays a marketing-site contact form submission straight to the team
+    inbox — no DB write, this is just mail forwarding. `reply-to` is set to
+    the visitor's own address so replying goes straight to them."""
+    subject = f"New {inquiry_type.lower() if inquiry_type else 'contact form'} inquiry from {company}"
+    body = _contact_body(name, email, company, phone, industry, employee_count, inquiry_type, message)
+    preheader = message[:120]
+    return await send_email(
+        to=settings.CONTACT_INBOX,
+        subject=subject,
+        html_body=_branded_html("New contact form submission", body, preheader),
+        text_body=None,
+        reply_to=email,
+    )

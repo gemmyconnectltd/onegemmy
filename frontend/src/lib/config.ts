@@ -30,9 +30,9 @@ export const brandColorPresets = [
 
 export const siteConfig = {
   name: "Pesaa",
-  title: "Pesaa — Simple Shop Management",
+  title: "Pesaa — ERP & Business Management Platform",
   description:
-    "Manage sales, inventory, expenses, and profits for your one-person shop.",
+    "An all-in-one ERP platform for point of sale, inventory, accounting, and HR — built to scale from a single location to a multi-branch operation.",
   company: "Pesaa",
   url: "https://pesaa.io",
   links: {

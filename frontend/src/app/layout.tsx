@@ -26,10 +26,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: `${siteConfig.name} - Business Management Tool`,
-  description: `${siteConfig.name} is an all-in-one business management platform. Manage sales, inventory, accounting, HR, projects, and CRM from a single dashboard.`,
+  title: `${siteConfig.name} - ERP & Business Management Platform`,
+  description: `${siteConfig.name} is an all-in-one ERP platform for point of sale, inventory, accounting, HR, and CRM — unified in a single dashboard.`,
   keywords: [
+    "ERP",
     "business management",
+    "point of sale",
+    "POS system",
     "CRM",
     "inventory management",
     "sales pipeline",
