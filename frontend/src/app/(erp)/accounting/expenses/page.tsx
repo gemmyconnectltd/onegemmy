@@ -142,7 +142,9 @@ export default function ExpensesPage() {
       message: `Delete expense "${e.title}"? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteExpense.mutate(e.id, { onError: () => setNotice("Could not delete the expense.") }),
+      onConfirm: () => deleteExpense.mutate(e.id, {
+        onError: (err: unknown) => setNotice((err as { detail?: string })?.detail ?? "Could not delete the expense."),
+      }),
     });
   };
 
@@ -154,7 +156,11 @@ export default function ExpensesPage() {
       danger: true,
       onConfirm: async () => {
         setBulkDeleting(true);
-        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteExpense.mutateAsync(id)));
+        const results = await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteExpense.mutateAsync(id)));
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+          setNotice(`${failed} expense${failed === 1 ? "" : "s"} couldn't be deleted (approved expenses can't be deleted).`);
+        }
         setBulkDeleting(false);
         bulk.clear();
       },
@@ -284,9 +290,11 @@ export default function ExpensesPage() {
                           </button>
                         </>
                       )}
-                      <button type="button" onClick={() => remove(e)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-50 transition-colors" aria-label="Delete">
-                        <Trash2 size={14} />
-                      </button>
+                      {e.status !== "Approved" && (
+                        <button type="button" onClick={() => remove(e)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-50 transition-colors" aria-label="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
