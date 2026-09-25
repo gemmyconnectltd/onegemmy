@@ -26,6 +26,7 @@ import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import Link from "next/link";
 import FeaturesPanel from "./FeaturesPanel";
+import { resolveUploadUrl } from "@/lib/api/client";
 
 type Tab = "features" | "users" | "departments" | "roles" | "branches";
 
@@ -470,12 +471,43 @@ export default function TenantDetailPage() {
         ))}
       </div>
 
-      {/* Business information — collected on the register form's step 2, read-only here for now */}
-      {(tenant.business_type || tenant.industry || tenant.business_category || tenant.employee_count || tenant.business_location || tenant.heard_about || tenant.referral_code) && (
+      {/* Business information — everything on file for this tenant: contact
+          details (from Settings) plus what they told us at signup. Read-only
+          here; the tenant themselves edits this from their own Settings page. */}
+      {(tenant.logo_url || tenant.phone || tenant.address || tenant.city || tenant.country || tenant.website ||
+        tenant.business_type || tenant.industry || tenant.business_category || tenant.employee_count ||
+        tenant.business_location || tenant.heard_about || tenant.referral_code) && (
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="text-sm font-bold text-foreground mb-3">Business Information</h2>
+          <div className="flex items-center gap-3 mb-4">
+            {tenant.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resolveUploadUrl(tenant.logo_url) ?? undefined}
+                alt={tenant.name}
+                className="w-11 h-11 rounded-xl object-cover border border-border flex-shrink-0"
+              />
+            ) : (
+              <div className="w-11 h-11 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-bold flex-shrink-0">
+                {tenant.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <h2 className="text-sm font-bold text-foreground">Business Information</h2>
+          </div>
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-3">
             {[
+              { label: "Phone", value: tenant.phone },
+              { label: "Address", value: tenant.address },
+              { label: "City", value: tenant.city },
+              { label: "Country", value: tenant.country },
+              {
+                label: "Website",
+                value: tenant.website,
+                render: tenant.website && (
+                  <a href={tenant.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                    {tenant.website}
+                  </a>
+                ),
+              },
               { label: "Business Type", value: BUSINESS_TYPE_LABELS[tenant.business_type ?? ""] ?? tenant.business_type },
               { label: "Industry", value: tenant.industry },
               { label: "Category", value: tenant.business_category },
@@ -486,7 +518,7 @@ export default function TenantDetailPage() {
             ].filter((row) => row.value).map((row) => (
               <div key={row.label}>
                 <dt className="text-[11px] text-muted">{row.label}</dt>
-                <dd className="text-sm font-medium text-foreground mt-0.5">{row.value}</dd>
+                <dd className="text-sm font-medium text-foreground mt-0.5 truncate">{row.render ?? row.value}</dd>
               </div>
             ))}
           </dl>
