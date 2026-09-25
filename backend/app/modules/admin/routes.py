@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.deps import DbSession, SuperUser
 from app.core.email import send_account_approved_email, send_invite_email
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
@@ -527,6 +527,82 @@ async def admin_delete_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperU
     )
     await db.commit()
     return success_response(message="Tenant deleted")
+
+
+class ResetTenantDataRequest(BaseModel):
+    confirm_name: str
+
+
+# Root-level deletes only — every table below either has no tenant_id of its
+# own (line items, journal lines, etc.) or is reached via ON DELETE CASCADE
+# from the row we do delete. Verified against every FK in the schema: the
+# *only* ON DELETE RESTRICT anywhere is accounting_transaction_lines ->
+# accounting_accounts, which is why transactions are wiped before accounts.
+# Everything else is CASCADE (line items/children) or SET NULL (cross-entity
+# references), so this order is safe without needing per-row cleanup.
+#
+# Deliberately NOT wiped: tenants, users, roles, permissions, departments,
+# branches, feature_flags, audit_logs — account, org structure, and the
+# compliance trail survive a reset.
+_RESET_TABLES: list[tuple[str, str]] = [
+    ("Accounting transactions", "accounting_transactions"),  # -> transaction lines
+    ("Purchase orders", "purchase_orders"),  # -> items, returns, supplier bills -> payments
+    ("Employees", "hr_employees"),  # -> attendance, leave, payroll
+    ("Job applicants", "hr_applicants"),
+    ("Bills of materials", "manufacturing_boms"),  # -> bom items
+    ("Production orders", "manufacturing_production_orders"),  # -> production items
+    ("Repair jobs", "repair_jobs"),  # -> repair job parts
+    ("Products", "inventory_products"),  # -> variants, batches, serials -> warranty claims
+    ("Sales orders", "sales_orders"),  # -> order items
+    ("Sales returns", "sales_returns"),  # -> return items
+    ("Deals", "sales_deals"),
+    ("Customers", "sales_customers"),
+    ("Sales targets", "sales_targets"),
+    ("CRM campaigns", "crm_campaigns"),
+    ("CRM email logs", "crm_email_logs"),
+    ("Expenses", "accounting_expenses"),
+    ("Chart of accounts", "accounting_accounts"),  # -> budgets
+    ("Tax configs", "accounting_tax_configs"),
+    ("Tax calculations", "accounting_tax_calculations"),
+    ("Tax payments", "accounting_tax_payments"),
+    ("Categories", "inventory_categories"),
+    ("Brands", "inventory_brands"),
+    ("Units", "inventory_units"),
+    ("Suppliers", "inventory_suppliers"),
+    ("Stock transfers", "inventory_stock_transfers"),  # -> transfer items
+]
+
+
+@router.post("/tenants/{tenant_id}/reset-data")
+async def admin_reset_tenant_data(tenant_id: uuid.UUID, data: ResetTenantDataRequest, db: DbSession, admin: SuperUser):
+    """Wipe a tenant's transactional business data (products, sales, accounting,
+    HR, purchases, manufacturing, repairs, CRM) while keeping the account
+    itself intact — the tenant, its users/logins, roles, departments, branches,
+    and settings (currency, VAT, branding) all survive untouched. For clearing
+    out mistakes made while a business is still testing the platform, not a
+    way to delete an account (use DELETE /tenants/{id} for that).
+
+    Requires the tenant's exact current name as confirmation, the same
+    type-to-confirm pattern used for other irreversible actions, so a
+    super admin can't wipe the wrong business by clicking too fast."""
+    tenant = await service.get_by_id(db, tenant_id)
+    if data.confirm_name.strip() != tenant.name:
+        raise ValidationError("Business name doesn't match — reset was not performed.")
+
+    counts: dict[str, int] = {}
+    for label, table in _RESET_TABLES:
+        result = await db.execute(text(f"DELETE FROM {table} WHERE tenant_id = :tenant_id"), {"tenant_id": tenant_id})
+        if result.rowcount:
+            counts[label] = result.rowcount
+
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="tenant.reset_data", entity_type="tenant", entity_id=str(tenant_id),
+        summary=f"Business data reset for '{tenant.name}' ({sum(counts.values())} records across {len(counts)} categories)",
+        changes=counts,
+    )
+    await db.commit()
+    return success_response(data={"deleted": counts}, message="Business data reset")
 
 
 # ── Tenant detail sub-resources ───────────────────────────────────────────────

@@ -5,6 +5,7 @@ import {
   ArrowLeft, Users, ShoppingCart, TrendingUp, Package, UserPlus, Loader2,
   CheckCircle, XCircle, Building2, Layers, Shield,
   Plus, Trash2, X, KeyRound, Copy, Check, SlidersHorizontal,
+  AlertTriangle, RotateCcw,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
@@ -14,7 +15,7 @@ import {
   useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
   useTenantBranches, useCreateBranch, useDeleteBranch, useResetUserPassword,
-  useUpdateTenant,
+  useUpdateTenant, useResetTenantData,
 } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { tenantStatusLabel } from "@/lib/api/admin";
@@ -63,6 +64,10 @@ export default function TenantDetailPage() {
   const [resetUser, setResetUser] = useState<{ id: string; full_name: string } | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showResetData, setShowResetData] = useState(false);
+  const [resetConfirmName, setResetConfirmName] = useState("");
+  const [resetResult, setResetResult] = useState<Record<string, number> | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member", password: "" });
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
@@ -97,6 +102,7 @@ export default function TenantDetailPage() {
   const createBranch = useCreateBranch();
   const deleteBranch = useDeleteBranch();
   const resetPassword = useResetUserPassword();
+  const resetTenantData = useResetTenantData();
 
   const removableUserIds = users.filter((u) => !u.is_superuser).map((u) => u.id);
   const bulkUsers = useBulkSelection(removableUserIds);
@@ -357,6 +363,30 @@ export default function TenantDetailPage() {
     } catch {
       /* clipboard unavailable */
     }
+  };
+
+  const openResetData = () => {
+    setResetConfirmName("");
+    setResetResult(null);
+    setResetError(null);
+    setShowResetData(true);
+  };
+
+  const closeResetData = () => {
+    setShowResetData(false);
+    setResetConfirmName("");
+    setResetResult(null);
+    setResetError(null);
+  };
+
+  const handleResetData = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenant || resetConfirmName.trim() !== tenant.name) return;
+    setResetError(null);
+    resetTenantData.mutate({ id, confirmName: resetConfirmName.trim() }, {
+      onSuccess: (res) => setResetResult(res.data?.deleted ?? {}),
+      onError: (err: unknown) => setResetError((err as { detail?: string })?.detail ?? "Failed to reset business data"),
+    });
   };
 
   if (loading) return <PageLoader />;
@@ -832,6 +862,30 @@ export default function TenantDetailPage() {
         </div>
       </div>
 
+      {/* Danger Zone */}
+      <div className="bg-card border border-red-500/30 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-500/10">
+            <AlertTriangle size={15} className="text-red-600 dark:text-red-400" />
+          </div>
+          <h2 className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</h2>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-red-500/20">
+          <div className="max-w-xl">
+            <p className="text-sm font-semibold text-foreground">Reset Business Data</p>
+            <p className="text-[12px] text-muted mt-0.5">
+              Permanently deletes {tenant.name}&apos;s products, sales, customers, suppliers, expenses, invoices &amp; accounting entries, deals, purchase orders, manufacturing/repair jobs, and inventory &amp; stock — for a business clearing out mistakes made while still testing the platform. The tenant account, user logins, roles, departments, branches, and settings (currency, VAT, branding) are kept, so it reopens clean without redoing setup. This cannot be undone.
+            </p>
+          </div>
+          <button
+            onClick={openResetData}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-colors shrink-0"
+          >
+            <RotateCcw size={14} /> Reset Business Data
+          </button>
+        </div>
+      </div>
+
       {/* Invite drawer */}
       <Drawer
         open={showInvite}
@@ -989,6 +1043,79 @@ export default function TenantDetailPage() {
             </>
           )}
         </div>
+      </Drawer>
+
+      {/* Reset business data drawer */}
+      <Drawer
+        open={showResetData}
+        onClose={closeResetData}
+        side="center"
+        size="sm"
+        title={resetResult ? "Business Data Reset" : "Reset Business Data"}
+        description={resetResult ? undefined : `Wipe ${tenant.name}'s transactional data`}
+      >
+        {resetResult ? (
+          <div className="p-5 space-y-4">
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[13px] px-4 py-3">
+              <CheckCircle size={14} className="shrink-0" /> Business data reset for {tenant.name}.
+            </div>
+            {Object.keys(resetResult).length > 0 ? (
+              <dl className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+                {Object.entries(resetResult).map(([label, count]) => (
+                  <div key={label} className="flex items-center justify-between px-4 py-2 text-sm">
+                    <dt className="text-muted">{label}</dt>
+                    <dd className="font-semibold text-foreground">{count.toLocaleString()}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted">There was no data to delete.</p>
+            )}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={closeResetData}
+                className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleResetData} className="p-5 space-y-4">
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-[13px] px-4 py-3 space-y-1.5">
+              <p className="font-semibold">This cannot be undone.</p>
+              <p>Wipes: products, orders/sales, customers, suppliers, expenses, invoices &amp; accounting entries, deals, purchase orders, manufacturing/repair jobs, and inventory &amp; stock.</p>
+              <p>Kept: the tenant account, user logins, roles, departments, branches, and settings (currency, VAT, branding).</p>
+            </div>
+            <Field label={`Type "${tenant.name}" to confirm`} required>
+              <Input
+                required
+                autoFocus
+                value={resetConfirmName}
+                onChange={(e) => setResetConfirmName(e.target.value)}
+                placeholder={tenant.name}
+              />
+            </Field>
+            {resetError && <p className="text-xs text-red-600 dark:text-red-400">{resetError}</p>}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={closeResetData}
+                className="px-4 py-2 rounded-lg text-[13px] font-semibold text-muted hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={resetTenantData.isPending || resetConfirmName.trim() !== tenant.name}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetTenantData.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                Reset Business Data
+              </button>
+            </div>
+          </form>
+        )}
       </Drawer>
     </div>
   );

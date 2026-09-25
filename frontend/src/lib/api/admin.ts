@@ -233,6 +233,11 @@ export const adminApi = {
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/activate`, { method: "POST" }),
   deleteTenant: (id: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${id}`, { method: "DELETE" }),
+  resetTenantData: (id: string, confirmName: string) =>
+    request<SingleResponse<{ deleted: Record<string, number> }>>(`${B}/tenants/${id}/reset-data`, {
+      method: "POST",
+      body: JSON.stringify({ confirm_name: confirmName }),
+    }),
 
   tenantStats: (id: string) =>
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
