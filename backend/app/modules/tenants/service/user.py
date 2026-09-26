@@ -63,13 +63,18 @@ async def create_user(db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate) 
     # strong random temporary one server-side and email it instead.
     temp_password = secrets.token_urlsafe(12)
 
+    # A caller can pass an explicit role_id (picking a real Role); if it
+    # didn't, fall back to resolving the free-text role string so the user
+    # never ends up with role_id=None -> zero permissions.
+    role_id = data.role_id or await service.resolve_role_id(db, tenant_id, data.role)
+
     user = User(
         tenant_id=tenant_id,
         email=data.email,
         hashed_password=hash_password(temp_password),
         full_name=data.full_name,
         role=data.role,
-        role_id=data.role_id,
+        role_id=role_id,
         branch_id=data.branch_id,
         department_id=data.department_id,
     )

@@ -661,11 +661,16 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
         temp_password = data.password
     else:
         temp_password = secrets.token_urlsafe(12)
+    # Without this, the invited user gets role_id=None -> zero permissions ->
+    # an almost-empty sidebar, since every module nav item is gated on a
+    # permission the frontend derives from role_rel.permissions.
+    role_id = await service.resolve_role_id(db, tenant_id, data.role)
     user = User(
         tenant_id=tenant_id,
         email=data.email,
         full_name=data.full_name,
         role=data.role,
+        role_id=role_id,
         hashed_password=hash_password(temp_password),
         is_active=True,
         is_superuser=False,
