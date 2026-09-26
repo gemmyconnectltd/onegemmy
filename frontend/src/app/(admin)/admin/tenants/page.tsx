@@ -368,6 +368,9 @@ export default function AdminTenantsPage() {
                     Last Active
                   </th>
                   <th className="px-5 py-3 font-semibold hidden sm:table-cell">
+                    Phone
+                  </th>
+                  <th className="px-5 py-3 font-semibold hidden sm:table-cell">
                     Location
                   </th>
                   <th className="px-5 py-3 font-semibold hidden md:table-cell">
@@ -455,6 +458,9 @@ export default function AdminTenantsPage() {
                     </td>
                     <td className="px-5 py-4 hidden lg:table-cell text-[12px] text-muted">
                       {t.usage ? fmtRelative(t.usage.last_active_at) : "—"}
+                    </td>
+                    <td className="px-5 py-4 hidden sm:table-cell text-[12px] text-muted">
+                      {t.phone || "—"}
                     </td>
                     <td className="px-5 py-4 hidden sm:table-cell text-[12px] text-muted">
                       {[t.city, t.country].filter(Boolean).join(", ") || "—"}
