@@ -161,7 +161,7 @@ export default function SalesPage() {
               </div>
               {s.change && <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600"><ArrowUpRight size={11} />live</span>}
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{isLoading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={isLoading ? undefined : String(s.value)}>{isLoading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}

@@ -14,7 +14,7 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
       <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
         <Icon size={16} style={{ color }} />
       </div>
-      <p className="text-xl font-extrabold text-foreground tracking-tight">{value}</p>
+      <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={value}>{value}</p>
       <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">{label}</p>
       {sub && <p className="text-[11px] text-muted">{sub}</p>}
     </div>

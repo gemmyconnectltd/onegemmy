@@ -502,7 +502,12 @@ export default function TenantDetailPage() {
             <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2.5" style={{ backgroundColor: `${card.color}18` }}>
               <card.icon size={14} style={{ color: card.color }} />
             </div>
-            <p className="text-lg font-extrabold text-foreground tracking-tight truncate">{card.isStr ? card.value : Number(card.value).toLocaleString()}</p>
+            <p
+              className="text-lg font-extrabold text-foreground tracking-tight truncate"
+              title={String(card.isStr ? card.value : Number(card.value).toLocaleString())}
+            >
+              {card.isStr ? card.value : Number(card.value).toLocaleString()}
+            </p>
             <p className="text-[11px] text-muted mt-0.5">{card.label}</p>
           </div>
         ))}

@@ -178,7 +178,10 @@ export default function AdminOverviewPage() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${card.color}18` }}>
               <card.icon size={16} style={{ color: card.color }} />
             </div>
-            <p className="text-xl font-extrabold text-foreground tracking-tight truncate">
+            <p
+              className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate"
+              title={String(card.isString ? card.value : Number(card.value).toLocaleString())}
+            >
               {card.isString ? card.value : Number(card.value).toLocaleString()}
             </p>
             <p className="text-[11px] font-semibold text-foreground mt-0.5">{card.label}</p>

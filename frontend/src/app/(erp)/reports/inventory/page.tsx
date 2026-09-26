@@ -88,7 +88,7 @@ export default function InventoryReportPage() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground truncate" title={s.value}>{s.value}</p>
             <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">{s.label}</p>
           </div>
         ))}

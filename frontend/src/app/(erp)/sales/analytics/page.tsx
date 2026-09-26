@@ -87,7 +87,7 @@ export default function SalesAnalyticsPage() {
                 </span>
               )}
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{loading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={loading ? undefined : String(s.value)}>{loading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -182,7 +182,7 @@ export default function SalesAnalyticsPage() {
                 ].map((t) => (
                   <div key={t.label} className="p-3 rounded-xl border border-border bg-surface">
                     <p className="text-[11px] font-semibold text-muted uppercase tracking-wider leading-tight">{t.label}</p>
-                    <p className="text-lg font-extrabold mt-1" style={{ color: t.color }}>{t.value}</p>
+                    <p className="text-lg font-extrabold mt-1 truncate" style={{ color: t.color }} title={t.value}>{t.value}</p>
                     <p className="text-[10px] text-muted mt-0.5">{t.sub}</p>
                   </div>
                 ))}

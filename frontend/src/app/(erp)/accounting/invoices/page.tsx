@@ -99,7 +99,7 @@ export default function InvoicesPage() {
                 <s.icon size={15} style={{ color: s.color }} />
               </div>
             </div>
-            <p className="text-xl font-extrabold text-foreground tracking-tight">{s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={String(s.value)}>{s.value}</p>
             <p className="text-[11px] text-muted mt-1">{s.sub}</p>
           </div>
         ))}

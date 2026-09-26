@@ -74,7 +74,7 @@ export default function AccountingReportPage() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-xl font-extrabold text-foreground">{s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground truncate" title={s.value}>{s.value}</p>
             <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">{s.label}</p>
           </div>
         ))}
@@ -153,7 +153,7 @@ export default function AccountingReportPage() {
             ].map((t) => (
               <div key={t.label} className="p-3 rounded-xl border border-border bg-surface">
                 <p className="text-[11px] font-semibold text-muted uppercase tracking-wider leading-tight">{t.label}</p>
-                <p className="text-lg font-extrabold mt-1" style={{ color: t.color }}>{t.value}</p>
+                <p className="text-lg font-extrabold mt-1 truncate" style={{ color: t.color }} title={t.value}>{t.value}</p>
                 <p className="text-[10px] text-muted mt-0.5">{t.sub}</p>
               </div>
             ))}

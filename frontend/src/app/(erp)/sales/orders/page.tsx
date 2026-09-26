@@ -426,7 +426,7 @@ export default function SalesOrdersPage() {
             <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight">{statsLoading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={statsLoading ? undefined : String(s.value)}>{statsLoading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}

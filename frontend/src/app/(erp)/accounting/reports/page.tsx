@@ -53,7 +53,7 @@ function KpiCard({ label, value, hint, color }: { label: string; value: string; 
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-1.5">
       <p className="text-[11px] font-semibold text-muted uppercase tracking-wider">{label}</p>
-      <p className="text-xl font-extrabold text-foreground" style={color ? { color } : undefined}>{value}</p>
+      <p className="text-lg sm:text-xl font-extrabold text-foreground truncate" style={color ? { color } : undefined} title={value}>{value}</p>
       {hint && <p className="text-xs text-muted">{hint}</p>}
     </div>
   );

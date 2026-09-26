@@ -261,7 +261,7 @@ function KpiCards({
               </span>
             )}
           </div>
-          <p className="text-lg font-extrabold text-foreground tracking-tight truncate">
+          <p className="text-lg font-extrabold text-foreground tracking-tight truncate" title={k.value}>
             {k.value}
           </p>
           <p className="text-[11px] text-muted mt-0.5 font-medium">{k.label}</p>

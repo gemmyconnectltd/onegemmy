@@ -118,7 +118,7 @@ export default function RecruitingPage() {
             onClick={() => setFilter(f)}
             className={`bg-card border p-3 text-left transition-colors ${filter === f ? "border-accent" : "border-border hover:border-foreground/20"}`}
           >
-            <p className="text-lg font-extrabold text-foreground tracking-tight">{stageCounts(f)}</p>
+            <p className="text-lg font-extrabold text-foreground tracking-tight truncate">{stageCounts(f)}</p>
             <p className="text-[11px] text-muted font-medium">{f}</p>
           </button>
         ))}

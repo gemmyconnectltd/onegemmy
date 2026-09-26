@@ -257,7 +257,7 @@ export default function CustomersPage() {
             <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-xl font-extrabold text-foreground tracking-tight">{loading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={loading ? undefined : String(s.value)}>{loading ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -405,11 +405,11 @@ export default function CustomersPage() {
             {/* spend summary */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-surface rounded-xl p-3 text-center">
-                <p className="text-lg font-extrabold text-foreground">{viewingOrders.length}</p>
+                <p className="text-lg font-extrabold text-foreground truncate">{viewingOrders.length}</p>
                 <p className="text-[11px] text-muted mt-0.5">Total Orders</p>
               </div>
               <div className="bg-surface rounded-xl p-3 text-center">
-                <p className="text-lg font-extrabold text-foreground font-mono">{fmt(totalSpent(viewing.id))}</p>
+                <p className="text-lg font-extrabold text-foreground font-mono truncate" title={fmt(totalSpent(viewing.id))}>{fmt(totalSpent(viewing.id))}</p>
                 <p className="text-[11px] text-muted mt-0.5">Total Spent</p>
               </div>
             </div>
