@@ -8,7 +8,7 @@ import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 
 export default function AccountingReportPage() {
-  const { theme, brandColor } = useAppConfig();
+  const { theme, brandColor, currencySymbol } = useAppConfig();
   const ACCENT = brandColor;
   const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
@@ -65,10 +65,10 @@ export default function AccountingReportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Gross Revenue", value: fmtMoney(totalRevenue), icon: TrendingUp, color: theme === "dark" ? "#34d399" : "#10b981" },
-          { label: "Net Revenue", value: fmtMoney(netRevenue), icon: DollarSign, color: accent },
-          { label: "Tax Collected", value: fmtMoney(totalTax), icon: CreditCard, color: theme === "dark" ? "#818cf8" : "#6366f1" },
-          { label: "Total Refunds", value: fmtMoney(totalRefunds), icon: TrendingDown, color: theme === "dark" ? "#f87171" : "#ef4444" },
+          { label: "Gross Revenue", value: fmtMoney(totalRevenue, currencySymbol), icon: TrendingUp, color: theme === "dark" ? "#34d399" : "#10b981" },
+          { label: "Net Revenue", value: fmtMoney(netRevenue, currencySymbol), icon: DollarSign, color: accent },
+          { label: "Tax Collected", value: fmtMoney(totalTax, currencySymbol), icon: CreditCard, color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Total Refunds", value: fmtMoney(totalRefunds, currencySymbol), icon: TrendingDown, color: theme === "dark" ? "#f87171" : "#ef4444" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -89,8 +89,8 @@ export default function AccountingReportPage() {
                 <BarChart data={monthChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                  <Tooltip formatter={(v, name) => [fmtMoney(Number(v)), name === "revenue" ? "Revenue" : "Refunds"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v, currencySymbol)} />
+                  <Tooltip formatter={(v, name) => [fmtMoney(Number(v), currencySymbol), name === "revenue" ? "Revenue" : "Refunds"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
                   <Bar dataKey="revenue" fill={accent} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="refunds" fill={theme === "dark" ? "#f87171" : "#ef4444"} radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -107,8 +107,8 @@ export default function AccountingReportPage() {
                 <BarChart data={taxChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Tax"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v, currencySymbol)} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v), currencySymbol), "Tax"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
                   <Bar dataKey="tax" fill={theme === "dark" ? "#818cf8" : "#6366f1"} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -123,8 +123,8 @@ export default function AccountingReportPage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             { label: "Total Orders", value: completed.length },
-            { label: "Avg Order Value", value: fmtMoney(completed.length > 0 ? totalRevenue / completed.length : 0) },
-            { label: "Total Discounts Given", value: fmtMoney(totalDiscount) },
+            { label: "Avg Order Value", value: fmtMoney(completed.length > 0 ? totalRevenue / completed.length : 0, currencySymbol) },
+            { label: "Total Discounts Given", value: fmtMoney(totalDiscount, currencySymbol) },
             { label: "Approved Returns", value: approvedReturns.length },
             { label: "Pending Returns", value: returns.filter(r => r.status === "Pending").length },
             { label: "Return Rate", value: `${completed.length > 0 ? ((approvedReturns.length / completed.length) * 100).toFixed(1) : 0}%` },
@@ -146,10 +146,10 @@ export default function AccountingReportPage() {
           <p className="text-[11px] text-muted mb-4">Estimated from completed orders — VAT 18%, CIT 30%, WHT 15%</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: "VAT Collected (18%)",         value: fmtMoney(totalTax),                        sub: "Remit to RRA monthly",    color: theme === "dark" ? "#818cf8" : "#6366f1" },
-              { label: "Net Revenue (excl. VAT)",     value: fmtMoney(netRevenue - totalRefunds),       sub: "After refunds & VAT",     color: theme === "dark" ? "#34d399" : "#10b981" },
-              { label: "Corp. Income Tax Est. (30%)", value: fmtMoney((netRevenue - totalRefunds) * 0.30), sub: "Annual CIT estimate",   color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
-              { label: "Withholding Tax Est. (15%)",  value: fmtMoney((netRevenue - totalRefunds) * 0.15), sub: "On applicable payments", color: theme === "dark" ? "#f87171" : "#ef4444" },
+              { label: "VAT Collected (18%)",         value: fmtMoney(totalTax, currencySymbol),                        sub: "Remit to RRA monthly",    color: theme === "dark" ? "#818cf8" : "#6366f1" },
+              { label: "Net Revenue (excl. VAT)",     value: fmtMoney(netRevenue - totalRefunds, currencySymbol),       sub: "After refunds & VAT",     color: theme === "dark" ? "#34d399" : "#10b981" },
+              { label: "Corp. Income Tax Est. (30%)", value: fmtMoney((netRevenue - totalRefunds) * 0.30, currencySymbol), sub: "Annual CIT estimate",   color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
+              { label: "Withholding Tax Est. (15%)",  value: fmtMoney((netRevenue - totalRefunds) * 0.15, currencySymbol), sub: "On applicable payments", color: theme === "dark" ? "#f87171" : "#ef4444" },
             ].map((t) => (
               <div key={t.label} className="p-3 rounded-xl border border-border bg-surface">
                 <p className="text-[11px] font-semibold text-muted uppercase tracking-wider leading-tight">{t.label}</p>

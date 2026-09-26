@@ -4,7 +4,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Upload } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
+import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { ProductFormDrawer, type ProductFormValues, type ProductBulkRow } from "@/components/inventory/ProductFormDrawer";
@@ -19,7 +19,6 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
-const fmt = (v: number) => fmtMoney(v);
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
 function variantStock(p: ApiProduct) {
   if (!p.has_variants || !p.variants?.length) return p.stock;
@@ -45,7 +44,8 @@ function toFormValues(p: ApiProduct): ProductFormValues {
 }
 
 export default function ProductsPage() {
-  const { brandColor } = useAppConfig();
+  const { brandColor, currencySymbol } = useAppConfig();
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const INV_COLOR = brandColor;
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);

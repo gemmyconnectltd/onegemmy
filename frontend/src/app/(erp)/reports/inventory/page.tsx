@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<ValuationLine["status"], string> = {
 };
 
 export default function InventoryReportPage() {
-  const { theme, brandColor } = useAppConfig();
+  const { theme, brandColor, currencySymbol } = useAppConfig();
   const ACCENT = brandColor;
   const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
@@ -80,8 +80,8 @@ export default function InventoryReportPage() {
         {[
           { label: "Tracked Lines", value: summary.line_count.toString(), icon: Package, color: accent },
           { label: "Total Units", value: summary.total_units.toLocaleString(), icon: Boxes, color: theme === "dark" ? "#c084fc" : "#9333ea" },
-          { label: "Stock Value (Cost)", value: fmtMoney(summary.cost_value), icon: TrendingDown, color: theme === "dark" ? "#818cf8" : "#6366f1" },
-          { label: "Retail Value", value: fmtMoney(summary.retail_value), icon: Layers, color: theme === "dark" ? "#38bdf8" : "#0284c7" },
+          { label: "Stock Value (Cost)", value: fmtMoney(summary.cost_value, currencySymbol), icon: TrendingDown, color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Retail Value", value: fmtMoney(summary.retail_value, currencySymbol), icon: Layers, color: theme === "dark" ? "#38bdf8" : "#0284c7" },
           { label: "Low / Out of Stock", value: `${summary.low_stock_count} / ${summary.out_of_stock_count}`, icon: AlertTriangle, color: theme === "dark" ? "#f87171" : "#ef4444" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
@@ -110,9 +110,9 @@ export default function InventoryReportPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categories} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
+                  <XAxis type="number" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v, currencySymbol)} />
                   <YAxis type="category" dataKey="name" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={90} />
-                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Value"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v), currencySymbol), "Value"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
                   <Bar dataKey="cost_value" fill={accent} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -173,11 +173,11 @@ export default function InventoryReportPage() {
                   </td>
                   <td className="py-2.5 pr-3 text-muted">{l.category ?? "—"}</td>
                   <td className="py-2.5 pr-3 text-foreground">{l.stock}</td>
-                  <td className="py-2.5 pr-3 text-muted">{fmtMoney(l.cost)}</td>
-                  <td className="py-2.5 pr-3 font-semibold text-foreground">{fmtMoney(l.cost_value)}</td>
-                  <td className="py-2.5 pr-3 text-emerald-600 dark:text-emerald-400 font-semibold">{fmtMoney(l.retail_value)}</td>
+                  <td className="py-2.5 pr-3 text-muted">{fmtMoney(l.cost, currencySymbol)}</td>
+                  <td className="py-2.5 pr-3 font-semibold text-foreground">{fmtMoney(l.cost_value, currencySymbol)}</td>
+                  <td className="py-2.5 pr-3 text-emerald-600 dark:text-emerald-400 font-semibold">{fmtMoney(l.retail_value, currencySymbol)}</td>
                   <td className="py-2.5 pr-3">
-                    <span className="text-foreground font-semibold">{fmtMoney(l.margin)}</span>
+                    <span className="text-foreground font-semibold">{fmtMoney(l.margin, currencySymbol)}</span>
                     {l.margin_pct != null && <span className="text-muted text-xs ml-1">({l.margin_pct}%)</span>}
                   </td>
                   <td className="py-2.5">
@@ -195,9 +195,9 @@ export default function InventoryReportPage() {
                   <td colSpan={2} className="py-3 text-sm font-bold text-foreground">Total</td>
                   <td className="py-3 font-bold text-foreground">{filtered.reduce((s, l) => s + l.stock, 0).toLocaleString()}</td>
                   <td className="py-3 text-muted">—</td>
-                  <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.cost_value, 0))}</td>
-                  <td className="py-3 font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(filtered.reduce((s, l) => s + l.retail_value, 0))}</td>
-                  <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.margin, 0))}</td>
+                  <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.cost_value, 0), currencySymbol)}</td>
+                  <td className="py-3 font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(filtered.reduce((s, l) => s + l.retail_value, 0), currencySymbol)}</td>
+                  <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.margin, 0), currencySymbol)}</td>
                   <td className="py-3">—</td>
                 </tr>
               </tfoot>

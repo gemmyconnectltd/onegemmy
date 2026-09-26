@@ -7,7 +7,7 @@ import {
   Search, Plus, ArrowUpRight, BarChart3, PackagePlus, Upload,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { CURRENCY_SYMBOL, fmtMoney } from "@/lib/config";
+import { fmtMoney } from "@/lib/config";
 import { type ApiProduct } from "@/lib/api";
 import { useProducts, useCreateProduct, useBulkCreateProducts, useRestockProduct, useUploadProductImage } from "@/lib/api/hooks";
 import { ProductFormDrawer, type ProductFormValues } from "@/components/inventory/ProductFormDrawer";
@@ -28,8 +28,6 @@ const statusCfg = {
   low:      { label: "Low Stock", bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500"   },
   out:      { label: "Out",       bg: "bg-red-50",     text: "text-red-600",     dot: "bg-red-500"     },
 };
-
-const fmt = (v: number) => fmtMoney(v);
 
 function variantStock(p: ApiProduct) {
   if (!p.has_variants || !p.variants?.length) return p.stock;
@@ -64,7 +62,8 @@ function toRow(p: ApiProduct) {
 }
 
 export default function InventoryOverviewPage() {
-  const { brandColor, theme } = useAppConfig();
+  const { brandColor, theme, currencySymbol } = useAppConfig();
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const INV_COLOR = brandColor;
   const c = chartPalette(theme === "dark");
   const [search, setSearch] = useState("");

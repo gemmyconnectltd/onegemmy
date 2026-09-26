@@ -9,7 +9,7 @@ import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
 
 export default function SalesReportPage() {
-  const { theme, brandColor } = useAppConfig();
+  const { theme, brandColor, currencySymbol } = useAppConfig();
   const ACCENT = brandColor;
   const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
@@ -62,10 +62,10 @@ export default function SalesReportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Revenue",       value: fmtMoney(totalRevenue),  icon: TrendingUp,  color: theme === "dark" ? "#34d399" : "#10b981" },
+          { label: "Revenue",       value: fmtMoney(totalRevenue, currencySymbol),  icon: TrendingUp,  color: theme === "dark" ? "#34d399" : "#10b981" },
           { label: "Orders",        value: completed.length.toString(), icon: ShoppingCart, color: accent },
-          { label: "VAT Collected", value: fmtMoney(totalVAT),      icon: RotateCcw,   color: theme === "dark" ? "#818cf8" : "#6366f1" },
-          { label: "Refunds",       value: fmtMoney(totalRefunds),  icon: RotateCcw,   color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
+          { label: "VAT Collected", value: fmtMoney(totalVAT, currencySymbol),      icon: RotateCcw,   color: theme === "dark" ? "#818cf8" : "#6366f1" },
+          { label: "Refunds",       value: fmtMoney(totalRefunds, currencySymbol),  icon: RotateCcw,   color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 space-y-2">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${s.color}15` }}>
@@ -85,8 +85,8 @@ export default function SalesReportPage() {
               <BarChart data={monthChart}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                <Tooltip formatter={(v, name) => [fmtMoney(Number(v)), name === "vat" ? "VAT (18%)" : name === "revenue" ? "Revenue" : "Orders"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
+                <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v, currencySymbol)} />
+                <Tooltip formatter={(v, name) => [fmtMoney(Number(v), currencySymbol), name === "vat" ? "VAT (18%)" : name === "revenue" ? "Revenue" : "Orders"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }} />
                 <Bar dataKey="revenue" fill={accent} radius={[4, 4, 0, 0]} />
                 <Bar dataKey="vat" fill={theme === "dark" ? "#818cf8" : "#6366f1"} radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -115,8 +115,8 @@ export default function SalesReportPage() {
                     <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span className="text-[11px] text-muted">{t.unit === "currency" ? fmtMoney(t.achieved_value) : t.achieved_value} achieved</span>
-                    <span className="text-[11px] text-muted">{t.unit === "currency" ? fmtMoney(t.target_value) : t.target_value} target</span>
+                    <span className="text-[11px] text-muted">{t.unit === "currency" ? fmtMoney(t.achieved_value, currencySymbol) : t.achieved_value} achieved</span>
+                    <span className="text-[11px] text-muted">{t.unit === "currency" ? fmtMoney(t.target_value, currencySymbol) : t.target_value} target</span>
                   </div>
                 </div>
               );
@@ -146,8 +146,8 @@ export default function SalesReportPage() {
                       {o.status}
                     </span>
                   </td>
-                  <td className="py-2.5 font-semibold" style={{ color: theme === "dark" ? "#818cf8" : "#6366f1" }}>{fmtMoney(o.tax)}</td>
-                  <td className="py-2.5 font-semibold text-foreground">{fmtMoney(o.total)}</td>
+                  <td className="py-2.5 font-semibold" style={{ color: theme === "dark" ? "#818cf8" : "#6366f1" }}>{fmtMoney(o.tax, currencySymbol)}</td>
+                  <td className="py-2.5 font-semibold text-foreground">{fmtMoney(o.total, currencySymbol)}</td>
                   <td className="py-2.5 text-muted text-xs whitespace-nowrap">{fmtDateTime(o.ordered_at)}</td>
                 </tr>
               ))}
@@ -165,10 +165,10 @@ export default function SalesReportPage() {
           <p className="text-[11px] text-muted mb-4">Estimated obligations from completed orders</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: "VAT Collected (18%)",         value: fmtMoney(totalVAT),                          sub: "Remit to RRA monthly",       color: theme === "dark" ? "#818cf8" : "#6366f1" },
-              { label: "Net Revenue (excl. VAT)",     value: fmtMoney(totalRevenue - totalVAT),           sub: "Taxable income base",        color: theme === "dark" ? "#34d399" : "#10b981" },
-              { label: "Corp. Income Tax Est. (30%)", value: fmtMoney((totalRevenue - totalVAT) * 0.30),  sub: "Annual CIT estimate",        color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
-              { label: "Withholding Tax Est. (15%)",  value: fmtMoney((totalRevenue - totalVAT) * 0.15),  sub: "On applicable payments",     color: theme === "dark" ? "#f87171" : "#ef4444" },
+              { label: "VAT Collected (18%)",         value: fmtMoney(totalVAT, currencySymbol),                          sub: "Remit to RRA monthly",       color: theme === "dark" ? "#818cf8" : "#6366f1" },
+              { label: "Net Revenue (excl. VAT)",     value: fmtMoney(totalRevenue - totalVAT, currencySymbol),           sub: "Taxable income base",        color: theme === "dark" ? "#34d399" : "#10b981" },
+              { label: "Corp. Income Tax Est. (30%)", value: fmtMoney((totalRevenue - totalVAT) * 0.30, currencySymbol),  sub: "Annual CIT estimate",        color: theme === "dark" ? "#fbbf24" : "#f59e0b" },
+              { label: "Withholding Tax Est. (15%)",  value: fmtMoney((totalRevenue - totalVAT) * 0.15, currencySymbol),  sub: "On applicable payments",     color: theme === "dark" ? "#f87171" : "#ef4444" },
             ].map((t) => (
               <div key={t.label} className="p-3 rounded-xl border border-border bg-surface">
                 <p className="text-[11px] font-semibold text-muted uppercase tracking-wider leading-tight">{t.label}</p>

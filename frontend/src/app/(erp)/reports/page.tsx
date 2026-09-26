@@ -22,7 +22,7 @@ function StatCard({ label, value, sub, icon: Icon, color }: { label: string; val
 }
 
 export default function ReportsPage() {
-  const { theme } = useAppConfig();
+  const { theme, currencySymbol } = useAppConfig();
   const c = chartPalette(theme === "dark");
   const ordersQ = useOrders(1, 500);
   const returnsQ = useReturns(1, 500);
@@ -76,9 +76,9 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Total Revenue" value={fmtMoney(totalRevenue)} sub={`${totalOrders} completed orders`} icon={DollarSign} color={c.income} />
-        <StatCard label="VAT Collected" value={fmtMoney(totalVAT)} sub="18% — due to RRA" icon={TrendingUp} color={theme === "dark" ? "#818cf8" : "#6366f1"} />
-        <StatCard label="Total Refunds" value={fmtMoney(totalRefunds)} sub={`${returns.filter(r => r.status === "Approved").length} approved returns`} icon={RotateCcw} color={c.expenses} />
+        <StatCard label="Total Revenue" value={fmtMoney(totalRevenue, currencySymbol)} sub={`${totalOrders} completed orders`} icon={DollarSign} color={c.income} />
+        <StatCard label="VAT Collected" value={fmtMoney(totalVAT, currencySymbol)} sub="18% — due to RRA" icon={TrendingUp} color={theme === "dark" ? "#818cf8" : "#6366f1"} />
+        <StatCard label="Total Refunds" value={fmtMoney(totalRefunds, currencySymbol)} sub={`${returns.filter(r => r.status === "Approved").length} approved returns`} icon={RotateCcw} color={c.expenses} />
         <StatCard label="Active Customers" value={customers.filter(c => c.is_active).length.toString()} sub={`${lowStock} products low stock`} icon={Users} color={c.blue} />
       </div>
 
@@ -91,8 +91,8 @@ export default function ReportsPage() {
                 <BarChart data={revenueChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v)} />
-                  <Tooltip formatter={(v) => [fmtMoney(Number(v)), "Revenue"]} contentStyle={c.tooltip} />
+                  <YAxis tick={{ fill: "var(--muted)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtMoney(v, currencySymbol)} />
+                  <Tooltip formatter={(v) => [fmtMoney(Number(v), currencySymbol), "Revenue"]} contentStyle={c.tooltip} />
                   <Bar dataKey="revenue" fill={c.primary} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -142,7 +142,7 @@ export default function ReportsPage() {
                   <td className="py-3 text-muted font-mono text-xs">{i + 1}</td>
                   <td className="py-3 font-medium text-foreground">{p.name}</td>
                   <td className="py-3 text-right text-muted">{p.qty}</td>
-                  <td className="py-3 text-right font-semibold text-foreground">{fmtMoney(p.revenue)}</td>
+                  <td className="py-3 text-right font-semibold text-foreground">{fmtMoney(p.revenue, currencySymbol)}</td>
                 </tr>
               ))}
             </tbody>

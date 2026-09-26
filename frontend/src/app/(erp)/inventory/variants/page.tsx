@@ -12,7 +12,6 @@ import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
-const fmt = (v: number) => fmtMoney(v);
 function margin(v: ApiVariantListItem) { return v.price > 0 ? Math.round(((v.price - v.cost) / v.price) * 100) : 0; }
 
 const attrLabel = (v: ApiVariantListItem) => {
@@ -57,7 +56,8 @@ function AttributeEditor({ attrs, onChange }: { attrs: Record<string, string>; o
 }
 
 export default function VariantsPage() {
-  const { brandColor } = useAppConfig();
+  const { brandColor, currencySymbol } = useAppConfig();
+  const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const INV_COLOR = brandColor;
   const [search, setSearch] = useState(() => {
     if (typeof window === "undefined") return "";

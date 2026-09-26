@@ -191,10 +191,11 @@ function KpiCards({
   label: string;
   c: ChartPalette;
 }) {
+  const { currencySymbol } = useAppConfig();
   const kpis = [
     {
       label: `${label} Sales`,
-      value: fmtMoney(sales),
+      value: fmtMoney(sales, currencySymbol),
       icon: TrendingUp,
       color: c.income,
       change: salesChange,
@@ -202,7 +203,7 @@ function KpiCards({
     },
     {
       label: `${label} Expenses`,
-      value: fmtMoney(expenses),
+      value: fmtMoney(expenses, currencySymbol),
       icon: TrendingDown,
       color: c.expenses,
       change: expChange,
@@ -210,7 +211,7 @@ function KpiCards({
     },
     {
       label: `${label} Profit`,
-      value: fmtMoney(profit),
+      value: fmtMoney(profit, currencySymbol),
       icon: DollarSign,
       color: c.profit,
       change: profitChange,
@@ -218,7 +219,7 @@ function KpiCards({
     },
     {
       label: "Cash Available",
-      value: fmtMoney(cash),
+      value: fmtMoney(cash, currencySymbol),
       icon: Activity,
       color: c.blue,
       change: null,
@@ -281,6 +282,7 @@ function SalesChart({
   sub: string;
   c: ChartPalette;
 }) {
+  const { currencySymbol } = useAppConfig();
   return (
     <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -338,7 +340,7 @@ function SalesChart({
             <Tooltip
               contentStyle={c.tooltip}
               formatter={(v, n) => [
-                fmtMoney(Number(v)),
+                fmtMoney(Number(v), currencySymbol),
                 n === "sales" ? "Sales" : "Expenses",
               ]}
             />
@@ -380,6 +382,7 @@ function EarningsBreakdown({
   label: string;
   c: ChartPalette;
 }) {
+  const { currencySymbol } = useAppConfig();
   const hasData = sales > 0;
   const isLoss = profit < 0;
   const data = [
@@ -412,7 +415,7 @@ function EarningsBreakdown({
                 innerRadius={28}
                 outerRadius={44}
                 tooltipStyle={c.tooltip}
-                tooltipFormatter={(v, n) => [fmtMoney(Number(v)), String(n)]}
+                tooltipFormatter={(v, n) => [fmtMoney(Number(v), currencySymbol), String(n)]}
               />
             )}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -439,7 +442,7 @@ function EarningsBreakdown({
                 className="text-[11px] font-bold font-mono"
                 style={{ color: isLoss ? "#ef4444" : c.profit }}
               >
-                {fmtMoney(profit)}
+                {fmtMoney(profit, currencySymbol)}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -451,7 +454,7 @@ function EarningsBreakdown({
                 Expenses
               </span>
               <span className="text-[11px] font-bold font-mono text-muted">
-                {fmtMoney(expenses)}
+                {fmtMoney(expenses, currencySymbol)}
               </span>
             </div>
             {isLoss && (
@@ -481,6 +484,7 @@ function TargetAndActions({
   label: string;
   c: ChartPalette;
 }) {
+  const { currencySymbol } = useAppConfig();
   const targetPct =
     target > 0 ? Math.min(100, Math.round((sales / target) * 100)) : 0;
   const actions = [
@@ -526,7 +530,7 @@ function TargetAndActions({
           </span>
         </div>
         <p className="text-[11px] text-muted mb-3">
-          {fmtMoney(sales)} of {target > 0 ? fmtMoney(target) : "No target set"}
+          {fmtMoney(sales, currencySymbol)} of {target > 0 ? fmtMoney(target, currencySymbol) : "No target set"}
         </p>
         <div className="h-1.5 bg-border rounded-full overflow-hidden mb-2">
           <div
@@ -537,7 +541,7 @@ function TargetAndActions({
         {target > 0 && (
           <p className="text-[11px] text-muted">
             <span className="font-semibold text-foreground">
-              {fmtMoney(Math.max(0, target - sales))}
+              {fmtMoney(Math.max(0, target - sales), currencySymbol)}
             </span>{" "}
             left to target
           </p>
@@ -581,6 +585,7 @@ function TargetAndActions({
 }
 
 function TopProducts({ orders }: { orders: ApiOrder[] }) {
+  const { currencySymbol } = useAppConfig();
   const map = new Map<
     string,
     { name: string; sold: number; revenue: number }
@@ -619,7 +624,7 @@ function TopProducts({ orders }: { orders: ApiOrder[] }) {
             <p className="text-[10px] text-muted">{p.sold} sold</p>
           </div>
           <span className="text-[12px] font-bold text-foreground flex-shrink-0">
-            {fmtMoney(p.revenue)}
+            {fmtMoney(p.revenue, currencySymbol)}
           </span>
         </div>
       ))}
@@ -717,7 +722,7 @@ function SidePanel({
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { theme } = useAppConfig();
+  const { theme, currencySymbol } = useAppConfig();
   const c = chartPalette(theme === "dark");
 
   const [period, setPeriod] = useState<Period>("month");
@@ -976,7 +981,7 @@ export default function DashboardPage() {
                             {o.items?.length ?? 0}
                           </td>
                           <td className="px-4 py-3 text-right text-sm font-bold text-foreground">
-                            {fmtMoney(o.total)}
+                            {fmtMoney(o.total, currencySymbol)}
                           </td>
                           <td
                             className={`px-4 py-3 text-right text-[11px] font-bold ${METHOD_COLOR["cash"]}`}

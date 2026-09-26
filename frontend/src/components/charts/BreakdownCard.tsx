@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import { DonutChart } from "@/components/charts/lazy";
 import type { ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
 
 export type BreakdownDatum = { name: string; value: number };
 
@@ -40,6 +41,7 @@ export function BreakdownCard({
   empty: string;
   loading?: boolean;
 }) {
+  const { currencySymbol } = useAppConfig();
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col">
@@ -64,7 +66,7 @@ export function BreakdownCard({
                 innerRadius={26}
                 outerRadius={42}
                 tooltipStyle={tooltipStyle}
-                tooltipFormatter={(v, n) => [fmtMoney(Number(v)), String(n)]}
+                tooltipFormatter={(v, n) => [fmtMoney(Number(v), currencySymbol), String(n)]}
               />
             </div>
             <div className="flex-1 min-w-0 space-y-1.5">

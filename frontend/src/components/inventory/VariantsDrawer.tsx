@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { type ApiVariant } from "@/lib/api";
 import { useProductVariants, useCreateVariant, useUpdateVariant, useRestockVariant, useDeleteVariant } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
+import { useAppConfig } from "@/lib/appConfig";
 
 interface Props {
   open: boolean;
@@ -108,6 +109,7 @@ function VariantForm({ initial, onSave, onCancel, color }: {
 }
 
 export function VariantsDrawer({ open, onClose, productId, productName, variants, color = "#059669" }: Props) {
+  const { currencySymbol } = useAppConfig();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ApiVariant | null>(null);
   const [restocking, setRestocking] = useState<ApiVariant | null>(null);
@@ -173,7 +175,7 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
               <div className="flex items-center gap-3 px-4 py-3 bg-card">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{attrLabel(v)}</p>
-                  <p className="text-[11px] text-muted font-mono">{v.sku ?? "No SKU"} · {fmtMoney(v.price)} · Stock: {v.stock}</p>
+                  <p className="text-[11px] text-muted font-mono">{v.sku ?? "No SKU"} · {fmtMoney(v.price, currencySymbol)} · Stock: {v.stock}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => { setEditing(v); setShowForm(false); }}

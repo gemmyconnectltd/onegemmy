@@ -8,7 +8,7 @@ import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 
 export default function CustomersReportPage() {
-  const { theme, brandColor } = useAppConfig();
+  const { theme, brandColor, currencySymbol } = useAppConfig();
   const ACCENT = brandColor;
   const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
@@ -105,7 +105,7 @@ export default function CustomersReportPage() {
                   <td className="py-2.5 text-muted font-mono text-xs">{i + 1}</td>
                   <td className="py-2.5 font-medium text-foreground">{c.name}</td>
                   <td className="py-2.5 text-muted">{c.orders}</td>
-                  <td className="py-2.5 font-semibold text-foreground">{fmtMoney(c.revenue)}</td>
+                  <td className="py-2.5 font-semibold text-foreground">{fmtMoney(c.revenue, currencySymbol)}</td>
                 </tr>
               ))}
             </tbody>

@@ -400,12 +400,19 @@ export default function TenantDetailPage() {
     </div>
   );
 
+  // fmtMoney's default symbol comes from the logged-in super admin's own
+  // session currency, not this tenant's — on this page it must always be
+  // *this* tenant's currency, or Revenue shows the wrong symbol whenever an
+  // admin (or one with no tenant, defaulting to RWF) views a business on a
+  // different currency, same as the currency picker just above it does.
+  const tenantCurrencySymbol = currencies.find((cur) => cur.code === tenant.currency)?.symbol ?? tenant.currency;
+
   const statCards = stats ? [
     { label: "Users",            value: stats.users,                          icon: Users,        color: c.primary },
     { label: "Total Orders",     value: stats.orders,                         icon: ShoppingCart, color: c.blue },
     { label: "Completed Orders", value: stats.completed_orders,               icon: CheckCircle,  color: c.income },
     { label: "Products",         value: stats.products,                       icon: Package,      color: c.gold },
-    { label: "Revenue",          value: fmtMoney(stats.revenue), isStr: true, icon: TrendingUp,   color: c.profit },
+    { label: "Revenue",          value: fmtMoney(stats.revenue, tenantCurrencySymbol), isStr: true, icon: TrendingUp, color: c.profit },
   ] : [];
 
   const PLAN_COLORS: Record<string, string> = {
