@@ -14,6 +14,10 @@ class RegisterRequest(BaseModel):
     # All optional, so the endpoint keeps working if the frontend ever
     # trims this step down or a field is left blank.
     country: str | None = None
+    # Collected on step 1, but this is the business's own contact number
+    # (there's no separate "owner phone" column) — maps straight to
+    # Tenant.phone, the same field Settings edits later.
+    phone: str | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None

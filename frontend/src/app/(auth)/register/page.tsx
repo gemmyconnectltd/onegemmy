@@ -146,11 +146,19 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    // Business Type is a button group, not a native form control, so the
+    // browser's own `required` validation (used for the selects below)
+    // can't cover it — check it here instead.
+    if (!businessType) {
+      setError("Please select a business type");
+      return;
+    }
     setLoading(true);
-    // Personal-info step's phone/gender/country are still UI-only — those
-    // belong to the person, not the business, and aren't persisted anywhere
-    // yet. The business-information step below now maps to real columns on
-    // Tenant (see backend Tenant model + auth.service.register).
+    // Personal-info step's gender is still UI-only — it belongs to the
+    // person, not the business, and isn't persisted anywhere yet. Phone and
+    // country map to the business's own phone/country columns on Tenant
+    // (see backend Tenant model + auth.service.register).
+    const dialCode = selectedCountry?.dial ?? "";
     const result = await register({
       fullName: `${firstName} ${lastName}`.trim(),
       email,
@@ -158,6 +166,7 @@ export default function RegisterPage() {
       tenantName: company,
       tenantSlug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
       country: countryName || undefined,
+      phone: phone ? `${dialCode} ${phone}`.trim() : undefined,
       businessType: businessType || undefined,
       industry: industry || undefined,
       businessCategory: businessCategory || undefined,
@@ -280,12 +289,13 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-foreground mb-1.5">Phone Number</label>
+                <label className="block text-[13px] font-medium text-foreground mb-1.5">Phone Number *</label>
                 <div className="flex gap-2">
                   <div className="relative w-27.5 shrink-0">
                     <select
                       value={countryName}
                       onChange={(e) => setCountryName(e.target.value)}
+                      required
                       className={`${selectClass} pr-7`}
                     >
                       <option value="">Code</option>
@@ -302,6 +312,7 @@ export default function RegisterPage() {
                     onFocus={() => setFocusedField("phone")}
                     onBlur={() => setFocusedField(null)}
                     placeholder="712 123 456"
+                    required
                     className={inputClass(focusedField === "phone")}
                   />
                 </div>
@@ -340,11 +351,12 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-foreground mb-1.5">Country</label>
+                <label className="block text-[13px] font-medium text-foreground mb-1.5">Country *</label>
                 <div className="relative">
                   <select
                     value={countryName}
                     onChange={(e) => setCountryName(e.target.value)}
+                    required
                     className={`${selectClass} pr-8`}
                   >
                     <option value="">Select your country</option>
@@ -444,7 +456,7 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-foreground mb-2">Business Type</label>
+                <label className="block text-[13px] font-medium text-foreground mb-2">Business Type *</label>
                 <div className="grid grid-cols-2 gap-2.5">
                   {BUSINESS_TYPES.map((bt) => (
                     <button
@@ -467,9 +479,9 @@ export default function RegisterPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[13px] font-medium text-foreground mb-1.5">Industry</label>
+                  <label className="block text-[13px] font-medium text-foreground mb-1.5">Industry *</label>
                   <div className="relative">
-                    <select value={industry} onChange={(e) => setIndustry(e.target.value)} className={`${selectClass} pr-8`}>
+                    <select value={industry} onChange={(e) => setIndustry(e.target.value)} required className={`${selectClass} pr-8`}>
                       <option value="">Select</option>
                       {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
                     </select>
@@ -477,9 +489,9 @@ export default function RegisterPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[13px] font-medium text-foreground mb-1.5">Business Category</label>
+                  <label className="block text-[13px] font-medium text-foreground mb-1.5">Business Category *</label>
                   <div className="relative">
-                    <select value={businessCategory} onChange={(e) => setBusinessCategory(e.target.value)} className={`${selectClass} pr-8`}>
+                    <select value={businessCategory} onChange={(e) => setBusinessCategory(e.target.value)} required className={`${selectClass} pr-8`}>
                       <option value="">Select</option>
                       {BUSINESS_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -489,9 +501,9 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-foreground mb-1.5">Number of Employees</label>
+                <label className="block text-[13px] font-medium text-foreground mb-1.5">Number of Employees *</label>
                 <div className="relative">
-                  <select value={employeeCount} onChange={(e) => setEmployeeCount(e.target.value)} className={`${selectClass} pr-8`}>
+                  <select value={employeeCount} onChange={(e) => setEmployeeCount(e.target.value)} required className={`${selectClass} pr-8`}>
                     <option value="">Select number of employees</option>
                     {EMPLOYEE_COUNTS.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>

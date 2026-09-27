@@ -34,6 +34,9 @@ export interface RegisterInput {
   fullName: string;
   password: string;
   country?: string;
+  // The business's own contact number — there's no separate "owner phone"
+  // field, this maps straight to Tenant.phone (same one Settings edits later).
+  phone?: string;
   // Business information — collected on the register form's second step.
   businessType?: string;
   industry?: string;
@@ -192,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         full_name: data.fullName,
         password: data.password,
         country: data.country,
+        phone: data.phone,
         business_type: data.businessType,
         industry: data.industry,
         business_category: data.businessCategory,

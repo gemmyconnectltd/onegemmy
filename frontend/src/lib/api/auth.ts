@@ -27,6 +27,7 @@ export interface ApiRegisterRequest {
   email: string;
   full_name: string;
   password: string;
+  phone?: string;
   business_type?: string;
   industry?: string;
   business_category?: string;

@@ -119,6 +119,7 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         is_active=False,
         subscription_status="pending",
         country=data.country,
+        phone=data.phone,
         business_type=data.business_type,
         industry=data.industry,
         business_category=data.business_category,
