@@ -296,6 +296,48 @@ async def send_invite_email(
     return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None)
 
 
+def _temp_password_body(
+    full_name: str, tenant_name: str, temp_password: str, login_url: str, reset_by: str | None
+) -> str:
+    name = html.escape(full_name or "there")
+    who = f" by <strong>{html.escape(reset_by)}</strong>" if reset_by else ""
+    return (
+        f"<p style='margin:0 0 14px;'>Hi {name},</p>"
+        f"<p style='margin:0 0 14px;'>An administrator{who} reset your Pesaa password for "
+        f"<strong>{html.escape(tenant_name)}</strong>. Use the temporary password below to sign in.</p>"
+        f"<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
+        f"<tr><td style='background:#faf9f7;border:1px solid #eeeae5;border-radius:10px;padding:14px 16px;'>"
+        f"<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Temporary password</p>"
+        f"<p style='margin:4px 0 0;font-size:17px;font-weight:700;color:#1c1b18;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:0.02em;'>{html.escape(temp_password)}</p>"
+        f"</td></tr></table>"
+        + _button_html(login_url, "Log in to Pesaa")
+        + _security_note(
+            "This password was set by an administrator and is temporary — "
+            "<strong>change it immediately after signing in</strong> (Settings &rarr; Security). "
+            "If you weren't expecting this, contact your administrator."
+        )
+    )
+
+
+async def send_temp_password_email(
+    to: str,
+    full_name: str,
+    tenant_name: str,
+    temp_password: str,
+    login_url: str | None = None,
+    reset_by: str | None = None,
+) -> bool:
+    """An admin-issued password reset. Separate from send_invite_email so the
+    wording tells the user their password was reset rather than that they
+    were newly invited."""
+    subject = f"Your {tenant_name} password was reset"
+    body = _temp_password_body(
+        full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login", reset_by
+    )
+    preheader = f"Use this temporary password to sign in to {tenant_name}."
+    return await send_email(to, subject, _branded_html("Your password was reset", body, preheader), text_body=None)
+
+
 def _contact_field_row(label: str, value: str) -> str:
     return (
         f"<p style='margin:0 0 4px;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>{html.escape(label)}</p>"

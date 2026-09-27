@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, Moon, Sun, LogOut } from "lucide-react";
+import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, Moon, Sun, LogOut, Building2, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useState } from "react";
@@ -46,6 +46,13 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
     router.push("/login");
   };
 
+  // A signed-in user can work across several businesses, so the company name
+  // is pinned into the top bar on every screen — it's the only reliable way
+  // to tell at a glance that you're in the right portal. Comes from the JWT
+  // via the auth provider (restored in an effect), so it's null on the first
+  // paint and never read from storage during render.
+  const businessName = user?.tenantName;
+
   return (
     <header className="h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-4 gap-3 sticky top-0 z-30">
       {/* Mobile menu toggle */}
@@ -56,12 +63,24 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
         <Menu size={18} />
       </button>
 
+      {/* Which business this portal belongs to */}
+      {businessName && (
+        <Link
+          href="/settings/profile"
+          title={`Signed in to ${businessName} — view your profile`}
+          className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-surface text-foreground border border-border hover:border-foreground/20 transition-colors flex-shrink-0 min-w-0"
+        >
+          <Building2 size={14} className="text-accent flex-shrink-0" />
+          <span className="text-[13px] font-bold truncate max-w-[38vw] sm:max-w-[200px]">{businessName}</span>
+        </Link>
+      )}
+
       {/* Breadcrumb */}
-      <div className="hidden sm:flex items-center gap-1.5 text-[14px]">
+      <div className="hidden md:flex items-center gap-1.5 text-[14px] min-w-0">
         {breadcrumb.map((crumb, i) => (
           <span key={i} className="flex items-center gap-1.5">
             {i > 0 && <span className="text-border">/</span>}
-            <span className={i === breadcrumb.length - 1 ? "font-semibold text-foreground" : "text-muted"}>
+            <span className={i === breadcrumb.length - 1 ? "font-semibold text-foreground truncate" : "text-muted"}>
               {crumb}
             </span>
           </span>
@@ -166,11 +185,24 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
         {showUser && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowUser(false)} />
-            <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border shadow-xl z-50 py-1">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-card border border-border shadow-xl z-50 py-1">
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-[13px] font-semibold text-foreground truncate">{user?.name}</p>
-                <p className="text-[11px] text-muted capitalize">{user?.role}</p>
+                <p className="text-[11px] text-muted truncate">{user?.email}</p>
+                {businessName && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-accent truncate">
+                    <Building2 size={11} className="flex-shrink-0" />
+                    {businessName}
+                  </p>
+                )}
               </div>
+              <Link
+                href="/settings/profile"
+                onClick={() => setShowUser(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-foreground hover:bg-surface transition-colors"
+              >
+                <UserCircle size={13} /> My Profile
+              </Link>
               <Link
                 href="/settings"
                 onClick={() => setShowUser(false)}

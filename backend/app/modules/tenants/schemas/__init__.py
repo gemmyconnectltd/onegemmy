@@ -29,7 +29,9 @@ from app.modules.tenants.schemas.tenant import (
     TenantUpdate,
 )
 from app.modules.tenants.schemas.user import (
+    AdminResetPasswordRequest,
     ChangePasswordRequest,
+    MyProfileUpdate,
     ResetPasswordRequest,
     UserCreate,
     UserRead,
@@ -37,6 +39,7 @@ from app.modules.tenants.schemas.user import (
 )
 
 __all__ = [
+    "AdminResetPasswordRequest",
     "BranchCreate",
     "BranchRead",
     "BranchUpdate",
@@ -51,6 +54,7 @@ __all__ = [
     "DepartmentUpdate",
     "FeatureFlagRead",
     "FeatureOverrideUpdate",
+    "MyProfileUpdate",
     "PermissionCreate",
     "PermissionRead",
     "PermissionUpdate",

@@ -38,4 +38,6 @@ class AuditLog(UUIDPKMixin, Base):
         Index("ix_audit_logs_tenant_action", "tenant_id", "action"),
         Index("ix_audit_logs_entity", "entity_type", "entity_id"),
         Index("ix_audit_logs_actor", "actor_user_id"),
+        # Backs "View user activity" — one user's history inside one tenant.
+        Index("ix_audit_logs_tenant_actor_created", "tenant_id", "actor_user_id", "created_at"),
     )

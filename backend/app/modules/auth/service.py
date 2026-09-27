@@ -1,5 +1,6 @@
 import re
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -195,6 +196,9 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
         raise UnauthorizedError("This account has been suspended")
 
     log.info("auth.login.success", extra={"_extra_fields": {"user_id": str(user.id)}})
+    # Stamped here so the users screen can show "last seen" without walking
+    # the audit trail.
+    user.last_login = datetime.now(UTC)
     await record_audit(
         db,
         tenant_id=user.tenant_id,

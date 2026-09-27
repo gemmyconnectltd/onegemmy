@@ -19,6 +19,7 @@ import {
   inventoryApi, salesApi, accountingApi, hrApi, departmentsApi, adminApi, procurementApi,
   repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
   tenantsApi,
+  usersApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
@@ -35,6 +36,7 @@ import {
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
   type RepairJob, type InventoryBatch,
+  type ApiUser, type ApiAuditLog, type UserCreatePayload, type UserUpdatePayload, type UserListFilters,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -503,6 +505,59 @@ export const useCreateBom = mutation((d: object) => manufacturingApi.createBom(d
 export const useUpdateBom = mutation(({ id, data }: { id: string; data: object }) => manufacturingApi.updateBom(id, data), [[...BOMS_KEY]]);
 export const useDeleteBom = mutation((id: string) => manufacturingApi.deleteBom(id), [[...BOMS_KEY]]);
 
+// ── Users & roles (tenant company access) ───────────────────────────────────
+
+const USERS = ["users"] as const;
+const MY_PROFILE = ["users", "me"] as const;
+
+export interface UserQuery extends UserListFilters {
+  page?: number;
+  pageSize?: number;
+}
+
+export const useCompanyUsers = ({ page = 1, pageSize = 20, search, isActive, roleId }: UserQuery = {}, opts?: QueryOpts) =>
+  useQ(
+    [...USERS, "list", page, pageSize, search ?? "", isActive === undefined ? "any" : isActive, roleId ?? "any"],
+    () => usersApi.list(page, pageSize, { search, isActive, roleId }),
+    (r) => r.data,
+    opts,
+  );
+
+export const useCompanyUser = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...USERS, "detail", id], () => usersApi.get(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+/** The signed-in user's own record — never permission-gated on the backend. */
+export const useMyProfile = (opts?: QueryOpts) =>
+  useQ([...MY_PROFILE], () => usersApi.me(), (r) => r.data, opts);
+
+/** Self-service profile edit — its own endpoint so it works for members who
+ *  lack the `users:update` permission an admin edit requires. */
+export const useUpdateMyProfile = mutation(
+  (data: Pick<UserUpdatePayload, "full_name" | "phone">) => usersApi.updateMe(data),
+  [[...MY_PROFILE]],
+);
+
+/** Audit trail for one user: their own actions plus admin actions on their
+ *  account. Only fetched once the profile drawer opens on the Activity tab. */
+export const useCompanyUserActivity = (id: string | undefined, page = 1, pageSize = 20, opts?: QueryOpts) =>
+  useQ(
+    [...USERS, "activity", id, page, pageSize],
+    () => usersApi.activity(id!, page, pageSize),
+    (r) => r.data,
+    { ...opts, enabled: !!id && (opts?.enabled ?? true) },
+  );
+
+// Every user mutation invalidates the list and the per-user keys, since a
+// rename/role/status change is visible in both.
+const USER_INVALIDATIONS = [[...USERS], [...MY_PROFILE]];
+
+export const useCreateCompanyUser = mutation((d: UserCreatePayload) => usersApi.create(d), USER_INVALIDATIONS);
+export const useUpdateCompanyUser = mutation(({ id, data }: { id: string; data: UserUpdatePayload }) => usersApi.update(id, data), USER_INVALIDATIONS);
+export const useActivateCompanyUser = mutation((id: string) => usersApi.activate(id), USER_INVALIDATIONS);
+export const useDeactivateCompanyUser = mutation((id: string) => usersApi.deactivate(id), USER_INVALIDATIONS);
+export const useDeleteCompanyUser = mutation((id: string) => usersApi.remove(id), USER_INVALIDATIONS);
+export const useResetCompanyUserPassword = mutation(({ id, sendEmail }: { id: string; sendEmail?: boolean }) => usersApi.resetPassword(id, sendEmail ?? true), USER_INVALIDATIONS);
+
 // ── Re-export the response types for convenience ────────────────────────────
 
 export type {
@@ -518,4 +573,5 @@ export type {
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
   Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,
   RepairJob, InventoryBatch, ApiSerial, ApiStockTransfer, ApiWarrantyClaim, ApiProductionOrder,
+  ApiUser, ApiAuditLog,
 };

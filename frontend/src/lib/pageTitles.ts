@@ -48,6 +48,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/crm/emails": "Emails",
   "/manufacturing": "Manufacturing",
   "/settings": "General Settings",
+  "/settings/profile": "My Profile",
   "/settings/users": "Users & Roles",
   "/settings/appearance": "Appearance",
   "/settings/notifications": "Notifications",

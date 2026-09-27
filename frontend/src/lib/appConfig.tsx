@@ -27,6 +27,7 @@ const BASE_STRINGS: Record<string, string> = {
   segments: "Segments", products: "Products", categories: "Categories",
   brands: "Brands", units: "Units", general: "General",
   usersRoles: "Users & Roles", notifications: "Notifications",
+  myProfile: "My Profile",
   security: "Security", appearance: "Appearance", allCustomers: "All Customers",
   signOut: "Sign out", language: "Language", currency: "Currency",
   search: "Search", filter: "Filter", newDeal: "New Deal",

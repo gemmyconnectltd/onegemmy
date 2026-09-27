@@ -66,6 +66,23 @@ async def get_audit_log(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -
     return AuditLogRead.model_validate(obj)
 
 
+async def list_user_activity(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    offset: int = 0,
+    limit: int = 20,
+) -> list[AuditLogRead]:
+    """Everything we know about one user's account: their own actions plus
+    every admin action taken against them. Scoped to the caller's tenant."""
+    items = await AuditLogRepository(db).list_user_activity(tenant_id, user_id, offset, limit)
+    return [AuditLogRead.model_validate(i) for i in items]
+
+
+async def count_user_activity(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> int:
+    return await AuditLogRepository(db).count_user_activity(tenant_id, user_id)
+
+
 async def list_platform_audit_logs(db: AsyncSession, offset: int = 0, limit: int = 20) -> list[AuditLogRead]:
     items = await AuditLogRepository(db).list_platform(offset, limit)
     return [AuditLogRead.model_validate(i) for i in items]

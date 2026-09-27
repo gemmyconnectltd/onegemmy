@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
@@ -15,6 +15,32 @@ class UserRepository(BaseRepository[User]):
         selectinload(User.role_rel).selectinload(Role.permissions),
         selectinload(User.tenant),
     )
+
+    def _filtered(
+        self,
+        tenant_id: uuid.UUID,
+        search: str | None,
+        is_active: bool | None,
+        role_id: uuid.UUID | None,
+    ):
+        """Shared WHERE builder for the users list and its COUNT twin, so the
+        two can never drift apart and paginate over a different row set than
+        the one that was counted."""
+        stmt = select(User).where(User.tenant_id == tenant_id)
+        if search:
+            like = f"%{search.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    User.full_name.ilike(like),
+                    User.email.ilike(like),
+                    User.phone.ilike(like),
+                )
+            )
+        if is_active is not None:
+            stmt = stmt.where(User.is_active == is_active)
+        if role_id is not None:
+            stmt = stmt.where(User.role_id == role_id)
+        return stmt
 
     async def get(self, id: uuid.UUID) -> User | None:  # type: ignore[override]
         result = await self.db.execute(
@@ -40,19 +66,46 @@ class UserRepository(BaseRepository[User]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int, limit: int) -> list[User]:
-        result = await self.db.execute(
-            select(User)
+    async def list_for_tenant(
+        self,
+        tenant_id: uuid.UUID,
+        offset: int,
+        limit: int,
+        search: str | None = None,
+        is_active: bool | None = None,
+        role_id: uuid.UUID | None = None,
+    ) -> list[User]:
+        stmt = (
+            self._filtered(tenant_id, search, is_active, role_id)
             .options(*self._with_role)
-            .where(User.tenant_id == tenant_id)
             .order_by(User.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
+    async def count_for_tenant(
+        self,
+        tenant_id: uuid.UUID,
+        search: str | None = None,
+        is_active: bool | None = None,
+        role_id: uuid.UUID | None = None,
+    ) -> int:
+        stmt = self._filtered(tenant_id, search, is_active, role_id).subquery()
+        result = await self.db.execute(select(func.count()).select_from(stmt))
+        return result.scalar_one()
+
+    async def count_active_admins(self, tenant_id: uuid.UUID) -> int:
+        """Guards against a tenant locking itself out: the last active
+        Admin (or the tenant owner) can't be demoted or deactivated."""
         result = await self.db.execute(
-            select(func.count()).select_from(User).where(User.tenant_id == tenant_id)
+            select(func.count())
+            .select_from(User)
+            .where(
+                User.tenant_id == tenant_id,
+                User.is_active.is_(True),
+                (User.is_superuser.is_(True)) | (User.role == "admin"),
+            )
         )
         return result.scalar_one()

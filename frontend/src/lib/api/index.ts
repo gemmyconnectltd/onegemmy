@@ -79,3 +79,9 @@ export { adminApi } from "./admin";
 // Tenants (current company: profile, entitlements)
 export type { TenantEntitlements, Tenant, TenantUpdateInput } from "./tenants";
 export { tenantsApi } from "./tenants";
+
+// Users & roles (tenant-scoped company access)
+export type {
+  ApiUser, ApiAuditLog, UserCreatePayload, UserUpdatePayload, UserListFilters, PasswordResetResult,
+} from "./users";
+export { usersApi } from "./users";

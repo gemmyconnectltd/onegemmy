@@ -8,7 +8,7 @@ import {
   TrendingDown, CreditCard, Users, UserPlus, Clock, DollarSign, Award,
   UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
   Hammer, Package, Layers, Tag, Ruler, Star, Settings, Bell,
-  Shield, Palette, PanelTop, PanelLeft, PanelRight, Building2,
+  Shield, Palette, PanelTop, PanelLeft, PanelRight, Building2, UserCircle,
 } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -104,6 +104,7 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
   ],
   settings: [
     { nameKey: "general",       href: "/settings",               icon: Settings, exact: true },
+    { nameKey: "myProfile",     href: "/settings/profile",       icon: UserCircle },
     { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
     { nameKey: "security",      href: "/settings/security",      icon: Shield },
     { nameKey: "notifications", href: "/settings/notifications", icon: Bell },
