@@ -52,6 +52,15 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
   const { logoUrl } = useAppConfig();
   const router = useRouter();
   const admin = variant === "admin";
+  // The admin console isn't scoped to one tenant, so it keeps the platform
+  // name; falls back to it too for the brief window before the tenant name
+  // has loaded, so this never renders blank.
+  const brandLabel = admin ? siteConfig.name : (user?.tenantName ?? siteConfig.name);
+  // The sidebar column is ~90px — a real business name doesn't fit, so show
+  // its initials there (same abbreviation the user avatar uses below) and
+  // keep the full name as a hover tooltip via the Link's title.
+  const brandInitials =
+    brandLabel.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "P";
   const { data: entitlements } = useMyEntitlements({ enabled: !admin });
   const enabledFeatures = entitlements?.features;
   const items = admin
@@ -102,23 +111,27 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
         className="hidden lg:flex fixed top-0 left-0 h-screen bg-card border-r border-border z-40 flex-col select-none transition-all duration-200 overflow-hidden"
         style={{ width: w }}
       >
-        {/* Logo — click to go home */}
+        {/* Logo — click to go home. Shows the signed-in business's own name
+            (not the platform's), since a user can belong to more than one
+            company and this is the first thing they see — same source the
+            Topbar's business badge uses. The admin console has no single
+            tenant, so it keeps the platform name. */}
         <Link
           href={admin ? "/admin" : "/dashboard"}
-          title={collapsed ? siteConfig.name : undefined}
+          title={brandLabel}
           className="flex flex-col items-center justify-center gap-1 h-[60px] border-b border-border flex-shrink-0 hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden">
             {!admin && logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={`${siteConfig.name} logo`} className="w-full h-full object-cover" />
+              <img src={logoUrl} alt={`${brandLabel} logo`} className="w-full h-full object-cover" />
             ) : (
               <LogoMark size={16} className="text-white" strokeWidth={2.5} />
             )}
           </div>
           {!collapsed && (
-            <span className="text-[9.5px] font-bold leading-none text-foreground/80 tracking-tight">
-              {siteConfig.name}
+            <span className="text-[10px] font-bold leading-none text-foreground/80 tracking-tight">
+              {brandInitials}
             </span>
           )}
         </Link>
@@ -210,7 +223,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
         </div>
       </aside>
 
-      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, navItems: items, mobileNavItems: mobileItems, includeSettings: !admin, admin })}
+      {mobileBottomNav({ mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick, handleLogout, initials, user, brandLabel, navItems: items, mobileNavItems: mobileItems, includeSettings: !admin, admin })}
     </>
   );
 }
@@ -220,7 +233,7 @@ type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: 
 // ── Shared mobile bottom nav ─────────────────────────────────────────────────
 function mobileBottomNav({
   mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick,
-  handleLogout, initials, user, navItems, mobileNavItems, includeSettings = true, admin = false,
+  handleLogout, initials, user, brandLabel, navItems, mobileNavItems, includeSettings = true, admin = false,
 }: {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (v: boolean) => void;
@@ -229,6 +242,7 @@ function mobileBottomNav({
   handleLogout: () => void;
   initials: string;
   user: { name?: string; role?: string } | null;
+  brandLabel: string;
   navItems: NavItem[];
   mobileNavItems: NavItem[];
   includeSettings?: boolean;
@@ -247,7 +261,7 @@ function mobileBottomNav({
               <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center flex-shrink-0">
                 <LogoMark size={17} className="text-white" strokeWidth={2.5} />
               </div>
-              <span className="text-[15px] font-bold text-foreground">{siteConfig.name}</span>
+              <span className="text-[15px] font-bold text-foreground truncate">{brandLabel}</span>
             </Link>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-muted hover:text-foreground">
               <X size={20} />
