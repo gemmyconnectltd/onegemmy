@@ -35,6 +35,7 @@ export interface ApiRegisterRequest {
   business_location?: string;
   heard_about?: string;
   referral_code?: string;
+  main_branch_name?: string;
   country?: string;
 }
 
