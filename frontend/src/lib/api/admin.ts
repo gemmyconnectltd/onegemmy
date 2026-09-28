@@ -21,6 +21,7 @@ export interface AdminTenant {
   subscription_status: string;
   currency: string;
   vat_enabled: boolean;
+  multi_branch: boolean;
   logo_url: string | null;
   website: string | null;
   phone: string | null;
