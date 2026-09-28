@@ -27,6 +27,7 @@ export interface Tenant {
   subscription_status: string;
   currency: string;
   vat_enabled: boolean;
+  multi_branch: boolean;
   business_type: string | null;
   industry: string | null;
   business_category: string | null;

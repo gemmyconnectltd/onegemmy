@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { useRouter } from "next/navigation";
-import { useMyEntitlements } from "@/lib/api/hooks";
+import { useMyEntitlements, useCurrentTenant } from "@/lib/api/hooks";
 import { siteConfig } from "@/lib/config";
 import { LogoMark } from "@/components/ui/LogoMark";
 import {
@@ -41,9 +41,10 @@ const coreNavItems = [
 // ── Business management ───────────────────────────────────────────────────
 const mgmtNavItems = [
   { name: "HR",       href: "/hr",       icon: UserCog,   feature: "hr", module: "hr" },
-  // { name: "Branches", href: "/branches", icon: Building2 },
   { name: "Reports",  href: "/reports",  icon: BarChart3 },
 ];
+
+const branchNavItem = { name: "Branches", href: "/branches", icon: Building2 };
 
 const navItems = [...coreNavItems, ...mgmtNavItems];
 
@@ -71,6 +72,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
   const admin = variant === "admin";
   const brandLabel = admin ? siteConfig.name : (user?.tenantName ?? siteConfig.name);
   const { data: entitlements } = useMyEntitlements({ enabled: !admin });
+  const { data: currentTenant } = useCurrentTenant({ enabled: !admin });
   const enabledFeatures = entitlements?.features;
 
   const filterItems = (list: typeof navItems) =>
@@ -81,7 +83,10 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
     );
 
   const coreItems = admin ? adminNavItems : filterItems(coreNavItems);
-  const mgmtItems = admin ? [] : filterItems(mgmtNavItems);
+  const mgmtItems = admin ? [] : [
+    ...filterItems(mgmtNavItems),
+    ...(currentTenant?.multi_branch ? [branchNavItem] : []),
+  ];
   const items = [...coreItems, ...mgmtItems];
   const mobileItems = items.slice(0, 5);
 
