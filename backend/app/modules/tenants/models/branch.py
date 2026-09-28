@@ -11,6 +11,8 @@ class Branch(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str | None] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(50))
+    email: Mapped[str | None] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(20), default="active")
 
     tenant = relationship("Tenant", back_populates="branches", lazy="select")

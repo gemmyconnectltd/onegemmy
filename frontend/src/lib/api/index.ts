@@ -62,7 +62,7 @@ export type {
 export { procurementApi } from "./procurement";
 
 // Repairs, Batches, Serials, Transfers & Warranty
-export type { RepairJob, RepairJobPart, InventoryBatch, ApiSerial, ApiStockTransfer, ApiStockTransferItem, ApiBranch, ApiWarrantyClaim } from "./repairs";
+export type { RepairJob, RepairJobPart, InventoryBatch, ApiSerial, ApiStockTransfer, ApiStockTransferItem, ApiBranch, ApiBranchUser, ApiBranchTransfer, ApiBranchStats, ApiWarrantyClaim } from "./repairs";
 export { repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi } from "./repairs";
 
 // Manufacturing

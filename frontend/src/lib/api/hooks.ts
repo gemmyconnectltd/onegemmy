@@ -471,6 +471,12 @@ export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: Q
 export const useMyBranches = (opts?: QueryOpts) =>
   useQ([...BRANCHES_KEY], () => branchesApi.list(), (r) => r.data, opts);
 
+export const useMyBranch = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...BRANCHES_KEY, id], () => branchesApi.get(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useMyBranchStats = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...BRANCHES_KEY, id, "stats"], () => branchesApi.stats(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
 export const useCreateMyBranch = mutation((d: object) => branchesApi.create(d), [[...BRANCHES_KEY]]);
 export const useUpdateMyBranch = mutation(({ id, data }: { id: string; data: object }) => branchesApi.update(id, data), [[...BRANCHES_KEY]]);
 export const useDeleteMyBranch = mutation((id: string) => branchesApi.delete(id), [[...BRANCHES_KEY]]);

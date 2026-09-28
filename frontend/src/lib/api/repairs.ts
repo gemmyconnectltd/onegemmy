@@ -107,6 +107,31 @@ export interface ApiBranch {
   phone: string | null;
   email: string | null;
   status: string | null;
+  user_count: number;
+  created_at: string | null;
+}
+
+export interface ApiBranchUser {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+}
+
+export interface ApiBranchTransfer {
+  id: string;
+  transfer_number: string;
+  status: string;
+  direction: "incoming" | "outgoing";
+  created_at: string | null;
+}
+
+export interface ApiBranchStats {
+  user_count: number;
+  users: ApiBranchUser[];
+  transfer_count: number;
+  recent_transfers: ApiBranchTransfer[];
 }
 
 export interface ApiWarrantyClaim {
@@ -158,6 +183,8 @@ export const transfersApi = {
 
 export const branchesApi = {
   list: () => request<PaginatedResponse<ApiBranch>>(BRANCHES),
+  get: (id: string) => request<SingleResponse<ApiBranch>>(`${BRANCHES}/${id}`),
+  stats: (id: string) => request<SingleResponse<ApiBranchStats>>(`${BRANCHES}/${id}/stats`),
   create: (data: object) => request<SingleResponse<ApiBranch>>(BRANCHES, { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: object) => request<SingleResponse<ApiBranch>>(`${BRANCHES}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<SingleResponse<null>>(`${BRANCHES}/${id}`, { method: "DELETE" }),

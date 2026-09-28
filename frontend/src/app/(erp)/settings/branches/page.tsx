@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Plus, Pencil, Trash2, MapPin, Phone, Globe, CheckCircle, XCircle } from "lucide-react";
+import Link from "next/link";
+import { Building2, Plus, Pencil, Trash2, MapPin, Phone, Globe, CheckCircle, XCircle, ChevronRight } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
@@ -136,7 +137,9 @@ export default function BranchesPage() {
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${C}15` }}>
                           <Building2 size={14} style={{ color: C }} />
                         </div>
-                        <p className="text-sm font-semibold text-foreground">{b.name}</p>
+                        <Link href={`/settings/branches/${b.id}`} className="text-sm font-semibold text-foreground hover:text-accent hover:underline transition-colors">
+                          {b.name}
+                        </Link>
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
