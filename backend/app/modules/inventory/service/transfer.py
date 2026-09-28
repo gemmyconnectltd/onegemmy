@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
@@ -100,6 +101,8 @@ async def update_transfer(
     if data.status is not None:
         if data.status not in ("pending", "in_transit", "completed", "cancelled"):
             raise ValidationError("Invalid transfer status")
+        if data.status == "completed" and obj.status != "completed":
+            await _apply_stock_movement(db, tenant_id, obj)
         obj.status = data.status
         obj.completed_at = datetime.now(UTC) if data.status == "completed" else None
     if data.notes is not None:
@@ -117,3 +120,40 @@ async def delete_transfer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID)
         raise ValidationError("Only pending transfers can be deleted")
     await TransferRepository(db).delete(obj)
     await db.commit()
+
+
+async def _apply_stock_movement(
+    db: AsyncSession, tenant_id: uuid.UUID, transfer: StockTransfer
+) -> None:
+    """Decrement stock for each item when a transfer is completed.
+    Stock is a single global quantity on the product/variant — we decrement
+    from source and increment at destination. If source stock would go
+    negative we raise a ValidationError before touching anything.
+    """
+    # Validate all items have enough stock first
+    for item in transfer.items:
+        if item.variant_id:
+            variant = await db.get(ProductVariant, item.variant_id)
+            if variant and float(variant.stock) < float(item.quantity):
+                raise ValidationError(
+                    f"Not enough stock for '{item.product_name}' "
+                    f"(available: {float(variant.stock)}, requested: {float(item.quantity)})"
+                )
+        elif item.product_id:
+            product = await db.get(Product, item.product_id)
+            if product and product.tenant_id == tenant_id and float(product.stock) < float(item.quantity):
+                raise ValidationError(
+                    f"Not enough stock for '{item.product_name}' "
+                    f"(available: {float(product.stock)}, requested: {float(item.quantity)})"
+                )
+
+    # Apply movements
+    for item in transfer.items:
+        if item.variant_id:
+            variant = await db.get(ProductVariant, item.variant_id)
+            if variant:
+                variant.stock = float(variant.stock) - float(item.quantity)
+        elif item.product_id:
+            product = await db.get(Product, item.product_id)
+            if product and product.tenant_id == tenant_id:
+                product.stock = float(product.stock) - float(item.quantity)
