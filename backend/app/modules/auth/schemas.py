@@ -25,6 +25,7 @@ class RegisterRequest(BaseModel):
     business_location: str | None = None
     heard_about: str | None = None
     referral_code: str | None = None
+    main_branch_name: str | None = None
 
 
 class LoginRequest(BaseModel):

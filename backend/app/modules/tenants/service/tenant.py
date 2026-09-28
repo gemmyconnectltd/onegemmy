@@ -41,8 +41,10 @@ async def create_tenant(db: AsyncSession, data: TenantCreate) -> TenantRead:
     tenant = await TenantRepository(db).save(tenant)
     await db.commit()
     from app.modules.tenants.service.department import seed_default_departments
+    from app.modules.tenants.service.branch import seed_default_branch
 
     await seed_default_departments(db, tenant.id)
+    await seed_default_branch(db, tenant.id, tenant.name)
     await db.commit()
     log.info("tenants.create_tenant.success", extra={"_extra_fields": {"tenant_id": str(tenant.id)}})
     return TenantRead.model_validate(tenant)

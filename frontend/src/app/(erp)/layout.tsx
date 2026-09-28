@@ -126,7 +126,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         onCollapsedChange={setSidebarCollapsed}
       />
       <div
-        className="flex flex-col min-h-screen transition-all duration-200"
+        className="flex flex-col min-h-screen"
         style={{
           marginLeft: isMobile ? 0 : sidebarW,
           paddingBottom: isMobile ? 64 : 0,

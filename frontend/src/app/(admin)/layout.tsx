@@ -55,7 +55,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         variant="admin"
       />
       <div
-        className="flex flex-col min-h-screen transition-all duration-200"
+        className="flex flex-col min-h-screen"
         style={{
           marginLeft: isMobile ? 0 : sidebarW,
           paddingBottom: isMobile ? 64 : 0,

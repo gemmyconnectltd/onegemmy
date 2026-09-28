@@ -19,6 +19,7 @@ class TenantCreate(BaseModel):
     country: str | None = None
     currency: str | None = None
     vat_enabled: bool | None = None
+    multi_branch: bool | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
@@ -45,6 +46,7 @@ class TenantUpdate(BaseModel):
     # rejects this field, see app/modules/tenants/routes/tenant.py.
     currency: str | None = None
     vat_enabled: bool | None = None
+    multi_branch: bool | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
@@ -72,6 +74,7 @@ class TenantRead(BaseModel):
     subscription_status: str
     currency: str
     vat_enabled: bool = True
+    multi_branch: bool = False
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None

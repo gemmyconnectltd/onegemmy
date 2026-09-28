@@ -57,3 +57,8 @@ async def delete_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.
         raise NotFoundError("Branch not found")
     await BranchRepository(db).delete(branch)
     await db.commit()
+
+
+async def seed_default_branch(db: AsyncSession, tenant_id: uuid.UUID, tenant_name: str) -> None:
+    branch = Branch(tenant_id=tenant_id, name="Main Branch", status="active")
+    await BranchRepository(db).save(branch)

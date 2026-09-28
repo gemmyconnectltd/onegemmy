@@ -43,8 +43,6 @@ const COUNTRIES = worldCountriesData
   .filter((c) => c.dial)
   .sort((a, b) => a.name.localeCompare(b.name));
 
-const GENDERS = ["Male", "Female", "Other"];
-
 const BUSINESS_TYPES = [
   { value: "sole", label: "Sole Proprietorship", desc: "Individual-owned business" },
   { value: "partnership", label: "Partnership", desc: "Two or more owners" },
@@ -76,7 +74,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [countryName, setCountryName] = useState("");
-  const [gender, setGender] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -93,6 +90,8 @@ export default function RegisterPage() {
   const [showReferral, setShowReferral] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [agree, setAgree] = useState(false);
+  const [hasMultipleBranches, setHasMultipleBranches] = useState(false);
+  const [mainBranchName, setMainBranchName] = useState("");
 
   const [error, setError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -195,6 +194,7 @@ export default function RegisterPage() {
       businessLocation: businessLocation || undefined,
       heardAbout: heardAbout || undefined,
       referralCode: referralCode || undefined,
+      mainBranchName: hasMultipleBranches && mainBranchName ? mainBranchName : undefined,
     });
     if (result.ok) {
       if (result.pending) {
@@ -371,24 +371,6 @@ export default function RegisterPage() {
                 {email && !emailValid(email) && (
                   <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Enter a valid email address</p>
                 )}
-              </div>
-
-              <div>
-                <label className="block text-[13px] font-medium text-foreground mb-1.5">Gender</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {GENDERS.map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setGender(g)}
-                      className={`py-2 rounded-lg text-[13px] font-medium border transition-colors ${
-                        gender === g ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {g}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <div>
@@ -572,6 +554,38 @@ export default function RegisterPage() {
                 </div>
                 {businessLocation && !locationValid(businessLocation) && (
                   <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Please enter a valid location (min 3 characters)</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-foreground mb-2">Does your business have multiple branches?</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {([{ value: true, label: "Yes" }, { value: false, label: "No" }] as const).map(({ value, label }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => { setHasMultipleBranches(value); if (!value) setMainBranchName(""); }}
+                      className={`py-2.5 rounded-lg border text-[13px] font-semibold transition-colors ${
+                        hasMultipleBranches === value ? "border-accent bg-accent/5 text-accent" : "border-border text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {hasMultipleBranches && (
+                  <div className="mt-3">
+                    <label className="block text-[13px] font-medium text-foreground mb-1.5">Name your main branch</label>
+                    <input
+                      type="text"
+                      value={mainBranchName}
+                      onChange={(e) => setMainBranchName(e.target.value)}
+                      onFocus={() => setFocusedField("mainBranch")}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="e.g. Kigali HQ, Main Store"
+                      className={inputClass(focusedField === "mainBranch")}
+                    />
+                  </div>
                 )}
               </div>
 

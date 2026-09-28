@@ -106,7 +106,6 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "general",       href: "/settings",               icon: Settings, exact: true },
     { nameKey: "myProfile",     href: "/settings/profile",       icon: UserCircle },
     { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
-    { nameKey: "branches",      href: "/settings/branches",      icon: Building2 },
     { nameKey: "security",      href: "/settings/security",      icon: Shield },
     { nameKey: "notifications", href: "/settings/notifications", icon: Bell },
     { nameKey: "appearance",    href: "/settings/appearance",    icon: Palette },

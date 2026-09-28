@@ -46,6 +46,10 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # by the tenant's own admin and by a platform superadmin.
     vat_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Whether this tenant operates multiple branches. Controls branch-related
+    # UI visibility on the tenant's own dashboard.
+    multi_branch: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # Per-tenant feature overrides, e.g. {"hr": false, "pos": true}.
     # Effective value = catalog default merged with these overrides.
     features: Mapped[dict] = mapped_column(JSONB, default=dict)

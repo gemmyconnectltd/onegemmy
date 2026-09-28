@@ -45,6 +45,7 @@ export interface RegisterInput {
   businessLocation?: string;
   heardAbout?: string;
   referralCode?: string;
+  mainBranchName?: string;
 }
 
 // Backend permission resources (resource:action, see backend/app/scripts/seed.py)
@@ -203,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         business_location: data.businessLocation,
         heard_about: data.heardAbout,
         referral_code: data.referralCode,
+        main_branch_name: data.mainBranchName,
       });
       // New signups land inactive until a platform admin approves them — no
       // tokens are issued yet, see backend auth.service.register.

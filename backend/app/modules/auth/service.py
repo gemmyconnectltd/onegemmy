@@ -144,12 +144,11 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
 
     from app.modules.tenants.service.department import seed_default_departments
     from app.modules.tenants.service.role import seed_default_roles
+    from app.modules.tenants.service.branch import seed_default_branch
 
     await seed_default_departments(db, tenant.id)
-    # Without this, every user invited after the owner gets role_id=None and
-    # zero permissions — see resolve_role_id, which invite flows use to turn
-    # an invite's role string into real access against these seeded roles.
     await seed_default_roles(db, tenant.id)
+    await seed_default_branch(db, tenant.id, data.main_branch_name or "Main Branch")
     await db.commit()
 
     log.info("auth.register.pending", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(tenant.id)}})

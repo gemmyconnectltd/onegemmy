@@ -222,6 +222,16 @@ export default function TenantDetailPage() {
     });
   };
 
+  const toggleMultiBranch = () => {
+    if (!tenant) return;
+    const next = !tenant.multi_branch;
+    setNotice(null);
+    updateTenant.mutate({ id, data: { multi_branch: next } }, {
+      onSuccess: () => setNotice({ kind: "success", text: `Multi-branch ${next ? "enabled" : "disabled"} for ${tenant.name}` }),
+      onError: () => setNotice({ kind: "error", text: "Failed to update multi-branch" }),
+    });
+  };
+
   const openInvite = () => {
     setNotice(null);
     setTempPassword(null);
@@ -478,6 +488,18 @@ export default function TenantDetailPage() {
             />
             <span className="text-sm font-medium text-foreground">
               VAT {tenant.vat_enabled ? "on" : "off"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">
+            <Toggle
+              checked={tenant.multi_branch ?? false}
+              onChange={toggleMultiBranch}
+              disabled={updateTenant.isPending}
+              size="sm"
+              label={tenant.multi_branch ? `Disable multi-branch for ${tenant.name}` : `Enable multi-branch for ${tenant.name}`}
+            />
+            <span className="text-sm font-medium text-foreground">
+              Multi-branch {tenant.multi_branch ? "on" : "off"}
             </span>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface border border-border">

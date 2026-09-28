@@ -14,29 +14,46 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, HandCoins,
   Factory, ShoppingBag, Building2, Menu, X,
-  PanelLeft, Crown, Activity,
+  PanelLeft, Crown, Activity, Wrench,
 } from "lucide-react";
 
 const adminNavItems = [
   { name: "Overview",  href: "/admin",          icon: LayoutDashboard },
-  { name: "Tenants",  href: "/admin/tenants",   icon: Building2 },
-  { name: "Users",    href: "/admin/users",     icon: Users },
-  { name: "Plans",    href: "/admin/plans",     icon: Crown },
-  { name: "Usage",    href: "/admin/usage",     icon: Activity },
-  { name: "Settings", href: "/admin/settings",  icon: Settings },
+  { name: "Tenants",   href: "/admin/tenants",   icon: Building2 },
+  { name: "Users",     href: "/admin/users",     icon: Users },
+  { name: "Plans",     href: "/admin/plans",     icon: Crown },
+  { name: "Usage",     href: "/admin/usage",     icon: Activity },
+  { name: "Settings",  href: "/admin/settings",  icon: Settings },
 ];
 
-const navItems = [
-  { name: "Dashboard",   href: "/dashboard",     icon: LayoutDashboard },
-  { name: "Sales",       href: "/sales",         icon: ShoppingCart,    feature: "sales",          module: "sales" },
-  { name: "Inventory",   href: "/inventory",     icon: Warehouse,       feature: "inventory",      module: "inventory" },
-  { name: "Accounting",     href: "/accounting",       icon: HandCoins,       feature: "accounting",        module: "accounting" },
-  { name: "Purchases",   href: "/procurement",   icon: ShoppingBag,     feature: "procurement",    module: "procurement" },
-  { name: "HR",          href: "/hr",            icon: UserCog,         feature: "hr",             module: "hr" },
-  { name: "Customers",   href: "/customers",     icon: Users,           feature: "sales",          module: "customers" },
-  { name: "Mfg",         href: "/manufacturing", icon: Factory,         feature: "manufacturing",  module: "manufacturing" },
-  { name: "Reports",     href: "/reports",       icon: BarChart3 },
+// ── Core business features ────────────────────────────────────────────────
+const coreNavItems = [
+  { name: "Dashboard",  href: "/dashboard",     icon: LayoutDashboard },
+  { name: "Sales",      href: "/sales",         icon: ShoppingCart,  feature: "sales",         module: "sales" },
+  { name: "Inventory",  href: "/inventory",     icon: Warehouse,     feature: "inventory",     module: "inventory" },
+  { name: "Accounting", href: "/accounting",    icon: HandCoins,     feature: "accounting",    module: "accounting" },
+  { name: "Purchases",  href: "/procurement",   icon: ShoppingBag,   feature: "procurement",   module: "procurement" },
+  { name: "Customers",  href: "/customers",     icon: Users,         feature: "sales",         module: "customers" },
+  { name: "Manufacturing", href: "/manufacturing", icon: Factory,       feature: "manufacturing", module: "manufacturing" },
+  // { name: "Services",  href: "/repairs",       icon: Wrench,        feature: "repairs",       module: "repairs" },
 ];
+
+// ── Business management ───────────────────────────────────────────────────
+const mgmtNavItems = [
+  { name: "HR",       href: "/hr",       icon: UserCog,   feature: "hr", module: "hr" },
+  // { name: "Branches", href: "/branches", icon: Building2 },
+  { name: "Reports",  href: "/reports",  icon: BarChart3 },
+];
+
+const navItems = [...coreNavItems, ...mgmtNavItems];
+
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  feature?: string;
+  module?: string;
+};
 
 interface SidebarProps {
   expanded: boolean;
@@ -52,27 +69,25 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
   const { logoUrl } = useAppConfig();
   const router = useRouter();
   const admin = variant === "admin";
-  // The admin console isn't scoped to one tenant, so it keeps the platform
-  // name; falls back to it too for the brief window before the tenant name
-  // has loaded, so this never renders blank.
   const brandLabel = admin ? siteConfig.name : (user?.tenantName ?? siteConfig.name);
-  // The sidebar column is ~90px — a real business name doesn't fit, so show
-  // its initials there (same abbreviation the user avatar uses below) and
-  // keep the full name as a hover tooltip via the Link's title.
-  const brandInitials =
-    brandLabel.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "P";
   const { data: entitlements } = useMyEntitlements({ enabled: !admin });
   const enabledFeatures = entitlements?.features;
-  const items = admin
-    ? adminNavItems
-    : navItems.filter(
-        (i) =>
-          (!i.feature || enabledFeatures?.[i.feature] !== false) &&
-          (!i.module || hasModuleAccess(i.module)),
-      );
+
+  const filterItems = (list: typeof navItems) =>
+    list.filter(
+      (i) =>
+        (!i.feature || enabledFeatures?.[i.feature] !== false) &&
+        (!i.module || hasModuleAccess(i.module)),
+    );
+
+  const coreItems = admin ? adminNavItems : filterItems(coreNavItems);
+  const mgmtItems = admin ? [] : filterItems(mgmtNavItems);
+  const items = [...coreItems, ...mgmtItems];
   const mobileItems = items.slice(0, 5);
+
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const toggleCollapse = () => {
     const next = !collapsed;
     onCollapsedChange(next);
@@ -89,33 +104,27 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
     router.push("/login");
   };
 
-  const initials =
-    user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
+  const initials = user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
 
-  // ── VERTICAL sidebar (only layout) ───────────────────────────────────────
   const w = collapsed ? 64 : 96;
+
   return (
     <>
-      {/* Collapse toggle — floats on the sidebar's edge so it never competes
-          with the logo for space, at any width. */}
+      {/* Collapse toggle */}
       <button
         onClick={toggleCollapse}
-        className="hidden lg:flex fixed z-50 top-[24px] w-6 h-6 items-center justify-center bg-card border border-border text-muted hover:text-foreground hover:border-foreground/30 shadow-sm transition-[left,color,border-color] duration-200"
-        style={{ left: w - 12 }}
+        className="hidden lg:flex fixed z-50 top-[20px] w-5 h-5 items-center justify-center bg-card border border-border text-muted hover:text-foreground shadow-sm transition-[left,color] duration-200"
+        style={{ left: w - 10 }}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <PanelLeft size={12} className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
+        <PanelLeft size={11} className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
       </button>
 
       <aside
         className="hidden lg:flex fixed top-0 left-0 h-screen bg-card border-r border-border z-40 flex-col select-none transition-all duration-200 overflow-hidden"
         style={{ width: w }}
       >
-        {/* Logo — click to go home. Shows the signed-in business's own name
-            (not the platform's), since a user can belong to more than one
-            company and this is the first thing they see — same source the
-            Topbar's business badge uses. The admin console has no single
-            tenant, so it keeps the platform name. */}
+        {/* Logo */}
         <Link
           href={admin ? "/admin" : "/dashboard"}
           title={brandLabel}
@@ -131,80 +140,76 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
           </div>
           {!collapsed && (
             <span className="text-[10px] font-bold leading-none text-foreground/80 tracking-tight">
-              {brandInitials}
+              {brandLabel.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "P"}
             </span>
           )}
         </Link>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto overflow-x-clip py-2 flex flex-col gap-0.5">
-          {items.map((item) => {
-            const isActive = item.href === "/admin"
-              ? pathname === "/admin"
-              : pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                title={collapsed ? item.name : undefined}
-                data-tour={admin ? undefined : `nav-${item.name.toLowerCase()}`}
-                className={
-                  "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" +
-                  (isActive ? " bg-accent" : "")
-                }
-              >
-                <item.icon
-                  size={18}
-                  strokeWidth={isActive ? 2.2 : 1.8}
-                  className={"flex-shrink-0 transition-transform duration-150 group-hover:scale-110" + (isActive ? " text-white" : " text-muted")}
-                />
-                {!collapsed && (
-                  <span className={"text-[10.5px] font-semibold leading-tight text-center break-words" + (isActive ? " text-white" : " text-muted")}>
-                    {item.name}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 flex flex-col gap-0.5">
+          {coreItems.map((item) => (
+            <NavLink key={item.name} item={item} pathname={pathname} collapsed={collapsed} admin={admin} />
+          ))}
+
+          {!admin && mgmtItems.length > 0 && (
+            <>
+              <div className="mx-3 my-2 border-t border-border/60" />
+              {!collapsed && (
+                <span className="text-[9px] font-bold text-muted/40 uppercase tracking-widest px-4 pb-1 block">
+                  Business
+                </span>
+              )}
+              {mgmtItems.map((item) => (
+                <NavLink key={item.name} item={item} pathname={pathname} collapsed={collapsed} admin={admin} />
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="mx-3 border-t border-border" />
 
         {/* Bottom */}
-        <div className="py-3 flex flex-col items-center gap-0.5">
-          {/* Settings — only for non-admin (admin has it in nav) */}
+        <div className="py-2 flex flex-col gap-0.5">
           {!admin && (
-            <div className="w-full pb-1">
-              <Link
-                href="/settings"
-                title={collapsed ? "Settings" : undefined}
-                data-tour="nav-settings"
-                className={
-                  "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none" +
-                  (pathname.startsWith("/settings") ? " bg-accent" : "")
-                }
-              >
-                <Settings size={18} strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.8} className={"flex-shrink-0" + (pathname.startsWith("/settings") ? " text-white" : " text-muted")} />
-                {!collapsed && <span className={"text-[10.5px] font-semibold text-center" + (pathname.startsWith("/settings") ? " text-white" : " text-muted")}>Settings</span>}
-              </Link>
-            </div>
+            <Link
+              href="/settings"
+              title={collapsed ? "Settings" : undefined}
+              data-tour="nav-settings"
+              className={
+                "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none" +
+                (pathname.startsWith("/settings") ? " bg-accent" : " hover:bg-surface")
+              }
+            >
+              <Settings
+                size={18}
+                strokeWidth={pathname.startsWith("/settings") ? 2.2 : 1.8}
+                className={"flex-shrink-0" + (pathname.startsWith("/settings") ? " text-white" : " text-muted group-hover:text-foreground")}
+              />
+              {!collapsed && (
+                <span className={"text-[10.5px] font-semibold text-center" + (pathname.startsWith("/settings") ? " text-white" : " text-muted group-hover:text-foreground")}>
+                  Settings
+                </span>
+              )}
+            </Link>
           )}
 
           {/* User */}
-          <div className="w-full pb-2 relative" data-tour={admin ? undefined : "user-menu"} onMouseEnter={() => setTooltip("user")} onMouseLeave={() => setTooltip(null)}>
+          <div
+            className="relative"
+            data-tour={admin ? undefined : "user-menu"}
+            onMouseEnter={() => setTooltip("user")}
+            onMouseLeave={() => setTooltip(null)}
+          >
             <button type="button" className="flex flex-col items-center gap-1.5 py-2 w-full hover:bg-surface transition-colors">
               <div className="w-7 h-7 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
                 {initials}
               </div>
               {!collapsed && (
-                <div className="text-center min-w-0 max-w-full">
-                  <p className="text-[10.5px] font-semibold text-foreground truncate">{user?.name?.split(" ")[0]}</p>
-                </div>
+                <p className="text-[10.5px] font-semibold text-foreground truncate">{user?.name?.split(" ")[0]}</p>
               )}
             </button>
             {tooltip === "user" && (
-              <div className="fixed z-[60] pointer-events-auto" style={{ left: w + 12, bottom: 12 }}>
+              <div className="fixed z-[60]" style={{ left: w + 8, bottom: 12 }}>
                 <div className="bg-card border border-border shadow-xl rounded-xl p-3 w-44">
                   <div className="flex items-center gap-2.5 mb-3">
                     <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">{initials}</div>
@@ -228,9 +233,34 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
   );
 }
 
-type NavItem = { name: string; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties; className?: string }>; feature?: string; module?: string };
+function NavLink({ item, pathname, collapsed, admin }: { item: NavItem; pathname: string; collapsed: boolean; admin: boolean }) {
+  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const tourKey = `nav-${item.name.toLowerCase()}`;
+  return (
+    <Link
+      href={item.href}
+      title={collapsed ? item.name : undefined}
+      data-tour={admin ? undefined : tourKey}
+      className={
+        "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none" +
+        (isActive ? " bg-accent" : " hover:bg-surface")
+      }
+    >
+      <item.icon
+        size={18}
+        strokeWidth={isActive ? 2.2 : 1.8}
+        className={"flex-shrink-0" + (isActive ? " text-white" : " text-muted group-hover:text-foreground")}
+      />
+      {!collapsed && (
+        <span className={"text-[10.5px] font-semibold text-center" + (isActive ? " text-white" : " text-muted group-hover:text-foreground")}>
+          {item.name}
+        </span>
+      )}
+    </Link>
+  );
+}
 
-// ── Shared mobile bottom nav ─────────────────────────────────────────────────
+// ── Mobile bottom nav ─────────────────────────────────────────────────────
 function mobileBottomNav({
   mobileMenuOpen, setMobileMenuOpen, pathname, handleNavClick,
   handleLogout, initials, user, brandLabel, navItems, mobileNavItems, includeSettings = true, admin = false,
