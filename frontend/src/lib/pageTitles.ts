@@ -50,6 +50,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/settings": "General Settings",
   "/settings/profile": "My Profile",
   "/settings/users": "Users & Roles",
+  "/settings/branches": "Branches",
   "/settings/appearance": "Appearance",
   "/settings/notifications": "Notifications",
   "/settings/security": "Security",

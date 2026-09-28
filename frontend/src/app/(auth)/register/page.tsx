@@ -95,9 +95,30 @@ export default function RegisterPage() {
   const [agree, setAgree] = useState(false);
 
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const handlePhoneChange = (raw: string) => {
+    const cleaned = raw.replace(/[^0-9\s\-]/g, "");
+    setPhone(cleaned);
+    const digits = cleaned.replace(/\D/g, "");
+    if (cleaned.length === 0) { setPhoneError(""); return; }
+    if (digits.length < 6)  { setPhoneError("Too short — minimum 6 digits"); return; }
+    if (digits.length > 15) { setPhoneError("Too long — maximum 15 digits"); return; }
+    setPhoneError("");
+  };
+
+  const phoneDigits = phone.replace(/\D/g, "");
+  const phoneValid = phoneDigits.length >= 6 && phoneDigits.length <= 15;
+
+  // Name validation — letters, spaces, hyphens, apostrophes only
+  const nameValid = (v: string) => v.trim().length >= 2 && /^[\p{L}\s'\-]+$/u.test(v.trim());
+  const emailValid = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+  const companyValid = (v: string) => v.trim().length >= 2;
+  const locationValid = (v: string) => v.trim().length >= 3;
+  const referralValid = (v: string) => v === "" || /^[A-Za-z0-9\-_]{3,20}$/.test(v);
 
   // Best-effort: default Country (and, since they share `countryName`, the
   // phone country-code) to wherever the visitor actually is, via IP
@@ -135,10 +156,13 @@ export default function RegisterPage() {
 
   const goToStep2 = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passwordValid) {
-      setError("Please meet all password requirements below");
-      return;
-    }
+    if (!nameValid(firstName)) { setError("First name must be at least 2 letters (no numbers or symbols)"); return; }
+    if (!nameValid(lastName))  { setError("Last name must be at least 2 letters (no numbers or symbols)"); return; }
+    if (!emailValid(email))    { setError("Please enter a valid email address"); return; }
+    if (!countryName)          { setError("Please select your country"); return; }
+    if (!phone)                { setError("Please enter your phone number"); return; }
+    if (!phoneValid)           { setError(phoneError || "Please enter a valid phone number"); return; }
+    if (!passwordValid)        { setError("Please meet all password requirements below"); return; }
     setError("");
     setStep(2);
   };
@@ -146,13 +170,10 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    // Business Type is a button group, not a native form control, so the
-    // browser's own `required` validation (used for the selects below)
-    // can't cover it — check it here instead.
-    if (!businessType) {
-      setError("Please select a business type");
-      return;
-    }
+    if (!businessType)              { setError("Please select a business type"); return; }
+    if (!companyValid(company))     { setError("Business name must be at least 2 characters"); return; }
+    if (!locationValid(businessLocation)) { setError("Please enter a valid business location (min 3 characters)"); return; }
+    if (!referralValid(referralCode))     { setError("Referral code must be 3–20 alphanumeric characters"); return; }
     setLoading(true);
     // Personal-info step's gender is still UI-only — it belongs to the
     // person, not the business, and isn't persisted anywhere yet. Phone and
@@ -270,8 +291,11 @@ export default function RegisterPage() {
                     placeholder="John"
                     required
                     autoFocus
-                    className={inputClass(focusedField === "firstName")}
+                    className={`${inputClass(focusedField === "firstName")} ${firstName && !nameValid(firstName) ? "!border-red-400" : firstName && nameValid(firstName) ? "!border-emerald-500" : ""}`}
                   />
+                  {firstName && !nameValid(firstName) && (
+                    <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Letters only, min 2 chars</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[13px] font-medium text-foreground mb-1.5">Last Name *</label>
@@ -283,8 +307,11 @@ export default function RegisterPage() {
                     onBlur={() => setFocusedField(null)}
                     placeholder="Doe"
                     required
-                    className={inputClass(focusedField === "lastName")}
+                    className={`${inputClass(focusedField === "lastName")} ${lastName && !nameValid(lastName) ? "!border-red-400" : lastName && nameValid(lastName) ? "!border-emerald-500" : ""}`}
                   />
+                  {lastName && !nameValid(lastName) && (
+                    <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Letters only, min 2 chars</p>
+                  )}
                 </div>
               </div>
 
@@ -308,14 +335,25 @@ export default function RegisterPage() {
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
                     onFocus={() => setFocusedField("phone")}
                     onBlur={() => setFocusedField(null)}
                     placeholder="712 123 456"
                     required
-                    className={inputClass(focusedField === "phone")}
+                    inputMode="numeric"
+                    className={`${inputClass(focusedField === "phone")} ${phoneError ? "!border-red-400" : phone && phoneValid ? "!border-emerald-500" : ""}`}
                   />
                 </div>
+                {phoneError && (
+                  <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1">
+                    <AlertCircle size={11} className="shrink-0" /> {phoneError}
+                  </p>
+                )}
+                {!phoneError && phone && phoneValid && (
+                  <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
+                    <Check size={11} className="shrink-0" /> Valid phone number
+                  </p>
+                )}
               </div>
 
               <div>
@@ -328,8 +366,11 @@ export default function RegisterPage() {
                   onBlur={() => setFocusedField(null)}
                   placeholder="you@company.com"
                   required
-                  className={inputClass(focusedField === "email")}
+                  className={`${inputClass(focusedField === "email")} ${email && !emailValid(email) ? "!border-red-400" : email && emailValid(email) ? "!border-emerald-500" : ""}`}
                 />
+                {email && !emailValid(email) && (
+                  <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Enter a valid email address</p>
+                )}
               </div>
 
               <div>
@@ -451,8 +492,11 @@ export default function RegisterPage() {
                   placeholder="Acme Corp"
                   required
                   autoFocus
-                  className={inputClass(focusedField === "company")}
+                  className={`${inputClass(focusedField === "company")} ${company && !companyValid(company) ? "!border-red-400" : company && companyValid(company) ? "!border-emerald-500" : ""}`}
                 />
+                {company && !companyValid(company) && (
+                  <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Business name must be at least 2 characters</p>
+                )}
               </div>
 
               <div>
@@ -521,11 +565,14 @@ export default function RegisterPage() {
                     onChange={(e) => setBusinessLocation(e.target.value)}
                     onFocus={() => setFocusedField("location")}
                     onBlur={() => setFocusedField(null)}
-                    placeholder="Search for your business location"
+                    placeholder="e.g. Kigali, Rwanda"
                     required
-                    className={`${inputClass(focusedField === "location")} pl-10`}
+                    className={`${inputClass(focusedField === "location")} pl-10 ${businessLocation && !locationValid(businessLocation) ? "!border-red-400" : businessLocation && locationValid(businessLocation) ? "!border-emerald-500" : ""}`}
                   />
                 </div>
+                {businessLocation && !locationValid(businessLocation) && (
+                  <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Please enter a valid location (min 3 characters)</p>
+                )}
               </div>
 
               <div>
@@ -545,12 +592,16 @@ export default function RegisterPage() {
                   <input
                     type="text"
                     value={referralCode}
-                    onChange={(e) => setReferralCode(e.target.value)}
+                    onChange={(e) => setReferralCode(e.target.value.replace(/[^A-Za-z0-9\-_]/g, ""))}
                     onFocus={() => setFocusedField("referral")}
                     onBlur={() => setFocusedField(null)}
-                    placeholder="Enter referral code"
-                    className={inputClass(focusedField === "referral")}
+                    placeholder="e.g. FRIEND2024"
+                    maxLength={20}
+                    className={`${inputClass(focusedField === "referral")} ${referralCode && !referralValid(referralCode) ? "!border-red-400" : referralCode && referralValid(referralCode) ? "!border-emerald-500" : ""}`}
                   />
+                  {referralCode && !referralValid(referralCode) && (
+                    <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> 3–20 letters, numbers, hyphens or underscores only</p>
+                  )}
                 </div>
               ) : (
                 <button

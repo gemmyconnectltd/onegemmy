@@ -104,6 +104,9 @@ export interface ApiBranch {
   id: string;
   name: string;
   location: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string | null;
 }
 
 export interface ApiWarrantyClaim {
@@ -155,6 +158,9 @@ export const transfersApi = {
 
 export const branchesApi = {
   list: () => request<PaginatedResponse<ApiBranch>>(BRANCHES),
+  create: (data: object) => request<SingleResponse<ApiBranch>>(BRANCHES, { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: object) => request<SingleResponse<ApiBranch>>(`${BRANCHES}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => request<SingleResponse<null>>(`${BRANCHES}/${id}`, { method: "DELETE" }),
 };
 
 export const warrantyApi = {

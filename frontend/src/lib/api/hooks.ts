@@ -471,6 +471,10 @@ export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: Q
 export const useMyBranches = (opts?: QueryOpts) =>
   useQ([...BRANCHES_KEY], () => branchesApi.list(), (r) => r.data, opts);
 
+export const useCreateMyBranch = mutation((d: object) => branchesApi.create(d), [[...BRANCHES_KEY]]);
+export const useUpdateMyBranch = mutation(({ id, data }: { id: string; data: object }) => branchesApi.update(id, data), [[...BRANCHES_KEY]]);
+export const useDeleteMyBranch = mutation((id: string) => branchesApi.delete(id), [[...BRANCHES_KEY]]);
+
 export const useCreateTransfer = mutation((d: object) => transfersApi.create(d), [[...TRANSFERS_KEY]]);
 export const useUpdateTransfer = mutation(({ id, data }: { id: string; data: object }) => transfersApi.update(id, data), [[...TRANSFERS_KEY]]);
 export const useDeleteTransfer = mutation((id: string) => transfersApi.delete(id), [[...TRANSFERS_KEY]]);

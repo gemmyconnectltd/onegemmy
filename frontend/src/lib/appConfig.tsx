@@ -26,7 +26,7 @@ const BASE_STRINGS: Record<string, string> = {
   bom: "Bill of Materials", materials: "Materials", loyalty: "Loyalty",
   segments: "Segments", products: "Products", categories: "Categories",
   brands: "Brands", units: "Units", general: "General",
-  usersRoles: "Users & Roles", notifications: "Notifications",
+  usersRoles: "Users & Roles", branches: "Branches", notifications: "Notifications",
   myProfile: "My Profile",
   security: "Security", appearance: "Appearance", allCustomers: "All Customers",
   signOut: "Sign out", language: "Language", currency: "Currency",
