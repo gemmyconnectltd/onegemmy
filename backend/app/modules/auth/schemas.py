@@ -14,6 +14,12 @@ class RegisterRequest(BaseModel):
     # All optional, so the endpoint keeps working if the frontend ever
     # trims this step down or a field is left blank.
     country: str | None = None
+    # Derived from the selected country on the frontend (only for countries
+    # whose real currency this platform actually supports end-to-end) and
+    # sent alongside it — never trust just `country` to imply a currency
+    # server-side, since the mapping is a frontend product decision, not a
+    # fact. Falls back to Tenant's own default (RWF) when absent/unsupported.
+    currency: str | None = None
     # Collected on step 1, but this is the business's own contact number
     # (there's no separate "owner phone" column) — maps straight to
     # Tenant.phone, the same field Settings edits later.

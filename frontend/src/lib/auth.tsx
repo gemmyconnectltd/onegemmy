@@ -34,6 +34,10 @@ export interface RegisterInput {
   fullName: string;
   password: string;
   country?: string;
+  // Derived from the selected country (only when that country's real
+  // currency is one this platform actually supports) — the backend
+  // re-validates it against the same supported list rather than trusting it.
+  currency?: string;
   // The business's own contact number — there's no separate "owner phone"
   // field, this maps straight to Tenant.phone (same one Settings edits later).
   phone?: string;
@@ -196,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         full_name: data.fullName,
         password: data.password,
         country: data.country,
+        currency: data.currency,
         phone: data.phone,
         business_type: data.businessType,
         industry: data.industry,

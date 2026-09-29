@@ -30,18 +30,23 @@ const BIZ_TYPE_LABELS: Record<string, string> = {
   unregistered: "Not Registered",
 };
 
+// filterValue carries the raw value the Tenants list actually filters on
+// (e.g. "sole"), separate from name (what's shown — e.g. "Sole
+// Proprietorship" after normalizeBizType relabels it for display).
 function normalizeBizType(data: { name: string; value: number }[]) {
-  return data.map((d) => ({ ...d, name: BIZ_TYPE_LABELS[d.name] ?? d.name }));
+  return data.map((d) => ({ ...d, filterValue: d.name, name: BIZ_TYPE_LABELS[d.name] ?? d.name }));
 }
 
 function CategoryDonut({
-  data, colors, tooltipStyle, empty, kind,
+  data, colors, tooltipStyle, empty, kind, filterParam,
 }: {
-  data: { name: string; value: number }[];
+  data: { name: string; value: number; filterValue?: string }[];
   colors: string[];
   tooltipStyle: React.CSSProperties;
   empty?: string;
   kind: BrandKind;
+  /** Query param on /admin/tenants this insight drills into, e.g. "country". */
+  filterParam: string;
 }) {
   const visible = data.filter((d) => d.value > 0 && d.name !== "Unknown");
   const total = visible.reduce((s, d) => s + d.value, 0) || 1;
@@ -55,11 +60,16 @@ function CategoryDonut({
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         {visible.slice(0, 5).map((d, i) => (
-          <div key={d.name} className="flex items-center gap-2 text-[12.5px]">
+          <Link
+            key={d.name}
+            href={`/admin/tenants?${filterParam}=${encodeURIComponent(d.filterValue ?? d.name)}`}
+            title={`View tenants where ${filterParam} is "${d.name}"`}
+            className="flex items-center gap-2 text-[12.5px] -mx-1.5 px-1.5 py-1 rounded-lg hover:bg-surface transition-colors group"
+          >
             <BrandMark kind={kind} name={d.name} color={colors[i % colors.length]} />
-            <span className="font-semibold text-foreground truncate flex-1 capitalize">{d.name}</span>
+            <span className="font-semibold text-foreground truncate flex-1 capitalize group-hover:text-accent transition-colors">{d.name}</span>
             <span className="text-muted flex-shrink-0">{d.value} · {Math.round((d.value / total) * 100)}%</span>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
@@ -130,8 +140,8 @@ export default function AdminOverviewPage() {
     { label: "Total Orders",     value: stats.total_orders,     sub: `${completionRate}% completed`,      icon: ShoppingCart, color: "#059669", href: null },
     { label: "Platform Revenue", value: fmtMoney(stats.total_revenue), sub: "all time", icon: TrendingUp, color: "#d97706", href: null, isString: true },
     { label: "Products",         value: stats.total_products,   sub: "in catalog",                        icon: Package,      color: "#0e7490", href: null },
-    { label: "Pending Signups",  value: pendingSignups.length,  sub: "awaiting approval",                 icon: UserPlus,     color: pendingSignups.length > 0 ? "#d97706" : "#64748b", href: "/admin/tenants" },
-    { label: "Suspended",        value: trueSuspended,          sub: "need attention",                    icon: XCircle,      color: trueSuspended > 0 ? "#ef4444" : "#64748b", href: "/admin/tenants" },
+    { label: "Pending Signups",  value: pendingSignups.length,  sub: "awaiting approval",                 icon: UserPlus,     color: pendingSignups.length > 0 ? "#d97706" : "#64748b", href: "/admin/tenants?status=pending" },
+    { label: "Suspended",        value: trueSuspended,          sub: "need attention",                    icon: XCircle,      color: trueSuspended > 0 ? "#ef4444" : "#64748b", href: "/admin/tenants?status=suspended" },
   ];
 
   return (
@@ -170,29 +180,36 @@ export default function AdminOverviewPage() {
         </div>
       )}
 
-      {/* Stats grid */}
+      {/* Stats grid — the whole card is clickable (not just the corner
+          arrow) whenever it has somewhere sensible to drill into. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-        {cards.map((card) => (
-          <div key={card.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-5" style={{ backgroundColor: card.color }} />
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${card.color}18` }}>
-              <card.icon size={16} style={{ color: card.color }} />
-            </div>
-            <p
-              className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate"
-              title={String(card.isString ? card.value : Number(card.value).toLocaleString())}
-            >
-              {card.isString ? card.value : Number(card.value).toLocaleString()}
-            </p>
-            <p className="text-[11px] font-semibold text-foreground mt-0.5">{card.label}</p>
-            <p className="text-[10px] text-muted mt-0.5">{card.sub}</p>
-            {card.href && (
-              <Link href={card.href} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ArrowUpRight size={13} className="text-muted" />
-              </Link>
-            )}
-          </div>
-        ))}
+        {cards.map((card) => {
+          const cardClass = "bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow group relative overflow-hidden block";
+          const content = (
+            <>
+              <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-5" style={{ backgroundColor: card.color }} />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${card.color}18` }}>
+                <card.icon size={16} style={{ color: card.color }} />
+              </div>
+              <p
+                className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate"
+                title={String(card.isString ? card.value : Number(card.value).toLocaleString())}
+              >
+                {card.isString ? card.value : Number(card.value).toLocaleString()}
+              </p>
+              <p className="text-[11px] font-semibold text-foreground mt-0.5">{card.label}</p>
+              <p className="text-[10px] text-muted mt-0.5">{card.sub}</p>
+              {card.href && (
+                <ArrowUpRight size={13} className="absolute top-3 right-3 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </>
+          );
+          return card.href ? (
+            <Link key={card.label} href={card.href} className={cardClass}>{content}</Link>
+          ) : (
+            <div key={card.label} className={cardClass}>{content}</div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -256,13 +273,18 @@ export default function AdminOverviewPage() {
                 </div>
                 <div className="flex-1 min-w-0 space-y-2">
                   {statusData.map((s) => (
-                    <div key={s.name} className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                    <Link
+                      key={s.name}
+                      href={`/admin/tenants?status=${s.name.toLowerCase()}`}
+                      title={`View ${s.name.toLowerCase()} tenants`}
+                      className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground -mx-1.5 px-1.5 py-0.5 rounded-lg hover:bg-surface hover:text-accent transition-colors"
+                    >
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[s.name] }} />
                       {s.name === "Active" && <CheckCircle size={13} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
                       {s.name === "Pending" && <Clock size={13} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />}
                       {s.name === "Suspended" && <XCircle size={13} className="text-red-500 flex-shrink-0" />}
                       {s.value} {s.name}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -288,11 +310,16 @@ export default function AdminOverviewPage() {
                 </div>
                 <div className="flex-1 min-w-0 space-y-2">
                   {planData.map((p, i) => (
-                    <div key={p.name} className="flex items-center gap-1.5">
+                    <Link
+                      key={p.name}
+                      href={`/admin/tenants?plan=${encodeURIComponent(p.name.toLowerCase())}`}
+                      title={`View tenants on the ${p.name} plan`}
+                      className="flex items-center gap-1.5 -mx-1.5 px-1.5 py-0.5 rounded-lg hover:bg-surface transition-colors group"
+                    >
                       <Crown size={12} style={{ color: planColors[i] }} className="flex-shrink-0" />
-                      <span className="text-[13px] font-semibold text-foreground truncate flex-1">{p.name}</span>
+                      <span className="text-[13px] font-semibold text-foreground truncate flex-1 group-hover:text-accent transition-colors">{p.name}</span>
                       <span className="text-[12px] text-muted flex-shrink-0">{p.value} · {Math.round((p.value / totalPlans) * 100)}%</span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -360,7 +387,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">By Country</h3>
             </div>
-            <CategoryDonut data={analytics?.by_country ?? []} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} empty="No country data yet" kind="country" />
+            <CategoryDonut data={analytics?.by_country ?? []} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} empty="No country data yet" kind="country" filterParam="country" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -370,7 +397,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">By Industry</h3>
             </div>
-            <CategoryDonut data={analytics?.by_industry ?? []} colors={INDUSTRY_COLORS} tooltipStyle={c.tooltip} empty="No industry data yet" kind="industry" />
+            <CategoryDonut data={analytics?.by_industry ?? []} colors={INDUSTRY_COLORS} tooltipStyle={c.tooltip} empty="No industry data yet" kind="industry" filterParam="industry" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -380,7 +407,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">By Business Type</h3>
             </div>
-            <CategoryDonut data={normalizeBizType(analytics?.by_business_type ?? [])} colors={BIZ_TYPE_COLORS} tooltipStyle={c.tooltip} empty="No business type data yet" kind="business_type" />
+            <CategoryDonut data={normalizeBizType(analytics?.by_business_type ?? [])} colors={BIZ_TYPE_COLORS} tooltipStyle={c.tooltip} empty="No business type data yet" kind="business_type" filterParam="businessType" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -390,7 +417,7 @@ export default function AdminOverviewPage() {
               </div>
               <h3 className="text-[13px] font-bold text-foreground">How They Heard About Us</h3>
             </div>
-            <CategoryDonut data={analytics?.by_heard_about ?? []} colors={HEARD_COLORS} tooltipStyle={c.tooltip} empty="No referral data yet" kind="heard_about" />
+            <CategoryDonut data={analytics?.by_heard_about ?? []} colors={HEARD_COLORS} tooltipStyle={c.tooltip} empty="No referral data yet" kind="heard_about" filterParam="heardAbout" />
           </div>
         </div>
       </div>

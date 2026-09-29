@@ -34,8 +34,11 @@ from app.modules.auth.schemas import (
 )
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
+from app.modules.tenants.routes.currency import SUPPORTED_CURRENCIES
 
 log = get_logger("auth")
+
+_VALID_CURRENCY_CODES = {c["code"] for c in SUPPORTED_CURRENCIES}
 
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -120,6 +123,11 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         is_active=False,
         subscription_status="pending",
         country=data.country,
+        # The frontend derives this from the selected country, but a public
+        # unauthenticated endpoint never trusts client input at face value —
+        # anything outside the platform's actual supported set falls back to
+        # the model's own default (RWF) rather than storing a bogus code.
+        currency=data.currency if data.currency in _VALID_CURRENCY_CODES else "RWF",
         phone=data.phone,
         business_type=data.business_type,
         industry=data.industry,
@@ -142,9 +150,9 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
     user = await UserRepository(db).save(user)
     await db.commit()
 
+    from app.modules.tenants.service.branch import seed_default_branch
     from app.modules.tenants.service.department import seed_default_departments
     from app.modules.tenants.service.role import seed_default_roles
-    from app.modules.tenants.service.branch import seed_default_branch
 
     await seed_default_departments(db, tenant.id)
     await seed_default_roles(db, tenant.id)

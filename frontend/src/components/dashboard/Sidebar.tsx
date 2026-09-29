@@ -64,6 +64,18 @@ interface SidebarProps {
   variant?: "app" | "admin";
 }
 
+// "/admin" and "/dashboard" are each a section's root AND a literal prefix
+// of every one of their own sibling routes (e.g. "/admin/tenants" starts
+// with "/admin/"), so a plain startsWith check would light up "Overview"/
+// "Dashboard" on every other page in that section. Every other nav item's
+// href is a distinct top-level segment, so prefix-matching is correct there.
+const SECTION_ROOTS = new Set(["/admin", "/dashboard"]);
+
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (SECTION_ROOTS.has(href)) return pathname === href;
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
 export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange, variant = "app" }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, hasModuleAccess } = useAuth();
@@ -239,7 +251,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
 }
 
 function NavLink({ item, pathname, collapsed, admin }: { item: NavItem; pathname: string; collapsed: boolean; admin: boolean }) {
-  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const isActive = isNavItemActive(pathname, item.href);
   const tourKey = `nav-${item.name.toLowerCase()}`;
   return (
     <Link
@@ -304,7 +316,7 @@ function mobileBottomNav({
           </div>
           <nav className="flex-1 overflow-y-auto px-3 py-4 grid grid-cols-3 gap-2 content-start">
             {[...navItems, ...(includeSettings ? [{ name: "Settings", href: "/settings", icon: Settings }] : [])].map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              const isActive = isNavItemActive(pathname, item.href);
               return (
                 <Link
                   key={item.name}
@@ -340,7 +352,7 @@ function mobileBottomNav({
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border flex items-stretch h-16">
         {mobileNavItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive = isNavItemActive(pathname, item.href);
           return (
             <Link
               key={item.name}

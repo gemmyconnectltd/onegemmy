@@ -37,6 +37,7 @@ export interface ApiRegisterRequest {
   referral_code?: string;
   main_branch_name?: string;
   country?: string;
+  currency?: string;
 }
 
 export interface ApiRegisterResponse {

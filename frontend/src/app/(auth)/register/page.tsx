@@ -15,14 +15,13 @@ import { AuthBrandingPanel } from "@/components/auth/AuthBrandingPanel";
 const TOTAL_STEPS = 2;
 
 // ── Personal-info step reference data (still UI-only — see handleSubmit) ──
-// Full ISO country list (name, flag, dial code) from the `world-countries`
-// package — a static, offline dataset rather than a live API call, since a
-// signup form shouldn't depend on a third-party API's uptime just to render
-// a dropdown. `currency` is only set when the country's real currency (per
-// that same dataset) is one this platform actually supports end-to-end
-// (matches /global/currencies) — everyone else just shows no currency badge
-// rather than a guessed/wrong one.
-const SUPPORTED_CURRENCIES = new Set(["RWF", "USD", "EUR", "KES", "UGX", "TZS"]);
+// Full ISO country list (name, flag, dial code, currency) from the
+// `world-countries` package — a static, offline dataset rather than a live
+// API call, since a signup form shouldn't depend on a third-party API's
+// uptime just to render a dropdown. The platform supports every currency in
+// this same dataset end-to-end (matches backend SUPPORTED_CURRENCIES), so a
+// country's own currency is always the one detected — see handleSubmit for
+// the server-side re-validation that never trusts this at face value.
 
 function countryDialCode(idd?: { root?: string; suffixes?: string[] }): string {
   if (!idd?.root) return "";
@@ -38,7 +37,7 @@ const COUNTRIES = worldCountriesData
     name: c.name.common,
     flag: c.flag,
     dial: countryDialCode(c.idd),
-    currency: Object.keys(c.currencies ?? {}).find((code) => SUPPORTED_CURRENCIES.has(code)),
+    currency: Object.keys(c.currencies ?? {})[0],
   }))
   .filter((c) => c.dial)
   .sort((a, b) => a.name.localeCompare(b.name));
@@ -186,6 +185,7 @@ export default function RegisterPage() {
       tenantName: company,
       tenantSlug: company.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
       country: countryName || undefined,
+      currency: selectedCountry?.currency,
       phone: phone ? `${dialCode} ${phone}`.trim() : undefined,
       businessType: businessType || undefined,
       industry: industry || undefined,
@@ -389,9 +389,16 @@ export default function RegisterPage() {
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 </div>
-                {selectedCountry?.currency && (
+                {selectedCountry && (
                   <p className="text-xs text-muted mt-2">
-                    Detected currency: <span className="font-mono font-semibold text-foreground bg-surface border border-border rounded px-1.5 py-0.5 ml-1">{selectedCountry.currency}</span>
+                    {selectedCountry.currency ? (
+                      <>
+                        Your business currency will be set to{" "}
+                        <span className="font-mono font-semibold text-foreground bg-surface border border-border rounded px-1.5 py-0.5">{selectedCountry.currency}</span>
+                      </>
+                    ) : (
+                      "This country's currency isn't supported yet — your business will default to RWF."
+                    )}
                   </p>
                 )}
               </div>

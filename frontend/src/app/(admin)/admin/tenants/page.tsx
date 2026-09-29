@@ -1,5 +1,6 @@
 "use client";
-import { useState, useMemo } from "react";
+import { Suspense, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   Building2,
@@ -9,6 +10,7 @@ import {
   Filter,
   AlertTriangle,
   Activity,
+  X,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
@@ -42,6 +44,16 @@ const PLAN_COLORS: Record<string, string> = {
     "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
 };
 
+// Mirrors the same mapping used on the tenant detail page and the admin
+// overview's "By Business Type" insight — the DB stores the raw value
+// ("sole"), the register form's own label is what a human recognizes.
+const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  sole: "Sole Proprietorship",
+  partnership: "Partnership",
+  llc: "Limited Liability (LLC)",
+  unregistered: "Not Registered",
+};
+
 const MODULE_COLORS: Record<string, string> = {
   sales: "#6366f1",
   inventory: "#0ea5e9",
@@ -61,18 +73,37 @@ function adoptionBadgeClass(pct: number) {
   return "bg-red-500/10 text-red-600 dark:text-red-400";
 }
 
-export default function AdminTenantsPage() {
+function AdminTenantsPageInner() {
   const { theme } = useAppConfig();
   const chartColors = chartPalette(theme === "dark");
+  const searchParams = useSearchParams();
   const [acting, setActing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  // These, and the four below, seed from the URL via a lazy initializer
+  // (runs once, on mount) rather than a useEffect + setState — arrived at by
+  // clicking a breakdown on the Platform Overview page (see admin/page.tsx's
+  // CategoryDonut links). Deliberately not reactive to searchParams after
+  // that, so a chip's own "×" (which only clears local state) doesn't get
+  // immediately overwritten back from a URL that's still sitting there
+  // unchanged.
   const [filterStatus, setFilterStatus] = useState<
-    "all" | "active" | "suspended"
-  >("all");
-  const [filterPlan, setFilterPlan] = useState("all");
+    "all" | "active" | "pending" | "suspended"
+  >(() => {
+    const s = searchParams.get("status");
+    return s === "active" || s === "pending" || s === "suspended" ? s : "all";
+  });
+  const [filterPlan, setFilterPlan] = useState(() => searchParams.get("plan") ?? "all");
+  // These four aren't manually-picked dropdowns like status/plan — they're
+  // shown back as clearable chips rather than cluttering the filter bar with
+  // four more selects nobody fills in by hand.
+  const [filterCountry, setFilterCountry] = useState(() => searchParams.get("country") ?? "");
+  const [filterIndustry, setFilterIndustry] = useState(() => searchParams.get("industry") ?? "");
+  const [filterBusinessType, setFilterBusinessType] = useState(() => searchParams.get("businessType") ?? "");
+  const [filterHeardAbout, setFilterHeardAbout] = useState(() => searchParams.get("heardAbout") ?? "");
+
   const [form, setForm] = useState({
     name: "",
     slug: "",
@@ -98,14 +129,34 @@ export default function AdminTenantsPage() {
         !search ||
         t.name.toLowerCase().includes(search.toLowerCase()) ||
         t.slug.toLowerCase().includes(search.toLowerCase());
+      // "Suspended" used to just mean "not active", which silently folded
+      // pending-approval signups into it too — they're a different state
+      // (never approved vs. approved-then-cut-off) that the overview page's
+      // own stat cards already distinguish, so the filter should too.
+      const label = tenantStatusLabel(t);
       const matchStatus =
         filterStatus === "all" ||
-        (filterStatus === "active" ? t.is_active : !t.is_active);
+        (filterStatus === "active" ? label === "Active" :
+         filterStatus === "pending" ? label === "Pending Approval" :
+         label === "Suspended");
       const matchPlan =
         filterPlan === "all" || t.subscription_plan === filterPlan;
-      return matchSearch && matchStatus && matchPlan;
+      const matchCountry = !filterCountry || t.country === filterCountry;
+      const matchIndustry = !filterIndustry || t.industry === filterIndustry;
+      const matchBusinessType = !filterBusinessType || t.business_type === filterBusinessType;
+      const matchHeardAbout = !filterHeardAbout || t.heard_about === filterHeardAbout;
+      return matchSearch && matchStatus && matchPlan && matchCountry && matchIndustry && matchBusinessType && matchHeardAbout;
     });
-  }, [tenants, search, filterStatus, filterPlan]);
+  }, [tenants, search, filterStatus, filterPlan, filterCountry, filterIndustry, filterBusinessType, filterHeardAbout]);
+
+  const hasInsightFilters = !!(filterCountry || filterIndustry || filterBusinessType || filterHeardAbout);
+  const clearInsightFilters = () => {
+    setFilterCountry("");
+    setFilterIndustry("");
+    setFilterBusinessType("");
+    setFilterHeardAbout("");
+  };
+  const hasAnyFilter = !!search || filterStatus !== "all" || filterPlan !== "all" || hasInsightFilters;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,6 +354,7 @@ export default function AdminTenantsPage() {
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
+            <option value="pending">Pending Approval</option>
             <option value="suspended">Suspended</option>
           </select>
         </div>
@@ -321,6 +373,38 @@ export default function AdminTenantsPage() {
           </select>
         </div>
       </div>
+
+      {/* Filters arrived at by clicking an insight on the Platform Overview
+          page — shown as clearable chips since they aren't picked from a
+          dropdown here. */}
+      {hasInsightFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted">Filtered by:</span>
+          {filterCountry && (
+            <button onClick={() => setFilterCountry("")} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-[12px] font-semibold hover:bg-accent/20 transition-colors">
+              Country: {filterCountry} <X size={11} />
+            </button>
+          )}
+          {filterIndustry && (
+            <button onClick={() => setFilterIndustry("")} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-[12px] font-semibold hover:bg-accent/20 transition-colors">
+              Industry: {filterIndustry} <X size={11} />
+            </button>
+          )}
+          {filterBusinessType && (
+            <button onClick={() => setFilterBusinessType("")} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-[12px] font-semibold hover:bg-accent/20 transition-colors">
+              Business Type: {BUSINESS_TYPE_LABELS[filterBusinessType] ?? filterBusinessType} <X size={11} />
+            </button>
+          )}
+          {filterHeardAbout && (
+            <button onClick={() => setFilterHeardAbout("")} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-[12px] font-semibold hover:bg-accent/20 transition-colors">
+              Heard About Us: {filterHeardAbout} <X size={11} />
+            </button>
+          )}
+          <button onClick={clearInsightFilters} className="text-[11px] font-semibold text-muted hover:text-foreground transition-colors underline">
+            Clear all
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <PageLoader variant="compact" />
@@ -496,12 +580,12 @@ export default function AdminTenantsPage() {
             <div className="py-16 text-center">
               <Building2 size={32} className="text-muted/30 mx-auto mb-3" />
               <p className="text-sm font-semibold text-foreground">
-                {search || filterStatus !== "all" || filterPlan !== "all"
+                {hasAnyFilter
                   ? "No tenants match your filters"
                   : "No tenants yet"}
               </p>
               <p className="text-[12px] text-muted mt-1">
-                {search || filterStatus !== "all" || filterPlan !== "all"
+                {hasAnyFilter
                   ? "Try adjusting your search or filters"
                   : "Create your first tenant to get started"}
               </p>
@@ -590,5 +674,13 @@ export default function AdminTenantsPage() {
         </form>
       </Drawer>
     </div>
+  );
+}
+
+export default function AdminTenantsPage() {
+  return (
+    <Suspense fallback={<PageLoader variant="page" />}>
+      <AdminTenantsPageInner />
+    </Suspense>
   );
 }
