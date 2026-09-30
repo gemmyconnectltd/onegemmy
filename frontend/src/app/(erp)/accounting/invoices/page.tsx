@@ -11,14 +11,17 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
 import { useOrders, useCurrentTenant } from "@/lib/api/hooks";
-import type { ApiOrder } from "@/lib/api";
+import type { ApiOrder, ApiOrderPayment } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
-import { InvoiceDocument, StatusBadge } from "@/components/accounting/InvoiceDocument";
+import { InvoiceDocument, StatusBadge, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
+import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
 
 // The backend's Order.status is stored Title Case ("Pending"/"Completed"/
 // "Cancelled") — must match exactly, this isn't just a display label.
 type StatusFilter = "all" | "Pending" | "Completed" | "Cancelled";
+type PaymentFilter = "all" | "Paid" | "PartiallyPaid" | "Unpaid" | "Overdue";
 
 export default function InvoicesPage() {
   const { currencySymbol, brandColor } = useAppConfig();
@@ -27,12 +30,17 @@ export default function InvoicesPage() {
   const orders = data?.items ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [viewing, setViewing] = useState<ApiOrder | null>(null);
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [recordingPaymentFor, setRecordingPaymentFor] = useState<ApiOrder | null>(null);
+  const [reversingPayment, setReversingPayment] = useState<ApiOrderPayment | null>(null);
+  // Derived from the live list so the drawer reflects a payment recorded/reversed while open.
+  const viewing = orders.find((o) => o.id === viewingId) ?? null;
 
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const printInvoice = (order: ApiOrder) => {
-    setViewing(order);
+    setViewingId(order.id);
     // Wait a tick for the drawer (and its printable content) to render before
     // invoking the browser's print dialog.
     window.setTimeout(() => window.print(), 50);
@@ -40,6 +48,9 @@ export default function InvoicesPage() {
 
   const filtered = orders.filter((o) => {
     if (statusFilter !== "all" && o.status !== statusFilter) return false;
+    if (paymentFilter !== "all") {
+      if (paymentFilter === "Overdue" ? !o.is_overdue : o.payment_status !== paymentFilter) return false;
+    }
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (
@@ -49,23 +60,34 @@ export default function InvoicesPage() {
   });
 
   const total = orders.reduce((s, o) => s + o.total, 0);
-  const paid = orders.filter((o) => o.status === "Completed");
+  const completed = orders.filter((o) => o.status === "Completed");
   const pending = orders.filter((o) => o.status === "Pending");
-  const paidTotal = paid.reduce((s, o) => s + o.total, 0);
-  const pendingTotal = pending.reduce((s, o) => s + o.total, 0);
+  // Real money collected/owed — derived from amount_paid/outstanding_balance,
+  // not assumed from fulfillment status (a Completed order can still be
+  // partially paid or fully unpaid).
+  const collectedTotal = completed.reduce((s, o) => s + o.amount_paid, 0);
+  const outstandingTotal = completed.reduce((s, o) => s + o.outstanding_balance, 0);
 
   const stats = [
-    { label: "Total Invoiced",  value: fmt(total),        sub: `${orders.length} invoices`,          icon: FileText,         color: "#4f46e5" },
-    { label: "Collected",       value: fmt(paidTotal),    sub: `${paid.length} paid`,                icon: BadgeCheck,       color: "#059669" },
-    { label: "Outstanding",     value: fmt(pendingTotal), sub: `${pending.length} awaiting payment`, icon: Clock,            color: "#b45309" },
+    { label: "Total Invoiced",  value: fmt(total),           sub: `${orders.length} invoices`,          icon: FileText,         color: "#4f46e5" },
+    { label: "Collected",       value: fmt(collectedTotal),  sub: `${completed.filter((o) => o.payment_status === "Paid").length} fully paid`, icon: BadgeCheck, color: "#059669" },
+    { label: "Outstanding",     value: fmt(outstandingTotal), sub: `${completed.filter((o) => o.outstanding_balance > 0).length} awaiting payment`, icon: Clock, color: "#b45309" },
     { label: "Avg. Invoice",    value: fmt(orders.length ? total / orders.length : 0), sub: "per invoice", icon: TrendingUp,  color: "#0284c7" },
   ];
 
   const tabs: { key: StatusFilter; label: string; count: number }[] = [
     { key: "all",       label: "All",       count: orders.length },
     { key: "Pending",   label: "Pending",   count: pending.length },
-    { key: "Completed", label: "Paid",      count: paid.length },
+    { key: "Completed", label: "Completed", count: completed.length },
     { key: "Cancelled", label: "Cancelled", count: orders.filter((o) => o.status === "Cancelled").length },
+  ];
+
+  const paymentTabs: { key: PaymentFilter; label: string }[] = [
+    { key: "all", label: "All Payments" },
+    { key: "Paid", label: "Paid" },
+    { key: "PartiallyPaid", label: "Partially Paid" },
+    { key: "Unpaid", label: "Unpaid" },
+    { key: "Overdue", label: "Overdue" },
   ];
 
   return (
@@ -119,6 +141,20 @@ export default function InvoicesPage() {
             >
               {t.label}
               {t.count > 0 && <span className="ml-1.5 opacity-60">({t.count})</span>}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
+          {paymentTabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setPaymentFilter(t.key)}
+              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg whitespace-nowrap ${
+                paymentFilter === t.key ? "text-white" : "text-foreground/50 hover:text-foreground"
+              }`}
+              style={paymentFilter === t.key ? { backgroundColor: brandColor } : undefined}
+            >
+              {t.label}
             </button>
           ))}
         </div>
@@ -186,12 +222,15 @@ export default function InvoicesPage() {
                     {o.discount > 0 && <p className="text-[11px] text-muted">-{fmt(o.discount)} disc.</p>}
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusBadge status={o.status} />
+                    <div className="flex flex-col gap-1 items-start">
+                      <StatusBadge status={o.status} />
+                      {o.status === "Completed" && <PaymentStatusBadge paymentStatus={o.payment_status} isOverdue={o.is_overdue} />}
+                    </div>
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => setViewing(o)}
+                        onClick={() => setViewingId(o.id)}
                         title="View"
                         className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground hover:border-accent/40 transition-colors"
                       >
@@ -229,7 +268,7 @@ export default function InvoicesPage() {
       {/* Invoice Detail Drawer */}
       <Drawer
         open={!!viewing}
-        onClose={() => setViewing(null)}
+        onClose={() => setViewingId(null)}
         title="Invoice Detail"
         description={viewing ? `${viewing.order_number}` : undefined}
         side="right"
@@ -237,22 +276,22 @@ export default function InvoicesPage() {
         footer={
           viewing && (
             <div className="flex gap-2">
-              {viewing.status === "Pending" && (
-                <button className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 text-[13px] font-bold hover:bg-emerald-700 transition-colors rounded-lg">
-                  <BadgeCheck size={15} /> Mark as Paid
+              {viewing.status === "Completed" && viewing.outstanding_balance > 0 && (
+                <button onClick={() => setRecordingPaymentFor(viewing)} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 text-[13px] font-bold hover:bg-emerald-700 transition-colors rounded-lg">
+                  <BadgeCheck size={15} /> Record Payment
                 </button>
               )}
               <button onClick={() => window.print()} className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: brandColor }}>
                 <Printer size={15} /> Print
               </button>
-              <button onClick={() => setViewing(null)} className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
+              <button onClick={() => setViewingId(null)} className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
                 Close
               </button>
             </div>
           )
         }
       >
-        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={brandColor} fmt={fmt} />}
+        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={brandColor} fmt={fmt} onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)} />}
       </Drawer>
 
       {/* Print-only view: portaled out of the app shell (which is hidden via
@@ -263,6 +302,9 @@ export default function InvoicesPage() {
         </div>,
         document.body,
       )}
+
+      <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={brandColor} fmt={fmt} />
+      <ReversePaymentDrawer payment={reversingPayment} onClose={() => setReversingPayment(null)} fmt={fmt} />
     </div>
   );
 }

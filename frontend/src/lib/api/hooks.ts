@@ -24,7 +24,8 @@ import {
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
-  type ApiCustomer, type ApiDeal, type ApiOrder, type ApiReturn, type ApiTarget,
+  type ApiCustomer, type ApiDeal, type ApiOrder, type ApiOrderPayment, type ApiReturn, type ApiTarget,
+  type ReceivablesSummary,
   type TrialBalance, type IncomeStatement, type BalanceSheet,
   type CashFlowStatement, type GeneralLedger,
   type AccountingAccount, type AccountingExpense, type AccountingTransaction,
@@ -164,8 +165,11 @@ export const useCustomers = (page = 1, pageSize = 200, search?: string, customer
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
-export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, opts?: QueryOpts) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? ""], () => salesApi.listOrders(page, pageSize, status, search), (r) => r.data, opts);
+export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts) =>
+  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all"], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus), (r) => r.data, opts);
+
+export const useOrderPayments = (orderId: string | undefined, opts?: QueryOpts) =>
+  useQ([...ORDERS, orderId, "payments"], () => salesApi.listOrderPayments(orderId!), (r) => r.data, { ...opts, enabled: !!orderId && (opts?.enabled ?? true) });
 
 export const useReturns = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
   useQ([...RETURNS, page, pageSize, status ?? "all"], () => salesApi.listReturns(page, pageSize, status), (r) => r.data, opts);
@@ -187,6 +191,10 @@ export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCr
 export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 
+const ORDER_PAYMENT_INVALIDATIONS = [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], ["accounting", "receivables"]];
+export const useRecordOrderPayment = mutation(({ orderId, data }: { orderId: string; data: object }) => salesApi.recordOrderPayment(orderId, data), ORDER_PAYMENT_INVALIDATIONS);
+export const useReverseOrderPayment = mutation(({ paymentId, reason }: { paymentId: string; reason?: string }) => salesApi.reverseOrderPayment(paymentId, reason), ORDER_PAYMENT_INVALIDATIONS);
+
 export const useCreateReturn = mutation((d: object) => salesApi.createReturn(d), [[...RETURNS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useUpdateReturn = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateReturn(id, data), [[...RETURNS], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useDeleteReturn = mutation((id: string) => salesApi.deleteReturn(id), [[...RETURNS], ["accounting", "transactions"], ["accounting", "reports"]]);
@@ -201,6 +209,9 @@ const REPORTS = ["accounting", "reports"] as const;
 const ACCOUNTS = ["accounting", "accounts"] as const;
 const EXPENSES = ["accounting", "expenses"] as const;
 const TRANSACTIONS = ["accounting", "transactions"] as const;
+
+export const useReceivablesSummary = (opts?: QueryOpts) =>
+  useQ(["accounting", "receivables"], () => accountingApi.receivablesSummary(), (r) => r.data, opts);
 
 export const useTrialBalance = (from?: string, to?: string, opts?: QueryOpts) =>
   useQ([...REPORTS, "trial-balance", from ?? "all", to ?? "all"], () => accountingApi.trialBalance(from, to), (r) => r.data, opts);
@@ -573,7 +584,8 @@ export const useResetCompanyUserPassword = mutation(({ id, sendEmail }: { id: st
 export type {
   ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiBrand, ApiUnit, ApiSupplier,
   InventoryValuationReport,
-  ApiCustomer, ApiDeal, ApiOrder, ApiReturn, ApiTarget,
+  ApiCustomer, ApiDeal, ApiOrder, ApiOrderPayment, ApiReturn, ApiTarget,
+  ReceivablesSummary,
   TrialBalance, IncomeStatement, BalanceSheet, CashFlowStatement, GeneralLedger,
   AccountingAccount, AccountingExpense, AccountingTransaction,
   ApiDepartment, ApiDepartmentTemplate, ApiDepartmentTemplates, ApiDepartmentImportResult,

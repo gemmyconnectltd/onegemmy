@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
+import { AlertCircle, Banknote, Calendar, CreditCard, Smartphone, UserRound, Wallet } from "lucide-react";
 
 import type { PaymentMethod } from "./types";
 
@@ -27,9 +27,12 @@ interface PaymentPanelProps {
   tax: number;
   total: number;
   change: number;
-  cashShort: boolean;
+  /** total - amount actually being paid now; > 0 means this sale leaves a
+   * customer receivable (partial payment, or a fully-unpaid credit sale). */
+  remainingBalance: number;
   cartCount: number;
   hasCustomer: boolean;
+  dueDate: string;
   vatEnabled: boolean;
   currencySymbol: string;
   fmt: (v: number) => string;
@@ -39,17 +42,21 @@ interface PaymentPanelProps {
   itemsCashReceivedSum?: number;
   onPaymentChange: (m: PaymentMethod) => void;
   onCashChange: (v: string) => void;
+  onDueDateChange: (v: string) => void;
   onCharge: () => void;
 }
 
 export function PaymentPanel({
   payment, cashGiven, subtotal, discount, tax, total,
-  change, cashShort, cartCount, vatEnabled, currencySymbol, fmt,
+  change, remainingBalance, cartCount, hasCustomer, dueDate, vatEnabled, currencySymbol, fmt,
   saving, saleError, itemsCashReceivedSum,
-  onPaymentChange, onCashChange, onCharge,
+  onPaymentChange, onCashChange, onDueDateChange, onCharge,
 }: PaymentPanelProps) {
-  const chargeDisabled = cartCount === 0 || saving || cashShort;
+  const isCreditSale = remainingBalance > 0;
+  const missingCreditFields = isCreditSale && (!hasCustomer || !dueDate);
+  const chargeDisabled = cartCount === 0 || saving || Number(cashGiven || 0) < 0 || missingCreditFields;
   const quickAmounts = quickCashAmounts(total);
+  const paymentStatus = remainingBalance <= 0 ? "Paid" : cashGiven === "0" ? "Unpaid" : "Partially Paid";
 
   return (
     <div className="space-y-3">
@@ -96,14 +103,16 @@ export function PaymentPanel({
         ))}
       </div>
 
-      {/* Amount received — applies to every payment method, not just cash;
+      {/* Amount Paid Now — applies to every payment method, not just cash;
           left blank it defaults to the full total (see the page's payload
-          builder), matching what actually gets charged for card/mobile. */}
+          builder). An amount below the total is a partial or credit sale,
+          not blocked — it just needs a customer and a due date, since it
+          leaves a balance the business is owed. */}
       {cartCount > 0 && (
         <div className="bg-surface rounded-xl px-3.5 py-3 space-y-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide">
-              <Wallet size={12} className="text-accent" /> Amount Received
+              <Wallet size={12} className="text-accent" /> Amount Paid Now
             </div>
             {!!itemsCashReceivedSum && itemsCashReceivedSum > 0 && String(itemsCashReceivedSum) !== cashGiven && (
               <button
@@ -125,7 +134,7 @@ export function PaymentPanel({
               onChange={(e) => onCashChange(e.target.value)}
               placeholder={fmt(total)}
               className={`w-full pl-11 pr-3 py-2.5 rounded-lg border-2 bg-card text-[15px] font-mono font-bold tabular-nums outline-none transition-colors ${
-                cashShort ? "border-red-400 focus:border-red-500" : "border-border focus:border-accent"
+                isCreditSale ? "border-amber-400 focus:border-amber-500" : "border-border focus:border-accent"
               }`}
             />
           </div>
@@ -143,12 +152,45 @@ export function PaymentPanel({
                 {currencySymbol} {fmt(amt)}
               </button>
             ))}
+            {cashGiven !== "0" && (
+              <button
+                type="button"
+                onClick={() => onCashChange("0")}
+                className="px-2.5 py-1 rounded-md bg-card border border-border text-[11px] font-semibold text-amber-600 hover:border-amber-400 transition-colors"
+              >
+                Full credit (0)
+              </button>
+            )}
           </div>
           {cashGiven !== "" && (
-            cashShort ? (
-              <p className="text-[12px] font-semibold text-red-500">
-                Short by {currencySymbol} {fmt(total - Number(cashGiven))}
-              </p>
+            isCreditSale ? (
+              <div className="space-y-2.5 pt-1.5 border-t border-border">
+                <div className="flex justify-between items-center">
+                  <span className="text-[12px] font-bold text-foreground">Remaining Balance</span>
+                  <span className="text-[16px] font-extrabold text-amber-600 font-mono tabular-nums">{currencySymbol} {fmt(remainingBalance)}</span>
+                </div>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 uppercase tracking-wide">
+                  {paymentStatus === "Unpaid" ? "Unpaid" : "Partially Paid"}
+                </span>
+                {!hasCustomer && (
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
+                    <UserRound size={12} /> Select a customer to allow a partial or credit sale
+                  </p>
+                )}
+                <div>
+                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide mb-1.5">
+                    <Calendar size={12} className="text-accent" /> Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => onDueDateChange(e.target.value)}
+                    className={`w-full px-3 py-2 rounded-lg border-2 bg-card text-[13px] font-medium outline-none transition-colors ${
+                      !dueDate ? "border-red-300 focus:border-red-400" : "border-border focus:border-accent"
+                    }`}
+                  />
+                </div>
+              </div>
             ) : (
               <div className="flex justify-between items-center pt-1.5 border-t border-border">
                 <span className="text-[12px] font-bold text-foreground">Change Due</span>
@@ -175,8 +217,8 @@ export function PaymentPanel({
           "Saving sale…"
         ) : (
           <>
-            Charge
-            {cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(total)}</span>}
+            {isCreditSale ? "Complete Sale" : "Charge"}
+            {cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(isCreditSale ? Number(cashGiven || 0) : total)}</span>}
           </>
         )}
       </button>

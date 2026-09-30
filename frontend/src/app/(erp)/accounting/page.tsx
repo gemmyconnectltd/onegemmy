@@ -14,7 +14,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { SelectWithOther } from "@/components/ui/SelectWithOther";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts, useIncomeStatement, useCashFlow, useBalanceSheet, useTransactions, useExpenses, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales } from "@/lib/api/hooks";
+import { useAccounts, useIncomeStatement, useCashFlow, useBalanceSheet, useTransactions, useExpenses, useCreateExpense, useCreateTransaction, useSeedAccounts, useBackfillSales, useReceivablesSummary } from "@/lib/api/hooks";
 import type { AccountingTransaction } from "@/lib/api/accounting";
 
 const EMPTY_SALES: SaleResult[] = [];
@@ -64,6 +64,7 @@ export default function AccountingPage() {
   const balance = useBalanceSheet();
   const tx = useTransactions();
   const expenses = useExpenses();
+  const receivables = useReceivablesSummary();
   const monthQueries = [
     useIncomeStatement(MONTH_RANGES[0].from, MONTH_RANGES[0].to),
     useIncomeStatement(MONTH_RANGES[1].from, MONTH_RANGES[1].to),
@@ -227,6 +228,35 @@ export default function AccountingPage() {
               </div>
             ))}
           </div>
+
+          {receivables.data && (
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-foreground">Receivables</h2>
+                <Link href="/sales/orders" className="flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
+                  View unpaid invoices <ArrowRight size={13} />
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-lg font-extrabold text-foreground tracking-tight truncate" title={fmt(receivables.data.total_receivables)}>{fmt(receivables.data.total_receivables)}</p>
+                  <p className="text-[11px] text-muted mt-0.5">Total Receivables</p>
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold text-red-600 tracking-tight truncate" title={fmt(receivables.data.overdue_receivables)}>{fmt(receivables.data.overdue_receivables)}</p>
+                  <p className="text-[11px] text-muted mt-0.5">Overdue Receivables</p>
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold text-amber-600 tracking-tight">{receivables.data.partially_paid_count}</p>
+                  <p className="text-[11px] text-muted mt-0.5">Partially Paid Invoices</p>
+                </div>
+                <div>
+                  <p className="text-lg font-extrabold text-foreground tracking-tight">{receivables.data.unpaid_count}</p>
+                  <p className="text-[11px] text-muted mt-0.5">Unpaid Invoices</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm">

@@ -13,8 +13,10 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder, useBulkCreateOrders, useCurrentTenant } from "@/lib/api/hooks";
-import type { ApiOrder, ApiProduct, ApiVariant } from "@/lib/api";
-import { InvoiceDocument } from "@/components/accounting/InvoiceDocument";
+import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
+import { InvoiceDocument, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
+import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
 import { accountingApi } from "@/lib/api/accounting";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -266,26 +268,33 @@ export default function SalesOrdersPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
   const [statusFilter, setStatusFilter] = useState("All");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<ApiOrder | null>(null);
-  const [viewing, setViewing] = useState<ApiOrder | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [recordingPaymentFor, setRecordingPaymentFor] = useState<ApiOrder | null>(null);
+  const [reversingPayment, setReversingPayment] = useState<ApiOrderPayment | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [items, setItems] = useState<ItemRow[]>([newItem()]);
 
   // Reset to page 1 right where a filter changes, not via an effect.
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
   const onStatusFilterChange = (s: string) => { setStatusFilter(s); setPage(1); };
+  const onPaymentStatusFilterChange = (s: string) => { setPaymentStatusFilter(s); setPage(1); };
 
-  const ordersQ = useOrders(page, pageSize, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined);
+  const ordersQ = useOrders(page, pageSize, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter);
   // Customer/product pickers for the create/edit form need the full lists, not
   // the current table page — kept as their own, separately-paginated fetches.
   const customersQ = useCustomers(1, 200);
   const productsQ = useProducts(1, 500);
   const loading = ordersQ.isLoading || customersQ.isLoading || productsQ.isLoading;
   const orders = ordersQ.data?.items ?? [];
+  // Derived from the live list (not a captured snapshot) so the drawer
+  // reflects a payment recorded/reversed while it's open.
+  const viewing = orders.find((o) => o.id === viewingId) ?? null;
   const total = ordersQ.data?.total ?? 0;
   const customers = customersQ.data?.items ?? [];
   const products = productsQ.data?.items ?? [];
@@ -441,6 +450,19 @@ export default function SalesOrdersPage() {
                 style={statusFilter === s ? { backgroundColor: SAL } : undefined}>{s}</button>
             ))}
           </div>
+          <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
+            {[
+              { key: "All", label: "All Payments" },
+              { key: "Paid", label: "Paid" },
+              { key: "PartiallyPaid", label: "Partially Paid" },
+              { key: "Unpaid", label: "Unpaid" },
+              { key: "Overdue", label: "Overdue" },
+            ].map((s) => (
+              <button key={s.key} onClick={() => onPaymentStatusFilterChange(s.key)}
+                className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors whitespace-nowrap ${paymentStatusFilter === s.key ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
+                style={paymentStatusFilter === s.key ? { backgroundColor: SAL } : undefined}>{s.label}</button>
+            ))}
+          </div>
           <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-2 w-52">
             <Search size={14} className="text-muted flex-shrink-0" />
             <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search orders..."
@@ -470,6 +492,9 @@ export default function SalesOrdersPage() {
                 <th className="p-4 font-semibold">Status</th>
                 <th className="p-4 font-semibold text-right">VAT (18%)</th>
                 <th className="p-4 font-semibold text-right">Total</th>
+                <th className="p-4 font-semibold text-right">Balance</th>
+                <th className="p-4 font-semibold">Due Date</th>
+                <th className="p-4 font-semibold">Payment</th>
                 <th className="p-4" />
               </tr>
             </thead>
@@ -492,9 +517,22 @@ export default function SalesOrdersPage() {
                     </td>
                     <td className="p-4 text-right text-sm tabular-nums" style={{ color: "#6366f1" }}>{fmt(o.tax)}</td>
                     <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums">{fmt(o.total)}</td>
+                    <td className="p-4 text-right text-sm tabular-nums">
+                      {o.status === "Completed" ? (
+                        <span className={o.outstanding_balance > 0 ? "font-semibold text-amber-600" : "text-muted"}>{fmt(o.outstanding_balance)}</span>
+                      ) : <span className="text-muted">—</span>}
+                    </td>
+                    <td className="p-4 text-sm whitespace-nowrap">
+                      {o.due_date && o.outstanding_balance > 0 ? (
+                        <span className={o.is_overdue ? "font-semibold text-red-600" : "text-muted"}>{new Date(o.due_date).toLocaleDateString()}</span>
+                      ) : <span className="text-muted">—</span>}
+                    </td>
+                    <td className="p-4">
+                      {o.status === "Completed" && <PaymentStatusBadge paymentStatus={o.payment_status} isOverdue={o.is_overdue} />}
+                    </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setViewing(o)} aria-label="View order" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
+                        <button onClick={() => setViewingId(o.id)} aria-label="View order" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
                         <button onClick={() => openEdit(o)} aria-label="Edit order" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
                       </div>
                     </td>
@@ -665,22 +703,27 @@ export default function SalesOrdersPage() {
           shown or printed. ── */}
       <Drawer
         open={!!viewing}
-        onClose={() => setViewing(null)}
+        onClose={() => setViewingId(null)}
         title="Order Details"
         description={viewing?.order_number}
         size="lg"
         footer={
           viewing && (
             <div className="flex gap-2">
+              {viewing.status === "Completed" && viewing.outstanding_balance > 0 && (
+                <Button onClick={() => setRecordingPaymentFor(viewing)} color={SAL} className="rounded-lg">
+                  Record Payment
+                </Button>
+              )}
               <button
                 onClick={() => window.print()}
-                className="flex-1 flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg"
+                className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg"
                 style={{ backgroundColor: SAL }}
               >
                 <Printer size={15} /> Print
               </button>
               <button
-                onClick={() => setViewing(null)}
+                onClick={() => setViewingId(null)}
                 className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
               >
                 Close
@@ -689,7 +732,7 @@ export default function SalesOrdersPage() {
           )
         }
       >
-        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={SAL} fmt={fmt} />}
+        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={SAL} fmt={fmt} onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)} />}
       </Drawer>
 
       {/* Print-only view: portaled out of the app shell (which is hidden via
@@ -700,6 +743,9 @@ export default function SalesOrdersPage() {
         </div>,
         document.body,
       )}
+
+      <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={SAL} fmt={fmt} />
+      <ReversePaymentDrawer payment={reversingPayment} onClose={() => setReversingPayment(null)} fmt={fmt} />
 
       <CsvImportDrawer<OrderImportRow>
         open={showImport}

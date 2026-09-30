@@ -44,7 +44,13 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
       ...(vatEnabled && sale.tax > 0 ? [`VAT (18%): ${currencySymbol} ${fmt(sale.tax)}`] : []),
       `Total: ${currencySymbol} ${fmt(sale.total)}`,
       `Paid: ${PAYMENT_LABELS[sale.payment] ?? sale.payment}`,
-      ...(sale.cashGiven ? [`Change: ${currencySymbol} ${fmt(sale.change)}`] : []),
+      ...(sale.balanceDue
+        ? [
+          `Amount Paid: ${currencySymbol} ${fmt(sale.amountPaid ?? 0)}`,
+          `Balance Due: ${currencySymbol} ${fmt(sale.balanceDue)}`,
+          ...(sale.dueDate ? [`Due Date: ${sale.dueDate}`] : []),
+        ]
+        : sale.cashGiven ? [`Change: ${currencySymbol} ${fmt(sale.change)}`] : []),
       "",
       "Thank you!",
     ];
@@ -95,7 +101,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
         <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center mb-3 shadow-lg shadow-emerald-500/25">
           <Check size={24} className="text-white" strokeWidth={3} />
         </div>
-        <h2 className="text-[17px] font-bold text-foreground">Payment received</h2>
+        <h2 className="text-[17px] font-bold text-foreground">{sale.balanceDue ? "Sale completed" : "Payment received"}</h2>
         <p className="text-[12px] text-muted mt-1 font-mono tracking-wide">{sale.orderId}</p>
         <p className="text-[11px] text-muted/70 mt-0.5">{fmtDateTime(sale.timestamp)}</p>
         {sale.customerName && (
@@ -171,7 +177,21 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
             <span>Paid via</span>
             <span className="font-semibold text-foreground">{PAYMENT_LABELS[sale.payment] ?? sale.payment}</span>
           </div>
-          {sale.cashGiven && (
+          {!!sale.balanceDue && sale.balanceDue > 0 ? (
+            <>
+              <div className="flex justify-between text-[11px] text-muted">
+                <span>Amount Paid</span><span className="font-semibold text-foreground">{currencySymbol} {fmt(sale.amountPaid ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-[13px] font-bold text-amber-600 border-t border-border pt-1.5 mt-0.5">
+                <span>Balance Due</span><span>{currencySymbol} {fmt(sale.balanceDue)}</span>
+              </div>
+              {sale.dueDate && (
+                <div className="flex justify-between text-[11px] text-muted">
+                  <span>Due Date</span><span className="font-semibold text-foreground">{fmtDateTime(new Date(sale.dueDate))}</span>
+                </div>
+              )}
+            </>
+          ) : sale.cashGiven && (
             <div className="flex justify-between text-[11px] text-muted">
               <span>Change</span><span className="font-semibold text-foreground">{currencySymbol} {fmt(sale.change)}</span>
             </div>

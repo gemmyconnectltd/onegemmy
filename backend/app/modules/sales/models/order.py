@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,18 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     amount_tendered: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
     change_due: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
 
+    # Credit sales / partial payments. `amount_paid` is a running total, the
+    # only place it is ever written is inside the same DB transaction as an
+    # OrderPayment insert (see sales/service/order_payment.py) — so it can
+    # never drift from SUM(payments). Payment status (Unpaid/PartiallyPaid/
+    # Paid) and overdue-ness are deliberately NOT stored columns: they're
+    # derived from amount_paid/total/due_date wherever they're needed
+    # (OrderRead, repository filters), so there is exactly one source of
+    # truth and no cached status that can go stale. `due_date` is only
+    # meaningful once there's an outstanding balance; null otherwise.
+    amount_paid: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_customers.id", ondelete="SET NULL"), nullable=True
     )
@@ -49,6 +61,10 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     creator = relationship("User", foreign_keys=[created_by], lazy="select")
     items = relationship("OrderItem", back_populates="order", lazy="selectin", cascade="all, delete-orphan")
     returns = relationship("Return", back_populates="order", lazy="selectin")
+    payments = relationship(
+        "OrderPayment", back_populates="order", lazy="selectin",
+        order_by="OrderPayment.paid_at.desc()", cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("uq_sales_orders_tenant_number", "tenant_id", "order_number", unique=True),

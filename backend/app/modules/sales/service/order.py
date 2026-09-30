@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import update
@@ -22,8 +22,9 @@ from app.modules.inventory.service.serial import mark_serial_sold
 from app.modules.sales.models.customer import Customer
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
+from app.modules.sales.models.order_payment import OrderPayment
 from app.modules.sales.models.target import Target
-from app.modules.sales.repository import CustomerRepository, OrderRepository
+from app.modules.sales.repository import CustomerRepository, OrderPaymentRepository, OrderRepository
 from app.modules.sales.schemas import (
     OrderBulkCreate,
     OrderBulkResult,
@@ -32,6 +33,51 @@ from app.modules.sales.schemas import (
     OrderRead,
     OrderUpdate,
 )
+
+_PAID_EPSILON = 0.01
+
+
+def _to_order_read(obj: Order) -> OrderRead:
+    """The single place OrderRead is ever built from an Order row — computes
+    payment_status/outstanding_balance/is_overdue from amount_paid/total/
+    due_date so every caller (list, get, create, update, record/reverse
+    payment) shows the exact same numbers, never a value cached anywhere
+    else that could drift."""
+    read = OrderRead.model_validate(obj)
+    total = float(obj.total)
+    paid = float(obj.amount_paid)
+    outstanding = round(max(0.0, total - paid), 2)
+    read.outstanding_balance = outstanding
+    if paid <= _PAID_EPSILON:
+        read.payment_status = "Unpaid"
+    elif outstanding <= _PAID_EPSILON:
+        read.payment_status = "Paid"
+    else:
+        read.payment_status = "PartiallyPaid"
+    read.is_overdue = bool(obj.due_date and outstanding > _PAID_EPSILON and obj.due_date < datetime.now(UTC).date())
+    return read
+
+
+def _resolve_amount_paid(amount_paid: float | None, amount_tendered: float | None, total: float) -> float:
+    """"Amount Paid Now" resolution, in priority order: the explicit new
+    field, then the legacy amount_tendered (POS today always sends this),
+    then — when neither is given — the historical default of "fully paid",
+    so every existing caller (bulk import, anything not yet updated) keeps
+    behaving exactly as it did before this feature existed."""
+    if amount_paid is not None:
+        return round(min(max(amount_paid, 0.0), total), 2)
+    if amount_tendered is not None:
+        return round(min(max(amount_tendered, 0.0), total), 2)
+    return round(total, 2)
+
+
+def _require_credit_sale_fields(customer_id: uuid.UUID | None, due_date_: date | None, outstanding: float) -> None:
+    if outstanding <= _PAID_EPSILON:
+        return
+    if customer_id is None:
+        raise ValidationError("A customer is required for a credit sale or partial payment")
+    if due_date_ is None:
+        raise ValidationError("A due date is required for a credit sale or partial payment")
 
 
 def _current_period() -> str:
@@ -131,21 +177,25 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
 
 
 async def list_orders(
-    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, search: str | None = None
+    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50,
+    search: str | None = None, payment_status: str | None = None,
 ) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search)
-    return [OrderRead.model_validate(i) for i in items]
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status)
+    return [_to_order_read(i) for i in items]
 
 
-async def count_orders(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status, search)
+async def count_orders(
+    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None,
+    payment_status: str | None = None,
+) -> int:
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status)
 
 
 async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> OrderRead:
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
-    return OrderRead.model_validate(obj)
+    return _to_order_read(obj)
 
 
 async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate) -> OrderRead:
@@ -156,13 +206,18 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     if data.client_order_id:
         existing = await repo.find_by_client_order_id(tenant_id, data.client_order_id)
         if existing is not None:
-            return OrderRead.model_validate(existing)
+            return _to_order_read(existing)
 
     order_number = await repo.next_order_number(tenant_id)
 
     subtotal = sum(item.line_total for item in data.items)
     gross = round(subtotal - data.discount, 2)
     tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+
+    resolved_paid = _resolve_amount_paid(data.amount_paid, data.amount_tendered, total) if data.status == "Completed" else 0.0
+    outstanding = round(total - resolved_paid, 2)
+    if data.status == "Completed":
+        _require_credit_sale_fields(data.customer_id, data.due_date, outstanding)
 
     order = Order(
         tenant_id=tenant_id,
@@ -181,6 +236,8 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         payment_method=data.payment_method,
         amount_tendered=data.amount_tendered,
         change_due=data.change_due,
+        due_date=data.due_date,
+        amount_paid=0,
     )
     # imported orders may carry their original date; anything else keeps now()
     if data.ordered_at is not None:
@@ -245,11 +302,35 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     if data.status == "Completed":
         await _bump_revenue_targets(db, tenant_id, total)
         await _bump_order_targets(db, tenant_id)
-        await create_sale_transaction(
+        sale_txn_id = await create_sale_transaction(
             db, tenant_id, user_id, order.id, total, order_number, cogs=round(cogs_total, 2), tax=tax,
-            payment_method=data.payment_method, amount_paid=data.amount_tendered,
+            payment_method=data.payment_method, amount_paid=resolved_paid,
         )
         await _record_vat(db, tenant_id, order.id, tax, total, vat_rate)
+
+        if resolved_paid > 0:
+            # The checkout payment itself — its accounting entry is the sale
+            # transaction just posted above (already split Cash/Bank/Mobile
+            # vs AR), so this row is a ledger record only, not a second
+            # posting. Every later top-up (record_payment) does post its own
+            # transaction, since by then the sale transaction already exists.
+            payment_repo = OrderPaymentRepository(db)
+            reference = await payment_repo.next_reference(tenant_id)
+            payment = OrderPayment(
+                tenant_id=tenant_id,
+                reference=reference,
+                order_id=order.id,
+                customer_id=data.customer_id,
+                branch_id=data.branch_id,
+                amount=resolved_paid,
+                payment_method=data.payment_method,
+                status="Completed",
+                paid_at=order.ordered_at,
+                received_by=user_id,
+                accounting_transaction_id=sale_txn_id,
+            )
+            db.add(payment)
+            order.amount_paid = resolved_paid
 
     await record_audit(
         db,
@@ -260,11 +341,11 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
         entity_type="order",
         entity_id=str(order.id),
         summary=f"Order {order_number} created ({data.status})",
-        changes={"total": total, "items": len(data.items)},
+        changes={"total": total, "items": len(data.items), "amount_paid": resolved_paid, "outstanding": outstanding},
     )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
-    return OrderRead.model_validate(obj)
+    return _to_order_read(obj)
 
 
 async def _assign_serials(
@@ -307,16 +388,40 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     obj.total = total
     # if status just flipped to Completed, deduct stock, post COGS, and bump targets
     if not was_completed and obj.status == "Completed":
+        resolved_paid = _resolve_amount_paid(
+            None, float(obj.amount_tendered) if obj.amount_tendered is not None else None, float(obj.total),
+        )
+        outstanding = round(float(obj.total) - resolved_paid, 2)
+        _require_credit_sale_fields(obj.customer_id, obj.due_date, outstanding)
+
         cogs_total = 0.0
         for item in obj.items:
             cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product)
         await _bump_revenue_targets(db, tenant_id, float(obj.total))
         await _bump_order_targets(db, tenant_id)
-        await create_sale_transaction(
+        sale_txn_id = await create_sale_transaction(
             db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number, cogs=round(cogs_total, 2), tax=tax,
-            payment_method=obj.payment_method, amount_paid=float(obj.amount_tendered) if obj.amount_tendered is not None else None,
+            payment_method=obj.payment_method, amount_paid=resolved_paid,
         )
         await _record_vat(db, tenant_id, obj.id, tax, total, vat_rate)
+
+        if resolved_paid > 0:
+            payment_repo = OrderPaymentRepository(db)
+            reference = await payment_repo.next_reference(tenant_id)
+            db.add(OrderPayment(
+                tenant_id=tenant_id,
+                reference=reference,
+                order_id=obj.id,
+                customer_id=obj.customer_id,
+                branch_id=obj.branch_id,
+                amount=resolved_paid,
+                payment_method=obj.payment_method,
+                status="Completed",
+                paid_at=datetime.now(UTC),
+                received_by=user_id,
+                accounting_transaction_id=sale_txn_id,
+            ))
+            obj.amount_paid = resolved_paid
     await OrderRepository(db).save(obj)
     await record_audit(
         db,
@@ -331,7 +436,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     )
     await db.commit()
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
-    return OrderRead.model_validate(obj)
+    return _to_order_read(obj)
 
 
 async def delete_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID | None = None, user_name: str | None = None) -> None:

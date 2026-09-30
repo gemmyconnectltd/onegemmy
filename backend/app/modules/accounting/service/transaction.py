@@ -185,8 +185,11 @@ async def create_sale_transaction(
     tax: float = 0.0,
     payment_method: str | None = None,
     amount_paid: float | None = None,
-) -> None:
-    """Auto-called when an order is Completed.
+) -> uuid.UUID | None:
+    """Auto-called when an order is Completed. Returns the posted
+    transaction's id (or None if accounts weren't seeded yet) so the
+    checkout's first OrderPayment row can keep a stable pointer to the
+    accounting entry that actually covers it.
 
     Debits whichever account(s) the money actually landed in: the
     payment-method account (Cash/Bank/Mobile Money) for however much was
@@ -205,7 +208,7 @@ async def create_sale_transaction(
     rev_id = await _get_account_by_code(db, tenant_id, "4000")
     ar_id = await _get_account_by_code(db, tenant_id, "1100")
     if not rev_id or not ar_id:
-        return  # accounts not seeded yet — skip silently
+        return None  # accounts not seeded yet — skip silently
 
     paid = 0.0
     method_id = None
@@ -251,6 +254,8 @@ async def create_sale_transaction(
         if cogs_id and inv_id:
             db.add(TransactionLine(transaction_id=txn.id, account_id=cogs_id, type="debit",  amount=round(cogs, 2), description="Cost of Goods Sold"))
             db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id,  type="credit", amount=round(cogs, 2), description="Inventory"))
+
+    return txn.id
 
 
 async def create_expense_transaction(
@@ -383,6 +388,85 @@ async def create_supplier_payment_transaction(
     txn = await repo.save(txn)
     db.add(TransactionLine(transaction_id=txn.id, account_id=ap_id,     type="debit",  amount=round(amount, 2), description="Accounts Payable"))
     db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=round(amount, 2), description=label))
+
+
+async def create_customer_payment_transaction(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    order_id: uuid.UUID | None,
+    amount: float,
+    reference: str,
+    payment_method: str | None,
+) -> uuid.UUID | None:
+    """Auto-called when a customer payment is recorded against an order's
+    outstanding balance (credit sale or partial-payment follow-up). Debit
+    whichever asset account the money actually landed in, Credit Accounts
+    Receivable (reduces the receivable) — the mirror image of
+    create_supplier_payment_transaction on the payable side. Returns the
+    posted transaction's id so the payment row can keep a stable pointer to
+    it (needed to reverse the entry later)."""
+    ar_id = await _get_account_by_code(db, tenant_id, "1100")
+    code, label = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
+    method_id = await _get_account_by_code(db, tenant_id, code)
+    if not ar_id or not method_id:
+        return None  # accounts not seeded yet — skip silently
+
+    repo = TransactionRepository(db)
+    txn_ref = await repo.next_reference(tenant_id)
+    txn = Transaction(
+        tenant_id=tenant_id,
+        reference=txn_ref,
+        type="customer_payment",
+        status="Posted",
+        transaction_date=datetime.now(UTC).date(),
+        description=f"Customer payment {reference}",
+        order_id=order_id,
+        created_by=user_id,
+    )
+    txn = await repo.save(txn)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="debit",  amount=round(amount, 2), description=label))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,     type="credit", amount=round(amount, 2), description="Accounts Receivable"))
+    return txn.id
+
+
+async def create_payment_reversal_transaction(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    order_id: uuid.UUID | None,
+    amount: float,
+    reference: str,
+    payment_method: str | None,
+) -> uuid.UUID | None:
+    """Auto-called when a customer payment is reversed. Posts the exact
+    opposite of create_customer_payment_transaction — Debit Accounts
+    Receivable (the balance is owed again), Credit the payment-method
+    account (the money is no longer counted as collected) — rather than
+    deleting the original entry, so the ledger keeps a full, auditable
+    history of both the payment and its reversal."""
+    ar_id = await _get_account_by_code(db, tenant_id, "1100")
+    code, label = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
+    method_id = await _get_account_by_code(db, tenant_id, code)
+    if not ar_id or not method_id:
+        return None
+
+    repo = TransactionRepository(db)
+    txn_ref = await repo.next_reference(tenant_id)
+    txn = Transaction(
+        tenant_id=tenant_id,
+        reference=txn_ref,
+        type="payment_reversal",
+        status="Posted",
+        transaction_date=datetime.now(UTC).date(),
+        description=f"Reversal of payment {reference}",
+        order_id=order_id,
+        created_by=user_id,
+    )
+    txn = await repo.save(txn)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,     type="debit",  amount=round(amount, 2), description="Accounts Receivable"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=round(amount, 2), description=label))
+    return txn.id
 
 
 async def backfill_sale_transactions(

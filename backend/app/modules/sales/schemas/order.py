@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
 from app.modules.sales.schemas.customer import CustomerRead
 from app.modules.sales.schemas.order_item import OrderItemCreate, OrderItemRead
+from app.modules.sales.schemas.order_payment import OrderPaymentRead
 
 
 class OrderCreate(BaseModel):
@@ -19,6 +20,13 @@ class OrderCreate(BaseModel):
     payment_method: str | None = None
     amount_tendered: float | None = None
     change_due: float | None = None
+    # "Amount Paid Now" — what's actually applied to this invoice at
+    # checkout, distinct from amount_tendered (cash physically handed over,
+    # which can exceed this when change is given). None preserves the
+    # historical default of "fully paid" so every existing caller (POS,
+    # CSV import) keeps behaving exactly as before without sending this.
+    amount_paid: float | None = None
+    due_date: date | None = None
     ordered_at: datetime | None = None
     items: list[OrderItemCreate] = []
 
@@ -61,6 +69,7 @@ class OrderUpdate(BaseModel):
     payment_method: str | None = None
     amount_tendered: float | None = None
     change_due: float | None = None
+    due_date: date | None = None
 
 
 class OrderRead(BaseModel):
@@ -87,3 +96,14 @@ class OrderRead(BaseModel):
     items: list[OrderItemRead] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    # Credit sales / partial payments — amount_paid is the one stored,
+    # authoritative running total; everything else here is derived from it
+    # (never independently settable by a client, per the "users should not
+    # manually select payment status" rule).
+    amount_paid: float = 0
+    due_date: date | None = None
+    outstanding_balance: float = 0
+    payment_status: str = "Unpaid"  # Unpaid | PartiallyPaid | Paid
+    is_overdue: bool = False
+    payments: list[OrderPaymentRead] = []

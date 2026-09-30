@@ -51,6 +51,7 @@ from app.modules.sales.models import (  # noqa: F401
     Deal,
     Order,
     OrderItem,
+    OrderPayment,
     Return,
     ReturnItem,
     Target,

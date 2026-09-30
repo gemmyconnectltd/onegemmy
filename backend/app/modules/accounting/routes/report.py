@@ -61,6 +61,13 @@ async def general_ledger(
     return success_response(data=report.model_dump(), message="General ledger generated")
 
 
+@router.get("/accounting/reports/receivables")
+async def receivables_summary(db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    summary = await service.get_receivables_summary(db, current_user.tenant_id)
+    return success_response(data=summary, message="Receivables summary generated")
+
+
 STATEMENTS = ("trial-balance", "income-statement", "balance-sheet", "cash-flow", "general-ledger")
 
 

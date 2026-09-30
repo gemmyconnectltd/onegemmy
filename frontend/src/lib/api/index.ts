@@ -20,7 +20,7 @@ export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCatego
 export { inventoryApi } from "./inventory";
 
 // Sales
-export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiReturnItem, ApiReturn, ApiTarget } from "./sales";
+export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiOrderPayment, ApiReturnItem, ApiReturn, ApiTarget } from "./sales";
 export { salesApi } from "./sales";
 
 // Accounting
@@ -31,6 +31,7 @@ export type {
   CashFlowStatement, CashFlowSection, CashFlowLine,
   GeneralLedger, LedgerEntry,
   AccountingAccount, AccountingExpense, AccountingTransaction, AccountingTransactionLine,
+  ReceivablesSummary,
 } from "./accounting";
 export { accountingApi } from "./accounting";
 

@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, Clock, FileText, AlertCircle, Mail, Phone, MapPin, Globe, CreditCard,
+  BadgeCheck, Clock, FileText, AlertCircle, Mail, Phone, MapPin, Globe, CreditCard, CalendarClock,
 } from "lucide-react";
 import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtDateTime } from "@/lib/date";
@@ -7,9 +7,13 @@ import type { ApiOrder, Tenant } from "@/lib/api";
 
 // The backend's Order.status is stored Title Case ("Pending"/"Completed"/
 // "Cancelled") — these keys must match exactly, not just read as labels.
+// This is the order's FULFILLMENT state — whether the sale itself went
+// through — deliberately distinct from payment_status (below), which is
+// whether the customer has actually paid for it. A Completed order can
+// still be Unpaid (a credit sale) or PartiallyPaid.
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
   Pending:   { label: "Pending",   bg: "bg-amber-100",   text: "text-amber-700",   icon: Clock },
-  Completed: { label: "Paid",      bg: "bg-emerald-100", text: "text-emerald-700", icon: BadgeCheck },
+  Completed: { label: "Completed", bg: "bg-emerald-100", text: "text-emerald-700", icon: BadgeCheck },
   Cancelled: { label: "Cancelled", bg: "bg-red-100",     text: "text-red-600",     icon: AlertCircle },
   Draft:     { label: "Draft",     bg: "bg-slate-100",   text: "text-slate-600",   icon: FileText },
 };
@@ -24,22 +28,47 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/** Diagonal stamp overlay for a settled/void invoice — the classic "rubber
- *  stamp" cue that makes a printed invoice read as authoritative at a glance. */
-function InvoiceStamp({ status }: { status: string }) {
-  if (status !== "Completed" && status !== "Cancelled") return null;
-  const paid = status === "Completed";
+const PAYMENT_STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
+  Paid:           { label: "Paid",           bg: "bg-emerald-100", text: "text-emerald-700", icon: BadgeCheck },
+  PartiallyPaid:  { label: "Partially Paid", bg: "bg-amber-100",   text: "text-amber-700",   icon: Clock },
+  Unpaid:         { label: "Unpaid",         bg: "bg-red-100",     text: "text-red-600",     icon: AlertCircle },
+};
+
+export function PaymentStatusBadge({ paymentStatus, isOverdue }: { paymentStatus: string; isOverdue?: boolean }) {
+  const cfg = PAYMENT_STATUS_CONFIG[paymentStatus] ?? PAYMENT_STATUS_CONFIG.Unpaid;
+  const Icon = cfg.icon;
   return (
-    <div
-      className="absolute top-6 right-6 border-[3px] rounded-lg px-4 py-1.5 font-extrabold text-[20px] tracking-[0.15em] uppercase select-none pointer-events-none"
-      style={{
-        color: paid ? "#059669" : "#dc2626",
-        borderColor: paid ? "#059669" : "#dc2626",
-        transform: "rotate(-10deg)",
-        opacity: 0.45,
-      }}
-    >
-      {paid ? "Paid" : "Void"}
+    <span className="inline-flex items-center gap-1.5">
+      <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text}`}>
+        <Icon size={11} /> {cfg.label}
+      </span>
+      {isOverdue && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-red-100 text-red-600">
+          <CalendarClock size={11} /> Overdue
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Diagonal stamp overlay — "Paid" is keyed off payment_status (has the
+ *  money actually come in), not the order's fulfillment status, so a
+ *  Completed-but-unpaid credit sale is never mis-stamped. "Void" still
+ *  reflects fulfillment status: the sale itself was cancelled. */
+function InvoiceStamp({ status, paymentStatus }: { status: string; paymentStatus: string }) {
+  if (status === "Cancelled") {
+    return (
+      <div className="absolute top-6 right-6 border-[3px] rounded-lg px-4 py-1.5 font-extrabold text-[20px] tracking-[0.15em] uppercase select-none pointer-events-none"
+        style={{ color: "#dc2626", borderColor: "#dc2626", transform: "rotate(-10deg)", opacity: 0.45 }}>
+        Void
+      </div>
+    );
+  }
+  if (paymentStatus !== "Paid") return null;
+  return (
+    <div className="absolute top-6 right-6 border-[3px] rounded-lg px-4 py-1.5 font-extrabold text-[20px] tracking-[0.15em] uppercase select-none pointer-events-none"
+      style={{ color: "#059669", borderColor: "#059669", transform: "rotate(-10deg)", opacity: 0.45 }}>
+      Paid
     </div>
   );
 }
@@ -48,7 +77,13 @@ function InvoiceStamp({ status }: { status: string }) {
  *  totals. Shared by every place an order needs to be shown or printed as an
  *  invoice: Accounting > Invoices, Sales > Orders, and anywhere else that
  *  adds this view later, so branding only has to be built once. */
-export function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: ApiOrder; tenant: Tenant | undefined; brandColor: string; fmt: (v: number) => string }) {
+export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayment }: {
+  order: ApiOrder; tenant: Tenant | undefined; brandColor: string; fmt: (v: number) => string;
+  /** Optional — only the interactive on-screen instance should pass this,
+   * not the print portal's. Rendered inside a `print:hidden` wrapper either
+   * way, so a printed invoice never shows an action button regardless. */
+  onReversePayment?: (paymentId: string) => void;
+}) {
   const businessLocation = [tenant?.address, tenant?.city, tenant?.country].filter(Boolean).join(", ");
 
   return (
@@ -91,13 +126,16 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: Api
           <div className="flex-shrink-0">
             <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/70">Invoice</p>
             <p className="text-[22px] font-extrabold text-white font-mono mt-0.5 leading-tight">{order.order_number}</p>
-            <div className="mt-2 flex justify-start"><StatusBadge status={order.status} /></div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <StatusBadge status={order.status} />
+              {order.status === "Completed" && <PaymentStatusBadge paymentStatus={order.payment_status} isOverdue={order.is_overdue} />}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="relative flex-1 flex flex-col overflow-hidden">
-        <InvoiceStamp status={order.status} />
+        <InvoiceStamp status={order.status} paymentStatus={order.payment_status} />
 
         {/* Bill to / dates */}
         <div className="px-7 py-5 border-b border-border">
@@ -121,6 +159,11 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: Api
               {order.payment_method && (
                 <p className="flex items-center justify-start gap-1.5 text-[12px] text-muted mt-2">
                   <CreditCard size={11} className="flex-shrink-0" /> {order.payment_method}
+                </p>
+              )}
+              {order.due_date && order.outstanding_balance > 0 && (
+                <p className="flex items-center justify-start gap-1.5 text-[12px] text-muted mt-1">
+                  <CalendarClock size={11} className="flex-shrink-0" /> Due {new Date(order.due_date).toLocaleDateString()}
                 </p>
               )}
             </div>
@@ -171,10 +214,64 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt }: { order: Api
                 className="flex justify-between items-center text-[15px] font-extrabold rounded-lg px-3.5 py-2.5 mt-2"
                 style={{ backgroundColor: `${brandColor}14`, color: brandColor }}
               >
-                <span>Total Due</span><span className="tabular-nums">{fmt(order.total)}</span>
+                <span>Total</span><span className="tabular-nums">{fmt(order.total)}</span>
               </div>
             </div>
           </div>
+
+          {/* Payment summary — deliberately separate from the sale-value
+              totals above: this is money actually received vs. what's
+              still outstanding, not another way of stating the total. */}
+          {order.status === "Completed" && (
+            <div className="px-7 pb-5">
+              <div className="w-full max-w-[280px] ml-auto space-y-2 border border-border rounded-lg p-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted mb-1">Payment Summary</p>
+                <div className="flex justify-between text-[13px] text-muted">
+                  <span>Total Paid</span><span className="tabular-nums font-semibold text-foreground">{fmt(order.amount_paid)}</span>
+                </div>
+                <div className="flex justify-between text-[13px] text-muted">
+                  <span>Outstanding</span>
+                  <span className={`tabular-nums font-semibold ${order.outstanding_balance > 0 ? "text-amber-600" : "text-foreground"}`}>{fmt(order.outstanding_balance)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-1.5 border-t border-border">
+                  <span className="text-[12px] font-bold text-foreground">Status</span>
+                  <PaymentStatusBadge paymentStatus={order.payment_status} isOverdue={order.is_overdue} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payment history */}
+          {order.payments.length > 0 && (
+            <div className="px-7 pb-6 border-t border-border pt-4">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted mb-2">Payment History</p>
+              <div className="space-y-2">
+                {order.payments.map((p) => (
+                  <div key={p.id} className={`flex items-center justify-between gap-3 text-[12px] rounded-lg px-3 py-2 ${p.status === "Reversed" ? "bg-red-50" : "bg-surface"}`}>
+                    <div className="min-w-0">
+                      <p className={`font-semibold ${p.status === "Reversed" ? "text-red-500 line-through" : "text-foreground"}`}>{fmtDateTime(p.paid_at)}</p>
+                      <p className="text-muted">
+                        {p.payment_method ?? "—"}{p.reference_number ? ` · Ref: ${p.reference_number}` : ""}{p.received_by_name ? ` · ${p.received_by_name}` : ""}
+                      </p>
+                      {p.status === "Reversed" && <p className="text-red-500">Reversed{p.reversal_reason ? `: ${p.reversal_reason}` : ""}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`font-bold tabular-nums ${p.status === "Reversed" ? "text-red-400 line-through" : "text-foreground"}`}>{fmt(p.amount)}</span>
+                      {p.status === "Completed" && onReversePayment && (
+                        <button
+                          type="button"
+                          onClick={() => onReversePayment(p.id)}
+                          className="print:hidden text-[11px] font-semibold text-red-500 hover:underline"
+                        >
+                          Reverse
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {order.notes && (
             <div className="px-7 py-4 border-t border-border">

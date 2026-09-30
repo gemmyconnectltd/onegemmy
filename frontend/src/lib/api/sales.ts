@@ -40,6 +40,27 @@ export interface ApiOrderItem {
   line_total: number;
 }
 
+export interface ApiOrderPayment {
+  id: string;
+  tenant_id: string;
+  reference: string;
+  order_id: string;
+  customer_id: string | null;
+  branch_id: string | null;
+  amount: number;
+  payment_method: string | null;
+  reference_number: string | null;
+  notes: string | null;
+  status: "Completed" | "Reversed";
+  paid_at: string;
+  received_by: string | null;
+  received_by_name: string | null;
+  reversed_at: string | null;
+  reversed_by: string | null;
+  reversal_reason: string | null;
+  created_at: string | null;
+}
+
 export interface ApiOrder {
   id: string;
   order_number: string;
@@ -60,6 +81,13 @@ export interface ApiOrder {
   customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
   items: ApiOrderItem[];
   created_at: string | null;
+  // Credit sales / partial payments
+  amount_paid: number;
+  due_date: string | null;
+  outstanding_balance: number;
+  payment_status: "Unpaid" | "PartiallyPaid" | "Paid";
+  is_overdue: boolean;
+  payments: ApiOrderPayment[];
 }
 
 export interface ApiReturnItem {
@@ -125,8 +153,8 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/deals/${id}`, { method: "DELETE" }),
 
   // Orders
-  listOrders: (page = 1, pageSize = 20, status?: string, search?: string) =>
-    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search })}`),
+  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string) =>
+    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus })}`),
   createOrder: (data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateOrders: (items: object[]) =>
@@ -135,6 +163,14 @@ export const salesApi = {
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/orders/${id}`, { method: "DELETE" }),
+
+  // Order payments (credit sales / partial payments)
+  listOrderPayments: (orderId: string) =>
+    request<SingleResponse<ApiOrderPayment[]>>(`${BASE}/orders/${orderId}/payments`),
+  recordOrderPayment: (orderId: string, data: object) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${orderId}/payments`, { method: "POST", body: JSON.stringify(data) }),
+  reverseOrderPayment: (paymentId: string, reason?: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/payments/${paymentId}/reverse`, { method: "POST", body: JSON.stringify({ reason }) }),
 
   // Returns
   listReturns: (page = 1, pageSize = 100, status?: string) =>

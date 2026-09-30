@@ -70,4 +70,10 @@ export type SaleResult = {
   cashGiven: string;
   change: number;
   timestamp: Date;
+  /** What's actually applied to the invoice — equals `total` for a normal
+   * fully-paid sale, less than `total` for a partial or credit sale. */
+  amountPaid?: number;
+  /** total - amountPaid; > 0 means this sale left a customer receivable. */
+  balanceDue?: number;
+  dueDate?: string | null;
 };

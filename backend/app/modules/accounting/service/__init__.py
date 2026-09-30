@@ -27,6 +27,7 @@ from app.modules.accounting.service.expense import (
     update_expense,
 )
 from app.modules.accounting.service.export import export_accounting_statement
+from app.modules.accounting.service.receivables import get_receivables_summary
 from app.modules.accounting.service.statements import (
     balance_sheet,
     cash_flow,
@@ -73,6 +74,7 @@ __all__ = [
     "get_account",
     "get_budget",
     "get_expense",
+    "get_receivables_summary",
     "get_transaction",
     "income_statement",
     "list_accounts",

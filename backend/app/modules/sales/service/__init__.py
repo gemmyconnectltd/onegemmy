@@ -24,6 +24,11 @@ from app.modules.sales.service.order import (
     list_orders,
     update_order,
 )
+from app.modules.sales.service.order_payment import (
+    list_payments_for_order,
+    record_payment,
+    reverse_payment,
+)
 from app.modules.sales.service.return_ import (
     count_returns,
     create_return,
@@ -67,8 +72,11 @@ __all__ = [
     "list_customers",
     "list_deals",
     "list_orders",
+    "list_payments_for_order",
     "list_returns",
     "list_targets",
+    "record_payment",
+    "reverse_payment",
     "update_customer",
     "update_deal",
     "update_order",

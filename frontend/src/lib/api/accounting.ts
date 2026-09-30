@@ -68,6 +68,13 @@ export interface TrialBalance {
   balanced: boolean;
 }
 
+export interface ReceivablesSummary {
+  total_receivables: number;
+  overdue_receivables: number;
+  partially_paid_count: number;
+  unpaid_count: number;
+}
+
 export interface StatementLine {
   code: string;
   name: string;
@@ -170,6 +177,8 @@ const qs = (params: Record<string, string | number | undefined>) => {
 };
 
 export const accountingApi = {
+  receivablesSummary: () =>
+    request<SingleResponse<ReceivablesSummary>>(`${BASE}/reports/receivables`),
   trialBalance: (fromDate?: string, toDate?: string) =>
     request<SingleResponse<TrialBalance>>(`${BASE}/reports/trial-balance${qs({ from_date: fromDate, to_date: toDate })}`),
   incomeStatement: (fromDate?: string, toDate?: string) =>

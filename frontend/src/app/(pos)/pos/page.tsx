@@ -87,6 +87,7 @@ export default function POSPage() {
   const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [bumpId, setBumpId] = useState<string | null>(null);
 
   // ── held / session ───────────────────────────────────────────────────────
@@ -180,6 +181,7 @@ export default function POSPage() {
     setCustomerName("");
     setNotes("");
     setCashGiven("");
+    setDueDate("");
     setSaleError(null);
   };
 
@@ -198,9 +200,13 @@ export default function POSPage() {
   const tax = gross - taxable;
   const total = gross;
   const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
-  // Amount received applies no matter the payment method — blank just means
-  // "charge the full amount", so only an explicitly-entered short amount blocks the sale.
-  const cashShort = cashGiven !== "" && Number(cashGiven) < total;
+  // "Amount Paid Now" — blank means "charge the full amount" (unchanged,
+  // normal cash-sale default); an explicit amount below the total is a
+  // partial or fully-credit (0) sale, not blocked, but it needs a customer
+  // and a due date since it leaves a receivable behind.
+  const amountPaidNow = cashGiven !== "" ? Math.max(0, Number(cashGiven)) : total;
+  const remainingBalance = Math.max(0, total - amountPaidNow);
+  const isCreditSale = remainingBalance > 0;
   const fmt = (v: number) => v.toLocaleString();
 
   // ── hold / resume ────────────────────────────────────────────────────────
@@ -229,6 +235,14 @@ export default function POSPage() {
   // ── complete sale ────────────────────────────────────────────────────────
   const completeSale = async () => {
     if (saving || cart.length === 0) return;
+    if (isCreditSale && !customerId) {
+      setSaleError("A customer is required for a partial or credit sale.");
+      return;
+    }
+    if (isCreditSale && !dueDate) {
+      setSaleError("A due date is required for a partial or credit sale.");
+      return;
+    }
     setSaving(true);
     setSaleError(null);
     try {
@@ -240,9 +254,14 @@ export default function POSPage() {
         discount: 0,
         tax,
         payment_method: payment,
-        // Applies no matter the payment method — blank means "received the full amount".
+        // "Amount Paid Now" — what's actually applied to the invoice.
+        amount_paid: amountPaidNow,
+        // Cash-drawer bookkeeping only (kept distinct from amount_paid): how
+        // much cash physically changed hands and what change was given —
+        // blank means "received the full amount" for backward compatibility.
         amount_tendered: cashGiven !== "" ? Number(cashGiven) : total,
         change_due: change,
+        due_date: isCreditSale ? dueDate : null,
         items: cart.map((i) => ({
           product_id: i.product_id ?? null,
           variant_id: i.variant_id ?? null,
@@ -269,6 +288,9 @@ export default function POSPage() {
         cashGiven,
         change,
         timestamp: new Date(),
+        amountPaid: amountPaidNow,
+        balanceDue: remainingBalance,
+        dueDate: isCreditSale ? dueDate : null,
       };
       setCompletedSale(sale);
       saveSale(sale);
@@ -454,9 +476,10 @@ export default function POSPage() {
                 tax={tax}
                 total={total}
                 change={change}
-                cashShort={cashShort}
+                remainingBalance={remainingBalance}
                 cartCount={cart.length}
-                hasCustomer={customerName.trim().length > 0}
+                hasCustomer={!!customerId}
+                dueDate={dueDate}
                 currencySymbol={currencySymbol}
                 fmt={fmt}
                 saving={saving}
@@ -464,6 +487,7 @@ export default function POSPage() {
                 itemsCashReceivedSum={itemsCashReceivedSum}
                 onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
                 onCashChange={setCashGiven}
+                onDueDateChange={setDueDate}
                 onCharge={completeSale}
                 vatEnabled={vatEnabled}
               />

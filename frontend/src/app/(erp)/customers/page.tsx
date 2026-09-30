@@ -11,6 +11,8 @@ import {
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useCustomers, useOrders, useCreateCustomer, useUpdateCustomer, useDeleteCustomer, useBulkCreateCustomers } from "@/lib/api/hooks";
 import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
+import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
@@ -88,6 +90,7 @@ export default function CustomersPage() {
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<ApiCustomer | null>(null);
   const [viewing, setViewing] = useState<ApiCustomer | null>(null);
+  const [recordingPaymentFor, setRecordingPaymentFor] = useState<ApiOrder | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -227,6 +230,34 @@ export default function CustomersPage() {
   const viewingOrders = viewing ? (ordersByCustomer[viewing.id] ?? []).sort((a, b) =>
     new Date(b.ordered_at ?? 0).getTime() - new Date(a.ordered_at ?? 0).getTime()
   ) : [];
+
+  // Account summary — derived straight from each Completed order's
+  // amount_paid/outstanding_balance/is_overdue, the same numbers Sales and
+  // Accounting read, so this can never disagree with them.
+  const viewingCompletedOrders = viewingOrders.filter((o) => o.status === "Completed");
+  const accountSummary = {
+    totalInvoiced: viewingCompletedOrders.reduce((s, o) => s + o.total, 0),
+    totalPaid: viewingCompletedOrders.reduce((s, o) => s + o.amount_paid, 0),
+    outstanding: viewingCompletedOrders.reduce((s, o) => s + o.outstanding_balance, 0),
+    overdue: viewingCompletedOrders.filter((o) => o.is_overdue).reduce((s, o) => s + o.outstanding_balance, 0),
+  };
+
+  // Chronological statement — one Invoice line per completed order and one
+  // Payment line per completed (non-reversed) payment against it, sorted by
+  // date with a running balance. Built from the same order/payment rows as
+  // everywhere else, never a separately-tracked debt figure.
+  type StatementEntry = { date: string; reference: string; type: "Invoice" | "Payment"; debit: number; credit: number };
+  const statementEntries: StatementEntry[] = viewingCompletedOrders.flatMap((o) => [
+    { date: o.ordered_at ?? o.created_at ?? "", reference: o.order_number, type: "Invoice" as const, debit: o.total, credit: 0 },
+    ...o.payments.filter((p) => p.status === "Completed").map((p) => (
+      { date: p.paid_at, reference: p.reference, type: "Payment" as const, debit: 0, credit: p.amount }
+    )),
+  ]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const statementLines = statementEntries.reduce<(StatementEntry & { balance: number })[]>((acc, e) => {
+    const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
+    acc.push({ ...e, balance: prevBalance + e.debit - e.credit });
+    return acc;
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -414,6 +445,85 @@ export default function CustomersPage() {
               </div>
             </div>
 
+            {/* Customer Account — real outstanding balance, derived from
+                the same amount_paid/outstanding_balance every other screen
+                reads, never a separately-maintained debt number. */}
+            {accountSummary.totalInvoiced > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">Customer Account</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-surface rounded-xl p-3 text-center">
+                    <p className="text-lg font-extrabold text-foreground font-mono truncate" title={fmt(accountSummary.totalInvoiced)}>{fmt(accountSummary.totalInvoiced)}</p>
+                    <p className="text-[11px] text-muted mt-0.5">Total Invoiced</p>
+                  </div>
+                  <div className="bg-surface rounded-xl p-3 text-center">
+                    <p className="text-lg font-extrabold text-emerald-600 font-mono truncate" title={fmt(accountSummary.totalPaid)}>{fmt(accountSummary.totalPaid)}</p>
+                    <p className="text-[11px] text-muted mt-0.5">Total Paid</p>
+                  </div>
+                  <div className="bg-surface rounded-xl p-3 text-center">
+                    <p className={`text-lg font-extrabold font-mono truncate ${accountSummary.outstanding > 0 ? "text-amber-600" : "text-foreground"}`} title={fmt(accountSummary.outstanding)}>{fmt(accountSummary.outstanding)}</p>
+                    <p className="text-[11px] text-muted mt-0.5">Outstanding Balance</p>
+                  </div>
+                  <div className="bg-surface rounded-xl p-3 text-center">
+                    <p className={`text-lg font-extrabold font-mono truncate ${accountSummary.overdue > 0 ? "text-red-600" : "text-foreground"}`} title={fmt(accountSummary.overdue)}>{fmt(accountSummary.overdue)}</p>
+                    <p className="text-[11px] text-muted mt-0.5">Overdue</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Outstanding invoices — quick access to Record Payment per invoice */}
+            {viewingCompletedOrders.some((o) => o.outstanding_balance > 0) && (
+              <div>
+                <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">Outstanding Invoices</p>
+                <div className="space-y-2">
+                  {viewingCompletedOrders.filter((o) => o.outstanding_balance > 0).map((o) => (
+                    <div key={o.id} className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-foreground">{o.order_number}</p>
+                        <div className="mt-1"><PaymentStatusBadge paymentStatus={o.payment_status} isOverdue={o.is_overdue} /></div>
+                      </div>
+                      <div className="text-right flex-shrink-0 flex items-center gap-2">
+                        <span className="text-[13px] font-bold text-amber-600 tabular-nums font-mono">{fmt(o.outstanding_balance)}</span>
+                        <Button size="sm" color={COLOR} onClick={() => setRecordingPaymentFor(o)}>Record</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Customer Statement — chronological, derived from real invoice/payment rows */}
+            {statementLines.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">Statement</p>
+                <div className="border border-border rounded-xl overflow-hidden">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="bg-surface text-left text-muted">
+                        <th className="px-3 py-2 font-semibold">Date</th>
+                        <th className="px-3 py-2 font-semibold">Reference</th>
+                        <th className="px-3 py-2 font-semibold text-right">Debit</th>
+                        <th className="px-3 py-2 font-semibold text-right">Credit</th>
+                        <th className="px-3 py-2 font-semibold text-right">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {statementLines.map((line, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2 text-muted whitespace-nowrap">{new Date(line.date).toLocaleDateString()}</td>
+                          <td className="px-3 py-2 font-medium text-foreground font-mono">{line.reference}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-foreground">{line.debit > 0 ? fmt(line.debit) : ""}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{line.credit > 0 ? fmt(line.credit) : ""}</td>
+                          <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmt(line.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* order history */}
             {viewingOrders.length > 0 && (
               <div>
@@ -532,6 +642,8 @@ export default function CustomersPage() {
         parseRow={parseCustomerRow}
         color={COLOR}
       />
+
+      <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={COLOR} fmt={fmt} />
     </div>
   );
 }
