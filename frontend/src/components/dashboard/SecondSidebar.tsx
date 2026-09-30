@@ -9,11 +9,12 @@ import {
   UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
   Hammer, Package, Layers, Tag, Ruler, Star, Settings, Bell,
   Shield, Palette, PanelTop, PanelLeft, PanelRight, Building2, UserCircle,
+  CalendarDays, ListChecks, CalendarClock, Sparkles,
 } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
 type ModuleKey =
-  | "sales" | "accounting" | "hr" | "crm" | "procurement"
+  | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
   | "manufacturing" | "customers" | "inventory" | "reports" | "settings" | "repairs";
 
 type Orientation = "top" | "left" | "big";
@@ -112,6 +113,14 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
   ],
   repairs: [
     { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
+  ],
+  services: [
+    { nameKey: "overview",         href: "/services",                  icon: LayoutDashboard, exact: true },
+    { nameKey: "appointments",     href: "/services/appointments",     icon: CalendarDays },
+    { nameKey: "walkIns",          href: "/services/walk-ins",         icon: ListChecks },
+    { nameKey: "calendar",         href: "/services/calendar",         icon: CalendarClock },
+    { nameKey: "catalog",          href: "/services/catalog",          icon: Sparkles },
+    { nameKey: "staffCommissions", href: "/services/staff-commissions", icon: UserCheck },
   ],
 };
 

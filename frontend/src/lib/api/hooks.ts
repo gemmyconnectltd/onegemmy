@@ -20,6 +20,7 @@ import {
   repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
   tenantsApi,
   usersApi,
+  serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi, queueApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
   type ApiProduct, type ApiVariant, type ApiVariantListItem,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
@@ -579,6 +580,69 @@ export const useDeactivateCompanyUser = mutation((id: string) => usersApi.deacti
 export const useDeleteCompanyUser = mutation((id: string) => usersApi.remove(id), USER_INVALIDATIONS);
 export const useResetCompanyUserPassword = mutation(({ id, sendEmail }: { id: string; sendEmail?: boolean }) => usersApi.resetPassword(id, sendEmail ?? true), USER_INVALIDATIONS);
 
+// ── Services (appointments/walk-ins/catalog/staff commissions) ─────────────
+
+const SERVICE_CATEGORIES = ["services", "categories"] as const;
+const SERVICES = ["services", "catalog"] as const;
+const EMPLOYEE_SERVICES = ["services", "staff-commissions"] as const;
+
+export const useServiceCategories = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ([...SERVICE_CATEGORIES, page, pageSize], () => serviceCategoriesApi.list(page, pageSize), (r) => r.data, opts);
+
+export const useCreateServiceCategory = mutation((d: object) => serviceCategoriesApi.create(d), [[...SERVICE_CATEGORIES]]);
+export const useUpdateServiceCategory = mutation(({ id, data }: { id: string; data: object }) => serviceCategoriesApi.update(id, data), [[...SERVICE_CATEGORIES]]);
+export const useDeleteServiceCategory = mutation((id: string) => serviceCategoriesApi.delete(id), [[...SERVICE_CATEGORIES]]);
+
+export const useServices = (page = 1, pageSize = 20, search?: string, categoryId?: string, isActive?: boolean, opts?: QueryOpts) =>
+  useQ([...SERVICES, page, pageSize, search ?? "", categoryId ?? "all", isActive ?? "any"], () => servicesApi.list(page, pageSize, search, categoryId, isActive), (r) => r.data, opts);
+
+export const useAllServices = (opts?: QueryOpts) =>
+  useQ([...SERVICES, "all"], () => servicesApi.listAll(), (r) => r.data, opts);
+
+export const useCreateService = mutation((d: object) => servicesApi.create(d), [[...SERVICES]]);
+export const useUpdateService = mutation(({ id, data }: { id: string; data: object }) => servicesApi.update(id, data), [[...SERVICES]]);
+export const useDeleteService = mutation((id: string) => servicesApi.delete(id), [[...SERVICES]]);
+
+export const useServiceTemplates = (opts?: QueryOpts) =>
+  useQ([...SERVICES, "templates"], () => servicesApi.templates(), (r) => r.data, opts);
+
+export const useImportServices = mutation(
+  (items: Parameters<typeof servicesApi.import>[0]) => servicesApi.import(items),
+  [[...SERVICES], [...SERVICE_CATEGORIES]],
+);
+
+export const useEmployeeServices = (opts?: QueryOpts) =>
+  useQ([...EMPLOYEE_SERVICES], () => employeeServicesApi.list(), (r) => r.data, opts);
+
+export const useEmployeeServicesForEmployee = (employeeId: string | undefined, opts?: QueryOpts) =>
+  useQ([...EMPLOYEE_SERVICES, "employee", employeeId], () => employeeServicesApi.listForEmployee(employeeId!), (r) => r.data, { ...opts, enabled: !!employeeId && (opts?.enabled ?? true) });
+
+export const useCreateEmployeeService = mutation((d: object) => employeeServicesApi.create(d), [[...EMPLOYEE_SERVICES]]);
+export const useUpdateEmployeeService = mutation(({ id, data }: { id: string; data: object }) => employeeServicesApi.update(id, data), [[...EMPLOYEE_SERVICES]]);
+export const useDeleteEmployeeService = mutation((id: string) => employeeServicesApi.delete(id), [[...EMPLOYEE_SERVICES]]);
+
+const APPOINTMENTS = ["services", "appointments"] as const;
+const QUEUE = ["services", "queue"] as const;
+
+type AppointmentFilters = Parameters<typeof appointmentsApi.list>[2];
+
+export const useAppointments = (page = 1, pageSize = 20, filters?: AppointmentFilters, opts?: QueryOpts) =>
+  useQ([...APPOINTMENTS, page, pageSize, JSON.stringify(filters ?? {})], () => appointmentsApi.list(page, pageSize, filters), (r) => r.data, opts);
+
+export const useAppointment = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...APPOINTMENTS, id], () => appointmentsApi.get(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useCreateAppointment = mutation((d: object) => appointmentsApi.create(d), [[...APPOINTMENTS], [...QUEUE]]);
+export const useUpdateAppointment = mutation(({ id, data }: { id: string; data: object }) => appointmentsApi.update(id, data), [[...APPOINTMENTS]]);
+export const useDeleteAppointment = mutation((id: string) => appointmentsApi.delete(id), [[...APPOINTMENTS]]);
+
+export const useQueue = (status?: string, opts?: QueryOpts) =>
+  useQ([...QUEUE, status ?? "all"], () => queueApi.list(status), (r) => r.data, opts);
+
+export const useCreateQueueEntry = mutation((d: object) => queueApi.create(d), [[...QUEUE]]);
+export const useUpdateQueueEntry = mutation(({ id, data }: { id: string; data: object }) => queueApi.update(id, data), [[...QUEUE]]);
+export const useDeleteQueueEntry = mutation((id: string) => queueApi.delete(id), [[...QUEUE]]);
+
 // ── Re-export the response types for convenience ────────────────────────────
 
 export type {
@@ -597,3 +661,7 @@ export type {
   RepairJob, InventoryBatch, ApiSerial, ApiStockTransfer, ApiWarrantyClaim, ApiProductionOrder,
   ApiUser, ApiAuditLog,
 };
+export type {
+  ApiServiceCategory, ApiService, ApiEmployeeService, ApiAppointment, ApiAppointmentService, ApiQueueEntry,
+  ApiServiceTemplateItem, ApiServiceTemplateGroup, ApiServiceTemplate, ApiServiceTemplates, ApiServiceImportResult,
+} from "./services";

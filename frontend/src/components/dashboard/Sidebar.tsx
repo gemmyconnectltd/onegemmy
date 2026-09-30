@@ -14,7 +14,7 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, HandCoins,
   Factory, ShoppingBag, Building2, Menu, X,
-  PanelLeft, Crown, Activity, Wrench,
+  PanelLeft, Crown, Activity,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -30,12 +30,13 @@ const adminNavItems = [
 const coreNavItems = [
   { name: "Dashboard",  href: "/dashboard",     icon: LayoutDashboard },
   { name: "Sales",      href: "/sales",         icon: ShoppingCart,  feature: "sales",         module: "sales" },
+  // Services module is built and routable but hidden from the sidebar for now.
+  // { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
   { name: "Inventory",  href: "/inventory",     icon: Warehouse,     feature: "inventory",     module: "inventory" },
   { name: "Accounting", href: "/accounting",    icon: HandCoins,     feature: "accounting",    module: "accounting" },
   { name: "Purchases",  href: "/procurement",   icon: ShoppingBag,   feature: "procurement",   module: "procurement" },
   { name: "Customers",  href: "/customers",     icon: Users,         feature: "sales",         module: "customers" },
   { name: "Manufacturing", href: "/manufacturing", icon: Factory,       feature: "manufacturing", module: "manufacturing" },
-  // { name: "Services",  href: "/repairs",       icon: Wrench,        feature: "repairs",       module: "repairs" },
 ];
 
 // ── Business management ───────────────────────────────────────────────────

@@ -11,6 +11,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/sales/returns": "Sales Returns",
   "/sales/targets": "Sales Targets",
   "/sales/analytics": "Sales Analytics",
+  "/services": "Services",
   "/products": "Products",
   "/reports": "Reports",
   "/inventory": "Inventory Overview",

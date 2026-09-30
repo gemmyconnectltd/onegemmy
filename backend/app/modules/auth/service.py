@@ -117,11 +117,21 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
     # (POST /admin/tenants/{id}/activate) before anyone can log in. This is
     # the same is_active flag suspend/activate already uses, so an unapproved
     # signup and a suspended tenant are both blocked identically at login.
+    #
+    # Services (appointments + walk-in queue) defaults OFF platform-wide —
+    # only relevant to appointment/walk-in businesses — but a signup that
+    # says they're one gets it on from day one instead of a super-admin
+    # having to notice and flip it later via Features & Access.
+    features: dict = {}
+    if data.business_category in ("Service-based", "Mixed (Products & Services)"):
+        features = {"services": True, "appointments": True, "queue": True}
+
     tenant = Tenant(
         name=data.tenant_name,
         slug=data.tenant_slug,
         is_active=False,
         subscription_status="pending",
+        features=features,
         country=data.country,
         # The frontend derives this from the selected country, but a public
         # unauthenticated endpoint never trusts client input at face value —

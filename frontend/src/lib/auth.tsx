@@ -65,6 +65,7 @@ const MODULE_RESOURCES: Record<string, string[]> = {
   hr: ["employees", "organization", "recruitment", "attendance", "leave", "payroll", "performance"],
   customers: ["leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets"],
   manufacturing: ["bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing"],
+  services: ["services", "appointments", "queue"],
 };
 
 export interface AuthContextType {

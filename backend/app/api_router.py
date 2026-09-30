@@ -12,6 +12,7 @@ from app.modules.manufacturing.routes import manufacturing_router
 from app.modules.procurement.routes import procurement_router
 from app.modules.repairs.routes import router as repairs_router
 from app.modules.sales.routes import sales_router
+from app.modules.services.routes import services_router
 from app.modules.tenants.routes import global_router, tenants_router
 
 api_router = APIRouter(prefix="/api/v1")
@@ -28,3 +29,4 @@ api_router.include_router(procurement_router, prefix="/tenants", dependencies=[D
 api_router.include_router(crm_router, prefix="/tenants", dependencies=[Depends(require_feature("crm"))])
 api_router.include_router(manufacturing_router, prefix="/tenants", dependencies=[Depends(require_feature("manufacturing"))])
 api_router.include_router(repairs_router, prefix="/tenants", dependencies=[Depends(require_feature("repairs"))])
+api_router.include_router(services_router, prefix="/tenants", dependencies=[Depends(require_feature("services"))])

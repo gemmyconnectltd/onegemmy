@@ -70,6 +70,13 @@ export { repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warranty
 export type { ApiProductionOrder, ApiProductionItem, ApiBom, ApiBomItem } from "./manufacturing";
 export { manufacturingApi } from "./manufacturing";
 
+// Services (appointments/walk-ins/catalog/staff commissions)
+export type {
+  ApiServiceCategory, ApiService, ApiEmployeeService, ApiAppointment, ApiAppointmentService, ApiQueueEntry,
+  ApiServiceTemplateItem, ApiServiceTemplateGroup, ApiServiceTemplate, ApiServiceTemplates, ApiServiceImportResult,
+} from "./services";
+export { serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi, queueApi } from "./services";
+
 // Admin
 export type {
   AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,

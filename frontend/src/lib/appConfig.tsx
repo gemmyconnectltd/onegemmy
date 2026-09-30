@@ -32,6 +32,8 @@ const BASE_STRINGS: Record<string, string> = {
   signOut: "Sign out", language: "Language", currency: "Currency",
   search: "Search", filter: "Filter", newDeal: "New Deal",
   pos: "Point of Sale", collapse: "Collapse",
+  services: "Services", appointments: "Appointments", walkIns: "Walk-ins",
+  calendar: "Calendar", catalog: "Catalog", staffCommissions: "Staff & Commissions",
 
   // ── Common actions ──
   addProduct: "Add Product", edit: "Edit", delete: "Delete", cancel: "Cancel",

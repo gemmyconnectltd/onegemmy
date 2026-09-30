@@ -1,4 +1,6 @@
-"""Backfill role_id for users that predate default role seeding.
+"""Backfill role_id for users that predate default role seeding, and sync
+newly-added permission-catalog resources into every tenant's existing
+default roles.
 
 Every user invited before this fix (via admin_invite_user or the tenant
 self-service create_user) only ever got a free-text `role` string — role_id
@@ -10,6 +12,11 @@ nav item is gated on a permission check, so only Dashboard/Reports/Settings
 tenant that doesn't have them yet, then assigns each affected user the role
 matching their existing `role` string (falling back to Member for anything
 unrecognized) so they get real access without needing to be re-invited.
+
+seed_default_roles also now merges any _PERMISSION_RESOURCES entries a
+tenant's existing roles don't have yet (see role.py) — so this same script
+is also what to re-run any time a new resource/module (e.g. Services) is
+added to the catalog, to push it out to tenants that registered earlier.
 
 Usage:
     cd backend

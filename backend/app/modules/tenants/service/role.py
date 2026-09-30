@@ -24,6 +24,7 @@ _PERMISSION_RESOURCES = [
     "vendors", "requisitions", "rfq", "purchase_orders", "goods_receipt", "contracts",
     "leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets",
     "bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing",
+    "services", "appointments", "queue", "service_commissions",
 ]
 _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 
@@ -105,6 +106,16 @@ async def ensure_permissions_seeded(db: AsyncSession) -> list[Permission]:
     return list((await db.execute(select(Permission))).scalars().all())
 
 
+def _merge_missing(role: Role, wanted: list[Permission]) -> None:
+    """Add whatever permissions from `wanted` a role doesn't already have,
+    without touching anything it already holds — so a tenant that hand-edited
+    a default role's permissions via the Roles screen never gets anything
+    taken away, but still picks up newly-added resources (e.g. a later
+    platform release adding a whole new module) automatically."""
+    have = {p.id for p in role.permissions}
+    role.permissions.extend(p for p in wanted if p.id not in have)
+
+
 async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     """Every tenant needs Admin/Member/Viewer roles with real permissions
     from the moment it exists — without them, any user invited after the
@@ -112,25 +123,39 @@ async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     use to turn an invite's role string into one of these), meaning zero
     permissions and an almost-empty sidebar (only Dashboard/Reports/Settings,
     since every other nav item is gated on a module permission check).
-    Idempotent per role name, so it's also safe to call for tenants that
+
+    Creates each role if missing, and — just as importantly — merges in any
+    catalog permissions an *existing* role doesn't have yet, e.g. when a new
+    resource (a whole new module) is added to _PERMISSION_RESOURCES after
+    tenants already have their default roles. Without that merge, every
+    future resource addition would silently never reach non-owner staff on
+    any tenant that predates it. Safe to call repeatedly and for tenants that
     registered before this existed — resolve_role_id does exactly that for
     any tenant it encounters with no roles yet."""
     all_permissions = await ensure_permissions_seeded(db)
-    existing_names = {r.name for r in await RoleRepository(db).list_for_tenant(tenant_id, 0, 1000)}
+    existing = {r.name: r for r in await RoleRepository(db).list_for_tenant(tenant_id, 0, 1000)}
 
-    if "Admin" not in existing_names:
+    if "Admin" in existing:
+        _merge_missing(existing["Admin"], all_permissions)
+    else:
         db.add(Role(
             tenant_id=tenant_id, name="Admin", permissions=all_permissions,
             description="Full access, same as the account owner.",
         ))
-    if "Member" not in existing_names:
-        member_perms = [p for p in all_permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+
+    member_perms = [p for p in all_permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+    if "Member" in existing:
+        _merge_missing(existing["Member"], member_perms)
+    else:
         db.add(Role(
             tenant_id=tenant_id, name="Member", permissions=member_perms,
             description="Full access to day-to-day operations. Can't manage users, roles or tenant settings.",
         ))
-    if "Viewer" not in existing_names:
-        viewer_perms = [p for p in all_permissions if p.action == "read" and p.resource not in _ADMIN_ONLY_RESOURCES]
+
+    viewer_perms = [p for p in all_permissions if p.action == "read" and p.resource not in _ADMIN_ONLY_RESOURCES]
+    if "Viewer" in existing:
+        _merge_missing(existing["Viewer"], viewer_perms)
+    else:
         db.add(Role(
             tenant_id=tenant_id, name="Viewer", permissions=viewer_perms,
             description="Read-only access across modules.",
