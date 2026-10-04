@@ -24,12 +24,32 @@ class Settings(BaseSettings):
 
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # Email (Gmail SMTP) — set SMTP_USER and SMTP_PASSWORD to enable sending.
+    # Email — one shared SMTP host, but a separate mailbox per email
+    # category (see app/core/email.py's `sender` param: "accounts" or
+    # "admin"). SMTP_USER/SMTP_PASSWORD/EMAIL_FROM are the legacy
+    # single-mailbox settings, kept as the fallback a category-specific
+    # mailbox resolves to when it isn't configured — so a deployment that
+    # hasn't set the ACCOUNTS_*/ADMIN_* vars yet keeps working unchanged.
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""  # Gmail App Password
     EMAIL_FROM: str = "Pesaa <eplotrobert@gmail.com>"
+
+    # Account lifecycle mail (welcome, verification, password reset,
+    # invites, ...). Falls back to SMTP_USER/SMTP_PASSWORD/EMAIL_FROM above
+    # when unset.
+    ACCOUNTS_SMTP_USER: str = ""
+    ACCOUNTS_SMTP_PASSWORD: str = ""
+    ACCOUNTS_EMAIL_FROM: str = ""
+
+    # Admin/approval-workflow mail (tenant approval, pending-signup review
+    # notices, ...). Falls back to SMTP_USER/SMTP_PASSWORD/EMAIL_FROM above
+    # when unset.
+    ADMIN_SMTP_USER: str = ""
+    ADMIN_SMTP_PASSWORD: str = ""
+    ADMIN_EMAIL_FROM: str = ""
+
     # Where the public marketing-site contact form is delivered.
     CONTACT_INBOX: str = "robertniyitanga3@gmail.com"
     FRONTEND_URL: str = "http://localhost:3000"

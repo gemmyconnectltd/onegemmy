@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,6 +70,37 @@ async def get_current_active_superuser(user: CurrentUser) -> User:
 
 
 SuperUser = Annotated[User, Depends(get_current_active_superuser)]
+
+
+async def get_active_branch_id(
+    current_user: CurrentUser,
+    db: DbSession,
+    x_branch_id: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None,
+) -> uuid.UUID | None:
+    """Resolves which branch the current request acts on.
+
+    A user tied to a single branch (the common case — a cashier, a branch
+    manager) always acts in that branch; the header is ignored for them so
+    they can never spoof another branch's data by sending one. A user with
+    no fixed branch (branch_id is null — an Admin/Owner with implicit
+    access to every branch) may pass X-Branch-Id to act on a specific one;
+    it's validated to actually belong to their tenant here, not trusted
+    blindly. Returns None when no branch could be resolved at all (an
+    unassigned user sent no header) — callers that need a definite branch
+    (e.g. a POS sale) should fall back to the tenant's main branch rather
+    than treat None as "no branch restriction" themselves.
+    """
+    if current_user.branch_id is not None:
+        return current_user.branch_id
+    if x_branch_id is None or current_user.tenant_id is None:
+        return None
+    from app.modules.tenants.repository import BranchRepository
+
+    branch = await BranchRepository(db).get_by_id_for_tenant(current_user.tenant_id, x_branch_id)
+    return branch.id if branch else None
+
+
+ActiveBranchId = Annotated[uuid.UUID | None, Depends(get_active_branch_id)]
 
 
 def require_permission(permission_name: str):

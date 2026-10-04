@@ -110,3 +110,12 @@ async def update_branch(
 async def delete_branch(branch_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     await service.delete_branch(db, current_user.tenant_id, branch_id)
     return success_response(message="Branch deleted successfully")
+
+
+@router.post("/branches/{branch_id}/set-main")
+async def set_main_branch(branch_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    branch = await service.set_main_branch(db, current_user.tenant_id, branch_id)
+    return success_response(
+        data=branch.model_dump(),
+        message="Main branch updated successfully",
+    )

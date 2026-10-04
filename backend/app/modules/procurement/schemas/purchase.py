@@ -32,6 +32,7 @@ class PurchaseItemRead(BaseModel):
 
 class PurchaseCreate(BaseModel):
     supplier_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     expected_date: date | None = None
     status: str = "Draft"
     discount: float = Field(default=0, ge=0)
@@ -42,6 +43,7 @@ class PurchaseCreate(BaseModel):
 
 class PurchaseUpdate(BaseModel):
     supplier_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     expected_date: date | None = None
     discount: float | None = Field(default=None, ge=0)
     tax: float | None = Field(default=None, ge=0)
@@ -63,6 +65,7 @@ class PurchaseRead(BaseModel):
     expected_date: date | None
     received_at: datetime | None
     supplier_id: uuid.UUID | None
+    branch_id: uuid.UUID | None
     created_by: uuid.UUID | None
     supplier: SupplierRead | None = None
     items: list[PurchaseItemRead] = []

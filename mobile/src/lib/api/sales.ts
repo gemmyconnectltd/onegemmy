@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, downloadFile } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
 export interface ApiCustomer {
@@ -131,6 +131,8 @@ export const salesApi = {
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/orders/${id}`, { method: "DELETE" }),
+  downloadInvoicePdf: (id: string, orderNumber: string) =>
+    downloadFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
 
   // Returns
   listReturns: (page = 1, pageSize = 100, status?: string) =>

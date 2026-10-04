@@ -1,8 +1,11 @@
 // Core client
 export {
   request,
+  downloadFile,
+  downloadFilePost,
   getStoredToken, setStoredToken,
   getStoredRefreshToken, setStoredRefreshToken,
+  getActiveBranchId, setActiveBranchId,
   clearStoredTokens,
   clearApiCache,
   setSessionExpiredHandler,
@@ -80,7 +83,7 @@ export { serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi
 // Admin
 export type {
   AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,
-  AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
+  AdminUserRow, AdminDepartment, AdminRole, AdminBranch, AdminUserFilters,
 } from "./admin";
 export { adminApi } from "./admin";
 

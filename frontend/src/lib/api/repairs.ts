@@ -107,6 +107,7 @@ export interface ApiBranch {
   phone: string | null;
   email: string | null;
   status: string | null;
+  is_main: boolean;
   user_count: number;
   created_at: string | null;
 }
@@ -188,6 +189,7 @@ export const branchesApi = {
   create: (data: object) => request<SingleResponse<ApiBranch>>(BRANCHES, { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: object) => request<SingleResponse<ApiBranch>>(`${BRANCHES}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<SingleResponse<null>>(`${BRANCHES}/${id}`, { method: "DELETE" }),
+  setMain: (id: string) => request<SingleResponse<ApiBranch>>(`${BRANCHES}/${id}/set-main`, { method: "POST" }),
 };
 
 export const warrantyApi = {

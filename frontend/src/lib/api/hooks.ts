@@ -34,7 +34,7 @@ import {
   type ApiEmployee, type ApiAttendance,
   type ApiLeave, type ApiPayroll, type ApiApplicant,
   type AdminTenant, type AdminTenantUsage, type AdminTenantStats, type AdminPlatformStats, type AdminTenantAnalytics, type AdminFeatureUsage, type AdminUsageBreakdown, type AdminUser,
-  type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch,
+  type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch, type AdminUserFilters,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
   type RepairJob, type InventoryBatch,
@@ -366,8 +366,8 @@ export const useAdminFeatureUsage = (opts?: QueryOpts) =>
 export const useAdminUsageBreakdown = (opts?: QueryOpts) =>
   useQ(["admin", "usage-breakdown"], () => adminApi.usageBreakdown(), (r) => r.data, opts);
 
-export const useUsers = (page = 1, pageSize = 50, opts?: QueryOpts) =>
-  useQ(["admin", "users", page, pageSize], () => adminApi.listUsers(page, pageSize), (r) => r.data, opts);
+export const useUsers = (page = 1, pageSize = 50, filters: AdminUserFilters = {}, opts?: QueryOpts) =>
+  useQ(["admin", "users", page, pageSize, filters], () => adminApi.listUsers(page, pageSize, filters), (r) => r.data, opts);
 
 export const useTenants = (page = 1, pageSize = 20, opts?: QueryOpts) =>
   useQ([...TENANTS, page, pageSize], () => adminApi.listTenants(page, pageSize), (r) => r.data, opts);
@@ -492,6 +492,7 @@ export const useMyBranchStats = (id: string | undefined, opts?: QueryOpts) =>
 export const useCreateMyBranch = mutation((d: object) => branchesApi.create(d), [[...BRANCHES_KEY]]);
 export const useUpdateMyBranch = mutation(({ id, data }: { id: string; data: object }) => branchesApi.update(id, data), [[...BRANCHES_KEY]]);
 export const useDeleteMyBranch = mutation((id: string) => branchesApi.delete(id), [[...BRANCHES_KEY]]);
+export const useSetMainBranch = mutation((id: string) => branchesApi.setMain(id), [[...BRANCHES_KEY]]);
 
 export const useCreateTransfer = mutation((d: object) => transfersApi.create(d), [[...TRANSFERS_KEY]]);
 export const useUpdateTransfer = mutation(({ id, data }: { id: string; data: object }) => transfersApi.update(id, data), [[...TRANSFERS_KEY]]);
@@ -655,7 +656,7 @@ export type {
   ApiDepartment, ApiDepartmentTemplate, ApiDepartmentTemplates, ApiDepartmentImportResult,
   ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
   AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,
-  AdminUserRow, AdminDepartment, AdminRole, AdminBranch,
+  AdminUserRow, AdminDepartment, AdminRole, AdminBranch, AdminUserFilters,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
   Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,
   RepairJob, InventoryBatch, ApiSerial, ApiStockTransfer, ApiWarrantyClaim, ApiProductionOrder,

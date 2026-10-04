@@ -4,6 +4,7 @@ from app.modules.tenants.service.branch import (
     delete_branch,
     get_branch,
     list_branches,
+    set_main_branch,
     update_branch,
 )
 from app.modules.tenants.service.department import (
@@ -138,6 +139,7 @@ __all__ = [
     "reset_tenant_features",
     "resolve_role_id",
     "seed_default_roles",
+    "set_main_branch",
     "set_tenant_features",
     "set_tenant_limits",
     "set_user_active",

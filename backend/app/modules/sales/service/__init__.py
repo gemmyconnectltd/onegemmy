@@ -15,6 +15,7 @@ from app.modules.sales.service.deal import (
     list_deals,
     update_deal,
 )
+from app.modules.sales.service.invoice_pdf import generate_order_invoice_pdf
 from app.modules.sales.service.order import (
     bulk_create_orders,
     count_orders,
@@ -64,6 +65,7 @@ __all__ = [
     "delete_order",
     "delete_return",
     "delete_target",
+    "generate_order_invoice_pdf",
     "get_customer",
     "get_deal",
     "get_order",

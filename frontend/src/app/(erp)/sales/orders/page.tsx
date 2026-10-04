@@ -3,7 +3,7 @@ import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, AlertCircle, ChevronDown, Upload, Printer,
+  Eye, Edit2, AlertCircle, ChevronDown, Upload, Printer, Download, Loader2,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -13,6 +13,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder, useBulkCreateOrders, useCurrentTenant } from "@/lib/api/hooks";
+import { salesApi } from "@/lib/api/sales";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
 import { InvoiceDocument, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
@@ -279,6 +280,18 @@ export default function SalesOrdersPage() {
   const [reversingPayment, setReversingPayment] = useState<ApiOrderPayment | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [items, setItems] = useState<ItemRow[]>([newItem()]);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async (order: ApiOrder) => {
+    setDownloadingPdf(true);
+    try {
+      await salesApi.downloadInvoicePdf(order.id, order.order_number);
+    } catch {
+      // Non-critical — the user can retry or fall back to Print.
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   // Reset to page 1 right where a filter changes, not via an effect.
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
@@ -715,6 +728,13 @@ export default function SalesOrdersPage() {
                   Record Payment
                 </Button>
               )}
+              <button
+                onClick={() => viewing && handleDownloadPdf(viewing)}
+                disabled={downloadingPdf}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/70 hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
+              >
+                {downloadingPdf ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} PDF
+              </button>
               <button
                 onClick={() => window.print()}
                 className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg"

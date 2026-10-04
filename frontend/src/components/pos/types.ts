@@ -59,6 +59,10 @@ export type PaymentMethod = "cash" | "mobile" | "card";
 
 export type SaleResult = {
   orderId: string;
+  /** The real backend Order id (UUID), distinct from `orderId` above (a
+   *  client-generated display id) — needed to download the invoice PDF.
+   *  Undefined for sales saved before this field existed. */
+  backendOrderId?: string;
   payment: PaymentMethod;
   customerName: string;
   notes: string;

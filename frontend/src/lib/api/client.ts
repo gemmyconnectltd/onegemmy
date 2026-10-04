@@ -74,6 +74,22 @@ export function clearStoredTokens() {
   }
 }
 
+// Only meaningful for a user with no fixed branch of their own (an
+// Admin/Owner — see User.branchId) — it's how they pick which branch a
+// POS sale or other branch-scoped write applies to. For a user who does
+// have a fixed branch, the backend ignores this header entirely and
+// always uses their own branch, so it's harmless to leave unset for them.
+export function getActiveBranchId(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("onegemmy_active_branch_id");
+}
+
+export function setActiveBranchId(branchId: string | null) {
+  if (typeof window === "undefined") return;
+  if (branchId) localStorage.setItem("onegemmy_active_branch_id", branchId);
+  else localStorage.removeItem("onegemmy_active_branch_id");
+}
+
 async function tryRefreshToken(): Promise<string | null> {
   // Deduplicate concurrent refresh calls
   if (_refreshPromise) return _refreshPromise;
@@ -110,11 +126,13 @@ const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/aut
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
+  const activeBranchId = getActiveBranchId();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
 
   const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers }, REQUEST_TIMEOUT_MS);
 
@@ -141,6 +159,63 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw { status: res.status, detail };
   }
   return res.json();
+}
+
+function _triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function _filenameFromDisposition(res: Response, fallback: string): string {
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  return match ? decodeURIComponent(match[1]) : fallback;
+}
+
+/** Fetches a binary endpoint (e.g. a generated PDF) and triggers a browser
+ *  download — for responses that aren't JSON, so they can't go through
+ *  `request()`. Reads the server's Content-Disposition filename when present,
+ *  falling back to `fallbackFilename`. */
+export async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const token = getStoredToken();
+  const activeBranchId = getActiveBranchId();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
+
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw { status: res.status, detail: body.detail || body.message || res.statusText };
+  }
+
+  _triggerDownload(await res.blob(), _filenameFromDisposition(res, fallbackFilename));
+}
+
+/** Same as `downloadFile`, but POSTs a JSON body — for exports driven by a
+ *  filter/options payload too large or structured for a query string. */
+export async function downloadFilePost(path: string, body: object, fallbackFilename: string): Promise<void> {
+  const token = getStoredToken();
+  const activeBranchId = getActiveBranchId();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
+
+  const res = await fetchWithTimeout(
+    `${API_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) }, REQUEST_TIMEOUT_MS,
+  );
+  if (!res.ok) {
+    const resBody = await res.json().catch(() => ({ detail: res.statusText }));
+    throw { status: res.status, detail: resBody.detail || resBody.message || res.statusText };
+  }
+
+  _triggerDownload(await res.blob(), _filenameFromDisposition(res, fallbackFilename));
 }
 
 /** Backend origin, derived from API_BASE (which includes the `/api/v1` path). */

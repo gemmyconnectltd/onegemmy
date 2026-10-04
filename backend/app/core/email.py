@@ -14,12 +14,31 @@ log = get_logger("email")
 LOGO_URL = "https://pesaa.io/icons/icon-192x192.png"
 
 
-def _message_id() -> str:
+def _message_id(from_header: str) -> str:
     """Unique, RFC 5322 Message-ID with the From domain — some spam filters
     downgrade mail whose Message-ID lacks a plausible domain."""
-    match = re.search(r"<([^>]+)>", settings.EMAIL_FROM)
+    match = re.search(r"<([^>]+)>", from_header)
     domain = match.group(1).rsplit("@", 1)[-1] if match and "@" in match.group(1) else "localhost"
     return f"<{uuid.uuid4()}@{domain}>"
+
+
+def _resolve_smtp_credentials(sender: str) -> tuple[str, str, str]:
+    """Resolves (user, password, From header) for a `sender` category
+    ("accounts" or "admin" — see send_email). Each category falls back to
+    the legacy single-mailbox SMTP_USER/SMTP_PASSWORD/EMAIL_FROM settings
+    when its own isn't configured, so a deployment that hasn't set the new
+    per-category env vars yet keeps sending exactly as it did before."""
+    if sender == "admin":
+        return (
+            settings.ADMIN_SMTP_USER or settings.SMTP_USER,
+            settings.ADMIN_SMTP_PASSWORD or settings.SMTP_PASSWORD,
+            settings.ADMIN_EMAIL_FROM or settings.EMAIL_FROM,
+        )
+    return (
+        settings.ACCOUNTS_SMTP_USER or settings.SMTP_USER,
+        settings.ACCOUNTS_SMTP_PASSWORD or settings.SMTP_PASSWORD,
+        settings.ACCOUNTS_EMAIL_FROM or settings.EMAIL_FROM,
+    )
 
 
 def _plain_text(html_body: str) -> str:
@@ -113,19 +132,25 @@ def _security_note(text: str) -> str:
 
 
 async def send_email(
-    to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None
+    to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None,
+    sender: str = "accounts",
 ) -> bool:
-    """Send an email via SMTP. Fails soft — email must never break a request."""
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject}})
+    """Send an email via SMTP, from the mailbox configured for `sender`:
+    "accounts" (default) for account-lifecycle mail (welcome, verification,
+    password reset, invites), or "admin" for tenant-approval/admin-review
+    mail — see _resolve_smtp_credentials. Fails soft — email must never
+    break a request. Never logs the password, only to/subject/sender."""
+    user, password, from_header = _resolve_smtp_credentials(sender)
+    if not user or not password:
+        log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
         return False
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = settings.EMAIL_FROM
+    msg["From"] = from_header
     msg["To"] = to
     msg["Date"] = formatdate(localtime=True)
-    msg["Message-ID"] = _message_id()
+    msg["Message-ID"] = _message_id(from_header)
     msg["MIME-Version"] = "1.0"
     if reply_to:
         msg["Reply-To"] = reply_to
@@ -137,12 +162,12 @@ async def send_email(
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
             server.ehlo()
             server.starttls()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.login(user, password)
             server.send_message(msg)
-        log.info("email.sent", extra={"_extra_fields": {"to": to, "subject": subject}})
+        log.info("email.sent", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
         return True
     except Exception:
-        log.exception("email.send_error", extra={"_extra_fields": {"to": to, "subject": subject}})
+        log.exception("email.send_error", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
         return False
 
 
@@ -171,11 +196,12 @@ async def send_welcome_email(
     tenant_name: str,
     tenant_slug: str,
     dashboard_url: str | None = None,
+    sender: str = "accounts",
 ) -> bool:
     subject = "Welcome to Pesaa — your account is ready"
     body = _welcome_body(full_name, tenant_name, tenant_slug, dashboard_url or f"{settings.FRONTEND_URL}/login")
     preheader = f"{tenant_name} is set up on Pesaa. Open your dashboard to get started."
-    return await send_email(to, subject, _branded_html("Welcome to Pesaa 🎉", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html("Welcome to Pesaa 🎉", body, preheader), text_body=None, sender=sender)
 
 
 def _registration_received_body(full_name: str, tenant_name: str) -> str:
@@ -189,11 +215,11 @@ def _registration_received_body(full_name: str, tenant_name: str) -> str:
     )
 
 
-async def send_registration_received_email(to: str, full_name: str, tenant_name: str) -> bool:
+async def send_registration_received_email(to: str, full_name: str, tenant_name: str, sender: str = "accounts") -> bool:
     subject = "We've received your Pesaa registration"
     body = _registration_received_body(full_name, tenant_name)
     preheader = f"{tenant_name} is pending a quick review before you can sign in."
-    return await send_email(to, subject, _branded_html("Registration received", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html("Registration received", body, preheader), text_body=None, sender=sender)
 
 
 def _reset_body(full_name: str, reset_link: str) -> str:
@@ -214,11 +240,12 @@ async def send_password_reset_email(
     to: str,
     full_name: str,
     reset_link: str,
+    sender: str = "accounts",
 ) -> bool:
     subject = "Reset your Pesaa password"
     body = _reset_body(full_name, reset_link)
     preheader = "This password reset link expires in 30 minutes."
-    return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None, sender=sender)
 
 
 def _pending_signup_body(tenant_name: str, tenant_slug: str, review_url: str) -> str:
@@ -234,11 +261,11 @@ def _pending_signup_body(tenant_name: str, tenant_slug: str, review_url: str) ->
     )
 
 
-async def send_pending_signup_email(to: str, tenant_name: str, tenant_slug: str, review_url: str) -> bool:
+async def send_pending_signup_email(to: str, tenant_name: str, tenant_slug: str, review_url: str, sender: str = "admin") -> bool:
     subject = f"New signup pending approval: {tenant_name}"
     body = _pending_signup_body(tenant_name, tenant_slug, review_url)
     preheader = f"{tenant_name} is waiting for approval."
-    return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None, sender=sender)
 
 
 def _account_approved_body(full_name: str, tenant_name: str, login_email: str, dashboard_url: str) -> str:
@@ -256,11 +283,11 @@ def _account_approved_body(full_name: str, tenant_name: str, login_email: str, d
     )
 
 
-async def send_account_approved_email(to: str, full_name: str, tenant_name: str, dashboard_url: str) -> bool:
+async def send_account_approved_email(to: str, full_name: str, tenant_name: str, dashboard_url: str, sender: str = "admin") -> bool:
     subject = "Your Pesaa account is approved"
     body = _account_approved_body(full_name, tenant_name, to, dashboard_url)
     preheader = f"{tenant_name} is approved and ready on Pesaa."
-    return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None, sender=sender)
 
 
 def _invite_body(full_name: str, tenant_name: str, temp_password: str, login_url: str) -> str:
@@ -289,11 +316,12 @@ async def send_invite_email(
     tenant_name: str,
     temp_password: str,
     login_url: str | None = None,
+    sender: str = "accounts",
 ) -> bool:
     subject = f"You've been invited to {tenant_name} on Pesaa"
     body = _invite_body(full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login")
     preheader = f"Join {tenant_name} on Pesaa — your temporary password is inside."
-    return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None, sender=sender)
 
 
 def _temp_password_body(
@@ -326,6 +354,7 @@ async def send_temp_password_email(
     temp_password: str,
     login_url: str | None = None,
     reset_by: str | None = None,
+    sender: str = "accounts",
 ) -> bool:
     """An admin-issued password reset. Separate from send_invite_email so the
     wording tells the user their password was reset rather than that they
@@ -335,7 +364,7 @@ async def send_temp_password_email(
         full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login", reset_by
     )
     preheader = f"Use this temporary password to sign in to {tenant_name}."
-    return await send_email(to, subject, _branded_html("Your password was reset", body, preheader), text_body=None)
+    return await send_email(to, subject, _branded_html("Your password was reset", body, preheader), text_body=None, sender=sender)
 
 
 def _contact_field_row(label: str, value: str) -> str:
@@ -380,6 +409,7 @@ async def send_contact_email(
     employee_count: str | None,
     inquiry_type: str | None,
     message: str,
+    sender: str = "accounts",
 ) -> bool:
     """Relays a marketing-site contact form submission straight to the team
     inbox — no DB write, this is just mail forwarding. `reply-to` is set to
@@ -393,4 +423,5 @@ async def send_contact_email(
         html_body=_branded_html("New contact form submission", body, preheader),
         text_body=None,
         reply_to=email,
+        sender=sender,
     )

@@ -1,10 +1,11 @@
-import { Check, Copy, Printer, UserRound, X } from "lucide-react";
+import { Check, Copy, Download, Loader2, Printer, UserRound, X } from "lucide-react";
 import { useState } from "react";
 
 import { BarcodeStripe } from "./BarcodeStripe";
 import { getProductIcon, IconBadge } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtDateTime } from "@/lib/date";
+import { salesApi } from "@/lib/api/sales";
 import type { SaleResult } from "./types";
 import type { Tenant } from "@/lib/api";
 
@@ -28,6 +29,19 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onClose, tenant }: ReceiptProps) {
   const [copied, setCopied] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!sale.backendOrderId) return;
+    setDownloadingPdf(true);
+    try {
+      await salesApi.downloadInvoicePdf(sale.backendOrderId, sale.orderId);
+    } catch {
+      // Non-critical — the user can retry or fall back to Print.
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const handleCopySummary = () => {
     const lines = [
@@ -88,11 +102,11 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
       )}
 
       {/* Header — success state */}
-      <div className="relative px-5 pt-8 pb-5">
+      <div className="px-5 pt-6 pb-5">
         {onClose && (
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-surface text-muted"
+            className="float-right w-8 h-8 flex items-center justify-center rounded-full bg-surface text-muted"
             aria-label="Close"
           >
             <X size={16} />
@@ -198,32 +212,50 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
           )}
         </div>
 
-        <div className="px-4 pb-2">
-          <p className="text-left text-[10px] text-muted/60 italic mb-3">Thank you for your purchase!</p>
-        </div>
+        <p className="text-center text-[10px] text-muted/60 italic px-4 pt-1 pb-3">Thank you for your purchase!</p>
 
-        {/* Actions — fixed at very bottom */}
-        <div className="px-4 pb-4 grid grid-cols-[1fr_auto_auto] gap-2">
+        {/* Actions — fixed at very bottom. "New Sale" is the one thing a
+           cashier does next, so it gets the full-width primary button;
+           Copy/Print/Download are secondary, read-only on this sale, so
+           they're grouped into a single segmented control rather than
+           competing for attention as separate boxes. */}
+        <div className="px-4 pb-4 flex items-center gap-2">
           <button
             onClick={onNewSale}
-            className="py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition"
+            className="flex-1 py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition"
           >
             New Sale
           </button>
-          <button
-            onClick={handleCopySummary}
-            aria-label="Copy receipt"
-            className="w-12 flex items-center justify-center border border-border rounded-xl text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-          >
-            {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
-          </button>
-          <button
-            onClick={() => window.print()}
-            aria-label="Print receipt"
-            className="w-12 flex items-center justify-center border border-border rounded-xl text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-          >
-            <Printer size={15} />
-          </button>
+          <div className="flex items-center flex-shrink-0 border border-border rounded-xl overflow-hidden">
+            <button
+              onClick={handleCopySummary}
+              aria-label="Copy receipt"
+              className="w-11 h-11 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
+            >
+              {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
+            </button>
+            <div className="w-px h-5 bg-border" />
+            <button
+              onClick={() => window.print()}
+              aria-label="Print receipt"
+              className="w-11 h-11 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
+            >
+              <Printer size={15} />
+            </button>
+            {sale.backendOrderId && (
+              <>
+                <div className="w-px h-5 bg-border" />
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  aria-label="Download PDF"
+                  className="w-11 h-11 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
+                >
+                  {downloadingPdf ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

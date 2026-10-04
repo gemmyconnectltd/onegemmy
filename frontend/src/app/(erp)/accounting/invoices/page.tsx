@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Search, Eye, Printer,
   BadgeCheck, Clock, FileText, TrendingUp, Plus,
-  Download, MoreHorizontal,
+  Download, MoreHorizontal, Loader2,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
@@ -15,6 +15,7 @@ import type { ApiOrder, ApiOrderPayment } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import { InvoiceDocument, StatusBadge, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { salesApi } from "@/lib/api/sales";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
 
@@ -34,10 +35,22 @@ export default function InvoicesPage() {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [recordingPaymentFor, setRecordingPaymentFor] = useState<ApiOrder | null>(null);
   const [reversingPayment, setReversingPayment] = useState<ApiOrderPayment | null>(null);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   // Derived from the live list so the drawer reflects a payment recorded/reversed while open.
   const viewing = orders.find((o) => o.id === viewingId) ?? null;
 
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
+
+  const downloadInvoicePdf = async (order: ApiOrder) => {
+    setDownloadingPdfId(order.id);
+    try {
+      await salesApi.downloadInvoicePdf(order.id, order.order_number);
+    } catch {
+      // Non-critical — the user can retry or fall back to Print.
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   const printInvoice = (order: ApiOrder) => {
     setViewingId(order.id);
@@ -244,6 +257,14 @@ export default function InvoicesPage() {
                         <Printer size={13} />
                       </button>
                       <button
+                        onClick={() => downloadInvoicePdf(o)}
+                        disabled={downloadingPdfId === o.id}
+                        title="Download PDF"
+                        className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground transition-colors disabled:opacity-60"
+                      >
+                        {downloadingPdfId === o.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                      </button>
+                      <button
                         title="More"
                         className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground transition-colors"
                       >
@@ -281,6 +302,13 @@ export default function InvoicesPage() {
                   <BadgeCheck size={15} /> Record Payment
                 </button>
               )}
+              <button
+                onClick={() => downloadInvoicePdf(viewing)}
+                disabled={downloadingPdfId === viewing.id}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/70 hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
+              >
+                {downloadingPdfId === viewing.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} PDF
+              </button>
               <button onClick={() => window.print()} className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: brandColor }}>
                 <Printer size={15} /> Print
               </button>

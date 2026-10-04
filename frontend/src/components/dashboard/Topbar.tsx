@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppConfig } from "@/lib/appConfig";
+import { BranchSwitcher } from "./BranchSwitcher";
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -74,6 +75,8 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
           <span className="text-[13px] font-bold truncate max-w-[38vw] sm:max-w-[200px]">{businessName}</span>
         </Link>
       )}
+
+      {!admin && <BranchSwitcher />}
 
       {/* Breadcrumb */}
       <div className="hidden md:flex items-center gap-1.5 text-[14px] min-w-0">

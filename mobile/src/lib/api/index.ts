@@ -1,6 +1,7 @@
 // Core client
 export {
   request,
+  downloadFile,
   getStoredToken, setStoredToken,
   getStoredRefreshToken, setStoredRefreshToken,
   clearStoredTokens,

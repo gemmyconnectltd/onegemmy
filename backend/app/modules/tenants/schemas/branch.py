@@ -30,6 +30,7 @@ class BranchRead(BaseModel):
     phone: str | None = None
     email: str | None = None
     status: str
+    is_main: bool = False
     user_count: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None

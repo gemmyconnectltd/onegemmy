@@ -1,9 +1,12 @@
 import secrets
 import uuid
+from datetime import date, timedelta
+from typing import Literal
+from urllib.parse import quote
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import case, func, select, text
+from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -16,6 +19,7 @@ from app.core.response import paginated_response, success_response
 from app.core.security import hash_password, validate_password_strength
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
+from app.modules.admin.export import build_users_export, resolve_columns
 from app.modules.audit.service import record_audit
 from app.modules.hr.models.employee import Employee
 from app.modules.inventory.models.product import Product
@@ -25,7 +29,7 @@ from app.modules.repairs.models.job import RepairJob
 from app.modules.sales.models.deal import Deal
 from app.modules.sales.models.order import Order
 from app.modules.tenants import service
-from app.modules.tenants.models import Tenant, User
+from app.modules.tenants.models import Branch, Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
 from app.modules.tenants.schemas import (
     BranchCreate,
@@ -398,34 +402,155 @@ async def admin_usage_breakdown(db: DbSession, _: SuperUser):
 
 # ── Platform users ────────────────────────────────────────────────────────────
 
-@router.get("/users")
-async def admin_list_all_users(db: DbSession, _: SuperUser, page_params: PageQuery):
+def _build_admin_users_query(
+    search: str | None = None,
+    tenant_id: uuid.UUID | None = None,
+    role: str | None = None,
+    status: str | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+):
+    """The one filtered query behind both the platform Users dashboard and
+    the user export (see admin_list_all_users / admin_export_users below) —
+    so export always matches exactly what the dashboard shows for the same
+    filters, and the two can never drift into different result sets."""
     stmt = (
-        select(User, Tenant.name)
+        select(User, Tenant.name, Branch.name)
         .outerjoin(Tenant, Tenant.id == User.tenant_id)
-        .order_by(User.created_at.desc())
-        .offset(page_params.offset)
-        .limit(page_params.limit)
+        .outerjoin(Branch, Branch.id == User.branch_id)
     )
+    if search:
+        like = f"%{search.strip()}%"
+        stmt = stmt.where(or_(User.full_name.ilike(like), User.email.ilike(like)))
+    if tenant_id is not None:
+        stmt = stmt.where(User.tenant_id == tenant_id)
+    if role:
+        stmt = stmt.where(User.role == role)
+    if status == "active":
+        stmt = stmt.where(User.is_active.is_(True))
+    elif status == "inactive":
+        stmt = stmt.where(User.is_active.is_(False))
+    if created_from is not None:
+        stmt = stmt.where(User.created_at >= created_from)
+    if created_to is not None:
+        # created_to is a calendar date — include the whole day, not just midnight.
+        stmt = stmt.where(User.created_at < created_to + timedelta(days=1))
+    return stmt
+
+
+def _admin_user_row(u: User, tenant_name: str | None, branch_name: str | None) -> dict:
+    """Row shape shared by the dashboard list and every export format. Only
+    ever reads these specific columns off `u` — hashed_password and friends
+    are never touched, so they can't leak here even by future mistake."""
+    return {
+        "id": str(u.id),
+        "email": u.email,
+        "full_name": u.full_name,
+        "phone": u.phone,
+        "role": u.role,
+        "is_active": u.is_active,
+        "is_superuser": u.is_superuser,
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+        "updated_at": u.updated_at.isoformat() if u.updated_at else None,
+        "tenant_id": str(u.tenant_id) if u.tenant_id else None,
+        "tenant_name": tenant_name,
+        "branch_id": str(u.branch_id) if u.branch_id else None,
+        "branch_name": branch_name,
+    }
+
+
+@router.get("/users")
+async def admin_list_all_users(
+    db: DbSession, _: SuperUser, page_params: PageQuery,
+    search: str | None = None,
+    tenant_id: uuid.UUID | None = None,
+    role: str | None = None,
+    status: Literal["active", "inactive"] | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+):
+    base = _build_admin_users_query(search, tenant_id, role, status, created_from, created_to)
+    stmt = base.order_by(User.created_at.desc()).offset(page_params.offset).limit(page_params.limit)
     rows = (await db.execute(stmt)).all()
-    total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    items = [
-        {
-            "id": str(u.id),
-            "email": u.email,
-            "full_name": u.full_name,
-            "role": u.role,
-            "is_active": u.is_active,
-            "is_superuser": u.is_superuser,
-            "created_at": u.created_at.isoformat() if u.created_at else None,
-            "tenant_id": str(u.tenant_id) if u.tenant_id else None,
-            "tenant_name": tname,
-        }
-        for u, tname in rows
-    ]
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
+    items = [_admin_user_row(u, tname, bname) for u, tname, bname in rows]
     return paginated_response(items=items, total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="All users retrieved")
+
+
+class AdminUserExportRequest(BaseModel):
+    scope: Literal["filtered", "all", "current_page", "selected"] = "filtered"
+    format: Literal["xlsx", "csv"] = "xlsx"
+    columns: list[str] | None = None
+    search: str | None = None
+    tenant_id: uuid.UUID | None = None
+    role: str | None = None
+    status: Literal["active", "inactive"] | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    page: int = 1
+    page_size: int = 50
+    selected_ids: list[uuid.UUID] | None = None
+
+
+@router.post("/users/export")
+async def admin_export_users(data: AdminUserExportRequest, db: DbSession, admin: SuperUser):
+    """Superadmin-only (enforced by the `SuperUser` dependency server-side,
+    not just a hidden frontend button). Builds the export from exactly the
+    same filtered query the dashboard list uses — see
+    _build_admin_users_query — so "Filtered Results" always matches what's
+    on screen, at any size, without paging through the frontend."""
+    filters: dict = {}
+
+    if data.scope == "selected":
+        if not data.selected_ids:
+            raise ValidationError("No users selected")
+        stmt = (
+            select(User, Tenant.name, Branch.name)
+            .outerjoin(Tenant, Tenant.id == User.tenant_id)
+            .outerjoin(Branch, Branch.id == User.branch_id)
+            .where(User.id.in_(data.selected_ids))
+            .order_by(User.created_at.desc())
+        )
+    elif data.scope == "all":
+        stmt = _build_admin_users_query().order_by(User.created_at.desc())
+    else:
+        filters = {
+            "search": data.search, "tenant_name": None, "role": data.role,
+            "status": data.status, "created_from": data.created_from, "created_to": data.created_to,
+        }
+        if data.tenant_id is not None:
+            tenant = await TenantRepository(db).get(data.tenant_id)
+            filters["tenant_name"] = tenant.name if tenant else str(data.tenant_id)
+        base = _build_admin_users_query(
+            data.search, data.tenant_id, data.role, data.status, data.created_from, data.created_to,
+        )
+        stmt = base.order_by(User.created_at.desc())
+        if data.scope == "current_page":
+            stmt = stmt.offset((data.page - 1) * data.page_size).limit(data.page_size)
+
+    rows = (await db.execute(stmt)).all()
+    items = [_admin_user_row(u, tname, bname) for u, tname, bname in rows]
+    columns = resolve_columns(data.columns)
+
+    filename, content, media_type = build_users_export(
+        items, columns, data.format, admin.full_name or admin.email, filters,
+    )
+
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+        action="users.export", entity_type="user_export", entity_id=None,
+        summary=f"Exported {len(items)} users as {data.format.upper()} ({data.scope})",
+        changes={"scope": data.scope, "format": data.format, "count": len(items), "filters": filters},
+    )
+    await db.commit()
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
 
 
 # ── Tenant CRUD ───────────────────────────────────────────────────────────────
@@ -512,6 +637,7 @@ async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Supe
                 full_name=owner.full_name,
                 tenant_name=tenant.name,
                 dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
+                sender="admin",
             )
     return success_response(data=tenant.model_dump(), message="Tenant activated")
 

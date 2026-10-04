@@ -234,7 +234,8 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     };
 
     try {
-      await createOrder.mutateAsync(payload);
+      const created = await createOrder.mutateAsync(payload);
+      sale.backendOrderId = created.data.id;
     } catch (e) {
       if (!isNetworkError(e)) {
         setSaleError((e as { detail?: string })?.detail ?? "Failed to save sale");

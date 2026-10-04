@@ -119,6 +119,36 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   return res.json();
 }
 
+/** Fetches a binary endpoint (e.g. a generated PDF) and triggers a browser
+ *  download — for responses that aren't JSON, so they can't go through
+ *  `request()`. Reads the server's Content-Disposition filename when present,
+ *  falling back to `fallbackFilename`. */
+export async function downloadFile(path: string, fallbackFilename: string): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw { status: res.status, detail: body.detail || body.message || res.statusText };
+  }
+
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  const filename = match ? decodeURIComponent(match[1]) : fallbackFilename;
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Backend origin, derived from API_BASE (which includes the `/api/v1` path). */
 const API_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, "");
 

@@ -31,9 +31,16 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # The branch this PO's stock is received into — resolved server-side the
+    # same way Order.branch_id is (see sales/service/order.py), never trusted
+    # blindly from the client.
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True
+    )
 
     supplier = relationship("Supplier", foreign_keys=[supplier_id], lazy="select")
     creator = relationship("User", foreign_keys=[created_by], lazy="select")
+    branch = relationship("Branch", foreign_keys=[branch_id], lazy="select")
     items = relationship("PurchaseItem", back_populates="purchase_order", lazy="selectin", cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -41,4 +48,5 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         Index("ix_purchase_orders_tenant_id", "tenant_id"),
         Index("ix_purchase_orders_supplier_id", "supplier_id"),
         Index("ix_purchase_orders_tenant_status", "tenant_id", "status"),
+        Index("ix_purchase_orders_tenant_branch", "tenant_id", "branch_id"),
     )

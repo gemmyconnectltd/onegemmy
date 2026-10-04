@@ -10,6 +10,8 @@ import {
   setStoredRefreshToken,
   getStoredToken,
   getStoredRefreshToken,
+  getActiveBranchId,
+  setActiveBranchId as persistActiveBranchId,
   setSessionExpiredHandler,
   type ApiTokenUserInfo,
 } from "./api";
@@ -24,6 +26,11 @@ export interface User {
   tenantId: string | null;
   tenantName: string | null;
   tenantSlug: string | null;
+  // null means this user has no fixed branch of their own (an Admin/Owner
+  // with implicit access to every branch) — see `activeBranchId` below for
+  // how they pick one to act in.
+  branchId: string | null;
+  branchName: string | null;
   permissions: string[];
 }
 
@@ -79,6 +86,14 @@ export interface AuthContextType {
   hasModuleAccess: (module: string) => boolean;
   isSuperAdmin: () => boolean;
   isAdmin: () => boolean;
+  // Which branch the signed-in user is currently acting in. For a user
+  // with a fixed branch this always equals user.branchId — it can't be
+  // overridden client-side (the backend ignores any attempt to anyway).
+  // For an unassigned user it's their last-picked branch (persisted
+  // locally, null meaning "all branches" / let the server fall back to
+  // the tenant's main branch), restored post-mount per hydration rules.
+  activeBranchId: string | null;
+  setActiveBranchId: (branchId: string | null) => void;
 }
 
 function mapUser(u: ApiTokenUserInfo): User {
@@ -92,6 +107,8 @@ function mapUser(u: ApiTokenUserInfo): User {
     tenantId: u.tenant_id,
     tenantName: u.tenant_name,
     tenantSlug: u.tenant_slug,
+    branchId: u.branch_id,
+    branchName: u.branch_name,
     permissions: u.permissions ?? [],
   };
 }
@@ -117,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [activeBranchId, setActiveBranchIdState] = useState<string | null>(null);
   const router = useRouter();
 
   // Register session expired handler so API client can trigger it
@@ -131,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const init = async () => {
+      if (!cancelled) setActiveBranchIdState(getActiveBranchId());
       const token = getStoredToken();
       if (token && !isTokenExpired(token)) {
         const payload = decodeToken(token);
@@ -228,8 +247,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     clearStoredTokens();
+    setActiveBranchIdState(null);
+    persistActiveBranchId(null);
     // Drop cached API responses so the next session never sees stale data
     // from the previous user (logout makes no network request).
+    clearApiCache();
+  }, []);
+
+  const setActiveBranchId = useCallback((branchId: string | null) => {
+    setActiveBranchIdState(branchId);
+    persistActiveBranchId(branchId);
+    // Every list/report screen is implicitly scoped by the active branch
+    // server-side now, so switching branches without invalidating cached
+    // queries would leave stale data from the previous branch on screen.
     clearApiCache();
   }, []);
 
@@ -258,8 +288,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     user, login, register, logout, isLoading,
     hasPermission, hasAnyPermission, hasModuleAccess,
-    isSuperAdmin, isAdmin,
-  }), [user, login, register, logout, isLoading, hasPermission, hasAnyPermission, hasModuleAccess, isSuperAdmin, isAdmin]);
+    isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId,
+  }), [user, login, register, logout, isLoading, hasPermission, hasAnyPermission, hasModuleAccess, isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId]);
 
   return (
     <AuthContext.Provider value={value}>

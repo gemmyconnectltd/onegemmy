@@ -198,7 +198,35 @@ async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Or
     return _to_order_read(obj)
 
 
-async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate) -> OrderRead:
+async def _resolve_order_branch_id(
+    db: AsyncSession, tenant_id: uuid.UUID, active_branch_id: uuid.UUID | None, client_branch_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """Determines which branch an order belongs to. The active branch —
+    derived server-side from the authenticated user's own branch, or an
+    admin's X-Branch-Id header — always wins when present, so a POS
+    terminal can never attribute a sale to a branch the cashier isn't in.
+    Only when there's no active branch at all (an unassigned admin who
+    sent no header, or a bulk import) does the client-supplied branch_id
+    get used, and even then only after confirming it belongs to this
+    tenant. Falls back to the tenant's main branch so every order ends up
+    attributed somewhere rather than silently unbranded."""
+    from app.modules.tenants.repository import BranchRepository
+
+    repo = BranchRepository(db)
+    if active_branch_id is not None:
+        return active_branch_id
+    if client_branch_id is not None:
+        branch = await repo.get_by_id_for_tenant(tenant_id, client_branch_id)
+        if branch is not None:
+            return branch.id
+    main = await repo.get_main_for_tenant(tenant_id)
+    return main.id if main else None
+
+
+async def create_order(
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate,
+    active_branch_id: uuid.UUID | None = None,
+) -> OrderRead:
     repo = OrderRepository(db)
 
     # Idempotency: replaying a client order id (e.g. an offline sale being
@@ -219,12 +247,14 @@ async def create_order(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUI
     if data.status == "Completed":
         _require_credit_sale_fields(data.customer_id, data.due_date, outstanding)
 
+    resolved_branch_id = await _resolve_order_branch_id(db, tenant_id, active_branch_id, data.branch_id)
+
     order = Order(
         tenant_id=tenant_id,
         order_number=order_number,
         customer_id=data.customer_id,
         deal_id=data.deal_id,
-        branch_id=data.branch_id,
+        branch_id=resolved_branch_id,
         created_by=user_id,
         status=data.status,
         subtotal=subtotal,
@@ -376,7 +406,14 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         raise NotFoundError("Order not found")
     was_completed = obj.status == "Completed"
     before = obj.status
-    for field, value in data.model_dump(exclude_unset=True).items():
+    update_fields = data.model_dump(exclude_unset=True)
+    if "branch_id" in update_fields and update_fields["branch_id"] is not None:
+        from app.modules.tenants.repository import BranchRepository
+
+        branch = await BranchRepository(db).get_by_id_for_tenant(tenant_id, update_fields["branch_id"])
+        if branch is None:
+            raise ValidationError("That branch does not belong to your company")
+    for field, value in update_fields.items():
         setattr(obj, field, value)
     # Every price is VAT-inclusive — tax is always recomputed from the gross
     # (subtotal - discount) using the tenant's configured rate, never taken

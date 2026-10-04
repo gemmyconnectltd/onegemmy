@@ -33,6 +33,27 @@ async def get_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) ->
     return PurchaseRead.model_validate(obj)
 
 
+async def _resolve_receiving_branch_id(
+    db: AsyncSession, tenant_id: uuid.UUID, active_branch_id: uuid.UUID | None, client_branch_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """Same resolution order as sales' order branch_id (see
+    sales/service/order._resolve_order_branch_id): the server-derived
+    active branch always wins, a client-supplied one is only used after
+    being confirmed to belong to this tenant, and the tenant's main branch
+    is the final fallback so a PO always ends up attributed somewhere."""
+    from app.modules.tenants.repository import BranchRepository
+
+    repo = BranchRepository(db)
+    if active_branch_id is not None:
+        return active_branch_id
+    if client_branch_id is not None:
+        branch = await repo.get_by_id_for_tenant(tenant_id, client_branch_id)
+        if branch is not None:
+            return branch.id
+    main = await repo.get_main_for_tenant(tenant_id)
+    return main.id if main else None
+
+
 async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: PurchaseOrder, items) -> None:
     """Validate each item resolves to a tenant-owned product/variant and persist snapshots."""
     for item_data in items:
@@ -105,17 +126,22 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     await create_bill_for_purchase(db, tenant_id, user_id, purchase)
 
 
-async def create_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: PurchaseCreate) -> PurchaseRead:
+async def create_purchase(
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: PurchaseCreate,
+    active_branch_id: uuid.UUID | None = None,
+) -> PurchaseRead:
     repo = PurchaseOrderRepository(db)
     reference = await repo.next_reference(tenant_id)
 
     subtotal = sum(round(float(i.unit_cost) * float(i.quantity), 2) for i in data.items)
     total = round(subtotal - data.discount + data.tax, 2)
+    branch_id = await _resolve_receiving_branch_id(db, tenant_id, active_branch_id, data.branch_id)
 
     purchase = PurchaseOrder(
         tenant_id=tenant_id,
         reference=reference,
         supplier_id=data.supplier_id,
+        branch_id=branch_id,
         created_by=user_id,
         status=data.status,
         subtotal=subtotal,
@@ -157,7 +183,14 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         raise NotFoundError("Purchase not found")
     if obj.status != "Draft":
         raise ValidationError("Only draft purchases can be edited")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    update_fields = data.model_dump(exclude_unset=True)
+    if "branch_id" in update_fields and update_fields["branch_id"] is not None:
+        from app.modules.tenants.repository import BranchRepository
+
+        branch = await BranchRepository(db).get_by_id_for_tenant(tenant_id, update_fields["branch_id"])
+        if branch is None:
+            raise ValidationError("That branch does not belong to your company")
+    for field, value in update_fields.items():
         setattr(obj, field, value)
     obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
     await repo.save(obj)

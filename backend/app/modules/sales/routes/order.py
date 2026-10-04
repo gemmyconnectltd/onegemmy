@@ -1,8 +1,9 @@
 import uuid
+from urllib.parse import quote
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
@@ -30,9 +31,9 @@ async def list_orders(
 
 
 @router.post("/sales/orders")
-async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUser):
+async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
-    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data)
+    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id)
     return success_response(data=obj.model_dump(), message="Order created successfully", status_code=201)
 
 
@@ -48,6 +49,17 @@ async def get_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     obj = await service.get_order(db, current_user.tenant_id, id)
     return success_response(data=obj.model_dump(), message="Order retrieved successfully")
+
+
+@router.get("/sales/orders/{id}/invoice.pdf")
+async def download_order_invoice_pdf(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    filename, content = await service.generate_order_invoice_pdf(db, current_user.tenant_id, id)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
 
 
 @router.patch("/sales/orders/{id}")

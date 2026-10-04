@@ -14,6 +14,7 @@ class UserRepository(BaseRepository[User]):
     _with_role = (
         selectinload(User.role_rel).selectinload(Role.permissions),
         selectinload(User.tenant),
+        selectinload(User.branch_rel),
     )
 
     def _filtered(

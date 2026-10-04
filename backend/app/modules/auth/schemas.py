@@ -54,6 +54,11 @@ class TokenUserInfo(BaseModel):
     tenant_id: uuid.UUID | None = None
     tenant_name: str | None = None
     tenant_slug: str | None = None
+    # None means "no single assigned branch" — in practice this is how an
+    # Admin/Owner gets implicit access to every branch, same as a null
+    # tenant_id means "no tenant" for a platform superuser.
+    branch_id: uuid.UUID | None = None
+    branch_name: str | None = None
     permissions: list[str]
 
 

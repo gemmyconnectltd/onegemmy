@@ -247,7 +247,7 @@ export default function POSPage() {
     setSaleError(null);
     try {
       // order-level discount is 0 — item discounts are already baked into each line_total
-      await createOrder.mutateAsync({
+      const created = await createOrder.mutateAsync({
         status: "Completed",
         customer_id: customerId,
         notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
@@ -277,6 +277,7 @@ export default function POSPage() {
 
       const sale: SaleResult = {
         orderId: generateOrderId(),
+        backendOrderId: created.data.id,
         payment,
         customerName: customerName.trim(),
         notes: notes.trim(),
@@ -319,7 +320,7 @@ export default function POSPage() {
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
-          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} onClose={startNewSale} vatEnabled={vatEnabled} tenant={tenant} />
+          <Receipt sale={completedSale} currencySymbol={currencySymbol} fmt={fmt} onNewSale={startNewSale} vatEnabled={vatEnabled} tenant={tenant} />
         )}
       </Drawer>
 

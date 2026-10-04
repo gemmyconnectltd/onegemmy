@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, qs, downloadFilePost } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
 /** Attached only by listTenants (one batched query per page, not per tenant —
@@ -152,8 +152,33 @@ export interface AdminUser {
 }
 
 export interface AdminUserRow extends AdminUser {
+  phone: string | null;
+  updated_at: string | null;
   tenant_id: string | null;
   tenant_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+}
+
+export interface AdminUserFilters {
+  search?: string;
+  tenant_id?: string;
+  role?: string;
+  status?: "active" | "inactive";
+  created_from?: string; // YYYY-MM-DD
+  created_to?: string; // YYYY-MM-DD
+}
+
+export type AdminUserExportScope = "filtered" | "all" | "current_page" | "selected";
+export type AdminUserExportFormat = "xlsx" | "csv";
+
+export interface AdminUserExportRequest extends AdminUserFilters {
+  scope: AdminUserExportScope;
+  format: AdminUserExportFormat;
+  columns?: string[];
+  page?: number;
+  page_size?: number;
+  selected_ids?: string[];
 }
 
 export interface AdminDepartment {
@@ -217,8 +242,10 @@ export const adminApi = {
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
   featureUsage: () => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage`),
   usageBreakdown: () => request<SingleResponse<AdminUsageBreakdown>>(`${B}/usage-breakdown`),
-  listUsers: (page = 1, pageSize = 50) =>
-    request<PaginatedResponse<AdminUserRow>>(`${B}/users?page=${page}&page_size=${pageSize}`),
+  listUsers: (page = 1, pageSize = 50, filters: AdminUserFilters = {}) =>
+    request<PaginatedResponse<AdminUserRow>>(`${B}/users${qs({ page, page_size: pageSize, ...filters })}`),
+  exportUsers: (data: AdminUserExportRequest) =>
+    downloadFilePost(`${B}/users/export`, data, `pesaa_users_${new Date().toISOString().slice(0, 10)}.${data.format}`),
 
   listTenants: (page = 1, pageSize = 20) =>
     request<PaginatedResponse<AdminTenant>>(`${B}/tenants?page=${page}&page_size=${pageSize}`),

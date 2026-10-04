@@ -11,6 +11,10 @@ export interface ApiTokenUserInfo {
   tenant_id: string | null;
   tenant_name: string | null;
   tenant_slug: string | null;
+  // null means "no fixed branch" — an Admin/Owner with implicit access to
+  // every branch, same convention as tenant_id null for a platform superuser.
+  branch_id: string | null;
+  branch_name: string | null;
   permissions: string[];
 }
 

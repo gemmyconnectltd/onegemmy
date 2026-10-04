@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.procurement import service
@@ -19,8 +19,8 @@ async def list_purchase_orders(db: DbSession, current_user: CurrentUser, page_pa
 
 
 @router.post("/procurement/purchase-orders")
-async def create_purchase_order(data: PurchaseCreate, db: DbSession, current_user: CurrentUser):
-    obj = await service.create_purchase(db, current_user.tenant_id, current_user.id, data)
+async def create_purchase_order(data: PurchaseCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
+    obj = await service.create_purchase(db, current_user.tenant_id, current_user.id, data, active_branch_id)
     return success_response(data=obj.model_dump(), message="Purchase order created successfully", status_code=201)
 
 
