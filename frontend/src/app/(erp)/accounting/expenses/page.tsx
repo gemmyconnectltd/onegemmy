@@ -17,6 +17,7 @@ import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { SelectWithOther } from "@/components/ui/SelectWithOther";
+import { Button } from "@/components/ui/Button";
 
 const CATEGORIES = ["Rent", "Utilities", "Salaries", "Inventory", "Transport", "Marketing", "Supplies", "Other"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
@@ -179,32 +180,25 @@ export default function ExpensesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 border border-border px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg text-foreground hover:bg-surface"
-          >
+          <Button variant="secondary" onClick={() => setShowImport(true)}>
             <Upload size={15} /> Import
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-            style={{ backgroundColor: brandColor }}
-          >
+          </Button>
+          <Button color={brandColor} onClick={() => setShowForm(true)}>
             <Plus size={15} /> Add Expense
-          </button>
+          </Button>
         </div>
       </div>
 
       {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
           {FILTERS.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => onFilterChange(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filter === f ? "text-white" : "text-muted hover:bg-surface"}`}
+              className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${filter === f ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
               style={filter === f ? { backgroundColor: brandColor } : undefined}
             >
               {f}

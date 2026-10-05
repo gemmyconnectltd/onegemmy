@@ -254,16 +254,10 @@ export default function IncomePage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {t.status === "Draft" && (
-                          <button onClick={() => handlePost(t.id)}
-                            className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
-                            Post
-                          </button>
+                          <Button size="xs" variant="secondary" onClick={() => handlePost(t.id)}>Post</Button>
                         )}
                         {t.status !== "Void" && (
-                          <button onClick={() => handleVoid(t.id)}
-                            className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
-                            Void
-                          </button>
+                          <Button size="xs" variant="danger" onClick={() => handleVoid(t.id)}>Void</Button>
                         )}
                       </div>
                     </td>

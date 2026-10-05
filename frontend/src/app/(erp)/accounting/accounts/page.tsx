@@ -8,6 +8,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { EmptyState, ErrorState } from "@/components/hr/State";
 import { useAppConfig } from "@/lib/appConfig";
+import { Button } from "@/components/ui/Button";
 
 const ACCOUNT_TYPES = ["Assets", "Liabilities", "Equity", "Revenue", "Expense"];
 const TYPE_FILTERS = ["All", ...ACCOUNT_TYPES];
@@ -78,32 +79,24 @@ export default function AccountsPage() {
           <p className="text-sm text-muted mt-0.5">{accounts.length} accounts in your chart</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={seed}
-            disabled={seeding}
-            className="flex items-center gap-2 border border-border px-4 py-2.5 text-sm font-semibold hover:bg-surface transition-colors rounded-lg disabled:opacity-60"
-          >
-            {seeding ? <RefreshCw size={15} className="animate-spin" /> : <Sparkles size={15} className="text-accent" />} Seed Defaults
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-            style={{ backgroundColor: brandColor }}
-          >
+          <Button variant="secondary" onClick={seed} disabled={seeding}>
+            {seeding ? <RefreshCw size={15} className="animate-spin" /> : <Sparkles size={15} />} Seed Defaults
+          </Button>
+          <Button color={brandColor} onClick={() => setShowForm(true)}>
             <Plus size={15} /> Add Account
-          </button>
+          </Button>
         </div>
       </div>
 
       {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
         {TYPE_FILTERS.map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setType(t)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${type === t ? "text-white" : "text-muted hover:bg-surface"}`}
+            className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${type === t ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
             style={type === t ? { backgroundColor: brandColor } : undefined}
           >
             {t}

@@ -3,6 +3,7 @@ import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, ArrowRight, Plus, AlertTriangle, RefreshCw, Landmark, Percent, Receipt } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { BreakdownCard, breakdownColors, groupSum } from "@/components/charts/BreakdownCard";
@@ -178,19 +179,12 @@ export default function AccountingPage() {
           <p className="text-sm text-muted mt-1">Track your income, expenses and profit</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowExpense(true)}
-            className="flex items-center gap-2 border border-border px-4 py-2.5 text-sm font-semibold hover:bg-surface transition-colors rounded-lg"
-          >
-            <Plus size={15} className="text-red-500" />Add Expense
-          </button>
-          <button
-            onClick={() => setShowIncome(true)}
-            className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-            style={{ backgroundColor: brandColor }}
-          >
-            <Plus size={16} />Add Income
-          </button>
+          <Button variant="secondary" onClick={() => setShowExpense(true)}>
+            <Plus size={15} className="text-red-500" /> Add Expense
+          </Button>
+          <Button color={brandColor} onClick={() => setShowIncome(true)}>
+            <Plus size={16} /> Add Income
+          </Button>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import { accountingApi } from "@/lib/api/accounting";
 import { useIncomeStatement, useBalanceSheet, useCashFlow, useTrialBalance, useGeneralLedger } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
+import { Button } from "@/components/ui/Button";
 
 type TabKey = "income" | "balance" | "cashflow" | "trial" | "ledger";
 
@@ -69,13 +70,9 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
       <AlertTriangle size={22} className="mx-auto text-red-500" />
       <p className="text-sm font-semibold text-foreground">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70"
-        >
+        <Button variant="secondary" onClick={onRetry}>
           <RefreshCw size={14} /> Retry
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -122,30 +119,12 @@ function CardShell({
       <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-end gap-3 shadow-sm">
         <DateField label="From" value={from} onChange={setFrom} />
         <DateField label="To" value={to} onChange={setTo} />
-        <button
-          type="button"
-          onClick={onLoad}
-          className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
-        >
-          Load
-        </button>
+        <Button onClick={onLoad}>Load</Button>
         <div className="flex-1" />
         {onExport && (
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => onExport("csv")}
-              className="h-9 px-3 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70"
-            >
-              Export CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => onExport("pdf")}
-              className="h-9 px-3 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70"
-            >
-              Export PDF
-            </button>
+            <Button variant="secondary" onClick={() => onExport("csv")}>Export CSV</Button>
+            <Button variant="secondary" onClick={() => onExport("pdf")}>Export PDF</Button>
           </div>
         )}
       </div>
@@ -207,26 +186,19 @@ function BalanceSheetCard() {
   const error = isError ? "Could not load the balance sheet." : null;
 
   const exportBtn = (fmt: "csv" | "pdf") => (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
       onClick={() => accountingApi.exportStatement("balance-sheet", fmt, { asOf })}
-      className="h-9 px-3 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70"
     >
       Export {fmt.toUpperCase()}
-    </button>
+    </Button>
   );
 
   return (
     <div className="space-y-4">
       <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-end gap-3 shadow-sm">
         <DateField label="As of" value={asOf} onChange={setAsOf} />
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90"
-        >
-          Load
-        </button>
+        <Button onClick={() => refetch()}>Load</Button>
         <div className="flex-1" />
         <div className="flex gap-2">{exportBtn("csv")}{exportBtn("pdf")}</div>
       </div>
@@ -447,14 +419,14 @@ export default function AccountingReportsPage() {
         <p className="text-sm text-muted mt-0.5">Income statement, balance sheet, cash flow and ledger</p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1 w-fit">
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all ${
-              tab === t.key ? "text-white shadow-sm" : "text-foreground/60 hover:bg-surface hover:text-foreground"
+            className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${
+              tab === t.key ? "text-white" : "text-foreground/50 hover:text-foreground"
             }`}
             style={tab === t.key ? { backgroundColor: brandColor } : undefined}
           >

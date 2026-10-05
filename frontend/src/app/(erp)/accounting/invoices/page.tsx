@@ -18,6 +18,7 @@ import { InvoiceDocument, StatusBadge, PaymentStatusBadge } from "@/components/a
 import { salesApi } from "@/lib/api/sales";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
+import { Button } from "@/components/ui/Button";
 
 // The backend's Order.status is stored Title Case ("Pending"/"Completed"/
 // "Cancelled") — must match exactly, this isn't just a display label.
@@ -112,15 +113,12 @@ export default function InvoicesPage() {
           <p className="text-sm text-muted mt-0.5">Manage and track all customer invoices</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-3.5 py-2 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
-            <Download size={14} /> Export
-          </button>
-          <button
-            className="flex items-center gap-2 px-3.5 py-2 text-[13px] font-semibold text-white rounded-lg transition-colors"
-            style={{ backgroundColor: brandColor }}
-          >
-            <Plus size={14} /> New Invoice
-          </button>
+          <Button variant="secondary">
+            <Download size={15} /> Export
+          </Button>
+          <Button color={brandColor}>
+            <Plus size={15} /> New Invoice
+          </Button>
         </div>
       </div>
 
@@ -147,7 +145,7 @@ export default function InvoicesPage() {
             <button
               key={t.key}
               onClick={() => setStatusFilter(t.key)}
-              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
+              className={`px-3 py-1.5 text-[12px] font-semibold transition-colors rounded-lg ${
                 statusFilter === t.key ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
               style={statusFilter === t.key ? { backgroundColor: brandColor } : undefined}
@@ -162,7 +160,7 @@ export default function InvoicesPage() {
             <button
               key={t.key}
               onClick={() => setPaymentFilter(t.key)}
-              className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg whitespace-nowrap ${
+              className={`px-3 py-1.5 text-[12px] font-semibold transition-colors rounded-lg whitespace-nowrap ${
                 paymentFilter === t.key ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
               style={paymentFilter === t.key ? { backgroundColor: brandColor } : undefined}
@@ -244,29 +242,33 @@ export default function InvoicesPage() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => setViewingId(o.id)}
+                        aria-label="View invoice"
                         title="View"
-                        className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground hover:border-accent/40 transition-colors"
+                        className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"
                       >
                         <Eye size={13} />
                       </button>
                       <button
                         onClick={() => printInvoice(o)}
+                        aria-label="Print invoice"
                         title="Print"
-                        className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground transition-colors"
+                        className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"
                       >
                         <Printer size={13} />
                       </button>
                       <button
                         onClick={() => downloadInvoicePdf(o)}
                         disabled={downloadingPdfId === o.id}
+                        aria-label="Download PDF"
                         title="Download PDF"
-                        className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground transition-colors disabled:opacity-60"
+                        className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors disabled:opacity-50"
                       >
                         {downloadingPdfId === o.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                       </button>
                       <button
                         title="More"
-                        className="w-8 h-8 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground transition-colors"
+                        aria-label="More actions"
+                        className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"
                       >
                         <MoreHorizontal size={13} />
                       </button>
@@ -298,23 +300,23 @@ export default function InvoicesPage() {
           viewing && (
             <div className="flex gap-2">
               {viewing.status === "Completed" && viewing.outstanding_balance > 0 && (
-                <button onClick={() => setRecordingPaymentFor(viewing)} className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2.5 text-[13px] font-bold hover:bg-emerald-700 transition-colors rounded-lg">
+                <Button color={brandColor} className="flex-1" onClick={() => setRecordingPaymentFor(viewing)}>
                   <BadgeCheck size={15} /> Record Payment
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => downloadInvoicePdf(viewing)}
                 disabled={downloadingPdfId === viewing.id}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/70 hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
               >
                 {downloadingPdfId === viewing.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} PDF
-              </button>
-              <button onClick={() => window.print()} className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg" style={{ backgroundColor: brandColor }}>
+              </Button>
+              <Button color={brandColor} onClick={() => window.print()}>
                 <Printer size={15} /> Print
-              </button>
-              <button onClick={() => setViewingId(null)} className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors">
+              </Button>
+              <Button variant="secondary" onClick={() => setViewingId(null)}>
                 Close
-              </button>
+              </Button>
             </div>
           )
         }
