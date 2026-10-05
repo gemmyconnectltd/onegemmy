@@ -14,7 +14,7 @@ import {
   Users, BarChart3, Settings, LogOut,
   UserCog, HandCoins,
   Factory, ShoppingBag, Building2, Menu, X,
-  PanelLeft, Crown, Activity,
+  PanelLeft, Crown, Activity, CalendarClock,
 } from "lucide-react";
 
 const adminNavItems = [
@@ -30,8 +30,7 @@ const adminNavItems = [
 const coreNavItems = [
   { name: "Dashboard",  href: "/dashboard",     icon: LayoutDashboard },
   { name: "Sales",      href: "/sales",         icon: ShoppingCart,  feature: "sales",         module: "sales" },
-  // Services module is built and routable but hidden from the sidebar for now.
-  // { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
+  { name: "Services",   href: "/services",      icon: CalendarClock, feature: "services",      module: "services" },
   { name: "Inventory",  href: "/inventory",     icon: Warehouse,     feature: "inventory",     module: "inventory" },
   { name: "Accounting", href: "/accounting",    icon: HandCoins,     feature: "accounting",    module: "accounting" },
   { name: "Purchases",  href: "/procurement",   icon: ShoppingBag,   feature: "procurement",   module: "procurement" },
