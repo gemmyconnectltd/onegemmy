@@ -7,7 +7,9 @@ from app.core.exceptions import QuotaExceededError
 from app.modules.tenants import service
 from app.modules.tenants.schemas import FeatureOverrideUpdate, TenantLimitsUpdate
 
-FLAG_KEYS = ["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing"]
+FLAG_KEYS = ["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing",
+    "services", "appointments", "queue",
+]
 
 
 def _flag(key, default_enabled=True):
@@ -149,3 +151,12 @@ async def test_set_tenant_limits_round_trips(monkeypatch):
     assert updated.max_products == 1000
     assert updated.max_storage_mb is None
     assert repo.saved.limits == {"max_users": 25, "max_products": 1000, "max_branches": None, "max_storage_mb": None}
+
+
+@pytest.mark.asyncio
+async def test_services_defaults_preserve_explicit_opt_out(monkeypatch):
+    tenant = _FakeTenant(features={"services": False, "appointments": False, "queue": False})
+    monkeypatch.setattr(service.feature.TenantRepository, "get", _FakeRepo(tenant).get)
+    result = await service.get_effective_features(_FakeDB(tenant), tenant.id)
+    assert all(result[key] is False for key in ("services", "appointments", "queue"))
+    assert result["inventory"] is True

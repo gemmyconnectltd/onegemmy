@@ -24,6 +24,8 @@ export interface ApiProduct {
   id: string;
   name: string;
   sku: string | null;
+  barcode?: string | null;
+  subcategory?: string | null;
   description: string | null;
   image_url: string | null;
   price: number;

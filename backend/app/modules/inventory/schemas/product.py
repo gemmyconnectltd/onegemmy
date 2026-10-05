@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.inventory.schemas.brand import BrandRead
 from app.modules.inventory.schemas.category import CategoryRead
@@ -62,8 +62,9 @@ class VariantListRead(VariantRead):
 
 class ProductCreate(BaseModel):
     name: str
-    sku: str | None = None
-    barcode: str | None = None
+    sku: str | None = Field(default=None, max_length=100)
+    barcode: str | None = Field(default=None, max_length=100)
+    subcategory: str | None = Field(default=None, max_length=255)
     description: str | None = None
     image_url: str | None = None
     price: float = 0
@@ -83,6 +84,12 @@ class ProductCreate(BaseModel):
     sale_unit_id: uuid.UUID | None = None
     purchase_unit_id: uuid.UUID | None = None
     supplier_id: uuid.UUID | None = None
+
+
+    @field_validator("sku", "barcode", "subcategory", mode="before")
+    @classmethod
+    def normalize_optional_text(cls, value: object) -> object:
+        return value.strip() or None if isinstance(value, str) else value
 
 
 class ProductBulkLine(ProductCreate):
@@ -108,8 +115,9 @@ class ProductBulkResult(BaseModel):
 
 class ProductUpdate(BaseModel):
     name: str | None = None
-    sku: str | None = None
-    barcode: str | None = None
+    sku: str | None = Field(default=None, max_length=100)
+    barcode: str | None = Field(default=None, max_length=100)
+    subcategory: str | None = Field(default=None, max_length=255)
     description: str | None = None
     image_url: str | None = None
     price: float | None = None
@@ -131,6 +139,12 @@ class ProductUpdate(BaseModel):
     supplier_id: uuid.UUID | None = None
 
 
+    @field_validator("sku", "barcode", "subcategory", mode="before")
+    @classmethod
+    def normalize_optional_text(cls, value: object) -> object:
+        return value.strip() or None if isinstance(value, str) else value
+
+
 class RestockRequest(BaseModel):
     qty: float
     mode: str = "restock"  # "restock" | "adjust"
@@ -146,6 +160,7 @@ class ProductRead(BaseModel):
     name: str
     sku: str | None
     barcode: str | None = None
+    subcategory: str | None = None
     description: str | None
     image_url: str | None
     price: float

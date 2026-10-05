@@ -121,13 +121,8 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
     # the same is_active flag suspend/activate already uses, so an unapproved
     # signup and a suspended tenant are both blocked identically at login.
     #
-    # Services (appointments + walk-in queue) defaults OFF platform-wide —
-    # only relevant to appointment/walk-in businesses — but a signup that
-    # says they're one gets it on from day one instead of a super-admin
-    # having to notice and flip it later via Features & Access.
+    # New businesses inherit platform defaults, including Services.
     features: dict = {}
-    if data.business_category in ("Service-based", "Mixed (Products & Services)"):
-        features = {"services": True, "appointments": True, "queue": True}
 
     tenant = Tenant(
         name=data.tenant_name,

@@ -11,6 +11,8 @@ import { resolveUploadUrl } from "@/lib/api/client";
 export interface ProductFormValues {
   name: string;
   sku: string;
+  barcode?: string;
+  subcategory?: string;
   category: string;      // name (display)
   category_id: string;   // uuid
   brand: string;
@@ -27,7 +29,7 @@ export interface ProductFormValues {
 const FALLBACK_CATEGORIES = ["Accessories", "Cables", "Audio", "Chargers", "Storage", "Networking"];
 const FALLBACK_UNITS = ["Piece", "Box", "Kilogram", "Gram", "Litre", "Metre", "Pack"];
 
-const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate"];
+const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate", "barcode", "subcategory"];
 
 /** A bulk-import row is a product plus optional batch/lot info — pharmacy,
  *  cosmetics, and anyone else tracking expiry can carry it in the same
@@ -52,6 +54,8 @@ function toForm(initial?: ProductFormValues | null) {
   return {
     name: initial?.name ?? "",
     sku: initial?.sku ?? "",
+    barcode: initial?.barcode ?? "",
+    subcategory: initial?.subcategory ?? "",
     category: initial?.category ?? "",
     category_id: initial?.category_id ?? "",
     brand: initial?.brand ?? "",
@@ -66,13 +70,15 @@ function toForm(initial?: ProductFormValues | null) {
 }
 
 function isValid(f: Record<string, string>) {
-  return f.name.trim() && f.sku.trim() && f.price.trim() && f.cost.trim() && f.stock.trim() && f.minStock.trim();
+  return f.name.trim() && f.price.trim() && f.cost.trim() && f.stock.trim() && f.minStock.trim();
 }
 
 function parseForm(f: Record<string, string>): ProductFormValues {
   return {
     name: f.name.trim(),
-    sku: f.sku.trim().toUpperCase(),
+    sku: f.sku?.trim().toUpperCase() ?? "",
+    barcode: f.barcode?.trim() ?? "",
+    subcategory: f.subcategory?.trim() ?? "",
     category: f.category || "",
     category_id: f.category_id || "",
     brand: f.brand?.trim() ?? "",
@@ -193,8 +199,8 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
           <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Phone Case - iPhone" autoFocus />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="SKU" required>
-            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="e.g. PC-001" className="font-mono" />
+          <Field label="SKU (optional)">
+            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Leave blank to generate" maxLength={100} className="font-mono" />
           </Field>
           <Field label="Category">
             <Select
@@ -206,6 +212,14 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             >
               {categoryOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Subcategory (optional)">
+            <Input value={form.subcategory} onChange={(e) => set("subcategory", e.target.value)} placeholder="e.g. Phone cases" maxLength={255} />
+          </Field>
+          <Field label="Barcode (optional)">
+            <Input value={form.barcode} onChange={(e) => set("barcode", e.target.value)} placeholder="Enter or scan barcode" maxLength={100} className="font-mono" />
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -234,7 +248,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Cost price" required>
+          <Field label="Purchase price" required>
             <Input type="number" min="0" value={form.cost} onChange={(e) => set("cost", e.target.value)} placeholder="0" className="font-mono" />
           </Field>
           <Field label="Selling price" required>
@@ -259,7 +273,6 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
 function parseProductRow(row: Record<string, string>): { data: ProductBulkRow; errors: string[] } {
   const errors: string[] = [];
   if (!row.name) errors.push("name required");
-  if (!row.sku) errors.push("sku required");
   if (!row.price || isNaN(Number(row.price))) errors.push("invalid price");
   if (!row.cost || isNaN(Number(row.cost))) errors.push("invalid cost");
   if (row.stock === undefined || isNaN(Number(row.stock))) errors.push("invalid stock");
@@ -290,13 +303,15 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
       templateFilename="products_template.xlsx"
       templateHeaders={CSV_HEADERS}
       templateSampleRows={[
-        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10", "", "", ""],
-        ["Amoxicillin 500mg", "AMX-500", "Antibiotics", "GSK", "Box", "8000", "12000", "60", "10", "LOT-2026-04", "2026-04-01", "2025-10-01"],
+        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10", "", "", "", "", ""],
+        ["Amoxicillin 500mg", "AMX-500", "Antibiotics", "GSK", "Box", "8000", "12000", "60", "10", "LOT-2026-04", "2026-04-01", "2025-10-01", "", ""],
       ]}
       previewColumns={[
         { key: "name", label: "Name", required: true },
-        { key: "sku", label: "SKU", required: true },
+        { key: "sku", label: "SKU" },
         { key: "category", label: "Category" },
+        { key: "subcategory", label: "Subcategory" },
+        { key: "barcode", label: "Barcode" },
         { key: "brand", label: "Brand" },
         { key: "unit", label: "Unit" },
         { key: "cost", label: "Cost", align: "right", required: true },

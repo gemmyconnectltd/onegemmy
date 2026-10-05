@@ -32,6 +32,7 @@ import {
   type ApiCampaign, type ApiEmailLog,
   type ApiProductionOrder, type ApiProductionItem,
 } from "@/lib/api";
+import { globalApi } from "./global";
 import { cacheProducts, cacheCustomers, cacheSuppliers, cacheOrders, cacheExpenses } from "@/lib/offline";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -75,6 +76,14 @@ const CURRENT_TENANT = ["tenants", "me", "current"] as const;
 
 export const useCurrentTenant = (opts?: QueryOpts) =>
   useQ([...CURRENT_TENANT], () => tenantsApi.getCurrent(), (r) => r.data, opts);
+
+// Keep business configuration isolated when switching accounts.
+export const useTenantCurrency = (tenantId?: string | null) =>
+  useQ(["tenants", "currency", tenantId], () => tenantsApi.getCurrent(), (r) => r.data,
+    { enabled: Boolean(tenantId) });
+
+export const useCurrencies = () =>
+  useQ(["global", "currencies"], () => globalApi.currencies(), (r) => r.data);
 
 // ── Inventory ────────────────────────────────────────────────────────────────
 

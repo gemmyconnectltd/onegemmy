@@ -1,14 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import {
   currencies as fallbackCurrencies, locales, businessTypes, businessThemes, businessThemesDark,
   setActiveCurrency, type LocaleCode, type BusinessType, type Theme,
 } from "./config";
-import { getStoredToken } from "./api/client";
-import { tenantsApi, type Tenant } from "./api/tenants";
-import { globalApi, type Currency } from "./api/global";
+import type { Currency } from "./api/global";
+import { useAuth } from "./auth";
+import { useTenantCurrency, useCurrencies } from "./api/hooks";
 
 // All English base strings — single source of truth
 const BASE_STRINGS: Record<string, string> = {
@@ -189,35 +188,33 @@ interface AppConfig {
 const AppConfigContext = createContext<AppConfig | null>(null);
 
 export function AppConfigProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState("RWF");
+  const { user, isLoading } = useAuth();
+  const tenantId = !isLoading ? user?.tenantId : undefined;
+  const tenantQ = useTenantCurrency(tenantId);
+  const catalogQ = useCurrencies();
+  const currency = tenantQ.data?.currency ?? "";
   const [locale, setLocaleState] = useState<LocaleCode>("en");
   const [businessType, setBusinessTypeState] = useState<BusinessType>("retail");
   const [theme, setThemeState] = useState<Theme>("light");
   const [navOrientation, setNavOrientationState] = useState<NavOrientation>("left");
   const [vatEnabled, setVatEnabledState] = useState(true);
-  // Fallback list only covers the gap before the real catalog loads from the
-  // API (or if that request fails) — the backend's /global/currencies is the
-  // actual source of truth.
-  const [currencyCatalog, setCurrencyCatalog] = useState<Currency[]>(fallbackCurrencies);
+  const currencyCatalog = catalogQ.data ?? fallbackCurrencies;
 
   // Restore persisted settings client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
-    // Best-effort cache of the tenant's currency so there's no flash of the
-    // wrong symbol before the tenant fetch below resolves. The DB value is
-    // always the source of truth and overwrites this once it loads.
-    const cachedCurrency = localStorage.getItem("app_currency");
-    if (cachedCurrency) setCurrencyState(cachedCurrency);
-    if (cachedCurrency) setActiveCurrency(cachedCurrency);
-    const l = localStorage.getItem("app_locale");
-    if (l && VALID_LOCALES.includes(l as LocaleCode)) setLocaleState(l as LocaleCode);
-    const b = localStorage.getItem("app_business_type");
-    if (b && VALID_BUSINESS_TYPES.includes(b as BusinessType)) setBusinessTypeState(b as BusinessType);
-    const t = localStorage.getItem("app_theme");
-    if (t === "dark" || t === "light") setThemeState(t);
-    const o = localStorage.getItem("app_nav_orientation");
-    if (o && VALID_ORIENTATIONS.includes(o as NavOrientation)) setNavOrientationState(o as NavOrientation);
-    const v = localStorage.getItem("app_vat_enabled");
-    if (v !== null) setVatEnabledState(v !== "false");
+    const id = window.setTimeout(() => {
+      const l = localStorage.getItem("app_locale");
+      if (l && VALID_LOCALES.includes(l as LocaleCode)) setLocaleState(l as LocaleCode);
+      const b = localStorage.getItem("app_business_type");
+      if (b && VALID_BUSINESS_TYPES.includes(b as BusinessType)) setBusinessTypeState(b as BusinessType);
+      const t = localStorage.getItem("app_theme");
+      if (t === "dark" || t === "light") setThemeState(t);
+      const o = localStorage.getItem("app_nav_orientation");
+      if (o && VALID_ORIENTATIONS.includes(o as NavOrientation)) setNavOrientationState(o as NavOrientation);
+      const v = localStorage.getItem("app_vat_enabled");
+      if (v !== null) setVatEnabledState(v !== "false");
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
   const [strings, setStrings] = useState<Record<string, string>>(BASE_STRINGS);
   const [translating, setTranslating] = useState(false);
@@ -248,43 +245,15 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [locale, loadTranslations]);
 
-  // Load the tenant's real currency whenever the signed-in token changes —
-  // covers first load, and login/logout happening client-side without a
-  // full page reload. Deferred to a timeout so this has no synchronous
-  // setState in the effect body (see hydration-safety rule above).
-  const pathname = usePathname();
-  const lastTokenRef = useRef<string | null>(null);
+  // Synchronize the shared formatter only with the signed-in tenant's currency.
   useEffect(() => {
-    const token = getStoredToken();
-    if (token === lastTokenRef.current) return;
-    lastTokenRef.current = token;
-    if (!token) return;
-    const id = window.setTimeout(() => {
-      tenantsApi.getCurrent()
-        .then((res: { data: Tenant }) => {
-          if (!res.data.currency) return;
-          setCurrencyState(res.data.currency);
-          setActiveCurrency(res.data.currency);
-          localStorage.setItem("app_currency", res.data.currency);
-        })
-        .catch(() => {
-          // Request failed — keep whatever currency is already applied.
-        });
-      globalApi.currencies()
-        .then((res) => {
-          if (res.data.length) setCurrencyCatalog(res.data);
-        })
-        .catch(() => {
-          // Request failed — keep the fallback list already in state.
-        });
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [pathname]);
+    setActiveCurrency(currency);
+  }, [currency]);
 
   const setCurrency = (code: string) => {
-    setCurrencyState(code);
-    setActiveCurrency(code);
-    localStorage.setItem("app_currency", code);
+    // Currency belongs to the tenant; refresh the authoritative value after updates.
+    void code;
+    void tenantQ.refetch();
   };
 
   const setLocale = (code: LocaleCode) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Compass, LifeBuoy, Mail, MessagesSquare, X } from "lucide-react";
+import { BookOpen, Compass, LifeBuoy, Mail, MessageCircle, MessagesSquare, X } from "lucide-react";
 import { START_TOUR_EVENT } from "@/components/tour/ProductTour";
 
 export function SupportFab() {
@@ -44,6 +44,17 @@ export function SupportFab() {
           </button>
         </div>
       )}
+
+      <a
+        href="https://chat.whatsapp.com/KdYZ26ywxvK3x0clmLWedK?mode=gi_t"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Join the WhatsApp support group (opens in a new tab)"
+        className="flex items-center gap-2 rounded-full bg-green-600 px-4 py-3 text-sm font-semibold text-white shadow-xl transition-colors hover:bg-green-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+      >
+        <MessageCircle size={20} aria-hidden="true" />
+        WhatsApp support
+      </a>
 
       <button
         onClick={() => setOpen((v) => !v)}

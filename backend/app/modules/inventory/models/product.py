@@ -16,6 +16,7 @@ class Product(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     sku: Mapped[str | None] = mapped_column(String(100))
     barcode: Mapped[str | None] = mapped_column(String(100))
+    subcategory: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(500))
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

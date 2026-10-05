@@ -66,6 +66,14 @@ async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | N
     return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active)
 
 
+def _product_with_sku(tenant_id: uuid.UUID, payload: dict[str, object]) -> Product:
+    """Use the product UUID for generated SKUs, including bulk imports."""
+    product_id = uuid.uuid4()
+    if not payload.get("sku"):
+        payload["sku"] = f"PRD-{product_id.hex.upper()}"
+    return Product(id=product_id, tenant_id=tenant_id, **payload)
+
+
 async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCreate) -> ProductRead:
     from app.modules.tenants import service
 
@@ -73,7 +81,7 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
     payload = data.model_dump()
     if not payload.get("image_url"):
         payload["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
-    obj = Product(tenant_id=tenant_id, **payload)
+    obj = _product_with_sku(tenant_id, payload)
     obj = await ProductRepository(db).save(obj)
     await db.commit()
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, obj.id)
@@ -88,30 +96,30 @@ async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: Pro
     errors: list[str] = []
     for item in data.items:
         try:
-            payload = item.model_dump(exclude={"batch_number", "expiry_date", "manufactured_date"})
-            if not payload.get("image_url"):
-                payload["image_url"] = default_image
-            obj = Product(tenant_id=tenant_id, **payload)
-            obj = await repo.save(obj)
+            async with db.begin_nested():
+                payload = item.model_dump(exclude={"batch_number", "expiry_date", "manufactured_date"})
+                if not payload.get("image_url"):
+                    payload["image_url"] = default_image
+                obj = _product_with_sku(tenant_id, payload)
+                obj = await repo.save(obj)
 
-            if item.batch_number:
-                if await batch_repo.get_by_batch_number(tenant_id, item.batch_number):
-                    raise ValidationError(f"Batch number '{item.batch_number}' already exists")
-                batch = InventoryBatch(
-                    tenant_id=tenant_id,
-                    product_id=obj.id,
-                    batch_number=item.batch_number,
-                    quantity=item.stock,
-                    quantity_remaining=item.stock,
-                    unit_cost=item.cost,
-                    manufactured_date=item.manufactured_date,
-                    expiry_date=item.expiry_date,
-                )
-                await batch_repo.save(batch)
+                if item.batch_number:
+                    if await batch_repo.get_by_batch_number(tenant_id, item.batch_number):
+                        raise ValidationError(f"Batch number '{item.batch_number}' already exists")
+                    batch = InventoryBatch(
+                        tenant_id=tenant_id,
+                        product_id=obj.id,
+                        batch_number=item.batch_number,
+                        quantity=item.stock,
+                        quantity_remaining=item.stock,
+                        unit_cost=item.cost,
+                        manufactured_date=item.manufactured_date,
+                        expiry_date=item.expiry_date,
+                    )
+                    await batch_repo.save(batch)
 
             created += 1
         except (SQLAlchemyError, ValidationError) as e:
-            await db.rollback()
             errors.append(f"{item.name or item.sku}: {e!s}")
     if created > 0:
         await db.commit()
@@ -125,6 +133,8 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
     updates = data.model_dump(exclude_unset=True)
     if "image_url" in updates and not updates["image_url"]:
         updates["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
+    if "sku" in updates and not updates["sku"]:
+        updates["sku"] = obj.sku or f"PRD-{obj.id.hex.upper()}"
     for field, value in updates.items():
         setattr(obj, field, value)
     obj = await ProductRepository(db).save(obj)

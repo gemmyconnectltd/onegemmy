@@ -6,15 +6,19 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, PackagePlus } from "lucide-react";
 
 import { useCategories, useSuppliers, useCreateProduct } from "@/lib/api/hooks";
+import { useAppConfig } from "@/lib/appConfig";
 
 export default function MobileAddProductPage() {
   const router = useRouter();
+  const { currency } = useAppConfig();
   const categoriesQ = useCategories();
   const suppliersQ = useSuppliers();
   const createProduct = useCreateProduct();
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [subcategory, setSubcategory] = useState("");
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [stock, setStock] = useState("");
@@ -36,6 +40,8 @@ export default function MobileAddProductPage() {
       await createProduct.mutateAsync({
         name: name.trim(),
         sku: sku.trim() || null,
+        barcode: barcode.trim() || null,
+        subcategory: subcategory.trim() || null,
         price: Number(price),
         cost: cost === "" ? 0 : Number(cost),
         stock: stock === "" ? 0 : Number(stock),
@@ -65,6 +71,8 @@ export default function MobileAddProductPage() {
           onClick={() => {
             setName("");
             setSku("");
+            setBarcode("");
+            setSubcategory("");
             setPrice("");
             setCost("");
             setStock("");
@@ -105,13 +113,13 @@ export default function MobileAddProductPage() {
           />
         </Field>
         <Field label="SKU (optional)">
-          <input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="e.g. RICE-5KG" className={inputCls} />
+          <input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Leave blank to generate" maxLength={100} className={inputCls} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Selling price (RWF)">
+          <Field label={`Selling price${currency ? ` (${currency})` : ""}`}>
             <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="0" className={inputCls} />
           </Field>
-          <Field label="Cost price (RWF)">
+          <Field label={`Purchase price${currency ? ` (${currency})` : ""}`}>
             <input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" placeholder="0" className={inputCls} />
           </Field>
         </div>
@@ -130,6 +138,12 @@ export default function MobileAddProductPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+        </Field>
+        <Field label="Subcategory (optional)">
+          <input value={subcategory} onChange={(e) => setSubcategory(e.target.value)} placeholder="e.g. Rice" maxLength={255} className={inputCls} />
+        </Field>
+        <Field label="Barcode (optional)">
+          <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Enter or scan barcode" maxLength={100} className={inputCls} />
         </Field>
         <Field label="Supplier">
           <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={inputCls}>

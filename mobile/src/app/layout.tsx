@@ -95,11 +95,11 @@ export default function RootLayout({
       )}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <Providers>
-          <AppConfigProvider>
-            <AuthProvider>
+          <AuthProvider>
+            <AppConfigProvider>
               <MobileShell>{children}</MobileShell>
-            </AuthProvider>
-          </AppConfigProvider>
+            </AppConfigProvider>
+          </AuthProvider>
         </Providers>
       </body>
     </html>

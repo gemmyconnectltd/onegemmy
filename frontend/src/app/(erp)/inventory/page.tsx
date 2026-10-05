@@ -82,7 +82,7 @@ export default function InventoryOverviewPage() {
 
   const handleCreate = async (v: ProductFormValues, imageFile?: File) => {
     const payload = {
-      name: v.name, sku: v.sku,
+      name: v.name, sku: v.sku || null, barcode: v.barcode || null, subcategory: v.subcategory || null,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
@@ -95,7 +95,7 @@ export default function InventoryOverviewPage() {
 
   const handleBulkCreate = async (items: ProductFormValues[]) => {
     await bulkCreateProducts.mutateAsync(items.map((v) => ({
-      name: v.name, sku: v.sku,
+      name: v.name, sku: v.sku || null, barcode: v.barcode || null, subcategory: v.subcategory || null,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
