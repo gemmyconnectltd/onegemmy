@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Sidebar } from "@/components/dashboard/Sidebar";
+import { Sidebar, sidebarWidth } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!isLoading && !user) router.replace("/login");
   }, [isLoading, user, router]);
 
-  const sidebarW = sidebarCollapsed ? 64 : 96;
+  const sidebarW = sidebarWidth(sidebarCollapsed);
 
   if (isLoading || !user) return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-6">

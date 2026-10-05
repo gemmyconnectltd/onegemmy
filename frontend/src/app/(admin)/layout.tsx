@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Sidebar } from "@/components/dashboard/Sidebar";
+import { Sidebar, sidebarWidth } from "@/components/dashboard/Sidebar";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </div>
   );
 
-  const sidebarW = sidebarCollapsed ? 64 : 96;
+  const sidebarW = sidebarWidth(sidebarCollapsed);
 
   return (
     <div className="min-h-screen bg-surface" suppressHydrationWarning>

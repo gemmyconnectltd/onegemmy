@@ -64,6 +64,13 @@ interface SidebarProps {
   variant?: "app" | "admin";
 }
 
+export const SIDEBAR_W_COLLAPSED = 64;
+export const SIDEBAR_W_EXPANDED = 208;
+
+export function sidebarWidth(collapsed: boolean): number {
+  return collapsed ? SIDEBAR_W_COLLAPSED : SIDEBAR_W_EXPANDED;
+}
+
 // "/admin" and "/dashboard" are each a section's root AND a literal prefix
 // of every one of their own sibling routes (e.g. "/admin/tenants" starts
 // with "/admin/"), so a plain startsWith check would light up "Overview"/
@@ -123,7 +130,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
 
   const initials = user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
 
-  const w = collapsed ? 64 : 96;
+  const w = sidebarWidth(collapsed);
 
   return (
     <>
@@ -145,7 +152,10 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
         <Link
           href={admin ? "/admin" : "/dashboard"}
           title={brandLabel}
-          className="flex flex-col items-center justify-center gap-1 h-[60px] border-b border-border flex-shrink-0 hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className={
+            "flex items-center gap-2.5 h-[60px] border-b border-border flex-shrink-0 hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" +
+            (collapsed ? " justify-center" : " px-4")
+          }
         >
           <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 overflow-hidden">
             {!admin && logoUrl ? (
@@ -156,9 +166,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
             )}
           </div>
           {!collapsed && (
-            <span className="text-[10px] font-bold leading-none text-foreground/80 tracking-tight">
-              {brandLabel.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "P"}
-            </span>
+            <span className="text-[13px] font-bold text-foreground/90 truncate">{brandLabel}</span>
           )}
         </Link>
 
@@ -193,7 +201,8 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
               title={collapsed ? "Settings" : undefined}
               data-tour="nav-settings"
               className={
-                "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none" +
+                "group w-full flex items-center gap-3 transition-all duration-150 focus-visible:outline-none" +
+                (collapsed ? " flex-col justify-center gap-1 py-2.5" : " h-11 px-3") +
                 (pathname.startsWith("/settings") ? " bg-accent" : " hover:bg-surface")
               }
             >
@@ -203,7 +212,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
                 className={"flex-shrink-0" + (pathname.startsWith("/settings") ? " text-white" : " text-muted group-hover:text-foreground")}
               />
               {!collapsed && (
-                <span className={"text-[10.5px] font-semibold text-center" + (pathname.startsWith("/settings") ? " text-white" : " text-muted group-hover:text-foreground")}>
+                <span className={"text-[13px] font-semibold truncate" + (pathname.startsWith("/settings") ? " text-white" : " text-muted group-hover:text-foreground")}>
                   Settings
                 </span>
               )}
@@ -217,12 +226,21 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
             onMouseEnter={() => setTooltip("user")}
             onMouseLeave={() => setTooltip(null)}
           >
-            <button type="button" className="flex flex-col items-center gap-1.5 py-2 w-full hover:bg-surface transition-colors">
+            <button
+              type="button"
+              className={
+                "flex items-center gap-3 w-full hover:bg-surface transition-colors" +
+                (collapsed ? " flex-col justify-center gap-1.5 py-2" : " h-11 px-3")
+              }
+            >
               <div className="w-7 h-7 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
                 {initials}
               </div>
               {!collapsed && (
-                <p className="text-[10.5px] font-semibold text-foreground truncate">{user?.name?.split(" ")[0]}</p>
+                <div className="min-w-0 text-left">
+                  <p className="text-[12.5px] font-semibold text-foreground truncate leading-tight">{user?.name}</p>
+                  <p className="text-[10.5px] text-muted capitalize truncate leading-tight">{user?.role}</p>
+                </div>
               )}
             </button>
             {tooltip === "user" && (
@@ -259,7 +277,8 @@ function NavLink({ item, pathname, collapsed, admin }: { item: NavItem; pathname
       title={collapsed ? item.name : undefined}
       data-tour={admin ? undefined : tourKey}
       className={
-        "group flex flex-col items-center justify-center gap-1 py-2.5 transition-all duration-150 focus-visible:outline-none" +
+        "group w-full flex items-center gap-3 transition-all duration-150 focus-visible:outline-none" +
+        (collapsed ? " flex-col justify-center gap-1 py-2.5" : " h-11 px-3") +
         (isActive ? " bg-accent" : " hover:bg-surface")
       }
     >
@@ -269,7 +288,7 @@ function NavLink({ item, pathname, collapsed, admin }: { item: NavItem; pathname
         className={"flex-shrink-0" + (isActive ? " text-white" : " text-muted group-hover:text-foreground")}
       />
       {!collapsed && (
-        <span className={"text-[10.5px] font-semibold text-center" + (isActive ? " text-white" : " text-muted group-hover:text-foreground")}>
+        <span className={"text-[13px] font-semibold truncate" + (isActive ? " text-white" : " text-muted group-hover:text-foreground")}>
           {item.name}
         </span>
       )}
