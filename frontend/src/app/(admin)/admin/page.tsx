@@ -329,7 +329,7 @@ export default function AdminOverviewPage() {
       </div>
 
       <GeographicSummary rows={analytics?.users_by_country ?? []} tooltipStyle={c.tooltip} />
-      <details id="countries" className="scroll-mt-20 rounded-xl border border-border bg-card p-4">
+      <details open id="countries" className="scroll-mt-20 rounded-xl border border-border bg-card p-4">
         <summary className="cursor-pointer text-sm font-semibold text-foreground">Explore all countries</summary>
         <CountriesAnalytics rows={analytics?.users_by_country ?? []} />
       </details>
