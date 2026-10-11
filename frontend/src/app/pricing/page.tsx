@@ -39,7 +39,7 @@ export default function PricingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-32 pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-12 md:pt-32 md:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <Image
           src="/verticals/pharmacy.jpg"
           alt="Pharmacist organizing medicine on shelves in a pharmacy"
@@ -50,7 +50,7 @@ export default function PricingPage() {
         />
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
             Plans That Scale With Your Business
           </h1>
           <p className="text-lg text-white/70">
@@ -60,7 +60,7 @@ export default function PricingPage() {
       </section>
 
       {/* Plans */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan) => (
@@ -108,7 +108,7 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
+      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
@@ -133,7 +133,7 @@ export default function PricingPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
+      <section className="relative py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="relative max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Consolidate Your Business Operations Today</h2>
           <p className="text-white/60 mb-8">No credit card required, and you may cancel at any time.</p>

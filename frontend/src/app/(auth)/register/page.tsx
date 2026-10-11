@@ -55,11 +55,11 @@ const EMPLOYEE_COUNTS = ["Just me", "2-5", "6-10", "11-50", "51-200", "200+"];
 const HEARD_ABOUT = ["Social media", "Friend or colleague", "Search engine", "Advertisement", "Other"];
 
 const inputClass = (focused: boolean) =>
-  `w-full px-3.5 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+  `w-full px-3.5 py-2.5 border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
     focused ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
   }`;
 
-const selectClass = "w-full px-3.5 py-2.5 border border-border rounded-lg text-sm text-foreground bg-surface/30 transition-all outline-none appearance-none cursor-pointer";
+const selectClass = "w-full px-3.5 py-2.5 border border-border rounded-lg text-base sm:text-sm text-foreground bg-surface/30 transition-all outline-none appearance-none cursor-pointer";
 
 export default function RegisterPage() {
   usePageTitle("Create Account");

@@ -13,7 +13,7 @@ export default function CareersPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <section className="pt-32 pb-24 px-4 sm:px-6 lg:px-8">
+      <section className="pt-28 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             Careers at {siteConfig.name}

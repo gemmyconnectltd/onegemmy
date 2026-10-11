@@ -57,7 +57,7 @@ export default async function ImpactPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-14 md:pt-32 md:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <Image
           src="/verticals/repairs.jpg"
           alt="Technician repairing an electronic device on a workbench"
@@ -68,7 +68,7 @@ export default async function ImpactPage() {
         />
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
             Small and Mid-Sized Businesses Drive the East African Economy
           </h1>
           <p className="text-lg text-white/70">
@@ -78,7 +78,7 @@ export default async function ImpactPage() {
       </section>
 
       {/* By the numbers — real product facts, not fabricated business claims */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
+      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
         <div className="max-w-7xl mx-auto">
           <p className="text-center text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-12">
             By the numbers
@@ -102,7 +102,7 @@ export default async function ImpactPage() {
       <TrustBadges />
 
       {/* Pillars */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8">
+      <section className="py-16 md:py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {pillars.map((p) => (
@@ -121,7 +121,7 @@ export default async function ImpactPage() {
       </section>
 
       {/* Honest framing */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-surface">
+      <section className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
             Where we stand today
@@ -141,7 +141,7 @@ export default async function ImpactPage() {
       </section>
 
       {/* CTA */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
+      <section className="relative py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="relative max-w-2xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Become One of Our Early Customer Stories</h2>
           <p className="text-white/60 mb-8">Get started at no cost, and if the platform delivers for your business, we&apos;d be glad to feature your story here.</p>

@@ -17,7 +17,7 @@ export default function ResourcesPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-14 md:pt-32 md:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <Image
           src="/verticals/grocery.jpg"
           alt="Inside a real small shop, shelves stocked with everyday products"
@@ -28,7 +28,7 @@ export default function ResourcesPage() {
         />
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
             Insights on Sales, Inventory, and Financial Operations
           </h1>
           <p className="text-lg text-white/70">
@@ -38,7 +38,7 @@ export default function ResourcesPage() {
       </section>
 
       {/* Article cards */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {blogPosts.map((post) => (

@@ -30,7 +30,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
+      <section className="pt-28 pb-12 md:pt-32 md:pb-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
         <div className="max-w-3xl mx-auto">
           <Link href="/resources" className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/60 hover:text-white transition-colors mb-8">
             <ArrowLeft size={14} />

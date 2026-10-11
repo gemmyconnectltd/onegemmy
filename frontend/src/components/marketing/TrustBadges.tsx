@@ -26,7 +26,7 @@ function hasLogoFile(publicPath: string) {
 
 export function TrustBadges() {
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-surface">
+    <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-surface">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">

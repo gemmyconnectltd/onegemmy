@@ -12,7 +12,7 @@ const EMPLOYEE_COUNTS = ["Just me", "2-5", "6-10", "11-50", "51-200", "200+"];
 const INQUIRY_TYPES = ["Request a demo", "Pricing information", "Technical support", "Partnership", "General inquiry"];
 
 const inputClass =
-  "w-full px-3.5 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 outline-none transition-all";
+  "w-full px-3.5 py-2.5 border border-border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 outline-none transition-all";
 
 const selectClass = `${inputClass} appearance-none cursor-pointer pr-8`;
 

@@ -38,7 +38,7 @@ export default function CompanyPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-14 md:pt-32 md:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <Image
           src="/verticals/pharmacy.jpg"
           alt="Inside a real pharmacy, shelves stocked and organized"
@@ -49,7 +49,7 @@ export default function CompanyPage() {
         />
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-6">
+          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
             Business Management Software Built for Operational Excellence
           </h1>
           <p className="text-lg text-white/70">
@@ -59,7 +59,7 @@ export default function CompanyPage() {
       </section>
 
       {/* About */}
-      <section id="about" className="py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
+      <section id="about" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
         <div className="max-w-3xl mx-auto">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">About us</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
@@ -77,7 +77,7 @@ export default function CompanyPage() {
       </section>
 
       {/* Mission */}
-      <section id="mission" className="py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
+      <section id="mission" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our mission</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
@@ -94,7 +94,7 @@ export default function CompanyPage() {
       </section>
 
       {/* Values */}
-      <section id="values" className="py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
+      <section id="values" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our values</p>
@@ -117,7 +117,7 @@ export default function CompanyPage() {
       </section>
 
       {/* Team / Careers */}
-      <section id="careers" className="py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
+      <section id="careers" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
         <div className="max-w-2xl mx-auto text-center">
           <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our team</p>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">

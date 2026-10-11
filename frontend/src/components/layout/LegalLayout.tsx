@@ -12,7 +12,7 @@ export function LegalLayout({ title, lastUpdated, children }: LegalLayoutProps) 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <article className="pt-32 pb-24 px-4 sm:px-6 lg:px-8">
+      <article className="pt-28 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{title}</h1>
           <p className="text-sm text-muted mb-12">Last updated: {lastUpdated}</p>

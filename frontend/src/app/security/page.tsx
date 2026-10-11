@@ -38,7 +38,7 @@ export default function SecurityPage() {
   return (
     <LegalLayout title="Security" lastUpdated="September 10, 2026">
       <p>
-        We know you&apos;re trusting {siteConfig.name} with real business data — sales,
+        We know you&apos;re trusting {siteConfig.name}{" "}with real business data — sales,
         customers, inventory, and finances. Here&apos;s a plain look at how
         we protect it.
       </p>

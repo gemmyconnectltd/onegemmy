@@ -9,7 +9,7 @@ import { Logo } from "@/components/ui/Logo";
 import { authApi } from "@/lib/api/auth";
 
 const inputClass =
-  "w-full px-3.5 py-2.5 border border-border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 transition-all";
+  "w-full px-3.5 py-2.5 border border-border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 transition-all";
 
 function ResetPasswordForm() {
   const router = useRouter();

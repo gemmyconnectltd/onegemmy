@@ -44,7 +44,7 @@ export default async function Home() {
       <Navbar />
 
       {/* 1. Hero — real shop photo, not a mockup */}
-      <section className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <Image
           src="/verticals/grocery.jpg"
           alt="Inside a real small shop, shelves stocked with everyday products"
@@ -55,7 +55,7 @@ export default async function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/40" />
         <div className="relative max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+          <h1 className="text-[1.85rem] min-[380px]:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight text-balance">
             One Platform to Run Your Entire Business
           </h1>
           <p className="text-lg text-white/70 max-w-xl mx-auto mb-8">
@@ -96,7 +96,7 @@ export default async function Home() {
       </section>
 
       {/* 2. Product Showcase — one section, animated tabs */}
-      <section id="showcase" className="py-24 px-4 sm:px-6 lg:px-8">
+      <section id="showcase" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
@@ -111,7 +111,7 @@ export default async function Home() {
       </section>
 
       {/* 3. Who It's For — real photos of real business types */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-surface">
+      <section className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
@@ -129,7 +129,7 @@ export default async function Home() {
             {businessTypes.map((v) => (
               <div
                 key={v.title}
-                className="group relative rounded-xl overflow-hidden aspect-[4/5]"
+                className="group relative rounded-xl overflow-hidden aspect-[3/2] sm:aspect-[4/5]"
               >
                 <Image
                   src={v.image}
@@ -164,7 +164,7 @@ export default async function Home() {
       </section>
 
       {/* 4. Highlights — quick numbers */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
+      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
         <div className="max-w-7xl mx-auto">
           <div className={`grid ${HIGHLIGHTS_GRID_COLS[highlights.length] ?? "grid-cols-2 md:grid-cols-4"} gap-8 text-center`}>
             {highlights.map((item) => (
@@ -186,7 +186,7 @@ export default async function Home() {
       <TrustBadges />
 
       {/* 6. Final CTA */}
-      <section className="relative py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534] overflow-hidden">
+      <section className="relative py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534] overflow-hidden">
         <div className="relative max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
             Consolidate Your Business Operations Today

@@ -94,7 +94,7 @@ export default function LoginPage() {
                 onBlur={() => setFocusedField(null)}
                 placeholder="you@company.com"
                 required
-                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                   focusedField === "email" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                 }`}
               />
@@ -110,7 +110,7 @@ export default function LoginPage() {
                   onBlur={() => setFocusedField(null)}
                   placeholder="Enter your password"
                   required
-                  className={`w-full px-3.5 py-2.5 pr-10 border rounded-lg text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
+                  className={`w-full px-3.5 py-2.5 pr-10 border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 transition-all outline-none ${
                     focusedField === "password" ? "border-foreground/30 ring-2 ring-foreground/5" : "border-border"
                   }`}
                 />
@@ -210,7 +210,7 @@ export default function LoginPage() {
                 ] as { tenant: string; slug: string | undefined; users: { label: string; email: string; password: string; desc: string; isSuper?: boolean }[] }[]).map((group) => (
                   <div key={group.tenant}>
                     <p className="text-[10px] text-muted/40 uppercase tracking-wider font-semibold mb-1.5">{group.tenant}</p>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 min-[380px]:grid-cols-3 gap-1.5">
                       {group.users.map((demo) => (
                         demo.isSuper ? (
                           <button

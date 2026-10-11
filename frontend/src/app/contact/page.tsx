@@ -14,7 +14,7 @@ export default function ContactPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <section className="pt-32 pb-24 px-4 sm:px-6 lg:px-8">
+      <section className="pt-28 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
