@@ -41,6 +41,8 @@ class User(UUIDPKMixin, TimestampMixin, Base):
         # Every list/sort path on the users screen filters by tenant first.
         Index("ix_users_tenant_created", "tenant_id", "created_at"),
         Index("ix_users_tenant_active", "tenant_id", "is_active"),
+        # Super-admin analytics: user growth per period.
+        Index("ix_users_created_at", "created_at"),
     )
 
     tenant = relationship("Tenant", back_populates="users", lazy="select")

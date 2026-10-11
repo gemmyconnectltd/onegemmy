@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -38,6 +39,11 @@ class PurchaseCreate(BaseModel):
     discount: float = Field(default=0, ge=0)
     tax: float = Field(default=0, ge=0)
     notes: str | None = None
+    # Foreign-currency purchase. Omit for the tenant's base currency. `exchange_rate` = units of base
+    # currency per 1 `currency_code`; omit to use the tenant/platform rate in force now. Frozen when the
+    # purchase is received (that is when the liability and ledger entry are created).
+    currency_code: str | None = Field(default=None, min_length=3, max_length=3)
+    exchange_rate: Decimal | None = Field(default=None, gt=0)
     items: list[PurchaseItemCreate] = Field(min_length=1)
 
 
@@ -48,6 +54,9 @@ class PurchaseUpdate(BaseModel):
     discount: float | None = Field(default=None, ge=0)
     tax: float | None = Field(default=None, ge=0)
     notes: str | None = None
+    # Draft purchases only: the currency / rate stay editable until the goods are received.
+    currency_code: str | None = Field(default=None, min_length=3, max_length=3)
+    exchange_rate: Decimal | None = Field(default=None, gt=0)
 
 
 class PurchaseRead(BaseModel):
@@ -61,6 +70,14 @@ class PurchaseRead(BaseModel):
     discount: float
     tax: float
     total: float
+    # Amounts above are in `currency_code` (None = tenant base currency); base_* are their value in the
+    # tenant's base currency at the frozen `exchange_rate`.
+    currency_code: str | None = None
+    exchange_rate: Decimal | None = None
+    base_subtotal: Decimal | None = None
+    base_discount: Decimal | None = None
+    base_tax: Decimal | None = None
+    base_total: Decimal | None = None
     notes: str | None
     expected_date: date | None
     received_at: datetime | None

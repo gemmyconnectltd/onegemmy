@@ -20,6 +20,10 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="Draft")
     transaction_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # The ledger currency these lines are in = the tenant's base currency when posted. Lines are
+    # always base-currency; recording it here means a ledger can never be silently re-read in a
+    # different currency (see the base-currency change guard).
+    currency_code: Mapped[str | None] = mapped_column(String(3), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     order_id: Mapped[uuid.UUID | None] = mapped_column(

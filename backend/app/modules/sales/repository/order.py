@@ -122,9 +122,15 @@ class OrderRepository(BaseRepository[Order]):
         """Aggregate outstanding-balance figures for the Accounting >
         Receivables view — computed straight from Order.amount_paid/total/
         due_date, the same ground truth every other view reads, never a
-        separately-maintained number."""
+        separately-maintained number.
+
+        Figures are in the tenant's BASE currency: each order's outstanding
+        balance (in the order's own currency) is converted at that order's
+        frozen exchange rate before summing, so a USD invoice is never added to
+        an RWF one as if they were the same unit. Orders from before
+        multi-currency have no rate and count at 1."""
         today = datetime.now(UTC).date()
-        outstanding = Order.total - Order.amount_paid
+        outstanding = (Order.total - Order.amount_paid) * func.coalesce(Order.exchange_rate, 1)
         unpaid_condition = (
             Order.tenant_id == tenant_id, Order.status == "Completed", Order.amount_paid < Order.total,
         )

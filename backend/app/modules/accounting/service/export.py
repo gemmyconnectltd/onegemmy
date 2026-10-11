@@ -1,6 +1,7 @@
 import csv
 import io
 import uuid
+from contextvars import ContextVar
 from datetime import UTC, date, datetime
 from pathlib import Path
 from xml.sax.saxutils import escape as esc
@@ -24,6 +25,7 @@ from reportlab.platypus import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.currency import CURRENCIES, format_money
 from app.core.logging import get_logger
 from app.modules.accounting import service as accounting_service
 from app.modules.accounting.schemas.report import (
@@ -50,17 +52,14 @@ PAGE_W, PAGE_H = A4
 MARGIN = 18 * mm
 CONTENT_W = PAGE_W - 2 * MARGIN
 
-CURRENCY = "RWF"
-
-FONT = "Helvetica"
-FONT_BOLD = "Helvetica-Bold"
+# The tenant's base currency for the export being built. Set by _load_tenant (every export starts
+# there), read by _fmt_money — a ContextVar so concurrent requests can never see each other's currency.
+_CURRENCY: ContextVar[str] = ContextVar("export_currency", default="RWF")
 
 
 def _fmt_money(value: float) -> str:
-    v = float(value)
-    if v == int(v):
-        return f"{CURRENCY} {v:,.0f}"
-    return f"{CURRENCY} {v:,.2f}"
+    """Amounts in the exporting tenant's base currency, with that currency's own decimals."""
+    return format_money(value, _CURRENCY.get())
 
 
 def _fmt_pct(value: float | None) -> str:
@@ -73,6 +72,7 @@ async def _load_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
     tenant = await TenantRepository(db).get(tenant_id)
     if tenant is None:
         return Tenant(name="")
+    _CURRENCY.set(tenant.currency if tenant.currency in CURRENCIES else "RWF")
     return tenant
 
 

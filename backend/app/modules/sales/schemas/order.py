@@ -1,7 +1,8 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.sales.schemas.customer import CustomerRead
 from app.modules.sales.schemas.order_item import OrderItemCreate, OrderItemRead
@@ -28,6 +29,11 @@ class OrderCreate(BaseModel):
     amount_paid: float | None = None
     due_date: date | None = None
     ordered_at: datetime | None = None
+    # Foreign-currency invoicing. Omit both (every existing client) for the tenant's base currency.
+    # `exchange_rate` is units of the base currency per 1 unit of `currency_code`; omit it to use the
+    # tenant/platform rate effective at the order date. It is frozen on the order when created.
+    currency_code: str | None = Field(default=None, min_length=3, max_length=3)
+    exchange_rate: Decimal | None = Field(default=None, gt=0)
     items: list[OrderItemCreate] = []
 
 
@@ -70,6 +76,9 @@ class OrderUpdate(BaseModel):
     amount_tendered: float | None = None
     change_due: float | None = None
     due_date: date | None = None
+    # Only while the order is not yet Completed — a completed order's currency and rate are frozen.
+    currency_code: str | None = Field(default=None, min_length=3, max_length=3)
+    exchange_rate: Decimal | None = Field(default=None, gt=0)
 
 
 class OrderRead(BaseModel):
@@ -104,6 +113,16 @@ class OrderRead(BaseModel):
     amount_paid: float = 0
     due_date: date | None = None
     outstanding_balance: float = 0
+    # Currency context. `subtotal`/`discount`/`tax`/`total`/`amount_paid`/`outstanding_balance` are in
+    # `currency_code` (None on rows from before multi-currency = the tenant's base currency). `base_*`
+    # are the tenant-base-currency values at the frozen `exchange_rate`.
+    currency_code: str | None = None
+    exchange_rate: Decimal | None = None
+    base_subtotal: Decimal | None = None
+    base_discount: Decimal | None = None
+    base_tax: Decimal | None = None
+    base_total: Decimal | None = None
+    base_outstanding_balance: Decimal | None = None
     payment_status: str = "Unpaid"  # Unpaid | PartiallyPaid | Paid
     is_overdue: bool = False
     payments: list[OrderPaymentRead] = []

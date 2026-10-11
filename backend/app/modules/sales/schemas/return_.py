@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -35,6 +36,10 @@ class ReturnRead(BaseModel):
     customer_id: uuid.UUID | None
     reason: str | None
     refund_amount: float
+    # Same currency and frozen rate as the order being returned (never today's rate).
+    currency_code: str | None = None
+    exchange_rate: Decimal | None = None
+    base_refund_amount: Decimal | None = None
     status: str
     processed_by: uuid.UUID | None
     return_date: date

@@ -2,10 +2,15 @@ from fastapi import APIRouter, Depends
 
 from app.core.deps import require_feature
 from app.modules.accounting.routes import accounting_router
+from app.modules.admin.analytics import router as admin_analytics_router
 from app.modules.admin.routes import router as admin_router
+from app.modules.ai.routes import admin_router as ai_admin_router
+from app.modules.ai.routes import router as ai_router
 from app.modules.audit.routes import router as audit_router
 from app.modules.auth.routes import router as auth_router
 from app.modules.crm.routes import crm_router
+from app.modules.currency.routes import admin_router as currency_admin_router
+from app.modules.currency.routes import tenant_router as currency_tenant_router
 from app.modules.hr.routes import hr_router
 from app.modules.inventory.routes import inventory_router
 from app.modules.manufacturing.routes import manufacturing_router
@@ -17,6 +22,11 @@ from app.modules.tenants.routes import global_router, tenants_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(admin_router)
+api_router.include_router(admin_analytics_router)
+api_router.include_router(currency_admin_router)
+api_router.include_router(ai_router)
+api_router.include_router(ai_admin_router)
+api_router.include_router(currency_tenant_router)
 api_router.include_router(audit_router)
 api_router.include_router(auth_router)
 api_router.include_router(tenants_router)

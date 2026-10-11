@@ -40,8 +40,8 @@ async def create_tenant(db: AsyncSession, data: TenantCreate) -> TenantRead:
     tenant = Tenant(name=data.name, slug=slug, **data.model_dump(exclude={"name", "slug"}, exclude_unset=True))
     tenant = await TenantRepository(db).save(tenant)
     await db.commit()
-    from app.modules.tenants.service.department import seed_default_departments
     from app.modules.tenants.service.branch import seed_default_branch
+    from app.modules.tenants.service.department import seed_default_departments
 
     await seed_default_departments(db, tenant.id)
     await seed_default_branch(db, tenant.id, tenant.name)
@@ -65,7 +65,17 @@ async def update_tenant(db: AsyncSession, tenant_id: uuid.UUID, data: TenantUpda
         raise NotFoundError("Company not found")
     fields = list(data.model_dump(exclude_unset=True).keys())
     log.info("tenants.update.attempt", extra={"_extra_fields": {"tenant_id": str(tenant_id), "fields": fields}})
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    if updates.get("currency") is not None:
+        # The base currency is accounting configuration: validated against the active currency list
+        # and refused once the business has recorded any money (see change_base_currency).
+        from app.modules.currency.service import change_base_currency
+
+        updates["currency"] = await change_base_currency(db, tenant_id, updates["currency"])
+        await db.refresh(tenant)
+    elif "currency" in updates:
+        updates.pop("currency")  # explicit null must never blank the base currency
+    for field, value in updates.items():
         setattr(tenant, field, value)
     tenant = await TenantRepository(db).save(tenant)
     await db.commit()

@@ -1,18 +1,19 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.models import TimestampMixin, UUIDPKMixin
+from app.core.models import DocumentCurrencyMixin, PaymentCurrencyMixin, TimestampMixin, UUIDPKMixin
 from app.modules.tenants.models.mixins import TenantScopedMixin
 
 # status: Unpaid | PartiallyPaid | Paid
 
 
-class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixin, Base):
     """The financial liability created when goods are received against a
     Purchase Order — separate from the PO itself (a commitment, no liability
     until goods actually arrive) and from a SupplierPayment (money that
@@ -23,6 +24,9 @@ class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     reference: Mapped[str] = mapped_column(String(50), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     amount_paid: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    # Base-currency value of `amount` at this bill's frozen exchange_rate — the Accounts Payable
+    # carrying value the ledger holds until payments clear it.
+    base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Unpaid")
     bill_date: Mapped[date] = mapped_column(Date, nullable=False)
 
@@ -48,7 +52,7 @@ class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     )
 
 
-class SupplierPayment(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class SupplierPayment(UUIDPKMixin, TenantScopedMixin, TimestampMixin, PaymentCurrencyMixin, Base):
     """A single payment applied against a SupplierBill. Full payment is one
     row equal to the bill's remaining balance; partial payment is however
     many rows it takes to reach it."""

@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text
+from sqlalchemy import Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -14,5 +14,7 @@ class Supplier(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(50))
     address: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(default=True)
+    # Days from placing an order to receiving the goods. Optional; when set, Pesaa AI reorder advice covers at least this long.
+    lead_time_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     products = relationship("Product", back_populates="supplier", lazy="selectin")

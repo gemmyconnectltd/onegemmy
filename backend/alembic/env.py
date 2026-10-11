@@ -16,8 +16,10 @@ from app.core.database import Base
 # "Order" class by string name, and SQLAlchemy resolves it against whichever
 # classes are registered at mapper-configuration time. Keep this block as-is
 # (do not let `ruff --fix` re-alphabetize it — that reintroduces the failure).
+from app.modules.ai.models import AiAction, AiConversation, AiMessage, AiUsageEvent  # noqa: F401
 from app.modules.audit.models import AuditLog  # noqa: F401
 from app.modules.crm.models import Campaign, EmailLog  # noqa: F401
+from app.modules.currency.models import Currency, ExchangeRate, PlatformSetting  # noqa: F401
 from app.modules.hr.models import (  # noqa: F401
     Applicant,
     Attendance,

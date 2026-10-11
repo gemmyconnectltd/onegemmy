@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.currency import ONE, compute_settlement, to_base_amount, to_decimal
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.accounting.schemas.tax import TaxCalculationCreate
 from app.modules.accounting.service.tax import (
@@ -15,6 +16,7 @@ from app.modules.accounting.service.tax import (
 )
 from app.modules.accounting.service.transaction import create_sale_transaction
 from app.modules.audit.service import record_audit
+from app.modules.currency.service import document_rate, get_base_currency, resolve_document_currency
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.repository import ProductRepository
@@ -37,6 +39,39 @@ from app.modules.sales.schemas import (
 _PAID_EPSILON = 0.01
 
 
+def _base_value(value: float | Decimal, currency_code: str, base_currency: str, rate: Decimal) -> Decimal:
+    """An order amount in the tenant's base currency at the order's frozen rate (see to_base_amount)."""
+    return to_base_amount(value, currency_code, base_currency, rate)
+
+
+def _set_base_amounts(order: Order, base_currency: str) -> None:
+    """(Re)derive the order's base_* amounts from its own amounts and frozen rate."""
+    code = order.currency_code or base_currency
+    rate = document_rate(order)
+    order.base_subtotal = _base_value(order.subtotal, code, base_currency, rate)
+    order.base_discount = _base_value(order.discount, code, base_currency, rate)
+    order.base_tax = _base_value(order.tax, code, base_currency, rate)
+    order.base_total = _base_value(order.total, code, base_currency, rate)
+
+
+def _checkout_payment(order: Order, base_currency: str, paid: float) -> tuple[dict, float]:
+    """Currency fields for the payment taken at checkout, plus the base-currency cash for the
+    ledger. The checkout payment happens at the order's own rate, so no FX can arise here."""
+    code = order.currency_code or base_currency
+    if code == base_currency:
+        d = to_decimal(paid)
+        return {"currency_code": code, "exchange_rate": ONE, "base_amount": d, "applied_amount": d, "base_applied_amount": d}, float(paid)
+    s = compute_settlement(
+        doc_currency=code, base_currency=base_currency, doc_rate=document_rate(order), doc_total=order.total,
+        doc_base_total=order.base_total, paid_so_far=0, base_applied_so_far=0, pay_currency=code, pay_amount=paid,
+        rate_at_payment=document_rate(order),
+    )
+    return {
+        "currency_code": code, "exchange_rate": s.payment_rate, "base_amount": s.base_amount,
+        "applied_amount": s.applied_amount, "base_applied_amount": s.base_applied_amount,
+    }, float(s.base_amount)
+
+
 def _to_order_read(obj: Order) -> OrderRead:
     """The single place OrderRead is ever built from an Order row — computes
     payment_status/outstanding_balance/is_overdue from amount_paid/total/
@@ -55,6 +90,9 @@ def _to_order_read(obj: Order) -> OrderRead:
     else:
         read.payment_status = "PartiallyPaid"
     read.is_overdue = bool(obj.due_date and outstanding > _PAID_EPSILON and obj.due_date < datetime.now(UTC).date())
+    # What is still owed, in the tenant's base currency, at the invoice's own frozen rate (the amount
+    # the ledger carries as receivable). Equal to `outstanding_balance` for base-currency orders.
+    read.base_outstanding_balance = to_decimal(outstanding) * document_rate(obj)
     return read
 
 
@@ -238,6 +276,15 @@ async def create_order(
 
     order_number = await repo.next_order_number(tenant_id)
 
+    # Currency context, settled before any amount is stored: the order's own currency, the rate that
+    # converts it to the tenant's base currency (frozen on the order), and the base currency itself.
+    effective_at = (data.ordered_at if data.ordered_at and data.ordered_at.tzinfo else (
+        data.ordered_at.replace(tzinfo=UTC) if data.ordered_at else datetime.now(UTC)
+    ))
+    currency_code, fx_rate, base_ccy = await resolve_document_currency(
+        db, tenant_id, data.currency_code, data.exchange_rate, at=effective_at,
+    )
+
     subtotal = sum(item.line_total for item in data.items)
     gross = round(subtotal - data.discount, 2)
     tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
@@ -268,7 +315,10 @@ async def create_order(
         change_due=data.change_due,
         due_date=data.due_date,
         amount_paid=0,
+        currency_code=currency_code,
+        exchange_rate=fx_rate,
     )
+    _set_base_amounts(order, base_ccy)
     # imported orders may carry their original date; anything else keeps now()
     if data.ordered_at is not None:
         order.ordered_at = data.ordered_at if data.ordered_at.tzinfo else data.ordered_at.replace(tzinfo=UTC)
@@ -330,13 +380,17 @@ async def create_order(
             )
 
     if data.status == "Completed":
-        await _bump_revenue_targets(db, tenant_id, total)
+        # Targets, the ledger and VAT records are all kept in the tenant's BASE currency; a foreign
+        # invoice is converted once, at its frozen rate (identical numbers for base-currency orders).
+        base_total, base_tax = float(order.base_total), float(order.base_tax)
+        pay_fields, base_paid = _checkout_payment(order, base_ccy, resolved_paid) if resolved_paid > 0 else ({}, 0.0)
+        await _bump_revenue_targets(db, tenant_id, base_total)
         await _bump_order_targets(db, tenant_id)
         sale_txn_id = await create_sale_transaction(
-            db, tenant_id, user_id, order.id, total, order_number, cogs=round(cogs_total, 2), tax=tax,
-            payment_method=data.payment_method, amount_paid=resolved_paid,
+            db, tenant_id, user_id, order.id, base_total, order_number, cogs=round(cogs_total, 2), tax=base_tax,
+            payment_method=data.payment_method, amount_paid=base_paid,
         )
-        await _record_vat(db, tenant_id, order.id, tax, total, vat_rate)
+        await _record_vat(db, tenant_id, order.id, base_tax, base_total, vat_rate)
 
         if resolved_paid > 0:
             # The checkout payment itself — its accounting entry is the sale
@@ -358,9 +412,10 @@ async def create_order(
                 paid_at=order.ordered_at,
                 received_by=user_id,
                 accounting_transaction_id=sale_txn_id,
+                **pay_fields,
             )
             db.add(payment)
-            order.amount_paid = resolved_paid
+            order.amount_paid = pay_fields["applied_amount"]
 
     await record_audit(
         db,
@@ -371,7 +426,10 @@ async def create_order(
         entity_type="order",
         entity_id=str(order.id),
         summary=f"Order {order_number} created ({data.status})",
-        changes={"total": total, "items": len(data.items), "amount_paid": resolved_paid, "outstanding": outstanding},
+        changes={
+            "total": total, "items": len(data.items), "amount_paid": resolved_paid, "outstanding": outstanding,
+            "currency": currency_code, "exchange_rate": str(fx_rate), "base_total": str(order.base_total),
+        },
     )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, order.id)
@@ -407,6 +465,17 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     was_completed = obj.status == "Completed"
     before = obj.status
     update_fields = data.model_dump(exclude_unset=True)
+    base_ccy = await get_base_currency(db, tenant_id)
+    # Currency / rate may only change while the order is still open: once Completed they are the
+    # frozen basis of the ledger entries, and re-pricing them would silently rewrite history.
+    new_currency = update_fields.pop("currency_code", None)
+    new_rate = update_fields.pop("exchange_rate", None)
+    if new_currency is not None or new_rate is not None:
+        if was_completed:
+            raise ValidationError("The currency and exchange rate of a completed order can't be changed")
+        obj.currency_code, obj.exchange_rate, _ = await resolve_document_currency(
+            db, tenant_id, new_currency or obj.currency_code, new_rate, at=obj.ordered_at,
+        )
     if "branch_id" in update_fields and update_fields["branch_id"] is not None:
         from app.modules.tenants.repository import BranchRepository
 
@@ -423,6 +492,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
     obj.tax = tax
     obj.total = total
+    _set_base_amounts(obj, base_ccy)
     # if status just flipped to Completed, deduct stock, post COGS, and bump targets
     if not was_completed and obj.status == "Completed":
         resolved_paid = _resolve_amount_paid(
@@ -434,13 +504,17 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         cogs_total = 0.0
         for item in obj.items:
             cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product)
-        await _bump_revenue_targets(db, tenant_id, float(obj.total))
+        # The rate frozen on the order (set at creation or while it was open) now becomes final:
+        # everything below is posted in the tenant's base currency at that rate.
+        base_total, base_tax = float(obj.base_total), float(obj.base_tax)
+        pay_fields, base_paid = _checkout_payment(obj, base_ccy, resolved_paid) if resolved_paid > 0 else ({}, 0.0)
+        await _bump_revenue_targets(db, tenant_id, base_total)
         await _bump_order_targets(db, tenant_id)
         sale_txn_id = await create_sale_transaction(
-            db, tenant_id, obj.created_by or id, obj.id, float(obj.total), obj.order_number, cogs=round(cogs_total, 2), tax=tax,
-            payment_method=obj.payment_method, amount_paid=resolved_paid,
+            db, tenant_id, obj.created_by or id, obj.id, base_total, obj.order_number, cogs=round(cogs_total, 2), tax=base_tax,
+            payment_method=obj.payment_method, amount_paid=base_paid,
         )
-        await _record_vat(db, tenant_id, obj.id, tax, total, vat_rate)
+        await _record_vat(db, tenant_id, obj.id, base_tax, base_total, vat_rate)
 
         if resolved_paid > 0:
             payment_repo = OrderPaymentRepository(db)
@@ -457,8 +531,9 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
                 paid_at=datetime.now(UTC),
                 received_by=user_id,
                 accounting_transaction_id=sale_txn_id,
+                **pay_fields,
             ))
-            obj.amount_paid = resolved_paid
+            obj.amount_paid = pay_fields["applied_amount"]
     await OrderRepository(db).save(obj)
     await record_audit(
         db,

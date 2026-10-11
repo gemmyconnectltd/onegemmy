@@ -19,6 +19,11 @@ from app.core.response import paginated_response, success_response
 from app.core.security import hash_password, validate_password_strength
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
+from app.modules.admin.analytics import (
+    all_time_sales_by_plan,
+    all_time_sales_converted,
+    invalidate_analytics_cache,
+)
 from app.modules.admin.export import build_users_export, resolve_columns
 from app.modules.audit.service import record_audit
 from app.modules.hr.models.employee import Employee
@@ -113,11 +118,10 @@ async def admin_stats(db: DbSession, _: SuperUser):
     total_users = (await db.execute(select(func.count()).select_from(User).where(User.tenant_id.isnot(None)))).scalar_one()
     total_orders = (await db.execute(select(func.count()).select_from(Order))).scalar_one()
     completed_orders = (await db.execute(select(func.count()).select_from(Order).where(Order.status == "Completed"))).scalar_one()
-    total_revenue = (await db.execute(
-        select(func.coalesce(func.sum(TransactionLine.amount), 0))
-        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(Transaction.type == "sale", Transaction.status == "Posted", TransactionLine.type == "credit")
-    )).scalar_one()
+    # Tenant sales volume (GMV), converted to the platform reporting currency — summing raw ledger
+    # amounts across tenants would add RWF to KES to USD. Not PESAA's own revenue.
+    sales = await all_time_sales_converted()
+    total_revenue = sales["total"]
     total_products = (await db.execute(select(func.count()).select_from(Product))).scalar_one()
 
     # Per-plan breakdown
@@ -146,6 +150,7 @@ async def admin_stats(db: DbSession, _: SuperUser):
         "total_orders": total_orders,
         "completed_orders": completed_orders,
         "total_revenue": float(total_revenue),
+        "reporting_currency": sales["reporting_currency"],
         "total_products": total_products,
         "plans": plans,
         "monthly_signups": [{"month": r.month, "count": r.cnt} for r in monthly],
@@ -231,7 +236,16 @@ async def admin_tenant_analytics(db: DbSession, _: SuperUser):
         ORDER BY month_start
     """))).fetchall()
 
+    # Every country with at least one user (not just the top few): users and businesses per country.
+    country_expr = func.coalesce(func.nullif(Tenant.country, ""), "Unknown")
+    country_rows = (await db.execute(
+        select(country_expr.label("name"), func.count(func.distinct(User.id)).label("users"), func.count(func.distinct(Tenant.id)).label("businesses"))
+        .select_from(User).join(Tenant, Tenant.id == User.tenant_id)
+        .group_by(country_expr).order_by(func.count(func.distinct(User.id)).desc(), country_expr)
+    )).fetchall()
+
     return success_response(data={
+        "users_by_country": [{"name": r.name, "users": r.users, "businesses": r.businesses} for r in country_rows],
         "by_country":       await group_by_col(Tenant.country),
         "by_industry":      await group_by_col(Tenant.industry),
         "by_business_type": await group_by_col(Tenant.business_type),
@@ -316,22 +330,10 @@ async def admin_usage_breakdown(db: DbSession, _: SuperUser):
             .group_by(Tenant.subscription_plan)
         )).fetchall()
     }
-    plan_revenue = {
-        r.subscription_plan: float(r.revenue) for r in (await db.execute(
-            select(
-                Tenant.subscription_plan,
-                func.coalesce(func.sum(TransactionLine.amount), 0).label("revenue"),
-            )
-            .select_from(Transaction)
-            .join(Tenant, Tenant.id == Transaction.tenant_id)
-            .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
-            .where(
-                Transaction.type == "sale", Transaction.status == "Posted",
-                TransactionLine.type == "credit",
-            )
-            .group_by(Tenant.subscription_plan)
-        )).fetchall()
-    }
+    # Per-plan tenant sales, converted to the reporting currency (a plan holds tenants in several
+    # currencies, so a raw sum would be meaningless).
+    plan_sales = await all_time_sales_by_plan()
+    plan_revenue = plan_sales["by_plan"]
 
     plan_keys = set(plan_tenants) | set(plan_users) | set(plan_orders) | set(plan_products) | set(plan_revenue)
     by_plan = [
@@ -390,6 +392,7 @@ async def admin_usage_breakdown(db: DbSession, _: SuperUser):
             "avg_users_per_tenant": round(totals["total_users"] / total_tenants, 1) if total_tenants else 0,
             "avg_orders_per_tenant": round(totals["total_orders"] / total_tenants, 1) if total_tenants else 0,
             **totals,
+            "reporting_currency": plan_sales["reporting_currency"],
         },
         "engagement": [
             {"tier": t, "tenants": engagement.get(t, 0)}
@@ -580,6 +583,7 @@ async def admin_create_tenant(data: TenantCreate, db: DbSession, admin: SuperUse
         summary=f"Tenant '{tenant.name}' created",
     )
     await db.commit()
+    invalidate_analytics_cache()
     return success_response(data=tenant.model_dump(), message="Tenant created", status_code=201)
 
 
@@ -599,6 +603,7 @@ async def admin_update_tenant(tenant_id: uuid.UUID, data: TenantUpdate, db: DbSe
         changes=data.model_dump(exclude_unset=True),
     )
     await db.commit()
+    invalidate_analytics_cache()
     return success_response(data=tenant.model_dump(), message="Tenant updated")
 
 
@@ -611,6 +616,7 @@ async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Super
         summary=f"Tenant '{tenant.name}' suspended",
     )
     await db.commit()
+    invalidate_analytics_cache()
     return success_response(data=tenant.model_dump(), message="Tenant suspended")
 
 
@@ -639,6 +645,7 @@ async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Supe
                 dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
                 sender="admin",
             )
+    invalidate_analytics_cache()
     return success_response(data=tenant.model_dump(), message="Tenant activated")
 
 
@@ -652,6 +659,7 @@ async def admin_delete_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperU
         summary=f"Tenant '{tenant.name if tenant else tenant_id}' deleted",
     )
     await db.commit()
+    invalidate_analytics_cache()
     return success_response(message="Tenant deleted")
 
 
@@ -728,6 +736,7 @@ async def admin_reset_tenant_data(tenant_id: uuid.UUID, data: ResetTenantDataReq
         changes=counts,
     )
     await db.commit()
+    invalidate_analytics_cache()
     return success_response(data={"deleted": counts}, message="Business data reset")
 
 
@@ -816,6 +825,7 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
         tenant_name=tenant.name,
         temp_password=temp_password,
     )
+    invalidate_analytics_cache()
     return success_response(
         data={"id": str(user.id), "email": user.email, "full_name": user.full_name, "temp_password": temp_password},
         message="User invited successfully", status_code=201)
@@ -958,6 +968,7 @@ async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db:
     )
     await db.delete(user)
     await db.commit()
+    invalidate_analytics_cache()
     return success_response(message="User removed")
 
 

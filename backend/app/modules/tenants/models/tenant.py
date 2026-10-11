@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Index, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -61,6 +61,15 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # deleted. Without it, SQLAlchemy manages the relationship itself and
     # first UPDATEs tenant_id to NULL on every loaded child — silently
     # orphaning them instead of removing them, since tenant_id is nullable.
+    __table_args__ = (
+        # Super-admin analytics: signups per period, newest-first lists.
+        Index("ix_tenants_created_at", "created_at"),
+        # Global dashboard filters.
+        Index("ix_tenants_country", "country"),
+        Index("ix_tenants_industry", "industry"),
+        Index("ix_tenants_business_type", "business_type"),
+    )
+
     users = relationship("User", back_populates="tenant", lazy="selectin", passive_deletes=True)
     roles = relationship("Role", back_populates="tenant", lazy="selectin", passive_deletes=True)
     branches = relationship("Branch", back_populates="tenant", lazy="selectin", passive_deletes=True)

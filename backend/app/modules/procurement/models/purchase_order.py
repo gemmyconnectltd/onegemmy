@@ -1,18 +1,19 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.models import TimestampMixin, UUIDPKMixin
+from app.core.models import DocumentCurrencyMixin, TimestampMixin, UUIDPKMixin
 from app.modules.tenants.models.mixins import TenantScopedMixin
 
 # status: Draft | Received | Cancelled
 
 
-class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixin, Base):
     __tablename__ = "purchase_orders"
 
     reference: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -21,6 +22,11 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     discount: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     tax: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
+    # Base-currency value of the amounts above at this PO's frozen exchange_rate.
+    base_subtotal: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    base_discount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    base_tax: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    base_total: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     expected_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

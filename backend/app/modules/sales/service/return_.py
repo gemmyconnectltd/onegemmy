@@ -1,17 +1,37 @@
 import uuid
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.modules.accounting.service.transaction import create_return_transaction
+from app.modules.currency.service import document_currency, document_rate, get_base_currency
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.service.serial import mark_serials_returned
+from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
 from app.modules.sales.models.return_ import Return
 from app.modules.sales.models.return_item import ReturnItem
 from app.modules.sales.repository import ReturnRepository
 from app.modules.sales.schemas import ReturnCreate, ReturnRead, ReturnUpdate
+from app.modules.sales.service.order import _base_value
+
+
+async def _stamp_return_currency(db: AsyncSession, tenant_id: uuid.UUID, ret: Return) -> float:
+    """Give a return the currency and FROZEN rate of the order it reverses, and derive the refund's
+    base-currency value from them. A return undoes a historical sale, so it must use that sale's
+    rate — never today's. A return with no order is a base-currency refund. Returns the base refund
+    (what the ledger posts)."""
+    base = await get_base_currency(db, tenant_id)
+    order = await db.get(Order, ret.order_id) if ret.order_id else None
+    if order is not None and order.tenant_id != tenant_id:
+        order = None  # never read another tenant's order, even by a forged id
+    code = document_currency(order, base) if order else base
+    rate = document_rate(order) if order else Decimal(1)
+    ret.currency_code, ret.exchange_rate = code, rate
+    ret.base_refund_amount = _base_value(ret.refund_amount, code, base, rate)
+    return float(ret.base_refund_amount)
 
 
 async def _restock(db: AsyncSession, product_id: uuid.UUID | None, variant_id: uuid.UUID | None, quantity: float) -> None:
@@ -66,6 +86,7 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
         processed_by=user_id if data.status != "Pending" else None,
     )
     ret = await repo.save(ret)
+    base_refund = await _stamp_return_currency(db, tenant_id, ret)
 
     for item_data in data.items:
         item = ReturnItem(
@@ -92,7 +113,7 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
             await _restock(db, product_id, variant_id, item_data.quantity)
 
     if data.status == "Approved":
-        await create_return_transaction(db, tenant_id, user_id, ret.id, float(refund_amount), return_number)
+        await create_return_transaction(db, tenant_id, user_id, ret.id, base_refund, return_number)
         order_item_ids = [i.order_item_id for i in data.items if i.order_item_id]
         await mark_serials_returned(db, tenant_id, order_item_ids)
 
@@ -117,8 +138,9 @@ async def update_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
     if not was_approved and obj.status == "Approved":
         for item in obj.items:
             await _restock_return_item(db, item)
+        base_refund = await _stamp_return_currency(db, tenant_id, obj)
         await create_return_transaction(
-            db, tenant_id, user_id, obj.id, float(obj.refund_amount), obj.return_number
+            db, tenant_id, user_id, obj.id, base_refund, obj.return_number
         )
         order_item_ids = [i.order_item_id for i in obj.items if i.order_item_id]
         await mark_serials_returned(db, tenant_id, order_item_ids)

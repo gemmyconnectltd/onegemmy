@@ -24,6 +24,31 @@ class Settings(BaseSettings):
 
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # Pesaa AI. The provider key lives only here on the backend (never sent to a client). With
+    # AI_PROVIDER="mock" (the default) the assistant runs fully offline against real, scoped data
+    # using deterministic replies — no paid API calls — so it can be built and tested for free.
+    AI_PROVIDER: Literal["mock", "openai", "groq", "ollama"] = "mock"
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    # Groq speaks the OpenAI chat-completions protocol (incl. tool calling), so it reuses the same adapter.
+    # Ollama runs models on your own machine (`ollama run llama3.2`); no key, no cost, no daily cap.
+    OLLAMA_BASE_URL: str = "http://localhost:11434/v1"
+    OLLAMA_MODEL: str = "llama3.2"
+    OLLAMA_TIMEOUT_SECONDS: float = 120.0  # local models are slower than hosted ones
+    GROQ_API_KEY: str = ""
+    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"  # tool-calling model available on Groq; override with GROQ_MODEL
+    AI_MODEL: str = "gpt-4o-mini"
+    # Where the assistant sends people who ask for a human (same public group link the app's support button uses).
+    SUPPORT_WHATSAPP_URL: str = "https://chat.whatsapp.com/KdYZ26ywxvK3x0clmLWedK?mode=gi_t"
+    SUPPORT_EMAIL: str = "support@pesaa.io"
+    AI_TIMEOUT_SECONDS: float = 30.0
+    AI_MAX_TOOL_ROUNDS: int = 5
+    AI_MAX_OUTPUT_TOKENS: int = 800
+    # Rough USD per 1M tokens (input, output) used only to ESTIMATE cost in usage reports.
+    AI_COST_PER_MTOK_IN: float = 0.15
+    AI_COST_PER_MTOK_OUT: float = 0.60
+
     # Email — one shared SMTP host, but a separate mailbox per email
     # category (see app/core/email.py's `sender` param: "accounts" or
     # "admin"). SMTP_USER/SMTP_PASSWORD/EMAIL_FROM are the legacy
@@ -93,7 +118,7 @@ class Settings(BaseSettings):
         return self.ENVIRONMENT == "production"
 
     @model_validator(mode="after")
-    def _enforce_production_safety(self) -> "Settings":
+    def _enforce_production_safety(self) -> Settings:
         if not self.is_production:
             return self
 

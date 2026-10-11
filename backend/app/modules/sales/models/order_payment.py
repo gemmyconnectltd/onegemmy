@@ -6,13 +6,13 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.models import TimestampMixin, UUIDPKMixin
+from app.core.models import PaymentCurrencyMixin, TimestampMixin, UUIDPKMixin
 from app.modules.tenants.models.mixins import TenantScopedMixin
 
 # status: Completed | Reversed
 
 
-class OrderPayment(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class OrderPayment(UUIDPKMixin, TenantScopedMixin, TimestampMixin, PaymentCurrencyMixin, Base):
     """A single payment applied against an Order's outstanding balance —
     mirrors procurement's SupplierBill/SupplierPayment shape on the
     receivable side. Full payment at checkout is one row equal to the

@@ -1,24 +1,27 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import Date, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.models import TimestampMixin, UUIDPKMixin
+from app.core.models import DocumentCurrencyMixin, TimestampMixin, UUIDPKMixin
 from app.modules.tenants.models.mixins import TenantScopedMixin
 
 # category: Rent | Utilities | Salaries | Supplies | Other
 # status: Pending | Approved | Rejected
 
 
-class Expense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class Expense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixin, Base):
     __tablename__ = "accounting_expenses"
 
     reference: Mapped[str] = mapped_column(String(50), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    # `amount` is in `currency_code`; this is its base-currency value at the frozen exchange_rate.
+    base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     expense_date: Mapped[date] = mapped_column(Date, nullable=False)
     category: Mapped[str] = mapped_column(String(50), nullable=False, default="Other")
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="Pending")

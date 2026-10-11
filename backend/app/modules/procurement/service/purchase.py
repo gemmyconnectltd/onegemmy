@@ -3,7 +3,9 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.currency import to_base_amount
 from app.core.exceptions import NotFoundError, ValidationError
+from app.modules.currency.service import document_rate, get_base_currency, resolve_document_currency
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.procurement.models.purchase_item import PurchaseItem
@@ -15,6 +17,16 @@ from app.modules.procurement.schemas import (
     PurchaseUpdate,
 )
 from app.modules.procurement.service.supplier_bill import create_bill_for_purchase
+
+
+def _set_base_amounts(purchase: PurchaseOrder, base_currency: str) -> None:
+    """(Re)derive the purchase's base_* amounts from its own amounts and its frozen rate."""
+    code = purchase.currency_code or base_currency
+    rate = document_rate(purchase)
+    purchase.base_subtotal = to_base_amount(purchase.subtotal, code, base_currency, rate)
+    purchase.base_discount = to_base_amount(purchase.discount, code, base_currency, rate)
+    purchase.base_tax = to_base_amount(purchase.tax, code, base_currency, rate)
+    purchase.base_total = to_base_amount(purchase.total, code, base_currency, rate)
 
 
 async def list_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[PurchaseRead]:
@@ -117,6 +129,9 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
             factor = float(product.conversion_factor)
             product.stock = float(product.stock) + (float(item.quantity) * factor)
 
+    # Receipt is when the liability and ledger entry are created, so this is where the purchase's
+    # currency, rate and base value become final.
+    _set_base_amounts(purchase, await get_base_currency(db, tenant_id))
     purchase.status = "Received"
     purchase.received_at = datetime.now(UTC)
     # Receiving goods creates a liability to the supplier (a bill), not an
@@ -136,6 +151,9 @@ async def create_purchase(
     subtotal = sum(round(float(i.unit_cost) * float(i.quantity), 2) for i in data.items)
     total = round(subtotal - data.discount + data.tax, 2)
     branch_id = await _resolve_receiving_branch_id(db, tenant_id, active_branch_id, data.branch_id)
+    currency_code, fx_rate, base_ccy = await resolve_document_currency(
+        db, tenant_id, data.currency_code, data.exchange_rate,
+    )
 
     purchase = PurchaseOrder(
         tenant_id=tenant_id,
@@ -150,7 +168,10 @@ async def create_purchase(
         total=total,
         notes=data.notes,
         expected_date=data.expected_date,
+        currency_code=currency_code,
+        exchange_rate=fx_rate,
     )
+    _set_base_amounts(purchase, base_ccy)
     purchase = await repo.save(purchase)
     await _build_items(db, tenant_id, purchase, data.items)
 
@@ -184,6 +205,12 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     if obj.status != "Draft":
         raise ValidationError("Only draft purchases can be edited")
     update_fields = data.model_dump(exclude_unset=True)
+    new_currency = update_fields.pop("currency_code", None)
+    new_rate = update_fields.pop("exchange_rate", None)
+    if new_currency is not None or new_rate is not None:
+        obj.currency_code, obj.exchange_rate, _ = await resolve_document_currency(
+            db, tenant_id, new_currency or obj.currency_code, new_rate,
+        )
     if "branch_id" in update_fields and update_fields["branch_id"] is not None:
         from app.modules.tenants.repository import BranchRepository
 
@@ -193,6 +220,7 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     for field, value in update_fields.items():
         setattr(obj, field, value)
     obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
+    _set_base_amounts(obj, await get_base_currency(db, tenant_id))
     await repo.save(obj)
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)

@@ -1,21 +1,25 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import Date, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.models import TimestampMixin, UUIDPKMixin
+from app.core.models import DocumentCurrencyMixin, TimestampMixin, UUIDPKMixin
 from app.modules.tenants.models.mixins import TenantScopedMixin
 
 
-class Return(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class Return(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixin, Base):
     __tablename__ = "sales_returns"
 
     return_number: Mapped[str] = mapped_column(String(50), nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     refund_amount: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
+    # A return reverses a historical sale, so it carries the ORIGINAL order's currency and frozen
+    # rate (never today's); this is the refund's base-currency value at that rate.
+    base_refund_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Pending")
     return_date: Mapped[date] = mapped_column(Date, nullable=False)
 

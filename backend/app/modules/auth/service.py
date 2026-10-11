@@ -167,6 +167,11 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
     await seed_default_branch(db, tenant.id, data.main_branch_name or "Main Branch")
     await db.commit()
 
+    # A new pending signup changes the admin dashboard's counts right away.
+    from app.modules.admin.analytics import invalidate_analytics_cache
+
+    invalidate_analytics_cache()
+
     log.info("auth.register.pending", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(tenant.id)}})
 
     await send_registration_received_email(to=user.email, full_name=user.full_name, tenant_name=tenant.name)

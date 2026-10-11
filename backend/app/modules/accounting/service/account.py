@@ -18,12 +18,14 @@ DEFAULT_ACCOUNTS = [
     ("2100", "VAT Payable",             "Liabilities", "credit"),
     ("3000", "Owner Equity",            "Equity",      "credit"),
     ("4000", "Sales Revenue",           "Revenue",     "credit"),
+    ("4900", "Foreign Exchange Gain",   "Revenue",     "credit"),
     ("5000", "Cost of Goods Sold",      "Expense",     "debit"),
     ("5100", "Rent Expense",            "Expense",     "debit"),
     ("5200", "Utilities Expense",       "Expense",     "debit"),
     ("5300", "Salaries Expense",        "Expense",     "debit"),
     ("5400", "Supplies Expense",        "Expense",     "debit"),
     ("5900", "Other Expense",           "Expense",     "debit"),
+    ("5950", "Foreign Exchange Loss",   "Expense",     "debit"),
 ]
 
 

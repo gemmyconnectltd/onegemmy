@@ -24,6 +24,7 @@ from reportlab.platypus import (
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.currency import format_money
 from app.core.logging import get_logger
 from app.modules.sales.schemas.order import OrderRead
 from app.modules.sales.service.order import get_order
@@ -53,10 +54,8 @@ PAYMENT_STATUS_LABELS = {"Paid": "Paid", "PartiallyPaid": "Partially Paid", "Unp
 
 
 def _fmt_money(value: float, currency: str) -> str:
-    v = float(value)
-    if v == int(v):
-        return f"{currency} {v:,.0f}"
-    return f"{currency} {v:,.2f}"
+    """Amount in `currency` with that currency's own decimals (RWF whole, USD cents, KWD mills)."""
+    return format_money(value, currency)
 
 
 async def _load_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
@@ -173,7 +172,10 @@ def _qty(q: float) -> str:
 
 def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
     accent = colors.HexColor(tenant.brand_color) if tenant.brand_color else colors.HexColor("#2563eb")
-    currency = tenant.currency or "USD"
+    base_currency = tenant.currency or "USD"
+    # The invoice is shown in its OWN currency; an order from before multi-currency has none and is in
+    # the tenant's base currency.
+    currency = order.currency_code or base_currency
     styles = _styles(accent)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -314,6 +316,17 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
     totals_rows.append(["Tax", _fmt_money(order.tax, currency)])
     totals_data = [[Paragraph(esc(k), styles["body_muted"]), Paragraph(v, styles["cell_right"])] for k, v in totals_rows]
     totals_data.append([Paragraph("Total", styles["total_label"]), Paragraph(_fmt_money(order.total, currency), styles["total_value"])])
+    # A foreign-currency invoice also states its value in the business's base currency, at the rate
+    # frozen on the order (rows below the total, so the invoice total itself stays unambiguous).
+    if currency != base_currency and order.base_total is not None and order.exchange_rate is not None:
+        totals_data.append([
+            Paragraph(f"In {esc(base_currency)}", styles["body_muted"]),
+            Paragraph(_fmt_money(order.base_total, base_currency), styles["cell_right"]),
+        ])
+        totals_data.append([
+            Paragraph("Exchange rate", styles["body_muted"]),
+            Paragraph(esc(f"1 {currency} = {format_money(order.exchange_rate, base_currency)}"), styles["cell_right"]),
+        ])
     totals_table = Table(totals_data, colWidths=[32 * mm, 32 * mm], hAlign="RIGHT")
     totals_table.setStyle(TableStyle([
         ("LINEABOVE", (0, -1), (-1, -1), 0.6, accent),

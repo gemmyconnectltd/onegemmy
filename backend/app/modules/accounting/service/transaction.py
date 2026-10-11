@@ -1,8 +1,10 @@
 import uuid
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.currency import ZERO, to_decimal
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.transaction import Transaction
@@ -41,6 +43,7 @@ async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
     reference = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=reference,
         type=data.type,
         status="Draft",
@@ -143,6 +146,32 @@ async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
 
 # ── Internal helpers called by sales service hooks ──────────────────────────
 
+async def _ledger_currency(db: AsyncSession, tenant_id: uuid.UUID) -> str:
+    """The currency every line of a transaction is in: the tenant's base currency (the ledger is
+    always kept in it; foreign documents are converted before they are posted)."""
+    # Imported here: currency.service imports the sales/procurement models, which would make this
+    # module's import circular if done at the top.
+    from app.modules.currency.service import get_base_currency
+
+    return await get_base_currency(db, tenant_id)
+
+
+async def _add_fx_line(
+    db: AsyncSession, tenant_id: uuid.UUID, txn_id: uuid.UUID, *, gain: bool, amount: Decimal, reverse: bool = False,
+) -> None:
+    """One realised foreign-exchange line: a gain is a credit to 4900, a loss a debit to 5950.
+    ``reverse=True`` posts the opposite side (used when a payment is reversed)."""
+    code = "4900" if gain else "5950"
+    account_id = await _get_account_by_code(db, tenant_id, code)
+    if account_id is None:
+        raise ValidationError("The foreign exchange accounts are missing from the chart of accounts")
+    credit = gain != reverse
+    db.add(TransactionLine(
+        transaction_id=txn_id, account_id=account_id, type="credit" if credit else "debit", amount=amount,
+        description=("Foreign exchange gain" if gain else "Foreign exchange loss") + (" (reversed)" if reverse else ""),
+    ))
+
+
 async def _get_account_by_code(db: AsyncSession, tenant_id: uuid.UUID, code: str) -> uuid.UUID | None:
     """Resolves a chart-of-accounts code to its account id, self-healing by
     creating it from DEFAULT_ACCOUNTS if a tenant seeded their chart before
@@ -226,6 +255,7 @@ async def create_sale_transaction(
     reference = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=reference,
         type="sale",
         status="Posted",
@@ -277,6 +307,7 @@ async def create_expense_transaction(
     txn_ref = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=txn_ref,
         type="expense",
         status="Posted",
@@ -307,6 +338,7 @@ async def create_return_transaction(
     reference = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=reference,
         type="return",
         status="Posted",
@@ -342,6 +374,7 @@ async def create_purchase_transaction(
     txn_ref = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=txn_ref,
         type="purchase",
         status="Posted",
@@ -360,13 +393,19 @@ async def create_supplier_payment_transaction(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     purchase_id: uuid.UUID | None,
-    amount: float,
+    amount: float | Decimal,
     reference: str,
     payment_method: str | None,
+    ap_amount: float | Decimal | None = None,
 ) -> None:
     """Auto-called when a supplier bill payment is recorded. Debit Accounts
     Payable (reduces the liability), Credit whichever asset account the money
-    actually came from — resolved the same way a customer payment is."""
+    actually came from — resolved the same way a customer payment is.
+
+    All amounts are in the ledger (base) currency. ``amount`` is the cash that left;
+    ``ap_amount`` is the payable carrying value it clears (defaults to ``amount``: no FX).
+    When a foreign bill is paid at a different rate than it was booked at, the difference is a
+    realised FX gain (paid less base than carried) or loss (paid more), posted to 4900 / 5950."""
     ap_id = await _get_account_by_code(db, tenant_id, "2000")
     code, label = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
     method_id = await _get_account_by_code(db, tenant_id, code)
@@ -377,6 +416,7 @@ async def create_supplier_payment_transaction(
     txn_ref = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=txn_ref,
         type="supplier_payment",
         status="Posted",
@@ -386,8 +426,15 @@ async def create_supplier_payment_transaction(
         created_by=user_id,
     )
     txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=ap_id,     type="debit",  amount=round(amount, 2), description="Accounts Payable"))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=round(amount, 2), description=label))
+    cash = to_decimal(amount)
+    carried = cash if ap_amount is None else to_decimal(ap_amount)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ap_id,     type="debit",  amount=carried, description="Accounts Payable"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=cash, description=label))
+    diff = cash - carried  # paid more base currency than the liability was carried at → loss
+    if diff > ZERO:
+        await _add_fx_line(db, tenant_id, txn.id, gain=False, amount=diff)
+    elif diff < ZERO:
+        await _add_fx_line(db, tenant_id, txn.id, gain=True, amount=-diff)
 
 
 async def create_customer_payment_transaction(
@@ -395,9 +442,10 @@ async def create_customer_payment_transaction(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     order_id: uuid.UUID | None,
-    amount: float,
+    amount: float | Decimal,
     reference: str,
     payment_method: str | None,
+    ar_amount: float | Decimal | None = None,
 ) -> uuid.UUID | None:
     """Auto-called when a customer payment is recorded against an order's
     outstanding balance (credit sale or partial-payment follow-up). Debit
@@ -405,7 +453,12 @@ async def create_customer_payment_transaction(
     Receivable (reduces the receivable) — the mirror image of
     create_supplier_payment_transaction on the payable side. Returns the
     posted transaction's id so the payment row can keep a stable pointer to
-    it (needed to reverse the entry later)."""
+    it (needed to reverse the entry later).
+
+    All amounts are in the ledger (base) currency. ``amount`` is the cash received;
+    ``ar_amount`` is the receivable carrying value it clears (defaults to ``amount``: no FX).
+    A foreign invoice paid at a different rate than it was booked at leaves a realised FX gain
+    (received more base than carried) or loss, posted to 4900 / 5950 so the entry balances."""
     ar_id = await _get_account_by_code(db, tenant_id, "1100")
     code, label = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
     method_id = await _get_account_by_code(db, tenant_id, code)
@@ -416,6 +469,7 @@ async def create_customer_payment_transaction(
     txn_ref = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=txn_ref,
         type="customer_payment",
         status="Posted",
@@ -425,8 +479,15 @@ async def create_customer_payment_transaction(
         created_by=user_id,
     )
     txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="debit",  amount=round(amount, 2), description=label))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,     type="credit", amount=round(amount, 2), description="Accounts Receivable"))
+    cash = to_decimal(amount)
+    carried = cash if ar_amount is None else to_decimal(ar_amount)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="debit",  amount=cash, description=label))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,     type="credit", amount=carried, description="Accounts Receivable"))
+    diff = cash - carried  # received more base currency than the receivable was carried at → gain
+    if diff > ZERO:
+        await _add_fx_line(db, tenant_id, txn.id, gain=True, amount=diff)
+    elif diff < ZERO:
+        await _add_fx_line(db, tenant_id, txn.id, gain=False, amount=-diff)
     return txn.id
 
 
@@ -435,16 +496,19 @@ async def create_payment_reversal_transaction(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     order_id: uuid.UUID | None,
-    amount: float,
+    amount: float | Decimal,
     reference: str,
     payment_method: str | None,
+    ar_amount: float | Decimal | None = None,
 ) -> uuid.UUID | None:
     """Auto-called when a customer payment is reversed. Posts the exact
     opposite of create_customer_payment_transaction — Debit Accounts
     Receivable (the balance is owed again), Credit the payment-method
     account (the money is no longer counted as collected) — rather than
     deleting the original entry, so the ledger keeps a full, auditable
-    history of both the payment and its reversal."""
+    history of both the payment and its reversal. The reversal uses the amounts the payment
+    was ORIGINALLY posted with (``amount`` cash, ``ar_amount`` carrying value) — never today's
+    exchange rate — and unwinds the original realised FX line."""
     ar_id = await _get_account_by_code(db, tenant_id, "1100")
     code, label = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
     method_id = await _get_account_by_code(db, tenant_id, code)
@@ -455,6 +519,7 @@ async def create_payment_reversal_transaction(
     txn_ref = await repo.next_reference(tenant_id)
     txn = Transaction(
         tenant_id=tenant_id,
+        currency_code=await _ledger_currency(db, tenant_id),
         reference=txn_ref,
         type="payment_reversal",
         status="Posted",
@@ -464,8 +529,15 @@ async def create_payment_reversal_transaction(
         created_by=user_id,
     )
     txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,     type="debit",  amount=round(amount, 2), description="Accounts Receivable"))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=round(amount, 2), description=label))
+    cash = to_decimal(amount)
+    carried = cash if ar_amount is None else to_decimal(ar_amount)
+    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,     type="debit",  amount=carried, description="Accounts Receivable"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=method_id, type="credit", amount=cash, description=label))
+    diff = cash - carried
+    if diff > ZERO:
+        await _add_fx_line(db, tenant_id, txn.id, gain=True, amount=diff, reverse=True)
+    elif diff < ZERO:
+        await _add_fx_line(db, tenant_id, txn.id, gain=False, amount=-diff, reverse=True)
     return txn.id
 
 
@@ -505,6 +577,7 @@ async def backfill_sale_transactions(
         reference = await repo.next_reference(tenant_id)
         txn = Transaction(
             tenant_id=tenant_id,
+            currency_code=await _ledger_currency(db, tenant_id),
             reference=reference,
             type="sale",
             status="Posted",

@@ -1,16 +1,17 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.core.models import TimestampMixin, UUIDPKMixin
+from app.core.models import DocumentCurrencyMixin, TimestampMixin, UUIDPKMixin
 from app.modules.tenants.models.mixins import TenantScopedMixin
 
 
-class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixin, Base):
     __tablename__ = "sales_orders"
 
     order_number: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -19,6 +20,12 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     discount: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     tax: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
+    # Base-currency (tenant accounting currency) value of the four amounts above at this order's
+    # frozen exchange_rate. subtotal/discount/tax/total/amount_paid are in `currency_code`.
+    base_subtotal: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    base_discount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    base_tax: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    base_total: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     ordered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     client_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -72,4 +79,7 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         Index("ix_sales_orders_tenant_id", "tenant_id"),
         Index("ix_sales_orders_customer_id", "customer_id"),
         Index("ix_sales_orders_tenant_status", "tenant_id", "status"),
+        # Platform-wide analytics (super-admin dashboard): period range scans
+        # across all tenants.
+        Index("ix_sales_orders_ordered_at", "ordered_at"),
     )

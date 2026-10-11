@@ -21,7 +21,12 @@ async def size_sellout(
 ) -> SizeSelloutReport:
     """Units sold per attribute value (e.g. per clothing/shoe size) from Completed orders."""
     stmt = (
-        select(OrderItem.variant_id, func.sum(OrderItem.quantity), func.sum(OrderItem.line_total))
+        # Revenue in the tenant's base currency: each line converted at its order's frozen rate
+        # (null = a pre-multi-currency order, which was base currency at 1).
+        select(
+            OrderItem.variant_id, func.sum(OrderItem.quantity),
+            func.sum(OrderItem.line_total * func.coalesce(Order.exchange_rate, 1)),
+        )
         .join(Order, Order.id == OrderItem.order_id)
         .where(Order.tenant_id == tenant_id, Order.status == "Completed", OrderItem.variant_id.isnot(None))
         .group_by(OrderItem.variant_id)
