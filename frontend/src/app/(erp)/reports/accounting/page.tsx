@@ -1,5 +1,8 @@
 "use client";
 
+
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal, returnBaseRefund } from "@/lib/baseMoney";
+
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { DollarSign, TrendingUp, TrendingDown, CreditCard } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -19,11 +22,11 @@ export default function AccountingReportPage() {
   const returns = returnsQ.data?.items ?? [];
 
   const completed = orders.filter((o) => o.status === "Completed");
-  const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
-  const totalTax = completed.reduce((s, o) => s + o.tax, 0);
-  const totalDiscount = completed.reduce((s, o) => s + o.discount, 0);
+  const totalRevenue = completed.reduce((s, o) => s + orderBaseTotal(o), 0);
+  const totalTax = completed.reduce((s, o) => s + orderBaseTax(o), 0);
+  const totalDiscount = completed.reduce((s, o) => s + orderBaseDiscount(o), 0);
   const approvedReturns = returns.filter((r) => r.status === "Approved");
-  const totalRefunds = approvedReturns.reduce((s, r) => s + r.refund_amount, 0);
+  const totalRefunds = approvedReturns.reduce((s, r) => s + returnBaseRefund(r), 0);
   const netRevenue = totalRevenue - totalRefunds;
 
   // Revenue vs refunds by month

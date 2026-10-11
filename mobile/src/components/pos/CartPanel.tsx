@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
+import { Check, ChevronDown, FileText, Minus, Pause, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
 
-import { DISCOUNT_PRESETS } from "./constants";
+import { QtyInput } from "./QtyInput";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
 import type { CartItem } from "./types";
@@ -31,7 +31,7 @@ interface CartPanelProps {
 
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
-  onCustomerChange, onNotesChange, onUpdateQty, onUpdateDiscount, onRemoveItem, onClear, onHold,
+  onCustomerChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
   showCashReceived, onUpdateCashReceived,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
@@ -165,10 +165,6 @@ export function CartPanel({
             {cart.map((item) => {
               const accent = productAccent(item.id);
               const lineTotal = item.price * item.qty - item.discount;
-              const lineGross = item.price * item.qty;
-              const activePct = item.discount > 0
-                ? Math.round((item.discount / Math.max(1, lineGross)) * 100)
-                : 0;
               return (
                 <div key={item.id} className="px-3 py-2.5 flex items-center gap-2.5">
                   {/* Thumbnail */}
@@ -189,41 +185,7 @@ export function CartPanel({
                     )}
                     <p className="text-[11px] text-muted-foreground font-mono">{currencySymbol} {fmt(item.price)}</p>
 
-                    {/* Discount: % presets + absolute input */}
                     <div className="flex items-center gap-1 mt-1">
-                      <Percent size={9} className="text-muted-foreground/60 flex-shrink-0" />
-                      <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
-                        {DISCOUNT_PRESETS.map((pct) => {
-                          const active = activePct === pct;
-                          const amount = Math.round((lineGross * pct) / 100);
-                          return (
-                            <button
-                              key={pct}
-                              type="button"
-                              onClick={() => onUpdateDiscount(item.id, active ? 0 : amount)}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors flex-shrink-0 ${
-                                active
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-surface border border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                              }`}
-                            >
-                              {pct}%
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <input
-                        type="number"
-                        min={0}
-                        value={item.discount || ""}
-                        onChange={(e) => onUpdateDiscount(item.id, Math.max(0, Number(e.target.value) || 0))}
-                        placeholder="disc"
-                        aria-label="Discount amount"
-                        className="w-14 text-[11px] border border-border rounded px-1.5 py-0.5 outline-none focus:border-primary bg-transparent text-foreground font-mono"
-                      />
-                      {item.discount > 0 && (
-                        <span className="text-[10px] text-emerald-600 font-medium flex-shrink-0">-{fmt(item.discount)}</span>
-                      )}
                       {showCashReceived && onUpdateCashReceived && (
                         <div className="flex items-center gap-0.5 flex-shrink-0" title="Cash received for this item">
                           <Wallet size={9} className="text-muted-foreground/60 flex-shrink-0" />
@@ -248,7 +210,7 @@ export function CartPanel({
                       <button onClick={() => onUpdateQty(item.id, -1)} className="w-6 h-6 flex items-center justify-center rounded-full border border-border hover:bg-surface active:scale-90 transition-all">
                         <Minus size={10} />
                       </button>
-                      <span className="text-[13px] font-bold w-5 text-center tabular-nums">{item.qty}</span>
+                      <QtyInput value={item.qty} max={item.stock} onCommit={(n) => onUpdateQty(item.id, n - item.qty)} className="h-6 w-10 text-[13px]" />
                       <button
                         onClick={() => onUpdateQty(item.id, 1)}
                         disabled={item.qty >= item.stock}

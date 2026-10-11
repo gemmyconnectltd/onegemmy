@@ -231,3 +231,22 @@ input, select, textarea {
     -webkit-print-color-adjust: exact;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-drawer-right, .animate-drawer-center { animation: none; }
+}
+
+/* Floating help buttons: they rise in one after the other, the label eases out from the button, and the AI
+   button breathes a soft ring now and then to be noticed without nagging. */
+@keyframes fabIn { from { opacity: 0; transform: translateY(14px) scale(0.85); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes fabLabel { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fabNudge { 0%, 80%, 100% { translate: 0 0; } 88% { translate: -5px 0; } 94% { translate: 0 0; } 97% { translate: -2px 0; } }
+@keyframes fabRing { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 70%, 100% { box-shadow: 0 0 0 14px transparent; } }
+.fab-in { opacity: 0; animation: fabIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.fab-label { opacity: 0; animation: fabLabel 0.4s ease-out forwards, fabNudge 4.5s ease-in-out 2.4s infinite; transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+.group:hover .fab-label, .group:focus-visible .fab-label { transform: translateX(-4px); border-color: color-mix(in srgb, var(--accent) 50%, transparent); color: var(--accent); animation-play-state: running, paused; }
+.fab-ring { animation: fabIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards, fabRing 2.8s ease-out 1.6s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .fab-in, .fab-label { animation: none; opacity: 1; }
+  .fab-ring { animation: none; }
+}

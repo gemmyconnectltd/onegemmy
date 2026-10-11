@@ -1,4 +1,6 @@
 "use client";
+
+import { purchaseBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { Ban, CheckCircle2, Eye, FileText, Plus, Search, Trash2, Truck, X } from "lucide-react";
@@ -85,7 +87,7 @@ export default function PurchaseOrdersPage() {
     { label: "Drafts", value: orders.filter((p) => p.status === "Draft").length, color: "#64748b" },
     { label: "Received", value: orders.filter((p) => p.status === "Received").length, color: "#059669" },
     { label: "Cancelled", value: orders.filter((p) => p.status === "Cancelled").length, color: "#dc2626" },
-    { label: "Total Value", value: fmt(orders.reduce((s, p) => s + p.total, 0)), color: "#b45309", isStr: true },
+    { label: "Total Value", value: fmt(orders.reduce((s, p) => s + purchaseBaseTotal(p), 0)), color: "#b45309", isStr: true },
   ];
 
   const openAdd = () => {

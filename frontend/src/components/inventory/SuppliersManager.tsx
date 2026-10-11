@@ -13,8 +13,9 @@ import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
-type SupplierForm = { name: string; email: string; phone: string; address: string };
-const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "" });
+type SupplierForm = { name: string; email: string; phone: string; address: string; lead_time: string };
+const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "", lead_time: "" });
+const leadTimeDays = (v: string): number | null => (v.trim() === "" ? null : Math.max(0, Math.min(365, Math.floor(Number(v)) || 0)));
 
 const SUPPLIER_CSV_HEADERS = ["name", "email", "phone", "address"];
 
@@ -93,6 +94,7 @@ export function SuppliersManager() {
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         address: form.address.trim() || null,
+        lead_time_days: leadTimeDays(form.lead_time),
       });
       setForm(emptyForm()); setAdding(false);
     } catch { /* ignore */ }
@@ -108,6 +110,7 @@ export function SuppliersManager() {
           email: editForm.email.trim() || null,
           phone: editForm.phone.trim() || null,
           address: editForm.address.trim() || null,
+          lead_time_days: leadTimeDays(editForm.lead_time),
         },
       });
       setEditingId(null);
@@ -151,6 +154,9 @@ export function SuppliersManager() {
                 value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
                 className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
             ))}
+            <input type="number" min="0" max="365" placeholder="Lead time (days)" value={form.lead_time} title="Days from ordering to delivery — used by Pesaa AI reorder advice"
+              onChange={(e) => setForm((p) => ({ ...p, lead_time: e.target.value }))}
+              className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
           </div>
           <div className="flex gap-2">
             <Button onClick={handleAdd} disabled={createSupplier.isPending || !form.name.trim()} color={INV_COLOR}>
@@ -199,6 +205,9 @@ export function SuppliersManager() {
                       onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
                       className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   ))}
+                  <input type="number" min="0" max="365" placeholder="Lead time (days)" value={editForm.lead_time}
+                    onChange={(e) => setEditForm((p) => ({ ...p, lead_time: e.target.value }))}
+                    className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   <div className="col-span-2 lg:col-span-4 flex gap-2">
                     <Button onClick={() => handleEdit(s.id)} disabled={updateSupplier.isPending} size="sm" color={INV_COLOR} className="rounded">
                       <Check size={12} /> Save
@@ -221,12 +230,13 @@ export function SuppliersManager() {
                       {s.phone && <span className="flex items-center gap-1"><Phone size={10} /> {s.phone}</span>}
                       {s.email && <span className="flex items-center gap-1"><Mail size={10} /> {s.email}</span>}
                       {s.address && <span className="flex items-center gap-1"><MapPin size={10} /> {s.address}</span>}
+                      {s.lead_time_days != null && <span>Lead time {s.lead_time_days} days</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button onClick={() => {
                       setEditingId(s.id);
-                      setEditForm({ name: s.name, email: s.email ?? "", phone: s.phone ?? "", address: s.address ?? "" });
+                      setEditForm({ name: s.name, email: s.email ?? "", phone: s.phone ?? "", address: s.address ?? "", lead_time: s.lead_time_days?.toString() ?? "" });
                     }} className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
                       <Edit2 size={13} /> Edit
                     </button>

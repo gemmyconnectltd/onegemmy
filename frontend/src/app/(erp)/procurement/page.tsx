@@ -1,4 +1,6 @@
 "use client";
+
+import { purchaseBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { ArrowRight, ClipboardList, Plus, RotateCcw, ShoppingBag, Truck, Users, Wallet } from "lucide-react";
@@ -27,7 +29,7 @@ export default function ProcurementPage() {
 
   const pending = orders.filter((o) => o.status === "Approved").length;
   const drafts = orders.filter((o) => o.status === "Draft").length;
-  const totalSpend = orders.reduce((s, o) => s + o.total, 0);
+  const totalSpend = orders.reduce((s, o) => s + purchaseBaseTotal(o), 0);
   const spendBySupplier = groupSum(orders, (o) => o.supplier?.name ?? "Unknown supplier", (o) => o.total);
   const recentOrders = [...orders].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")).slice(0, 5);
 

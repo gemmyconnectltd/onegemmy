@@ -260,11 +260,26 @@ export function setActiveCurrency(code: string) {
   CURRENCY_SYMBOL = currencies.find((c) => c.code === code)?.symbol ?? code;
 }
 
-/** Format a money value as full number with comma separators e.g. "RWF 1,250,000" */
+/** Decimal places for a currency (ISO 4217 minor unit): RWF → 0, USD/KES → 2, KWD → 3. */
+function minorUnits(code: string): number {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).resolvedOptions().maximumFractionDigits ?? 2;
+  } catch {
+    return 2;
+  }
+}
+
+/**
+ * Format an amount in the tenant's BASE currency e.g. "RWF 1,250,000" or "KSh 1,250.50".
+ * With the default symbol this uses the base currency's own decimals, so a USD/KES business sees cents
+ * and an RWF one doesn't. Amounts in any other currency go through `formatMoney(amount, code)` in
+ * @/lib/money instead — never pass a foreign symbol here.
+ */
 export function fmtMoney(value: number | null | undefined, symbol = CURRENCY_SYMBOL): string {
   const v = Number(value ?? 0);
+  const places = symbol === CURRENCY_SYMBOL ? minorUnits(CURRENCY) : 0;
   if (isNaN(v)) return `${symbol} 0`;
-  return `${symbol} ${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `${symbol} ${v.toLocaleString("en-US", { minimumFractionDigits: places, maximumFractionDigits: places })}`;
 }
 
 export const locales = [

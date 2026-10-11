@@ -1,5 +1,7 @@
 "use client";
 
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
+
 import { useState } from "react";
 import {
   TrendingUp,
@@ -37,6 +39,7 @@ import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
   useProducts,
+  useLowStockReport,
   useCustomers,
   useOrders,
   useTargets,
@@ -93,7 +96,7 @@ function buildChart(
           const h = new Date(o.ordered_at ?? o.created_at ?? "").getHours();
           return h >= hours[i] && h < (hours[i + 1] ?? 24);
         })
-        .reduce((s, o) => s + o.total, 0),
+        .reduce((s, o) => s + orderBaseTotal(o), 0),
       expenses: 0,
     }));
   }
@@ -106,7 +109,7 @@ function buildChart(
           const d = new Date(o.ordered_at ?? o.created_at ?? "");
           return (d.getDay() + 6) % 7 === i;
         })
-        .reduce((s, o) => s + o.total, 0),
+        .reduce((s, o) => s + orderBaseTotal(o), 0),
       expenses: 0,
     }));
   }
@@ -118,7 +121,7 @@ function buildChart(
           const d = new Date(o.ordered_at ?? o.created_at ?? "");
           return Math.floor((d.getDate() - 1) / 7) === i;
         })
-        .reduce((s, o) => s + o.total, 0),
+        .reduce((s, o) => s + orderBaseTotal(o), 0),
       expenses: 0,
     }));
   }
@@ -147,7 +150,7 @@ function buildChart(
             (o) =>
               new Date(o.ordered_at ?? o.created_at ?? "").getMonth() === m,
           )
-          .reduce((s, o) => s + o.total, 0),
+          .reduce((s, o) => s + orderBaseTotal(o), 0),
         expenses: 0,
       };
     });
@@ -159,7 +162,7 @@ function buildChart(
       .filter(
         (o) => new Date(o.ordered_at ?? o.created_at ?? "").getMonth() === i,
       )
-      .reduce((s, o) => s + o.total, 0),
+      .reduce((s, o) => s + orderBaseTotal(o), 0),
     expenses: 0,
   }));
 }
@@ -735,6 +738,7 @@ export default function DashboardPage() {
   const orders = useOrders(1, 10, "Completed");
   const allOrders = useOrders(1, 500, "Completed");
   const products = useProducts(1, 200);
+  const lowStockReport = useLowStockReport();
 
   const loading = [
     income,
@@ -869,7 +873,7 @@ export default function DashboardPage() {
             c={c}
           />
 
-          {lowStock.length > 0 && (
+          {(lowStockReport.data?.total ?? lowStock.length) > 0 && (
             <div className="flex items-center gap-2 px-1">
               <AlertTriangle
                 size={13}
@@ -877,9 +881,9 @@ export default function DashboardPage() {
               />
               <p className="text-[13px] text-muted">
                 <span className="font-semibold text-foreground">
-                  {lowStock.length} products
+                  {lowStockReport.data?.total ?? lowStock.length} products
                 </span>{" "}
-                are running low on stock.
+                are at or below their reorder level.
               </p>
               <a
                 href="/inventory"

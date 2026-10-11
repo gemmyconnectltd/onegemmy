@@ -4,6 +4,8 @@ import React from "react";
 import { Shield, Bell, Globe, Key, Save, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Toggle } from "@/components/ui/Toggle";
+import { PlatformCurrencySettings } from "@/components/admin/PlatformCurrencySettings";
+import { AiSettings } from "@/components/admin/AiSettings";
 
 export default function AdminSettingsPage() {
   const { user } = useAuth();
@@ -83,6 +85,10 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       </div>
+
+      <PlatformCurrencySettings />
+
+      <AiSettings />
 
       {/* Settings sections */}
       {sections.map((section) => (

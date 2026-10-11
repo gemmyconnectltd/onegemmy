@@ -56,7 +56,7 @@ export interface ApiUnit     { id: string; name: string; abbreviation: string | 
 export interface ApiUnitSuggestion { name: string; abbreviation: string | null; }
 export interface ApiUnitSuggestions { suggested: ApiUnitSuggestion[]; existing: string[]; }
 export interface ApiUnitImportResult { created: ApiUnit[]; skipped: string[]; }
-export interface ApiSupplier { id: string; name: string; email: string | null; phone: string | null; address: string | null; is_active: boolean; }
+export interface ApiSupplier { id: string; name: string; email: string | null; phone: string | null; address: string | null; is_active: boolean; /** Days from ordering to delivery; used by Pesaa AI reorder advice. */ lead_time_days?: number | null; }
 
 export interface ValuationLine {
   id: string;
@@ -111,6 +111,8 @@ const BASE = "/tenants/inventory";
 
 export const inventoryApi = {
   // Products
+  /** Server-side low-stock report (every product at/below its own minimum) — the same rule Pesaa AI uses. */
+  lowStockReport: () => request<SingleResponse<{ items: { id: string; name: string; stock: number; min_stock: number }[]; total: number }>>("/tenants/inventory/products/low-stock"),
   listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean) =>
     request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, is_active: isActive === undefined ? undefined : String(isActive) })}`),
   createProduct: (data: object) =>

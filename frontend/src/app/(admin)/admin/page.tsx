@@ -1,24 +1,26 @@
 "use client";
+import { useState } from "react";
 import {
-  Building2, Users, ShoppingCart, TrendingUp, Activity, CheckCircle,
+  Building2, Users, ShoppingCart, TrendingUp, Activity,
   XCircle, Package, ArrowUpRight, ArrowRight, Crown, UserPlus,
   AlertTriangle, Server, Clock, Globe2, Factory, Megaphone,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAdminStats, useTenants, useAdminTenantAnalytics } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
-import { fmtMoney } from "@/lib/config";
+import { formatMoney } from "@/lib/money";
 import { chartPalette } from "@/lib/chartColors";
 import { useAppConfig } from "@/lib/appConfig";
 import { TenantGrowthChart, DonutChart } from "@/components/charts/lazy";
 import { BrandMark, type BrandKind } from "@/components/charts/BrandMark";
 import Link from "next/link";
+import { CountriesAnalytics } from "@/components/admin/CountriesAnalytics";
+import { GeographicSummary } from "@/components/admin/GeographicSummary";
 
 const PLAN_COLORS: Record<string, string> = {
   free: "#64748b", starter: "#0284c7", professional: "#8b5cf6", enterprise: "#d97706",
 };
 
-const COUNTRY_COLORS   = ["#0284c7", "#38bdf8", "#7dd3fc", "#bae6fd", "#93c5fd", "#6366f1", "#64748b"];
 const INDUSTRY_COLORS  = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#e0e7ff", "#6366f1", "#64748b"];
 const BIZ_TYPE_COLORS  = ["#059669", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"];
 const HEARD_COLORS     = ["#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"];
@@ -48,18 +50,28 @@ function CategoryDonut({
   /** Query param on /admin/tenants this insight drills into, e.g. "country". */
   filterParam: string;
 }) {
-  const visible = data.filter((d) => d.value > 0 && d.name !== "Unknown");
+  const real = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
+  // Top 5 are listed; everything after that is rolled into "Other" so nothing silently disappears from the totals.
+  const rest = real.slice(5).reduce((s, d) => s + d.value, 0);
+  const visible = rest > 0 ? [...real.slice(0, 5), { name: "Other", value: rest, isRest: true }] : real;
   const total = visible.reduce((s, d) => s + d.value, 0) || 1;
   if (visible.length === 0) return (
     <p className="text-[12px] text-muted text-center py-6">{empty ?? "No data yet"}</p>
   );
   return (
     <div className="flex items-center gap-4">
-      <div className="w-24 h-24 flex-shrink-0">
-        <DonutChart data={visible} colors={colors} innerRadius={30} outerRadius={48} tooltipStyle={tooltipStyle} />
+      <div className="relative w-28 h-28 flex-shrink-0">
+        <DonutChart data={visible} colors={colors} innerRadius={36} outerRadius={54} tooltipStyle={tooltipStyle} />
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-lg font-bold text-foreground">{total}</span><span className="text-[10px] text-muted">Businesses</span></div>
       </div>
       <div className="flex-1 min-w-0 space-y-2">
-        {visible.slice(0, 5).map((d, i) => (
+        {visible.map((d, i) => "isRest" in d ? (
+          <div key="rest" className="flex items-center gap-2 text-[12.5px] -mx-1.5 px-1.5 py-1">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-400" />
+            <span className="font-semibold text-foreground truncate flex-1">Other</span>
+            <span className="text-muted flex-shrink-0">{d.value} · {Math.round((d.value / total) * 100)}%</span>
+          </div>
+        ) : (
           <Link
             key={d.name}
             href={`/admin/tenants?${filterParam}=${encodeURIComponent(d.filterValue ?? d.name)}`}
@@ -78,10 +90,11 @@ function CategoryDonut({
 
 export default function AdminOverviewPage() {
   const { theme } = useAppConfig();
+  const [growthMonths, setGrowthMonths] = useState(3);
   const c = chartPalette(theme === "dark");
   const { data: stats, isLoading, isError } = useAdminStats();
   const { data: analytics } = useAdminTenantAnalytics();
-  const { data: tenantsData } = useTenants(1, 200);
+  const { data: tenantsData } = useTenants(1, 20);
   const allTenants = tenantsData?.items ?? [];
 
   if (isLoading) return <PageLoader />;
@@ -93,7 +106,8 @@ export default function AdminOverviewPage() {
   );
 
   const pendingSignups = allTenants.filter((t) => tenantStatusLabel(t) === "Pending Approval");
-  const trueSuspended = allTenants.filter((t) => tenantStatusLabel(t) === "Suspended").length;
+  const pendingCount = analytics?.by_status.find((row) => row.name === "Pending")?.value;
+  const trueSuspended = analytics?.by_status.find((row) => row.name === "Suspended")?.value;
   const recentSignups = [...pendingSignups]
     .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
     .slice(0, 5);
@@ -112,10 +126,6 @@ export default function AdminOverviewPage() {
     [],
   );
 
-  const healthScore = stats.total_tenants > 0
-    ? Math.round((stats.active_tenants / stats.total_tenants) * 100)
-    : 100;
-
   const completionRate = stats.total_orders > 0
     ? Math.round((stats.completed_orders / stats.total_orders) * 100)
     : 0;
@@ -126,31 +136,23 @@ export default function AdminOverviewPage() {
   const planColors = planData.map((p) => PLAN_COLORS[p.name.toLowerCase()] ?? "#64748b");
   const totalPlans = planData.reduce((s, p) => s + p.value, 0);
 
-  const STATUS_COLORS: Record<string, string> = { Active: "#059669", Pending: "#d97706", Suspended: "#ef4444" };
-  const statusData = [
-    { name: "Active", value: stats.active_tenants },
-    { name: "Pending", value: pendingSignups.length },
-    { name: "Suspended", value: trueSuspended },
-  ].filter((s) => s.value > 0);
-  const statusColors = statusData.map((s) => STATUS_COLORS[s.name]);
-
   const cards = [
     { label: "Total Tenants",    value: stats.total_tenants,    sub: `${stats.active_tenants} active`,    icon: Building2,    color: "#0284c7", href: "/admin/tenants" },
     { label: "Total Users",      value: stats.total_users,      sub: "across all tenants",                icon: Users,        color: "#8b5cf6", href: "/admin/users" },
     { label: "Total Orders",     value: stats.total_orders,     sub: `${completionRate}% completed`,      icon: ShoppingCart, color: "#059669", href: null },
-    { label: "Platform Revenue", value: fmtMoney(stats.total_revenue), sub: "all time", icon: TrendingUp, color: "#d97706", href: null, isString: true },
+    { label: "Tenant Sales", value: formatMoney(stats.total_revenue, stats.reporting_currency ?? "GHS"), sub: "all time", icon: TrendingUp, color: "#d97706", href: null, isString: true },
     { label: "Products",         value: stats.total_products,   sub: "in catalog",                        icon: Package,      color: "#0e7490", href: null },
-    { label: "Pending Signups",  value: pendingSignups.length,  sub: "awaiting approval",                 icon: UserPlus,     color: pendingSignups.length > 0 ? "#d97706" : "#64748b", href: "/admin/tenants?status=pending" },
-    { label: "Suspended",        value: trueSuspended,          sub: "need attention",                    icon: XCircle,      color: trueSuspended > 0 ? "#ef4444" : "#64748b", href: "/admin/tenants?status=suspended" },
+    { label: "Pending Signups",  value: pendingCount ?? "—",  sub: (pendingCount ?? 0) > 0 ? "awaiting approval" : "no pending",                 icon: UserPlus,     alert: (pendingCount ?? 0) > 0, color: (pendingCount ?? 0) > 0 ? "#d97706" : "#64748b", href: "/admin/tenants?status=pending" },
+    { label: "Suspended Accounts",        value: trueSuspended ?? "—",          sub: (trueSuspended ?? 0) > 0 ? "need attention" : "all active",                    icon: XCircle,      alert: (trueSuspended ?? 0) > 0, color: (trueSuspended ?? 0) > 0 ? "#ef4444" : "#64748b", href: "/admin/tenants?status=suspended" },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Platform Overview</h1>
-          <p className="text-sm text-muted mt-0.5">Monitor all tenants, users and platform health</p>
+          <h1 className="text-[26px] font-bold text-foreground tracking-tight">Platform Overview</h1>
+          <p className="text-sm text-muted mt-0.5">A quick summary of your platform, users, businesses and overall growth.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
@@ -161,19 +163,19 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* Pending signups + suspended warnings */}
-      {pendingSignups.length > 0 && (
+      {(pendingCount ?? 0) > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-accent/10 border border-accent/20 rounded-xl text-accent text-sm font-medium">
           <UserPlus size={15} />
-          {pendingSignups.length} new signup{pendingSignups.length > 1 ? "s are" : " is"} waiting for approval.
+          {pendingCount} new signup{(pendingCount ?? 0) > 1 ? "s are" : " is"} waiting for approval.
           <Link href="/admin/tenants" className="ml-auto flex items-center gap-1 text-[12px] font-semibold hover:underline">
             Review <ArrowRight size={12} />
           </Link>
         </div>
       )}
-      {trueSuspended > 0 && (
+      {(trueSuspended ?? 0) > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 dark:text-amber-400 text-sm font-medium">
           <AlertTriangle size={15} />
-          {trueSuspended} tenant{trueSuspended > 1 ? "s are" : " is"} currently suspended.
+          {trueSuspended} tenant{(trueSuspended ?? 0) > 1 ? "s are" : " is"} currently suspended.
           <Link href="/admin/tenants" className="ml-auto flex items-center gap-1 text-[12px] font-semibold hover:underline">
             Review <ArrowRight size={12} />
           </Link>
@@ -182,23 +184,23 @@ export default function AdminOverviewPage() {
 
       {/* Stats grid — the whole card is clickable (not just the corner
           arrow) whenever it has somewhere sensible to drill into. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-[1fr_1fr_1fr_1.35fr_1fr_1fr_1fr] gap-3">
         {cards.map((card) => {
-          const cardClass = "bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow group relative overflow-hidden block";
+          const needsAttention = card.alert === true;
+          const cardClass = `bg-card border rounded-xl p-3.5 transition-colors group relative block ${needsAttention ? "border-amber-500/40 bg-amber-500/5" : "border-border"} ${card.href ? "hover:border-accent/40" : ""}`;
           const content = (
             <>
-              <div className="absolute top-0 right-0 w-16 h-16 rounded-bl-full opacity-5" style={{ backgroundColor: card.color }} />
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${card.color}18` }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2.5" style={{ backgroundColor: `${card.color}18` }}>
                 <card.icon size={16} style={{ color: card.color }} />
               </div>
               <p
-                className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate"
-                title={String(card.isString ? card.value : Number(card.value).toLocaleString())}
+                className="text-[18px] leading-tight font-bold text-foreground tracking-tight truncate tabular-nums"
+                title={String(card.isString ? card.value : typeof card.value === "number" ? card.value.toLocaleString() : card.value)}
               >
-                {card.isString ? card.value : Number(card.value).toLocaleString()}
+                {card.isString ? card.value : typeof card.value === "number" ? card.value.toLocaleString() : card.value}
               </p>
-              <p className="text-[11px] font-semibold text-foreground mt-0.5">{card.label}</p>
-              <p className="text-[10px] text-muted mt-0.5">{card.sub}</p>
+              <p className="text-[12px] font-medium text-foreground mt-0.5">{card.label}</p>
+              <p className="text-[11px] text-muted mt-0.5 truncate">{card.sub}</p>
               {card.href && (
                 <ArrowUpRight size={13} className="absolute top-3 right-3 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
               )}
@@ -210,122 +212,6 @@ export default function AdminOverviewPage() {
             <div key={card.label} className={cardClass}>{content}</div>
           );
         })}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Monthly signups + cumulative growth */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-bold text-foreground">New Tenants</h2>
-              <p className="text-[11px] text-muted">Last 6 months · monthly signups vs. total tenants</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
-                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.primary }} /> New signups
-              </span>
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#d97706" }} /> Total tenants
-              </span>
-            </div>
-          </div>
-          <div className="h-56">
-            <TenantGrowthChart
-              data={tenantGrowthData}
-              barColor={c.primary}
-              lineColor="#d97706"
-              gridColor={c.grid}
-              tickColor={c.tick}
-              tooltipStyle={c.tooltip}
-            />
-          </div>
-        </div>
-
-        {/* Right column */}
-        <div className="flex flex-col gap-4">
-          {/* Platform health */}
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="text-sm font-bold text-foreground mb-4">Platform Health</h2>
-            <div className="space-y-3 mb-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[12px] font-medium text-foreground">Tenant Health</span>
-                  <span className="text-[12px] font-bold" style={{ color: healthScore >= 80 ? "#059669" : healthScore >= 50 ? "#d97706" : "#ef4444" }}>{healthScore}%</span>
-                </div>
-                <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${healthScore}%`, backgroundColor: healthScore >= 80 ? "#059669" : healthScore >= 50 ? "#d97706" : "#ef4444" }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[12px] font-medium text-foreground">Order Completion</span>
-                  <span className="text-[12px] font-bold text-foreground">{completionRate}%</span>
-                </div>
-                <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${completionRate}%` }} />
-                </div>
-              </div>
-            </div>
-            {stats.total_tenants > 0 ? (
-              <div className="flex items-center gap-4 pt-4 border-t border-border">
-                <div className="w-24 h-24 flex-shrink-0">
-                  <DonutChart data={statusData} colors={statusColors} innerRadius={30} outerRadius={48} tooltipStyle={c.tooltip} />
-                </div>
-                <div className="flex-1 min-w-0 space-y-2">
-                  {statusData.map((s) => (
-                    <Link
-                      key={s.name}
-                      href={`/admin/tenants?status=${s.name.toLowerCase()}`}
-                      title={`View ${s.name.toLowerCase()} tenants`}
-                      className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground -mx-1.5 px-1.5 py-0.5 rounded-lg hover:bg-surface hover:text-accent transition-colors"
-                    >
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[s.name] }} />
-                      {s.name === "Active" && <CheckCircle size={13} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />}
-                      {s.name === "Pending" && <Clock size={13} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />}
-                      {s.name === "Suspended" && <XCircle size={13} className="text-red-500 flex-shrink-0" />}
-                      {s.value} {s.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted text-center py-2 border-t border-border pt-4">No tenants yet</p>
-            )}
-          </div>
-
-          {/* Plan breakdown */}
-          <div className="bg-card border border-border rounded-xl p-5 flex-1">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-foreground">Plans</h2>
-              <Link href="/admin/plans" className="text-[11px] text-accent font-semibold hover:underline flex items-center gap-1">
-                View all <ArrowRight size={11} />
-              </Link>
-            </div>
-            {totalPlans === 0 ? (
-              <p className="text-sm text-muted text-center py-4">No plan data yet</p>
-            ) : (
-              <div className="flex items-center gap-4">
-                <div className="w-28 h-28 flex-shrink-0">
-                  <DonutChart data={planData} colors={planColors} innerRadius={34} outerRadius={54} tooltipStyle={c.tooltip} />
-                </div>
-                <div className="flex-1 min-w-0 space-y-2">
-                  {planData.map((p, i) => (
-                    <Link
-                      key={p.name}
-                      href={`/admin/tenants?plan=${encodeURIComponent(p.name.toLowerCase())}`}
-                      title={`View tenants on the ${p.name} plan`}
-                      className="flex items-center gap-1.5 -mx-1.5 px-1.5 py-0.5 rounded-lg hover:bg-surface transition-colors group"
-                    >
-                      <Crown size={12} style={{ color: planColors[i] }} className="flex-shrink-0" />
-                      <span className="text-[13px] font-semibold text-foreground truncate flex-1 group-hover:text-accent transition-colors">{p.name}</span>
-                      <span className="text-[12px] text-muted flex-shrink-0">{p.value} · {Math.round((p.value / totalPlans) * 100)}%</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Recent signups awaiting approval */}
@@ -357,6 +243,9 @@ export default function AdminOverviewPage() {
                   <p className="text-[11px] text-muted font-mono truncate">{t.slug}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-foreground/80" title="Country">
+                    <Globe2 size={11} className="text-blue-500" /> {[t.city, t.country].filter(Boolean).join(", ") || "No country"}
+                  </span>
                   <span className="text-[11px] text-muted">
                     {t.created_at ? new Date(t.created_at).toLocaleDateString() : "—"}
                   </span>
@@ -371,47 +260,111 @@ export default function AdminOverviewPage() {
         </div>
       )}
 
-      {/* Signup insights — real data from /admin/tenant-analytics */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-sm font-bold text-foreground">Signup Insights</h2>
-            <p className="text-[11px] text-muted">Based on registration data from all tenants</p>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-3">
+        {/* Monthly signups + cumulative growth */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Platform Growth</h2>
+              <p className="text-[11px] text-muted">New tenant registrations and cumulative growth.</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <select aria-label="Growth period" value={growthMonths} onChange={(event) => setGrowthMonths(Number(event.target.value))} className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground"><option value={3}>Last 3 months</option><option value={6}>Last 6 months</option></select>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
+                <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.primary }} /> New signups
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-muted">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#d97706" }} /> Total tenants
+              </span>
+            </div>
+          </div>
+          <div className="h-44">
+            <TenantGrowthChart
+              data={tenantGrowthData.slice(-growthMonths)}
+              barColor={c.primary}
+              lineColor="#d97706"
+              gridColor={c.grid}
+              tickColor={c.tick}
+              tooltipStyle={c.tooltip}
+            />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                <Globe2 size={13} className="text-blue-500" />
-              </div>
-              <h3 className="text-[13px] font-bold text-foreground">By Country</h3>
-            </div>
-            <CategoryDonut data={analytics?.by_country ?? []} colors={COUNTRY_COLORS} tooltipStyle={c.tooltip} empty="No country data yet" kind="country" filterParam="country" />
-          </div>
 
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
+        {/* Right column */}
+        <div className="flex flex-col gap-4">
+          {/* Plan breakdown */}
+          <div className="bg-card border border-border rounded-xl p-5 flex-1">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-foreground">Subscription Plans</h2>
+              <Link href="/admin/plans" className="text-[11px] text-accent font-semibold hover:underline flex items-center gap-1">
+                View all plans <ArrowRight size={11} />
+              </Link>
+            </div>
+            {totalPlans === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No plan data yet</p>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="relative w-40 h-40 flex-shrink-0">
+                  <DonutChart data={planData} colors={planColors} innerRadius={50} outerRadius={76} tooltipStyle={c.tooltip} />
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-[22px] font-bold text-foreground">{totalPlans}</span><span className="text-[11px] text-muted">Total tenants</span></div>
+                </div>
+                <div className="flex-1 min-w-0 space-y-2">
+                  {planData.map((p, i) => (
+                    <Link
+                      key={p.name}
+                      href={`/admin/tenants?plan=${encodeURIComponent(p.name.toLowerCase())}`}
+                      title={`View tenants on the ${p.name} plan`}
+                      className="flex items-center gap-1.5 -mx-1.5 px-1.5 py-0.5 rounded-lg hover:bg-surface transition-colors group"
+                    >
+                      <Crown size={12} style={{ color: planColors[i] }} className="flex-shrink-0" />
+                      <span className="text-[13px] font-semibold text-foreground truncate flex-1 group-hover:text-accent transition-colors">{p.name}</span>
+                      <span className="text-[12px] text-muted flex-shrink-0">{p.value} · {Math.round((p.value / totalPlans) * 100)}%</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <GeographicSummary rows={analytics?.users_by_country ?? []} tooltipStyle={c.tooltip} />
+      <details id="countries" className="scroll-mt-20 rounded-xl border border-border bg-card p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-foreground">Explore all countries</summary>
+        <CountriesAnalytics rows={analytics?.users_by_country ?? []} />
+      </details>
+
+      {/* Signup insights — real data from /admin/tenant-analytics */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-[15px] font-bold tracking-tight text-foreground">User &amp; Business Insights</h2>
+            <p className="text-[12px] text-muted">Understand who is joining your platform.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-card border border-border rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
                 <Factory size={13} className="text-violet-500" />
               </div>
-              <h3 className="text-[13px] font-bold text-foreground">By Industry</h3>
+              <h3 className="text-[13px] font-bold text-foreground">Businesses by Industry</h3>
             </div>
             <CategoryDonut data={analytics?.by_industry ?? []} colors={INDUSTRY_COLORS} tooltipStyle={c.tooltip} empty="No industry data yet" kind="industry" filterParam="industry" />
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-card border border-border rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                 <Building2 size={13} className="text-emerald-600" />
               </div>
-              <h3 className="text-[13px] font-bold text-foreground">By Business Type</h3>
+              <h3 className="text-[13px] font-bold text-foreground">Businesses by Type</h3>
             </div>
             <CategoryDonut data={normalizeBizType(analytics?.by_business_type ?? [])} colors={BIZ_TYPE_COLORS} tooltipStyle={c.tooltip} empty="No business type data yet" kind="business_type" filterParam="businessType" />
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-card border border-border rounded-xl p-3">
+            <div className="flex items-center gap-2 mb-3">
               <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
                 <Megaphone size={13} className="text-amber-600" />
               </div>

@@ -22,6 +22,15 @@ export interface PurchaseOrder {
   discount: number;
   tax: number;
   total: number;
+  // Currency context. Amounts are in `currency_code` (null on rows from before multi-currency =
+  // the tenant's base currency); `exchange_rate` is base-currency units per 1 unit of it, frozen
+  // when the document became financially effective.
+  currency_code?: string | null;
+  exchange_rate?: number | null;
+  base_subtotal?: number | null;
+  base_discount?: number | null;
+  base_tax?: number | null;
+  base_total?: number | null;
   notes: string | null;
   expected_date: string | null;
   received_at: string | null;
@@ -49,6 +58,9 @@ export interface PurchaseCreateInput {
   discount?: number;
   tax?: number;
   notes?: string | null;
+  /** Foreign-currency purchase; omit both for the tenant's base currency. */
+  currency_code?: string | null;
+  exchange_rate?: number | null;
   items: PurchaseItemInput[];
 }
 

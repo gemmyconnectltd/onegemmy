@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, FileText, Minus, Pause, Percent, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
+import { Check, ChevronDown, FileText, Minus, Pause, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
 
+import { QtyInput } from "./QtyInput";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
 import type { CartItem } from "./types";
@@ -30,7 +31,7 @@ interface CartPanelProps {
 
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
-  onCustomerChange, onNotesChange, onUpdateQty, onUpdateDiscount, onRemoveItem, onClear, onHold,
+  onCustomerChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
   showCashReceived, onUpdateCashReceived,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
@@ -186,22 +187,7 @@ export function CartPanel({
                       </p>
                     )}
                     <p className="text-[11px] text-muted font-mono mt-0.5">{currencySymbol} {fmt(item.price)} each</p>
-                    {/* Discount */}
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <div className="flex items-center gap-1 bg-surface rounded-md px-1.5 py-0.5 focus-within:ring-1 focus-within:ring-accent">
-                        <Percent size={9} className="text-muted/60 flex-shrink-0" />
-                        <input
-                          type="number"
-                          min={0}
-                          value={item.discount || ""}
-                          onChange={(e) => onUpdateDiscount(item.id, Number(e.target.value) || 0)}
-                          placeholder="0"
-                          className="w-12 text-[11px] outline-none bg-transparent text-foreground font-mono"
-                        />
-                      </div>
-                      {item.discount > 0 && (
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">-{fmt(item.discount)}</span>
-                      )}
                       {showCashReceived && onUpdateCashReceived && (
                         <div className="flex items-center gap-1 bg-surface rounded-md px-1.5 py-0.5 focus-within:ring-1 focus-within:ring-accent" title="Cash received for this item">
                           <Wallet size={9} className="text-muted/60 flex-shrink-0" />
@@ -225,7 +211,7 @@ export function CartPanel({
                       <button onClick={() => onUpdateQty(item.id, -1)} className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-foreground hover:bg-surface hover:border-accent/40 active:scale-90 transition-all">
                         <Minus size={13} />
                       </button>
-                      <span className="text-[14px] font-bold w-6 text-center tabular-nums">{item.qty}</span>
+                      <QtyInput value={item.qty} onCommit={(n) => onUpdateQty(item.id, n - item.qty)} className="h-8 w-11 text-[14px]" />
                       <button onClick={() => onUpdateQty(item.id, 1)} className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-foreground hover:bg-surface hover:border-accent/40 active:scale-90 transition-all">
                         <Plus size={13} />
                       </button>

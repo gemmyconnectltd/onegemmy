@@ -64,7 +64,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Topbar variant="admin" onToggleSidebar={() => {}} sidebarExpanded={false} />
         <main className="flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
-      <SupportFab />
+      <SupportFab ai={false} />
     </div>
   );
 }

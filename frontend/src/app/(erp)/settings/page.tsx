@@ -2,12 +2,13 @@
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Store, Download, Shield, Info, Save, Check, ReceiptText, Loader2 } from "lucide-react";
+import { Store, Download, Shield, Save, Check, ReceiptText, Loader2 } from "lucide-react";
 import { Field, Input } from "@/components/ui/Form";
 import { Toggle } from "@/components/ui/Toggle";
 import { useCurrentTenant, useUpdateMyTenant } from "@/lib/api/hooks";
 import type { Tenant } from "@/lib/api";
 import { PageLoader } from "@/components/ui/PageLoader";
+import { FinancialSettings } from "@/components/settings/FinancialSettings";
 
 /** Owns the form's local state, initialized directly from `tenant` — this
  *  component only ever mounts once `tenant` has loaded, so there's no
@@ -93,8 +94,7 @@ function ShopInfoForm({ tenant, brandColor }: { tenant: Tenant; brandColor: stri
 }
 
 export default function SettingsPage() {
-  const { brandColor, currency, currencySymbol, currencies, vatEnabled, setVatEnabled } = useAppConfig();
-  const currencyName = currencies.find((c) => c.code === currency)?.name ?? currency;
+  const { brandColor, vatEnabled, setVatEnabled } = useAppConfig();
   const C = brandColor;
   const { data: tenant } = useCurrentTenant();
   const updateTenant = useUpdateMyTenant();
@@ -122,19 +122,7 @@ export default function SettingsPage() {
 
       {tenant ? <ShopInfoForm tenant={tenant} brandColor={C} /> : <PageLoader variant="compact" />}
 
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
-            <Info size={15} style={{ color: C }} />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">Currency</h2>
-        </div>
-        <div className="flex items-center justify-between py-2 border-b border-border">
-          <span className="text-sm font-medium text-foreground">{currency} ({currencySymbol}) &middot; {currencyName}</span>
-          <span className="text-xs font-semibold text-muted bg-surface px-2.5 py-1 rounded-full">Locked</span>
-        </div>
-        <p className="text-xs text-muted">Contact support to change your currency.</p>
-      </div>
+      <FinancialSettings color={C} />
 
       <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
         <div className="flex items-center gap-2">

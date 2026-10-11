@@ -1,5 +1,8 @@
 "use client";
 
+
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal, returnBaseRefund } from "@/lib/baseMoney";
+
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, RotateCcw, Users, Package } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -35,9 +38,9 @@ export default function ReportsPage() {
   const products = productsQ.data?.items ?? [];
 
   const completed = orders.filter((o) => o.status === "Completed");
-  const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
-  const totalVAT = completed.reduce((s, o) => s + o.tax, 0);
-  const totalRefunds = returns.filter((r) => r.status === "Approved").reduce((s, r) => s + r.refund_amount, 0);
+  const totalRevenue = completed.reduce((s, o) => s + orderBaseTotal(o), 0);
+  const totalVAT = completed.reduce((s, o) => s + orderBaseTax(o), 0);
+  const totalRefunds = returns.filter((r) => r.status === "Approved").reduce((s, r) => s + returnBaseRefund(r), 0);
   const totalOrders = completed.length;
   const avgOrder = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const lowStock = products.filter((p) => p.stock <= p.min_stock && !p.has_variants).length;

@@ -1,4 +1,6 @@
 "use client";
+
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
@@ -322,8 +324,8 @@ export default function SalesOrdersPage() {
   const revenueQ = useOrders(1, 500, "Completed");
   const statsLoading = totalOrdersQ.isLoading || completedCountQ.isLoading || pendingCountQ.isLoading || revenueQ.isLoading;
   const revenueOrders = revenueQ.data?.items ?? [];
-  const revenue = revenueOrders.reduce((s, o) => s + o.total, 0);
-  const totalVAT = revenueOrders.reduce((s, o) => s + o.tax, 0);
+  const revenue = revenueOrders.reduce((s, o) => s + orderBaseTotal(o), 0);
+  const totalVAT = revenueOrders.reduce((s, o) => s + orderBaseTax(o), 0);
 
   const loadError = ordersQ.error ?? customersQ.error ?? productsQ.error;
   const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load orders" : null;

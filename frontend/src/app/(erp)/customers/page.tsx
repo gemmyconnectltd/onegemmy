@@ -1,4 +1,6 @@
 "use client";
+
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
@@ -133,7 +135,7 @@ export default function CustomersPage() {
   }, [orders]);
 
   const totalSpent = (id: string) =>
-    (ordersByCustomer[id] ?? []).filter((o) => o.status === "Completed").reduce((s, o) => s + o.total, 0);
+    (ordersByCustomer[id] ?? []).filter((o) => o.status === "Completed").reduce((s, o) => s + orderBaseTotal(o), 0);
 
   const lastOrder = (id: string) => {
     const os = (ordersByCustomer[id] ?? []).sort((a, b) =>
@@ -145,7 +147,7 @@ export default function CustomersPage() {
   // stats — computed from order history directly (not the current customers
   // page) so they stay correct regardless of which page/filter is showing.
   const completedOrders = useMemo(() => orders.filter((o) => o.status === "Completed"), [orders]);
-  const totalRevenue = completedOrders.reduce((s, o) => s + o.total, 0);
+  const totalRevenue = completedOrders.reduce((s, o) => s + orderBaseTotal(o), 0);
   const topSpender = useMemo(() => {
     const totals = new Map<string, { name: string; total: number }>();
     for (const o of completedOrders) {
@@ -236,10 +238,10 @@ export default function CustomersPage() {
   // Accounting read, so this can never disagree with them.
   const viewingCompletedOrders = viewingOrders.filter((o) => o.status === "Completed");
   const accountSummary = {
-    totalInvoiced: viewingCompletedOrders.reduce((s, o) => s + o.total, 0),
-    totalPaid: viewingCompletedOrders.reduce((s, o) => s + o.amount_paid, 0),
-    outstanding: viewingCompletedOrders.reduce((s, o) => s + o.outstanding_balance, 0),
-    overdue: viewingCompletedOrders.filter((o) => o.is_overdue).reduce((s, o) => s + o.outstanding_balance, 0),
+    totalInvoiced: viewingCompletedOrders.reduce((s, o) => s + orderBaseTotal(o), 0),
+    totalPaid: viewingCompletedOrders.reduce((s, o) => s + orderBasePaid(o), 0),
+    outstanding: viewingCompletedOrders.reduce((s, o) => s + orderBaseOutstanding(o), 0),
+    overdue: viewingCompletedOrders.filter((o) => o.is_overdue).reduce((s, o) => s + orderBaseOutstanding(o), 0),
   };
 
   // Chronological statement — one Invoice line per completed order and one

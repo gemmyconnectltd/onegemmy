@@ -66,6 +66,7 @@ export const TenantGrowthChart = dynamic(
     import("recharts").then((m) => {
       function Comp({
         data, barColor, lineColor, gridColor, tickColor, tooltipStyle,
+        barLabel = "New signups", lineLabel = "Total tenants", formatValue,
       }: {
         data: TenantGrowthDatum[];
         barColor: string;
@@ -73,17 +74,35 @@ export const TenantGrowthChart = dynamic(
         gridColor: string;
         tickColor: string;
         tooltipStyle?: CSSProperties;
+        barLabel?: string;
+        lineLabel?: string;
+        /** Formats axis ticks and tooltip values (e.g. compact money). */
+        formatValue?: (v: number) => string;
       }) {
+        const tick = { fontSize: 12, fill: tickColor };
         return (
           <m.ResponsiveContainer width="100%" height="100%">
-            <m.ComposedChart data={data}>
-              <m.CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-              <m.XAxis dataKey="month" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} />
-              <m.YAxis yAxisId="left" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <m.YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: tickColor }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <m.Tooltip contentStyle={tooltipStyle} cursor={{ fill: `${barColor}10` }} />
-              <m.Bar yAxisId="left" dataKey="count" name="New signups" fill={barColor} radius={[4, 4, 0, 0]} barSize={28} />
-              <m.Line yAxisId="right" type="monotone" dataKey="cumulative" name="Total tenants" stroke={lineColor} strokeWidth={2.5} dot={{ r: 3, fill: lineColor }} />
+            <m.ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="28%">
+              <m.CartesianGrid strokeDasharray="3 4" stroke={gridColor} strokeOpacity={0.8} vertical={false} />
+              <m.XAxis dataKey="month" tick={tick} axisLine={false} tickLine={false} tickMargin={10}
+                interval="preserveStartEnd" minTickGap={20} />
+              <m.YAxis yAxisId="left" tick={tick} axisLine={false} tickLine={false} allowDecimals={false} width={40}
+                tickMargin={6} tickFormatter={formatValue} />
+              <m.YAxis yAxisId="right" orientation="right" tick={tick} axisLine={false} tickLine={false} allowDecimals={false}
+                width={40} tickMargin={6} tickFormatter={formatValue} />
+              <m.Tooltip
+                contentStyle={{ padding: "8px 12px", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", ...tooltipStyle }}
+                labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ padding: 0 }}
+                cursor={{ fill: `${barColor}18` }}
+                formatter={formatValue ? (v) => formatValue(Number(v)) : undefined}
+              />
+              <m.Bar yAxisId="left" dataKey="count" name={barLabel} fill={barColor} fillOpacity={0.85}
+                radius={[6, 6, 0, 0]} maxBarSize={40} />
+              <m.Line yAxisId="right" type="monotone" dataKey="cumulative" name={lineLabel}
+                stroke={lineColor} strokeWidth={2.5}
+                dot={data.length <= 31 ? { r: 4, fill: lineColor, stroke: "#fff", strokeWidth: 2 } : false}
+                activeDot={{ r: 6, fill: lineColor, stroke: "#fff", strokeWidth: 2 }} />
             </m.ComposedChart>
           </m.ResponsiveContainer>
         );

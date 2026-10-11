@@ -1,5 +1,8 @@
 "use client";
 
+
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal, returnBaseRefund } from "@/lib/baseMoney";
+
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "@/components/charts/lazy";
 import { ShoppingCart, TrendingUp, RotateCcw, Target } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -23,11 +26,11 @@ export default function SalesReportPage() {
 
   const completed = orders.filter((o) => o.status === "Completed");
   const cancelled = orders.filter((o) => o.status === "Cancelled");
-  const totalRevenue = completed.reduce((s, o) => s + o.total, 0);
-  const totalDiscount = completed.reduce((s, o) => s + o.discount, 0);
-  const totalVAT = completed.reduce((s, o) => s + o.tax, 0);
+  const totalRevenue = completed.reduce((s, o) => s + orderBaseTotal(o), 0);
+  const totalDiscount = completed.reduce((s, o) => s + orderBaseDiscount(o), 0);
+  const totalVAT = completed.reduce((s, o) => s + orderBaseTax(o), 0);
   const approvedReturns = returns.filter((r) => r.status === "Approved");
-  const totalRefunds = approvedReturns.reduce((s, r) => s + r.refund_amount, 0);
+  const totalRefunds = approvedReturns.reduce((s, r) => s + returnBaseRefund(r), 0);
 
   // Revenue by month
   const byMonth: Record<string, { revenue: number; orders: number; vat: number }> = {};

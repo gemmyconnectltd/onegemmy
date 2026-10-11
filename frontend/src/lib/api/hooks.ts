@@ -18,7 +18,7 @@ import {
 import {
   inventoryApi, salesApi, accountingApi, hrApi, departmentsApi, adminApi, procurementApi,
   repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
-  tenantsApi,
+  tenantsApi, currencyApi, aiApi,
   usersApi,
   serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi, queueApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
@@ -35,6 +35,8 @@ import {
   type ApiLeave, type ApiPayroll, type ApiApplicant,
   type AdminTenant, type AdminTenantUsage, type AdminTenantStats, type AdminPlatformStats, type AdminTenantAnalytics, type AdminFeatureUsage, type AdminUsageBreakdown, type AdminUser,
   type AdminUserRow, type AdminDepartment, type AdminRole, type AdminBranch, type AdminUserFilters,
+  type AnalyticsOverview, type AnalyticsMetric, type AnalyticsGrowth, type PlatformStatus, type RecentTenant,
+  type InsightDimension, type InsightBlock, type AnalyticsGroupBy, type AnalyticsFilters, type AnalyticsQuery, type FilterOptions,
   type PurchaseOrder, type PurchaseItem, type PurchaseItemInput, type PurchaseCreateInput,
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
   type RepairJob, type InventoryBatch,
@@ -43,7 +45,7 @@ import {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-type QueryOpts = { enabled?: boolean; refetchInterval?: number };
+type QueryOpts = { enabled?: boolean; refetchInterval?: number; staleTime?: number; retry?: boolean | number };
 
 function useQ<TResponse, TSelected, TKey extends unknown[]>(
   key: TKey,
@@ -93,6 +95,9 @@ const SUPPLIERS = ["inventory", "suppliers"] as const;
 
 export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts) =>
   useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any"], () => inventoryApi.listProducts(page, pageSize, search, isActive), (r) => r.data, opts);
+
+/** Count + list of products at/below their own minimum stock, computed on the server over ALL products. */
+export const useLowStockReport = (opts?: QueryOpts) => useQ([...PRODUCTS, "low-stock-report"], () => inventoryApi.lowStockReport(), (r) => r.data, opts);
 
 export const useAllVariants = (page = 1, pageSize = 200, opts?: QueryOpts) =>
   useQ([...VARIANTS, page, pageSize], () => inventoryApi.listAllVariants(page, pageSize), (r) => r.data, opts);
@@ -352,6 +357,7 @@ export const useDeletePurchaseReturn = mutation((id: string) => procurementApi.d
 // ── Admin ────────────────────────────────────────────────────────────────────
 
 const ADMIN_STATS = ["admin", "stats"] as const;
+const ADMIN_ANALYTICS = ["admin", "analytics"] as const;
 const TENANTS = ["admin", "tenants"] as const;
 
 export const useAdminStats = (opts?: QueryOpts) =>
@@ -365,6 +371,34 @@ export const useAdminFeatureUsage = (opts?: QueryOpts) =>
 
 export const useAdminUsageBreakdown = (opts?: QueryOpts) =>
   useQ(["admin", "usage-breakdown"], () => adminApi.usageBreakdown(), (r) => r.data, opts);
+
+// Platform Overview analytics. The backend caches these for a short window, so
+// the client also treats them as fresh for 60s — changing the period or a
+// filter only refetches the queries whose key actually changed.
+const analyticsKey = (name: string, ...rest: unknown[]) => [...ADMIN_ANALYTICS, name, ...rest];
+const ANALYTICS_OPTS = { staleTime: 60_000 } as const;
+
+export const useAnalyticsOverview = (q: Parameters<typeof adminApi.analyticsOverview>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("overview", q), () => adminApi.analyticsOverview(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+export const useAnalyticsGrowth = (q: Parameters<typeof adminApi.analyticsGrowth>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("growth", q), () => adminApi.analyticsGrowth(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+export const useAnalyticsPlatformStatus = (q: Parameters<typeof adminApi.analyticsPlatformStatus>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("platform-status", q), () => adminApi.analyticsPlatformStatus(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+export const useAnalyticsSignupInsights = (q: Parameters<typeof adminApi.analyticsSignupInsights>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("signup-insights", q), () => adminApi.analyticsSignupInsights(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+export const useAnalyticsSignupInsightsAll = (q: Parameters<typeof adminApi.analyticsSignupInsightsAll>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("signup-insights-all", q), () => adminApi.analyticsSignupInsightsAll(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+export const useAnalyticsRecentTenants = (q: Parameters<typeof adminApi.analyticsRecentTenants>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("recent-tenants", q), () => adminApi.analyticsRecentTenants(q), (r) => r.data.items, { ...ANALYTICS_OPTS, ...opts });
+
+// Filter dropdown values change rarely — keep them for 5 minutes.
+export const useAnalyticsFilterOptions = (q: Parameters<typeof adminApi.analyticsFilterOptions>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("filter-options", q), () => adminApi.analyticsFilterOptions(q), (r) => r.data, { staleTime: 5 * 60_000, ...opts });
 
 export const useUsers = (page = 1, pageSize = 50, filters: AdminUserFilters = {}, opts?: QueryOpts) =>
   useQ(["admin", "users", page, pageSize, filters], () => adminApi.listUsers(page, pageSize, filters), (r) => r.data, opts);
@@ -390,14 +424,14 @@ export const useTenantRoles = (id: string | undefined, opts?: QueryOpts) =>
 export const useTenantBranches = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "branches"], () => adminApi.tenantBranches(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
-export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS]]);
-export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS]]);
-export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
-export const useActivateTenant = mutation(({ id }: { id: string }) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
-export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS]]);
-export const useResetTenantData = mutation(({ id, confirmName }: { id: string; confirmName: string }) => adminApi.resetTenantData(id, confirmName), [[...TENANTS], [...ADMIN_STATS]]);
-export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS]]);
-export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS]]);
+export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useActivateTenant = mutation(({ id }: { id: string }) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useResetTenantData = mutation(({ id, confirmName }: { id: string; confirmName: string }) => adminApi.resetTenantData(id, confirmName), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS], [...ADMIN_ANALYTICS]]);
+export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS], [...ADMIN_ANALYTICS]]);
 
 export const useCreateDepartment = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createDepartment>[1] }) => adminApi.createDepartment(tenantId, data), [[...TENANTS]]);
 export const useDeleteDepartment = mutation(({ tenantId, departmentId }: { tenantId: string; departmentId: string }) => adminApi.deleteDepartment(tenantId, departmentId), [[...TENANTS]]);
@@ -439,6 +473,67 @@ export const useUploadMyTenantLogo = mutation(
   ({ id, file }: { id: string; file: File }) => tenantsApi.uploadLogo(id, file),
   [[...CURRENT_TENANT]],
 );
+
+// ── Currency ────────────────────────────────────────────────────────────────────────────────────
+
+const CURRENCY_KEY = ["currency"] as const;
+
+/** Base currency of the current business + whether it can still be changed. */
+export const useCurrencySettings = (opts?: QueryOpts) =>
+  useQ([...CURRENCY_KEY, "settings"], () => currencyApi.settings(), (r) => r.data, opts);
+
+export const useExchangeRates = (page = 1, pageSize = 20, opts?: QueryOpts) =>
+  useQ([...CURRENCY_KEY, "rates", page, pageSize], () => currencyApi.listRates(page, pageSize), (r) => r.data, opts);
+
+export const useCreateExchangeRate = mutation((d: Parameters<typeof currencyApi.createRate>[0]) => currencyApi.createRate(d), [[...CURRENCY_KEY]]);
+
+/** The rate a new document in `from` would get (→ base currency by default). Errors when none is set. */
+export const useLookupRate = (from: string | undefined, to?: string, at?: string, opts?: QueryOpts) =>
+  useQ([...CURRENCY_KEY, "lookup", from, to ?? "base", at ?? "now"], () => currencyApi.lookup(from!, to, at), (r) => r.data, {
+    ...opts, enabled: !!from && (opts?.enabled ?? true), retry: false,
+  });
+
+// Platform (super-admin): reporting currency + platform-wide rates.
+export const usePlatformCurrencySettings = (opts?: QueryOpts) =>
+  useQ([...CURRENCY_KEY, "platform", "settings"], () => currencyApi.adminSettings(), (r) => r.data, opts);
+
+export const useSetReportingCurrency = mutation(
+  (currency: string) => currencyApi.setReportingCurrency(currency),
+  [[...CURRENCY_KEY], [...ADMIN_ANALYTICS], [...ADMIN_STATS]],
+);
+
+export const useAdminExchangeRates = (page = 1, pageSize = 20, opts?: QueryOpts) =>
+  useQ([...CURRENCY_KEY, "platform", "rates", page, pageSize], () => currencyApi.adminListRates(page, pageSize), (r) => r.data, opts);
+
+export const useAdminCreateExchangeRate = mutation(
+  (d: Parameters<typeof currencyApi.adminCreateRate>[0]) => currencyApi.adminCreateRate(d),
+  [[...CURRENCY_KEY], [...ADMIN_ANALYTICS]],
+);
+
+// ── Pesaa AI ────────────────────────────────────────────────────────────────────────────────────
+
+const AI_KEY = ["ai"] as const;
+
+export const useAiStatus = (opts?: QueryOpts) => useQ([...AI_KEY, "status"], () => aiApi.status(), (r) => r.data, { staleTime: 30_000, ...opts });
+export const useAiSuggestions = (module: string, opts?: QueryOpts) =>
+  useQ([...AI_KEY, "suggestions", module], () => aiApi.suggestions(module), (r) => r.data, { staleTime: 5 * 60_000, ...opts });
+export const useAiConversations = (opts?: QueryOpts) => useQ([...AI_KEY, "conversations"], () => aiApi.conversations(), (r) => r.data, opts);
+export const useAiChat = mutation(
+  (d: Parameters<typeof aiApi.chat>[0]) => aiApi.chat(d),
+  [[...AI_KEY, "conversations"], [...AI_KEY, "status"]],
+);
+export const useAiInsights = (opts?: QueryOpts) => useQ([...AI_KEY, "insights"], () => aiApi.insights(), (r) => r.data, { staleTime: 5 * 60_000, ...opts });
+export const useConfirmAiAction = mutation((id: string) => aiApi.confirmAction(id), [["sales"], ["orders"], ["procurement"], [...AI_KEY, "insights"]]);
+export const useCancelAiAction = mutation((id: string) => aiApi.cancelAction(id), []);
+export const useDeleteAiConversation = mutation((id: string) => aiApi.deleteConversation(id), [[...AI_KEY, "conversations"]]);
+
+// Super-admin
+export const useAiAdminSettings = (opts?: QueryOpts) => useQ([...AI_KEY, "admin", "settings"], () => aiApi.adminSettings(), (r) => r.data, opts);
+export const useUpdateAiSettings = mutation(
+  (d: Parameters<typeof aiApi.updateAdminSettings>[0]) => aiApi.updateAdminSettings(d),
+  [[...AI_KEY]],
+);
+export const useAiAdminUsage = (days = 30, opts?: QueryOpts) => useQ([...AI_KEY, "admin", "usage", days], () => aiApi.adminUsage(days), (r) => r.data, opts);
 
 // ── Repairs ────────────────────────────────────────────────────────────────────────────────────
 
@@ -657,6 +752,8 @@ export type {
   ApiEmployee, ApiAttendance, ApiLeave, ApiPayroll, ApiApplicant,
   AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch, AdminUserFilters,
+  AnalyticsOverview, AnalyticsMetric, AnalyticsGrowth, PlatformStatus, RecentTenant,
+  InsightDimension, InsightBlock, AnalyticsGroupBy, AnalyticsFilters, AnalyticsQuery, FilterOptions,
   PurchaseOrder, PurchaseItem, PurchaseItemInput, PurchaseCreateInput,
   Requisition, RequisitionCreateInput, PurchaseReturn, PurchaseReturnCreateInput,
   RepairJob, InventoryBatch, ApiSerial, ApiStockTransfer, ApiWarrantyClaim, ApiProductionOrder,

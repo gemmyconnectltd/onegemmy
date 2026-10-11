@@ -39,6 +39,8 @@ export interface Tenant {
 
 export interface TenantUpdateInput {
   name?: string;
+  /** Base (accounting) currency — refused by the server once the business has recorded transactions. */
+  currency?: string;
   brand_color?: string | null;
   vat_enabled?: boolean;
   website?: string | null;

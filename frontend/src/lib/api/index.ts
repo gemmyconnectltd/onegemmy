@@ -80,10 +80,21 @@ export type {
 } from "./services";
 export { serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi, queueApi } from "./services";
 
+// Pesaa AI
+export type { AiCard, AiFollowup, AiSuggestion, AiAction, AiActionResult, AiInsight, AiBlock, AiReply, AiStatus, AiConversationSummary, AiStoredMessage, AiAdminSettings, AiAdminUsage } from "./ai";
+export { aiApi } from "./ai";
+
+// Currency (exchange rates, base currency)
+export type { ExchangeRate, ExchangeRateInput, TenantCurrencySettings, ResolvedRate, PlatformCurrencySettings } from "./currency";
+export { currencyApi } from "./currency";
+
 // Admin
 export type {
   AdminTenant, AdminTenantUsage, AdminTenantStats, AdminPlatformStats, AdminTenantAnalytics, AdminFeatureUsage, AdminUsageBreakdown, AdminUser,
   AdminUserRow, AdminDepartment, AdminRole, AdminBranch, AdminUserFilters,
+  AnalyticsRange, AnalyticsGroupBy, AnalyticsFilters, AnalyticsQuery, AnalyticsMetric, AnalyticsOverview,
+  GrowthMetric, GrowthPoint, AnalyticsGrowth, PlatformStatus, InsightDimension, InsightItem, InsightBlock,
+  RecentTenant, FilterOption, FilterOptions,
 } from "./admin";
 export { adminApi } from "./admin";
 

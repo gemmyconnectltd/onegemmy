@@ -1,5 +1,7 @@
 "use client";
 
+import { DocMoney } from "@/components/currency/DocMoney";
+import { orderBaseOutstanding, orderBasePaid, orderBaseTotal } from "@/lib/baseMoney";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -73,14 +75,15 @@ export default function InvoicesPage() {
     );
   });
 
-  const total = orders.reduce((s, o) => s + o.total, 0);
+  // Every sum below uses BASE-currency values: an invoice may be in USD, another in RWF.
+  const total = orders.reduce((s, o) => s + orderBaseTotal(o), 0);
   const completed = orders.filter((o) => o.status === "Completed");
   const pending = orders.filter((o) => o.status === "Pending");
   // Real money collected/owed — derived from amount_paid/outstanding_balance,
   // not assumed from fulfillment status (a Completed order can still be
   // partially paid or fully unpaid).
-  const collectedTotal = completed.reduce((s, o) => s + o.amount_paid, 0);
-  const outstandingTotal = completed.reduce((s, o) => s + o.outstanding_balance, 0);
+  const collectedTotal = completed.reduce((s, o) => s + orderBasePaid(o), 0);
+  const outstandingTotal = completed.reduce((s, o) => s + orderBaseOutstanding(o), 0);
 
   const stats = [
     { label: "Total Invoiced",  value: fmt(total),           sub: `${orders.length} invoices`,          icon: FileText,         color: "#4f46e5" },
@@ -229,8 +232,8 @@ export default function InvoicesPage() {
                     {o.items.length} {o.items.length === 1 ? "item" : "items"}
                   </td>
                   <td className="px-4 py-3.5 text-right">
-                    <p className="text-[14px] font-bold text-foreground tabular-nums">{fmt(o.total)}</p>
-                    {o.discount > 0 && <p className="text-[11px] text-muted">-{fmt(o.discount)} disc.</p>}
+                    <p className="text-[14px] font-bold text-foreground tabular-nums"><DocMoney amount={o.total} currencyCode={o.currency_code} baseAmount={o.base_total} /></p>
+                    {o.discount > 0 && <p className="text-[11px] text-muted">-{o.currency_code ? <DocMoney amount={o.discount} currencyCode={o.currency_code} /> : fmt(o.discount)} disc.</p>}
                   </td>
                   <td className="px-4 py-3.5">
                     <div className="flex flex-col gap-1 items-start">
@@ -282,7 +285,7 @@ export default function InvoicesPage() {
         <div className="px-4 py-3 border-t border-border flex items-center justify-between">
             <p className="text-[12px] text-muted">{filtered.length} invoice{filtered.length !== 1 ? "s" : ""}</p>
             <p className="text-[12px] font-semibold text-foreground">
-              Total: <span className="font-bold">{fmt(filtered.reduce((s, o) => s + o.total, 0))}</span>
+              Total: <span className="font-bold">{fmt(filtered.reduce((s, o) => s + orderBaseTotal(o), 0))}</span>
             </p>
           </div>
         </div>

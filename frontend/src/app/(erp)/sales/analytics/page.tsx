@@ -1,4 +1,6 @@
 "use client";
+
+import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "@/components/charts/lazy";
 import { TrendingUp, ShoppingCart, ArrowUpRight, AlertCircle } from "lucide-react";
@@ -49,8 +51,8 @@ export default function SalesAnalyticsPage() {
   deals.forEach((d) => { stageMap[d.stage] = (stageMap[d.stage] ?? 0) + d.value; });
   const byStage = Object.entries(stageMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-  const totalRevenue = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + o.total, 0);
-  const totalVAT = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + o.tax, 0);
+  const totalRevenue = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + orderBaseTotal(o), 0);
+  const totalVAT = orders.filter((o) => o.status === "Completed").reduce((s, o) => s + orderBaseTax(o), 0);
   const avgOrder = orders.length ? Math.round(totalRevenue / Math.max(orders.filter((o) => o.status === "Completed").length, 1)) : 0;
 
   const stats = [

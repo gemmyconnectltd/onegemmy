@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Activity,
   X,
+  Globe2,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
@@ -492,6 +493,9 @@ function AdminTenantsPageInner() {
                           </p>
                           <p className="text-[11px] text-muted font-mono">
                             {t.slug}
+                          </p>
+                          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-foreground/70">
+                            <Globe2 size={10} className="text-blue-500" /> {t.country || "No country"}
                           </p>
                         </div>
                       </div>

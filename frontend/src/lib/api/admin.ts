@@ -56,6 +56,8 @@ export interface AdminTenantStats {
 }
 
 export interface AdminPlatformStats {
+  /** Tenant sales volume converted to `reporting_currency` — not PESAA's own revenue. */
+  reporting_currency?: string;
   total_tenants: number;
   active_tenants: number;
   suspended_tenants: number;
@@ -70,6 +72,8 @@ export interface AdminPlatformStats {
 
 export interface AdminTenantAnalytics {
   by_country: { name: string; value: number }[];
+  /** Every country with at least one user: users and businesses in it ("Unknown" = businesses with no country set). */
+  users_by_country: { name: string; users: number; businesses: number }[];
   by_industry: { name: string; value: number }[];
   by_business_type: { name: string; value: number }[];
   by_heard_about: { name: string; value: number }[];
@@ -92,6 +96,7 @@ export interface AdminFeatureUsage {
 }
 
 export interface AdminUsageSummary {
+  reporting_currency?: string;
   total_tenants: number;
   engaged_tenants: number;
   dormant_tenants: number;
@@ -235,6 +240,135 @@ export interface TenantLimits {
   max_storage_mb: number | null;
 }
 
+
+// ── Platform Overview analytics (GET /admin/analytics/*) ─────────────────────
+// All aggregation and filtering happens on the server; these are the shapes.
+
+export interface AnalyticsRange {
+  from: string;
+  to: string;
+  days: number;
+  previousFrom: string;
+  previousTo: string;
+}
+
+export type AnalyticsGroupBy = "day" | "week" | "month" | "year";
+
+/** Global tenant filters — values are the raw ones stored on tenants (e.g. "Rwanda", "sole"). */
+export interface AnalyticsFilters {
+  country?: string;
+  industry?: string;
+  businessType?: string;
+}
+
+export interface AnalyticsQuery extends AnalyticsFilters {
+  from?: string;
+  to?: string;
+}
+
+export interface AnalyticsMetric {
+  key: string;
+  label: string;
+  value: number;
+  previous: number | null;
+  /** null when there is nothing to compare against (previous period was 0). */
+  changePct: number | null;
+  /** cumulative = running total at period end · period = only inside the period */
+  scope: "cumulative" | "period";
+  description: string;
+  format: "number" | "currency";
+  /** For currency metrics: the platform reporting currency `value` is expressed in. */
+  currency?: string;
+  /** Original per-currency amounts behind a converted total (tenants keep books in different currencies). */
+  breakdown?: {
+    currency: string;
+    originalAmount: number;
+    /** `originalAmount` in the reporting currency; null when no platform rate exists for that currency. */
+    convertedAmount: number | null;
+    missingRate: boolean;
+  }[];
+  /** Currencies left out of the converted total because no platform rate is set for them. */
+  missingRates?: string[];
+  /** true when the converted total is incomplete (some currency has no rate). */
+  partial?: boolean;
+}
+
+export interface AnalyticsOverview {
+  period: AnalyticsRange;
+  currency: string;
+  metrics: AnalyticsMetric[];
+  generatedAt: string;
+}
+
+export type GrowthMetric = "tenants" | "users";
+
+export interface GrowthPoint {
+  period: string;
+  newCount: number;
+  totalCount: number;
+}
+
+export interface AnalyticsGrowth {
+  metric: GrowthMetric;
+  period: AnalyticsGroupBy;
+  range: AnalyticsRange;
+  data: GrowthPoint[];
+}
+
+export interface PlatformStatus {
+  tenants: { total: number; active: number; suspended: number; pending: number };
+  system: { status: "operational" | "degraded" | "down"; dbLatencyMs: number | null };
+}
+
+export type InsightDimension = "country" | "industry" | "business_type" | "heard_about";
+
+export interface InsightItem {
+  name: string;
+  count: number;
+  pct: number;
+}
+
+export interface InsightBlock {
+  key: InsightDimension;
+  range: AnalyticsRange;
+  /** Tenants registered in the period under the active filters. */
+  totalTenants: number;
+  /** Set when a global filter was ignored because it would collapse this breakdown to one value. */
+  ignoredFilter: InsightDimension | null;
+  /** All tenants registered in the period under the active filters — the denominator for every pct. */
+  total: number;
+  /** Of those, tenants that provided a value for this dimension. */
+  known: number;
+  /** Tenants that left it blank (`total - known`), and their share of `total`. */
+  unknown: number;
+  unknownPct: number;
+  distinct: number;
+  items: InsightItem[];
+  other: { count: number; pct: number; categories: number } | null;
+  hasMore: boolean;
+}
+
+export interface RecentTenant {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  status: "Active" | "Pending Approval" | "Suspended";
+  country: string | null;
+  createdAt: string | null;
+}
+
+export interface FilterOption {
+  value: string;
+  count: number;
+}
+
+export interface FilterOptions {
+  countries: FilterOption[];
+  industries: FilterOption[];
+  businessTypes: FilterOption[];
+}
+
 const B = "/admin";
 
 export const adminApi = {
@@ -242,6 +376,22 @@ export const adminApi = {
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
   featureUsage: () => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage`),
   usageBreakdown: () => request<SingleResponse<AdminUsageBreakdown>>(`${B}/usage-breakdown`),
+
+  // Platform Overview analytics — server-side aggregates and filtering, one call per dashboard section.
+  analyticsOverview: (q: AnalyticsQuery) =>
+    request<SingleResponse<AnalyticsOverview>>(`${B}/analytics/overview${qs({ ...q })}`),
+  analyticsGrowth: (q: AnalyticsQuery & { metric: GrowthMetric; groupBy?: AnalyticsGroupBy }) =>
+    request<SingleResponse<AnalyticsGrowth>>(`${B}/analytics/growth${qs({ ...q })}`),
+  analyticsPlatformStatus: (q: AnalyticsQuery) =>
+    request<SingleResponse<PlatformStatus>>(`${B}/analytics/platform-status${qs({ ...q })}`),
+  analyticsSignupInsights: (q: AnalyticsQuery & { dimension: InsightDimension; limit?: number }) =>
+    request<SingleResponse<InsightBlock>>(`${B}/analytics/signup-insights${qs({ ...q })}`),
+  analyticsSignupInsightsAll: (q: AnalyticsQuery & { dimension: InsightDimension; page?: number; page_size?: number }) =>
+    request<PaginatedResponse<InsightItem>>(`${B}/analytics/signup-insights/all${qs({ ...q })}`),
+  analyticsRecentTenants: (q: AnalyticsFilters & { limit?: number }) =>
+    request<SingleResponse<{ items: RecentTenant[] }>>(`${B}/analytics/recent-tenants${qs({ ...q })}`),
+  analyticsFilterOptions: (q: AnalyticsFilters) =>
+    request<SingleResponse<FilterOptions>>(`${B}/analytics/filter-options${qs({ ...q })}`),
   listUsers: (page = 1, pageSize = 50, filters: AdminUserFilters = {}) =>
     request<PaginatedResponse<AdminUserRow>>(`${B}/users${qs({ page, page_size: pageSize, ...filters })}`),
   exportUsers: (data: AdminUserExportRequest) =>

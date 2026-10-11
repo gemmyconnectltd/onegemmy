@@ -1,5 +1,7 @@
 "use client";
 
+import { expenseBaseAmount } from "@/lib/baseMoney";
+
 import { useState } from "react";
 import { Plus, TrendingDown, Check, X, Trash2, Upload, Search } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -92,8 +94,8 @@ export default function ExpensesPage() {
   // tab is selected.
   const totalStatsQ = useExpenses(filter === "All" ? undefined : filter, 1, 500);
   const pendingStatsQ = useExpenses("Pending", 1, 500);
-  const totalAmount = (totalStatsQ.data?.items ?? []).reduce((s, e) => s + e.amount, 0);
-  const pendingTotal = (pendingStatsQ.data?.items ?? []).reduce((s, e) => s + e.amount, 0);
+  const totalAmount = (totalStatsQ.data?.items ?? []).reduce((s, e) => s + expenseBaseAmount(e), 0);
+  const pendingTotal = (pendingStatsQ.data?.items ?? []).reduce((s, e) => s + expenseBaseAmount(e), 0);
 
   const createExpense = useCreateExpense();
   const approveExpense = useApproveExpense();

@@ -24,6 +24,12 @@ export interface AccountingExpense {
   notes: string | null;
   account_id: string | null;
   account: AccountingAccount | null;
+  // Currency context. Amounts are in `currency_code` (null on rows from before multi-currency =
+  // the tenant's base currency); `exchange_rate` is base-currency units per 1 unit of it, frozen
+  // when the document became financially effective.
+  currency_code?: string | null;
+  exchange_rate?: number | null;
+  base_amount?: number | null;
 }
 
 export interface AccountingTransactionLine {
@@ -230,7 +236,7 @@ export const accountingApi = {
 
   listExpenses: (status?: string, page = 1, pageSize = 20, search?: string) =>
     request<PaginatedResponse<AccountingExpense>>(`${BASE}/expenses${qs({ status, page, page_size: pageSize, search })}`),
-  createExpense: (data: { title: string; amount: number; expense_date: string; category: string; notes?: string | null; account_id?: string | null }) =>
+  createExpense: (data: { title: string; amount: number; expense_date: string; category: string; notes?: string | null; account_id?: string | null; currency_code?: string | null; exchange_rate?: number | null }) =>
     request<SingleResponse<AccountingExpense>>(`${BASE}/expenses`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateExpenses: (items: object[]) =>
     request<SingleResponse<{ created: number; failed: number; errors: string[] }>>(`${BASE}/expenses/bulk`, { method: "POST", body: JSON.stringify({ items }) }),

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppConfig } from "@/lib/appConfig";
 import { BranchSwitcher } from "./BranchSwitcher";
+import { AskPesaaAI } from "@/components/ai/AskPesaaAI";
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -77,6 +78,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
       )}
 
       {!admin && <BranchSwitcher />}
+      {!admin && <AskPesaaAI />}
 
       {/* Breadcrumb */}
       <div className="hidden md:flex items-center gap-1.5 text-[14px] min-w-0">

@@ -59,6 +59,13 @@ export interface ApiOrderPayment {
   reversed_by: string | null;
   reversal_reason: string | null;
   created_at: string | null;
+  // `amount` is in `currency_code`; `applied_amount` is what it took off the invoice (invoice
+  // currency); `base_amount` is the cash in the tenant's base currency at `exchange_rate`.
+  currency_code?: string | null;
+  exchange_rate?: number | null;
+  base_amount?: number | null;
+  applied_amount?: number | null;
+  base_applied_amount?: number | null;
 }
 
 export interface ApiOrder {
@@ -88,6 +95,16 @@ export interface ApiOrder {
   payment_status: "Unpaid" | "PartiallyPaid" | "Paid";
   is_overdue: boolean;
   payments: ApiOrderPayment[];
+  // Currency context. Amounts are in `currency_code` (null on rows from before multi-currency =
+  // the tenant's base currency); `exchange_rate` is base-currency units per 1 unit of it, frozen
+  // when the document became financially effective.
+  currency_code?: string | null;
+  exchange_rate?: number | null;
+  base_subtotal?: number | null;
+  base_discount?: number | null;
+  base_tax?: number | null;
+  base_total?: number | null;
+  base_outstanding_balance?: number | null;
 }
 
 export interface ApiReturnItem {
@@ -108,6 +125,9 @@ export interface ApiReturn {
   customer_id: string | null;
   reason: string | null;
   refund_amount: number;
+  currency_code?: string | null;
+  exchange_rate?: number | null;
+  base_refund_amount?: number | null;
   status: string;
   processed_by: string | null;
   return_date: string;

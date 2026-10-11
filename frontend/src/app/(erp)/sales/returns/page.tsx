@@ -1,4 +1,6 @@
 "use client";
+
+import { returnBaseRefund } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { RotateCcw, CheckCircle2, Clock, XCircle, Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -58,7 +60,7 @@ export default function SalesReturnsPage() {
 
   const approved = returns.filter((r) => r.status === "Approved");
   const pending  = returns.filter((r) => r.status === "Pending");
-  const totalRefunded = approved.reduce((s, r) => s + r.refund_amount, 0);
+  const totalRefunded = approved.reduce((s, r) => s + returnBaseRefund(r), 0);
 
   const stats = [
     { label: "Total Returns",  value: String(returns.length),  icon: RotateCcw,    color: SAL },
