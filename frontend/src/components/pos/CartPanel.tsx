@@ -85,7 +85,7 @@ export function CartPanel({
 
       {/* Customer + Notes — always visible, compact */}
       <div className="px-3.5 py-2.5 border-b border-border flex gap-2 flex-shrink-0">
-        <div ref={custRef} className="flex-1 relative">
+        <div ref={custRef} className="flex-1 min-w-0 relative">
           <button
             type="button"
             onClick={() => setCustOpen((v) => !v)}
@@ -98,7 +98,7 @@ export function CartPanel({
             <ChevronDown size={11} className="text-muted flex-shrink-0" />
           </button>
           {custOpen && (
-            <div className="absolute z-50 top-full mt-1 left-0 w-72 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+            <div className="absolute z-50 top-full mt-1 left-0 w-72 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden">
               <input
                 autoFocus
                 value={custQ}

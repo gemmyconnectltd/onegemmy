@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { UserPlus, Trash2 } from "lucide-react";
@@ -139,7 +140,7 @@ export default function RecruitingPage() {
               <BulkActionBar count={bulk.count} label="applicant" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -195,7 +196,7 @@ export default function RecruitingPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       )}
 
@@ -204,7 +205,7 @@ export default function RecruitingPage() {
           <Field label="Name" required>
             <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Sipho Ndlovu" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Email">
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="sipho@example.com" />
             </Field>
@@ -212,7 +213,7 @@ export default function RecruitingPage() {
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+254 700 000 000" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Position">
               <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} placeholder="Backend Engineer" />
             </Field>

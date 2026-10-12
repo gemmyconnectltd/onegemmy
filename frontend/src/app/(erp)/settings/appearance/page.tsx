@@ -53,7 +53,7 @@ export default function AppearancePage() {
       </div>
 
       {error && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border border-red-200 bg-red-50 text-red-700 text-[13px] rounded-lg">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border border-red-200 bg-red-50 text-red-700 text-[13px] rounded-lg">
           {error}
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600"><X size={14} /></button>
         </div>

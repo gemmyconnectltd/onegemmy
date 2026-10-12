@@ -107,7 +107,7 @@ export function ExportUsersModal({
             {scopeOptions.map((opt) => (
               <label
                 key={opt.key}
-                className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${scope === opt.key ? "border-accent bg-accent/5" : "border-border hover:bg-surface"}`}
+                className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${scope === opt.key ? "border-accent bg-accent/5" : "border-border hover:bg-surface"}`}
               >
                 <span className="flex items-center gap-2">
                   <input type="radio" name="export-scope" checked={scope === opt.key} onChange={() => setScope(opt.key)} className="w-4 h-4" />

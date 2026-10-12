@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import Link from "next/link";
 import { ArrowRight, Eye } from "lucide-react";
@@ -39,7 +40,7 @@ export function RecentTenants({ filters }: { filters: AnalyticsFilters }) {
     >
       <QueryBody query={q} errorMessage="Failed to load recent tenants." empty={rows.length === 0} emptyMessage="No tenants match these filters">
         <div className="-mx-1 overflow-x-auto px-1">
-          <table className="w-full min-w-[440px] text-left">
+          <TableScroll><table className="w-full min-w-[440px] text-left">
             <thead>
               <tr className="border-b border-border">
                 <th className={TH}>Business Name</th>
@@ -75,7 +76,7 @@ export function RecentTenants({ filters }: { filters: AnalyticsFilters }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       </QueryBody>
     </SectionCard>

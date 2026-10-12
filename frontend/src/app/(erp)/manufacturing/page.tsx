@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 import Link from "next/link";
 import {
@@ -112,7 +113,7 @@ export default function ManufacturingPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-160">
+            <TableScroll><table className="w-full min-w-160">
               <tbody className="divide-y divide-border">
                 {recent.map((o) => (
                   <tr key={o.id} className="hover:bg-surface/50 transition-colors">
@@ -137,7 +138,7 @@ export default function ManufacturingPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></TableScroll>
           </div>
         )}
       </div>

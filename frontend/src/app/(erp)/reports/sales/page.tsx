@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 
 import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal, returnBaseRefund } from "@/lib/baseMoney";
@@ -131,7 +132,7 @@ export default function SalesReportPage() {
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Recent Orders</h2>
         {orders.length > 0 ? (
-          <table className="w-full min-w-[640px] text-sm">
+          <TableScroll><table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left">
                 {["Order #", "Customer", "Status", "VAT (18%)", "Total", "Date"].map((h) => (
@@ -155,7 +156,7 @@ export default function SalesReportPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         ) : <p className="text-sm text-muted">No orders yet</p>}
       </div>
 

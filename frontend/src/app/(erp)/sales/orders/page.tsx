@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
@@ -190,7 +191,7 @@ function ProductPicker({
               <button
                 type="button"
                 onClick={() => pickProduct(variantsOf)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left border-b border-border"
+                className="w-full flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left border-b border-border"
               >
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-foreground truncate">Use the product itself</p>
@@ -203,7 +204,7 @@ function ProductPicker({
                   key={v.id}
                   type="button"
                   onClick={() => pickVariant(variantsOf, v)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
+                  className="w-full flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
                 >
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium text-foreground truncate">{attrLabel(v.attributes)}</p>
@@ -232,7 +233,7 @@ function ProductPicker({
                     key={p.id}
                     type="button"
                     onClick={() => pickProduct(p)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
+                    className="w-full flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 hover:bg-surface transition-colors text-left"
                   >
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium text-foreground truncate">{p.name}</p>
@@ -494,7 +495,7 @@ export default function SalesOrdersPage() {
         {loading ? (
           <PageLoader variant="compact" />
         ) : (
-          <table className={`w-full min-w-160 transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
+          <TableScroll><table className={`w-full min-w-160 transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -555,7 +556,7 @@ export default function SalesOrdersPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></TableScroll>
         )}
         {!loading && orders.length === 0 && (
           <div className="py-16 text-center">
@@ -579,7 +580,7 @@ export default function SalesOrdersPage() {
       {/* ── Add / Edit Drawer ── */}
       <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Order" : "New Order"} description={editing ? editing.order_number : "Create a new sales order"} size="xl">
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Customer">
               <Select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: e.target.value })}>
                 <option value="">Walk-in</option>
@@ -672,7 +673,7 @@ export default function SalesOrdersPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Order Discount">
               <Input type="number" min="0" value={form.discount} onChange={(e) => setForm({ ...form, discount: e.target.value })} />
             </Field>

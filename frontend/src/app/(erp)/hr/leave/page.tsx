@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
@@ -149,7 +150,7 @@ export default function LeavePage() {
               <BulkActionBar count={bulk.count} label="request" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -209,7 +210,7 @@ export default function LeavePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       )}
 
@@ -228,7 +229,7 @@ export default function LeavePage() {
               {LEAVE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </Select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="From" required>
               <Input type="date" required value={form.from_date} onChange={(e) => setForm({ ...form, from_date: e.target.value })} />
             </Field>

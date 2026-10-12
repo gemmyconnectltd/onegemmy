@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { formatMoney } from "@/lib/money";
 import type { AiBlock, AiCard } from "@/lib/api";
@@ -71,7 +72,7 @@ export function DataTable({ block }: { block: AiBlock }) {
   return (
     <div className="mt-2 overflow-hidden rounded-lg border border-border bg-card">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[280px] text-left text-[12px]">
+        <TableScroll><table className="w-full min-w-[280px] text-left text-[12px]">
           <thead>
             <tr className="border-b border-border bg-surface text-[10.5px] uppercase tracking-wide text-muted">
               {block.columns.map((c) => <th key={c} className={cn("whitespace-nowrap px-2.5 py-1.5 font-semibold", c !== block.columns[0] && "text-right")}>{c}</th>)}
@@ -89,7 +90,7 @@ export function DataTable({ block }: { block: AiBlock }) {
               ))}</tr>
             ))}
           </tbody>
-        </table>
+        </table></TableScroll>
       </div>
       {(block.how || block.period) && (
         <details className="border-t border-border px-2.5 py-1.5 text-[11px] text-muted">

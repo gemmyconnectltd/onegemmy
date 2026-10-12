@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
@@ -300,7 +301,7 @@ export default function AccountingPage() {
             {transactions.length === 0 ? (
               <p className="text-sm text-muted py-10 text-center">No transactions recorded yet.</p>
             ) : (
-              <table className="w-full min-w-[640px]">
+              <TableScroll><table className="w-full min-w-[640px]">
                 <tbody className="divide-y divide-border">
                   {transactions.map((t) => (
                     <tr key={t.id} className="hover:bg-surface/50 transition-colors">
@@ -315,7 +316,7 @@ export default function AccountingPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></TableScroll>
             )}
           </div>
         </>
@@ -326,7 +327,7 @@ export default function AccountingPage() {
           <Field label="Description" required>
             <Input required value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="Rent Payment" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Amount" required>
               <Input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
             </Field>
@@ -351,7 +352,7 @@ export default function AccountingPage() {
           <Field label="Description" required>
             <Input required value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} placeholder="Consulting fee" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Amount" required>
               <Input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
             </Field>

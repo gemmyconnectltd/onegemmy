@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { returnBaseRefund } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
@@ -175,7 +176,7 @@ export default function SalesReturnsPage() {
         {loading ? (
           <PageLoader variant="compact" />
         ) : (
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -228,7 +229,7 @@ export default function SalesReturnsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></TableScroll>
         )}
         {!loading && filtered.length === 0 && (
           <div className="py-16 text-center">
@@ -240,7 +241,7 @@ export default function SalesReturnsPage() {
 
       <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Return" : "New Return"} description={editing ? editing.return_number : "Record a return request"} size="md">
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Order">
               <Select value={form.order_id} onChange={(e) => setForm({ ...form, order_id: e.target.value })}>
                 <option value="">— Select order —</option>
@@ -257,7 +258,7 @@ export default function SalesReturnsPage() {
           <Field label="Reason">
             <Textarea rows={2} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Defective item, wrong size..." />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Return Date" required>
               <Input type="date" value={form.return_date} onChange={(e) => setForm({ ...form, return_date: e.target.value })} />
             </Field>

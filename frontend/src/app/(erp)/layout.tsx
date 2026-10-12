@@ -126,14 +126,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         onCollapsedChange={setSidebarCollapsed}
       />
       <div
-        className="flex flex-col min-h-screen"
+        className="flex min-w-0 flex-col min-h-screen"
         style={{
           marginLeft: isMobile ? 0 : sidebarW,
           paddingBottom: isMobile ? 64 : 0,
         }}
       >
         <Topbar onToggleSidebar={() => {}} sidebarExpanded={false} />
-        <main className="flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
+        <main data-app-content className="min-w-0 flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
       <SupportFab />
       <ProductTour steps={TOUR_STEPS} storageKey="onegemmy_tour_seen" />

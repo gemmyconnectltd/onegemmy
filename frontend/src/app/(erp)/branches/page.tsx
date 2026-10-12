@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -119,7 +120,7 @@ export default function BranchesPage() {
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-160">
+            <TableScroll><table className="w-full min-w-160">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted">
                   <th className="px-5 py-3 font-semibold">Branch</th>
@@ -192,7 +193,7 @@ export default function BranchesPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></TableScroll>
           </div>
         </div>
       )}
@@ -220,7 +221,7 @@ export default function BranchesPage() {
               placeholder="e.g. Kigali, Rwanda"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <Input
                 type="tel"

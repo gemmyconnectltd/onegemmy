@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Wrench, X, ChevronDown } from "lucide-react";
@@ -184,7 +185,7 @@ export default function RepairsPage() {
             <BulkActionBar count={bulk.count} label="job" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
-        <table className="w-full min-w-[640px] text-sm">
+        <TableScroll><table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
               <th className="px-4 py-3 w-10">
@@ -238,7 +239,7 @@ export default function RepairsPage() {
               </td></tr>
             )}
           </tbody>
-        </table></div>
+        </table></TableScroll></div>
       </div>
     </div>
   );

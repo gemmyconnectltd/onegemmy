@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -192,7 +193,7 @@ export function CountriesAnalytics({ rows }: { rows: CountryRow[] }) {
                 <div className="overflow-hidden">
                   {view === "list" ? (
                     <div className="px-2 pb-2">
-                      <table className="w-full table-fixed border-collapse text-left text-xs">
+                      <TableScroll><table className="w-full table-fixed border-collapse text-left text-xs">
                         <caption className="sr-only">{g.name} countries, users, businesses and share of platform users</caption>
                         <thead>
                           <tr className="border-b border-border text-[11px] text-muted">
@@ -216,7 +217,7 @@ export function CountriesAnalytics({ rows }: { rows: CountryRow[] }) {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </table></TableScroll>
                     </div>
                   ) : (
                     <ul className="grid grid-cols-1 gap-1.5 px-2 pb-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">

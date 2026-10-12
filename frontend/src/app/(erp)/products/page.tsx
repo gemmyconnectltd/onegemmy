@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Package, Plus, Search, Edit, Trash2 } from "lucide-react";
@@ -155,7 +156,7 @@ export default function ProductsPage() {
         style={{ border: "1px solid #e8e4de" }}
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <TableScroll><table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr style={{ backgroundColor: "#f8f8f6" }}>
                 <th
@@ -314,7 +315,7 @@ export default function ProductsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       </div>
 
@@ -342,7 +343,7 @@ export default function ProductsPage() {
           <Field label="SKU" required>
             <Input value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} placeholder="e.g. PC-001" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label={`Price (${CURRENCY_SYMBOL})`}>
               <Input type="number" value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: Number(e.target.value) }))} className="font-mono" />
             </Field>
@@ -350,7 +351,7 @@ export default function ProductsPage() {
               <Input type="number" value={form.cost} onChange={(e) => setForm((prev) => ({ ...prev, cost: Number(e.target.value) }))} className="font-mono" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Category" required>
               <Select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}>
                 <option value="">Select category</option>

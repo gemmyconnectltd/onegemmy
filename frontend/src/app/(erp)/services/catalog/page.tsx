@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -207,7 +208,7 @@ export default function ServiceCatalogPage() {
         )}
 
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
-          <table className="w-full min-w-160">
+          <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
@@ -300,7 +301,7 @@ export default function ServiceCatalogPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="services" color={SVC_COLOR} />
       </div>
@@ -326,7 +327,7 @@ export default function ServiceCatalogPage() {
           <Field label="Description">
             <Textarea rows={2} value={formValues.description} onChange={(e) => setFormValues({ ...formValues, description: e.target.value })} placeholder="Short description (optional)" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Price" required>
               <Input required type="number" min="0" step="0.01" value={formValues.price} onChange={(e) => setFormValues({ ...formValues, price: e.target.value })} placeholder="0.00" />
             </Field>

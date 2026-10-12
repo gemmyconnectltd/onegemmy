@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
@@ -156,7 +157,7 @@ export default function InventoryReportPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
+          <TableScroll><table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-border text-left">
                 {["Item", "Category", "Qty", "Unit Cost", "Stock Value", "Retail Value", "Margin", "Status"].map((h) => (
@@ -202,7 +203,7 @@ export default function InventoryReportPage() {
                 </tr>
               </tfoot>
             )}
-          </table>
+          </table></TableScroll>
         </div>
       </div>
     </div>

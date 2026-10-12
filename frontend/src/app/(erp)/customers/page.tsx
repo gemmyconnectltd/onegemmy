@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
@@ -331,7 +332,7 @@ export default function CustomersPage() {
             <BulkActionBar count={bulk.count} label="customer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           )}
         <div className="bg-card border border-border rounded-xl overflow-hidden"><div className={`overflow-x-auto transition-opacity ${customersQ.isFetching ? "opacity-60" : ""}`}>
-          <table className="w-full min-w-160">
+          <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">
@@ -407,7 +408,7 @@ export default function CustomersPage() {
                 );
               })}
             </tbody>
-          </table></div>
+          </table></TableScroll></div>
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="customers" color={COLOR} />
         </div>
         </div>
@@ -436,7 +437,7 @@ export default function CustomersPage() {
             </div>
 
             {/* spend summary */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-surface rounded-xl p-3 text-center">
                 <p className="text-lg font-extrabold text-foreground truncate">{viewingOrders.length}</p>
                 <p className="text-[11px] text-muted mt-0.5">Total Orders</p>
@@ -453,7 +454,7 @@ export default function CustomersPage() {
             {accountSummary.totalInvoiced > 0 && (
               <div>
                 <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">Customer Account</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-surface rounded-xl p-3 text-center">
                     <p className="text-lg font-extrabold text-foreground font-mono truncate" title={fmt(accountSummary.totalInvoiced)}>{fmt(accountSummary.totalInvoiced)}</p>
                     <p className="text-[11px] text-muted mt-0.5">Total Invoiced</p>
@@ -500,7 +501,7 @@ export default function CustomersPage() {
               <div>
                 <p className="text-[11px] font-bold text-muted uppercase tracking-wider mb-3">Statement</p>
                 <div className="border border-border rounded-xl overflow-hidden">
-                  <table className="w-full text-[12px]">
+                  <TableScroll><table className="w-full text-[12px]">
                     <thead>
                       <tr className="bg-surface text-left text-muted">
                         <th className="px-3 py-2 font-semibold">Date</th>
@@ -521,7 +522,7 @@ export default function CustomersPage() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></TableScroll>
                 </div>
               </div>
             )}
@@ -575,7 +576,7 @@ export default function CustomersPage() {
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Jean Pierre" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <Input type="tel" value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -592,7 +593,7 @@ export default function CustomersPage() {
               onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               placeholder="Street, City" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Customer Type">
               <Select value={form.customer_type}
                 onChange={(e) => setForm((f) => ({ ...f, customer_type: e.target.value }))}>

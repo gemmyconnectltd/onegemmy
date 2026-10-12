@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 
@@ -957,7 +958,7 @@ export default function DashboardPage() {
                     No completed orders yet
                   </p>
                 ) : (
-                  <table className="w-full min-w-[480px]">
+                  <TableScroll><table className="w-full min-w-[480px]">
                     <thead>
                       <tr className="border-b border-border bg-surface/50">
                         {["Customer", "Items", "Total", "Order #", "Time"].map(
@@ -1004,7 +1005,7 @@ export default function DashboardPage() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></TableScroll>
                 )}
               </div>
             </div>

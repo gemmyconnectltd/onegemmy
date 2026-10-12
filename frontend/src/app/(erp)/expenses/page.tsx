@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Receipt, Plus, DollarSign, Calendar, Tag, X } from "lucide-react";
@@ -168,7 +169,7 @@ export default function ExpensesPage() {
               )}
             </div>
           </div>
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="text-left text-xs text-muted border-b border-border">
                 <th className="p-4 font-medium">Date</th>
@@ -200,7 +201,7 @@ export default function ExpensesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
 
         {/* Category Breakdown */}

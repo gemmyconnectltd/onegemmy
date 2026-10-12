@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -590,7 +591,7 @@ export default function TenantDetailPage() {
       )}
 
       {notice && (
-        <div className={`flex items-center justify-between gap-3 text-sm rounded-xl px-4 py-3 border ${
+        <div className={`flex flex-wrap items-center justify-between gap-3 text-sm rounded-xl px-4 py-3 border ${
           notice.kind === "error"
             ? "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20"
             : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
@@ -652,7 +653,7 @@ export default function TenantDetailPage() {
             </div>
           )}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
+            <TableScroll><table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
                   <th className="px-5 py-3 w-10">
@@ -718,7 +719,7 @@ export default function TenantDetailPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></TableScroll>
           </div>
           {users.length === 0 && (
             <div className="py-12 text-center">
@@ -761,7 +762,7 @@ export default function TenantDetailPage() {
               )}
             <div className="divide-y divide-border">
               {departments.map((d) => (
-                <div key={d.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
+                <div key={d.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     <input type="checkbox" checked={bulkDepartments.selected.has(d.id)} onChange={() => bulkDepartments.toggle(d.id)} className="w-4 h-4 rounded shrink-0" />
                     <div className="min-w-0">
@@ -815,7 +816,7 @@ export default function TenantDetailPage() {
               )}
             <div className="divide-y divide-border">
               {roles.map((r) => (
-                <div key={r.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
+                <div key={r.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     <input type="checkbox" checked={bulkRoles.selected.has(r.id)} onChange={() => bulkRoles.toggle(r.id)} className="w-4 h-4 rounded shrink-0" />
                     <div className="min-w-0">
@@ -869,7 +870,7 @@ export default function TenantDetailPage() {
               )}
             <div className="divide-y divide-border">
               {branches.map((b) => (
-                <div key={b.id} className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
+                <div key={b.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
                   <div className="flex items-center gap-3 min-w-0">
                     <input type="checkbox" checked={bulkBranches.selected.has(b.id)} onChange={() => bulkBranches.toggle(b.id)} className="w-4 h-4 rounded shrink-0" />
                     <div className="min-w-0">

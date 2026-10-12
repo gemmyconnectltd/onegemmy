@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, AlertTriangle, X } from "lucide-react";
@@ -175,7 +176,7 @@ export default function BatchesPage() {
             <BulkActionBar count={bulk.count} label="batch" pluralLabel="batches" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
-        <table className="w-full min-w-[640px] text-sm">
+        <TableScroll><table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
               <th className="px-4 py-3 w-10">
@@ -228,7 +229,7 @@ export default function BatchesPage() {
               </td></tr>
             )}
           </tbody>
-        </table></div>
+        </table></TableScroll></div>
       </div>
     </div>
   );

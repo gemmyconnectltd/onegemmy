@@ -63,7 +63,7 @@ function ShopInfoForm({ tenant, brandColor }: { tenant: Tenant; brandColor: stri
       <Field label="Address">
         <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="KG 7 Ave" />
       </Field>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="City">
           <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Kigali" />
         </Field>
@@ -131,7 +131,7 @@ export default function SettingsPage() {
           </div>
           <h2 className="text-sm font-bold text-foreground">VAT</h2>
         </div>
-        <div className="flex items-center justify-between gap-3 py-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-1">
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{vatEnabled ? "VAT enabled" : "VAT disabled"}</p>
             <p className="text-xs text-muted mt-0.5">

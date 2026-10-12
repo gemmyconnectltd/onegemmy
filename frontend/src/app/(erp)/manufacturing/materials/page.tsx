@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { Package, AlertCircle, Layers, ClipboardList } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useProductionOrders, useBoms, useProducts } from "@/lib/api/hooks";
@@ -90,7 +91,7 @@ export default function MaterialsPage() {
             <p className="text-xs text-muted mt-1">Add components to a work order or BOM to see usage here</p>
           </div>
         ) : (
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Component</th>
@@ -123,7 +124,7 @@ export default function MaterialsPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></TableScroll>
         )}
         </div>
       </div>

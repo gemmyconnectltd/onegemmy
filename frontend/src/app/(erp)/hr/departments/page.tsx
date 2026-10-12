@@ -106,7 +106,7 @@ export default function DepartmentsPage() {
       {adding && (
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <p className="text-sm font-bold text-foreground mb-4">New Department</p>
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
               <label className="text-xs font-semibold text-muted mb-1.5 block">Name</label>
               <input autoFocus type="text" placeholder="e.g. Logistics" value={newName}

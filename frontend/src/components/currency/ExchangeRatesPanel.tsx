@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -99,7 +100,7 @@ export function ExchangeRatesPanel({
         </p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[420px] text-left text-[13px]">
+          <TableScroll><table className="w-full min-w-[420px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-border bg-surface text-[11px] uppercase tracking-wide text-muted">
                 <th className="px-3 py-2 font-semibold">Rate</th>
@@ -118,7 +119,7 @@ export function ExchangeRatesPanel({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       )}
     </div>

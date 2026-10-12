@@ -70,7 +70,7 @@ function VariantForm({ initial, onSave, onCancel, color }: {
 
   return (
     <div className="space-y-3 p-4 bg-surface/50 rounded-xl border border-border">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">SKU</label>
           <input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Optional"

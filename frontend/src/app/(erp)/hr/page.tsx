@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Users, UserCheck, Clock, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
@@ -191,7 +192,7 @@ export default function EmployeesPage() {
               <BulkActionBar count={bulk.count} label="employee" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -236,7 +237,7 @@ export default function EmployeesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       )}
 
@@ -247,7 +248,7 @@ export default function EmployeesPage() {
         description="Create a new employee record"
       >
         <form onSubmit={submit} className="space-y-4 p-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First name" required>
               <Input required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} placeholder="Aisha" />
             </Field>
@@ -255,7 +256,7 @@ export default function EmployeesPage() {
               <Input required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} placeholder="Bello" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Email">
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="aisha@company.com" />
             </Field>
@@ -263,7 +264,7 @@ export default function EmployeesPage() {
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+254 700 000 000" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Department">
               <Select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
                 <option value="">No department</option>
@@ -276,7 +277,7 @@ export default function EmployeesPage() {
               <Input value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} placeholder="Engineer" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Status">
               <Select value={form.employment_status} onChange={(e) => setForm({ ...form, employment_status: e.target.value })}>
                 <option value="Active">Active</option>

@@ -1,3 +1,4 @@
+import { TableScroll } from "@/components/ui/TableScroll";
 import {
   BadgeCheck, Clock, FileText, AlertCircle, Mail, Phone, MapPin, Globe, CreditCard, CalendarClock,
 } from "lucide-react";
@@ -172,7 +173,7 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
 
         {/* Line items */}
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr style={{ backgroundColor: `${brandColor}12` }}>
                 <th className="px-7 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide" style={{ color: brandColor }}>Item</th>
@@ -194,7 +195,7 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
 
           {/* Totals */}
           <div className="px-7 py-5 flex justify-start">

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import {
@@ -242,7 +243,7 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Users &amp; Roles</h1>
           <p className="text-sm text-muted mt-0.5">
@@ -322,7 +323,7 @@ export default function UsersPage() {
           {isFetching && <span className="text-[11px] text-muted">Updating…</span>}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px]">
+          <TableScroll><table className="w-full min-w-[760px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 font-semibold">User</th>
@@ -416,7 +417,7 @@ export default function UsersPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
         {users.length === 0 && (
           <EmptyState
@@ -609,7 +610,7 @@ function UserForm({
           placeholder="e.g. +233 20 123 4567"
         />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Role" hint="Determines what they can access.">
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="admin">Admin</option>

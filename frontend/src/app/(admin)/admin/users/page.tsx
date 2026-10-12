@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useState } from "react";
 import { Users, CheckCircle, XCircle, Building2, Search, Filter, AlertTriangle, Shield, Download, CheckCircle2 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -175,7 +176,7 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-        <table className="w-full min-w-[640px]">
+        <TableScroll><table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
               <th className="px-5 py-3 font-semibold w-10">
@@ -240,7 +241,7 @@ export default function AdminUsersPage() {
               </tr>
             ))}
           </tbody>
-        </table></div>
+        </table></TableScroll></div>
         {users.length === 0 && (
           <div className="py-16 text-center">
             <Users size={32} className="text-muted/30 mx-auto mb-3" />
@@ -253,7 +254,7 @@ export default function AdminUsersPage() {
           </div>
         )}
         {users.length > 0 && (
-          <div className="px-5 py-3 border-t border-border bg-surface/30 flex items-center justify-between gap-3">
+          <div className="px-5 py-3 border-t border-border bg-surface/30 flex flex-wrap items-center justify-between gap-3">
             <p className="text-[11px] text-muted">
               Showing {users.length} of {data.total} users{bulk.count > 0 ? ` · ${bulk.count} selected` : ""}
             </p>

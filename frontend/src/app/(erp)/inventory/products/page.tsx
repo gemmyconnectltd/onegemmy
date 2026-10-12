@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -189,7 +190,7 @@ export default function ProductsPage() {
         )}
 
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
-          <table className="w-full min-w-160">
+          <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
@@ -280,7 +281,7 @@ export default function ProductsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
           </div>
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="products" color={INV_COLOR} />
       </div>

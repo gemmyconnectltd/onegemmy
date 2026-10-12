@@ -119,7 +119,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
     <div className="space-y-6">
       {notice && (
         <div
-          className={`flex items-center justify-between gap-3 text-sm rounded-xl px-4 py-3 border ${
+          className={`flex flex-wrap items-center justify-between gap-3 text-sm rounded-xl px-4 py-3 border ${
             notice.kind === "error"
               ? "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20"
               : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
@@ -137,7 +137,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
 
       {/* Feature toggles */}
       <div>
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-foreground">Module Access</h2>
             <p className="text-[11px] text-muted mt-0.5">
@@ -160,7 +160,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
         ) : (
           <div className="divide-y divide-border">
             {features?.map((f) => (
-              <div key={f.key} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-surface/40 transition-colors">
+              <div key={f.key} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 hover:bg-surface/40 transition-colors">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-foreground">{f.name}</p>

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 
 import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal, returnBaseRefund } from "@/lib/baseMoney";
@@ -130,7 +131,7 @@ export default function ReportsPage() {
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Top Products by Revenue</h2>
         {topProducts.length > 0 ? (
-          <table className="w-full min-w-[640px] text-sm">
+          <TableScroll><table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="pb-3 text-[11px] font-semibold text-muted uppercase tracking-wider">#</th>
@@ -149,7 +150,7 @@ export default function ReportsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         ) : <p className="text-sm text-muted">No sales data yet</p>}
       </div>
     </div>

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import type { ComponentType } from "react";
@@ -38,7 +39,7 @@ function SalesByCurrencyDrawer({ metric, onClose }: { metric: AnalyticsMetric | 
           <p className="py-6 text-center text-[13px] text-muted">No completed sales in this period.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full text-left text-[13px]">
+            <TableScroll><table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b border-border bg-surface text-[11px] uppercase tracking-wide text-muted">
                   <th className="px-3 py-2 font-semibold">Currency</th>
@@ -65,7 +66,7 @@ function SalesByCurrencyDrawer({ metric, onClose }: { metric: AnalyticsMetric | 
                   <td className="px-3 py-2.5 text-right font-bold tabular-nums text-foreground">{formatMoney(metric?.value ?? 0, reporting)}</td>
                 </tr>
               </tfoot>
-            </table>
+            </table></TableScroll>
           </div>
         )}
         {missing.length > 0 && (

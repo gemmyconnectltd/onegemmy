@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -110,7 +111,7 @@ export default function AppointmentsPage() {
         </div>
 
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
-          <table className="w-full min-w-160">
+          <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 {["Time", "Customer", "Service", "Staff", "Duration", "Status", ""].map((h) => (
@@ -183,7 +184,7 @@ export default function AppointmentsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={() => {}} itemLabel="appointments" color={SVC_COLOR} />
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "@/components/charts/lazy";
 import { Users, UserCheck, ShoppingCart, TrendingUp } from "lucide-react";
@@ -91,7 +92,7 @@ export default function CustomersReportPage() {
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="text-sm font-bold text-foreground mb-4">Top Customers by Revenue</h2>
         {topCustomers.length > 0 ? (
-          <table className="w-full min-w-[640px] text-sm">
+          <TableScroll><table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left">
                 {["#", "Customer", "Orders", "Revenue"].map((h) => (
@@ -109,7 +110,7 @@ export default function CustomersReportPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         ) : <p className="text-sm text-muted">No order data linked to customers yet</p>}
       </div>
     </div>

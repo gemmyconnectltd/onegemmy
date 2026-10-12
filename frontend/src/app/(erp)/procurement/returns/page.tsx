@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { CheckCircle2, Package, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
@@ -126,7 +127,7 @@ export default function PurchaseReturnsPage() {
   return (
     <div className="space-y-5">
       {confirmDialog}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Purchase Returns</h1>
           <p className="text-sm text-muted mt-1">Track items sent back to suppliers and refunds.</p>
@@ -163,7 +164,7 @@ export default function PurchaseReturnsPage() {
       </div>
 
       <div className="bg-card border border-border overflow-x-auto">
-        <table className="w-full min-w-[640px]">
+        <TableScroll><table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 font-medium">Return</th>
@@ -224,7 +225,7 @@ export default function PurchaseReturnsPage() {
               <tr><td colSpan={10} className="p-10 text-center text-sm text-muted">No returns match.</td></tr>
             )}
           </tbody>
-        </table>
+        </table></TableScroll>
       </div>
 
       <Drawer
@@ -254,7 +255,7 @@ export default function PurchaseReturnsPage() {
               </Select>
             </Field>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Qty">
               <Input type="number" min="1" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
             </Field>

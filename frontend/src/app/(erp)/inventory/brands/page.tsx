@@ -92,7 +92,7 @@ export default function BrandsPage() {
       {adding && (
         <div className="bg-card border border-border p-4 space-y-3">
           <p className="text-sm font-semibold text-foreground">New Brand</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input autoFocus type="text" placeholder="Brand name" value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}

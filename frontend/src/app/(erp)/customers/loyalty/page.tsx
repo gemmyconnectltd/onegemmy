@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { Star, Crown, Award, Users } from "lucide-react";
@@ -90,7 +91,7 @@ export default function LoyaltyPage() {
             </button>
           ))}
         </div>
-        <table className="w-full min-w-[640px]">
+        <TableScroll><table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 font-semibold">Customer</th>
@@ -123,7 +124,7 @@ export default function LoyaltyPage() {
               );
             })}
           </tbody>
-        </table>
+        </table></TableScroll>
       </div>
     </div>
   );

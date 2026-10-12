@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { CreditCard, Plus, RefreshCw, Sparkles } from "lucide-react";
@@ -114,7 +115,7 @@ export default function AccountsPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 font-semibold">Code</th>
@@ -149,13 +150,13 @@ export default function AccountsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       )}
 
       <Drawer open={showForm} onClose={() => setShowForm(false)} title="Add Account" description="Create a new chart of accounts entry">
         <form onSubmit={submit} className="space-y-4 p-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Code" required>
               <Input required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="1010" />
             </Field>
@@ -163,7 +164,7 @@ export default function AccountsPage() {
               <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Main Cash" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Type" required>
               <Select value={form.type} onChange={(e) => {
                 const t = e.target.value;

@@ -35,7 +35,7 @@ export function POSHeader({
 }: POSHeaderProps) {
   return (
     <header className="flex-shrink-0 z-20 bg-card border-b border-border shadow-sm">
-      <div className="h-16 flex items-center px-4 gap-3">
+      <div className="min-h-16 flex flex-wrap items-center px-2 sm:px-4 gap-1 sm:gap-3 py-2">
         {/* Back */}
         <Link
           href="/dashboard"
@@ -50,7 +50,7 @@ export function POSHeader({
         <span className="text-[15px] font-bold text-foreground tracking-tight">Point of Sale</span>
 
         {/* Today stats */}
-        <div className="hidden md:flex items-center gap-3 pl-3.5 pr-4 py-2 bg-accent/[0.07] border border-accent/10 rounded-xl ml-2">
+        <div className="hidden xl:flex items-center gap-3 pl-3.5 pr-4 py-2 bg-accent/[0.07] border border-accent/10 rounded-xl ml-2">
           <div className="flex items-center gap-1.5 text-accent">
             <TrendingUp size={13} />
             <span className="text-[12px] font-bold">{todayCount}</span>

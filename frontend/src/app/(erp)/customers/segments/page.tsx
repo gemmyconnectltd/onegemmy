@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtMoney } from "@/lib/config";
 import { useState } from "react";
 import { Tag, Users, TrendingUp, Clock, UserX } from "lucide-react";
@@ -60,7 +61,7 @@ export default function SegmentsPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-border flex items-center gap-1 bg-surface/50">
+        <div className="p-4 border-b border-border flex flex-wrap items-center gap-1 bg-surface/50">
           {(["All", "VIP", "Regular", "New", "At Risk"] as const).map((s) => (
             <button key={s} onClick={() => setActive(s)}
               className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${active === s ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
@@ -69,7 +70,7 @@ export default function SegmentsPage() {
             </button>
           ))}
         </div>
-        <table className="w-full min-w-[640px]">
+        <TableScroll><table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 font-semibold">Customer</th>
@@ -105,7 +106,7 @@ export default function SegmentsPage() {
               );
             })}
           </tbody>
-        </table>
+        </table></TableScroll>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -60,7 +61,7 @@ export default function StaffCommissionsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-160">
+          <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 {["Employee", "Services They Perform", "Services Completed", "Service Revenue", "Commission Earned", ""].map((h, i) => (
@@ -123,7 +124,7 @@ export default function StaffCommissionsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       </div>
 

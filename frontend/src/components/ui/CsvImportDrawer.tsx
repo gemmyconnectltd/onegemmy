@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -231,7 +232,7 @@ export function CsvImportDrawer<T>({
               <button type="button" onClick={() => { setRows(null); setFileName(""); }} className="text-xs text-muted hover:text-foreground">Clear</button>
             </div>
             <div className="overflow-x-auto max-h-64">
-              <table className="w-full text-xs">
+              <TableScroll><table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-surface/30 text-left">
                     <th className="px-3 py-2 text-muted font-semibold w-6" />
@@ -258,7 +259,7 @@ export function CsvImportDrawer<T>({
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></TableScroll>
             </div>
             {rows.some((r) => !r.valid) && (
               <div className="px-4 py-2.5 bg-red-50 dark:bg-red-950/30 border-t border-red-100 dark:border-red-900">

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { CheckCircle, XCircle, Clock, Plus, Trash2 } from "lucide-react";
@@ -142,7 +143,7 @@ export default function AttendancePage() {
               <BulkActionBar count={bulk.count} label="record" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -182,7 +183,7 @@ export default function AttendancePage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
       )}
 
@@ -199,7 +200,7 @@ export default function AttendancePage() {
           <Field label="Date" required>
             <Input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Check in">
               <Input type="time" value={form.check_in} onChange={(e) => setForm({ ...form, check_in: e.target.value })} />
             </Field>

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import {
@@ -209,7 +210,7 @@ export default function WorkOrdersPage() {
             <Button color={COLOR} size="sm" onClick={openAdd}><Plus size={13} /> New Work Order</Button>
           </div>
         ) : (
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">
@@ -275,7 +276,7 @@ export default function WorkOrdersPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         )}
         </div>
       </div>
@@ -285,7 +286,7 @@ export default function WorkOrdersPage() {
         description="Assemble finished goods from stock components"
         size="md">
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Finished Product" required>
               <Select value={form.product_id} onChange={(e) => setForm((f) => ({ ...f, product_id: e.target.value }))}>
                 <option value="">Select product...</option>

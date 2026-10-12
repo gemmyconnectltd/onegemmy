@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -389,7 +390,7 @@ export default function AdminUsagePage() {
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
+            <TableScroll><table className="w-full min-w-[720px]">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
                   <th className="px-5 py-3 font-semibold">Plan</th>
@@ -434,7 +435,7 @@ export default function AdminUsagePage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+            </table></TableScroll>
           </div>
         </div>
 
@@ -490,7 +491,7 @@ export default function AdminUsagePage() {
             const color = MODULE_COLORS[m.key] ?? "#64748b";
             return (
               <div key={m.key}>
-                <div className="flex items-center justify-between gap-3 mb-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-1.5">
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: color }} />
                     <span className="text-[13px] font-semibold text-foreground truncate">{m.label}</span>
@@ -569,7 +570,7 @@ export default function AdminUsagePage() {
           <span className="text-[11.5px] font-medium text-muted whitespace-nowrap">{filtered.length} of {tenants.length} tenants</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px]">
+          <TableScroll><table className="w-full min-w-[960px]">
             <thead>
               <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
                 <SortHeader label="Business" k="name" sort={sort} onSort={toggleSort} />
@@ -620,7 +621,7 @@ export default function AdminUsagePage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
         {sorted.length === 0 && (
           <div className="py-14 text-center">

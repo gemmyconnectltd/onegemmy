@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { Plus, Phone, Mail } from "lucide-react";
 
 const contacts = [
@@ -23,7 +24,7 @@ export default function ContactsPage() {
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />Add Contact</button>
       </div>
       <div className="bg-card border border-border">
-        <table className="w-full min-w-[640px]">
+        <TableScroll><table className="w-full min-w-[640px]">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Name</th><th className="p-4 font-medium">Company</th><th className="p-4 font-medium">Email</th><th className="p-4 font-medium">Phone</th><th className="p-4 font-medium">Stage</th>
           </tr></thead>
@@ -41,7 +42,7 @@ export default function ContactsPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></TableScroll>
       </div>
     </div>
   );

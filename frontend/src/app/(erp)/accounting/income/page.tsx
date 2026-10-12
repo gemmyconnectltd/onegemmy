@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -207,7 +208,7 @@ export default function IncomePage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 text-[11px] font-semibold text-muted uppercase tracking-wide">Reference</th>
@@ -265,7 +266,7 @@ export default function IncomePage() {
                 );
               })}
             </tbody>
-          </table></div>
+          </table></TableScroll></div>
         </div>
       )}
 
@@ -280,7 +281,7 @@ export default function IncomePage() {
               placeholder="e.g. Consulting fee, Service income"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Amount" required>
               <Input
                 type="number" min="0"

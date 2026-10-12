@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import { Layers, Plus, Trash2, Edit2, Package, AlertCircle, X } from "lucide-react";
@@ -174,7 +175,7 @@ export default function BomPage() {
             <Button color={COLOR} size="sm" onClick={openAdd}><Plus size={13} /> New BOM</Button>
           </div>
         ) : (
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">
@@ -219,7 +220,7 @@ export default function BomPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         )}
         </div>
       </div>

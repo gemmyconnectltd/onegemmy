@@ -250,3 +250,39 @@ input, select, textarea {
   .fab-in, .fab-label { animation: none; opacity: 1; }
   .fab-ring { animation: none; }
 }
+
+/* Authenticated table regions retain their columns without widening the shell. */
+[data-table-container] table {
+  font-variant-numeric: tabular-nums;
+}
+[data-table-container] th,
+[data-table-container] td {
+  vertical-align: middle;
+}
+[data-table-container] :is(th, td).text-right {
+  white-space: nowrap;
+}
+[data-app-content] :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 639px) {
+  [data-table-container] :is(th, td) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+@media print {
+  [data-table-container], [data-table-container] > [role="region"] {
+    overflow: visible;
+    max-width: none;
+  }
+}
+
+/* Show the table scrollbar when the browser uses non-overlay scrollbars. */
+.pesaa-table-scroll { scrollbar-width: thin; }
+.pesaa-table-scroll::-webkit-scrollbar { height: 8px; }
+.pesaa-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}

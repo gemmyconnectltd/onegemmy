@@ -104,7 +104,7 @@ export default function AdminSettingsPage() {
           </div>
           <div className="divide-y divide-border">
             {section.items.map((item) => (
-              <div key={item.label} className="px-5 py-4 flex items-center justify-between gap-4">
+              <div key={item.label} className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
                 <label className="text-sm font-medium text-foreground">{item.label}</label>
                 {item.type === "toggle" && (
                   <Toggle

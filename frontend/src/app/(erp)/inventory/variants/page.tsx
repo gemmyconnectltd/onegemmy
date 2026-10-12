@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -198,7 +199,7 @@ export default function VariantsPage() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
@@ -265,7 +266,7 @@ export default function VariantsPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
           </div>
         <div className="px-5 py-3 border-t border-border bg-surface/30 flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {variants.length} variants</p>
@@ -339,7 +340,7 @@ export default function VariantsPage() {
                 </select>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">SKU</label>
                 <input value={createForm.sku} onChange={(e) => setCreateForm((f) => ({ ...f, sku: e.target.value }))} placeholder="Optional"
@@ -389,7 +390,7 @@ export default function VariantsPage() {
               <p className="text-sm font-semibold text-foreground">Edit variant</p>
               <p className="text-xs text-muted mt-0.5">{editing.product_name ?? "Product"} · {attrLabel(editing)}</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">SKU</label>
                 <input value={editForm.sku} onChange={(e) => setEditForm((f) => f && { ...f, sku: e.target.value })} placeholder="Optional"

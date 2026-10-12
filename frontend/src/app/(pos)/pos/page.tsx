@@ -316,7 +316,7 @@ export default function POSPage() {
 
   // ── render ───────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
+    <div className="h-dvh min-w-0 flex flex-col overflow-hidden bg-background">
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
@@ -346,10 +346,10 @@ export default function POSPage() {
       />
 
       {/* Body */}
-      <div className="flex-1 flex overflow-hidden flex-col lg:flex-row min-h-0">
+      <div className="flex-1 min-w-0 flex overflow-y-auto lg:overflow-hidden flex-col lg:flex-row min-h-0">
 
         {/* ── Left: catalog ── */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="min-w-0 h-[55dvh] lg:h-auto lg:flex-1 shrink-0 flex flex-col overflow-hidden min-h-0">
 
           {/* Status bar */}
           <div className="flex items-center gap-2 px-4 pt-3 flex-shrink-0">
@@ -381,7 +381,7 @@ export default function POSPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search by name or SKU… (press / or Enter to add top match)"
-                className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
+                className="min-w-0 flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
               />
               {search && (
                 <button onClick={() => setSearch("")} className="text-muted hover:text-foreground transition-colors">
@@ -444,9 +444,9 @@ export default function POSPage() {
         </div>
 
         {/* Right: cart + payment */}
-        <div className="w-full lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden">
+        <div className="w-full min-w-0 lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden">
           {/* Cart — flex-1 so it fills space and scrolls its own items */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-72 lg:h-auto lg:flex-1 min-h-0 overflow-hidden">
             <CartPanel
               cart={cart}
               customers={customers}
@@ -467,7 +467,7 @@ export default function POSPage() {
             />
           </div>
           {/* Payment — never grows, scrolls its own content if needed */}
-          <div className="flex-shrink-0 border-t border-border overflow-y-auto max-h-[52vh] lg:max-h-[48vh]">
+          <div className="flex-shrink-0 border-t border-border overflow-y-auto lg:max-h-[48dvh]">
             <div className="p-3">
               <PaymentPanel
                 payment={payment}

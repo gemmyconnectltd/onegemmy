@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { DocMoney } from "@/components/currency/DocMoney";
 import { orderBaseOutstanding, orderBasePaid, orderBaseTotal } from "@/lib/baseMoney";
@@ -110,7 +111,7 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Invoices</h1>
           <p className="text-sm text-muted mt-0.5">Manage and track all customer invoices</p>
@@ -196,7 +197,7 @@ export default function InvoicesPage() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-surface/50">
                 <th className="px-4 py-3 text-left text-[11px] font-semibold text-muted uppercase tracking-wide">Invoice</th>
@@ -280,7 +281,7 @@ export default function InvoicesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         </div>
         <div className="px-4 py-3 border-t border-border flex items-center justify-between">
             <p className="text-[12px] text-muted">{filtered.length} invoice{filtered.length !== 1 ? "s" : ""}</p>

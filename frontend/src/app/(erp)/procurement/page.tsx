@@ -115,7 +115,7 @@ export default function ProcurementPage() {
           ) : (
             <div className="divide-y divide-border">
               {recentOrders.map((p) => (
-                <div key={p.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                <div key={p.id} className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[13px] font-semibold text-foreground">{p.supplier?.name ?? "Unknown supplier"}</p>
                     <p className="text-[11px] text-muted">{p.reference}</p>

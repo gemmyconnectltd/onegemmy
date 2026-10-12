@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { expenseBaseAmount } from "@/lib/baseMoney";
 
@@ -229,7 +230,7 @@ export default function ExpensesPage() {
               <BulkActionBar count={bulk.count} label="expense" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <table className={`w-full min-w-160 transition-opacity ${expensesQ.isFetching ? "opacity-60" : ""}`}>
+          <TableScroll><table className={`w-full min-w-160 transition-opacity ${expensesQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -296,7 +297,7 @@ export default function ExpensesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="expenses" color={brandColor} />
         </div>
       )}
@@ -306,7 +307,7 @@ export default function ExpensesPage() {
           <Field label="Title" required>
             <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Rent Payment" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Amount" required>
               <Input type="number" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
             </Field>

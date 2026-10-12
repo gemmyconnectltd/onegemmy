@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Sparkles, X } from "lucide-react";
@@ -130,7 +131,7 @@ export function AiSettings() {
             </div>
             {u.top_tenants.length > 0 && (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full min-w-[320px] text-left text-[12.5px]">
+                <TableScroll><table className="w-full min-w-[320px] text-left text-[12.5px]">
                   <thead><tr className="border-b border-border bg-surface text-[10.5px] uppercase tracking-wide text-muted">
                     <th className="px-3 py-2 font-semibold">Business</th><th className="px-3 py-2 text-right font-semibold">Requests</th><th className="px-3 py-2 text-right font-semibold">Est. cost</th>
                   </tr></thead>
@@ -140,7 +141,7 @@ export function AiSettings() {
                         <td className="px-3 py-2 text-right tabular-nums">{t.requests}</td><td className="px-3 py-2 text-right tabular-nums text-muted">${t.est_cost_usd.toFixed(2)}</td></tr>
                     ))}
                   </tbody>
-                </table>
+                </table></TableScroll>
               </div>
             )}
             {u.recent_errors.length > 0 && (

@@ -156,7 +156,7 @@ export default function BranchDetailPage() {
           ) : (
             <div className="divide-y divide-border">
               {stats.users.map((u) => (
-                <div key={u.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
+                <div key={u.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[13px] font-bold shrink-0" style={{ backgroundColor: C }}>
                       {u.full_name[0]?.toUpperCase()}
@@ -198,7 +198,7 @@ export default function BranchDetailPage() {
           ) : (
             <div className="divide-y divide-border">
               {stats.recent_transfers.map((t) => (
-                <div key={t.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
+                <div key={t.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${t.direction === "incoming" ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"}`}>
                       {t.direction === "incoming"
@@ -229,7 +229,7 @@ export default function BranchDetailPage() {
           <Field label="Location">
             <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Kigali, Rwanda" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone">
               <Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+250 7XX XXX XXX" />
             </Field>

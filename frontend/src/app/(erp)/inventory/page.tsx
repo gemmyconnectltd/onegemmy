@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -285,7 +286,7 @@ export default function InventoryOverviewPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-160">
+          <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/40 text-left text-[10px] font-semibold text-muted uppercase tracking-wider">
                 <th className="px-5 py-3">Product</th>
@@ -367,7 +368,7 @@ export default function InventoryOverviewPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></TableScroll>
           </div>
         <div className="px-5 py-3 border-t border-border flex items-center justify-between">
           <p className="text-xs text-muted">{filtered.length} of {inventory.length} products</p>

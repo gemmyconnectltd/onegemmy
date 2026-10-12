@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtMoney } from "@/lib/config";
 import { Plus, Search, TrendingUp, ShoppingCart, Target, ArrowUpRight, Users, Edit2, Trash2, AlertCircle, Handshake } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -217,7 +218,7 @@ export default function SalesPage() {
         {isLoading ? (
           <PageLoader variant="compact" />
         ) : (
-          <table className="w-full min-w-[640px]">
+          <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="text-left text-xs text-muted border-b border-border">
                 <th className="p-4 w-10">
@@ -262,7 +263,7 @@ export default function SalesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></TableScroll>
         )}
         {!isLoading && filtered.length === 0 && (
           <div className="py-16 text-center">
@@ -278,7 +279,7 @@ export default function SalesPage() {
           <Field label="Deal Name" required>
             <Input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Enterprise License - Acme Corp" />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Value" required>
               <Input type="number" min="0" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="0" />
             </Field>
@@ -286,7 +287,7 @@ export default function SalesPage() {
               <Input type="number" min="0" max="100" value={form.probability} onChange={(e) => setForm({ ...form, probability: e.target.value })} placeholder="50" />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Stage">
               <Select value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })}>
                 {STAGES.map((s) => <option key={s}>{s}</option>)}

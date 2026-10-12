@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { Building2, CheckCircle, XCircle, Crown, TrendingUp, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAdminStats, useTenants } from "@/lib/api/hooks";
@@ -114,7 +115,7 @@ export default function AdminPlansPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px]">
+              <TableScroll><table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
                     <th className="px-5 py-3 font-semibold">Business</th>
@@ -152,7 +153,7 @@ export default function AdminPlansPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></TableScroll>
               </div>
             )}
           </div>

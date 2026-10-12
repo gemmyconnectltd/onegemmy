@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { purchaseBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
@@ -173,7 +174,7 @@ export default function PurchaseOrdersPage() {
   return (
     <div className="space-y-5">
       {confirmDialog}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Purchase Orders</h1>
           <p className="text-sm text-muted mt-1">Create and track orders from your suppliers.</p>
@@ -226,7 +227,7 @@ export default function PurchaseOrdersPage() {
       )}
 
       <div className="bg-card border border-border overflow-x-auto">
-        <table className="w-full min-w-[640px]">
+        <TableScroll><table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 w-10">
@@ -298,7 +299,7 @@ export default function PurchaseOrdersPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></TableScroll>
       </div>
 
       {/* New Purchase Order */}
@@ -316,7 +317,7 @@ export default function PurchaseOrdersPage() {
         }
       >
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Supplier">
               <Select value={form.supplier_id} onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}>
                 <option value="">— Select supplier —</option>

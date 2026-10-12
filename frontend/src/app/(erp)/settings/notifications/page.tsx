@@ -47,7 +47,7 @@ export default function NotificationsPage() {
         </div>
         <div className="divide-y divide-border">
           {settings.map((s) => (
-            <div key={s.id} className="px-5 py-4 flex items-center justify-between gap-4">
+            <div key={s.id} className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0" style={{ backgroundColor: `${s.color}15` }}>
                   <s.icon size={16} style={{ color: s.color }} />

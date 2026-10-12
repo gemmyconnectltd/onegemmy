@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { Suspense, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -428,7 +429,7 @@ function AdminTenantsPageInner() {
                 />
               </div>
             )}
-            <table className="w-full min-w-[640px]">
+            <TableScroll><table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider bg-surface/50">
                   <th className="px-5 py-3 w-10">
@@ -578,7 +579,7 @@ function AdminTenantsPageInner() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></TableScroll>
           </div>
           {filtered.length === 0 && (
             <div className="py-16 text-center">
@@ -631,7 +632,7 @@ function AdminTenantsPageInner() {
               placeholder="acme-corp"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Plan">
               <Select
                 value={form.subscription_plan}
@@ -654,7 +655,7 @@ function AdminTenantsPageInner() {
               />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="City">
               <Input
                 value={form.city}

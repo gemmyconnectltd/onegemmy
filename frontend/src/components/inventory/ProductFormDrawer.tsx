@@ -198,7 +198,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
         <Field label="Product name" required>
           <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Phone Case - iPhone" autoFocus />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="SKU (optional)">
             <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Leave blank to generate" maxLength={100} className="font-mono" />
           </Field>
@@ -214,7 +214,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             </Select>
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Subcategory (optional)">
             <Input value={form.subcategory} onChange={(e) => set("subcategory", e.target.value)} placeholder="e.g. Phone cases" maxLength={255} />
           </Field>
@@ -222,7 +222,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             <Input value={form.barcode} onChange={(e) => set("barcode", e.target.value)} placeholder="Enter or scan barcode" maxLength={100} className="font-mono" />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Brand">
             <Select
               value={form.brand_id}
@@ -247,7 +247,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             </Select>
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Purchase price" required>
             <Input type="number" min="0" value={form.cost} onChange={(e) => set("cost", e.target.value)} placeholder="0" className="font-mono" />
           </Field>
@@ -255,7 +255,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             <Input type="number" min="0" value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="0" className="font-mono" />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Stock" required>
             <Input type="number" min="0" value={form.stock} onChange={(e) => set("stock", e.target.value)} placeholder="0" />
           </Field>

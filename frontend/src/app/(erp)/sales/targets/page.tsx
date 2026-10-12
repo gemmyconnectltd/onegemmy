@@ -297,7 +297,7 @@ export default function SalesTargetsPage() {
       </div>
 
       {/* ── Period filter tabs ── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         {periods.length > 2 && (
           <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1 w-fit flex-wrap">
             {periods.map((p) => (
@@ -457,7 +457,7 @@ export default function SalesTargetsPage() {
           </Field>
 
           {/* target + achieved side by side */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Target Value" required>
               <Input
                 type="number" min="0"
@@ -497,7 +497,7 @@ export default function SalesTargetsPage() {
           )}
 
           {/* period + unit */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Period" required>
               <Select
                 value={form.period}
