@@ -8,11 +8,13 @@ import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
 import { Logo } from "@/components/ui/Logo";
 import { AuthBrandingPanel } from "@/components/auth/AuthBrandingPanel";
+import { ADMIN_URL } from "@/lib/links";
 
 export default function LoginPage() {
   usePageTitle("Sign In");
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
+  const [adminPortal, setAdminPortal] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [tenantSlug, setTenantSlug] = useState<string | undefined>(undefined);
@@ -24,13 +26,22 @@ export default function LoginPage() {
   const emailRef = useRef<HTMLInputElement>(null);
 
   const redirectAfterLogin = () => {
-    // redirect superadmin to admin dashboard, everyone else to ERP
-    const token = localStorage.getItem("onegemmy_token");
-    let isSuperAdmin = false;
+    // Platform admins have their own portal on its own domain. Don't keep their session on this origin.
+    const token = localStorage.getItem("onegemmy_token") ?? sessionStorage.getItem("onegemmy_token");
+    let platformAdmin = false;
     if (token) {
-      try { isSuperAdmin = JSON.parse(atob(token.split(".")[1]))?.role === "superadmin"; } catch {}
+      try {
+        const c = JSON.parse(atob(token.split(".")[1]));
+        platformAdmin = c?.role === "superadmin" && !c?.tenant_id;
+      } catch { /* not decodable: treat as a normal user */ }
     }
-    router.push(isSuperAdmin ? "/admin" : "/dashboard");
+    if (platformAdmin) {
+      logout();
+      setAdminPortal(true);
+      setError("Platform administrators sign in on the admin portal.");
+      return;
+    }
+    router.push("/dashboard");
   };
 
   const submitLogin = async (emailToUse: string, passwordToUse: string, slug: string | undefined) => {
@@ -80,6 +91,12 @@ export default function LoginPage() {
               <AlertCircle size={16} className="flex-shrink-0" />
               {error}
             </div>
+          )}
+
+          {adminPortal && (
+            <a href={`${ADMIN_URL}/login`} className="-mt-3 mb-5 inline-flex items-center gap-1 text-sm font-medium text-foreground underline">
+              Go to the admin portal <ArrowRight size={14} />
+            </a>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -174,12 +191,6 @@ export default function LoginPage() {
               <div className="space-y-3">
                 <p className="text-[11px] text-muted/50 uppercase tracking-wider font-medium">Demo Accounts</p>
                 {([
-                  {
-                    tenant: "Global", slug: undefined,
-                    users: [
-                      { label: "Super Admin", email: "pesaa.customer@gmail.com", password: "superadmin123", desc: "Admin dashboard", isSuper: true },
-                    ],
-                  },
                   {
                     tenant: "Pesaa", slug: "onegemmy",
                     users: [

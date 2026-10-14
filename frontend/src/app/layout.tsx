@@ -69,10 +69,8 @@ export const metadata: Metadata = {
     description:
       "All-in-one business management platform for sales, inventory, accounting, HR, and more.",
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  // The public face of Pesaa is the website project; the product app is not for search engines.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
