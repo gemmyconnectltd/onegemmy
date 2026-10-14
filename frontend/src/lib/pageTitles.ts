@@ -56,8 +56,6 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/settings/appearance": "Appearance",
   "/settings/notifications": "Notifications",
   "/settings/security": "Security",
-  "/admin": "Platform Overview",
-  "/admin/tenants": "Tenants",
 };
 
 const DEFAULT_TITLE = `${APP_NAME} - Business Management Tool`;

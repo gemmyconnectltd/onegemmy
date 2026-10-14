@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import { SITE_URL } from "@/lib/links";
 import {
   ShoppingCart, Warehouse, HandCoins, UserCog, ShoppingBag, BarChart3,
 } from "lucide-react";
@@ -42,12 +42,12 @@ export function AuthBrandingPanel() {
 
       <div className="relative z-10 flex flex-col justify-between w-full p-12">
         <div>
-          <Link href="/" className="flex items-center gap-2.5 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
+          <a href={SITE_URL} className="flex items-center gap-2.5 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
             <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center">
               <LogoMark className="text-white" size={20} />
             </div>
             <span className="text-xl font-bold text-white">{siteConfig.name}</span>
-          </Link>
+          </a>
 
           {/* Floating capability badges — confined to this box's own
               coordinate space so they can never collide with the headline

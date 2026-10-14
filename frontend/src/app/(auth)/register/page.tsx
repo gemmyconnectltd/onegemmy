@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SITE_URL } from "@/lib/links";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import worldCountriesData from "world-countries";
@@ -642,7 +643,7 @@ export default function RegisterPage() {
                   className="w-3.5 h-3.5 accent-accent rounded mt-0.5"
                   required
                 />
-                <span>I agree to the <Link href="/terms" className="text-foreground font-medium hover:underline">Terms</Link> and <Link href="/privacy" className="text-foreground font-medium hover:underline">Privacy Policy</Link></span>
+                <span>I agree to the <a href={`${SITE_URL}/terms`} target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:underline">Terms</a> and <a href={`${SITE_URL}/privacy`} target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:underline">Privacy Policy</a></span>
               </label>
 
               <button
