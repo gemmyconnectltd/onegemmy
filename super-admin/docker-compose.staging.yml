@@ -8,4 +8,4 @@ services:
     restart: unless-stopped
     # Only the host's Nginx talks to it: bound to localhost, never exposed publicly.
     ports:
-      - "127.0.0.1:3013:3000"
+      - "127.0.0.1:3015:3000"

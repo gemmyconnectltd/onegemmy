@@ -1,0 +1,24 @@
+# NEW file: /etc/nginx/sites-available/pesaa-admin  (then: sudo ln -s /etc/nginx/sites-available/pesaa-admin /etc/nginx/sites-enabled/)
+# Start with this plain HTTP block, then let certbot add HTTPS:  sudo certbot --nginx -d admin.pesaa.io
+# DNS: an A record for admin.pesaa.io must already point at this server.
+server {
+    listen 80;
+    server_name admin.pesaa.io;
+
+    client_max_body_size 50M;
+
+    # Strongly recommended: only your own addresses can even load the login page. Uncomment and use your IPs,
+    # or put a password in front of it instead (auth_basic / auth_basic_user_file with an htpasswd file).
+    # allow 203.0.113.10;
+    # deny all;
+
+    location / {
+        proxy_pass http://127.0.0.1:3005;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
