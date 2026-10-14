@@ -1,0 +1,12 @@
+services:
+  website:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://pesaa.io}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://app.pesaa.io}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.pesaa.io/api/v1}
+    restart: unless-stopped
+    # Only the host's Nginx talks to it: bound to localhost, never exposed publicly.
+    ports:
+      - "127.0.0.1:3002:3000"
