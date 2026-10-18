@@ -305,6 +305,8 @@ async def create_order(
     effective_at = (data.ordered_at if data.ordered_at and data.ordered_at.tzinfo else (
         data.ordered_at.replace(tzinfo=UTC) if data.ordered_at else datetime.now(UTC)
     ))
+    if data.due_date and data.due_date < effective_at.date():
+        raise ValidationError("Invoice due date cannot precede its issue date")
     currency_code, fx_rate, base_ccy = await resolve_document_currency(
         db, tenant_id, data.currency_code, data.exchange_rate, at=effective_at,
     )
@@ -552,6 +554,8 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     was_completed = obj.status == "Completed"
     before = obj.status
     update_fields = data.model_dump(exclude_unset=True)
+    if data.due_date and data.due_date < obj.ordered_at.date():
+        raise ValidationError("Invoice due date cannot precede its issue date")
     # Approval is a decision, not an edit: an order held for approval can only leave that state through the
     # approve/reject endpoints (credit:approve), and nobody can PATCH an order into or out of it.
     new_status = update_fields.get("status")

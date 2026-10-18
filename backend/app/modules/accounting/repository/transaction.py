@@ -16,13 +16,13 @@ class TransactionRepository(BaseRepository[Transaction]):
 
     async def get_by_id_for_tenant(self, tenant_id: uuid.UUID, id: uuid.UUID) -> Transaction | None:
         result = await self.db.execute(
-            select(Transaction).options(*self._opts())
+            select(Transaction).options(*self._opts()).execution_options(populate_existing=True)
             .where(Transaction.id == id, Transaction.tenant_id == tenant_id)
         )
         return result.scalar_one_or_none()
 
     async def list_for_tenant(self, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, offset: int = 0, limit: int = 50, branch_id: uuid.UUID | None = None) -> list[Transaction]:
-        stmt = select(Transaction).options(*self._opts()).where(Transaction.tenant_id == tenant_id)
+        stmt = select(Transaction).options(*self._opts()).execution_options(populate_existing=True).where(Transaction.tenant_id == tenant_id)
         if branch_id:
             stmt = stmt.where(Transaction.branch_id == branch_id)
         if type:
@@ -45,8 +45,25 @@ class TransactionRepository(BaseRepository[Transaction]):
         return result.scalar_one()
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
-        # Random references do not collide when concurrent journals are created or old rows are voided.
-        return f"TXN-{uuid.uuid4().hex[:20].upper()}"
+        from sqlalchemy import Integer, cast
+        from sqlalchemy.dialects.postgresql import insert
+
+        from app.modules.accounting.models.workspace import JournalSequence
+        # Atomic tenant sequence, seeded from existing numbered references; display references are separate from retry keys.
+        existing = await self.db.get(JournalSequence, tenant_id)
+        initial = 1
+        if existing is None:
+            initial = (await self.db.execute(select(func.coalesce(func.max(cast(func.substring(Transaction.reference, 5), Integer)), 0)).where(
+                Transaction.tenant_id == tenant_id, Transaction.reference.op("~")(r"^TXN-[0-9]{1,9}$")))).scalar_one() + 1
+        stmt = insert(JournalSequence).values(tenant_id=tenant_id, last_number=initial).on_conflict_do_update(
+            index_elements=[JournalSequence.tenant_id], set_={"last_number": JournalSequence.last_number + 1}).returning(JournalSequence.last_number)
+        return f"TXN-{(await self.db.execute(stmt)).scalar_one():04d}"
+
+    async def by_client_reference(self, tenant_id: uuid.UUID, reference: str) -> Transaction | None:
+        from sqlalchemy import or_
+        return (await self.db.execute(select(Transaction).options(*self._opts()).execution_options(populate_existing=True).where(
+            Transaction.tenant_id == tenant_id, or_(Transaction.client_reference == reference, Transaction.reference == reference)
+        ))).scalar_one_or_none()
 
     async def save(self, obj: Transaction) -> Transaction:
         if obj.branch_id is None:
@@ -62,11 +79,11 @@ class TransactionRepository(BaseRepository[Transaction]):
         return await super().save(obj)
 
     async def by_reference(self, tenant_id: uuid.UUID, reference: str) -> Transaction | None:
-        return (await self.db.execute(select(Transaction).options(*self._opts()).where(
+        return (await self.db.execute(select(Transaction).options(*self._opts()).execution_options(populate_existing=True).where(
             Transaction.tenant_id == tenant_id, Transaction.reference == reference
         ))).scalar_one_or_none()
 
     async def locked(self, tenant_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction | None:
-        return (await self.db.execute(select(Transaction).options(*self._opts()).where(
+        return (await self.db.execute(select(Transaction).options(*self._opts()).execution_options(populate_existing=True).where(
             Transaction.tenant_id == tenant_id, Transaction.id == transaction_id
         ).with_for_update())).scalar_one_or_none()

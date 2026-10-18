@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,7 +111,7 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
         db.add(item)
 
 
-async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder) -> None:
+async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder, due_date: date | None = None) -> None:
     """Stock in all items, raise the supplier bill, and post the accounting
     entry. Caller commits."""
     for item in purchase.items:
@@ -138,7 +138,7 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     # assumption that they were paid in cash on the spot — see
     # procurement/service/supplier_bill.py for the Accounts Payable posting
     # and the separate supplier-payment flow that settles it.
-    await create_bill_for_purchase(db, tenant_id, user_id, purchase)
+    await create_bill_for_purchase(db, tenant_id, user_id, purchase, due_date)
 
 
 async def create_purchase(
@@ -183,7 +183,7 @@ async def create_purchase(
     return PurchaseRead.model_validate(obj)
 
 
-async def receive_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID) -> PurchaseRead:
+async def receive_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, due_date: date | None = None) -> PurchaseRead:
     repo = PurchaseOrderRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -191,7 +191,7 @@ async def receive_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
     if obj.status != "Draft":
         raise ValidationError(f"Cannot receive a purchase with status '{obj.status}'")
 
-    await _apply_receive(db, tenant_id, user_id, obj)
+    await _apply_receive(db, tenant_id, user_id, obj, due_date)
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return PurchaseRead.model_validate(obj)

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import lazyload
@@ -64,8 +65,13 @@ class WorkspaceRepository(ReportingRepository):
             for row in rows:
                 row["posting_status"] = "Posted" if f"PAYROLL-{row['id'].hex}" in posted else "Not posted"
         else:
-            records = (await self.db.execute(stmt)).scalars().all()
-            rows = [{c.name: getattr(record, c.name) for c in model.__table__.columns} for record in records]
+            if view == "reconciliations":
+                stmt = select(model, Account.code, Account.name).join(Account, and_(Account.id == model.account_id, Account.tenant_id == tenant_id)).where(*conditions).order_by(model.created_at.desc(), model.id).offset((page - 1) * page_size).limit(min(page_size, 100))
+                records = (await self.db.execute(stmt)).all()
+                rows = [{**{c.name: getattr(record, c.name) for c in model.__table__.columns}, "account": f"{code} · {name}"} for record, code, name in records]
+            else:
+                records = (await self.db.execute(stmt)).scalars().all()
+                rows = [{c.name: getattr(record, c.name) for c in model.__table__.columns} for record in records]
         if view == "assets":
             totals = (await self.db.execute(select(func.coalesce(func.sum(model.cost), 0).label("cost"), func.coalesce(func.sum(model.accumulated), 0).label("depreciation"),
                                                     func.coalesce(func.sum(model.cost - model.accumulated), 0).label("net_book_value")).where(*conditions, model.disposed_on.is_(None)))).one()._mapping
@@ -97,3 +103,30 @@ class WorkspaceRepository(ReportingRepository):
         return (await self.db.execute(select(func.coalesce(func.sum(FixedAsset.cost), 0)).where(
             FixedAsset.tenant_id == tenant_id, FixedAsset.acquisition_transaction_id == transaction_id,
             FixedAsset.asset_account_id == account_id))).scalar_one()
+
+    async def income(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date,
+                     end: date, page: int, page_size: int, status: str | None = None) -> dict:
+        """Revenue-only amounts and full-period totals; never sum a truncated journal page."""
+        revenue = case((TransactionLine.type == "credit", TransactionLine.amount), else_=-TransactionLine.amount)
+        stmt = select(Transaction.id, Transaction.reference, Transaction.transaction_date, Transaction.description,
+                      Transaction.status, Transaction.type, func.sum(revenue).label("amount")) .select_from(Transaction).join(
+            TransactionLine, TransactionLine.transaction_id == Transaction.id).join(Account, and_(
+                Account.id == TransactionLine.account_id, Account.tenant_id == tenant_id)).where(
+                Transaction.tenant_id == tenant_id, Account.type == "Revenue",
+                Transaction.transaction_date >= start, Transaction.transaction_date <= end)
+        if branch_id:
+            stmt = stmt.where(Transaction.branch_id == branch_id)
+        grouped = stmt.group_by(Transaction.id).subquery()
+        totals = (await self.db.execute(select(
+            func.coalesce(func.sum(case((grouped.c.status == "Posted", grouped.c.amount), else_=0)), 0).label("posted"),
+            func.coalesce(func.sum(case((grouped.c.status == "Draft", grouped.c.amount), else_=0)), 0).label("draft"),
+        ))).one()._mapping
+        conditions = [grouped.c.status == status] if status else []
+        total = (await self.db.execute(select(func.count()).select_from(grouped).where(*conditions))).scalar_one()
+        rows = (await self.db.execute(select(grouped).where(*conditions).order_by(grouped.c.transaction_date.desc(), grouped.c.reference.desc()).offset((page-1)*page_size).limit(min(page_size, 100)))).mappings().all()
+        return {"items": [dict(row) for row in rows], "total": total, "totals": dict(totals)}
+
+    async def cash_position(self, tenant_id: uuid.UUID, account_id: uuid.UUID, branch_id: uuid.UUID | None, as_of: date) -> Decimal:
+        signed = case((TransactionLine.type == "debit", TransactionLine.amount), else_=-TransactionLine.amount)
+        stmt = self.ledger(tenant_id, to_date=as_of, branch_id=branch_id).with_only_columns(func.coalesce(func.sum(signed), 0)).where(Account.id == account_id)
+        return (await self.db.execute(stmt)).scalar_one()

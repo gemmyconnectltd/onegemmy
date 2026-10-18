@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,10 +53,12 @@ async def get_bill(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Sup
     return _to_read(obj)
 
 
-async def create_bill_for_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder) -> SupplierBill:
+async def create_bill_for_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder, due_date: date | None = None) -> SupplierBill:
     """Called when a Purchase Order is received — raises the supplier bill
     (the actual liability) and posts Dr Inventory / Cr Accounts Payable.
     Does not commit; the caller (receive_purchase/_apply_receive) does."""
+    if due_date and due_date < datetime.now(UTC).date():
+        raise ValidationError("Supplier due date cannot precede the bill date")
     repo = SupplierBillRepository(db)
     reference = await repo.next_reference(tenant_id)
     bill = SupplierBill(
@@ -68,6 +70,7 @@ async def create_bill_for_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_
         amount_paid=0,
         status="Unpaid",
         bill_date=datetime.now(UTC).date(),
+        due_date=due_date,
         created_by=user_id,
         # The bill is denominated like its purchase order and inherits the rate frozen at receipt.
         currency_code=purchase.currency_code,

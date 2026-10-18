@@ -167,14 +167,14 @@ async def generate(db: AsyncSession, user: User, data: ReportRequest,
             totals[row["bucket"]] += Decimal(row["amount"])
             await append(row)
         metadata["columns"] = columns(("name", "Supplier" if kind == "payables-aging" else "Customer", "text"), ("reference", "Bill" if kind == "payables-aging" else "Invoice", "text"),
-                                      ("due_date", "Due date", "date"), ("amount", "Outstanding (base)", "money"), ("age", "Days overdue", "number"), ("status", "Status", "text"))
+                                      ("due_date", "Due date", "date"), ("due_note", "Terms", "text"), ("amount", "Outstanding (base)", "money"), ("age", "Days overdue", "number"), ("status", "Status", "text"))
         total = sum(totals.values(), ZERO)
         metadata["totals"] = {"Total outstanding": total, "Current": totals["current"], "1–30 days": totals["days_1_30"], "31–60 days": totals["days_31_60"], "61–90 days": totals["days_61_90"], "Over 90 days": totals["over_90"]}
         control = "2000" if kind == "payables-aging" else "1100"
         balances = await repo.balances(tenant_id, to_date=as_of, branch_id=branch_id)
         ledger = sum((b["balance"] for b in balances.values() if b["account"].code == control), ZERO)
         metadata["reconciliation"] = {"balanced": total == ledger, "difference": total - ledger, "label": f"Subledger outstanding versus GL control account {control}"}
-        metadata["notes"].append("Balances use source invoices/bills and applied payments at frozen document exchange rates. No due date means Current (not overdue). Reconciliation differences require review; no balancing journal is inserted.")
+        metadata["notes"].append("Legacy due dates before the issue date are flagged for review; no historical terms are silently changed. Balances use source invoices/bills and applied payments at frozen document exchange rates. No due date means Current (not overdue). Reconciliation differences require review; no balancing journal is inserted.")
     elif kind == "inventory":
         total, units = ZERO, ZERO
         async for row in SubledgerRepository(db).inventory(tenant_id):
@@ -193,7 +193,7 @@ async def generate(db: AsyncSession, user: User, data: ReportRequest,
             from app.modules.accounting.repository import AccountRepository
             if await AccountRepository(db).get_by_id_for_tenant(tenant_id, data.account_id) is None:
                 raise NotFoundError("Account not found")
-        async for row in repo.source_lines(tenant_id, start, end, branch_id, data.account_id, data.search):
+        async for row in repo.source_lines(tenant_id, start, end, branch_id, data.account_id, data.search, data.cash_only):
             await append(row)
         metadata["columns"] = columns(("date", "Date", "date"), ("reference", "Journal", "text"), ("transaction_reference", "Source reference", "text"), ("name", "Description", "text"),
                                       ("account", "Account", "text"), ("debit", "Debit", "money"), ("credit", "Credit", "money"), ("status", "Status", "text"))
@@ -203,7 +203,7 @@ async def generate(db: AsyncSession, user: User, data: ReportRequest,
         totals = await repo.row_totals(tenant_id, snapshot.id, ["debit", "credit"])
         metadata["totals"] = {"Debits": totals["debit"], "Credits": totals["credit"]}
         metadata["reconciliation"] = {"balanced": totals["debit"] == totals["credit"], "difference": totals["debit"] - totals["credit"],
-                                      "label": "Account / search movement" if data.account_id or data.search else "Posted debits = posted credits"}
+                                      "applicable": not (data.account_id or data.search or data.cash_only), "label": "Account / search movement" if data.account_id or data.search or data.cash_only else "Posted debits = posted credits"}
     metadata["row_count"] = count
     snapshot.data = encoded(metadata)
     await db.flush()

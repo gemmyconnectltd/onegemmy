@@ -57,15 +57,16 @@ async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
         raise ValidationError(f"Debits ({total_debits}) must equal credits ({total_credits})")
 
     repo = TransactionRepository(db)
-    reference = data.client_reference or await repo.next_reference(tenant_id)
-    existing = await repo.by_reference(tenant_id, reference)
+    existing = await repo.by_client_reference(tenant_id, data.client_reference) if data.client_reference else None
     if existing is not None:
         existing_lines = sorted((str(l.account_id), l.type, Decimal(l.amount)) for l in existing.lines)
         new_lines = sorted((str(l.account_id), l.type, l.amount) for l in data.lines)
         if existing_lines != new_lines or existing.transaction_date.isoformat() != data.transaction_date or existing.description != data.description or existing.branch_id != data.branch_id:
             raise ConflictError("Journal reference was already used with different details")
         return TransactionRead.model_validate(existing)
+    reference = await repo.next_reference(tenant_id)
     txn = Transaction(
+        client_reference=data.client_reference,
         tenant_id=tenant_id,
         currency_code=await _ledger_currency(db, tenant_id),
         reference=reference,

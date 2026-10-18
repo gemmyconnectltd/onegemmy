@@ -45,9 +45,11 @@ class AccountRepository(BaseRepository[Account]):
         return (await self.db.execute(stmt.limit(1))).first() is not None
 
     async def filtered(self, tenant_id: uuid.UUID, search: str = "", type: str | None = None,
-                       active: bool | None = None, offset: int = 0, limit: int = 50) -> tuple[list[Account], int]:
+                       active: bool | None = None, offset: int = 0, limit: int = 50, cash_only: bool = False) -> tuple[list[Account], int]:
         from sqlalchemy import or_
         conditions = [Account.tenant_id == tenant_id]
+        if cash_only:
+            conditions.extend([Account.type == "Assets", Account.normal_balance == "debit", Account.code.startswith("10")])
         if search:
             conditions.append(or_(Account.name.ilike(f"%{search}%"), Account.code.ilike(f"%{search}%")))
         if type:

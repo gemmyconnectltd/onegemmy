@@ -16,6 +16,7 @@ from app.modules.tenants.models.mixins import TenantScopedMixin
 class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "accounting_transactions"
 
+    client_reference: Mapped[str | None] = mapped_column(String(50), nullable=True)
     reference: Mapped[str] = mapped_column(String(50), nullable=False)
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="Draft")
@@ -49,6 +50,7 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     lines = relationship("TransactionLine", back_populates="transaction", lazy="selectin", cascade="all, delete-orphan")
 
     __table_args__ = (
+        Index("uq_accounting_transactions_tenant_client_ref", "tenant_id", "client_reference", unique=True),
         Index("uq_accounting_transactions_tenant_ref", "tenant_id", "reference", unique=True),
         Index("ix_accounting_transactions_tenant_id", "tenant_id"),
         Index("ix_accounting_transactions_tenant_branch_date", "tenant_id", "branch_id", "transaction_date"),

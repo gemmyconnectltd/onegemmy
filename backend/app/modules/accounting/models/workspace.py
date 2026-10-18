@@ -74,3 +74,9 @@ class FixedAsset(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         UniqueConstraint("tenant_id", "reference"),
         Index("ix_accounting_assets_tenant_branch", "tenant_id", "branch_id", "acquisition_date"),
     )
+
+
+class JournalSequence(TenantScopedMixin, Base):
+    __tablename__ = "accounting_journal_sequences"
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, nullable=False)

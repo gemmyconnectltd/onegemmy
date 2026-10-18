@@ -18,6 +18,7 @@ class ReportRequest(TrimmedModel):
     branch_id: uuid.UUID | None = None
     account_id: uuid.UUID | None = None
     search: str = Field(default="", max_length=100)
+    cash_only: bool = False
 
     @model_validator(mode="after")
     def dates(self):
@@ -56,10 +57,13 @@ class AssetRequest(TrimmedModel):
     asset_account_id: uuid.UUID
     depreciation_account_id: uuid.UUID
     expense_account_id: uuid.UUID
-    acquisition_transaction_id: uuid.UUID
+    acquisition_transaction_id: uuid.UUID | None = None
+    paid_from_account_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def salvage_less_than_cost(self):
+        if (self.acquisition_transaction_id is None) == (self.paid_from_account_id is None):
+            raise ValueError("Choose an existing acquisition journal or a paid-from account for a new purchase")
         if self.salvage > self.cost:
             raise ValueError("Salvage value cannot exceed acquisition cost")
         return self
@@ -90,3 +94,15 @@ from app.modules.accounting.schemas.account import AccountCreate
 
 class AccountImport(TrimmedModel):
     items: list[AccountCreate] = Field(min_length=1, max_length=500)
+
+
+class IncomeReceipt(TrimmedModel):
+    client_reference: str = Field(min_length=3, max_length=50)
+    transaction_date: date
+    description: str = Field(min_length=1, max_length=500)
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    cash_account_id: uuid.UUID
+    revenue_account_id: uuid.UUID
+    apply_vat: bool = False
+    vat_account_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None

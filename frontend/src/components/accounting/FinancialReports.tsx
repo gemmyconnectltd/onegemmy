@@ -28,7 +28,7 @@ export const FINANCIAL_REPORTS: { kind: ReportKind; title: string; description: 
   { kind: "inventory", title: "Inventory / Stock Report", description: "Current recorded unit-cost valuation of products and variants.", icon: Boxes },
 ];
 
-export function ReportPreview({ kind }: { kind: ReportKind }) {
+export function ReportPreview({ kind, cashOnly = false }: { kind: ReportKind; cashOnly?: boolean }) {
   const { activeBranchId, hasPermission } = useAuth();
   const { currency } = useAppConfig();
   const generate = useGenerateFinancialReport();
@@ -44,12 +44,12 @@ export function ReportPreview({ kind }: { kind: ReportKind }) {
   const data = snapshot ? report.data : undefined;
   const fmt = useFinancialMoney(data?.currency);
   const period = ["income-statement", "cash-flow", "equity", "general-ledger"].includes(kind);
-  const run = () => generate.mutate({ kind, from_date: period ? filters.from || undefined : undefined, to_date: period ? filters.to : undefined, as_of: !period ? filters.asOf : undefined, branch_id: activeBranchId || undefined, account_id: filters.account || undefined, search: filters.search || undefined }, { onSuccess: r => { setSnapshot(r.data.id); setPage(1); } });
+  const run = () => generate.mutate({ kind, from_date: period ? filters.from || undefined : undefined, to_date: period ? filters.to : undefined, as_of: !period ? filters.asOf : undefined, branch_id: activeBranchId || undefined, account_id: filters.account || undefined, search: filters.search || undefined, cash_only: cashOnly }, { onSuccess: r => { setSnapshot(r.data.id); setPage(1); } });
   return <div className="space-y-4">
     <form className="grid items-end gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-5" onSubmit={e => { e.preventDefault(); run(); }}>
       {period ? <><Field label="From (blank = fiscal year start)"><Input aria-label="Report from" type="date" max={filters.to} value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))} /></Field><Field label="To"><Input aria-label="Report to" required type="date" min={filters.from || undefined} value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))} /></Field></> : <Field label={kind === "inventory" ? "Current valuation date" : "As of"}><Input aria-label="Report as of" required type="date" value={filters.asOf} onChange={e => setFilters(f => ({ ...f, asOf: e.target.value }))} /></Field>}
       <Field label="Business / branch"><BranchFilter /></Field><Field label="Ledger currency"><Input aria-label="Report currency" readOnly value={currency} /></Field><Button type="submit" disabled={generate.isPending}>{generate.isPending ? "Generating…" : "Generate"}</Button>
-      {kind === "general-ledger" && <><Field label="Account" className="sm:col-span-2"><AccountPicker label="Ledger account" value={filters.account} onChange={account => setFilters(f => ({ ...f, account }))} /></Field><Field label="Search references / descriptions" className="sm:col-span-2"><Input aria-label="Search ledger" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Reference, description or account" /></Field></>}
+      {kind === "general-ledger" && <><Field label="Account" className="sm:col-span-2"><AccountPicker cashOnly={cashOnly} label="Ledger account" value={filters.account} onChange={account => setFilters(f => ({ ...f, account }))} /></Field><Field label="Search references / descriptions" className="sm:col-span-2"><Input aria-label="Search ledger" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Reference, description or account" /></Field></>}
     </form>
     <FinancialError error={generate.error || report.error || updateTerms.error} />
     {generate.isPending || (snapshot && report.isFetching) ? <PageLoader variant="compact" /> : !data ? <div className="rounded-xl border border-dashed border-border bg-card px-5 py-10 text-center"><FileText size={24} className="mx-auto mb-2 text-accent" /><p className="text-sm font-semibold">Choose your filters and generate the report.</p><p className="mt-1 text-xs text-muted">Preview and exports share one saved result. No journal is created by reporting.</p></div> : <>

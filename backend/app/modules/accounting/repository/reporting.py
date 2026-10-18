@@ -81,10 +81,12 @@ class ReportingRepository(BaseRepository[FinancialSnapshot]):
         return dict((await self.db.execute(stmt)).one()._mapping)
 
     async def source_lines(self, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None,
-                           branch_id: uuid.UUID | None, account_id: uuid.UUID | None = None, search: str = ""):
+                           branch_id: uuid.UUID | None, account_id: uuid.UUID | None = None, search: str = "", cash_only: bool = False):
         stmt = self.ledger(tenant_id, from_date, to_date, branch_id).options(lazyload("*"))
         if account_id:
             stmt = stmt.where(Account.id == account_id)
+        if cash_only:
+            stmt = stmt.where(Account.type == "Assets", Account.code.startswith("10"))
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Transaction.reference.ilike(like), Transaction.description.ilike(like), Account.name.ilike(like)))

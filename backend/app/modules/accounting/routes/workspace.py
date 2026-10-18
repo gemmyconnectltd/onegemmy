@@ -95,11 +95,11 @@ async def bill_terms(bill_id: uuid.UUID, data: DueDateRequest, db: DbSession, cu
 
 
 @router.get("/accounts")
-async def accounts(db: DbSession, current_user: CurrentUser, page: PageQuery, search: str = Query("", max_length=100), type: str | None = None, active: bool | None = None):
+async def accounts(db: DbSession, current_user: CurrentUser, page: PageQuery, search: str = Query("", max_length=100), type: str | None = None, active: bool | None = None, cash_only: bool = False):
     from app.modules.accounting.repository.account import AccountRepository
     from app.modules.accounting.schemas.account import AccountRead
     tenant_id = workspace.allow(current_user, "chart_of_accounts")
-    rows, total = await AccountRepository(db).filtered(tenant_id, search, type, active, page.offset, min(page.page_size, 100))
+    rows, total = await AccountRepository(db).filtered(tenant_id, search, type, active, (page.page - 1) * min(page.page_size, 100), min(page.page_size, 100), cash_only)
     return success_response({"items": [AccountRead.model_validate(r).model_dump() for r in rows], "total": total, "page": page.page, "page_size": min(page.page_size, 100)})
 
 
@@ -156,3 +156,26 @@ async def tax_payment(data: TaxPaymentCreate, db: DbSession, current_user: Curre
     if not data.client_reference:
         raise ValidationError("A stable tax payment reference is required")
     return success_response((await create_tax_payment(db, tenant_id, data, current_user.id)).model_dump(), status_code=201)
+
+
+from datetime import date
+
+
+@router.get("/income")
+async def income(db: DbSession, current_user: CurrentUser, branch_id: ActiveBranchId, page: PageQuery,
+                 from_date: date | None = None, to_date: date | None = None,
+                 status: Literal["Draft", "Posted", "Void"] | None = None):
+    return success_response(await dashboard.income(db, current_user, page.page, min(page.page_size, 100), from_date, to_date, status, branch_id))
+
+
+from app.modules.accounting.schemas.workspace import IncomeReceipt
+
+
+@router.post("/income")
+async def create_income(data: IncomeReceipt, db: DbSession, current_user: CurrentUser, branch_id: ActiveBranchId):
+    return success_response((await operations.income_receipt(db, current_user, data, branch_id)).model_dump(), status_code=201)
+
+
+@router.get("/cash-position/{account_id}")
+async def cash_position(account_id: uuid.UUID, db: DbSession, current_user: CurrentUser, branch_id: ActiveBranchId):
+    return success_response(await dashboard.cash_position(db, current_user, account_id, branch_id))

@@ -333,7 +333,7 @@ export const usePurchaseOrder = (id: string | undefined, opts?: QueryOpts) =>
 
 export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [[...PURCHASES]]);
-export const useReceivePurchaseOrder = mutation((id: string) => procurementApi.receivePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useReceivePurchaseOrder = mutation((input: string | { id: string; dueDate?: string }) => typeof input === "string" ? procurementApi.receivePurchaseOrder(input) : procurementApi.receivePurchaseOrder(input.id, input.dueDate), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
 
@@ -797,8 +797,8 @@ import { financialApi, type DomainKind, type ReportInput, type AccountInput } fr
 const FINANCIAL = ["accounting", "workspace"];
 export const useFinancialOverview = (branch?: string | null) => useQ([...FINANCIAL, "overview", branch], financialApi.overview, r => r.data);
 export const useFinancialPreferences = () => useQ([...FINANCIAL, "preferences"], financialApi.preferences, r => r.data);
-export const useFinancialRecords = (view: DomainKind, page = 1, period?: string, branch?: string | null) => useQ([...FINANCIAL, view, page, period, branch], () => financialApi.records(view, page, period), r => r.data);
-export const useFinancialAccounts = (page = 1, search = "", type?: string, active?: boolean) => useQ([...ACCOUNTS, "workspace", page, search, type, active], () => financialApi.accounts(page, search, type, active), r => r.data);
+export const useFinancialRecords = (view: DomainKind, page = 1, period?: string, branch?: string | null, enabled = true) => useQ([...FINANCIAL, view, page, period, branch], () => financialApi.records(view, page, period), r => r.data, { enabled });
+export const useFinancialAccounts = (page = 1, search = "", type?: string, active?: boolean, cashOnly = false) => useQ([...ACCOUNTS, "workspace", page, search, type, active, cashOnly], () => financialApi.accounts(page, search, type, active, cashOnly), r => r.data);
 export const useFinancialReport = (id: string | null, page = 1) => useQ([...FINANCIAL, "snapshot", id, page], () => financialApi.report(id!, page), r => r.data, { enabled: !!id });
 export const useFinancialJournal = (id: string | null) => useQ([...FINANCIAL, "journal", id], () => financialApi.journal(id!), r => r.data, { enabled: !!id });
 export const useGenerateFinancialReport = mutation((data: ReportInput) => financialApi.generate(data), []);
@@ -817,3 +817,9 @@ export const useFinancialBillPayment = mutation(({ id, data }: { id: string; dat
 export const useExportFinancialAccounts = mutation(() => financialApi.exportAccounts(), []);
 
 export const useFinancialTaxPayment = mutation((data: object) => financialApi.taxPayment(data), [FINANCIAL]);
+
+export const useFinancialIncome = (page: number, from?: string, to?: string, status?: string, branch?: string | null) => useQ([...FINANCIAL, "income", page, from, to, status, branch], () => financialApi.income(page, from, to, status), r => r.data);
+
+export const useCreateIncomeReceipt = mutation((data: object) => financialApi.createIncome(data), [FINANCIAL, [...TRANSACTIONS], [...REPORTS]]);
+
+export const useCashPosition = (id: string | undefined, branch?: string | null, enabled = true) => useQ([...FINANCIAL, "cash-position", id, branch], () => financialApi.cashPosition(id!), r => r.data, { enabled: !!id && enabled });

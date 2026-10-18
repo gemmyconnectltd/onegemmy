@@ -135,8 +135,8 @@ export const procurementApi = {
     request<SingleResponse<PurchaseOrder>>(BASE, { method: "POST", body: JSON.stringify(data) }),
   updatePurchaseOrder: (id: string, data: object) =>
     request<SingleResponse<PurchaseOrder>>(`${BASE}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  receivePurchaseOrder: (id: string) =>
-    request<SingleResponse<PurchaseOrder>>(`${BASE}/${id}/receive`, { method: "POST" }),
+  receivePurchaseOrder: (id: string, dueDate?: string) =>
+    request<SingleResponse<PurchaseOrder>>(`${BASE}/${id}/receive`, { method: "POST", body: JSON.stringify({ due_date: dueDate || null }) }),
   cancelPurchaseOrder: (id: string) =>
     request<SingleResponse<PurchaseOrder>>(`${BASE}/${id}/cancel`, { method: "POST" }),
   deletePurchaseOrder: (id: string) =>

@@ -4,6 +4,8 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
@@ -14,6 +16,7 @@ from app.modules.accounting.repository.workspace import WorkspaceRepository
 from app.modules.accounting.schemas.workspace import (
     AssetAction,
     AssetRequest,
+    IncomeReceipt,
     ReconciliationRequest,
     TransferRequest,
 )
@@ -105,22 +108,36 @@ async def register_asset(db, user: User, data: AssetRequest, active_branch=None)
         raise ValidationError("Acquisition date cannot be in the future")
     existing = await WorkspaceRepository(db).record(FixedAsset, tenant_id, reference=data.reference)
     if existing:
-        if existing.branch_id != branch_id or any(getattr(existing, key) != value for key, value in data.model_dump(exclude={"branch_id"}).items()):
+        if existing.branch_id != branch_id or any(getattr(existing, key) != value for key, value in data.model_dump(exclude={"branch_id", "paid_from_account_id", "acquisition_transaction_id"}).items()) or (data.acquisition_transaction_id is not None and data.acquisition_transaction_id != existing.acquisition_transaction_id):
             raise ConflictError("Asset reference was already used")
+        if data.paid_from_account_id:
+            prior = await TransactionRepository(db).get_by_id_for_tenant(tenant_id, existing.acquisition_transaction_id)
+            if prior is None or prior.type != "asset_acquisition" or not any(l.account_id == data.paid_from_account_id and l.type == "credit" and Decimal(l.amount) == data.cost for l in prior.lines):
+                raise ConflictError("Asset reference was already used with a different payment source")
         return encoded({"id": existing.id})
-    await account(db, tenant_id, data.asset_account_id, "Assets")
+    asset_account = await account(db, tenant_id, data.asset_account_id, "Assets")
+    if asset_account.normal_balance != "debit" or asset_account.code.startswith("10"):
+        raise ValidationError("Choose a debit-balance fixed asset account, separate from cash accounts")
     contra = await account(db, tenant_id, data.depreciation_account_id, "Assets")
     if contra.normal_balance != "credit" or data.asset_account_id == data.depreciation_account_id:
         raise ValidationError("Accumulated depreciation must be a separate credit-balance Asset account")
     await account(db, tenant_id, data.expense_account_id, "Expense")
-    txn = await TransactionRepository(db).get_by_id_for_tenant(tenant_id, data.acquisition_transaction_id)
+    if data.paid_from_account_id:
+        allow(user, "journal_entries", "approve")
+        await account(db, tenant_id, data.paid_from_account_id, cash=True)
+        source = await journal(db, user, f"ACQ-{uuid.uuid5(tenant_id, data.reference).hex}", data.acquisition_date, f"Acquisition {data.name}",
+            [(data.asset_account_id, "debit", data.cost), (data.paid_from_account_id, "credit", data.cost)], branch_id, "asset_acquisition")
+        acquisition_id = source.id
+    else:
+        acquisition_id = data.acquisition_transaction_id
+    txn = await TransactionRepository(db).get_by_id_for_tenant(tenant_id, acquisition_id)
     if txn is None or txn.status != "Posted" or txn.branch_id != branch_id or txn.transaction_date != data.acquisition_date:
         raise ValidationError("Choose a posted acquisition journal in the selected branch and acquisition date")
     debits = sum((Decimal(l.amount) if l.type == "debit" else -Decimal(l.amount) for l in txn.lines if l.account_id == data.asset_account_id), ZERO)
     allocated = await WorkspaceRepository(db).allocated_asset_cost(tenant_id, txn.id, data.asset_account_id)
     if allocated + data.cost > debits:
         raise ValidationError("Registered asset costs exceed the posted acquisition debit")
-    row = FixedAsset(tenant_id=tenant_id, created_by=user.id, **data.model_dump(exclude={"branch_id"}), branch_id=branch_id)
+    row = FixedAsset(tenant_id=tenant_id, created_by=user.id, **data.model_dump(exclude={"branch_id", "paid_from_account_id", "acquisition_transaction_id"}), acquisition_transaction_id=txn.id, branch_id=branch_id)
     db.add(row)
     await db.flush()
     await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, action="asset.register", entity_type="fixed_asset", entity_id=str(row.id), summary=f"Registered asset {row.reference}")
@@ -205,3 +222,31 @@ async def post_payroll(db, user: User, payroll_id: uuid.UUID, cash_account_id: u
                         [(expense, "debit", gross), (withholding, "credit", deductions), (cash_account_id, "credit", net)], type_="payroll")
     await db.commit()
     return encoded({"id": txn.id, "reference": txn.reference})
+
+
+async def income_receipt(db: AsyncSession, user: User, data: IncomeReceipt,
+                         active_branch: uuid.UUID | None = None):
+    from app.modules.accounting.schemas import TransactionCreate
+    from app.modules.accounting.service.tax import (
+        calculate_vat,
+        get_effective_vat_rate,
+        is_vat_enabled,
+    )
+    from app.modules.accounting.service.transaction import create_transaction
+    tenant_id = allow(user, "journal_entries", "create")
+    branch_id = await resolve_branch(db, user, data.branch_id, active_branch)
+    await account(db, tenant_id, data.cash_account_id, cash=True)
+    await account(db, tenant_id, data.revenue_account_id, "Revenue")
+    tax = ZERO
+    if data.apply_vat:
+        if not await is_vat_enabled(db, tenant_id) or data.vat_account_id is None:
+            raise ValidationError("Enable VAT in business settings and select a VAT liability account")
+        await account(db, tenant_id, data.vat_account_id, "Liabilities")
+        rate = await get_effective_vat_rate(db, tenant_id)
+        tax = Decimal(str(calculate_vat(data.amount, inclusive=True, rate=rate)["vat_amount"]))
+    lines = [{"account_id": data.cash_account_id, "type": "debit", "amount": data.amount},
+             {"account_id": data.revenue_account_id, "type": "credit", "amount": data.amount - tax}]
+    if tax:
+        lines.append({"account_id": data.vat_account_id, "type": "credit", "amount": tax})
+    return await create_transaction(db, tenant_id, user.id, TransactionCreate(type="manual", client_reference=data.client_reference,
+        transaction_date=data.transaction_date.isoformat(), description=data.description, branch_id=branch_id, lines=lines))

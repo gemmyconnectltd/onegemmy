@@ -73,7 +73,7 @@ class SubledgerRepository(ReportingRepository):
             yield {"id": str(row.id), "reference": row.reference, "date": row.date.isoformat(),
                    "name": row.name, "due_date": row.due_date.isoformat() if row.due_date else None,
                    "amount": str(base), "document_amount": str(amount), "document_currency": row.currency_code,
-                   "age": days, "bucket": bucket, "status": "Overdue" if days else "Current", "due_note": "" if row.due_date else "No due date"}
+                   "age": days, "bucket": bucket, "status": "Overdue" if days else "Current", "due_note": "Due date precedes issue date; review terms" if row.due_date and row.due_date < row.date else "" if row.due_date else "No due date"}
 
     async def inventory(self, tenant_id: uuid.UUID):
         parent = select(Product.id.label("id"), Product.id.label("product_id"), Product.name.label("name"),

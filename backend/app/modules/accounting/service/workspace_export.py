@@ -127,7 +127,11 @@ class ExportWriter:
         reconciliation = self.report.get("reconciliation")
         summary = [(label, str(value)) for label, value in totals.items()]
         if reconciliation:
-            summary.append((reconciliation["label"], f'{"Reconciled" if reconciliation["balanced"] else "Review required"}; difference {reconciliation["difference"]} {self.report["currency"]}'))
+            if reconciliation.get("applicable") is False:
+                text = f'Filtered net movement (debits less credits): {reconciliation["difference"]} {self.report["currency"]}; not a full-ledger balance check'
+            else:
+                text = f'{"Reconciled" if reconciliation["balanced"] else "Review required"}; difference {reconciliation["difference"]} {self.report["currency"]}'
+            summary.append((reconciliation["label"], text))
         summary += [("Note", note) for note in self.report.get("notes", [])]
         if self.fmt == "csv":
             with open(self.path, "a", encoding="utf-8", newline="") as output:

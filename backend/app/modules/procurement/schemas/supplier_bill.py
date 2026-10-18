@@ -17,6 +17,7 @@ class SupplierBillRead(BaseModel):
     amount_paid: float
     status: str
     bill_date: date
+    due_date: date | None = None
     po_reference: str | None = None
     supplier_name: str | None = None
     balance: float = 0
@@ -57,3 +58,7 @@ class SupplierPaymentRead(BaseModel):
     base_amount: Decimal | None = None
     applied_amount: Decimal | None = None
     base_applied_amount: Decimal | None = None
+
+
+class ReceiveTerms(BaseModel):
+    due_date: date | None = None

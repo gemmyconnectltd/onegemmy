@@ -1,4 +1,5 @@
 "use client";
+import { CashBalanceWarning } from "@/components/accounting/CashBalanceWarning";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { expenseBaseAmount } from "@/lib/baseMoney";
@@ -128,12 +129,13 @@ export default function ExpensesPage() {
   };
 
   const act = (e: AccountingExpense, action: "approve" | "reject") => {
-    setActing(e.id);
     const handler = action === "approve" ? approveExpense : rejectExpense;
-    handler.mutate(e.id, {
+    const perform = () => { setActing(e.id); handler.mutate(e.id, {
       onSettled: () => setActing(null),
       onError: () => setNotice("Could not update the expense."),
-    });
+    }); };
+    if (action === "approve") confirm({ title: "Approve cash expense?", message: "Approval posts this expense and pays it from the recorded Cash account. Verify sufficient funds and review any negative cash warning before continuing.", confirmLabel: "Approve expense", onConfirm: perform });
+    else perform();
   };
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
@@ -172,7 +174,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6"><CashBalanceWarning />
       {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

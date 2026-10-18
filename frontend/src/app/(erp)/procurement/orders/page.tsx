@@ -140,14 +140,9 @@ export default function PurchaseOrdersPage() {
     }
   };
 
-  const handleReceive = (p: PurchaseOrder) => {
-    confirm({
-      title: "Receive Purchase Order",
-      message: `Mark ${p.reference} as received? This adds ${p.items.length} item(s) to your inventory stock.`,
-      confirmLabel: "Receive",
-      onConfirm: () => receivePurchase.mutate(p.id),
-    });
-  };
+  const [receiving, setReceiving] = useState<PurchaseOrder | null>(null);
+  const [billDueDate, setBillDueDate] = useState("");
+  const handleReceive = (p: PurchaseOrder) => { setBillDueDate(""); setReceiving(p); };
 
   const handleCancel = (p: PurchaseOrder) => {
     confirm({
@@ -371,6 +366,7 @@ export default function PurchaseOrdersPage() {
       </Drawer>
 
       {/* View */}
+      <Drawer open={!!receiving} onClose={() => setReceiving(null)} title="Receive Purchase Order"><form className="space-y-4 p-5" onSubmit={e => { e.preventDefault(); if (receiving) receivePurchase.mutate({ id: receiving.id, dueDate: billDueDate || undefined }, { onSuccess: () => setReceiving(null) }); }}><p className="text-sm">Receive {receiving?.reference}, update stock and create the supplier bill.</p><Field label="Supplier bill due date (from agreed terms)"><Input type="date" min={new Date().toISOString().slice(0, 10)} value={billDueDate} onChange={e => setBillDueDate(e.target.value)} /></Field><p className="text-xs text-muted">Leave blank only if terms are unknown. Bills without a due date remain Current and are labelled No due date in aging.</p>{receivePurchase.error && <p role="alert" className="text-sm text-red-600">{receivePurchase.error.message}</p>}<Button type="submit" disabled={receivePurchase.isPending}>Receive & create bill</Button></form></Drawer>
       <Drawer open={!!viewing} onClose={() => setViewing(null)} title="Purchase Order" description={viewing?.reference} size="md">
         {viewing && (
           <div className="p-5 space-y-4">

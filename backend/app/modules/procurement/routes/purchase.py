@@ -7,6 +7,7 @@ from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.procurement import service
 from app.modules.procurement.schemas import PurchaseCreate, PurchaseUpdate
+from app.modules.procurement.schemas.supplier_bill import ReceiveTerms
 
 router = APIRouter(tags=["Procurement - Purchase Orders"])
 
@@ -37,8 +38,8 @@ async def update_purchase_order(id: uuid.UUID, data: PurchaseUpdate, db: DbSessi
 
 
 @router.post("/procurement/purchase-orders/{id}/receive")
-async def receive_purchase_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
-    obj = await service.receive_purchase(db, current_user.tenant_id, id, current_user.id)
+async def receive_purchase_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser, data: ReceiveTerms | None = None):
+    obj = await service.receive_purchase(db, current_user.tenant_id, id, current_user.id, data.due_date if data else None)
     return success_response(data=obj.model_dump(), message="Purchase order received and stock updated")
 
 
