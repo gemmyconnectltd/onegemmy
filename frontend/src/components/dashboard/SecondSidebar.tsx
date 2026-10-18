@@ -7,8 +7,8 @@ import {
   LayoutDashboard, FileText, Target, RotateCcw, TrendingUp,
   TrendingDown, CreditCard, Users, UserPlus, Clock, DollarSign, Award,
   UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
-  Hammer, Package, Layers, Tag, Ruler, Star, Settings, Bell,
-  Shield, Palette, PanelTop, PanelLeft, PanelRight, Building2, UserCircle,
+  Hammer, Package, Layers, Tag, Ruler, Star, Settings,
+  PanelTop, PanelLeft, PanelRight, Building2,
   CalendarDays, ListChecks, CalendarClock, Sparkles,
 } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -24,6 +24,8 @@ export interface NavConfigItem {
   href: string;
   icon: React.ElementType;
   exact?: boolean;
+  /** Extra paths that also light this item up (an item that fronts several sibling pages, e.g. tabbed Settings). */
+  activeFor?: string[];
 }
 
 export interface SectionItem {
@@ -104,12 +106,9 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "customers",  href: "/reports/customers", icon: Users },
   ],
   settings: [
-    { nameKey: "general",       href: "/settings",               icon: Settings, exact: true },
-    { nameKey: "myProfile",     href: "/settings/profile",       icon: UserCircle },
+    // One entry fronts the five Business Settings tabs (General, Financial, Security, Notifications, Appearance).
+    { nameKey: "businessSettings", href: "/settings", icon: Settings, exact: true, activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
     { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
-    { nameKey: "security",      href: "/settings/security",      icon: Shield },
-    { nameKey: "notifications", href: "/settings/notifications", icon: Bell },
-    { nameKey: "appearance",    href: "/settings/appearance",    icon: Palette },
   ],
   repairs: [
     { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
@@ -253,9 +252,10 @@ export function SecondSidebar({
         );
       })
     : (module ? navConfigs[module] : []).map((item) => {
-        const isActive = item.exact
+        const isActive = (item.exact
           ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(item.href + "/");
+          : pathname === item.href || pathname.startsWith(item.href + "/"))
+          || !!item.activeFor?.some((p) => pathname === p || pathname.startsWith(p + "/"));
         return (
           <Link
             key={item.nameKey}

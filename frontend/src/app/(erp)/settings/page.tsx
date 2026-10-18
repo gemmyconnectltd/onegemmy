@@ -1,179 +1,80 @@
 "use client";
-import { useAppConfig } from "@/lib/appConfig";
 
-import { useState } from "react";
-import { Store, Download, Shield, Save, Check, ReceiptText, Loader2 } from "lucide-react";
+import { Building2, Store } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Field, Input } from "@/components/ui/Form";
-import { Toggle } from "@/components/ui/Toggle";
 import { useCurrentTenant, useUpdateMyTenant } from "@/lib/api/hooks";
 import type { Tenant } from "@/lib/api";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { FinancialSettings } from "@/components/settings/FinancialSettings";
+import { NotAvailable, SaveBar, SettingsCard } from "@/components/settings/parts";
 
-/** Owns the form's local state, initialized directly from `tenant` — this
- *  component only ever mounts once `tenant` has loaded, so there's no
- *  fetched-then-sync-via-effect step and nothing here is ever stale or fake. */
-function ShopInfoForm({ tenant, brandColor }: { tenant: Tenant; brandColor: string }) {
+const URL_RE = /^https?:\/\/\S+\.\S+$/i;
+
+/** Owns the form's local state, initialised from `tenant` — only mounts once `tenant` has loaded. */
+function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
   const updateTenant = useUpdateMyTenant();
-  const [shopName, setShopName] = useState(tenant.name ?? "");
-  const [phone, setPhone] = useState(tenant.phone ?? "");
-  const [address, setAddress] = useState(tenant.address ?? "");
-  const [city, setCity] = useState(tenant.city ?? "");
-  const [country, setCountry] = useState(tenant.country ?? "");
-  const [website, setWebsite] = useState(tenant.website ?? "");
+  const initial = { name: tenant.name ?? "", phone: tenant.phone ?? "", address: tenant.address ?? "", city: tenant.city ?? "", country: tenant.country ?? "", website: tenant.website ?? "", business_type: tenant.business_type ?? "" };
+  const [form, setForm] = useState(initial);
   const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof initial, v: string) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false); };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaveError(null);
+  const dirty = (Object.keys(initial) as (keyof typeof initial)[]).some((k) => form[k].trim() !== initial[k].trim());
+  const nameErr = !form.name.trim() ? "Business name is required" : null;
+  const webErr = form.website.trim() && !URL_RE.test(form.website.trim()) ? "Use a full address, e.g. https://example.com" : null;
+
+  // Leaving with unsaved edits asks first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const save = async (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
+    if (!dirty || nameErr || webErr) return;
+    setError(null);
     try {
-      await updateTenant.mutateAsync({
-        id: tenant.id,
-        data: {
-          name: shopName.trim(),
-          phone: phone.trim() || null,
-          address: address.trim() || null,
-          city: city.trim() || null,
-          country: country.trim() || null,
-          website: website.trim() || null,
-        },
-      });
+      await updateTenant.mutateAsync({ id: tenant.id, data: { name: form.name.trim(), phone: form.phone.trim() || null, address: form.address.trim() || null, city: form.city.trim() || null, country: form.country.trim() || null, website: form.website.trim() || null, business_type: form.business_type.trim() || null } });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
     } catch (err: unknown) {
-      setSaveError((err as { detail?: string })?.detail ?? "Couldn't save your business information. Try again.");
+      setError((err as { detail?: string })?.detail ?? "Couldn't save your business information. Try again.");
     }
   };
 
   return (
-    <form onSubmit={handleSave} className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
-      <div className="flex items-center gap-2 mb-1">
-        <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${brandColor}15` }}>
-          <Store size={15} style={{ color: brandColor }} />
-        </div>
-        <h2 className="text-sm font-bold text-foreground">Shop Information</h2>
+    <form onSubmit={save} noValidate className="min-w-0 space-y-4">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+      <SettingsCard title="Business Information" description="Basic details about your business." icon={Building2}>
+      <div className="grid gap-4 py-3 sm:grid-cols-2">
+        <Field label="Business name" required><Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="My Shop" aria-invalid={!!nameErr} />{nameErr && <p role="alert" className="mt-1 text-[11px] text-red-600">{nameErr}</p>}</Field>
+        <Field label="Phone"><Input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+250 7XX XXX XXX" /></Field>
+        <Field label="Address" className="sm:col-span-2"><Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="KG 7 Ave" /></Field>
+        <Field label="City"><Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Kigali" /></Field>
+        <Field label="Country"><Input value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="Rwanda" /></Field>
+        <Field label="Website" className="sm:col-span-2"><Input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" aria-invalid={!!webErr} />{webErr && <p role="alert" className="mt-1 text-[11px] text-red-600">{webErr}</p>}</Field>
       </div>
-      <Field label="Shop Name" required>
-        <Input value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="My Shop" />
-      </Field>
-      <Field label="Phone">
-        <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+250 7XX XXX XXX" />
-      </Field>
-      <Field label="Address">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="KG 7 Ave" />
-      </Field>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="City">
-          <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Kigali" />
-        </Field>
-        <Field label="Country">
-          <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Rwanda" />
-        </Field>
+      </SettingsCard>
+      <SettingsCard title="Business Type & Operations" description="Configure your business type and operational preferences." icon={Store}>
+        <div className="py-3"><Field label="Business type"><Input value={form.business_type} onChange={(e) => set("business_type", e.target.value)} placeholder="e.g. Retail" /></Field></div>
+        <NotAvailable label="Business registration number (TIN)" hint="Registration details cannot be stored yet." />
+        <NotAvailable label="Default branch" hint="Manage your locations in Settings → Branches." />
+        <NotAvailable label="Allow online orders" hint="Online ordering preferences are not available yet." />
+      </SettingsCard>
       </div>
-      <Field label="Website">
-        <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" />
-      </Field>
-      <button
-        type="submit"
-        disabled={updateTenant.isPending}
-        className="flex items-center gap-1.5 text-white px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-        style={{ backgroundColor: brandColor }}
-      >
-        {updateTenant.isPending ? (
-          <><Loader2 size={14} className="animate-spin" /> Saving…</>
-        ) : saved ? (
-          <><Check size={14} /> Saved!</>
-        ) : (
-          <><Save size={14} /> Save Changes</>
-        )}
-      </button>
-      {saveError && <p className="text-xs text-red-600 dark:text-red-400">{saveError}</p>}
+      <div className="overflow-hidden rounded-xl border border-border">
+      <SaveBar dirty={dirty} invalid={!!nameErr || !!webErr} saving={updateTenant.isPending} saved={saved} error={error} onSave={() => void save()} onReset={() => { setForm(initial); setError(null); }} />
+      </div>
     </form>
   );
 }
 
-export default function SettingsPage() {
-  const { brandColor, vatEnabled, setVatEnabled } = useAppConfig();
-  const C = brandColor;
+export default function GeneralSettingsPage() {
   const { data: tenant } = useCurrentTenant();
-  const updateTenant = useUpdateMyTenant();
-  const [vatError, setVatError] = useState<string | null>(null);
-
-  const toggleVat = async () => {
-    if (!tenant) return;
-    const next = !vatEnabled;
-    setVatError(null);
-    setVatEnabled(next);
-    try {
-      await updateTenant.mutateAsync({ id: tenant.id, data: { vat_enabled: next } });
-    } catch {
-      setVatEnabled(!next);
-      setVatError("Couldn't update VAT. Try again.");
-    }
-  };
-
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">General Settings</h1>
-        <p className="text-sm text-muted mt-0.5">Manage your shop information and preferences</p>
-      </div>
-
-      {tenant ? <ShopInfoForm tenant={tenant} brandColor={C} /> : <PageLoader variant="compact" />}
-
-      <FinancialSettings color={C} />
-
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
-            <ReceiptText size={15} style={{ color: C }} />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">VAT</h2>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 py-1">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{vatEnabled ? "VAT enabled" : "VAT disabled"}</p>
-            <p className="text-xs text-muted mt-0.5">
-              {vatEnabled
-                ? "18% tax is applied to sales and shown on receipts."
-                : "No tax is applied to sales or shown on receipts."}
-            </p>
-          </div>
-          <Toggle
-            checked={vatEnabled}
-            onChange={toggleVat}
-            loading={updateTenant.isPending}
-            disabled={!tenant}
-            label={vatEnabled ? "Disable VAT" : "Enable VAT"}
-          />
-        </div>
-        {vatError && <p className="text-xs text-red-600 dark:text-red-400">{vatError}</p>}
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
-            <Download size={15} style={{ color: C }} />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">Data Backup</h2>
-        </div>
-        <button className="flex items-center gap-2 border border-border rounded-lg px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-surface transition-colors">
-          <Download size={14} /> Download Backup
-        </button>
-        <p className="text-xs text-muted">Last backup: Never</p>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
-            <Shield size={15} style={{ color: C }} />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">About</h2>
-        </div>
-        <p className="text-sm text-muted">Version <span className="font-semibold text-foreground">v0.1.0</span></p>
-        <p className="text-sm text-muted">Built by <span className="font-semibold text-foreground">Pesaa</span></p>
-      </div>
+    <div className="space-y-4">
+      {tenant ? <BusinessInfoForm tenant={tenant} /> : <PageLoader variant="compact" />}
     </div>
   );
 }

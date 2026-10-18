@@ -16,6 +16,44 @@ export const PAST_YEARS: { key: Period; label: string }[] = Array.from({ length:
   return { key: `year_${y}` as Period, label: String(y) };
 });
 
+// ── Date selection (presets + quarter-of-year + custom range) ────────────────
+
+/** What the filter holds. Presets are recomputed from "now" each render; `quarter_Y_N` and `custom` carry their own dates. */
+export interface DateSelection { key: string; from?: string; to?: string; label?: string }
+export interface ResolvedRange { key: string; label: string; from: string; to: string }
+
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+/** Parses YYYY-MM-DD as a LOCAL date (new Date("2026-01-05") would be UTC and can land on the previous day). */
+export function parseISO(s: string): Date { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+export function fmtShort(iso: string, withYear = true): string { const d = parseISO(iso); return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}${withYear ? ` ${d.getFullYear()}` : ""}`; }
+export function daysInRange(from: string, to: string): number { return Math.round((parseISO(to).getTime() - parseISO(from).getTime()) / 86400000) + 1; }
+
+export function isPresetKey(key: string): key is Period { return PERIODS.some((p) => p.key === key) || /^year_\d{4}$/.test(key); }
+
+/** Quarter n (1–4) of a year. Fiscal year = calendar year (see nextTaxDeadline); the end is capped at today so a running quarter isn't "future". */
+export function quarterRange(year: number, q: number): { from: string; to: string; startsInFuture: boolean } {
+  const start = new Date(year, (q - 1) * 3, 1);
+  const end = new Date(year, q * 3, 0);
+  const today = new Date();
+  return { from: toISO(start), to: toISO(end > today ? today : end), startsInFuture: start > today };
+}
+export const quarterLabel = (year: number, q: number) => `Q${q} ${year}`;
+export function customLabel(from: string, to: string): string {
+  const sameYear = from.slice(0, 4) === to.slice(0, 4);
+  return from === to ? fmtShort(from) : `${fmtShort(from, !sameYear)} – ${fmtShort(to)}`;
+}
+
+export function resolveSelection(sel: DateSelection): ResolvedRange {
+  if (isPresetKey(sel.key)) {
+    const { from, to } = periodDateRange(sel.key);
+    return { key: sel.key, label: [...PERIODS, ...PAST_YEARS].find((p) => p.key === sel.key)?.label ?? sel.key.replace("year_", ""), from, to };
+  }
+  const from = sel.from ?? toISO(new Date());
+  const to = sel.to ?? from;
+  return { key: sel.key, label: sel.label ?? customLabel(from, to), from, to };
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 

@@ -15,7 +15,8 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useDeleteOrder, useBulkCreateOrders, useCurrentTenant } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useDeleteOrder, useBulkCreateOrders, useCurrentTenant } from "@/lib/api/hooks";
+import { useAuth } from "@/lib/auth";
 import { salesApi } from "@/lib/api/sales";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
 import { InvoiceDocument, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
@@ -33,9 +34,11 @@ const STATUS_STYLE: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
   Pending:   "bg-amber-100 text-amber-700",
   Cancelled: "bg-red-100 text-red-600",
+  "Awaiting Approval": "bg-violet-100 text-violet-700",
+  Rejected:  "bg-red-100 text-red-600",
 };
 const STATUS_ICON: Record<string, React.ElementType> = {
-  Completed: CheckCircle2, Pending: Clock, Cancelled: XCircle,
+  Completed: CheckCircle2, Pending: Clock, Cancelled: XCircle, "Awaiting Approval": Clock, Rejected: XCircle,
 };
 
 type ItemRow = {
@@ -350,6 +353,21 @@ export default function SalesOrdersPage() {
 
   const bulk = useBulkSelection(orders.map((o) => o.id));
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  // Credit sales held over the daily limit wait here for someone with credit:approve (GM/CEO).
+  const { hasPermission } = useAuth();
+  const canApproveCredit = hasPermission("credit:approve");
+  const approveOrder = useApproveOrder();
+  const rejectOrder = useRejectOrder();
+  const decideBusy = approveOrder.isPending || rejectOrder.isPending;
+  const decideCredit = (o: ApiOrder, action: "approve" | "reject") => confirm({
+    title: action === "approve" ? "Approve this credit sale?" : "Reject this credit sale?",
+    message: action === "approve"
+      ? `${o.order_number} for ${o.customer?.name ?? "this customer"} will be completed: stock goes out and ${fmt(o.total)} is booked, with the unpaid balance as customer debt.`
+      : `${o.order_number} will be declined. Nothing was posted for it, so no stock or accounts change.`,
+    confirmLabel: action === "approve" ? "Approve" : "Reject",
+    danger: action === "reject",
+    onConfirm: () => (action === "approve" ? approveOrder : rejectOrder).mutate({ id: o.id }),
+  });
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function confirmBulkDelete() {
@@ -460,7 +478,7 @@ export default function SalesOrdersPage() {
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 border-b border-border flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
-            {["All", "Completed", "Pending", "Cancelled"].map((s) => (
+            {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled"].map((s) => (
               <button key={s} onClick={() => onStatusFilterChange(s)}
                 className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${statusFilter === s ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
                 style={statusFilter === s ? { backgroundColor: SAL } : undefined}>{s}</button>
@@ -549,6 +567,12 @@ export default function SalesOrdersPage() {
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => setViewingId(o.id)} aria-label="View order" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
+                        {o.status === "Awaiting Approval" && canApproveCredit && (
+                          <>
+                            <button onClick={() => decideCredit(o, "approve")} disabled={decideBusy} aria-label="Approve credit sale" title="Approve credit" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50">Approve</button>
+                            <button onClick={() => decideCredit(o, "reject")} disabled={decideBusy} aria-label="Reject credit sale" title="Reject credit" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 disabled:opacity-50">Reject</button>
+                          </>
+                        )}
                         <button onClick={() => openEdit(o)} aria-label="Edit order" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
                       </div>
                     </td>

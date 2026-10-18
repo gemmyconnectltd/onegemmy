@@ -275,6 +275,14 @@ export default function POSPage() {
         })),
       });
 
+      // Credit over the customer's daily limit is held for the General Manager/CEO: nothing was sold or posted yet,
+      // so no receipt — tell the cashier clearly and let them carry on.
+      if (created.data.status === "Awaiting Approval") {
+        setSaleError(`Credit above the daily limit for this customer. Order ${created.data.order_number} was sent for approval — no stock or money has been recorded yet.`);
+        clearCart();
+        return;
+      }
+
       const sale: SaleResult = {
         orderId: generateOrderId(),
         backendOrderId: created.data.id,

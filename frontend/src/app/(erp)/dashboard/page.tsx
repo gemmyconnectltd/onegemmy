@@ -50,13 +50,18 @@ import {
   type ApiOrder,
 } from "@/lib/api/hooks";
 import {
-  PERIODS,
-  PAST_YEARS,
-  periodDateRange,
+  isPresetKey,
+  resolveSelection,
+  toISO,
+  parseISO,
+  daysInRange,
   METHOD_COLOR,
   nextTaxDeadline,
+  type DateSelection,
   type Period,
+  type ResolvedRange,
 } from "./data";
+import { DateRangeFilter } from "./DateRangeFilter";
 import { ModuleBreakdown } from "./ModuleBreakdown";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -83,10 +88,45 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(h / 24)} days ago`;
 }
 
-function buildChart(
-  orders: ApiOrder[],
-  period: Period,
-): { label: string; sales: number; expenses: number }[] {
+type ChartPoint = { label: string; sales: number; expenses: number };
+
+/** Custom ranges and picked quarters: bucket the span itself — hours for one day, days up to two weeks, weeks up to ~two months, else months. */
+function buildRangeChart(orders: ApiOrder[], range: ResolvedRange): ChartPoint[] {
+  const orderDay = (o: ApiOrder) => toISO(new Date(o.ordered_at ?? o.created_at ?? ""));
+  const sum = (from: string, to: string) => orders.filter((o) => { const d = orderDay(o); return d >= from && d <= to; }).reduce((s, o) => s + orderBaseTotal(o), 0);
+  const days = daysInRange(range.from, range.to);
+  const fmt = (iso: string) => parseISO(iso).toLocaleDateString("en", { day: "numeric", month: "short" });
+  if (days === 1) {
+    const hours = [8, 10, 12, 14, 16, 18];
+    return hours.map((h, i) => ({
+      label: `${h % 12 || 12}${h < 12 ? "am" : "pm"}`,
+      sales: orders.filter((o) => { const dt = new Date(o.ordered_at ?? o.created_at ?? ""); return toISO(dt) === range.from && dt.getHours() >= h && dt.getHours() < (hours[i + 1] ?? 24); }).reduce((s, o) => s + orderBaseTotal(o), 0),
+      expenses: 0,
+    }));
+  }
+  const out: ChartPoint[] = [];
+  if (days <= 62) {
+    const step = days <= 14 ? 1 : 7;
+    for (let d = parseISO(range.from); toISO(d) <= range.to; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + step)) {
+      const start = toISO(d);
+      const endD = new Date(d.getFullYear(), d.getMonth(), d.getDate() + step - 1);
+      const end = toISO(endD) > range.to ? range.to : toISO(endD);
+      out.push({ label: fmt(start), sales: sum(start, end), expenses: 0 });
+    }
+    return out;
+  }
+  const last = parseISO(range.to);
+  for (let d = new Date(parseISO(range.from).getFullYear(), parseISO(range.from).getMonth(), 1); d <= last; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+    const start = toISO(d) < range.from ? range.from : toISO(d);
+    const monthEnd = toISO(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+    out.push({ label: d.toLocaleDateString("en", { month: "short", ...(parseISO(range.from).getFullYear() !== last.getFullYear() ? { year: "2-digit" } : {}) }), sales: sum(start, monthEnd > range.to ? range.to : monthEnd), expenses: 0 });
+  }
+  return out;
+}
+
+function buildChart(orders: ApiOrder[], range: ResolvedRange): ChartPoint[] {
+  if (!isPresetKey(range.key)) return buildRangeChart(orders, range);
+  const period = range.key as Period;
   if (period === "today") {
     const buckets = ["8am", "10am", "12pm", "2pm", "4pm", "6pm"];
     const hours = [8, 10, 12, 14, 16, 18];
@@ -729,9 +769,9 @@ export default function DashboardPage() {
   const { theme, currencySymbol } = useAppConfig();
   const c = chartPalette(theme === "dark");
 
-  const [period, setPeriod] = useState<Period>("month");
-
-  const { from, to } = periodDateRange(period);
+  const [selection, setSelection] = useState<DateSelection>({ key: "month" });
+  const range = resolveSelection(selection);
+  const { from, to } = range;
   const income = useIncomeStatement(from, to);
   const cash = useCashFlow(from, to);
   const customers = useCustomers(1, 1);
@@ -756,8 +796,7 @@ export default function DashboardPage() {
   const profit = income.data?.net_income ?? 0;
   const cashAmt = cash.data?.ending_cash ?? 0;
   const customersCount = customers.data?.total ?? 0;
-  const periodLabel =
-    [...PERIODS, ...PAST_YEARS].find((x) => x.key === period)?.label ?? "";
+  const periodLabel = range.label;
   const targetMatch = (targets.data?.items ?? []).find((t) =>
     t.period.toLowerCase().includes(periodLabel.toLowerCase()),
   );
@@ -766,10 +805,8 @@ export default function DashboardPage() {
   const allOrderItems = allOrders.data?.items ?? [];
   const inventory = products.data?.items ?? [];
 
-  const label = [...PERIODS, ...PAST_YEARS].find(
-    (p) => p.key === period,
-  )!.label;
-  const chart = buildChart(allOrderItems, period);
+  const label = range.label;
+  const chart = buildChart(allOrderItems, range);
 
   const categoryMap = new Map<string, number>();
   for (const o of allOrderItems) {
@@ -814,37 +851,7 @@ export default function DashboardPage() {
             Here&apos;s your business overview.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-surface border border-border rounded-lg p-0.5 gap-0.5">
-            {PERIODS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => setPeriod(p.key)}
-                className={`px-3 py-1.5 text-[12px] font-semibold rounded-md transition-all whitespace-nowrap ${period === p.key ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}
-              >
-                {p.label}
-              </button>
-            ))}
-            <select
-              value={period.startsWith("year_") ? period : ""}
-              onChange={(e) =>
-                e.target.value && setPeriod(e.target.value as Period)
-              }
-              className={`px-3 py-1.5 text-[12px] font-semibold rounded-md transition-all bg-card cursor-pointer outline-none border-0 ${period.startsWith("year_") ? "text-foreground shadow-sm" : "text-muted"}`}
-            >
-              <option value="">Past Years</option>
-              {PAST_YEARS.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <span className="hidden sm:flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />{" "}
-            Live
-          </span>
-        </div>
+        <DateRangeFilter value={selection} onChange={setSelection} />
       </div>
 
       {loading ? (

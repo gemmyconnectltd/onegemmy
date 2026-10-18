@@ -4,7 +4,7 @@ import { Building2, Mail, Phone, User, Shield, Clock, LogIn, Briefcase } from "l
 import type { ApiUser } from "@/lib/api";
 
 /** Shared display bits for a user profile. Used by both "My Profile"
- *  (/settings/profile) and the admin View-Profile drawer, so a user always
+ *  (/profile) and the admin View-Profile drawer, so a user always
  *  sees the same fields in the same order wherever their profile appears. */
 
 export function initialsOf(name: string | null | undefined): string {

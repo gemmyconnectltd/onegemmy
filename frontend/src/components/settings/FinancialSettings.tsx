@@ -3,18 +3,17 @@
 import { useState } from "react";
 import { Banknote, Lock } from "lucide-react";
 import {
-  useCreateExchangeRate, useCurrencySettings, useCurrentTenant, useExchangeRates, useUpdateMyTenant,
+  useCurrencySettings, useCurrentTenant, useUpdateMyTenant,
 } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Form";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { ExchangeRatesPanel } from "@/components/currency/ExchangeRatesPanel";
 import { useAppConfig } from "@/lib/appConfig";
 import { currencySymbolFor } from "@/lib/money";
 
 /**
- * Financial settings: the business's base (accounting) currency, and the exchange rates used to book
- * foreign-currency documents. The base currency is accounting configuration — it can only be changed
+ * Financial settings: the business's base (accounting) currency. (Exchange rates are deliberately not
+ * part of business settings.) The base currency is accounting configuration — it can only be changed
  * while the business has recorded nothing; after that it is locked, because switching RWF → USD would
  * re-read every historical amount in a different currency.
  */
@@ -23,8 +22,6 @@ export function FinancialSettings({ color }: { color: string }) {
   const settingsQ = useCurrencySettings();
   const { data: tenant } = useCurrentTenant();
   const updateTenant = useUpdateMyTenant();
-  const ratesQ = useExchangeRates(1, 20);
-  const createRate = useCreateExchangeRate();
 
   const [selected, setSelected] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -50,12 +47,12 @@ export function FinancialSettings({ color }: { color: string }) {
 
   return (
     <>
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${color}15` }}>
+          <div className="w-8 h-8 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${color}15` }}>
             <Banknote size={15} style={{ color }} />
           </div>
-          <h2 className="text-sm font-bold text-foreground">Financial Settings</h2>
+          <h2 className="text-sm font-bold text-foreground">Base Currency</h2>
         </div>
 
         <div>
@@ -82,23 +79,6 @@ export function FinancialSettings({ color }: { color: string }) {
           {!canChange && lockedReason && <p className="mt-1 text-xs text-muted">{lockedReason}</p>}
           {saveError && <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{saveError}</p>}
         </div>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-3">
-        <div>
-          <h2 className="text-sm font-bold text-foreground">Exchange rates</h2>
-          <p className="text-xs text-muted mt-0.5">
-            Only needed if you invoice, buy or spend in a currency other than {base}. Enter how many {base} one unit of the foreign currency is worth.
-          </p>
-        </div>
-        <ExchangeRatesPanel
-          targetCurrency={base}
-          rates={ratesQ.data?.items}
-          loading={ratesQ.isLoading}
-          currencies={currencies}
-          onCreate={(input) => createRate.mutateAsync(input)}
-          creating={createRate.isPending}
-        />
       </div>
     </>
   );

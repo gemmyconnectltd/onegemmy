@@ -68,7 +68,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
       {/* Which business this portal belongs to */}
       {businessName && (
         <Link
-          href="/settings/profile"
+          href="/profile"
           title={`Signed in to ${businessName} — view your profile`}
           className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-surface text-foreground border border-border hover:border-foreground/20 transition-colors flex-shrink-0 min-w-0"
         >
@@ -202,7 +202,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
                 )}
               </div>
               <Link
-                href="/settings/profile"
+                href="/profile"
                 onClick={() => setShowUser(false)}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-foreground hover:bg-surface transition-colors"
               >

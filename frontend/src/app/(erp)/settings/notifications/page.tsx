@@ -1,82 +1,23 @@
 "use client";
-import { useAppConfig } from "@/lib/appConfig";
 
-import { useState } from "react";
-import { Bell, Mail, Smartphone, AlertTriangle, ShoppingCart, DollarSign, Package } from "lucide-react";
-import { Toggle } from "@/components/ui/Toggle";
+import { Bell, Mail, Info } from "lucide-react";
+import { NotAvailable, SettingsCard } from "@/components/settings/parts";
 
-type NotifSetting = { id: string; label: string; desc: string; icon: React.ElementType; color: string; email: boolean; push: boolean };
-
-const INITIAL: NotifSetting[] = [
-  { id: "low_stock", label: "Low Stock Alerts",  desc: "Get notified when products fall below minimum stock", icon: Package,       color: "#f59e0b", email: true,  push: true  },
-  { id: "new_order", label: "New Orders",         desc: "Receive alerts when a new order is placed",           icon: ShoppingCart,  color: "#0284c7", email: true,  push: false },
-  { id: "payment",   label: "Payment Received",   desc: "Notify when a payment or invoice is settled",         icon: DollarSign,    color: "#10b981", email: false, push: true  },
-  { id: "system",    label: "System Alerts",      desc: "Important system and security notifications",         icon: AlertTriangle, color: "#ef4444", email: true,  push: true  },
-];
-
-export default function NotificationsPage() {
-  const { brandColor } = useAppConfig();
-  const C = brandColor;
-  const [settings, setSettings] = useState<NotifSetting[]>(INITIAL);
-  const [saved, setSaved] = useState(false);
-
-  const toggle = (id: string, channel: "email" | "push") =>
-    setSettings((prev) => prev.map((s) => s.id === id ? { ...s, [channel]: !s[channel] } : s));
-
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-
+// Notification preferences have no backend yet (nothing is stored or sent), so these are listed honestly
+// rather than as toggles that would only look like they work.
+export default function NotificationsSettingsPage() {
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Notifications</h1>
-        <p className="text-sm text-muted mt-0.5">Choose how and when you receive notifications</p>
-      </div>
-
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ backgroundColor: `${C}15` }}>
-              <Bell size={15} style={{ color: C }} />
-            </div>
-            <h2 className="text-sm font-bold text-foreground">Notification Preferences</h2>
-          </div>
-          <div className="flex items-center gap-6 text-[11px] font-semibold text-muted pr-1">
-            <div className="flex items-center gap-1"><Mail size={12} /> Email</div>
-            <div className="flex items-center gap-1"><Smartphone size={12} /> Push</div>
-          </div>
-        </div>
-        <div className="divide-y divide-border">
-          {settings.map((s) => (
-            <div key={s.id} className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-9 h-9 flex items-center justify-center rounded-xl flex-shrink-0" style={{ backgroundColor: `${s.color}15` }}>
-                  <s.icon size={16} style={{ color: s.color }} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{s.label}</p>
-                  <p className="text-[11px] text-muted mt-0.5">{s.desc}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6 flex-shrink-0">
-                {(["email", "push"] as const).map((ch) => (
-                  <Toggle
-                    key={ch}
-                    checked={s[ch]}
-                    label={`${s.label} — ${ch}`}
-                    size="sm"
-                    color="#10b981"
-                    onChange={() => toggle(s.id, ch)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <button onClick={handleSave} className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors" style={{ backgroundColor: C }}>
-        {saved ? "Saved!" : "Save Preferences"}
-      </button>
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <SettingsCard title="Email Notifications" description="Choose which email notifications you want to receive." icon={Bell}>
+      <NotAvailable label="Low stock alerts" hint="When products fall below their minimum stock." />
+      <NotAvailable label="New orders" hint="When a new order is placed." />
+      <NotAvailable label="Payments received" hint="When a payment or invoice is settled." />
+      <NotAvailable label="System alerts" hint="Important system and security notices." />
+      <p className="pb-4 pt-1 text-[12px] text-muted">Email and push notifications aren&apos;t built yet. They&apos;ll appear here as real switches once they can be saved.</p>
+    </SettingsCard>
+    <SettingsCard title="Notification Email" description="Business notification delivery." icon={Mail}>
+      <div className="my-3 flex items-start gap-3 rounded-xl bg-accent/5 p-4 text-xs leading-relaxed text-muted"><Info size={18} className="shrink-0 text-accent" />A delivery address can be configured once email notifications are available.</div>
+    </SettingsCard>
     </div>
   );
 }

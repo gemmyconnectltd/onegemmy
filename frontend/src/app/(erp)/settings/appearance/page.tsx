@@ -11,7 +11,7 @@ const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 export default function AppearancePage() {
   const {
     theme, setTheme, brandColor, setBrandColor, logoUrl, setLogoUrl, brandColorPresets,
-    locale, setLocale, locales, currency, setCurrency, currencies,
+    locale, setLocale, locales,
   } = useAppConfig();
   const { data: tenant } = useCurrentTenant();
   const updateTenant = useUpdateMyTenant();
@@ -46,21 +46,16 @@ export default function AppearancePage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Appearance</h1>
-        <p className="text-sm text-muted mt-1">Customize the look and feel of your dashboard.</p>
-      </div>
-
+    <div className="grid items-start gap-4 xl:grid-cols-2">
       {error && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border border-red-200 bg-red-50 text-red-700 text-[13px] rounded-lg">
+        <div className="xl:col-span-2 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border border-red-200 bg-red-50 text-red-700 text-[13px] rounded-lg">
           {error}
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600"><X size={14} /></button>
         </div>
       )}
 
       {/* Theme */}
-      <section className="space-y-3">
+      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
         <div>
           <h2 className="text-[15px] font-semibold text-foreground">Theme</h2>
           <p className="text-[13px] text-muted mt-0.5">Choose between light and dark mode.</p>
@@ -95,7 +90,7 @@ export default function AppearancePage() {
       </section>
 
       {/* Brand Color */}
-      <section className="space-y-3">
+      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
         <div>
           <h2 className="text-[15px] font-semibold text-foreground">Brand Color</h2>
           <p className="text-[13px] text-muted mt-0.5">
@@ -139,7 +134,7 @@ export default function AppearancePage() {
       </section>
 
       {/* Company Logo */}
-      <section className="space-y-3">
+      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
         <div>
           <h2 className="text-[15px] font-semibold text-foreground">Company Logo</h2>
           <p className="text-[13px] text-muted mt-0.5">PNG, JPEG or WEBP, up to 2MB.</p>
@@ -176,7 +171,7 @@ export default function AppearancePage() {
       </section>
 
       {/* Language */}
-      <section className="space-y-3">
+      <section className="space-y-4 rounded-xl border border-border bg-card p-5">
         <h2 className="text-[15px] font-semibold text-foreground">Language</h2>
         <div className="flex gap-2">
           {locales.map((l) => (
@@ -193,28 +188,6 @@ export default function AppearancePage() {
         </div>
       </section>
 
-      {/* Currency */}
-      <section className="space-y-3">
-        <h2 className="text-[15px] font-semibold text-foreground">Currency</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {currencies.map((c) => (
-            <button
-              key={c.code}
-              onClick={() => setCurrency(c.code)}
-              className={`flex items-center gap-2 px-3 py-2.5 border text-left transition-colors ${
-                currency === c.code ? "border-accent bg-accent/5" : "border-border hover:border-foreground/20"
-              }`}
-            >
-              <span className="text-[15px] font-bold w-8 text-accent">{c.symbol}</span>
-              <div>
-                <p className="text-[13px] font-semibold text-foreground">{c.code}</p>
-                <p className="text-[11px] text-muted">{c.name}</p>
-              </div>
-              {currency === c.code && <Check size={13} className="ml-auto text-accent" strokeWidth={3} />}
-            </button>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

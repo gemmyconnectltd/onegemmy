@@ -179,6 +179,11 @@ export const salesApi = {
     request<SingleResponse<ApiOrder>>(`${BASE}/orders`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateOrders: (items: object[]) =>
     request<SingleResponse<{ created: number; failed: number; errors: string[] }>>(`${BASE}/orders/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
+  /** Credit sales held over the daily limit: GM/CEO (credit:approve) completes or declines them. */
+  approveOrder: (id: string, note?: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/approve`, { method: "POST", body: JSON.stringify({ note: note ?? null }) }),
+  rejectOrder: (id: string, note?: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/reject`, { method: "POST", body: JSON.stringify({ note: note ?? null }) }),
   updateOrder: (id: string, data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>

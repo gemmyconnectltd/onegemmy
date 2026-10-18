@@ -1,10 +1,11 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import {
-  Users, Plus, Pencil, Trash2, Shield, UserCheck, UserX, Search, Eye, KeyRound,
-  Building2, Phone, AlertTriangle,
+  Plus, Pencil, Trash2, UserCheck, UserX, Search, Eye, KeyRound,
+  Phone, AlertTriangle,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
@@ -247,18 +248,12 @@ export default function UsersPage() {
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Users &amp; Roles</h1>
           <p className="text-sm text-muted mt-0.5">
-            {total} user{total === 1 ? "" : "s"} · {activeCount} active
+            {total} user{total === 1 ? "" : "s"} · {activeCount} active · {users.length - activeCount} deactivated
             {tenant?.name ? ` · ${tenant.name}` : ""}
           </p>
         </div>
         {canCreate && (
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 text-white px-4 py-2.5 text-sm font-semibold transition-colors rounded-lg"
-            style={{ backgroundColor: C }}
-          >
-            <Plus size={15} /> Add User
-          </button>
+          <Button onClick={openAdd} className="bg-accent text-white hover:bg-accent/90"><Plus size={15} /> Add User</Button>
         )}
       </div>
 
@@ -268,30 +263,6 @@ export default function UsersPage() {
           <p className="text-[13px] text-foreground">{toast}</p>
         </div>
       )}
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Total Users", value: String(total), icon: Users, color: C },
-          { label: "Active", value: String(activeCount), icon: UserCheck, color: "#10b981" },
-          { label: "Deactivated", value: String(users.length - activeCount), icon: UserX, color: "#94a3b8" },
-          { label: "Your Role", value: authUser?.role ?? "—", icon: Shield, color: "#f59e0b" },
-        ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
-              <s.icon size={16} style={{ color: s.color }} />
-            </div>
-            <p
-              className={`font-extrabold text-foreground tracking-tight truncate capitalize ${
-                s.label === "Your Role" ? "text-[15px] sm:text-[17px]" : "text-lg sm:text-xl"
-              }`}
-              title={s.value}
-            >
-              {s.value}
-            </p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
-          </div>
-        ))}
-      </div>
 
       {/* Search + filters */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -308,26 +279,22 @@ export default function UsersPage() {
         <Select
           value={status}
           onChange={(e) => { setStatus(e.target.value as typeof status); setPage(1); }}
-          className="w-auto"
+          className="w-auto!"
           aria-label="Filter by status"
         >
           {STATUS_FILTERS.map((f) => (
             <option key={f.value} value={f.value}>{f.label}</option>
           ))}
         </Select>
+        {isFetching && <span className="text-[11px] text-muted">Updating…</span>}
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-bold text-foreground">All Users</h2>
-          {isFetching && <span className="text-[11px] text-muted">Updating…</span>}
-        </div>
         <div className="overflow-x-auto">
           <TableScroll><table className="w-full min-w-[760px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 font-semibold">User</th>
-                <th className="p-4 font-semibold">Company</th>
                 <th className="p-4 font-semibold">Phone</th>
                 <th className="p-4 font-semibold">Role</th>
                 <th className="p-4 font-semibold">Status</th>
@@ -349,12 +316,6 @@ export default function UsersPage() {
                         <span className="block text-[12px] text-muted truncate">{u.email}</span>
                       </span>
                     </button>
-                  </td>
-                  <td className="p-4 text-[13px] text-muted">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Building2 size={13} className="flex-shrink-0" />
-                      {u.tenant_name ?? "—"}
-                    </span>
                   </td>
                   <td className="p-4 text-[13px] text-muted">
                     <span className="flex items-center gap-1.5">
@@ -519,7 +480,7 @@ export default function UsersPage() {
                     <p className="text-[11px] text-muted/70 mt-2 leading-relaxed">
                       This is you — you can&apos;t deactivate or remove your own account. Manage your own
                       details under{" "}
-                      <a href="/settings/profile" className="text-accent font-semibold hover:underline">
+                      <a href="/profile" className="text-accent font-semibold hover:underline">
                         My Profile
                       </a>
                       .

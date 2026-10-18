@@ -194,6 +194,8 @@ export const useDeleteDeal = mutation((id: string) => salesApi.deleteDeal(id), [
 
 export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCreateOrders(items), [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
+export const useApproveOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.approveOrder(id, note), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
+export const useRejectOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.rejectOrder(id, note), [[...ORDERS]]);
 export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 
