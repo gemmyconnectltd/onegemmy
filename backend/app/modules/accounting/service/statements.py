@@ -1,12 +1,11 @@
 import uuid
-from datetime import date, timedelta
+from datetime import date
+from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.modules.accounting.models.transaction import Transaction
-from app.modules.accounting.models.transaction_line import TransactionLine
+from app.modules.accounting.repository.reporting import ReportingRepository
 from app.modules.accounting.schemas.report import (
     BalanceSheet,
     BalanceSheetSection,
@@ -32,37 +31,14 @@ OTHER_INCOME_PREFIX = "49"  # 4900-4999 → Other (non-operating) income
 CASH_PREFIX = "10"          # 1000-1099 → Cash & cash equivalents
 
 
-async def _load_posted(
-    db: AsyncSession,
-    tenant_id: uuid.UUID,
-    from_date: date | None = None,
-    to_date: date | None = None,
-    as_of: date | None = None,
-) -> list[Transaction]:
-    stmt = (
-        select(Transaction)
-        .options(selectinload(Transaction.lines).selectinload(TransactionLine.account))
-        .where(Transaction.tenant_id == tenant_id, Transaction.status == STATUS_POSTED)
-    )
-    if as_of is not None:
-        stmt = stmt.where(Transaction.transaction_date <= as_of)
-    else:
-        if from_date is not None:
-            stmt = stmt.where(Transaction.transaction_date >= from_date)
-        if to_date is not None:
-            stmt = stmt.where(Transaction.transaction_date <= to_date)
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
-
-
 def _account_balances(transactions: list[Transaction]) -> dict[uuid.UUID, dict]:
     """Balance per account = normal-side total − contra-side total (double-entry rule)."""
     agg: dict[uuid.UUID, dict] = {}
     for txn in transactions:
         for line in txn.lines:
             acc = line.account
-            bucket = agg.setdefault(acc.id, {"account": acc, "debit_total": 0.0, "credit_total": 0.0})
-            amt = float(line.amount)
+            bucket = agg.setdefault(acc.id, {"account": acc, "debit_total": Decimal(0), "credit_total": Decimal(0)})
+            amt = Decimal(line.amount)
             if line.type == "debit":
                 bucket["debit_total"] += amt
             else:
@@ -78,10 +54,10 @@ def _account_balances(transactions: list[Transaction]) -> dict[uuid.UUID, dict]:
 
 # ── Trial balance ────────────────────────────────────────────────────────────
 
-async def trial_balance(db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None) -> TrialBalance:
-    txns = await _load_posted(db, tenant_id, from_date=from_date, to_date=to_date)
+async def trial_balance(db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None, branch_id: uuid.UUID | None = None) -> TrialBalance:
+    balances = await ReportingRepository(db).balances(tenant_id, from_date, to_date, branch_id)
     lines: list[TrialBalanceLine] = []
-    for bucket in _account_balances(txns).values():
+    for bucket in balances.values():
         acc = bucket["account"]
         lines.append(TrialBalanceLine(
             code=acc.code,
@@ -90,7 +66,7 @@ async def trial_balance(db: AsyncSession, tenant_id: uuid.UUID, from_date: date 
             normal_balance=acc.normal_balance,
             debit_total=round(bucket["debit_total"], 2),
             credit_total=round(bucket["credit_total"], 2),
-            balance=bucket["balance"],
+            balance=(bucket["debit_total"] - bucket["credit_total"]) if acc.normal_balance == "debit" else (bucket["credit_total"] - bucket["debit_total"]),
         ))
     lines.sort(key=lambda l: l.code)
     total_debits = round(sum(l.debit_total for l in lines), 2)
@@ -104,9 +80,8 @@ async def trial_balance(db: AsyncSession, tenant_id: uuid.UUID, from_date: date 
 
 # ── Income statement (P&L) ──────────────────────────────────────────────────
 
-async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None) -> IncomeStatement:
-    txns = await _load_posted(db, tenant_id, from_date=from_date, to_date=to_date)
-    balances = _account_balances(txns)
+async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None, branch_id: uuid.UUID | None = None) -> IncomeStatement:
+    balances = await ReportingRepository(db).balances(tenant_id, from_date, to_date, branch_id)
 
     revenue_accounts: list[StatementLine] = []
     other_income: list[StatementLine] = []
@@ -166,17 +141,16 @@ def _section(title: str, accounts: list[StatementLine]) -> BalanceSheetSection:
     return BalanceSheetSection(title=title, accounts=accounts, total=round(sum(a.amount for a in accounts), 2))
 
 
-async def balance_sheet(db: AsyncSession, tenant_id: uuid.UUID, as_of: date) -> BalanceSheet:
-    txns = await _load_posted(db, tenant_id, as_of=as_of)
-    balances = _account_balances(txns)
+async def balance_sheet(db: AsyncSession, tenant_id: uuid.UUID, as_of: date, branch_id: uuid.UUID | None = None) -> BalanceSheet:
+    balances = await ReportingRepository(db).balances(tenant_id, to_date=as_of, branch_id=branch_id)
 
     current_assets: list[StatementLine] = []
     non_current_assets: list[StatementLine] = []
     current_liabilities: list[StatementLine] = []
     non_current_liabilities: list[StatementLine] = []
     equity_accounts: list[StatementLine] = []
-    revenue_total = 0.0
-    expense_total = 0.0
+    revenue_total = Decimal(0)
+    expense_total = Decimal(0)
 
     for bucket in balances.values():
         acc = bucket["account"]
@@ -253,99 +227,31 @@ def _section_from_map(title: str, mapping: dict[tuple[str, str], float]) -> Cash
     return CashFlowSection(title=title, lines=lines, total=round(sum(l.amount for l in lines), 2))
 
 
-async def cash_flow(db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None) -> CashFlowStatement:
-    txns = await _load_posted(db, tenant_id, from_date=from_date, to_date=to_date)
-    balances = _account_balances(txns)
-
-    cash_account_ids = {
-        acc_id for acc_id, bucket in balances.items()
-        if bucket["account"].type == "Assets" and (bucket["account"].code or "").startswith(CASH_PREFIX)
-    }
-
-    sections: dict[str, dict[tuple[str, str], float]] = {"operating": {}, "investing": {}, "financing": {}}
-    for txn in txns:
-        for cash_line in txn.lines:
-            if cash_line.account_id not in cash_account_ids:
-                continue
-            # Direct method: cash debit = inflow (+), cash credit = outflow (−).
-            signed = float(cash_line.amount) if cash_line.type == "debit" else -float(cash_line.amount)
-            for other in txn.lines:
-                if other.account_id == cash_line.account_id:
-                    continue  # skip cash-to-cash transfers
-                section = _cashflow_section(other.account)
-                key = (other.account.code, other.account.name)
-                sections[section][key] = sections[section].get(key, 0.0) + signed
-
-    operating = _section_from_map("Operating Activities", sections["operating"])
-    investing = _section_from_map("Investing Activities", sections["investing"])
-    financing = _section_from_map("Financing Activities", sections["financing"])
-    net_cash_change = round(operating.total + investing.total + financing.total, 2)
-
-    # Beginning cash = cash balance up to the day before the period start.
-    beginning_cash = 0.0
-    if from_date is not None:
-        prev = await _load_posted(db, tenant_id, as_of=from_date - timedelta(days=1))
-        for bucket in _account_balances(prev).values():
-            acc = bucket["account"]
-            if acc.type == "Assets" and (acc.code or "").startswith(CASH_PREFIX):
-                beginning_cash += bucket["balance"]
-    beginning_cash = round(beginning_cash, 2)
-
-    return CashFlowStatement(
-        from_date=from_date, to_date=to_date,
-        operating=operating, investing=investing, financing=financing,
-        net_cash_change=net_cash_change,
-        beginning_cash=beginning_cash,
-        ending_cash=round(beginning_cash + net_cash_change, 2),
-    )
+async def cash_flow(db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None, branch_id: uuid.UUID | None = None) -> CashFlowStatement:
+    from app.modules.accounting.service.cashflow import calculate_cash_flow
+    return await calculate_cash_flow(db, tenant_id, from_date, to_date, branch_id)
 
 
 # ── General ledger ──────────────────────────────────────────────────────────
 
 async def general_ledger(
-    db: AsyncSession,
-    tenant_id: uuid.UUID,
-    from_date: date | None,
-    to_date: date | None,
-    account_id: uuid.UUID | None = None,
+    db: AsyncSession, tenant_id: uuid.UUID, from_date: date | None, to_date: date | None,
+    account_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None,
+    offset: int = 0, limit: int = 100,
 ) -> GeneralLedger:
-    txns = await _load_posted(db, tenant_id, from_date=from_date, to_date=to_date)
-    entries: list[LedgerEntry] = []
-    account_code: str | None = None
-    account_name: str | None = None
-    debit_total = 0.0
-    credit_total = 0.0
-
-    for txn in txns:
-        for line in txn.lines:
-            if account_id is not None and line.account_id != account_id:
-                continue
-            amount = float(line.amount)
-            debit = amount if line.type == "debit" else 0.0
-            credit = amount if line.type == "credit" else 0.0
-            debit_total += debit
-            credit_total += credit
-            if account_id is not None:
-                account_code = line.account.code
-                account_name = line.account.name
-            entries.append(LedgerEntry(
-                transaction_id=txn.id,
-                reference=txn.reference,
-                date=txn.transaction_date,
-                description=line.description or txn.description,
-                type=txn.type,
-                debit=round(debit, 2),
-                credit=round(credit, 2),
-            ))
-
-    entries.sort(key=lambda e: (e.date, e.reference))
-    if account_id is not None and account_code is None:
-        raise ValueError("Account not found")
-
-    balance = round(debit_total - credit_total, 2)
-    return GeneralLedger(
-        from_date=from_date, to_date=to_date,
-        account_id=account_id, account_code=account_code, account_name=account_name,
-        entries=entries, total_debits=round(debit_total, 2),
-        total_credits=round(credit_total, 2), balance=balance,
-    )
+    from app.core.exceptions import NotFoundError
+    from app.modules.accounting.repository.account import AccountRepository
+    repo = ReportingRepository(db)
+    await repo.integrity(tenant_id, branch_id)
+    account = await AccountRepository(db).get_by_id_for_tenant(tenant_id, account_id) if account_id else None
+    if account_id and account is None:
+        raise NotFoundError("Account not found")
+    rows, totals = await repo.ledger_page(tenant_id, from_date, to_date, account_id, branch_id, offset, limit)
+    entries = [LedgerEntry(transaction_id=txn.id, reference=txn.reference, date=txn.transaction_date,
+                           description=line.description or txn.description, type=txn.type,
+                           debit=Decimal(line.amount) if line.type == "debit" else Decimal(0),
+                           credit=Decimal(line.amount) if line.type == "credit" else Decimal(0)) for line, txn, _ in rows]
+    return GeneralLedger(from_date=from_date, to_date=to_date, account_id=account_id,
+                         account_code=account.code if account else None, account_name=account.name if account else None,
+                         entries=entries, total_debits=totals.debit, total_credits=totals.credit,
+                         balance=totals.debit - totals.credit, total=totals.total, offset=offset, limit=min(limit, 100))

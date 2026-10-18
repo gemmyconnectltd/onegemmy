@@ -20,7 +20,7 @@ export const PRIORITY_TONE: Record<Priority, Tone> = { low: "slate", normal: "bl
 export const PriorityBadge = ({ priority }: { priority: Priority }) => <Badge tone={PRIORITY_TONE[priority]} className="capitalize">{priority}</Badge>;
 
 export function Avatar({ name, size = 36 }: { name: string | null | undefined; size?: number }) {
-  const initials = (name ?? "?").split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() || "?";
+  const initials = (name?.trim() || "?").split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() || "?";
   return <span style={{ width: size, height: size }} className="flex flex-shrink-0 items-center justify-center rounded-full bg-accent/10 text-[12px] font-bold text-accent">{initials}</span>;
 }
 

@@ -153,7 +153,7 @@ export function ConversationThread({ id, onBack, onOpenDetails }: { id: string; 
             <Button type="button" variant="outline" size="sm" onClick={() => assign.mutate({ id, userId: mine ? null : user!.id })}>{mine ? "Unassign" : c.assigned_to ? `Assigned: ${c.assigned_name}` : "Assign to me"}</Button>
           )}
           <Select aria-label="Priority" value={c.priority} onChange={(e) => setPriority.mutate({ id, priority: e.target.value as Priority })} className="w-auto! min-w-[100px] py-1 text-[12.5px] capitalize">
-            {(["low", "normal", "high", "urgent"] as const).map((p) => <option key={p} value={p}>{p}</option>)}
+            {(["low", "normal", "high", "urgent"] as const).map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
           </Select>
           {!c.ticket_id && <Button type="button" variant="outline" size="sm" onClick={() => toTicket.mutate(id)} disabled={toTicket.isPending}><Ticket size={13} /> Create ticket</Button>}
           {c.status === "open"

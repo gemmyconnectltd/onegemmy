@@ -54,6 +54,7 @@ from app.modules.tenants.service.role import (
     update_role,
 )
 from app.modules.tenants.service.tenant import (
+    archive_tenant,
     count_all,
     create_tenant,
     delete_tenant,
@@ -84,6 +85,7 @@ from app.modules.tenants.service.user import (
 
 __all__ = [
     "admin_reset_password",
+    "archive_tenant",
     "assign_perm_to_role",
     "change_password",
     "count_all",

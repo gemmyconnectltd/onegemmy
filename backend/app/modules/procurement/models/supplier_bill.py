@@ -29,6 +29,7 @@ class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurre
     base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Unpaid")
     bill_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     purchase_order_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False

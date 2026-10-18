@@ -127,6 +127,8 @@ async def create_user(
         summary=f"User '{user.email}' added to the company",
         changes={"full_name": user.full_name, "role": user.role, "phone": user.phone},
     )
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
     log.info("users.create.success", extra={"_extra_fields": {"user_id": str(user.id)}})
     tenant = await db.get(Tenant, tenant_id)
@@ -146,6 +148,8 @@ async def update_user(
     data: UserUpdate,
     actor: User | None = None,
 ) -> UserRead:
+    from app.modules.billing.repository import BillingRepository
+    await BillingRepository(db).tenant(tenant_id, lock=True)
     user = await UserRepository(db).get_by_id_for_tenant(tenant_id, user_id)
     if user is None:
         raise NotFoundError("User not found")
@@ -157,6 +161,12 @@ async def update_user(
     before = {"role": user.role, "is_active": user.is_active, "phone": user.phone}
     role_change_requested = "role" in payload or "role_id" in payload
     deactivating = payload.get("is_active") is False and user.is_active
+    if payload.get("is_active") is True and not user.is_active:
+        from app.modules.billing.repository import BillingRepository
+        from app.modules.tenants import service
+        usage = await BillingRepository(db).usage(tenant_id)
+        await service.enforce_limit(db, tenant_id, "max_users", usage["users"], noun="user")
+
 
     if deactivating:
         await _assert_not_last_admin(db, tenant_id, user, "deactivated")
@@ -208,6 +218,8 @@ async def update_user(
         summary=_update_summary(user, before, payload),
         changes={"updated": fields, "previous": before},
     )
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
     log.info("users.update.success", extra={"_extra_fields": {"user_id": str(user.id)}})
     return user_to_read(user)
@@ -248,6 +260,8 @@ async def set_user_active(
     is_active: bool,
     actor: User | None = None,
 ) -> UserRead:
+    from app.modules.billing.repository import BillingRepository
+    await BillingRepository(db).tenant(tenant_id, lock=True)
     """Activate / deactivate, as its own endpoint so the audit trail records
     a readable "user.deactivate" rather than a generic update."""
     user = await UserRepository(db).get_by_id_for_tenant(tenant_id, user_id)
@@ -260,6 +274,11 @@ async def set_user_active(
         if actor is not None and actor.id == user.id:
             raise ValidationError("You cannot deactivate your own account")
 
+    if is_active:
+        from app.modules.billing.repository import BillingRepository
+        from app.modules.tenants import service
+        usage = await BillingRepository(db).usage(tenant_id)
+        await service.enforce_limit(db, tenant_id, "max_users", usage["users"], noun="user")
     user.is_active = is_active
     user = await UserRepository(db).save(user)
     await record_audit(
@@ -274,6 +293,8 @@ async def set_user_active(
             f"User '{user.email}' {'reactivated' if is_active else 'deactivated'}"
         ),
     )
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
     log.info("users.set_active.success", extra={"_extra_fields": {"user_id": str(user.id), "is_active": is_active}})
     return user_to_read(user)
@@ -282,6 +303,8 @@ async def set_user_active(
 async def delete_user(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, actor: User | None = None
 ) -> None:
+    from app.modules.billing.repository import BillingRepository
+    await BillingRepository(db).tenant(tenant_id, lock=True)
     user = await UserRepository(db).get_by_id_for_tenant(tenant_id, user_id)
     if user is None:
         raise NotFoundError("User not found")
@@ -305,6 +328,8 @@ async def delete_user(
         summary=f"User '{user.email}' removed from the company",
     )
     await UserRepository(db).delete(user)
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
     log.info("users.delete.success", extra={"_extra_fields": {"user_id": str(user.id)}})
 

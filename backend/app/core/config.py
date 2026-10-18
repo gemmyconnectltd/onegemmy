@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql+asyncpg://onegemmy:onegemmy@localhost:5432/onegemmy"
+    PAWAPAY_API_TOKEN: str = ""
+    PAWAPAY_SIGNING_PRIVATE_KEY: str = ""
+    PAWAPAY_SIGNING_KEY_ID: str = ""
+    PAWAPAY_ENVIRONMENT: Literal["sandbox", "production"] = "sandbox"
+    # Explicit deployment approval required before accepting real money.
+    PAWAPAY_LIVE_ENABLED: bool = False
 
     DATABASE_NEON_URL: str = ""  # Production Neon DB — set in .env
 

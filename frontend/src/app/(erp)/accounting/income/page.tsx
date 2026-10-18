@@ -36,6 +36,7 @@ export default function IncomePage() {
 
   const [statusFilter, setStatusFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
+  const [clientReference, setClientReference] = useState("");
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -119,6 +120,7 @@ export default function IncomePage() {
     createTx.mutate(
       {
         type: "manual",
+        client_reference: clientReference,
         transaction_date: form.transaction_date,
         description: form.description,
         lines: [
@@ -151,7 +153,7 @@ export default function IncomePage() {
           <Button color={FIN} variant="secondary" onClick={handleSync} disabled={syncing}>
             <RefreshCw size={14} className={syncing ? "animate-spin" : ""} /> Sync from Sales
           </Button>
-          <Button color={FIN} onClick={() => setShowAdd(true)}>
+          <Button color={FIN} onClick={() => { setClientReference(`MAN-${crypto.randomUUID()}`); setShowAdd(true); }}>
             <Plus size={15} /> Add Income
           </Button>
         </div>
@@ -204,7 +206,7 @@ export default function IncomePage() {
           <TrendingUp size={32} className="text-border mx-auto mb-3" />
           <p className="text-sm font-semibold text-muted">No income entries yet</p>
           <p className="text-xs text-muted mt-1 mb-4">Sales orders and manual entries will appear here</p>
-          <Button color={FIN} size="sm" onClick={() => setShowAdd(true)}><Plus size={13} /> Add Income</Button>
+          <Button color={FIN} size="sm" onClick={() => { setClientReference(`MAN-${crypto.randomUUID()}`); setShowAdd(true); }}><Plus size={13} /> Add Income</Button>
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">

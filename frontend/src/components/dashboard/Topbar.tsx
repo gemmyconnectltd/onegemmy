@@ -56,7 +56,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
   const businessName = user?.tenantName;
 
   return (
-    <header className="h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-4 gap-3 sticky top-0 z-30">
+    <header className="h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-3 sm:px-4 gap-1 sm:gap-3 sticky top-0 z-30">
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
@@ -73,7 +73,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
           className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-surface text-foreground border border-border hover:border-foreground/20 transition-colors flex-shrink-0 min-w-0"
         >
           <Building2 size={14} className="text-accent flex-shrink-0" />
-          <span className="text-[13px] font-bold truncate max-w-[38vw] sm:max-w-[200px]">{businessName}</span>
+          <span className="text-[13px] font-bold truncate max-w-[16vw] sm:max-w-[200px]">{businessName}</span>
         </Link>
       )}
 
@@ -81,7 +81,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
       {!admin && <AskPesaaAI />}
 
       {/* Breadcrumb */}
-      <div className="hidden md:flex items-center gap-1.5 text-[14px] min-w-0">
+      <div className="hidden lg:flex items-center gap-1.5 text-[14px] min-w-0">
         {breadcrumb.map((crumb, i) => (
           <span key={i} className="flex items-center gap-1.5">
             {i > 0 && <span className="text-border">/</span>}
@@ -106,7 +106,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
       {!admin && (
         <Link
           href="/pos"
-          className={`flex items-center gap-2 px-3.5 h-8 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
+          className={`flex items-center gap-2 px-2 sm:px-3.5 h-8 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
             pathname === "/pos"
               ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/30"
               : "bg-accent text-white hover:bg-accent/90"
@@ -119,7 +119,7 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
 
       {/* Search */}
       {!admin && (
-        <div className="hidden md:flex items-center gap-2 border border-border bg-surface/60 hover:bg-surface px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-all cursor-pointer w-56 rounded-lg">
+        <div className="hidden lg:flex items-center gap-2 border border-border bg-surface/60 hover:bg-surface px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-all cursor-pointer w-56 rounded-lg">
           <Search size={13} />
           <span className="text-[13px] flex-1">Search...</span>
           <span className="text-[10px] bg-card border border-border px-1.5 py-0.5 text-muted/60 font-mono rounded">⌘K</span>

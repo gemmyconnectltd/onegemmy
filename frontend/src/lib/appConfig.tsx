@@ -27,7 +27,7 @@ const BASE_STRINGS: Record<string, string> = {
   segments: "Segments", products: "Products", categories: "Categories",
   brands: "Brands", units: "Units", general: "General",
   usersRoles: "Users & Roles", branches: "Branches", notifications: "Notifications",
-  myProfile: "My Profile", businessSettings: "Business Settings",
+  plansBilling: "Plans & Billing", myProfile: "My Profile", businessSettings: "Business Settings",
   security: "Security", appearance: "Appearance", allCustomers: "All Customers",
   signOut: "Sign out", language: "Language", currency: "Currency",
   search: "Search", filter: "Filter", newDeal: "New Deal",
@@ -220,6 +220,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   // Restore persisted settings client-side only (avoids SSR hydration mismatch)
   useEffect(() => {
+    const restore = setTimeout(() => {
     // Best-effort cache of the tenant's currency so there's no flash of the
     // wrong symbol before the tenant fetch below resolves. The DB value is
     // always the source of truth and overwrites this once it loads.
@@ -234,6 +235,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
     if (o && VALID_ORIENTATIONS.includes(o as NavOrientation)) setNavOrientationState(o as NavOrientation);
     const v = localStorage.getItem("app_vat_enabled");
     if (v !== null) setVatEnabledState(v !== "false");
+    }, 0);
+    return () => clearTimeout(restore);
   }, []);
 
   // Load the tenant's branding (brand color + logo) whenever the signed-in

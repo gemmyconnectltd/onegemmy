@@ -67,7 +67,7 @@ export const supportApi = {
   },
   tickets: (p: { status?: string; priority?: string; assigned?: string; search?: string; page?: number }) =>
     request<PaginatedResponse<SupportTicket>>(`${B}/tickets${qs({ status: p.status, priority: p.priority, assigned: p.assigned, search: p.search, page: p.page ?? 1, page_size: 30 })}`),
-  createTicket: (d: { subject: string; description: string; priority: Priority; customer_email?: string; customer_name?: string }) =>
+  createTicket: (d: { tenant_id?: string; subject: string; description: string; priority: Priority; customer_email?: string; customer_name?: string }) =>
     request<SingleResponse<SupportTicket>>(`${B}/tickets`, { method: "POST", body: JSON.stringify(d) }),
   updateTicket: (id: string, d: { subject?: string; status?: TicketStatus; priority?: Priority; assigned_to?: string; unassign?: boolean }) =>
     request<SingleResponse<SupportTicket>>(`${B}/tickets/${id}`, { method: "PATCH", body: JSON.stringify(d) }),

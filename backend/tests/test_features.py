@@ -7,6 +7,17 @@ from app.core.exceptions import QuotaExceededError
 from app.modules.tenants import service
 from app.modules.tenants.schemas import FeatureOverrideUpdate, TenantLimitsUpdate
 
+
+@pytest.fixture(autouse=True)
+def legacy_billing_dependencies(monkeypatch):
+    # These tests isolate legacy feature overrides; subscription integration has DB tests.
+    from unittest.mock import AsyncMock
+
+    from app.modules.billing.repository import BillingRepository
+    monkeypatch.setattr(BillingRepository, "subscription", AsyncMock(return_value=None))
+    monkeypatch.setattr(BillingRepository, "tenant", AsyncMock(return_value=None))
+
+
 FLAG_KEYS = ["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing",
     "services", "appointments", "queue",
 ]

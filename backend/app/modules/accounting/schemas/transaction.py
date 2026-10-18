@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.accounting.schemas.transaction_line import (
     TransactionLineCreate,
@@ -12,15 +12,23 @@ from app.modules.accounting.schemas.transaction_line import (
 class TransactionCreate(BaseModel):
     type: str  # sale | return | expense | adjustment | manual | purchase
     transaction_date: str  # date string YYYY-MM-DD
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     order_id: uuid.UUID | None = None
     return_id: uuid.UUID | None = None
     purchase_id: uuid.UUID | None = None
-    lines: list[TransactionLineCreate] = []
+    branch_id: uuid.UUID | None = None
+    client_reference: str | None = Field(default=None, min_length=3, max_length=50)
+    lines: list[TransactionLineCreate] = Field(default_factory=list, min_length=2, max_length=200)
+
+    @field_validator("transaction_date")
+    @classmethod
+    def valid_date(cls, value: str) -> str:
+        return date.fromisoformat(value).isoformat()
 
 
 class TransactionUpdate(BaseModel):
-    status: str | None = None  # Draft | Posted | Void
+    model_config = ConfigDict(extra="forbid")
+    # Lifecycle transitions are only available through authorized post/void endpoints.
     description: str | None = None
 
 
@@ -37,6 +45,7 @@ class TransactionRead(BaseModel):
     order_id: uuid.UUID | None = None
     return_id: uuid.UUID | None = None
     purchase_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     created_by: uuid.UUID | None = None
     lines: list[TransactionLineRead] = []
     created_at: datetime | None = None

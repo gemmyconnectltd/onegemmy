@@ -129,7 +129,7 @@ class OrderRepository(BaseRepository[Order]):
         )
         return list(result.scalars().all())
 
-    async def receivables_summary(self, tenant_id: uuid.UUID) -> dict:
+    async def receivables_summary(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None = None) -> dict:
         """Aggregate outstanding-balance figures for the Accounting >
         Receivables view — computed straight from Order.amount_paid/total/
         due_date, the same ground truth every other view reads, never a
@@ -142,9 +142,9 @@ class OrderRepository(BaseRepository[Order]):
         multi-currency have no rate and count at 1."""
         today = datetime.now(UTC).date()
         outstanding = (Order.total - Order.amount_paid) * func.coalesce(Order.exchange_rate, 1)
-        unpaid_condition = (
-            Order.tenant_id == tenant_id, Order.status == "Completed", Order.amount_paid < Order.total,
-        )
+        unpaid_condition = [Order.tenant_id == tenant_id, Order.status == "Completed", Order.amount_paid < Order.total]
+        if branch_id:
+            unpaid_condition.append(Order.branch_id == branch_id)
 
         result = await self.db.execute(
             select(func.coalesce(func.sum(outstanding), 0)).where(*unpaid_condition)

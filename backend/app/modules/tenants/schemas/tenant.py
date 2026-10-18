@@ -5,20 +5,22 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from app.shared.schemas import TrimmedModel
+
 PreferredContact = Literal["email", "phone", "whatsapp"]
 HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 
 
-class TenantCreate(BaseModel):
-    name: str
-    slug: str | None = None
+class TenantCreate(TrimmedModel):
+    name: str = Field(min_length=1, max_length=255)
+    slug: str | None = Field(default=None, max_length=100)
     logo_url: str | None = None
     brand_color: HexColor | None = None
-    website: str | None = None
-    phone: str | None = None
-    address: str | None = None
-    city: str | None = None
-    country: str | None = None
+    website: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=50)
+    address: str | None = Field(default=None, max_length=500)
+    city: str | None = Field(default=None, max_length=100)
+    country: str | None = Field(default=None, max_length=100)
     currency: str | None = None
     vat_enabled: bool | None = None
     multi_branch: bool | None = None
@@ -32,17 +34,17 @@ class TenantCreate(BaseModel):
     preferred_contact: PreferredContact | None = None
 
 
-class TenantUpdate(BaseModel):
-    name: str | None = None
-    slug: str | None = None
+class TenantUpdate(TrimmedModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    slug: str | None = Field(default=None, max_length=100)
     is_active: bool | None = None
     logo_url: str | None = None
     brand_color: HexColor | None = None
-    website: str | None = None
-    phone: str | None = None
-    address: str | None = None
-    city: str | None = None
-    country: str | None = None
+    website: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=50)
+    address: str | None = Field(default=None, max_length=500)
+    city: str | None = Field(default=None, max_length=100)
+    country: str | None = Field(default=None, max_length=100)
     subscription_plan: str | None = None
     subscription_status: str | None = None
     # Superadmin-only in practice: the tenant self-service update route
@@ -69,6 +71,7 @@ class TenantRead(BaseModel):
     name: str
     slug: str
     is_active: bool
+    archived_at: datetime | None = None
     logo_url: str | None
     brand_color: str | None
     website: str | None

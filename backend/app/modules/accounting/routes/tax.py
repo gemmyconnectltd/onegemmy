@@ -23,9 +23,11 @@ from app.modules.accounting.service.tax import (
 router = APIRouter(tags=["Accounting - Tax Management"])
 
 
-def _require_tenant(tenant_id) -> None:
-    if tenant_id is None:
-        raise ValidationError("This account has no tenant.")
+def _require_tenant(user) -> None:
+    from app.modules.accounting.service.workspace import allow
+    allow(user, "tax")
+    if user.branch_id:
+        raise ValidationError("Tax records require an unrestricted business-wide finance account")
 
 
 # ── Tax Calculator Endpoints ──────────────────────────────────────────────────
@@ -92,7 +94,7 @@ async def calculate_consumption_endpoint(data: dict):
 @router.get("/accounting/tax/configs")
 async def list_tax_configs(db: DbSession, current_user: CurrentUser):
     """List all tax configurations"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
     configs = await service.tax.list_tax_configs(db, current_user.tenant_id)
     return success_response(data=[c.model_dump() for c in configs], message="Tax configurations retrieved")
 
@@ -100,7 +102,9 @@ async def list_tax_configs(db: DbSession, current_user: CurrentUser):
 @router.post("/accounting/tax/configs")
 async def create_tax_config(db: DbSession, current_user: CurrentUser, data: TaxConfigCreate):
     """Create a tax configuration"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
+    from app.modules.accounting.service.workspace import allow
+    allow(current_user, "tax", "create")
     config = await service.tax.create_tax_config(db, current_user.tenant_id, data)
     return success_response(data=config.model_dump(), message="Tax configuration created", status_code=201)
 
@@ -108,8 +112,11 @@ async def create_tax_config(db: DbSession, current_user: CurrentUser, data: TaxC
 @router.patch("/accounting/tax/configs/{config_id}")
 async def update_tax_config(db: DbSession, current_user: CurrentUser, config_id: str, data: TaxConfigUpdate):
     """Update a tax configuration"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
     import uuid
+
+    from app.modules.accounting.service.workspace import allow
+    allow(current_user, "tax", "update")
     config = await service.tax.update_tax_config(db, current_user.tenant_id, uuid.UUID(config_id), data)
     return success_response(data=config.model_dump(), message="Tax configuration updated")
 
@@ -125,7 +132,7 @@ async def list_tax_calculations(
     status: str | None = Query(None),
 ):
     """List tax calculations"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
     calculations = await service.tax.list_tax_calculations(db, current_user.tenant_id, tax_type, period, status)
     return success_response(data=[c.model_dump() for c in calculations], message="Tax calculations retrieved")
 
@@ -133,7 +140,9 @@ async def list_tax_calculations(
 @router.post("/accounting/tax/calculations")
 async def create_tax_calculation(db: DbSession, current_user: CurrentUser, data: TaxCalculationCreate):
     """Create a tax calculation record"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
+    from app.modules.accounting.service.workspace import allow
+    allow(current_user, "tax", "create")
     calculation = await service.tax.create_tax_calculation(db, current_user.tenant_id, data)
     return success_response(data=calculation.model_dump(), message="Tax calculation created", status_code=201)
 
@@ -141,7 +150,7 @@ async def create_tax_calculation(db: DbSession, current_user: CurrentUser, data:
 @router.get("/accounting/tax/summary/{period}")
 async def get_tax_summary(db: DbSession, current_user: CurrentUser, period: str):
     """Get tax summary for a period"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
     summary = await service.tax.get_tax_summary(db, current_user.tenant_id, period)
     return success_response(data=summary, message="Tax summary retrieved")
 
@@ -156,7 +165,7 @@ async def list_tax_payments(
     period: str | None = Query(None),
 ):
     """List tax payments"""
-    _require_tenant(current_user.tenant_id)
+    _require_tenant(current_user)
     payments = await service.tax.list_tax_payments(db, current_user.tenant_id, tax_type, period)
     return success_response(data=[p.model_dump() for p in payments], message="Tax payments retrieved")
 
@@ -164,6 +173,8 @@ async def list_tax_payments(
 @router.post("/accounting/tax/payments")
 async def create_tax_payment(db: DbSession, current_user: CurrentUser, data: TaxPaymentCreate):
     """Record a tax payment"""
-    _require_tenant(current_user.tenant_id)
-    payment = await service.tax.create_tax_payment(db, current_user.tenant_id, data)
+    _require_tenant(current_user)
+    from app.modules.accounting.service.workspace import allow
+    allow(current_user, "tax", "create")
+    payment = await service.tax.create_tax_payment(db, current_user.tenant_id, data, current_user.id)
     return success_response(data=payment.model_dump(), message="Tax payment recorded", status_code=201)

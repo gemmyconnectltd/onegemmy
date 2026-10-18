@@ -5,7 +5,7 @@ from typing import Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Response
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,13 +18,13 @@ from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.core.security import hash_password, validate_password_strength
 from app.modules.accounting.models.transaction import Transaction
-from app.modules.accounting.models.transaction_line import TransactionLine
 from app.modules.admin.analytics import (
     all_time_sales_by_plan,
     all_time_sales_converted,
     invalidate_analytics_cache,
 )
 from app.modules.admin.export import build_users_export, resolve_columns
+from app.modules.admin.repository import tenant_plan_labels
 from app.modules.audit.service import record_audit
 from app.modules.hr.models.employee import Employee
 from app.modules.inventory.models.product import Product
@@ -45,6 +45,7 @@ from app.modules.tenants.schemas import (
     TenantLimitsUpdate,
     TenantUpdate,
 )
+from app.shared.schemas import TrimmedModel
 
 log = get_logger("admin.routes")
 
@@ -95,16 +96,12 @@ async def _tenant_usage_map(db: AsyncSession, tenant_ids: list[uuid.UUID]) -> di
         usage[r.tenant_id]["products"] = r.cnt
 
     revenue_rows = (await db.execute(
-        select(Transaction.tenant_id, func.coalesce(func.sum(TransactionLine.amount), 0).label("revenue"))
-        .join(TransactionLine, TransactionLine.transaction_id == Transaction.id)
-        .where(
-            Transaction.tenant_id.in_(tenant_ids), Transaction.type == "sale",
-            Transaction.status == "Posted", TransactionLine.type == "credit",
-        )
-        .group_by(Transaction.tenant_id)
-    )).fetchall()
+        select(Order.tenant_id, func.sum(func.coalesce(Order.base_total, Order.total)).label("revenue"))
+        .where(Order.tenant_id.in_(tenant_ids), Order.status == "Completed")
+        .group_by(Order.tenant_id)
+    )).all()
     for r in revenue_rows:
-        usage[r.tenant_id]["revenue"] = float(r.revenue)
+        usage[r.tenant_id]["revenue"] = float(r.revenue or 0)
 
     return usage
 
@@ -143,16 +140,25 @@ async def admin_stats(db: DbSession, _: SuperUser):
     """))).fetchall()
 
     return success_response(data={
+        "archived_tenants": (await db.execute(select(func.count()).select_from(Tenant).where(Tenant.archived_at.is_not(None)))).scalar_one(),
         "total_tenants": total_tenants,
         "active_tenants": active_tenants,
         "suspended_tenants": total_tenants - active_tenants,
+        "trial_tenants": (await db.execute(select(func.count()).select_from(Tenant).where(
+            Tenant.subscription_status.in_(["trial", "trialing"])
+        ))).scalar_one(),
+        "cancelled_tenants": (await db.execute(select(func.count()).select_from(Tenant).where(
+            Tenant.subscription_status.in_(["cancelled", "canceled"])
+        ))).scalar_one(),
         "total_users": total_users,
         "total_orders": total_orders,
         "completed_orders": completed_orders,
         "total_revenue": float(total_revenue),
+        "revenue_by_currency": sales["by_currency"],
         "reporting_currency": sales["reporting_currency"],
         "total_products": total_products,
         "plans": plans,
+        "plan_names": await tenant_plan_labels(db),
         "monthly_signups": [{"month": r.month, "count": r.cnt} for r in monthly],
     }, message="Platform stats retrieved")
 
@@ -206,12 +212,12 @@ async def admin_tenant_analytics(db: DbSession, _: SuperUser):
     """Breakdown charts: country, industry, business_type, heard_about, status, plan, monthly signups."""
 
     async def group_by_col(col):
-        expr = func.coalesce(func.nullif(col, ""), "Unknown")
+        expr = func.coalesce(func.nullif(func.btrim(col), ""), "Not specified")
         rows = (await db.execute(
             select(expr.label("name"), func.count().label("cnt"))
             .group_by(expr).order_by(func.count().desc())
         )).fetchall()
-        return [{"name": r.name, "value": r.cnt} for r in rows if r.name != "Unknown"]
+        return [{"name": r.name, "value": r.cnt} for r in rows]
 
     active = (await db.execute(select(func.count()).select_from(Tenant).where(Tenant.is_active == True))).scalar_one()
     pending = (await db.execute(select(func.count()).select_from(Tenant).where(
@@ -336,14 +342,17 @@ async def admin_usage_breakdown(db: DbSession, _: SuperUser):
     plan_revenue = plan_sales["by_plan"]
 
     plan_keys = set(plan_tenants) | set(plan_users) | set(plan_orders) | set(plan_products) | set(plan_revenue)
+    plan_names = await tenant_plan_labels(db)
     by_plan = [
         {
             "plan": p,
+            "plan_name": plan_names.get(p, p),
             "tenants": plan_tenants.get(p, 0),
             "users": plan_users.get(p, 0),
             "orders": (plan_orders.get(p) or {}).get("orders", 0),
             "completed_orders": (plan_orders.get(p) or {}).get("completed_orders", 0),
             "revenue": plan_revenue.get(p, 0.0),
+            "revenue_by_currency": plan_sales["original_by_plan"].get(p, {}),
             "products": plan_products.get(p, 0),
         }
         for p in plan_keys
@@ -376,11 +385,13 @@ async def admin_usage_breakdown(db: DbSession, _: SuperUser):
             **top_usage.get(tid, _empty_usage()),
         })
 
+    sales = await all_time_sales_converted()
     totals = {
         "total_orders": sum(r["orders"] for r in by_plan),
         "total_users": sum(r["users"] for r in by_plan),
         "total_products": sum(r["products"] for r in by_plan),
-        "total_revenue": sum(r["revenue"] for r in by_plan),
+        "total_revenue": sales["total"],
+        "revenue_by_currency": sales["by_currency"],
     }
 
     return success_response(data={
@@ -559,9 +570,23 @@ async def admin_export_users(data: AdminUserExportRequest, db: DbSession, admin:
 # ── Tenant CRUD ───────────────────────────────────────────────────────────────
 
 @router.get("/tenants")
-async def admin_list_tenants(db: DbSession, _: SuperUser, page_params: PageQuery):
-    tenants = await service.list_all(db, page_params.offset, page_params.limit)
-    total = await service.count_all(db)
+async def admin_list_tenants(
+    db: DbSession, _: SuperUser, page_params: PageQuery, q: str | None = None,
+    status: Literal["all", "active", "pending", "suspended", "trial", "cancelled"] = "all",
+    plan: str | None = None, country: str | None = None, industry: str | None = None,
+    businessType: str | None = None, heardAbout: str | None = None,
+    sort: Literal["name", "created", "users", "plan"] = "created",
+    dir: Literal["asc", "desc"] = "desc", created_from: date | None = None,
+    created_to: date | None = None,
+):
+    rows, total = await TenantRepository(db).admin_page(page_params.offset, page_params.limit, {
+        "q": q, "status": status, "plan": plan, "country": country, "industry": industry,
+        "businessType": businessType, "heardAbout": heardAbout, "sort": sort, "dir": dir,
+        "from": created_from.isoformat() if created_from else None,
+        "to": created_to.isoformat() if created_to else None,
+    })
+    from app.modules.tenants.schemas import TenantRead
+    tenants = [TenantRead.model_validate(t) for t in rows]
     usage = await _tenant_usage_map(db, [t.id for t in tenants])
     items = [{**t.model_dump(), "usage": usage.get(t.id, _empty_usage())} for t in tenants]
     return paginated_response(
@@ -571,20 +596,18 @@ async def admin_list_tenants(db: DbSession, _: SuperUser, page_params: PageQuery
     )
 
 
+class AdminTenantCreate(TenantCreate):
+    owner_full_name: str = Field(min_length=1, max_length=255)
+    owner_email: EmailStr
+
+
 @router.post("/tenants", status_code=201)
-async def admin_create_tenant(data: TenantCreate, db: DbSession, admin: SuperUser):
-    existing = await TenantRepository(db).get_by_slug(data.slug)
-    if existing:
-        raise ConflictError(f"Tenant slug '{data.slug}' already exists")
-    tenant = await service.create_tenant(db, data)
-    await record_audit(
-        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
-        action="tenant.create", entity_type="tenant", entity_id=str(tenant.id),
-        summary=f"Tenant '{tenant.name}' created",
-    )
-    await db.commit()
+async def admin_create_tenant(data: AdminTenantCreate, db: DbSession, admin: SuperUser):
+    from app.modules.admin.service import onboard_business
+    tenant = await onboard_business(db, TenantCreate.model_validate(data.model_dump()),
+                                    data.owner_full_name, data.owner_email, admin)
     invalidate_analytics_cache()
-    return success_response(data=tenant.model_dump(), message="Tenant created", status_code=201)
+    return success_response(data=tenant.model_dump(), message="Tenant and owner created", status_code=201)
 
 
 @router.get("/tenants/{tenant_id}")
@@ -623,6 +646,8 @@ async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Super
 @router.post("/tenants/{tenant_id}/activate")
 async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
     existing = await db.get(Tenant, tenant_id)
+    if existing is not None and existing.archived_at is not None:
+        raise ValidationError("Archived businesses cannot be activated")
     was_pending_signup = existing is not None and existing.subscription_status == "pending"
     update = TenantUpdate(is_active=True, subscription_status="active") if was_pending_signup else TenantUpdate(is_active=True)
     tenant = await service.update_tenant(db, tenant_id, update)
@@ -652,15 +677,15 @@ async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: Supe
 @router.delete("/tenants/{tenant_id}")
 async def admin_delete_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
     tenant = await service.get_by_id(db, tenant_id)
-    await service.delete_tenant(db, tenant_id)
+    await service.archive_tenant(db, tenant_id)
     await record_audit(
         db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
         action="tenant.delete", entity_type="tenant", entity_id=str(tenant_id),
-        summary=f"Tenant '{tenant.name if tenant else tenant_id}' deleted",
+        summary=f"Tenant '{tenant.name}' archived; records retained",
     )
     await db.commit()
     invalidate_analytics_cache()
-    return success_response(message="Tenant deleted")
+    return success_response(message="Tenant archived; all records retained")
 
 
 class ResetTenantDataRequest(BaseModel):
@@ -747,12 +772,7 @@ async def admin_tenant_stats(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
     users = (await db.execute(select(func.count()).select_from(User).where(User.tenant_id == tenant_id))).scalar_one()
     orders = (await db.execute(select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id))).scalar_one()
     completed = (await db.execute(select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id, Order.status == "Completed"))).scalar_one()
-    revenue = (await db.execute(
-        select(func.coalesce(func.sum(TransactionLine.amount), 0))
-        .join(Transaction, Transaction.id == TransactionLine.transaction_id)
-        .where(Transaction.tenant_id == tenant_id, Transaction.type == "sale",
-               Transaction.status == "Posted", TransactionLine.type == "credit")
-    )).scalar_one()
+    revenue = (await _tenant_usage_map(db, [tenant_id])).get(tenant_id, _empty_usage())["revenue"]
     products = (await db.execute(select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id))).scalar_one()
     return success_response(data={
         "users": users, "orders": orders, "completed_orders": completed,
@@ -771,10 +791,10 @@ async def admin_list_tenant_users(tenant_id: uuid.UUID, db: DbSession, _: SuperU
 
 # ── Invite / onboard user to tenant ──────────────────────────────────────────
 
-class InviteUserPayload(BaseModel):
+class InviteUserPayload(TrimmedModel):
     email: EmailStr
-    full_name: str
-    role: str = "member"
+    full_name: str = Field(min_length=1, max_length=255)
+    role: Literal["owner", "admin", "member", "viewer"] = "member"
     # Optional: set by the inviting admin when they intend to hand the
     # credentials to the person directly. Left blank, a strong random one is
     # generated instead (same pattern as the reset-password endpoint).
@@ -808,7 +828,7 @@ async def admin_invite_user(tenant_id: uuid.UUID, data: InviteUserPayload, db: D
         role_id=role_id,
         hashed_password=hash_password(temp_password),
         is_active=True,
-        is_superuser=False,
+        is_superuser=data.role == "owner",
     )
     db.add(user)
     await db.commit()

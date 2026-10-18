@@ -1,5 +1,5 @@
 import { monthlyEquivalent, recurringCost, type CostBreakdown } from "./money";
-import type { BillingCycle, Plan, PriceSheet, Subscription } from "./types";
+import type { BillingCycle, Coupon, Plan, PriceSheet, Subscription } from "./types";
 
 export const subscriptionCost = (s: Subscription): CostBreakdown =>
   recurringCost({ prices: s.priceSheet, cycle: s.cycle, includedUsers: s.includedUsers, includedBranches: s.includedBranches, users: s.includedUsers + s.extraUsers, branches: s.includedBranches + s.extraBranches });
@@ -29,3 +29,11 @@ export const CYCLE_LABEL: Record<BillingCycle, string> = { monthly: "Monthly", a
 
 export const newId = (p: string) => `${p}_${Math.random().toString(36).slice(2, 9)}`;
 export const daysBetween = (a: string | Date, b: string | Date) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+
+/** Exclusive status used by both a coupon badge and its filter. Dates compare instants, not locale strings. */
+export function couponStatus(coupon: Coupon, now = Date.now()): "Expired" | "Exhausted" | "Inactive" | "Active" {
+  if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() <= now) return "Expired";
+  if (coupon.maxRedemptions !== null && coupon.redeemed >= coupon.maxRedemptions) return "Exhausted";
+  if (!coupon.active || (coupon.startsAt && new Date(coupon.startsAt).getTime() > now)) return "Inactive";
+  return "Active";
+}

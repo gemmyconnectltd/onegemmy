@@ -102,14 +102,9 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         raise ValidationError("Business name is required")
     if not data.full_name.strip():
         raise ValidationError("Full name is required")
-    if not SLUG_RE.match(data.tenant_slug):
-        raise ValidationError("Business URL must be lowercase letters, numbers, and hyphens only")
+    from app.modules.tenants.slug import allocate_slug
     validate_password_strength(data.password)
-
-    existing_tenant = await TenantRepository(db).get_by_slug(data.tenant_slug)
-    if existing_tenant is not None:
-        log.warning("auth.register.conflict", extra={"_extra_fields": {"tenant_slug": data.tenant_slug}})
-        raise ConflictError("Tenant slug already taken")
+    normalized_slug = await allocate_slug(db, data.tenant_slug or data.tenant_name)
 
     existing_user = await UserRepository(db).get_by_email_global(data.email)
     if existing_user is not None:
@@ -126,7 +121,7 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
 
     tenant = Tenant(
         name=data.tenant_name,
-        slug=data.tenant_slug,
+        slug=normalized_slug,
         is_active=False,
         subscription_status="pending",
         features=features,

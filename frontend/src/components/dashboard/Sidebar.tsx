@@ -46,7 +46,7 @@ const mgmtNavItems = [
   { name: "Help & Support", href: "/support", icon: LifeBuoy },
 ];
 
-const branchNavItem = { name: "Branches", href: "/branches", icon: Building2 };
+const branchNavItem = { name: "Branch Management", href: "/branches", icon: Building2 };
 
 const navItems = [...coreNavItems, ...mgmtNavItems];
 

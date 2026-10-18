@@ -3,8 +3,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.shared.schemas import TrimmedModel
 
-class BranchCreate(BaseModel):
+
+class BranchCreate(TrimmedModel):
     name: str
     location: str | None = None
     phone: str | None = None
@@ -12,7 +14,7 @@ class BranchCreate(BaseModel):
     status: str = "active"
 
 
-class BranchUpdate(BaseModel):
+class BranchUpdate(TrimmedModel):
     name: str | None = None
     location: str | None = None
     phone: str | None = None

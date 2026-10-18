@@ -30,10 +30,11 @@ export function BranchSwitcher() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-surface text-foreground border border-border hover:border-foreground/20 transition-colors flex-shrink-0 min-w-0"
-        title="Switch active branch"
+        title={`Active branch: ${label}`}
+        aria-label={`Active branch: ${label}. Switch branch`}
       >
         <Building2 size={14} className="text-accent flex-shrink-0" />
-        <span className="text-[13px] font-semibold truncate max-w-[120px]">{label}</span>
+        <span className="hidden sm:inline text-[13px] font-semibold truncate max-w-[120px]">{label}</span>
         <ChevronDown size={12} className="text-muted flex-shrink-0" />
       </button>
       {open && (

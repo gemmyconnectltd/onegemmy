@@ -64,9 +64,4 @@ class SupplierPaymentRepository(BaseRepository[SupplierPayment]):
         return list(result.scalars().all())
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
-        result = await self.db.execute(
-            select(func.max(cast(func.substring(SupplierPayment.reference, 5), Integer)))
-            .where(SupplierPayment.tenant_id == tenant_id)
-        )
-        current_max = result.scalar_one() or 0
-        return f"PAY-{str(current_max + 1).zfill(4)}"
+        return f"PAY-{uuid.uuid4().hex[:20].upper()}"

@@ -124,7 +124,19 @@ async function tryRefreshToken(): Promise<string | null> {
 // expired flow below (that flow assumes an existing session went stale).
 const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/change-password"];
 
+/** Trim human input before sending; credential bytes must remain unchanged. */
+export function trimInput(value: unknown, key = ""): unknown {
+  if (typeof value === "string") return /password|token|secret/.test(key) ? value : value.trim();
+  if (Array.isArray(value)) return value.map(v => trimInput(v, key));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, trimInput(v, k)]));
+  return value;
+}
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  if (typeof options.body === "string") {
+    try { options = { ...options, body: JSON.stringify(trimInput(JSON.parse(options.body))) }; }
+    catch { /* Non-JSON request bodies keep their original representation. */ }
+  }
   const token = getStoredToken();
   const activeBranchId = getActiveBranchId();
   const headers: Record<string, string> = {

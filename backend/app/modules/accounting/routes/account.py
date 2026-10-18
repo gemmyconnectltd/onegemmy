@@ -1,8 +1,8 @@
 import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
@@ -10,7 +10,7 @@ from app.modules.accounting import service
 from app.modules.accounting.schemas import AccountCreate, AccountUpdate
 from app.modules.accounting.service.account import seed_default_accounts
 
-router = APIRouter(tags=["Accounting - Accounts"])
+router = APIRouter(tags=["Accounting - Accounts"], dependencies=[Depends(require_permission("chart_of_accounts:read"))])
 
 
 def _require_tenant(tenant_id) -> None:
@@ -21,6 +21,8 @@ def _require_tenant(tenant_id) -> None:
 @router.post("/accounting/accounts/seed")
 async def seed_accounts(db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
+    from app.modules.accounting.service.workspace import allow
+    allow(current_user, "chart_of_accounts", "create")
     await seed_default_accounts(db, current_user.tenant_id)
     return success_response(message="Default chart of accounts seeded")
 
@@ -36,7 +38,7 @@ async def list_accounts(db: DbSession, current_user: CurrentUser, page_params: P
 @router.post("/accounting/accounts")
 async def create_account(data: AccountCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.create_account(db, current_user.tenant_id, data)
+    obj = await service.create_account(db, current_user.tenant_id, data, current_user)
     return success_response(data=obj.model_dump(), message="Account created", status_code=201)
 
 
@@ -50,12 +52,12 @@ async def get_account(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
 @router.patch("/accounting/accounts/{id}")
 async def update_account(id: uuid.UUID, data: AccountUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.update_account(db, current_user.tenant_id, id, data)
+    obj = await service.update_account(db, current_user.tenant_id, id, data, current_user)
     return success_response(data=obj.model_dump(), message="Account updated")
 
 
 @router.delete("/accounting/accounts/{id}")
 async def delete_account(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    await service.delete_account(db, current_user.tenant_id, id)
+    await service.delete_account(db, current_user.tenant_id, id, current_user)
     return success_response(message="Account deleted")

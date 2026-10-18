@@ -1,9 +1,10 @@
 import re
+import unicodedata
 from datetime import UTC, datetime
 
 
 def slugify(value: str) -> str:
-    value = value.lower().strip()
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode().lower().strip()
     value = re.sub(r"[^\w\s-]", "", value)
     value = re.sub(r"[\s_]+", "-", value)
     value = re.sub(r"-+", "-", value)

@@ -109,6 +109,7 @@ const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
     // One entry fronts the five Business Settings tabs (General, Financial, Security, Notifications, Appearance).
     { nameKey: "businessSettings", href: "/settings", icon: Settings, exact: true, activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
     { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
+    { nameKey: "plansBilling", href: "/settings/billing", icon: CreditCard },
   ],
   repairs: [
     { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },

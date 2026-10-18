@@ -3,13 +3,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.shared.schemas import TrimmedModel
 
-class RoleCreate(BaseModel):
+
+class RoleCreate(TrimmedModel):
     name: str
     description: str | None = None
 
 
-class RoleUpdate(BaseModel):
+class RoleUpdate(TrimmedModel):
     name: str | None = None
     description: str | None = None
 

@@ -17,6 +17,7 @@ export interface AdminTenant {
   name: string;
   slug: string;
   is_active: boolean;
+  archived_at?: string | null;
   subscription_plan: string;
   subscription_status: string;
   currency: string;
@@ -44,7 +45,8 @@ export interface AdminTenant {
 /** A tenant that registered itself but hasn't been approved yet is
  *  distinguished from one an admin suspended after the fact — both are
  *  `is_active: false`, but only the former has `subscription_status: "pending"`. */
-export function tenantStatusLabel(t: Pick<AdminTenant, "is_active" | "subscription_status">): "Active" | "Pending Approval" | "Suspended" {
+export function tenantStatusLabel(t: Pick<AdminTenant, "is_active" | "subscription_status" | "archived_at">): "Active" | "Pending Approval" | "Suspended" | "Archived" {
+  if (t.archived_at) return "Archived";
   if (t.is_active) return "Active";
   return t.subscription_status === "pending" ? "Pending Approval" : "Suspended";
 }
@@ -60,6 +62,9 @@ export interface AdminTenantStats {
 export interface AdminPlatformStats {
   /** Tenant sales volume converted to `reporting_currency` — not PESAA's own revenue. */
   reporting_currency?: string;
+  revenue_by_currency?: Record<string, number>;
+  trial_tenants?: number;
+  cancelled_tenants?: number;
   total_tenants: number;
   active_tenants: number;
   suspended_tenants: number;
@@ -69,6 +74,7 @@ export interface AdminPlatformStats {
   total_revenue: number;
   total_products: number;
   plans: Record<string, number>;
+  plan_names?: Record<string, string>;
   monthly_signups: { month: string; count: number }[];
 }
 
@@ -98,6 +104,7 @@ export interface AdminFeatureUsage {
 }
 
 export interface AdminUsageSummary {
+  revenue_by_currency: Record<string, number>;
   reporting_currency?: string;
   total_tenants: number;
   engaged_tenants: number;
@@ -117,6 +124,8 @@ export interface AdminEngagementTier {
 }
 
 export interface AdminPlanUsage {
+  plan_name?: string;
+  revenue_by_currency: Record<string, number>;
   plan: string;
   tenants: number;
   users: number;
@@ -416,9 +425,9 @@ export const adminApi = {
   platformAuditLogs: (page = 1, pageSize = 100) =>
     request<PaginatedResponse<AdminAuditLog>>(`/admin/audit/logs?page=${page}&page_size=${pageSize}`),
 
-  listTenants: (page = 1, pageSize = 20) =>
-    request<PaginatedResponse<AdminTenant>>(`${B}/tenants?page=${page}&page_size=${pageSize}`),
-  createTenant: (data: { name: string; slug: string; subscription_plan?: string; phone?: string; city?: string; country?: string }) =>
+  listTenants: (page = 1, pageSize = 20, filters: Record<string, string> = {}) =>
+    request<PaginatedResponse<AdminTenant>>(`${B}/tenants${qs({ page, page_size: pageSize, ...filters })}`),
+  createTenant: (data: { name: string; slug: string; owner_full_name: string; owner_email: string; phone?: string; city?: string; country?: string }) =>
     request<SingleResponse<AdminTenant>>(`${B}/tenants`, { method: "POST", body: JSON.stringify(data) }),
   getTenant: (id: string) =>
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}`),

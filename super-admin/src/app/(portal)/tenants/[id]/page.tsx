@@ -1,4 +1,6 @@
 "use client";
+import { SubscriptionManager, LiveBillingList } from "@/components/billing/LiveBilling";
+import { COUNTRY_NAMES } from "@/lib/countries";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useState } from "react";
 import { Suspense } from "react";
@@ -17,7 +19,7 @@ import {
   useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
   useTenantBranches, useCreateBranch, useDeleteBranch, useResetUserPassword,
-  useUpdateTenant, useResetTenantData, useTenantLimits, usePlatformAuditLogs,
+  useDeleteTenant, useUpdateTenant, useResetTenantData, useTenantLimits, usePlatformAuditLogs,
 } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
 import { useAppConfig } from "@/lib/appConfig";
@@ -30,15 +32,11 @@ import FeaturesPanel from "./FeaturesPanel";
 import { Button } from "@/components/ui/Button";
 import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
-import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
 import { ContactBadge } from "@/components/tenants/ContactBadge";
-import { ActivityPanel, Card, InvoicesPanel, OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
+import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
+import { ActivityPanel, OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
 import { resolveUploadUrl } from "@/lib/api/client";
 
-
-function Row2({ k, v }: { k: string; v: React.ReactNode }) {
-  return <div className="flex items-start justify-between gap-3 border-b border-border/60 py-1.5 text-[13px] last:border-0"><dt className="text-muted">{k}</dt><dd className="min-w-0 text-right font-semibold">{v}</dd></div>;
-}
 
 function TenantDetailPageInner() {
   const { id } = useParams<{ id: string }>();
@@ -53,8 +51,8 @@ function TenantDetailPageInner() {
     return (["overview", "users", "branches", "subscription", "usage", "invoices", "security", "activity"] as const).find((x) => x === t) ?? "overview";
   });
   const [usersSub, setUsersSub] = useState<"users" | "departments" | "roles">("users");
-  const [showPlan, setShowPlan] = useState(false);
-  const [planChoice, setPlanChoice] = useState("free");
+  const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" } | null>(null);
+  const removeTenant = useDeleteTenant();
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
   const [showAddRole, setShowAddRole] = useState(false);
@@ -80,7 +78,7 @@ function TenantDetailPageInner() {
   const { data: branchesData, isError: branchesError } = useTenantBranches(id);
   const { data: limits } = useTenantLimits(id);
   const audit = usePlatformAuditLogs(1, 100);
-  const tenantEvents = (audit.data?.items ?? []).filter((e) => e.tenant_id === id);
+  const tenantEvents = (audit.data?.items ?? []).filter((e) => e.tenant_id === id || e.entity_id === id);
 
   const users = usersData?.items ?? [];
   const departments = departmentsData?.items ?? [];
@@ -234,22 +232,6 @@ function TenantDetailPageInner() {
     });
   };
 
-  const applyPlan = () => {
-    if (!tenant || planChoice === tenant.subscription_plan) return;
-    confirm({
-      title: "Change plan?",
-      message: `Move ${tenant.name} from "${tenant.subscription_plan}" to "${planChoice}"? Limits and feature access are not changed automatically.`,
-      confirmLabel: "Change plan",
-      onConfirm: () => {
-        setNotice(null);
-        updateTenant.mutate({ id, data: { subscription_plan: planChoice } }, {
-          onSuccess: () => { setShowPlan(false); setNotice({ kind: "success", text: `Plan changed to ${planChoice}` }); },
-          onError: () => setNotice({ kind: "error", text: "Failed to change plan" }),
-        });
-      },
-    });
-  };
-
   const openInvite = () => {
     setNotice(null);
     setTempPassword(null);
@@ -259,7 +241,7 @@ function TenantDetailPageInner() {
 
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    inviteUser.mutate({ tenantId: id, data: inviteForm }, {
+    inviteUser.mutate({ tenantId: id, data: { ...inviteForm, full_name: inviteForm.full_name.trim(), email: inviteForm.email.trim() } }, {
       onSuccess: (res) => {
         setInviteForm({ email: "", full_name: "", role: "member", password: "" });
         setTempPassword(res.data?.temp_password ?? null);
@@ -476,10 +458,11 @@ function TenantDetailPageInner() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" disabled title="Secure, time-limited, audited impersonation isn't available yet — nothing is faked here."><Eye size={14} /> View as Tenant</Button>
-          <Button variant="outline" onClick={() => { setPlanChoice(tenant.subscription_plan); setShowPlan(true); }}><Crown size={14} /> Change Plan</Button>
+          <Button variant="outline" onClick={() => setTab("subscription")}><Crown size={14} /> Change Plan</Button>
           <Button variant="primary" type="button" onClick={openInvite}><UserPlus size={14} /> Invite User</Button>
           <ActionMenu label="More actions" items={[
-            { label: tenant.is_active ? "Suspend business" : tenant.subscription_status === "pending" ? "Approve business" : "Reactivate business", icon: <Power size={14} />, danger: tenant.is_active, onSelect: toggleStatus },
+                      { label: "Edit business", icon: <Building2 size={14} />, onSelect: () => setEditForm({ name: tenant.name.trim(), slug: tenant.slug, phone: tenant.phone ?? "", city: tenant.city ?? "", country: tenant.country ?? "", preferred_contact: tenant.preferred_contact ?? "email" }) },
+            { label: tenant.is_active ? "Suspend business" : "Activate business", disabled: !!tenant.archived_at, icon: <Power size={14} />, danger: tenant.is_active, onSelect: toggleStatus },
             { label: "Reset business data", icon: <RotateCcw size={14} />, danger: true, onSelect: openResetData },
           ]} />
         </div>
@@ -497,20 +480,9 @@ function TenantDetailPageInner() {
       <div>
         <div className="min-w-0 space-y-6">
           {tab === "overview" && <OverviewPanel {...panelProps} controls={controls} />}
-          {tab === "subscription" && (
-            <>
-              <Card title="Subscription" action={<Link href="/subscriptions" className="text-[12px] font-semibold text-accent hover:underline">Plans &amp; Billing →</Link>}>
-                <dl className="grid gap-x-8 sm:grid-cols-2">
-                  <div><Row2 k="Plan" v={<span className="capitalize">{tenant.subscription_plan}</span>} /><Row2 k="Status" v={<span className="capitalize">{tenant.subscription_status}</span>} /><Row2 k="Currency" v={tenant.currency} /></div>
-                  <div><Row2 k="Included / additional users" v={<span className="font-normal text-muted">Not available yet</span>} /><Row2 k="Included / additional branches" v={<span className="font-normal text-muted">Not available yet</span>} /><Row2 k="Billing cycle, price, next billing" v={<span className="font-normal text-muted">Not available yet</span>} /></div>
-                </dl>
-                <div className="mt-3 flex flex-wrap items-center gap-2"><Button variant="outline" size="sm" onClick={() => { setPlanChoice(tenant.subscription_plan); setShowPlan(true); }}><Crown size={13} /> Change plan</Button><p className="text-[11.5px] text-muted">Price, cycle and history come from the billing API (not built yet). The plan and the limits/features below are live.</p></div>
-              </Card>
-              <FeaturesPanel tenantId={id} />
-            </>
-          )}
+          {tab === "subscription" && <><SubscriptionManager tenantId={id} /><FeaturesPanel tenantId={id} /></>}
           {tab === "usage" && <UsagePanel {...panelProps} currencySymbol={tenantCurrencySymbol} />}
-          {tab === "invoices" && <InvoicesPanel tenant={tenant} />}
+          {tab === "invoices" && <LiveBillingList kind="invoices" tenantId={id} />}
           {tab === "security" && <SecurityPanel tenant={tenant} usersCount={users.length} inactiveUsers={users.filter((u) => !u.is_active).length} events={tenantEvents} eventsLoading={audit.isLoading} />}
           {tab === "activity" && <ActivityPanel events={tenantEvents} loading={audit.isLoading} error={audit.isError} scanned={audit.data?.items.length ?? 0} />}
           {tab === "users" && (
@@ -786,6 +758,7 @@ function TenantDetailPageInner() {
           </div>
           <h2 className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</h2>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 py-3"><div><p className="text-sm font-semibold">Delete tenant</p><p className="text-xs text-muted">Archive this business and disable access. Financial records and activity are retained.</p></div><Button variant="outline" disabled={removeTenant.isPending} onClick={() => confirm({ title: "Delete tenant?", message: "The business will be archived and all access disabled. Records remain available for audit.", confirmText: tenant.name.trim(), confirmLabel: "Delete tenant", danger: true, onConfirm: () => removeTenant.mutate(id, { onSuccess: () => router.push("/tenants"), onError: () => setNotice({ kind: "error", text: "Could not archive this business" }) }) })}><Trash2 size={14} /> Delete tenant</Button></div>
         <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-red-500/20">
           <div className="max-w-xl">
             <p className="text-sm font-semibold text-foreground">Reset Business Data</p>
@@ -804,15 +777,12 @@ function TenantDetailPageInner() {
       )}
       </SectionLayout>
 
+      {editForm && <Drawer open onClose={() => setEditForm(null)} title="Edit business"><form className="space-y-4 p-5" onSubmit={e => { e.preventDefault(); updateTenant.mutate({ id, data: { ...editForm, name: editForm.name.trim(), slug: editForm.slug.trim(), phone: editForm.phone.trim(), city: editForm.city.trim(), country: editForm.country.trim() } }, { onSuccess: () => setEditForm(null), onError: () => setNotice({ kind: "error", text: "Could not save business details" }) }); }}>
+        {(["name", "slug", "phone", "city"] as const).map(k => <Field key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} required={k === "name" || k === "slug"}><Input required={k === "name" || k === "slug"} value={editForm[k]} onChange={e => setEditForm({ ...editForm, [k]: e.target.value })} /></Field>)}
+        <Field label="Country"><Select value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value })}><option value="">Not specified</option>{COUNTRY_NAMES.map(c => <option key={c}>{c}</option>)}</Select></Field>
+        <Field label="Contact preference"><Select value={editForm.preferred_contact} onChange={e => setEditForm({ ...editForm, preferred_contact: e.target.value as typeof editForm.preferred_contact })}><option value="email">Email</option><option value="phone">Phone</option><option value="whatsapp">WhatsApp</option></Select></Field>
+        <FormFooter submitLabel="Save changes" onCancel={() => setEditForm(null)} disabled={updateTenant.isPending} /></form></Drawer>}
       {/* Change plan drawer */}
-      <Drawer open={showPlan} onClose={() => setShowPlan(false)} side="center" size="sm" title="Change plan" description={`Current plan: ${tenant.subscription_plan}`}
-        footer={<div className="flex justify-end gap-2"><button type="button" onClick={() => setShowPlan(false)} className="rounded-lg px-4 py-2 text-sm font-semibold text-muted hover:bg-surface">Cancel</button><Button variant="primary" type="button" disabled={planChoice === tenant.subscription_plan || updateTenant.isPending} onClick={applyPlan}>Change plan</Button></div>}>
-        <div className="space-y-3 px-5 py-4">
-          <Field label="New plan"><Select value={planChoice} onChange={(e) => setPlanChoice(e.target.value)}>{[...new Set(["free", "starter", "professional", "enterprise", tenant.subscription_plan])].map((p) => <option key={p} value={p} className="capitalize">{p}</option>)}</Select></Field>
-          <p className="text-[12px] text-muted">Updates the plan recorded on the business. Limits and feature access are changed separately in Subscription. No charge is made from here.</p>
-        </div>
-      </Drawer>
-
       {/* Invite drawer */}
       <Drawer
         open={showInvite}
@@ -830,7 +800,7 @@ function TenantDetailPageInner() {
             </Field>
             <Field label="Role">
               <Select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}>
-                {["admin", "member", "viewer"].map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
+                {["owner", "admin", "member", "viewer"].map((r) => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
               </Select>
             </Field>
             <Field label="Password (optional)">

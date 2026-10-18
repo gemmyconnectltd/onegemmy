@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.shared.schemas import TrimmedModel
+
 
 class AttachmentRead(BaseModel):
     id: str
@@ -92,7 +94,7 @@ class PriorityIn(BaseModel):
     priority: str
 
 
-class TicketCreateIn(BaseModel):
+class TicketCreateIn(TrimmedModel):
     subject: str = Field(min_length=3, max_length=500)
     description: str = Field(min_length=1, max_length=10000)
     priority: str = "normal"
@@ -120,13 +122,13 @@ class StaffRead(BaseModel):
     open_tickets: int = 0
 
 
-class StaffCreateIn(BaseModel):
+class StaffCreateIn(TrimmedModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=255)
     role: str
 
 
-class StaffUpdateIn(BaseModel):
+class StaffUpdateIn(TrimmedModel):
     role: str | None = None
     is_active: bool | None = None
 

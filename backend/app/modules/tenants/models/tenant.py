@@ -1,6 +1,7 @@
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Index, Numeric, String
+from sqlalchemy import Boolean, DateTime, Index, Numeric, String, false
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +15,7 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     logo_url: Mapped[str | None] = mapped_column(String(500))
     brand_color: Mapped[str | None] = mapped_column(String(7))
@@ -22,6 +24,9 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     address: Mapped[str | None] = mapped_column(String(500))
     city: Mapped[str | None] = mapped_column(String(100))
     country: Mapped[str | None] = mapped_column(String(100))
+
+    # Migration preserves legacy access; newly created ORM tenants join the managed cohort.
+    billing_required: Mapped[bool] = mapped_column(Boolean, default=True, server_default=false())
 
     subscription_plan: Mapped[str] = mapped_column(String(50), default="free")
     subscription_status: Mapped[str] = mapped_column(String(50), default="active")
@@ -37,13 +42,13 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     business_location: Mapped[str | None] = mapped_column(String(255))
     heard_about: Mapped[str | None] = mapped_column(String(100))
     referral_code: Mapped[str | None] = mapped_column(String(50))
-
-    # ISO 4217 code. Locked from the tenant's own side (see /api/v1/tenants
-    # update_tenant) — only a platform superadmin can change it, since the
     # How the business wants Pesaa to reach it first: "email" (the owner's login email), "phone" (a call to the
     # business phone above) or "whatsapp" (a WhatsApp message to that same number). Chosen at registration and
     # editable in Settings; shown to staff who review a signup or answer support so they use the channel asked for.
     preferred_contact: Mapped[str] = mapped_column(String(10), nullable=False, default="email", server_default="email")
+
+    # ISO 4217 code. Locked from the tenant's own side (see /api/v1/tenants
+    # update_tenant) — only a platform superadmin can change it, since the
     # app doesn't convert historical amounts recorded under the old currency.
     currency: Mapped[str] = mapped_column(String(3), default="RWF")
 

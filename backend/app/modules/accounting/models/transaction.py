@@ -26,6 +26,10 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     currency_code: Mapped[str | None] = mapped_column(String(3), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("branches.id", ondelete="RESTRICT"), nullable=True
+    )
+
     order_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_orders.id", ondelete="SET NULL"), nullable=True
     )
@@ -47,6 +51,8 @@ class Transaction(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("uq_accounting_transactions_tenant_ref", "tenant_id", "reference", unique=True),
         Index("ix_accounting_transactions_tenant_id", "tenant_id"),
+        Index("ix_accounting_transactions_tenant_branch_date", "tenant_id", "branch_id", "transaction_date"),
+        Index("ix_accounting_transactions_tenant_posted_date", "tenant_id", "status", "transaction_date"),
         Index("ix_accounting_transactions_order_id", "order_id"),
         Index("ix_accounting_transactions_purchase_id", "purchase_id"),
         Index("ix_accounting_transactions_type_status", "tenant_id", "type", "status"),

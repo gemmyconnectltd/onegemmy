@@ -16,6 +16,7 @@ from app.core.database import Base
 # "Order" class by string name, and SQLAlchemy resolves it against whichever
 # classes are registered at mapper-configuration time. Keep this block as-is
 # (do not let `ruff --fix` re-alphabetize it — that reintroduces the failure).
+from app.modules.billing import models as billing_models  # noqa: F401
 from app.modules.ai.models import AiAction, AiConversation, AiMessage, AiUsageEvent  # noqa: F401
 from app.modules.audit.models import AuditLog  # noqa: F401
 from app.modules.crm.models import Campaign, EmailLog  # noqa: F401
@@ -101,7 +102,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(connection=connection, target_metadata=target_metadata, include_object=config.attributes.get("include_object"))
     with context.begin_transaction():
         context.run_migrations()
 
@@ -120,5 +121,7 @@ async def run_migrations_online() -> None:
 
 if context.is_offline_mode():
     run_migrations_offline()
+elif config.attributes.get("connection") is not None:
+    do_run_migrations(config.attributes["connection"])
 else:
     asyncio.run(run_migrations_online())

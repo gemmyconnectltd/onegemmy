@@ -1,15 +1,17 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.accounting.schemas.account import AccountRead
 
 
 class TransactionLineCreate(BaseModel):
     account_id: uuid.UUID
-    type: str  # debit | credit
-    amount: float
+    type: Literal["debit", "credit"]
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     description: str | None = None
 
 

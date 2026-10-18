@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, Index, String, Text
+import uuid
+
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -19,6 +21,9 @@ class Account(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    group_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounting_accounts.id", ondelete="RESTRICT"), nullable=True)
+
     transaction_lines = relationship("TransactionLine", back_populates="account", lazy="noload")
     budgets = relationship("Budget", back_populates="account", lazy="noload")
     expenses = relationship("Expense", back_populates="account", lazy="noload")
@@ -27,4 +32,5 @@ class Account(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         Index("uq_accounting_accounts_tenant_code", "tenant_id", "code", unique=True),
         Index("ix_accounting_accounts_tenant_id", "tenant_id"),
         Index("ix_accounting_accounts_type", "tenant_id", "type"),
+        Index("ix_accounting_accounts_tenant_parent", "tenant_id", "parent_id"),
     )

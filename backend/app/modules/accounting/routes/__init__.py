@@ -14,3 +14,6 @@ accounting_router.include_router(expense_router)
 accounting_router.include_router(budget_router)
 accounting_router.include_router(report_router)
 accounting_router.include_router(tax_router)
+from app.modules.accounting.routes.workspace import router as workspace_router
+
+accounting_router.include_router(workspace_router)

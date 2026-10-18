@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtRelative } from "@/lib/date";
 import { type AdminAuditLog, type AdminBranch, type AdminTenant, type AdminTenantStats, type TenantLimits } from "@/lib/api/admin";
+import { useBillingOverview } from "@/lib/api/hooks";
+import { billingDate, billingMoney } from "@/components/billing/BillingShared";
 import { TenantStatusBadge } from "@/components/tenants/StatusBadge";
 
 export type PanelTab = "overview" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity";
@@ -48,6 +50,9 @@ const limit = (l: TenantLimits | undefined, k: keyof TenantLimits) => (l ? l[k] 
 interface Common { tenant: AdminTenant; stats?: AdminTenantStats; limits?: TenantLimits; branches: AdminBranch[]; usersCount: number; go: (t: PanelTab) => void }
 
 export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go, controls }: Common & { controls: ReactNode }) {
+  const billing = useBillingOverview(tenant.id);
+  const subscription = billing.data?.subscription;
+  const planLabel = billing.data?.plan_name ?? (/^[a-f0-9-]{36}$/i.test(tenant.subscription_plan) ? "Managed plan" : tenant.subscription_plan);
   const profile: [string, ReactNode][] = ([
     ["Business name", tenant.name], ["Country", tenant.country], ["City", tenant.city], ["Industry", tenant.industry], ["Business type", BUSINESS_TYPE_LABELS[tenant.business_type ?? ""] ?? tenant.business_type],
     ["Phone", tenant.phone], ["Prefers to be contacted by", ({ email: "Email", phone: "Phone call", whatsapp: "WhatsApp" } as Record<string, string>)[tenant.preferred_contact ?? ""] ?? null], ["Address", tenant.address], ["Website", tenant.website && <a key="w" href={tenant.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">{tenant.website}</a>],
@@ -64,14 +69,14 @@ export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go,
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {metric("Users", `${usersCount} / ${mx ?? "∞"}`, Users, "used / allowed")}
         {metric("Branches", `${branches.length} / ${mb ?? "∞"}`, Building2, "used / allowed")}
-        {metric("Current plan", tenant.subscription_plan, Crown)}
-        {metric("Next billing", "—", CalendarClock, "Billing API not connected")}
+        {metric("Current plan", planLabel, Crown)}
+        {metric("Next billing", subscription ? billingDate(subscription.period_end) : "—", CalendarClock, billing.isError ? "Could not load billing" : subscription ? "UTC" : "No managed subscription")}
         {metric("Subscription", tenant.subscription_status, ShieldCheck)}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Business profile"><dl>{profile.map(([k, v]) => <Row key={k} k={k} v={v} />)}</dl></Card>
         <Card title="Subscription summary" action={<TabLink tab="subscription" go={go}>Manage →</TabLink>}>
-          <dl><Row k="Plan" v={<span className="capitalize">{tenant.subscription_plan}</span>} /><Row k="Status" v={<span className="capitalize">{tenant.subscription_status}</span>} /><Row k="Currency" v={tenant.currency} /><Row k="Billing cycle / price / renewal" v={<span className="font-normal text-muted">Not available yet</span>} /></dl>
+          <dl><Row k="Plan" v={<span className="capitalize">{planLabel}</span>} /><Row k="Status" v={<span className="capitalize">{tenant.subscription_status}</span>} /><Row k="Currency" v={tenant.currency} /><Row k="Billing cycle / price / renewal" v={<span className="font-normal text-muted">{subscription ? `${subscription.cycle} · ${billingMoney(subscription.recurring, subscription.currency)} · ${billingDate(subscription.period_end)} UTC` : "See Subscription tab"}</span>} /></dl>
         </Card>
         <Card title="Usage summary" action={<TabLink tab="usage" go={go}>Details →</TabLink>}>
           <div className="space-y-3"><Meter label="Users" used={usersCount} allowed={mx} /><Meter label="Branches" used={branches.length} allowed={mb} />{stats && <Meter label="Products" used={stats.products} allowed={limit(limits, "max_products")} />}</div>

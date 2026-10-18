@@ -31,7 +31,8 @@ class SupplierBillRead(BaseModel):
 
 
 class SupplierPaymentCreate(BaseModel):
-    amount: float = Field(gt=0)
+    client_reference: str | None = Field(default=None, min_length=3, max_length=50)
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     payment_method: str | None = None
     # Currency actually paid in (default: the bill's currency) and the one rate the conversion needs on
     # the payment date (see app.core.currency.compute_settlement). Omit the rate to use the

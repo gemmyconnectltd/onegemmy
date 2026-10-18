@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { createPortal } from "react-dom";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 
@@ -17,6 +18,11 @@ interface DrawerProps {
   children?: ReactNode;
   footer?: ReactNode;
 }
+
+const DrawerDepth = createContext(0);
+const subscribe = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 
 const SIDE_WIDTHS: Record<Exclude<DrawerSide, "center">, Record<DrawerSize, string>> = {
   left: { sm: "sm:w-80", md: "sm:w-96", lg: "sm:w-[420px]", xl: "sm:w-[480px]" },
@@ -45,6 +51,8 @@ export function Drawer({
   children,
   footer,
 }: DrawerProps) {
+  const depth = useContext(DrawerDepth);
+  const isClient = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -58,7 +66,7 @@ export function Drawer({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !isClient) return null;
 
   const header =
     title || description ? (
@@ -90,8 +98,8 @@ export function Drawer({
     );
 
   if (side === "center") {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    return <DrawerDepth.Provider value={depth + 1}>{createPortal(
+      <div style={{ zIndex: 100 + depth * 20 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/40 animate-drawer-fade" onClick={onClose} aria-hidden="true" />
         <div
           role="dialog"
@@ -102,17 +110,18 @@ export function Drawer({
           <div className="flex-1 overflow-y-auto">{children}</div>
           {footer && <div className="px-5 py-4 border-t border-border flex-shrink-0">{footer}</div>}
         </div>
-      </div>
-    );
+      </div>, document.body
+    )}</DrawerDepth.Provider>;
   }
 
   const isLeft = side === "left";
-  return (
+  return <DrawerDepth.Provider value={depth + 1}>{createPortal(
     <>
-      <div className="fixed inset-0 z-50 bg-black/40 animate-drawer-fade" onClick={onClose} aria-hidden="true" />
+      <div style={{ zIndex: 50 + depth * 20 }} className="fixed inset-0 z-50 bg-black/40 animate-drawer-fade" onClick={onClose} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
+        style={{ zIndex: 50 + depth * 20 }}
         className={`fixed inset-y-0 z-50 w-full ${SIDE_WIDTHS[side][size]} bg-card ${
           isLeft ? "left-0 border-r" : "right-0 border-l"
         } border-border shadow-2xl flex flex-col ${isLeft ? "animate-drawer-left" : "animate-drawer-right"}`}
@@ -121,6 +130,6 @@ export function Drawer({
         <div className="flex-1 overflow-y-auto">{children}</div>
         {footer && <div className="px-5 py-4 border-t border-border flex-shrink-0">{footer}</div>}
       </div>
-    </>
-  );
+    </>, document.body
+  )}</DrawerDepth.Provider>;
 }

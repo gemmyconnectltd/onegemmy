@@ -3,8 +3,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.shared.schemas import TrimmedModel
 
-class UserCreate(BaseModel):
+
+class UserCreate(TrimmedModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
@@ -37,7 +39,7 @@ class UserRead(BaseModel):
     updated_at: datetime | None = None
 
 
-class UserUpdate(BaseModel):
+class UserUpdate(TrimmedModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
     role: str | None = None
@@ -47,7 +49,7 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
-class MyProfileUpdate(BaseModel):
+class MyProfileUpdate(TrimmedModel):
     """Self-service profile edits. Deliberately narrower than UserUpdate —
     email, role, status and org assignment are administrator decisions, so
     they are not reachable here even if a client sends them."""

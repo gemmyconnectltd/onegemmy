@@ -8,6 +8,8 @@ export interface AccountingAccount {
   name: string;
   type: string;
   normal_balance: string;
+  group_name?: string | null;
+  parent_id?: string | null;
   description: string | null;
   is_active: boolean;
 }
@@ -225,9 +227,9 @@ export const accountingApi = {
 
   listAccounts: (type?: string) =>
     request<PaginatedResponse<AccountingAccount>>(`${BASE}/accounts${qs({ type })}`),
-  createAccount: (data: { code: string; name: string; type: string; normal_balance: string; description?: string | null }) =>
+  createAccount: (data: { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null }) =>
     request<SingleResponse<AccountingAccount>>(`${BASE}/accounts`, { method: "POST", body: JSON.stringify(data) }),
-  updateAccount: (id: string, data: Partial<Pick<AccountingAccount, "name" | "description" | "is_active">>) =>
+  updateAccount: (id: string, data: Partial<Pick<AccountingAccount, "name" | "description" | "is_active" | "group_name" | "parent_id">>) =>
     request<SingleResponse<AccountingAccount>>(`${BASE}/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteAccount: (id: string) =>
     request<SingleResponse<unknown>>(`${BASE}/accounts/${id}`, { method: "DELETE" }),
@@ -250,6 +252,7 @@ export const accountingApi = {
   listTransactions: (type?: string, status?: string) =>
     request<PaginatedResponse<AccountingTransaction>>(`${BASE}/transactions${qs({ type, status })}`),
   createTransaction: (data: {
+    client_reference?: string;
     type: string;
     transaction_date: string;
     description?: string | null;

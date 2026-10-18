@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,7 +20,7 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
 async def get_current_user(
-    db: DbSession, credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+    request: Request, db: DbSession, credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ) -> User:
     payload = decode_token(credentials.credentials)
     if payload is None or payload.get("type") != "access":
@@ -44,6 +44,10 @@ async def get_current_user(
     if user.tenant is not None and not user.tenant.is_active:
         log.warning("auth.suspended_tenant", extra={"_extra_fields": {"user_id": user_id, "tenant_id": tenant_id}})
         raise UnauthorizedError("This account has been suspended")
+
+    if user.tenant_id is not None:
+        from app.modules.billing.access import enforce_write
+        await enforce_write(db, user.tenant_id, request.url.path, request.method)
 
     log.debug("auth.user_authenticated", extra={"_extra_fields": {
         "user_id": user_id,
@@ -97,7 +101,10 @@ async def get_active_branch_id(
     from app.modules.tenants.repository import BranchRepository
 
     branch = await BranchRepository(db).get_by_id_for_tenant(current_user.tenant_id, x_branch_id)
-    return branch.id if branch else None
+    if branch is None:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Branch not found")
+    return branch.id
 
 
 ActiveBranchId = Annotated[uuid.UUID | None, Depends(get_active_branch_id)]

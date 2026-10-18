@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -8,6 +8,7 @@ from app.modules.tenants.models.mixins import TenantScopedMixin
 
 class Branch(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "branches"
+    __table_args__ = (Index("ix_branches_tenant_status", "tenant_id", "status"),)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     location: Mapped[str | None] = mapped_column(String(255))

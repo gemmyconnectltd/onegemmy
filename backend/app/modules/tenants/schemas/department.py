@@ -3,14 +3,16 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.shared.schemas import TrimmedModel
 
-class DepartmentCreate(BaseModel):
+
+class DepartmentCreate(TrimmedModel):
     name: str
     description: str | None = None
     tenant_id: uuid.UUID | None = None  # superadmin-only override; ignored for regular tenant users
 
 
-class DepartmentUpdate(BaseModel):
+class DepartmentUpdate(TrimmedModel):
     name: str | None = None
     description: str | None = None
 

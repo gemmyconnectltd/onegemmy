@@ -39,28 +39,41 @@ async def create_branch(db: AsyncSession, tenant_id: uuid.UUID, data: BranchCrea
     # no meaningful "not main" state when it's the only one.
     branch = Branch(tenant_id=tenant_id, is_main=existing == 0, **data.model_dump())
     branch = await BranchRepository(db).save(branch)
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
     return _to_read(branch)
 
 
 async def update_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID, data: BranchUpdate) -> BranchRead:
+    from app.modules.billing.repository import BillingRepository
+    await BillingRepository(db).tenant(tenant_id, lock=True)
     branch = await BranchRepository(db).get_by_id_for_tenant(tenant_id, branch_id)
     if branch is None:
         raise NotFoundError("Branch not found")
+    if data.status == "active" and branch.status != "active":
+        from app.modules.tenants import service
+        await service.enforce_limit(db, tenant_id, "max_branches", await count_branches(db, tenant_id), noun="branch")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(branch, field, value)
     branch = await BranchRepository(db).save(branch)
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
     return _to_read(branch)
 
 
 async def delete_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID) -> None:
+    from app.modules.billing.repository import BillingRepository
+    await BillingRepository(db).tenant(tenant_id, lock=True)
     branch = await BranchRepository(db).get_by_id_for_tenant(tenant_id, branch_id)
     if branch is None:
         raise NotFoundError("Branch not found")
     if branch.is_main:
         raise ValidationError("Cannot delete the main branch. Set another branch as main first.")
     await BranchRepository(db).delete(branch)
+    from app.modules.billing.worker import sync_usage
+    await sync_usage(db, tenant_id)
     await db.commit()
 
 

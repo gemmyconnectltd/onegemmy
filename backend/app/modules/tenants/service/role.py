@@ -14,7 +14,7 @@ from app.modules.tenants.schemas import RoleCreate, RoleRead, RoleUpdate
 # real tenant gets by default). MODULE_RESOURCES in frontend/src/lib/auth.tsx
 # maps sidebar modules to a subset of these resources.
 _PERMISSION_RESOURCES = [
-    "tenants", "users", "roles", "permissions", "departments", "branches",
+    "tenants", "users", "roles", "permissions", "departments", "branches", "billing",
     "items", "warehouses", "stock", "orders", "pricing", "returns",
     "invoices", "pos",
     "chart_of_accounts", "journal_entries", "accounts_payable",
@@ -34,7 +34,7 @@ _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 # users, roles and permissions. The default "Member"/"Viewer" roles exclude
 # these — only "Admin" (and the tenant owner, who bypasses role checks
 # entirely via is_superuser) can manage who else has access.
-_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit"}
+_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "billing"}
 
 # What an invite's free-text role ("admin"/"member"/"viewer", whatever the
 # inviter typed or picked) maps to among the seeded defaults. Unrecognized

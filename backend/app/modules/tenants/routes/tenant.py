@@ -89,6 +89,8 @@ async def update_tenant(
     tenant_id: uuid.UUID, data: TenantUpdate, db: DbSession, current_user: CurrentUser
 ):
     _require_own_tenant(current_user, tenant_id)
+    if {"subscription_plan", "subscription_status", "is_active"} & data.model_fields_set:
+        raise ForbiddenError("Subscription and activation changes require platform administration")
     # The daily credit limit is the General Manager/CEO's call: only someone holding credit:approve (or the
     # platform superuser) may set or clear it. Everything else in this PATCH keeps its existing rules.
     if "credit_daily_limit" in data.model_fields_set and not (

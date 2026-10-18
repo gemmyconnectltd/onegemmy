@@ -81,11 +81,28 @@ async def create_bill_for_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_
     return bill
 
 
-async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, bill_id: uuid.UUID, data: SupplierPaymentCreate) -> SupplierBillRead:
+async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, bill_id: uuid.UUID, data: SupplierPaymentCreate, actor=None) -> SupplierBillRead:
+    from sqlalchemy import select
+
+    from app.core.exceptions import ConflictError
+    from app.modules.accounting.repository.reporting import ReportingRepository
+    await ReportingRepository(db).lock_tenant(tenant_id)
     bill_repo = SupplierBillRepository(db)
     bill = await bill_repo.get_by_id_for_tenant(tenant_id, bill_id)
     if bill is None:
         raise NotFoundError("Supplier bill not found")
+    if actor is not None:
+        from app.core.exceptions import ForbiddenError
+        from app.modules.accounting.service.workspace import allow
+        allow(actor, "accounts_payable", "create")
+        if actor.tenant_id != tenant_id or (actor.branch_id and bill.purchase_order.branch_id != actor.branch_id):
+            raise ForbiddenError("Supplier bill is outside the assigned business or branch")
+    if data.client_reference:
+        prior = (await db.execute(select(SupplierPayment).where(SupplierPayment.tenant_id == tenant_id, SupplierPayment.reference == data.client_reference))).scalar_one_or_none()
+        if prior:
+            if prior.bill_id != bill_id or Decimal(prior.amount) != data.amount or prior.payment_method != data.payment_method or (data.currency_code and prior.currency_code != data.currency_code) or (data.exchange_rate is not None and prior.exchange_rate != data.exchange_rate):
+                raise ConflictError("Payment reference was already used with different details")
+            return _to_read(bill)
     if bill.status == "Paid":
         raise ValidationError("This bill is already fully paid")
 
@@ -94,12 +111,12 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     pay_ccy = await require_active_currency(db, data.currency_code) if data.currency_code else bill_ccy
     paid_at = datetime.now(UTC)
 
-    balance = round(float(bill.amount) - float(bill.amount_paid), 2)
+    balance = to_decimal(bill.amount) - to_decimal(bill.amount_paid)
     if bill_ccy == base_ccy and pay_ccy == base_ccy:
         # One currency end to end — the original, unchanged calculation (and no rate involved).
         if data.exchange_rate is not None and to_decimal(data.exchange_rate) != ONE:
             raise ValidationError(f"The exchange rate between {base_ccy} and itself must be 1")
-        if data.amount > balance + 0.01:
+        if data.amount > balance:
             raise ValidationError(f"Payment of {data.amount} exceeds the remaining balance of {balance}")
         amt = to_decimal(data.amount)
         fields = {
@@ -129,7 +146,7 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
         applied, base_cash, base_clears = st.applied_amount, st.base_amount, st.base_applied_amount
 
     payment_repo = SupplierPaymentRepository(db)
-    reference = await payment_repo.next_reference(tenant_id)
+    reference = data.client_reference or await payment_repo.next_reference(tenant_id)
     payment = SupplierPayment(
         tenant_id=tenant_id,
         reference=reference,
@@ -143,10 +160,10 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     db.add(payment)
 
     if bill_ccy == base_ccy and pay_ccy == base_ccy:
-        bill.amount_paid = round(float(bill.amount_paid) + data.amount, 2)
+        bill.amount_paid = to_decimal(bill.amount_paid) + data.amount
     else:
         bill.amount_paid = Decimal(bill.amount_paid) + Decimal(applied)
-    bill.status = "Paid" if float(bill.amount_paid) >= float(bill.amount) - 0.01 else "PartiallyPaid"
+    bill.status = "Paid" if to_decimal(bill.amount_paid) >= to_decimal(bill.amount) else "PartiallyPaid"
     await bill_repo.save(bill)
 
     # Ledger in base currency: cash at the payment-date rate, payable cleared at the bill's own frozen
@@ -155,6 +172,9 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
         db, tenant_id, user_id, bill.purchase_order_id, base_cash, reference, data.payment_method, ap_amount=base_clears,
     )
 
+    await db.flush()
+    from app.modules.audit.service import record_audit
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="supplier_payment.create", entity_type="supplier_payment", entity_id=str(payment.id), summary=f"Recorded supplier payment {reference}")
     await db.commit()
     obj = await bill_repo.get_by_id_for_tenant(tenant_id, bill_id)
     return _to_read(obj)

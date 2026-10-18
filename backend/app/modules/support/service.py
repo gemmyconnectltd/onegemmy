@@ -541,6 +541,8 @@ async def create_ticket(
     """A ticket always owns a conversation, so replies, notes and attachments work the same for every ticket."""
     if priority not in PRIORITIES:
         raise ValidationError("Priority must be low, normal, high or urgent")
+    if tenant_id is not None and await db.get(Tenant, tenant_id) is None:
+        raise NotFoundError("Business not found")
     conv = SupportConversation(
         channel="portal", external_thread_id=f"ticket-{uuid.uuid4().hex}", subject=subject,
         customer_name=(requester.full_name if requester else customer_name), customer_email=(requester.email if requester else customer_email),
@@ -561,7 +563,7 @@ async def create_ticket(
     await record_audit(db, tenant_id=tenant_id, actor_user_id=creator.id, actor_name=creator.full_name, action="support.ticket.create",
                        entity_type="support_ticket", entity_id=str(t.id), summary=f"Ticket {t.reference} created")
     await db.commit()
-    hub.publish({"type": "conversation.new", "conversation_id": str(conv.id), "channel": "portal"})
+    hub.publish({"type": "conversation.new", "conversation_id": str(conv.id), "channel": "portal", "reference": t.reference})
     hub.publish({"type": "ticket.created", "ticket_id": str(t.id), "reference": t.reference, "priority": priority,
                  "conversation_id": str(conv.id)})
     if priority in ("high", "urgent"):

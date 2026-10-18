@@ -16,7 +16,7 @@ COLUMN_DEFS: dict[str, tuple[str, Callable[[dict], str]]] = {
     "email": ("Email", lambda u: u["email"] or ""),
     "phone": ("Phone", lambda u: u["phone"] or ""),
     "tenant_name": ("Business", lambda u: u["tenant_name"] or "—"),
-    "role": ("Role", lambda u: "Superadmin" if u["is_superuser"] else (u["role"] or "").capitalize()),
+    "role": ("Role", lambda u: "Platform Admin" if u["is_superuser"] and not u.get("tenant_id") and u["role"] == "superadmin" else (u["role"] or "").capitalize()),
     "branch_name": ("Branch", lambda u: u["branch_name"] or "—"),
     "status": ("Status", lambda u: "Active" if u["is_active"] else "Inactive"),
     "created_at": ("Created At", lambda u: _fmt_dt(u["created_at"])),

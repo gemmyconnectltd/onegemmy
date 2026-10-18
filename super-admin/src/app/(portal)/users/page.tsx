@@ -205,7 +205,7 @@ export default function AdminUsersPage() {
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
-                      {u.full_name?.charAt(0)?.toUpperCase() || "?"}
+                      {u.full_name?.trim().charAt(0)?.toUpperCase() || "?"}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-foreground">{u.full_name}</p>
@@ -226,7 +226,7 @@ export default function AdminUsersPage() {
                 </td>
                 <td className="px-5 py-3.5">
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg capitalize ${ROLE_COLORS[u.role] ?? "bg-surface text-muted border border-border"}`}>
-                    {u.is_superuser ? "superadmin" : u.role}
+                    {u.is_superuser && !u.tenant_id && u.role === "superadmin" ? "Platform Admin" : u.role === "owner" ? "Owner" : u.role}
                   </span>
                 </td>
                 <td className="px-5 py-3.5">

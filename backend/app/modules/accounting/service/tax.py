@@ -364,21 +364,27 @@ async def get_tax_summary(db: AsyncSession, tenant_id: uuid.UUID, period: str) -
     }
 
 
-async def create_tax_payment(db: AsyncSession, tenant_id: uuid.UUID, data: TaxPaymentCreate) -> TaxPaymentRead:
+async def create_tax_payment(db: AsyncSession, tenant_id: uuid.UUID, data: TaxPaymentCreate, actor_id: uuid.UUID | None = None) -> TaxPaymentRead:
     """Create a tax payment record"""
-    # Generate unique payment reference
-    result = await db.execute(
-        select(func.count(TaxPayment.id)).where(TaxPayment.tenant_id == tenant_id)
-    )
-    count = result.scalar() or 0
-    payment_reference = f"TAX-{count + 1:04d}"
-    
+    from app.core.exceptions import ConflictError
+    from app.modules.accounting.repository.reporting import ReportingRepository
+    await ReportingRepository(db).lock_tenant(tenant_id)
+    payment_reference = data.client_reference or f"TAX-{uuid.uuid4().hex[:20].upper()}"
+    prior = (await db.execute(select(TaxPayment).where(TaxPayment.tenant_id == tenant_id, TaxPayment.payment_reference == payment_reference))).scalar_one_or_none()
+    if prior:
+        if any(getattr(prior, key) != value for key, value in data.model_dump(exclude={"client_reference"}).items()):
+            raise ConflictError("Tax payment reference was already used with different details")
+        return TaxPaymentRead.model_validate(prior)
+
     payment = TaxPayment(
         tenant_id=tenant_id,
         payment_reference=payment_reference,
-        **data.model_dump()
+        **data.model_dump(exclude={"client_reference"})
     )
     db.add(payment)
+    await db.flush()
+    from app.modules.audit.service import record_audit
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=actor_id, action="tax_payment.record", entity_type="tax_payment", entity_id=str(payment.id), summary=f"Recorded pending tax payment {payment_reference}")
     await db.commit()
     await db.refresh(payment)
     return TaxPaymentRead.model_validate(payment)

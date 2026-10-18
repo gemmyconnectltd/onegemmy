@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
@@ -77,9 +78,10 @@ class TaxCalculationRead(BaseModel):
 # ── Tax Payment ────────────────────────────────────────────────────────────────
 
 class TaxPaymentCreate(BaseModel):
+    client_reference: str | None = Field(default=None, min_length=3, max_length=50)
     tax_type: str
     period: str = Field(..., pattern=r"^\d{4}-\d{2}$")
-    amount: float = Field(..., gt=0)
+    amount: Decimal = Field(..., gt=0, max_digits=14, decimal_places=2)
     payment_date: date
     payment_method: str = Field(..., description="bank_transfer | mobile_money | cash")
     notes: str | None = None

@@ -1,23 +1,40 @@
-# Plans & Billing — backend contract (not implemented yet)
+# Plans & Billing API
 
-The Super Admin billing screens run on a **demo service** (`src/lib/billing/service.ts`, sample data in the browser).
-Nothing below exists in the backend today. This is what the screens need so `service.ts` can be swapped for real calls.
-Conventions: `/api/v1/admin/billing/...`, platform-admin only, standard envelope (`success_response` / `paginated_response`),
-**money = integer minor units + ISO currency per record, never converted across currencies**, every mutation audited
-(actor, time, before/after), financial mutations idempotent (`Idempotency-Key` header).
+Both apps use the authoritative backend in `backend/app/modules/billing/`.
+The old browser demo service and its sample financial records have been removed.
+See [billing architecture, policies and deployment](../backend/docs/billing.md).
 
-| Area | Endpoints | Notes |
+All paths are under `/api/v1`, use existing auth and shared response envelopes. Lists are paginated
+(maximum 100), with search/status/currency/plan/date filters where relevant. Money is integer minor units.
+
+| Operation | Super Admin | Tenant ERP |
 |---|---|---|
-| Plans | `GET/POST /plans`, `GET/PATCH /plans/{id}`, `POST /plans/{id}/archive` | Price edits create a new immutable **price version**; `GET /plans/{id}/prices` returns history. Existing subscriptions keep their version. Modules = existing `FeatureFlag.key`s; limits map to `max_products` / `max_storage_mb` (+ `max_users`/`max_branches` derived from included + extra). |
-| Subscriptions | `GET /subscriptions` (filters plan/status/country/cycle/q, page), `GET /subscriptions/{id}`, `POST …/change-plan`, `…/cycle`, `…/allowances`, `…/extend-trial`, `…/cancel`, `…/reactivate`, `GET …/history` | Backend computes amounts, proration and the new `tenant.limits`/`subscription_plan`/`subscription_status`. Frontend previews are estimates only. |
-| Payments | `GET /payments`, `GET /payments/{id}` | Status changes **only** from the payment provider's webhook (pending → processing → succeeded/failed → refunded). `POST /payments/{id}/refund` only once a provider supports it. No endpoint marks a payment paid. |
-| Invoices | `GET /invoices`, `GET /invoices/{id}`, `GET /invoices/{id}/pdf` | Lines/amounts frozen at issue; never re-rendered with new prices. Sequential numbers per `invoice_prefix`. |
-| Coupons | `GET/POST /coupons`, `PATCH/DELETE /coupons/{id}`, `POST /coupons/validate` | Server enforces dates, redemption caps, plan scope and currency match. |
-| Settings | `GET/PUT /settings` | Provider block is **read-only status** (`name`, `mode`, `webhook_healthy`); credentials live in server env only. |
+| Plan catalogue | `GET /admin/billing/plans` | `GET /tenants/billing/plans` (active only) |
+| Create/version plan | `POST /admin/billing/plans`, `PUT /admin/billing/plans/{id}` | Not permitted |
+| Price history | `GET /admin/billing/plans/{id}/prices` | Agreement snapshot in overview |
+| Billing overview | `GET /admin/billing/overview` | `GET /tenants/billing/overview` |
+| Existing business subscription | `GET /admin/billing/tenants/{id}` | Uses authenticated tenant automatically |
+| Preview change | `POST /admin/billing/tenants/{id}/preview` | `POST /tenants/billing/preview` |
+| Confirm quote | `POST /admin/billing/tenants/{id}/confirm` | `POST /tenants/billing/confirm` |
+| Cancel/withdraw cancellation | `POST /admin/billing/tenants/{id}/subscription` | `POST /tenants/billing/subscription` |
+| Approve discount/extend trial | Same admin subscription action endpoint, with reason | Not permitted |
+| Subscriptions/invoices/payments/refunds | `GET /admin/billing/{kind}` | Own records: `GET /tenants/billing/{kind}` |
+| Subscription audit history | `GET /admin/billing/subscriptions/{id}/history` | Existing invoice/payment history |
+| Invoice detail/download | `GET /admin/billing/invoices/{id}[ /pdf]` | `GET /tenants/billing/invoices/{id}[ /pdf]` |
+| Receipt download | Invoice PDF endpoint with `?receipt=<verified-payment-reference>` | Same, own invoice only |
+| Credit note download | `GET /admin/billing/refunds/{id}/pdf` | `GET /tenants/billing/refunds/{id}/pdf` |
+| Available methods | `GET /admin/billing/payment-methods` | `GET /tenants/billing/payment-methods` |
+| Pay invoice | Customer-initiated in tenant ERP | `POST /tenants/billing/invoices/{id}/pay` |
+| Reconcile deposit | `POST /admin/billing/payments/{reference}/refresh` | Same own-reference path under `/tenants/billing` |
+| Authorize/reconcile refund | `POST /admin/billing/payments/{reference}/refund`, `POST /admin/billing/refunds/{reference}/refresh` | Not permitted |
+| Billing policy | `GET/PUT /admin/billing/settings` | Not permitted |
 
-Suggested tables: `plans`, `plan_prices` (versioned), `subscriptions` (copies the price version), `subscription_events`,
-`payments`, `invoices`, `invoice_lines`, `coupons`, `coupon_redemptions`, `billing_settings`.
-Every table is platform-level, with `(tenant_id, …)` indexes where tenant-scoped; Alembic migration required.
+Financial mutations require `Idempotency-Key`. Plan updates require `expected_version`. Change confirmations
+accept only an actor-bound server quote ID; no client-submitted price is accepted. Payment initiation sends
+phone/provider, while amount/currency come from the locked invoice. pawaPay callbacks trigger authenticated
+status read-back and never expose billing records in their public response. No endpoint marks an arbitrary
+payment paid. Refund approval creates a separate, immutable credit note after provider verification.
 
-Integration already in place: the Plans page shows live tenant counts per `subscription_plan` from `GET /admin/stats`,
-and the Create/Edit Plan module picker loads real feature flags from `GET /admin/features` (falls back to a static list).
+There is no live coupon engine or subscription pause workflow inherited from the old demo. Approved
+business discounts are managed on each subscription and audited. Supported pawaPay authorization methods
+are discovered from the merchant's active configuration; unsupported methods never appear as fake controls.

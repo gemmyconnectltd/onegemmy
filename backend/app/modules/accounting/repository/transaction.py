@@ -21,8 +21,10 @@ class TransactionRepository(BaseRepository[Transaction]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, offset: int = 0, limit: int = 50) -> list[Transaction]:
+    async def list_for_tenant(self, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, offset: int = 0, limit: int = 50, branch_id: uuid.UUID | None = None) -> list[Transaction]:
         stmt = select(Transaction).options(*self._opts()).where(Transaction.tenant_id == tenant_id)
+        if branch_id:
+            stmt = stmt.where(Transaction.branch_id == branch_id)
         if type:
             stmt = stmt.where(Transaction.type == type)
         if status:
@@ -31,8 +33,10 @@ class TransactionRepository(BaseRepository[Transaction]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, branch_id: uuid.UUID | None = None) -> int:
         stmt = select(func.count()).select_from(Transaction).where(Transaction.tenant_id == tenant_id)
+        if branch_id:
+            stmt = stmt.where(Transaction.branch_id == branch_id)
         if type:
             stmt = stmt.where(Transaction.type == type)
         if status:
@@ -41,8 +45,28 @@ class TransactionRepository(BaseRepository[Transaction]):
         return result.scalar_one()
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
-        result = await self.db.execute(
-            select(func.count()).select_from(Transaction).where(Transaction.tenant_id == tenant_id)
-        )
-        count = result.scalar_one()
-        return f"TXN-{str(count + 1).zfill(4)}"
+        # Random references do not collide when concurrent journals are created or old rows are voided.
+        return f"TXN-{uuid.uuid4().hex[:20].upper()}"
+
+    async def save(self, obj: Transaction) -> Transaction:
+        if obj.branch_id is None:
+            from app.modules.procurement.models.purchase_order import PurchaseOrder
+            from app.modules.sales.models.order import Order
+            from app.modules.sales.models.return_ import Return
+            if obj.order_id:
+                obj.branch_id = (await self.db.execute(select(Order.branch_id).where(Order.id == obj.order_id, Order.tenant_id == obj.tenant_id))).scalar_one_or_none()
+            elif obj.purchase_id:
+                obj.branch_id = (await self.db.execute(select(PurchaseOrder.branch_id).where(PurchaseOrder.id == obj.purchase_id, PurchaseOrder.tenant_id == obj.tenant_id))).scalar_one_or_none()
+            elif obj.return_id:
+                obj.branch_id = (await self.db.execute(select(Order.branch_id).join(Return, Return.order_id == Order.id).where(Return.id == obj.return_id, Return.tenant_id == obj.tenant_id, Order.tenant_id == obj.tenant_id))).scalar_one_or_none()
+        return await super().save(obj)
+
+    async def by_reference(self, tenant_id: uuid.UUID, reference: str) -> Transaction | None:
+        return (await self.db.execute(select(Transaction).options(*self._opts()).where(
+            Transaction.tenant_id == tenant_id, Transaction.reference == reference
+        ))).scalar_one_or_none()
+
+    async def locked(self, tenant_id: uuid.UUID, transaction_id: uuid.UUID) -> Transaction | None:
+        return (await self.db.execute(select(Transaction).options(*self._opts()).where(
+            Transaction.tenant_id == tenant_id, Transaction.id == transaction_id
+        ).with_for_update())).scalar_one_or_none()

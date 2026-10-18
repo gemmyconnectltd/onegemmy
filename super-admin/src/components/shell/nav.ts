@@ -1,4 +1,4 @@
-import { Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
+import { BarChart3, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
 
 export const NAV_ITEMS = [
   { name: "Overview", href: "/", icon: LayoutDashboard },
@@ -21,6 +21,7 @@ export const SUPPORT_NAV = [
 
 /** The pages inside Plans & Billing (shown as the tab strip). "Billing Settings" is distinct from platform Settings. */
 export const BILLING_NAV = [
+  { name: "Overview", href: "/billing-overview", icon: BarChart3 },
   { name: "Plans", href: "/plans", icon: Crown },
   { name: "Subscriptions", href: "/subscriptions", icon: RefreshCw },
   { name: "Payments", href: "/payments", icon: Wallet },

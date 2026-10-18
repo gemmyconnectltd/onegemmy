@@ -3,8 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr
 
+from app.shared.schemas import TrimmedModel
 
-class RegisterRequest(BaseModel):
+
+class RegisterRequest(TrimmedModel):
     tenant_name: str
     tenant_slug: str
     email: EmailStr
@@ -37,7 +39,7 @@ class RegisterRequest(BaseModel):
     main_branch_name: str | None = None
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(TrimmedModel):
     tenant_slug: str | None = None
     email: EmailStr
     password: str
@@ -80,7 +82,7 @@ class RegisterResponse(BaseModel):
     tenant_slug: str
 
 
-class ForgotPasswordRequest(BaseModel):
+class ForgotPasswordRequest(TrimmedModel):
     email: EmailStr
 
 

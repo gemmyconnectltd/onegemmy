@@ -32,5 +32,5 @@ async def list_supplier_bill_payments(id: uuid.UUID, db: DbSession, current_user
 
 @router.post("/procurement/supplier-bills/{id}/payments")
 async def record_supplier_payment(id: uuid.UUID, data: SupplierPaymentCreate, db: DbSession, current_user: CurrentUser):
-    obj = await service.record_payment(db, current_user.tenant_id, current_user.id, id, data)
+    obj = await service.record_payment(db, current_user.tenant_id, current_user.id, id, data, current_user)
     return success_response(data=obj.model_dump(), message="Payment recorded successfully", status_code=201)

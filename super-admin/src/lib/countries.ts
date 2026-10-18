@@ -47,3 +47,5 @@ export function countryInfo(name: string): CountryInfo | null {
   index ??= build();
   return index.get(norm(name)) ?? null;
 }
+
+export const COUNTRY_NAMES = worldCountries.map(c => c.name.common).sort();

@@ -7,7 +7,8 @@ import type { SupportEvent } from "@/lib/support/stream";
 export interface Toast { id: number; title: string; tone: "info" | "alert" }
 
 const TEXT: Record<string, (e: SupportEvent) => Toast["title"] | null> = {
-  "conversation.new": (e) => `New ${e.channel === "whatsapp" ? "WhatsApp" : e.channel === "email" ? "email" : "support"} conversation`,
+  "ticket.created": (e) => `Ticket ${e.reference ?? ""} created`,
+  "conversation.new": (e) => e.reference ? null : `New ${e.channel === "whatsapp" ? "WhatsApp" : e.channel === "email" ? "email" : "support"} conversation`,
   "customer.replied": () => "A customer replied to your conversation",
   "ticket.assigned": (e) => `${e.reference ? `Ticket ${e.reference}` : "A conversation"} was assigned to you`,
   "ticket.urgent": (e) => `${e.priority === "urgent" ? "Urgent" : "High-priority"} ticket ${e.reference ?? ""}`.trim(),

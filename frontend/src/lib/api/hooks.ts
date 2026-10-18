@@ -76,7 +76,8 @@ function mutation<TVariables, TResponse>(
       ...options,
       mutationFn: fn,
       onSuccess: async (data, variables, context, mutationContext) => {
-        await Promise.all(invalidateKeys.map((key) => qc.invalidateQueries({ queryKey: key })));
+        const keys = invalidateKeys.some(key => key[0] === "accounting") ? [...invalidateKeys, ["accounting", "workspace"]] : invalidateKeys;
+        await Promise.all(keys.map((key) => qc.invalidateQueries({ queryKey: key })));
         options?.onSuccess?.(data, variables, context, mutationContext);
       },
     });
@@ -765,3 +766,54 @@ export type {
   ApiServiceCategory, ApiService, ApiEmployeeService, ApiAppointment, ApiAppointmentService, ApiQueueEntry,
   ApiServiceTemplateItem, ApiServiceTemplateGroup, ApiServiceTemplate, ApiServiceTemplates, ApiServiceImportResult,
 } from "./services";
+
+
+// Authoritative platform subscription billing (separate from ERP sales invoices).
+import { createBillingApi, type BillingKind, type BillingFilters, type ChangePlanInput, type SubscriptionActionInput, type BillingPlan, type BillingSettings } from "./billing";
+export const billingApi = createBillingApi("/tenants/billing");
+const BILLING = ["platform-billing"];
+export const useBillingRecords = <K extends BillingKind>(kind: K, filters: BillingFilters, enabled = true) => useQ([...BILLING, kind, filters], () => billingApi.records(kind, filters), r => r.data, { enabled });
+export const useBillingOverview = (tenantId?: string) => useQ([...BILLING, "overview", tenantId], () => billingApi.overview(tenantId), r => r.data);
+export const useBillingDetail = <K extends BillingKind>(kind: K, id: string) => useQ([...BILLING, kind, id], () => billingApi.detail(kind, id), r => r.data, { enabled: !!id });
+export const useBillingMethods = () => useQ([...BILLING, "methods"], () => billingApi.methods(), r => r.data);
+export const useBillingPreview = mutation((v: { data: ChangePlanInput; tenantId?: string }) => billingApi.preview(v.data, v.tenantId), []);
+export const useBillingConfirm = mutation((v: { quoteId: string; key: string; tenantId?: string }) => billingApi.confirm(v.quoteId, v.key, v.tenantId), [BILLING, ["tenants"]]);
+export const useBillingAction = mutation((v: { data: SubscriptionActionInput; key: string; tenantId?: string }) => billingApi.action(v.data, v.key, v.tenantId), [BILLING]);
+export const useBillingPay = mutation((v: { id: string; phone: string; provider: string; key: string }) => billingApi.pay(v.id, v.phone, v.provider, v.key), [BILLING]);
+export const useBillingRefresh = mutation((reference: string) => billingApi.refresh(reference), [BILLING]);
+export const useBillingSavePlan = mutation((v: { data: Omit<BillingPlan, "id" | "version"> & { expected_version?: number }; key: string; id?: string }) => billingApi.savePlan(v.data, v.key, v.id), [BILLING]);
+export const useBillingSettings = () => useQ([...BILLING, "settings"], () => billingApi.settings(), r => r.data);
+export const useBillingSaveSettings = mutation((v: BillingSettings) => billingApi.saveSettings(v), [BILLING]);
+export const useBillingReport = (filters: BillingFilters) => useQ([...BILLING, "report", filters], () => billingApi.report(filters), r => r.data);
+
+export const useBillingRefunds = (filters: BillingFilters) => useQ([...BILLING, "refunds", filters], () => billingApi.refunds(filters), r => r.data);
+export const useBillingRefund = mutation((v: { reference: string; amount: number; reason: string; key: string }) => billingApi.refund(v.reference, v.amount, v.reason, v.key), [BILLING]);
+export const useBillingRefreshRefund = mutation((reference: string) => billingApi.refreshRefund(reference), [BILLING]);
+
+export const useBillingHistory = (id: string, page: number) => useQ([...BILLING, "history", id, page], () => billingApi.history(id, page), r => r.data, { enabled: !!id });
+
+// Accounting workspace: every query includes branch scope so a selector change cannot reuse another branch's values.
+import { financialApi, type DomainKind, type ReportInput, type AccountInput } from "./financialWorkspace";
+const FINANCIAL = ["accounting", "workspace"];
+export const useFinancialOverview = (branch?: string | null) => useQ([...FINANCIAL, "overview", branch], financialApi.overview, r => r.data);
+export const useFinancialPreferences = () => useQ([...FINANCIAL, "preferences"], financialApi.preferences, r => r.data);
+export const useFinancialRecords = (view: DomainKind, page = 1, period?: string, branch?: string | null) => useQ([...FINANCIAL, view, page, period, branch], () => financialApi.records(view, page, period), r => r.data);
+export const useFinancialAccounts = (page = 1, search = "", type?: string, active?: boolean) => useQ([...ACCOUNTS, "workspace", page, search, type, active], () => financialApi.accounts(page, search, type, active), r => r.data);
+export const useFinancialReport = (id: string | null, page = 1) => useQ([...FINANCIAL, "snapshot", id, page], () => financialApi.report(id!, page), r => r.data, { enabled: !!id });
+export const useFinancialJournal = (id: string | null) => useQ([...FINANCIAL, "journal", id], () => financialApi.journal(id!), r => r.data, { enabled: !!id });
+export const useGenerateFinancialReport = mutation((data: ReportInput) => financialApi.generate(data), []);
+export const useImportFinancialAccounts = mutation((items: AccountInput[]) => financialApi.importAccounts(items), [[...ACCOUNTS], FINANCIAL]);
+export const useFinancialTransfer = mutation((data: Record<string, unknown>) => financialApi.transfer(data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
+export const useFinancialReconcile = mutation((data: Record<string, unknown>) => financialApi.reconcile(data), [FINANCIAL]);
+export const useFinancialAsset = mutation((data: Record<string, unknown>) => financialApi.registerAsset(data), [FINANCIAL]);
+export const useFinancialAssetAction = mutation(({ id, data }: { id: string; data: Record<string, unknown> }) => financialApi.assetAction(id, data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
+export const useFinancialPayrollPost = mutation(({ id, cashId }: { id: string; cashId: string }) => financialApi.postPayroll(id, cashId), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
+export const useFinancialBillTerms = mutation(({ id, dueDate }: { id: string; dueDate: string | null }) => financialApi.billTerms(id, dueDate), [FINANCIAL]);
+export const useFinancialPreferencesSave = mutation((month: number) => financialApi.savePreferences(month), [FINANCIAL]);
+import { sourceApi } from "./financialWorkspace";
+export const useFinancialInvoice = (id: string | null) => useQ([...ORDERS, "financial-document", id], () => sourceApi.invoice(id!), r => r.data, { enabled: !!id });
+export const useFinancialBill = (id: string | null) => useQ([...FINANCIAL, "bill", id], () => sourceApi.bill(id!), r => r.data, { enabled: !!id });
+export const useFinancialBillPayment = mutation(({ id, data }: { id: string; data: object }) => sourceApi.payBill(id, data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
+export const useExportFinancialAccounts = mutation(() => financialApi.exportAccounts(), []);
+
+export const useFinancialTaxPayment = mutation((data: object) => financialApi.taxPayment(data), [FINANCIAL]);

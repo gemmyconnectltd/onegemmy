@@ -8,6 +8,9 @@ from app.modules.ai.routes import admin_router as ai_admin_router
 from app.modules.ai.routes import router as ai_router
 from app.modules.audit.routes import router as audit_router
 from app.modules.auth.routes import router as auth_router
+from app.modules.billing.routes import admin_router as billing_admin_router
+from app.modules.billing.routes import callback_router as billing_callback_router
+from app.modules.billing.routes import tenant_router as billing_tenant_router
 from app.modules.crm.routes import crm_router
 from app.modules.currency.routes import admin_router as currency_admin_router
 from app.modules.currency.routes import tenant_router as currency_tenant_router
@@ -22,6 +25,9 @@ from app.modules.support.routes import router as support_router
 from app.modules.tenants.routes import global_router, tenants_router
 
 api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(billing_admin_router)
+api_router.include_router(billing_tenant_router)
+api_router.include_router(billing_callback_router)
 api_router.include_router(admin_router)
 api_router.include_router(admin_analytics_router)
 api_router.include_router(currency_admin_router)

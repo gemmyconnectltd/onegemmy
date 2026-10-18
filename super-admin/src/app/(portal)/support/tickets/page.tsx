@@ -1,5 +1,6 @@
 "use client";
 
+import { useTenants } from "@/lib/api/hooks";
 import { useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Plus } from "lucide-react";
@@ -22,25 +23,30 @@ const STATUS: { key: TicketStatus; label: string; tone: Tone }[] = [
 
 function NewTicket({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateTicket();
+  const [business, setBusiness] = useState("");
+  const [businessSearch, setBusinessSearch] = useState("");
+  const [businessPage, setBusinessPage] = useState(1);
+  const businesses = useTenants(businessPage, 20, { enabled: open }, { q: businessSearch });
   const [f, setF] = useState({ subject: "", description: "", priority: "normal" as Priority, customer_email: "", customer_name: "" });
   const [error, setError] = useState<string | null>(null);
   const valid = f.subject.trim().length >= 3 && f.description.trim().length > 0;
   const submit = async () => {
     setError(null);
     try {
-      await create.mutateAsync({ subject: f.subject.trim(), description: f.description.trim(), priority: f.priority, customer_email: f.customer_email.trim() || undefined, customer_name: f.customer_name.trim() || undefined });
+      await create.mutateAsync({ tenant_id: business || undefined, subject: f.subject.trim(), description: f.description.trim(), priority: f.priority, customer_email: f.customer_email.trim() || undefined, customer_name: f.customer_name.trim() || undefined });
       setF({ subject: "", description: "", priority: "normal", customer_email: "", customer_name: "" });
-      onClose();
+      setBusiness(""); onClose();
     } catch (e) { setError((e as { detail?: string })?.detail ?? "Couldn't create the ticket."); }
   };
   return (
     <Drawer open={open} onClose={onClose} side="right" size="lg" title="New ticket" description="For a request that didn't arrive through WhatsApp or email."
       footer={<div className="flex justify-end gap-2"><Button variant="outline" onClick={onClose}>Cancel</Button><Button variant="primary" onClick={() => void submit()} disabled={!valid || create.isPending}>{create.isPending ? "Creating…" : "Create ticket"}</Button></div>}>
       <div className="space-y-3 px-5 py-4">
+        <Field label="Business (optional)"><Input aria-label="Search business" placeholder="Search businesses" value={businessSearch} onChange={e => { setBusinessSearch(e.target.value); setBusinessPage(1); }} /><Select aria-label="Business" value={business} onChange={e => setBusiness(e.target.value)}><option value="">No business</option>{businesses.data?.items.map(t => <option key={t.id} value={t.id}>{t.name.trim()}</option>)}</Select><Pagination page={businessPage} pageSize={20} total={businesses.data?.total ?? 0} onPage={setBusinessPage} noun="business" /></Field>
         <Field label="Subject" required><Input value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} maxLength={200} /></Field>
         <Field label="Details" required><Textarea rows={5} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Priority"><Select value={f.priority} onChange={(e) => setF({ ...f, priority: e.target.value as Priority })}>{(["low", "normal", "high", "urgent"] as const).map((p) => <option key={p} value={p} className="capitalize">{p}</option>)}</Select></Field>
+          <Field label="Priority"><Select value={f.priority} onChange={(e) => setF({ ...f, priority: e.target.value as Priority })}>{(["low", "normal", "high", "urgent"] as const).map((p) => <option key={p} value={p} className="capitalize">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}</Select></Field>
           <Field label="Customer name"><Input value={f.customer_name} onChange={(e) => setF({ ...f, customer_name: e.target.value })} /></Field>
         </div>
         <Field label="Customer email" hint="Optional — recorded on the ticket."><Input type="email" value={f.customer_email} onChange={(e) => setF({ ...f, customer_email: e.target.value })} /></Field>
@@ -72,8 +78,8 @@ export default function TicketsPage() {
       <PageHeader title="Tickets" subtitle="Support requests and their status." actions={<Button variant="primary" onClick={() => setShow(true)}><Plus size={14} /> New ticket</Button>} />
       <div className="flex flex-wrap items-center gap-2">
         <SearchBox value={f.search} onChange={(v) => set("search", v)} placeholder="Search subject or PES-000123" />
-        <Select aria-label="Status" value={f.status} onChange={(e) => set("status", e.target.value)} className="w-auto!"><option value="">All statuses</option>{STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
-        <Select aria-label="Priority" value={f.priority} onChange={(e) => set("priority", e.target.value)} className="w-auto! capitalize"><option value="">All priorities</option>{(["low", "normal", "high", "urgent"] as const).map((p) => <option key={p} value={p}>{p}</option>)}</Select>
+        <Select aria-label="Status" value={f.status} onChange={(e) => set("status", e.target.value)} className="w-auto!"><option value="">All Statuses</option>{STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select>
+        <Select aria-label="Priority" value={f.priority} onChange={(e) => set("priority", e.target.value)} className="w-auto! capitalize"><option value="">All Priorities</option>{(["low", "normal", "high", "urgent"] as const).map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}</Select>
         <Select aria-label="Assignee" value={f.assigned} onChange={(e) => set("assigned", e.target.value)} className="w-auto!"><option value="">Everyone</option><option value="mine">Mine</option><option value="unassigned">Unassigned</option></Select>
       </div>
       {q.isError ? <ErrorState message="Couldn't load tickets." onRetry={() => void q.refetch()} /> : (

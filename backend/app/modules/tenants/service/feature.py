@@ -34,7 +34,13 @@ async def get_effective_features(db: AsyncSession, tenant_id: uuid.UUID) -> dict
     flags = (await db.execute(select(FeatureFlag).where(FeatureFlag.is_active.is_(True)))).scalars().all()
     tenant = await _get_tenant(db, tenant_id)
     overrides = tenant.features or {}
-    return {f.key: bool(overrides.get(f.key, f.default_enabled)) for f in flags}
+    effective = {f.key: bool(overrides.get(f.key, f.default_enabled)) for f in flags}
+    from app.modules.billing.repository import BillingRepository
+    sub = await BillingRepository(db).subscription(tenant_id)
+    if sub is not None:
+        modules = set(sub.terms.get("modules", []))
+        effective = {f.key: bool(overrides.get(f.key, True)) and f.key in modules for f in flags}
+    return effective
 
 
 async def feature_enabled(db: AsyncSession, tenant_id: uuid.UUID, key: str) -> bool:
@@ -51,6 +57,9 @@ async def get_tenant_feature_state(db: AsyncSession, tenant_id: uuid.UUID) -> li
     )).scalars().all()
     tenant = await _get_tenant(db, tenant_id)
     overrides = tenant.features or {}
+    from app.modules.billing.repository import BillingRepository
+    subscription = await BillingRepository(db).subscription(tenant_id)
+    included = set(subscription.terms.get("modules", [])) if subscription else None
     return [
         TenantFeatureState(
             key=f.key,
@@ -58,7 +67,7 @@ async def get_tenant_feature_state(db: AsyncSession, tenant_id: uuid.UUID) -> li
             module=f.module,
             description=f.description,
             default_enabled=f.default_enabled,
-            enabled=bool(overrides.get(f.key, f.default_enabled)),
+            enabled=bool(overrides.get(f.key, True if included is not None else f.default_enabled)) and (included is None or f.key in included),
             overridden=f.key in overrides,
         )
         for f in flags
@@ -84,9 +93,8 @@ async def reset_tenant_features(db: AsyncSession, tenant_id: uuid.UUID) -> list[
 
 
 async def get_tenant_limits(db: AsyncSession, tenant_id: uuid.UUID) -> TenantLimitsRead:
-    tenant = await _get_tenant(db, tenant_id)
-    limits = tenant.limits or {}
-    return TenantLimitsRead(**{key: limits.get(key) for key in LIMIT_KEYS})
+    await _get_tenant(db, tenant_id)
+    return TenantLimitsRead(**{key: await get_effective_limit(db, tenant_id, key) for key in LIMIT_KEYS})
 
 
 async def set_tenant_limits(
@@ -111,7 +119,13 @@ async def get_effective_limit(db: AsyncSession, tenant_id: uuid.UUID, key: str) 
     tenant = await _get_tenant(db, tenant_id)
     limits = tenant.limits or {}
     value = limits.get(key)
-    return value if isinstance(value, int) and value > 0 else None
+    override = value if isinstance(value, int) and value > 0 else None
+    from app.modules.billing.repository import BillingRepository
+    sub = await BillingRepository(db).subscription(tenant_id)
+    plan_limit = sub.terms.get(key) if sub is not None else None
+    if override is not None and plan_limit is not None:
+        return min(override, plan_limit)
+    return plan_limit if plan_limit is not None else override
 
 
 async def enforce_limit(
@@ -119,7 +133,12 @@ async def enforce_limit(
 ) -> None:
     """Raise QuotaExceededError when the tenant is at/over a configured limit."""
     from app.core.exceptions import QuotaExceededError
-
+    from app.modules.billing.repository import BillingRepository
+    repo = BillingRepository(db)
+    await repo.tenant(tenant_id, lock=True)
+    if key in {"max_users", "max_branches"} and await repo.subscription(tenant_id) is not None:
+        usage = await repo.usage(tenant_id)
+        current_count = usage["users" if key == "max_users" else "branches"]
     limit = await get_effective_limit(db, tenant_id, key)
     if limit is not None and current_count >= limit:
         raise QuotaExceededError(

@@ -52,8 +52,10 @@ function CategoryDonut({
 }) {
   const real = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
   // Top 5 are listed; everything after that is rolled into "Other" so nothing silently disappears from the totals.
-  const rest = real.slice(5).reduce((s, d) => s + d.value, 0);
-  const visible = rest > 0 ? [...real.slice(0, 5), { name: "Other", value: rest, isRest: true }] : real;
+  const specified = real.filter(d => d.name !== "Not specified");
+  const missing = real.filter(d => d.name === "Not specified");
+  const rest = specified.slice(5).reduce((s, d) => s + d.value, 0);
+  const visible = [...specified.slice(0, 5), ...missing, ...(rest > 0 ? [{ name: "Other (small)", value: rest, isRest: true }] : [])];
   const total = visible.reduce((s, d) => s + d.value, 0) || 1;
   if (visible.length === 0) return (
     <p className="text-[12px] text-muted text-center py-6">{empty ?? "No data yet"}</p>
@@ -68,7 +70,7 @@ function CategoryDonut({
         {visible.map((d, i) => "isRest" in d ? (
           <div key="rest" className="flex items-center gap-2 text-[12.5px] -mx-1.5 px-1.5 py-1">
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-400" />
-            <span className="font-semibold text-foreground truncate flex-1">Other</span>
+            <span className="font-semibold text-foreground truncate flex-1">Other (small)</span>
             <span className="text-muted flex-shrink-0">{d.value} · {Math.round((d.value / total) * 100)}%</span>
           </div>
         ) : (
@@ -131,7 +133,7 @@ export default function AdminOverviewPage() {
     : 0;
 
   const planData = Object.entries(stats.plans)
-    .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+    .map(([name, value]) => ({ name: stats.plan_names?.[name] ?? name.charAt(0).toUpperCase() + name.slice(1), value }))
     .sort((a, b) => b.value - a.value);
   const planColors = planData.map((p) => PLAN_COLORS[p.name.toLowerCase()] ?? "#64748b");
   const totalPlans = planData.reduce((s, p) => s + p.value, 0);
@@ -140,7 +142,7 @@ export default function AdminOverviewPage() {
     { label: "Total Tenants",    value: stats.total_tenants,    sub: `${stats.active_tenants} active`,    icon: Building2,    color: "#0284c7", href: "/tenants" },
     { label: "Total Users",      value: stats.total_users,      sub: "across all tenants",                icon: Users,        color: "#8b5cf6", href: "/users" },
     { label: "Total Orders",     value: stats.total_orders,     sub: `${completionRate}% completed`,      icon: ShoppingCart, color: "#059669", href: null },
-    { label: "Tenant Sales", value: formatMoney(stats.total_revenue, stats.reporting_currency ?? "GHS"), sub: "all time", icon: TrendingUp, color: "#d97706", href: null, isString: true },
+    { label: "Tenant Sales", value: Object.entries(stats.revenue_by_currency ?? {}).map(([c, a]) => formatMoney(a, c, { showCode: true })).join(" · ") || "—", sub: "All time · per currency, not combined", icon: TrendingUp, color: "#d97706", href: null, isString: true },
     { label: "Products",         value: stats.total_products,   sub: "in catalog",                        icon: Package,      color: "#0e7490", href: null },
     { label: "Pending Signups",  value: pendingCount ?? "—",  sub: (pendingCount ?? 0) > 0 ? "awaiting approval" : "no pending",                 icon: UserPlus,     alert: (pendingCount ?? 0) > 0, color: (pendingCount ?? 0) > 0 ? "#d97706" : "#64748b", href: "/tenants?status=pending" },
     { label: "Suspended Accounts",        value: trueSuspended ?? "—",          sub: (trueSuspended ?? 0) > 0 ? "need attention" : "all active",                    icon: XCircle,      alert: (trueSuspended ?? 0) > 0, color: (trueSuspended ?? 0) > 0 ? "#ef4444" : "#64748b", href: "/tenants?status=suspended" },

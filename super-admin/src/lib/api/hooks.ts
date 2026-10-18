@@ -99,8 +99,8 @@ export const useAnalyticsFilterOptions = (q: Parameters<typeof adminApi.analytic
 export const useUsers = (page = 1, pageSize = 50, filters: AdminUserFilters = {}, opts?: QueryOpts) =>
   useQ(["admin", "users", page, pageSize, filters], () => adminApi.listUsers(page, pageSize, filters), (r) => r.data, opts);
 
-export const useTenants = (page = 1, pageSize = 20, opts?: QueryOpts) =>
-  useQ([...TENANTS, page, pageSize], () => adminApi.listTenants(page, pageSize), (r) => r.data, opts);
+export const useTenants = (page = 1, pageSize = 20, opts?: QueryOpts, filters: Record<string, string> = {}) =>
+  useQ([...TENANTS, page, pageSize, filters], () => adminApi.listTenants(page, pageSize, filters), r => r.data, opts);
 
 export const useTenant = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id], () => adminApi.getTenant(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
@@ -120,12 +120,12 @@ export const useTenantRoles = (id: string | undefined, opts?: QueryOpts) =>
 export const useTenantBranches = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "branches"], () => adminApi.tenantBranches(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
-export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
-export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
-export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
-export const useActivateTenant = mutation(({ id }: { id: string }) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
-export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
-export const useResetTenantData = mutation(({ id, confirmName }: { id: string; confirmName: string }) => adminApi.resetTenantData(id, confirmName), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
+export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
+export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
+export const useActivateTenant = mutation(({ id }: { id: string }) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
+export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
+export const useResetTenantData = mutation(({ id, confirmName }: { id: string; confirmName: string }) => adminApi.resetTenantData(id, confirmName), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
 export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS], [...ADMIN_ANALYTICS]]);
 export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS], [...ADMIN_ANALYTICS]]);
 
@@ -184,3 +184,28 @@ export const useFeatureFlags = (opts?: QueryOpts) =>
 
 export const usePlatformAuditLogs = (page = 1, pageSize = 100, opts?: QueryOpts) =>
   useQ(["admin", "audit-logs", page, pageSize], () => adminApi.platformAuditLogs(page, pageSize), (r) => r.data, opts);
+
+
+// Authoritative platform subscription billing (separate from ERP sales invoices).
+import { createBillingApi, type BillingKind, type BillingFilters, type ChangePlanInput, type SubscriptionActionInput, type BillingPlan, type BillingSettings } from "./billing";
+export const billingApi = createBillingApi("/admin/billing");
+const BILLING = ["platform-billing"];
+export const useBillingRecords = <K extends BillingKind>(kind: K, filters: BillingFilters, enabled = true) => useQ([...BILLING, kind, filters], () => billingApi.records(kind, filters), r => r.data, { enabled });
+export const useBillingOverview = (tenantId?: string) => useQ([...BILLING, "overview", tenantId], () => billingApi.overview(tenantId), r => r.data);
+export const useBillingDetail = <K extends BillingKind>(kind: K, id: string) => useQ([...BILLING, kind, id], () => billingApi.detail(kind, id), r => r.data, { enabled: !!id });
+export const useBillingMethods = () => useQ([...BILLING, "methods"], () => billingApi.methods(), r => r.data);
+export const useBillingPreview = mutation((v: { data: ChangePlanInput; tenantId?: string }) => billingApi.preview(v.data, v.tenantId), []);
+export const useBillingConfirm = mutation((v: { quoteId: string; key: string; tenantId?: string }) => billingApi.confirm(v.quoteId, v.key, v.tenantId), [BILLING, [...TENANTS], [...ADMIN_STATS], ["admin", "usage-breakdown"], ["tenant-entitlements"]]);
+export const useBillingAction = mutation((v: { data: SubscriptionActionInput; key: string; tenantId?: string }) => billingApi.action(v.data, v.key, v.tenantId), [BILLING]);
+export const useBillingPay = mutation((v: { id: string; phone: string; provider: string; key: string }) => billingApi.pay(v.id, v.phone, v.provider, v.key), [BILLING]);
+export const useBillingRefresh = mutation((reference: string) => billingApi.refresh(reference), [BILLING]);
+export const useBillingSavePlan = mutation((v: { data: Omit<BillingPlan, "id" | "version"> & { expected_version?: number }; key: string; id?: string }) => billingApi.savePlan(v.data, v.key, v.id), [BILLING]);
+export const useBillingSettings = () => useQ([...BILLING, "settings"], () => billingApi.settings(), r => r.data);
+export const useBillingSaveSettings = mutation((v: BillingSettings) => billingApi.saveSettings(v), [BILLING]);
+export const useBillingReport = (filters: BillingFilters) => useQ([...BILLING, "report", filters], () => billingApi.report(filters), r => r.data);
+
+export const useBillingRefunds = (filters: BillingFilters) => useQ([...BILLING, "refunds", filters], () => billingApi.refunds(filters), r => r.data);
+export const useBillingRefund = mutation((v: { reference: string; amount: number; reason: string; key: string }) => billingApi.refund(v.reference, v.amount, v.reason, v.key), [BILLING]);
+export const useBillingRefreshRefund = mutation((reference: string) => billingApi.refreshRefund(reference), [BILLING]);
+
+export const useBillingHistory = (id: string, page: number) => useQ([...BILLING, "history", id, page], () => billingApi.history(id, page), r => r.data, { enabled: !!id });

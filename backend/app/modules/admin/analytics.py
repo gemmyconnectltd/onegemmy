@@ -716,7 +716,7 @@ async def all_time_sales_converted() -> dict[str, Any]:
     /admin/stats reports. Same conversion as the overview card; never a raw cross-currency sum."""
     tomorrow = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     s = await _sales_summary(_ALL_TIME_START, tomorrow, TenantFilter())
-    return {"reporting_currency": s["reportingCurrency"], "total": s["total"], "partial": s["partial"], "missing_rates": s["missingRates"]}
+    return {"reporting_currency": s["reportingCurrency"], "total": s["total"], "partial": s["partial"], "missing_rates": s["missingRates"], "by_currency": {r["currency"]: r["originalAmount"] for r in s["breakdown"]}}
 
 
 @ttl_cache(CACHE_NS, _LIVE_TTL)
@@ -732,7 +732,7 @@ async def all_time_sales_by_plan() -> dict[str, Any]:
                 func.coalesce(func.sum(func.coalesce(Order.base_total, Order.total)), 0),
             )
             .select_from(Order).join(Tenant, Tenant.id == Order.tenant_id)
-            .where(Order.status == "Completed", Order.ordered_at < tomorrow)
+            .where(Order.status == "Completed", Order.ordered_at >= _ALL_TIME_START, Order.ordered_at < tomorrow)
             .group_by(Tenant.subscription_plan, Tenant.currency, day)
         )).all()
         return [(p, c or DEFAULT_CURRENCY, d, Decimal(a)) for p, c, d, a in rows]
@@ -744,8 +744,15 @@ async def all_time_sales_by_plan() -> dict[str, Any]:
     for plan, cur, d, amount in rows:
         by_plan.setdefault(plan, []).append((cur, d, amount))
     converted = {plan: convert_daily(r, book) for plan, r in by_plan.items()}
+    original_by_plan = {}
+    for plan, records in by_plan.items():
+        values = {}
+        for currency, _, amount in records:
+            values[currency] = values.get(currency, Decimal(0)) + amount
+        original_by_plan[plan] = {c: _round_money(a) for c, a in values.items()}
     return {
         "reporting_currency": reporting,
         "by_plan": {plan: _round_money(c.total) for plan, c in converted.items()},
+        "original_by_plan": original_by_plan,
         "partial": any(c.partial for c in converted.values()),
     }

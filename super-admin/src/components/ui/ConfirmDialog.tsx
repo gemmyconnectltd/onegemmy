@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  confirmText?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -24,9 +25,11 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   danger = false,
+  confirmText,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const [typed, setTyped] = useState("");
   return (
     <Drawer
       open={open}
@@ -37,11 +40,11 @@ export function ConfirmDialog({
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onCancel}>{cancelLabel}</Button>
-          <Button type="button" variant="primary" onClick={onConfirm} className={danger ? "bg-red-600 text-white hover:bg-red-700" : undefined}>{confirmLabel}</Button>
+          <Button type="button" variant="primary" onClick={onConfirm} disabled={!!confirmText && typed !== confirmText} className={danger ? "bg-red-600 text-white hover:bg-red-700" : undefined}>{confirmLabel}</Button>
         </div>
       }
     >
-      <p className="px-5 py-4 text-sm text-muted leading-relaxed">{message}</p>
+      <div className="px-5 py-4 space-y-3"><p className="text-sm text-muted leading-relaxed">{message}</p>{confirmText && <label className="block text-sm">Type <strong>{confirmText}</strong> to confirm<input className="mt-2 w-full rounded-lg border border-border bg-surface p-2" aria-label="Business name confirmation" value={typed} onChange={e => setTyped(e.target.value)} autoComplete="off" /></label>}</div>
     </Drawer>
   );
 }
@@ -51,6 +54,7 @@ interface ConfirmOptions {
   message: string;
   confirmLabel?: string;
   danger?: boolean;
+  confirmText?: string;
   onConfirm: () => void;
 }
 
@@ -70,6 +74,7 @@ export function useConfirmDialog() {
       message={pending.message}
       confirmLabel={pending.confirmLabel}
       danger={pending.danger}
+      confirmText={pending.confirmText}
       onConfirm={() => {
         const { onConfirm } = pending;
         setPending(null);

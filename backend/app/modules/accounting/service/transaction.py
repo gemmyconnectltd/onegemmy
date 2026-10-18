@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import ZERO, to_decimal
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
@@ -15,13 +15,13 @@ from app.modules.accounting.service.account import DEFAULT_ACCOUNTS
 from app.modules.audit.service import record_audit
 
 
-async def list_transactions(db: AsyncSession, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, offset: int = 0, limit: int = 50) -> list[TransactionRead]:
-    items = await TransactionRepository(db).list_for_tenant(tenant_id, type, status, offset, limit)
+async def list_transactions(db: AsyncSession, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, offset: int = 0, limit: int = 50, branch_id: uuid.UUID | None = None) -> list[TransactionRead]:
+    items = await TransactionRepository(db).list_for_tenant(tenant_id, type, status, offset, min(limit, 100), branch_id)
     return [TransactionRead.model_validate(i) for i in items]
 
 
-async def count_transactions(db: AsyncSession, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None) -> int:
-    return await TransactionRepository(db).count_for_tenant(tenant_id, type, status)
+async def count_transactions(db: AsyncSession, tenant_id: uuid.UUID, type: str | None = None, status: str | None = None, branch_id: uuid.UUID | None = None) -> int:
+    return await TransactionRepository(db).count_for_tenant(tenant_id, type, status, branch_id)
 
 
 async def get_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> TransactionRead:
@@ -32,6 +32,23 @@ async def get_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID)
 
 
 async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: TransactionCreate) -> TransactionRead:
+
+    from app.modules.accounting.repository.reporting import ReportingRepository
+    from app.modules.accounting.service.workspace import allow, resolve_branch
+    from app.modules.tenants.models import User
+    actor = await db.get(User, user_id)
+    if actor is not None:
+        if actor.tenant_id != tenant_id:
+            raise ValidationError("Journal actor does not belong to this business")
+        allow(actor, "journal_entries", "create")
+        data.branch_id = await resolve_branch(db, actor, data.branch_id)
+    if data.type not in {"manual", "adjustment"} or any((data.order_id, data.return_id, data.purchase_id)):
+        raise ValidationError("Source journals are created by their sales/purchase workflows; manual journals cannot attach source documents")
+    await ReportingRepository(db).lock_tenant(tenant_id)
+    ids = {line.account_id for line in data.lines}
+    accounts = await AccountRepository(db).get_many(tenant_id, ids=ids, active=True)
+    if len(accounts) != len(ids):
+        raise ValidationError("Every journal account must be active and belong to this business")
     if len(data.lines) < 2:
         raise ValidationError("A transaction must have at least 2 lines")
     total_debits = sum(l.amount for l in data.lines if l.type == "debit")
@@ -40,12 +57,20 @@ async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
         raise ValidationError(f"Debits ({total_debits}) must equal credits ({total_credits})")
 
     repo = TransactionRepository(db)
-    reference = await repo.next_reference(tenant_id)
+    reference = data.client_reference or await repo.next_reference(tenant_id)
+    existing = await repo.by_reference(tenant_id, reference)
+    if existing is not None:
+        existing_lines = sorted((str(l.account_id), l.type, Decimal(l.amount)) for l in existing.lines)
+        new_lines = sorted((str(l.account_id), l.type, l.amount) for l in data.lines)
+        if existing_lines != new_lines or existing.transaction_date.isoformat() != data.transaction_date or existing.description != data.description or existing.branch_id != data.branch_id:
+            raise ConflictError("Journal reference was already used with different details")
+        return TransactionRead.model_validate(existing)
     txn = Transaction(
         tenant_id=tenant_id,
         currency_code=await _ledger_currency(db, tenant_id),
         reference=reference,
         type=data.type,
+        branch_id=data.branch_id,
         status="Draft",
         transaction_date=date.fromisoformat(data.transaction_date),
         description=data.description,
@@ -79,13 +104,19 @@ async def create_transaction(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
     return TransactionRead.model_validate(obj)
 
 
-async def update_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: TransactionUpdate) -> TransactionRead:
+async def update_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: TransactionUpdate, actor=None) -> TransactionRead:
     repo = TransactionRepository(db)
-    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    obj = await repo.locked(tenant_id, id)
     if obj is None:
         raise NotFoundError("Transaction not found")
-    if obj.status == "Posted":
-        raise ValidationError("Cannot edit a posted transaction — void it first")
+    if actor is not None:
+        from app.core.exceptions import ForbiddenError
+        from app.modules.accounting.service.workspace import allow
+        allow(actor, "journal_entries", "update")
+        if actor.branch_id and actor.branch_id != obj.branch_id:
+            raise ForbiddenError("Journal is outside the assigned branch")
+    if obj.status != "Draft":
+        raise ValidationError("Posted journals are immutable; use the authorized reversal workflow")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, field, value)
     await repo.save(obj)
@@ -95,12 +126,29 @@ async def update_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UU
 
 
 async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None = None) -> TransactionRead:
+    from app.modules.accounting.service.workspace import allow
+    from app.modules.tenants.models import User
+    actor = await db.get(User, user_id)
+    if actor is not None:
+        allow(actor, "journal_entries", "approve")
     repo = TransactionRepository(db)
-    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    obj = await repo.locked(tenant_id, id)
     if obj is None:
         raise NotFoundError("Transaction not found")
+    if actor is not None and actor.branch_id and obj.branch_id != actor.branch_id:
+        from app.core.exceptions import ForbiddenError
+        raise ForbiddenError("Journal is outside the assigned branch")
+    if obj.status == "Posted":
+        return TransactionRead.model_validate(obj)
     if obj.status != "Draft":
         raise ValidationError(f"Cannot post a transaction with status '{obj.status}'")
+    if len(obj.lines) < 2 or sum((Decimal(l.amount) for l in obj.lines if l.type == "debit"), Decimal(0)) != sum((Decimal(l.amount) for l in obj.lines if l.type == "credit"), Decimal(0)):
+        raise ValidationError("Journal debits and credits must reconcile before posting")
+    if any(l.account is None or l.account.tenant_id != tenant_id or not l.account.is_active or Decimal(l.amount) <= 0 or l.type not in {"debit", "credit"} for l in obj.lines):
+        raise ValidationError("Journal contains invalid or cross-business account lines")
+    if actor is not None and actor.branch_id and obj.branch_id != actor.branch_id:
+        from app.core.exceptions import ForbiddenError
+        raise ForbiddenError("Journal is outside the assigned branch")
     obj.status = "Posted"
     await repo.save(obj)
     await record_audit(
@@ -120,12 +168,22 @@ async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
 
 
 async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None = None) -> TransactionRead:
+    from app.modules.accounting.service.workspace import allow
+    from app.modules.tenants.models import User
+    actor = await db.get(User, user_id)
+    if actor is not None:
+        allow(actor, "journal_entries", "delete")
     repo = TransactionRepository(db)
-    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    obj = await repo.locked(tenant_id, id)
     if obj is None:
         raise NotFoundError("Transaction not found")
     if obj.status == "Void":
         raise ValidationError("Transaction is already void")
+    if obj.type not in {"manual", "adjustment"}:
+        raise ValidationError("Reverse source journals through their original payment, sales or purchasing workflow")
+    if actor is not None and actor.branch_id and obj.branch_id != actor.branch_id:
+        from app.core.exceptions import ForbiddenError
+        raise ForbiddenError("Journal is outside the assigned branch")
     obj.status = "Void"
     await repo.save(obj)
     await record_audit(
