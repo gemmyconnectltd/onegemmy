@@ -39,6 +39,8 @@ export interface ApiRegisterRequest {
   business_location?: string;
   heard_about?: string;
   referral_code?: string;
+  /** How the business wants Pesaa to contact it first. */
+  preferred_contact?: "email" | "phone" | "whatsapp";
   main_branch_name?: string;
   country?: string;
   currency?: string;

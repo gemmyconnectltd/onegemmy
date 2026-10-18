@@ -144,6 +144,7 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         business_location=data.business_location,
         heard_about=data.heard_about,
         referral_code=data.referral_code,
+        preferred_contact=data.preferred_contact,
     )
     tenant = await TenantRepository(db).save(tenant)
 
@@ -188,6 +189,10 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
             tenant_name=tenant.name,
             tenant_slug=tenant.slug,
             review_url=f"{settings.FRONTEND_URL}/admin/tenants/{tenant.id}",
+            owner_name=data.full_name,
+            owner_email=data.email,
+            phone=data.phone,
+            preferred_contact=data.preferred_contact,
             sender="admin",
         )
 

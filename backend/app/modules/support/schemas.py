@@ -39,6 +39,7 @@ class ConversationRead(BaseModel):
     customer_phone: str | None
     tenant_id: uuid.UUID | None
     tenant_name: str | None = None
+    tenant_preferred_contact: str | None = None
     status: str
     priority: str
     assigned_to: uuid.UUID | None

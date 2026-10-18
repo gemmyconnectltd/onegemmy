@@ -14,7 +14,7 @@ export interface SupportMessage {
 }
 export interface SupportConversation {
   id: string; channel: Channel; subject: string | null; customer_name: string | null; customer_email: string | null; customer_phone: string | null;
-  tenant_id: string | null; tenant_name: string | null; status: "open" | "resolved"; priority: Priority; assigned_to: string | null; assigned_name: string | null;
+  tenant_id: string | null; tenant_name: string | null; tenant_preferred_contact: "email" | "phone" | "whatsapp" | null; status: "open" | "resolved"; priority: Priority; assigned_to: string | null; assigned_name: string | null;
   unread_count: number; last_message_at: string | null; last_message_preview: string | null; resolved_at: string | null; created_at: string;
   ticket_id: string | null; ticket_reference: string | null;
 }

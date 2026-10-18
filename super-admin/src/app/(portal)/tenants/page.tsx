@@ -20,6 +20,7 @@ import { DonutChart } from "@/components/charts/lazy";
 import { chartPalette } from "@/lib/chartColors";
 import { useAppConfig } from "@/lib/appConfig";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
+import { ContactBadge } from "@/components/tenants/ContactBadge";
 import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -264,10 +265,10 @@ function AdminTenantsPageInner() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           {bulk.count > 0 && <div className="border-b border-border px-5 py-3"><BulkActionBar count={bulk.count} label="organization" pluralLabel="organizations" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} /></div>}
-          <TableScroll label="Tenants"><table className="w-full min-w-[980px] text-left">
+          <TableScroll label="Tenants"><table className="w-full min-w-[1080px] text-left">
             <thead><tr className="border-b border-border bg-surface/50">
               <th scope="col" className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select all on this page" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="h-4 w-4 rounded" disabled={pageRows.length === 0} /></th>
-              {sortTh("name", "Business")}{sortTh("plan", "Plan")}{sortTh("users", "Users")}{th("Branches")}{th("Status")}{th("Last active")}{sortTh("created", "Created")}{th("Country")}<th scope="col" aria-label="Actions" className="px-4 py-3" />
+              {sortTh("name", "Business")}{sortTh("plan", "Plan")}{sortTh("users", "Users")}{th("Contact via")}{th("Branches")}{th("Status")}{th("Last active")}{sortTh("created", "Created")}{th("Country")}<th scope="col" aria-label="Actions" className="px-4 py-3" />
             </tr></thead>
             <tbody className="divide-y divide-border">
               {pageRows.map((t) => (
@@ -276,6 +277,7 @@ function AdminTenantsPageInner() {
                   <td className="px-4 py-3"><Link href={`/tenants/${t.id}`} className="flex items-center gap-3"><TenantLogo name={t.name} src={resolveUploadUrl(t.logo_url)} /><span className="min-w-0"><span className="block truncate text-sm font-semibold text-foreground group-hover:text-accent">{t.name}</span><span className="block truncate font-mono text-[11px] text-muted">{t.slug}</span></span></Link></td>
                   <td className="px-4 py-3"><span className={`rounded-lg px-2 py-1 text-[11px] font-semibold capitalize ${PLAN_COLORS[t.subscription_plan] ?? "bg-surface text-muted"}`}>{t.subscription_plan}</span></td>
                   <td className="px-4 py-3 text-[13px] font-semibold">{t.usage?.users ?? "—"}</td>
+                  <td className="px-4 py-3"><ContactBadge value={t.preferred_contact} />{(t.preferred_contact === "phone" || t.preferred_contact === "whatsapp") && t.phone && <span className="mt-0.5 block text-[11px] text-muted">{t.phone}</span>}</td>
                   <td className="px-4 py-3 text-[12px] text-muted">{t.multi_branch ? "Multi-branch" : "Single"}</td>
                   <td className="px-4 py-3">{acting === t.id ? <Loader2 size={14} className="animate-spin text-muted" /> : <TenantStatusBadge tenant={t} />}</td>
                   <td className="px-4 py-3 text-[12px] text-muted">{t.usage ? fmtRelative(t.usage.last_active_at) : "—"}</td>

@@ -185,6 +185,9 @@ async def _names(db: AsyncSession, user_ids: set, tenant_ids: set) -> tuple[dict
 
 async def to_conversation_reads(db: AsyncSession, rows: list[SupportConversation]) -> list[ConversationRead]:
     users, tenants = await _names(db, {r.assigned_to for r in rows if r.assigned_to}, {r.tenant_id for r in rows if r.tenant_id})
+    contact = {}
+    if tenants:
+        contact = dict((await db.execute(select(Tenant.id, Tenant.preferred_contact).where(Tenant.id.in_(tenants.keys())))).all())
     tickets = {}
     if rows:
         for t in (await db.execute(select(SupportTicket).where(
@@ -196,7 +199,7 @@ async def to_conversation_reads(db: AsyncSession, rows: list[SupportConversation
         t = tickets.get(r.id)
         out.append(ConversationRead.model_validate({
             **{c: getattr(r, c) for c in ConversationRead.model_fields if hasattr(r, c)},
-            "tenant_name": tenants.get(r.tenant_id), "assigned_name": users.get(r.assigned_to),
+            "tenant_name": tenants.get(r.tenant_id), "tenant_preferred_contact": contact.get(r.tenant_id), "assigned_name": users.get(r.assigned_to),
             "ticket_id": t.id if t else None, "ticket_reference": t.reference if t else None,
         }))
     return out

@@ -4,6 +4,7 @@ import { Building2, Mail, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { useConversation, useRelated } from "@/lib/support/hooks";
 import { Avatar, ChannelBadge, PriorityBadge, timeAgo } from "./parts";
+import { ContactBadge } from "@/components/tenants/ContactBadge";
 
 const STATUS_TONE = { open: "green", in_progress: "blue", resolved: "slate", closed: "slate" } as const;
 
@@ -24,6 +25,7 @@ export function CustomerPanel({ id, onOpen }: { id: string; onOpen: (id: string)
         {conv.customer_email && <div className="flex gap-2"><Mail size={14} className="mt-0.5 flex-shrink-0 text-muted" /><dd className="min-w-0 break-all">{conv.customer_email}</dd></div>}
         {conv.customer_phone && <div className="flex gap-2"><Phone size={14} className="mt-0.5 flex-shrink-0 text-muted" /><dd>{conv.customer_phone}</dd></div>}
         <div className="flex gap-2"><Building2 size={14} className="mt-0.5 flex-shrink-0 text-muted" /><dd>{conv.tenant_name ?? <span className="text-muted">No Pesaa business linked</span>}</dd></div>
+        {conv.tenant_name && <div className="flex items-center gap-2 text-muted"><span className="w-3.5 flex-shrink-0" /><dd className="flex items-center gap-1.5 text-[12px]">Prefers <ContactBadge value={conv.tenant_preferred_contact} /></dd></div>}
       </dl>
       <section className="border-t border-border pt-3">
         <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">Related tickets</h3>

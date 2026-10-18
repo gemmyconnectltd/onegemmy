@@ -40,6 +40,10 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
 
     # ISO 4217 code. Locked from the tenant's own side (see /api/v1/tenants
     # update_tenant) — only a platform superadmin can change it, since the
+    # How the business wants Pesaa to reach it first: "email" (the owner's login email), "phone" (a call to the
+    # business phone above) or "whatsapp" (a WhatsApp message to that same number). Chosen at registration and
+    # editable in Settings; shown to staff who review a signup or answer support so they use the channel asked for.
+    preferred_contact: Mapped[str] = mapped_column(String(10), nullable=False, default="email", server_default="email")
     # app doesn't convert historical amounts recorded under the old currency.
     currency: Mapped[str] = mapped_column(String(3), default="RWF")
 

@@ -73,6 +73,7 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredContact, setPreferredContact] = useState<"email" | "phone" | "whatsapp">("email");
   const [countryName, setCountryName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -195,6 +196,7 @@ export default function RegisterPage() {
       businessLocation: businessLocation || undefined,
       heardAbout: heardAbout || undefined,
       referralCode: referralCode || undefined,
+      preferredContact,
       mainBranchName: hasMultipleBranches && mainBranchName ? mainBranchName : undefined,
     });
     if (result.ok) {
@@ -373,6 +375,20 @@ export default function RegisterPage() {
                   <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> Enter a valid email address</p>
                 )}
               </div>
+
+              <fieldset>
+                <legend className="block text-[13px] font-medium text-foreground mb-1.5">How should we contact you? *</legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {([["email", "Email"], ["phone", "Phone call"], ["whatsapp", "WhatsApp"]] as const).map(([value, label]) => (
+                    <label key={value} className={`flex cursor-pointer items-center rounded-xl border px-3 py-2.5 transition-colors ${preferredContact === value ? "border-accent bg-accent/5" : "border-border hover:border-foreground/20"}`}>
+                      <span className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                        <input type="radio" name="preferred_contact" value={value} checked={preferredContact === value} onChange={() => setPreferredContact(value)} className="accent-[var(--accent)]" />
+                        {label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
 
               <div>
                 <label className="block text-[13px] font-medium text-foreground mb-1.5">Country *</label>

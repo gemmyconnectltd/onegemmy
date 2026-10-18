@@ -57,6 +57,8 @@ export interface RegisterInput {
   heardAbout?: string;
   referralCode?: string;
   mainBranchName?: string;
+  /** "email" (default), "phone" (call) or "whatsapp" — how Pesaa should reach the business first. */
+  preferredContact?: "email" | "phone" | "whatsapp";
 }
 
 // Backend permission resources (resource:action, see backend/app/scripts/seed.py)
@@ -230,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         heard_about: data.heardAbout,
         referral_code: data.referralCode,
         main_branch_name: data.mainBranchName,
+        preferred_contact: data.preferredContact,
       });
       // New signups land inactive until a platform admin approves them — no
       // tokens are issued yet, see backend auth.service.register.

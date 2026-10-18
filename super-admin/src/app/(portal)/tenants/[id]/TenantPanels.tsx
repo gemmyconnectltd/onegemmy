@@ -50,7 +50,7 @@ interface Common { tenant: AdminTenant; stats?: AdminTenantStats; limits?: Tenan
 export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go, controls }: Common & { controls: ReactNode }) {
   const profile: [string, ReactNode][] = ([
     ["Business name", tenant.name], ["Country", tenant.country], ["City", tenant.city], ["Industry", tenant.industry], ["Business type", BUSINESS_TYPE_LABELS[tenant.business_type ?? ""] ?? tenant.business_type],
-    ["Phone", tenant.phone], ["Address", tenant.address], ["Website", tenant.website && <a key="w" href={tenant.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">{tenant.website}</a>],
+    ["Phone", tenant.phone], ["Prefers to be contacted by", ({ email: "Email", phone: "Phone call", whatsapp: "WhatsApp" } as Record<string, string>)[tenant.preferred_contact ?? ""] ?? null], ["Address", tenant.address], ["Website", tenant.website && <a key="w" href={tenant.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">{tenant.website}</a>],
     ["Employees", tenant.employee_count], ["Heard about us", tenant.heard_about], ["Registered", tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : null],
   ] as [string, ReactNode][]).filter(([, v]) => v);
   const mx = limit(limits, "max_users");

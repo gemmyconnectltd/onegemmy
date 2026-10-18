@@ -287,7 +287,26 @@ async def send_password_reset_email(
     return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None, sender=sender)
 
 
-def _pending_signup_body(tenant_name: str, tenant_slug: str, review_url: str) -> str:
+def _pending_signup_body(
+    tenant_name: str, tenant_slug: str, review_url: str, owner_name: str | None = None, owner_email: str | None = None,
+    phone: str | None = None, preferred_contact: str | None = None,
+) -> str:
+    def row(label: str, value: str) -> str:
+        return (f"<p style='margin:10px 0 0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>{label}</p>"
+                f"<p style='margin:2px 0 0;font-size:14px;color:#1c1b18;'>{value}</p>")
+
+    rows = ""
+    if owner_name or owner_email:
+        rows += row("Owner", html.escape(" · ".join(x for x in (owner_name, owner_email) if x)))
+    if phone:
+        rows += row("Phone", html.escape(phone))
+    if preferred_contact:
+        way = {
+            "email": f"Email ({html.escape(owner_email or '')})",
+            "phone": f"Phone call ({html.escape(phone or '')})",
+            "whatsapp": f"WhatsApp ({html.escape(phone or '')})",
+        }.get(preferred_contact, html.escape(preferred_contact))
+        rows += row("Prefers to be contacted by", f"<strong>{way}</strong>")
     return (
         "<p style='margin:0 0 14px;'>A new business just registered on Pesaa and is waiting for approval.</p>"
         "<table role='presentation' cellpadding='0' cellspacing='0' width='100%' style='margin:18px 0;'>"
@@ -295,14 +314,18 @@ def _pending_signup_body(tenant_name: str, tenant_slug: str, review_url: str) ->
         "<p style='margin:0;font-size:12px;color:#a8a39a;text-transform:uppercase;letter-spacing:0.04em;'>Business</p>"
         f"<p style='margin:2px 0 0;font-size:14px;font-weight:600;color:#1c1b18;'>{html.escape(tenant_name)} "
         f"<span style='color:#a8a39a;font-weight:400;'>({html.escape(tenant_slug)})</span></p>"
+        f"{rows}"
         "</td></tr></table>"
         + _button_html(review_url, "Review in admin portal")
     )
 
 
-async def send_pending_signup_email(to: str, tenant_name: str, tenant_slug: str, review_url: str, sender: str = "admin") -> bool:
+async def send_pending_signup_email(
+    to: str, tenant_name: str, tenant_slug: str, review_url: str, sender: str = "admin", owner_name: str | None = None,
+    owner_email: str | None = None, phone: str | None = None, preferred_contact: str | None = None,
+) -> bool:
     subject = f"New signup pending approval: {tenant_name}"
-    body = _pending_signup_body(tenant_name, tenant_slug, review_url)
+    body = _pending_signup_body(tenant_name, tenant_slug, review_url, owner_name, owner_email, phone, preferred_contact)
     preheader = f"{tenant_name} is waiting for approval."
     return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None, sender=sender)
 

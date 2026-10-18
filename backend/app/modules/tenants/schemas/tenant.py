@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+PreferredContact = Literal["email", "phone", "whatsapp"]
 HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 
 
@@ -28,6 +29,7 @@ class TenantCreate(BaseModel):
     business_location: str | None = None
     heard_about: str | None = None
     referral_code: str | None = None
+    preferred_contact: PreferredContact | None = None
 
 
 class TenantUpdate(BaseModel):
@@ -57,6 +59,7 @@ class TenantUpdate(BaseModel):
     business_location: str | None = None
     heard_about: str | None = None
     referral_code: str | None = None
+    preferred_contact: PreferredContact | None = None
 
 
 class TenantRead(BaseModel):
@@ -86,6 +89,7 @@ class TenantRead(BaseModel):
     business_location: str | None = None
     heard_about: str | None = None
     referral_code: str | None = None
+    preferred_contact: PreferredContact | None = None
     features: dict[str, bool] | None = None
     limits: dict[str, int | None] | None = None
     created_at: datetime | None = None

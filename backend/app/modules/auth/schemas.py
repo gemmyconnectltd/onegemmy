@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr
 
@@ -31,6 +32,8 @@ class RegisterRequest(BaseModel):
     business_location: str | None = None
     heard_about: str | None = None
     referral_code: str | None = None
+    # How the business wants to be contacted first. Validated here (a public endpoint never stores free text).
+    preferred_contact: Literal["email", "phone", "whatsapp"] = "email"
     main_branch_name: str | None = None
 
 

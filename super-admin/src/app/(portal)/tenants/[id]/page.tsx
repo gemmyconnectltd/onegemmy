@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/Button";
 import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
 import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
+import { ContactBadge } from "@/components/tenants/ContactBadge";
 import { ActivityPanel, Card, InvoicesPanel, OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
 import { resolveUploadUrl } from "@/lib/api/client";
 
@@ -469,7 +470,7 @@ function TenantDetailPageInner() {
           <Link href="/tenants" aria-label="Back to Tenants" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-muted transition-colors hover:bg-border hover:text-foreground"><ArrowLeft size={15} /></Link>
           <TenantLogo name={tenant.name} src={resolveUploadUrl(tenant.logo_url)} size={44} />
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2"><h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">{tenant.name}</h1><TenantStatusBadge tenant={tenant} /></div>
+            <div className="flex flex-wrap items-center gap-2"><h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">{tenant.name}</h1><TenantStatusBadge tenant={tenant} /><ContactBadge value={tenant.preferred_contact} /></div>
             <p className="mt-0.5 truncate text-[12.5px] text-muted">{[tenant.country, tenant.slug, tenant.created_at ? `Registered ${new Date(tenant.created_at).toLocaleDateString()}` : null].filter(Boolean).join(" · ")}</p>
           </div>
         </div>

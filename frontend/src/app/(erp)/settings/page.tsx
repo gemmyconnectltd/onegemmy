@@ -2,7 +2,7 @@
 
 import { Building2, Store } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Field, Input } from "@/components/ui/Form";
+import { Field, Input, Select } from "@/components/ui/Form";
 import { useCurrentTenant, useUpdateMyTenant } from "@/lib/api/hooks";
 import type { Tenant } from "@/lib/api";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -13,7 +13,7 @@ const URL_RE = /^https?:\/\/\S+\.\S+$/i;
 /** Owns the form's local state, initialised from `tenant` — only mounts once `tenant` has loaded. */
 function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
   const updateTenant = useUpdateMyTenant();
-  const initial = { name: tenant.name ?? "", phone: tenant.phone ?? "", address: tenant.address ?? "", city: tenant.city ?? "", country: tenant.country ?? "", website: tenant.website ?? "", business_type: tenant.business_type ?? "" };
+  const initial = { name: tenant.name ?? "", phone: tenant.phone ?? "", address: tenant.address ?? "", city: tenant.city ?? "", country: tenant.country ?? "", website: tenant.website ?? "", business_type: tenant.business_type ?? "", preferred_contact: tenant.preferred_contact ?? "email" };
   const [form, setForm] = useState(initial);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
     if (!dirty || nameErr || webErr) return;
     setError(null);
     try {
-      await updateTenant.mutateAsync({ id: tenant.id, data: { name: form.name.trim(), phone: form.phone.trim() || null, address: form.address.trim() || null, city: form.city.trim() || null, country: form.country.trim() || null, website: form.website.trim() || null, business_type: form.business_type.trim() || null } });
+      await updateTenant.mutateAsync({ id: tenant.id, data: { name: form.name.trim(), phone: form.phone.trim() || null, address: form.address.trim() || null, city: form.city.trim() || null, country: form.country.trim() || null, website: form.website.trim() || null, business_type: form.business_type.trim() || null, preferred_contact: form.preferred_contact === "phone" || form.preferred_contact === "whatsapp" ? form.preferred_contact : "email" } });
       setSaved(true);
     } catch (err: unknown) {
       setError((err as { detail?: string })?.detail ?? "Couldn't save your business information. Try again.");
@@ -53,6 +53,9 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
         <Field label="Address" className="sm:col-span-2"><Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="KG 7 Ave" /></Field>
         <Field label="City"><Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Kigali" /></Field>
         <Field label="Country"><Input value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="Rwanda" /></Field>
+        <Field label="Preferred contact" hint="How Pesaa support and account staff should reach you first." className="sm:col-span-2">
+          <Select value={form.preferred_contact} onChange={(e) => set("preferred_contact", e.target.value)}><option value="email">Email</option><option value="phone">Phone call</option><option value="whatsapp">WhatsApp</option></Select>
+        </Field>
         <Field label="Website" className="sm:col-span-2"><Input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://example.com" aria-invalid={!!webErr} />{webErr && <p role="alert" className="mt-1 text-[11px] text-red-600">{webErr}</p>}</Field>
       </div>
       </SettingsCard>
