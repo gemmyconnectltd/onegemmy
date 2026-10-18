@@ -11,7 +11,7 @@ import { siteConfig } from "@/lib/config";
 import { LogoMark } from "@/components/ui/LogoMark";
 import {
   LayoutDashboard, ShoppingCart, Warehouse,
-  Users, BarChart3, Settings, LogOut,
+  Users, BarChart3, Settings, LogOut, LifeBuoy,
   UserCog, HandCoins,
   Factory, ShoppingBag, Building2, Menu, X,
   PanelLeft, Crown, CalendarClock, Activity,
@@ -42,6 +42,8 @@ const coreNavItems = [
 const mgmtNavItems = [
   { name: "HR",       href: "/hr",       icon: UserCog,   feature: "hr", module: "hr" },
   { name: "Reports",  href: "/reports",  icon: BarChart3 },
+  // Open to every signed-in business user: contact Pesaa and follow your own requests.
+  { name: "Help & Support", href: "/support", icon: LifeBuoy },
 ];
 
 const branchNavItem = { name: "Branches", href: "/branches", icon: Building2 };

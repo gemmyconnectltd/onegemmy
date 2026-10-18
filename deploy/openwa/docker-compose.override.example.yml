@@ -1,0 +1,11 @@
+# Copy next to OpenWA's own docker-compose.yml as docker-compose.override.yml, then adjust the network name to the one
+# the Pesaa backend container uses (`docker network ls`). Keeps OpenWA private: no published port besides localhost.
+services:
+  openwa-api:
+    networks:
+      - default
+      - pesaa_internal
+networks:
+  pesaa_internal:
+    external: true
+    name: onegemmy_default   # <- the backend's compose network on your server

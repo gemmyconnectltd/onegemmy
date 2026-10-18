@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql+asyncpg://onegemmy:onegemmy@localhost:5432/onegemmy"
+
     DATABASE_NEON_URL: str = ""  # Production Neon DB — set in .env
 
     SECRET_KEY: str = "insecure-dev-key-change-me"
@@ -74,6 +75,26 @@ class Settings(BaseSettings):
     ADMIN_SMTP_USER: str = ""
     ADMIN_SMTP_PASSWORD: str = ""
     ADMIN_EMAIL_FROM: str = ""
+
+    # ── Customer support center ───────────────────────────────────────────────────────────────────────────────
+    # Support mail is sent through the SAME SMTP host as every other Pesaa email (set SMTP_HOST=smtp.office365.com
+    # for Outlook); SUPPORT_* only select which mailbox/From it uses, falling back to the shared SMTP_* values.
+    SUPPORT_SMTP_USER: str = ""
+    SUPPORT_SMTP_PASSWORD: str = ""
+    SUPPORT_EMAIL_FROM: str = ""
+    # Inbound support mail needs Microsoft Graph (app-only, Mail.ReadWrite on the support mailbox). Unset = off.
+    SUPPORT_MAILBOX: str = ""
+    GRAPH_TENANT_ID: str = ""
+    GRAPH_CLIENT_ID: str = ""
+    GRAPH_CLIENT_SECRET: str = ""
+    # OpenWA (self-hosted WhatsApp gateway), reachable only over the private network — never from a browser.
+    OPENWA_BASE_URL: str = ""  # e.g. http://openwa:2785/api
+    OPENWA_API_KEY: str = ""
+    OPENWA_WEBHOOK_SECRET: str = ""
+    OPENWA_SESSION_NAME: str = "pesaa-support"
+    # How OpenWA reaches THIS backend for webhooks (private address, e.g. http://backend:8000).
+    OPENWA_WEBHOOK_TARGET: str = ""
+    SUPPORT_BACKGROUND: bool = True  # WhatsApp health + email sync loop (still a no-op until configured)
 
     # Where the public marketing-site contact form is delivered.
     CONTACT_INBOX: str = "robertniyitanga3@gmail.com"

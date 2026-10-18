@@ -6,6 +6,10 @@ const TITLES: Record<string, string> = {
   "/": "Platform Overview",
   "/tenants": "Tenants",
   "/users": "Users",
+  "/support": "Support Inbox",
+  "/support/tickets": "Support Tickets",
+  "/support/team": "Support Team",
+  "/support/settings": "Support Settings",
   "/plans": "Plans",
   "/subscriptions": "Subscriptions",
   "/payments": "Payments",
@@ -14,14 +18,6 @@ const TITLES: Record<string, string> = {
   "/billing-settings": "Billing Settings",
   "/usage": "Usage",
   "/settings": "Settings",
-  "/support": "Support Inbox",
-  "/support/new": "New Message",
-  "/support/email-templates": "Email Templates",
-  "/support/whatsapp-templates": "WhatsApp Templates",
-  "/support/team": "Team & Assignments",
-  "/support/analytics": "Support Analytics",
-  "/support/settings": "Support Settings",
-  "/support/conversations": "Conversation",
 };
 
 /** Browser-tab title for a portal path, e.g. "/tenants/abc" → "Tenants · Pesaa Super Admin". */

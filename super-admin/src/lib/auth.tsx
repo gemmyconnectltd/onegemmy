@@ -25,6 +25,12 @@ export function isPlatformAdmin(u: { role: string; isSuperuser: boolean; tenantI
   return !!u && u.isSuperuser && u.tenantId === null && u.role === "superadmin";
 }
 
+/** Pesaa's support team (Support Manager / Support Agent): platform users with no tenant. They may use ONLY the
+ *  Customer Support area of this portal; the backend enforces that too. */
+export function isSupportStaff(u: { role: string; tenantId: string | null } | null | undefined): boolean {
+  return !!u && u.tenantId === null && (u.role === "support_manager" || u.role === "support_agent");
+}
+
 function mapUser(u: ApiTokenUserInfo): User {
   return { id: u.id, email: u.email, name: u.full_name, role: u.role, isSuperuser: u.is_superuser, tenantId: u.tenant_id };
 }
@@ -49,6 +55,8 @@ export interface AuthContextType {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   isSuperAdmin: () => boolean;
+  /** A support manager/agent: allowed in, but only into /support. */
+  isSupportOnly: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const payload = decodeToken(token);
         if (payload) {
           const u = mapUser(payload);
-          if (isPlatformAdmin(u)) {
+          if (isPlatformAdmin(u) || isSupportStaff(u)) {
             if (!cancelled) { setUser(u); setIsLoading(false); }
             return;
           }
@@ -86,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const res = await authApi.refresh(refreshToken);
         const u = mapUser(res.data.user);
-        if (isPlatformAdmin(u)) {
+        if (isPlatformAdmin(u) || isSupportStaff(u)) {
           setStoredToken(res.data.access_token);
           setStoredRefreshToken(res.data.refresh_token);
           if (!cancelled) setUser(u);
@@ -106,9 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await authApi.login(email, password);
       const u = mapUser(res.data.user);
-      if (!isPlatformAdmin(u)) {
+      if (!isPlatformAdmin(u) && !isSupportStaff(u)) {
         // A valid customer account, but not a platform admin: never store its tokens on this origin.
-        return { ok: false, error: "This portal is for Pesaa platform administrators only." };
+        return { ok: false, error: "This portal is for Pesaa platform administrators and support staff only." };
       }
       setStoredToken(res.data.access_token, rememberMe);
       setStoredRefreshToken(res.data.refresh_token, rememberMe);
@@ -131,8 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isSuperAdmin = useCallback(() => isPlatformAdmin(user), [user]);
+  const isSupportOnly = useCallback(() => isSupportStaff(user), [user]);
 
-  const value = useMemo(() => ({ user, isLoading, login, logout, isSuperAdmin }), [user, isLoading, login, logout, isSuperAdmin]);
+  const value = useMemo(() => ({ user, isLoading, login, logout, isSuperAdmin, isSupportOnly }), [user, isLoading, login, logout, isSuperAdmin, isSupportOnly]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

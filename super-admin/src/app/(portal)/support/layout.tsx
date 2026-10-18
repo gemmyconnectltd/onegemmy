@@ -2,22 +2,24 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { DemoBanner } from "@/components/support/DemoBanner";
-import { SupportSubNav } from "@/components/support/SubNav";
-import { SectionLayout } from "@/components/ui/SecondaryNav";
-import { SupportProvider } from "@/lib/support/store";
+import { ToastStack, useToasts } from "@/components/support/Toasts";
+import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
+import { SUPPORT_NAV, isSupportActive } from "@/components/shell/nav";
+import { useSupportStream } from "@/lib/support/stream";
+import { useSupportSummary } from "@/lib/support/hooks";
 
-// Shared Support shell: one provider (so drafts, filters and demo edits survive moving between pages), the demo
-// notice, and the second sidebar. Route protection comes from the (portal) layout above this one.
+// Shared Support shell: the second sidebar (Inbox, Tickets, Team, Settings), the live event stream and its
+// notifications. Route protection comes from the (portal) layout above; the backend re-checks every call.
 export default function SupportLayout({ children }: { children: ReactNode }) {
-  // An open conversation gets the whole screen; its back arrow returns to the inbox.
-  const inConversation = usePathname().startsWith("/support/conversations/");
+  const pathname = usePathname();
+  const { toasts, dismiss, onEvent } = useToasts();
+  useSupportStream(onEvent);
+  const unread = useSupportSummary().data?.unread ?? 0;
+  const items = SUPPORT_NAV.map((i) => ({ key: i.href, label: i.name, icon: i.icon, href: i.href, active: isSupportActive(pathname, i.href), count: i.href === "/support" && unread > 0 ? unread : undefined }));
   return (
-    <SupportProvider>
-      <div className="space-y-3">
-        <DemoBanner />
-        {inConversation ? children : <SectionLayout nav={<SupportSubNav />}>{children}</SectionLayout>}
-      </div>
-    </SupportProvider>
+    <>
+      <SectionLayout nav={<SecondaryNav label="Customer Support" title="Customer Support" items={items} />}>{children}</SectionLayout>
+      <ToastStack toasts={toasts} dismiss={dismiss} />
+    </>
   );
 }

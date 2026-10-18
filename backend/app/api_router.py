@@ -18,6 +18,7 @@ from app.modules.procurement.routes import procurement_router
 from app.modules.repairs.routes import router as repairs_router
 from app.modules.sales.routes import sales_router
 from app.modules.services.routes import services_router
+from app.modules.support.routes import router as support_router
 from app.modules.tenants.routes import global_router, tenants_router
 
 api_router = APIRouter(prefix="/api/v1")
@@ -28,6 +29,7 @@ api_router.include_router(ai_router)
 api_router.include_router(ai_admin_router)
 api_router.include_router(currency_tenant_router)
 api_router.include_router(audit_router)
+api_router.include_router(support_router)
 api_router.include_router(auth_router)
 api_router.include_router(tenants_router)
 api_router.include_router(global_router)

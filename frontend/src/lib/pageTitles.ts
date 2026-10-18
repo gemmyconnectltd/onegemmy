@@ -14,6 +14,7 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/services": "Services",
   "/products": "Products",
   "/reports": "Reports",
+  "/support": "Help & Support",
   "/inventory": "Inventory Overview",
   "/inventory/products": "Products",
   "/inventory/categories": "Categories",

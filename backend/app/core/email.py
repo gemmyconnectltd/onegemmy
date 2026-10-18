@@ -1,7 +1,10 @@
+import asyncio
 import html
 import re
 import smtplib
 import uuid
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
@@ -28,6 +31,12 @@ def _resolve_smtp_credentials(sender: str) -> tuple[str, str, str]:
     the legacy single-mailbox SMTP_USER/SMTP_PASSWORD/EMAIL_FROM settings
     when its own isn't configured, so a deployment that hasn't set the new
     per-category env vars yet keeps sending exactly as it did before."""
+    if sender == "support":
+        return (
+            settings.SUPPORT_SMTP_USER or settings.SMTP_USER,
+            settings.SUPPORT_SMTP_PASSWORD or settings.SMTP_PASSWORD,
+            settings.SUPPORT_EMAIL_FROM or settings.EMAIL_FROM,
+        )
     if sender == "admin":
         return (
             settings.ADMIN_SMTP_USER or settings.SMTP_USER,
@@ -131,44 +140,74 @@ def _security_note(text: str) -> str:
     )
 
 
+async def send_email_message(
+    to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None,
+    sender: str = "accounts", headers: dict[str, str] | None = None,
+    attachments: list[tuple[str, str, bytes]] | None = None,
+) -> str | None:
+    """Send an email via SMTP and return its Message-ID (None when it could not be sent) — the id is what lets a
+    customer's reply be threaded back onto the conversation. `headers` adds extra headers (In-Reply-To,
+    References); `attachments` is a list of (filename, mimetype, bytes). Fails soft. See send_email."""
+    user, password, from_header = _resolve_smtp_credentials(sender)
+    if not user or not password:
+        log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
+        return None
+
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(text_body or _plain_text(html_body), "plain"))
+    body.attach(MIMEText(html_body, "html"))
+    if attachments:
+        msg = MIMEMultipart("mixed")
+        msg.attach(body)
+        for filename, mimetype, data in attachments:
+            maintype, _, subtype = (mimetype or "application/octet-stream").partition("/")
+            part = MIMEBase(maintype or "application", subtype or "octet-stream")
+            part.set_payload(data)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+    else:
+        msg = body
+    msg["Subject"] = subject
+    msg["From"] = from_header
+    msg["To"] = to
+    msg["Date"] = formatdate(localtime=True)
+    message_id = _message_id(from_header)
+    msg["Message-ID"] = message_id
+    msg["MIME-Version"] = "1.0"
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    for key, value in (headers or {}).items():
+        msg[key] = value
+
+    def _deliver() -> None:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(user, password)
+            server.send_message(msg)
+
+    try:
+        # smtplib blocks: run it off the event loop so a slow mail server never stalls other requests.
+        await asyncio.to_thread(_deliver)
+        log.info("email.sent", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
+        return message_id
+    except Exception:
+        log.exception("email.send_error", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
+        return None
+
+
 async def send_email(
     to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None,
     sender: str = "accounts",
 ) -> bool:
     """Send an email via SMTP, from the mailbox configured for `sender`:
     "accounts" (default) for account-lifecycle mail (welcome, verification,
-    password reset, invites), or "admin" for tenant-approval/admin-review
-    mail — see _resolve_smtp_credentials. Fails soft — email must never
-    break a request. Never logs the password, only to/subject/sender."""
-    user, password, from_header = _resolve_smtp_credentials(sender)
-    if not user or not password:
-        log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
-        return False
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = from_header
-    msg["To"] = to
-    msg["Date"] = formatdate(localtime=True)
-    msg["Message-ID"] = _message_id(from_header)
-    msg["MIME-Version"] = "1.0"
-    if reply_to:
-        msg["Reply-To"] = reply_to
-
-    msg.attach(MIMEText(text_body or _plain_text(html_body), "plain"))
-    msg.attach(MIMEText(html_body, "html"))
-
-    try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(user, password)
-            server.send_message(msg)
-        log.info("email.sent", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
-        return True
-    except Exception:
-        log.exception("email.send_error", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
-        return False
+    password reset, invites), "admin" for tenant-approval/admin-review
+    mail, or "support" for customer-support replies — see
+    _resolve_smtp_credentials. Fails soft — email must never break a
+    request. Never logs the password, only to/subject/sender."""
+    return await send_email_message(to, subject, html_body, text_body, reply_to, sender) is not None
 
 
 def _welcome_body(full_name: str, tenant_name: str, tenant_slug: str, dashboard_url: str) -> str:

@@ -8,10 +8,10 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { useAuth } from "@/lib/auth";
 import { pageTitleForPath, APP_NAME } from "@/lib/pageTitles";
 
-// Every page behind this layout needs a signed-in PLATFORM admin. The backend re-checks on every API call; this
+// Every page behind this layout needs a signed-in PLATFORM admin (or, for /support only, a support team member). The backend re-checks on every API call; this
 // guard keeps the UI (and its code paths) from rendering for anyone else.
 export default function PortalLayout({ children }: { children: ReactNode }) {
-  const { user, isLoading, isSuperAdmin } = useAuth();
+  const { user, isLoading, isSuperAdmin, isSupportOnly } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -27,12 +27,15 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => { document.title = pageTitleForPath(pathname); }, [pathname]);
 
-  const allowed = !!user && isSuperAdmin();
+  const supportOnly = !!user && isSupportOnly();
+  const allowed = !!user && (isSuperAdmin() || supportOnly);
   useEffect(() => {
     if (!isLoading && !allowed) router.replace("/login");
-  }, [isLoading, allowed, router]);
+    // Support staff belong in Customer Support only; every other page is for platform admins.
+    else if (!isLoading && supportOnly && !pathname.startsWith("/support")) router.replace("/support");
+  }, [isLoading, allowed, supportOnly, pathname, router]);
 
-  if (isLoading || !allowed) {
+  if (isLoading || !allowed || (supportOnly && !pathname.startsWith("/support"))) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center px-6">
         <PageLoader variant="screen" label={APP_NAME} sub="Signing you in" />

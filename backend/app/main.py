@@ -56,8 +56,15 @@ def create_app() -> FastAPI:
             "log_level": settings.LOG_LEVEL,
         }})
 
+        from app.modules.support import background as support_background
+
+        app.state.support_task = support_background.start()
+
     @app.on_event("shutdown")
     async def on_shutdown():
+        task = getattr(app.state, "support_task", None)
+        if task:
+            task.cancel()
         log.info("app.shutdown")
 
     @app.get("/health")

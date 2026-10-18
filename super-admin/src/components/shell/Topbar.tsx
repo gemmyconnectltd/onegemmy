@@ -6,10 +6,7 @@ import { ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 
-const SUPPORT_LABELS: Record<string, string> = {
-  new: "New Message", "email-templates": "Email Templates", "whatsapp-templates": "WhatsApp Templates",
-  team: "Team & Assignments", analytics: "Support Analytics", settings: "Support Settings",
-};
+const SUPPORT_LABELS: Record<string, string> = { tickets: "Tickets", team: "Team", settings: "Settings" };
 const BILLING_LABELS: Record<string, string> = {
   plans: "Plans", subscriptions: "Subscriptions", payments: "Payments", invoices: "Invoices", coupons: "Coupons & Discounts", "billing-settings": "Billing Settings",
 };
@@ -20,7 +17,6 @@ function breadcrumb(pathname: string): string[] {
   if (parts.length === 0) return ["Overview"];
   if (parts[0] === "support") {
     if (parts.length === 1) return ["Customer Support", "Inbox"];
-    if (parts[1] === "conversations") return ["Customer Support", "Conversation"];
     return ["Customer Support", SUPPORT_LABELS[parts[1]] ?? cap(parts[1])];
   }
   if (parts[0] === "tenants" && parts.length > 1) return ["Tenants", "Details"];

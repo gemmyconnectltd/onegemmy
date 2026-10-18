@@ -10,7 +10,7 @@ import { siteConfig } from "@/lib/config";
 const inputCls = "w-full px-3.5 py-2.5 border border-border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 outline-none focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5";
 
 export default function LoginPage() {
-  const { user, isLoading, isSuperAdmin, login } = useAuth();
+  const { user, isLoading, isSuperAdmin, isSupportOnly, login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,8 +20,8 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && user && isSuperAdmin()) router.replace("/");
-  }, [isLoading, user, isSuperAdmin, router]);
+    if (!isLoading && user && (isSuperAdmin() || isSupportOnly())) router.replace(isSupportOnly() ? "/support" : "/");
+  }, [isLoading, user, isSuperAdmin, isSupportOnly, router]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

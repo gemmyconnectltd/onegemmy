@@ -1,134 +1,93 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
-import { Inbox, Search, UserCheck, Users } from "lucide-react";
-import { AgentAvatar } from "@/components/support/Avatars";
-import { AgentSelector } from "@/components/support/AgentSelector";
-import { ChannelIcon } from "@/components/support/Avatars";
-import { EmptyState, ListSkeleton } from "@/components/support/EmptyState";
-import { StatusBadge } from "@/components/support/StatusBadge";
-import { SupportPageHeader } from "@/components/support/SupportPageHeader";
+import { useState } from "react";
+import { Copy, Plus } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { DataCard, thClass } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
-import { TableScroll } from "@/components/ui/TableScroll";
+import { EmptyState, ErrorState, Notice } from "@/components/ui/EmptyState";
+import { Field, Input, Select } from "@/components/ui/Form";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Toggle } from "@/components/ui/Toggle";
-import { cn } from "@/lib/utils";
-import { useSupport } from "@/lib/support/store";
-import type { AgentAvailability, AssignmentRules, SupportAgent } from "@/lib/support/types";
+import { Avatar } from "@/components/support/parts";
+import { useAuth } from "@/lib/auth";
+import { useAddMember, useTeam, useUpdateMember } from "@/lib/support/hooks";
 
-const AVAIL: AgentAvailability[] = ["online", "away", "offline"];
+const ROLE_LABEL: Record<string, string> = { superadmin: "Super Admin", support_manager: "Support Manager", support_agent: "Support Agent" };
+
+function AddMember({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const add = useAddMember();
+  const [f, setF] = useState({ full_name: "", email: "", role: "support_agent" });
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ email: string; temp_password: string } | null>(null);
+  const valid = f.full_name.trim() && /^\S+@\S+\.\S+$/.test(f.email);
+  const close = () => { setCreated(null); setError(null); setF({ full_name: "", email: "", role: "support_agent" }); onClose(); };
+  const submit = async () => {
+    setError(null);
+    try { const res = await add.mutateAsync({ ...f, full_name: f.full_name.trim(), email: f.email.trim() }); setCreated({ email: res.data.email, temp_password: res.data.temp_password }); }
+    catch (e) { setError((e as { detail?: string })?.detail ?? "Couldn't add the team member."); }
+  };
+  return (
+    <Drawer open={open} onClose={close} side="center" size="md" title={created ? "Team member added" : "Add team member"}
+      footer={created ? <div className="flex justify-end"><Button variant="primary" onClick={close}>Done</Button></div>
+        : <div className="flex justify-end gap-2"><Button variant="outline" onClick={close}>Cancel</Button><Button variant="primary" onClick={() => void submit()} disabled={!valid || add.isPending}>{add.isPending ? "Adding…" : "Add member"}</Button></div>}>
+      <div className="space-y-3 px-5 py-4">
+        {created ? (
+          <>
+            <p className="text-sm">Give <strong>{created.email}</strong> this temporary password. It is shown only once — ask them to change it after signing in.</p>
+            <div className="flex items-center gap-2 rounded-lg bg-surface p-3"><code className="min-w-0 flex-1 break-all text-[13px]">{created.temp_password}</code>
+              <Button variant="outline" size="sm" onClick={() => void navigator.clipboard?.writeText(created.temp_password)} aria-label="Copy password"><Copy size={13} /></Button></div>
+          </>
+        ) : (
+          <>
+            <Field label="Full name" required><Input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} /></Field>
+            <Field label="Email" required><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+            <Field label="Role" hint="Agents work their own and unassigned conversations. Managers see everything and assign work."><Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}><option value="support_agent">Support Agent</option><option value="support_manager">Support Manager</option></Select></Field>
+            {error && <p role="alert" className="text-[12px] text-red-600">{error}</p>}
+          </>
+        )}
+      </div>
+    </Drawer>
+  );
+}
 
 export default function TeamPage() {
-  const { data, loading, actions } = useSupport();
-  const [q, setQ] = useState("");
-  const [role, setRole] = useState("all");
-  const [avail, setAvail] = useState("all");
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const s = q.trim().toLowerCase();
-    return data.agents
-      .filter((a) => (!s || a.name.toLowerCase().includes(s) || a.email.toLowerCase().includes(s)) && (role === "all" || a.role === role) && (avail === "all" || a.availability === avail))
-      .map((a) => {
-        const mine = data.conversations.filter((c) => c.assigneeId === a.id);
-        return { agent: a, open: mine.filter((c) => c.status !== "resolved").length, resolved: mine.filter((c) => c.status === "resolved").length };
-      });
-  }, [data, q, role, avail]);
-
-  const unassigned = (data?.conversations ?? []).filter((c) => c.assigneeId === null && c.status !== "resolved");
-  const max = data?.rules.maxOpenPerAgent ?? 12;
-  const agent = data?.agents.find((a) => a.id === openId) as SupportAgent | undefined;
-  const agentConvs = (data?.conversations ?? []).filter((c) => c.assigneeId === openId);
-  const ctl = "rounded-lg border border-border bg-card px-2.5 py-2 text-[13px] outline-none focus:border-accent";
-
-  const setRule = (patch: Partial<AssignmentRules>) => actions.updateRules(patch);
-
+  const { user } = useAuth();
+  const team = useTeam();
+  const update = useUpdateMember();
+  const [show, setShow] = useState(false);
+  const isSuper = user?.role === "superadmin";
+  const rows = team.data ?? [];
   return (
     <div className="space-y-4">
-      <SupportPageHeader title="Team & assignments" description="Who is available, how busy they are, and who owns each conversation. Sample team for the demo." />
-
-      <div className="flex flex-wrap gap-2">
-        <div className="relative min-w-[200px] flex-1 sm:max-w-xs"><Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" /><input type="search" aria-label="Search team" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search team members" className={`${ctl} w-full pl-8 text-base sm:text-[13px]`} /></div>
-        <select aria-label="Role" value={role} onChange={(e) => setRole(e.target.value)} className={ctl}><option value="all">All roles</option><option>Support lead</option><option>Support agent</option><option>Billing specialist</option></select>
-        <select aria-label="Availability" value={avail} onChange={(e) => setAvail(e.target.value)} className={ctl}><option value="all">Any availability</option>{AVAIL.map((a) => <option key={a} value={a}>{a[0].toUpperCase() + a.slice(1)}</option>)}</select>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {loading || !data ? <ListSkeleton rows={5} /> : rows.length === 0 ? <EmptyState icon={Users} title="No team members match" description="Try a different search or filter." /> : (
-          <TableScroll label="Support team">
-            <table className="w-full min-w-[760px] text-left text-[13px]">
-              <thead><tr className="border-b border-border bg-surface text-[11px] uppercase tracking-wide text-muted"><th className="px-4 py-2.5 font-semibold">Agent</th><th className="px-3 py-2.5 font-semibold">Availability</th><th className="px-3 py-2.5 font-semibold">Open</th><th className="px-3 py-2.5 font-semibold">Resolved</th><th className="px-3 py-2.5 font-semibold">Workload</th><th className="px-4 py-2.5 text-right font-semibold" /></tr></thead>
+      <PageHeader title="Team" subtitle="Support agents, their roles and current workload."
+        actions={isSuper ? <Button variant="primary" onClick={() => setShow(true)}><Plus size={14} /> Add member</Button> : undefined} />
+      {!isSuper && <Notice tone="blue">Only a Super Admin can add team members or change roles. Assign work from the Inbox or Tickets.</Notice>}
+      {team.isError ? <ErrorState message="Couldn't load the team." onRetry={() => void team.refetch()} /> : (
+        <DataCard label="Support team">
+          {team.isLoading ? <p className="p-6 text-sm text-muted">Loading…</p> : rows.length === 0 ? <EmptyState title="No team members yet" description="Add support agents so conversations can be assigned." /> : (
+            <table className="w-full min-w-[720px] text-left text-[13px]">
+              <thead><tr className="border-b border-border bg-surface/40">{["Member", "Role", "Open conversations", "Open tickets", "Active"].map((h) => <th key={h} scope="col" className={thClass}>{h}</th>)}</tr></thead>
               <tbody className="divide-y divide-border">
-                {rows.map(({ agent: a, open, resolved }) => {
-                  const pct = Math.min(100, Math.round((open / max) * 100));
-                  return (
-                    <tr key={a.id} className="hover:bg-surface/50">
-                      <td className="px-4 py-3"><button type="button" onClick={() => setOpenId(a.id)} className="flex items-center gap-3 text-left"><AgentAvatar agent={a} size={34} /><span><span className="block font-semibold hover:text-accent">{a.name}</span><span className="block text-[12px] text-muted">{a.role}</span></span></button></td>
-                      <td className="px-3 py-3"><select aria-label={`Availability for ${a.name}`} value={a.availability} onChange={(e) => actions.setAgentAvailability(a.id, e.target.value as AgentAvailability)} className="rounded-lg border border-border bg-card px-2 py-1 text-[12.5px] outline-none focus:border-accent">{AVAIL.map((v) => <option key={v} value={v}>{v[0].toUpperCase() + v.slice(1)}</option>)}</select></td>
-                      <td className="px-3 py-3 font-semibold tabular-nums">{open}</td>
-                      <td className="px-3 py-3 tabular-nums text-muted">{resolved}</td>
-                      <td className="px-3 py-3"><div className="flex items-center gap-2"><div className="h-1.5 w-28 overflow-hidden rounded-full bg-border/70"><div className={cn("h-full rounded-full", pct > 85 ? "bg-red-500" : pct > 60 ? "bg-amber-500" : "bg-accent")} style={{ width: `${pct}%` }} /></div><span className="text-[11.5px] tabular-nums text-muted">{open}/{max}</span></div></td>
-                      <td className="px-4 py-3 text-right"><button type="button" onClick={() => setOpenId(a.id)} className="rounded-lg border border-border px-2.5 py-1 text-[12.5px] font-semibold hover:bg-surface">Details</button></td>
-                    </tr>
-                  );
-                })}
+                {rows.map((m) => (
+                  <tr key={m.id} className="hover:bg-surface/40">
+                    <td className="px-4 py-3"><div className="flex items-center gap-3"><Avatar name={m.full_name} /><div className="min-w-0"><p className="truncate font-semibold text-foreground">{m.full_name}</p><p className="truncate text-[11px] text-muted">{m.email}</p></div></div></td>
+                    <td className="px-4 py-3">{isSuper && m.role !== "superadmin"
+                      ? <Select aria-label={`Role of ${m.full_name}`} value={m.role} onChange={(e) => update.mutate({ id: m.id, role: e.target.value })} className="w-auto! py-1 text-[12.5px]"><option value="support_agent">Support Agent</option><option value="support_manager">Support Manager</option></Select>
+                      : <Badge tone={m.role === "superadmin" ? "violet" : "slate"}>{ROLE_LABEL[m.role] ?? m.role}</Badge>}</td>
+                    <td className="px-4 py-3 font-semibold">{m.open_conversations}</td>
+                    <td className="px-4 py-3 font-semibold">{m.open_tickets}</td>
+                    <td className="px-4 py-3">{isSuper && m.role !== "superadmin" ? <Toggle size="sm" label={`${m.is_active ? "Deactivate" : "Activate"} ${m.full_name}`} checked={m.is_active} onChange={(v) => update.mutate({ id: m.id, is_active: v })} /> : <Badge tone={m.is_active ? "green" : "slate"}>{m.is_active ? "Active" : "Inactive"}</Badge>}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
-          </TableScroll>
-        )}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-4 sm:p-5" aria-labelledby="un-h">
-          <h2 id="un-h" className="mb-1 flex items-center gap-2 text-[15px] font-bold"><Inbox size={16} /> Unassigned conversations <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[12px] text-accent">{unassigned.length}</span></h2>
-          <p className="mb-3 text-[12.5px] text-muted">Assign each conversation to an agent. Changes are saved in this demo browser only.</p>
-          {unassigned.length === 0 ? <EmptyState icon={UserCheck} title="Everything is assigned" description="New unassigned conversations will appear here." /> : (
-            <ul className="divide-y divide-border">
-              {unassigned.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-center gap-2 py-2.5">
-                  <ChannelIcon channel={c.channel} />
-                  <Link href={`/support/conversations/${c.id}`} className="min-w-0 flex-1 basis-40"><span className="block truncate text-[13px] font-semibold hover:text-accent">{data?.customers.find((x) => x.id === c.customerId)?.businessName}</span><span className="block truncate text-[12px] text-muted">{c.subject}</span></Link>
-                  <StatusBadge priority={c.priority} />
-                  <div className="w-44"><AgentSelector label={`Assign ${c.subject}`} value={null} allowUnassigned onChange={(v) => { if (v && v !== "all" && v !== "unassigned") actions.assign(c.id, v); }} /></div>
-                </li>
-              ))}
-            </ul>
           )}
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-4 sm:p-5" aria-labelledby="rules-h">
-          <h2 id="rules-h" className="mb-1 text-[15px] font-bold">Assignment rules</h2>
-          <p className="mb-3 text-[12.5px] text-muted">How new conversations should be routed once automation exists. In this demo the rules are a configuration preview only: nothing is auto-assigned.</p>
-          {data && (
-            <div className="space-y-3">
-              <fieldset><legend className="mb-1.5 text-[12px] font-semibold text-muted">Routing</legend>
-                <div role="radiogroup" className="grid gap-1.5 sm:grid-cols-3">
-                  {([["manual", "Manual"], ["round_robin", "Round robin"], ["least_busy", "Least busy"]] as const).map(([k, label]) => (
-                    <button key={k} type="button" role="radio" aria-checked={data.rules.mode === k} onClick={() => setRule({ mode: k })} className={cn("rounded-lg border px-3 py-2 text-[13px] font-semibold", data.rules.mode === k ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:text-foreground")}>{label}</button>
-                  ))}
-                </div>
-              </fieldset>
-              <div className="flex items-center justify-between gap-3"><label htmlFor="max-open" className="text-[13px] font-semibold">Max open conversations per agent</label><input id="max-open" type="number" min={1} max={100} value={data.rules.maxOpenPerAgent} onChange={(e) => setRule({ maxOpenPerAgent: Math.min(100, Math.max(1, Number(e.target.value) || 1)) })} className="w-20 rounded-lg border border-border bg-card px-2 py-1.5 text-right text-[13px] outline-none focus:border-accent" /></div>
-              {([["respectAvailability", "Skip agents who are away or offline", "Only route to available agents."], ["routeBillingToSpecialist", "Send billing questions to the billing specialist", "Matches conversations tagged “billing”."], ["routeEnterpriseToLead", "Send Enterprise customers to the support lead", "Keeps your largest accounts with senior support."]] as const).map(([k, title, hint]) => (
-                <div key={k} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5"><div><p className="text-[13px] font-semibold">{title}</p><p className="text-[11.5px] text-muted">{hint}</p></div><Toggle checked={data.rules[k]} onChange={(v) => setRule({ [k]: v } as Partial<AssignmentRules>)} label={title} /></div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <Drawer open={!!agent} onClose={() => setOpenId(null)} side="right" size="md" title={agent?.name ?? "Agent"} description={agent?.role}>
-        {agent && (
-          <div className="space-y-5 text-[13px]">
-            <div className="flex items-center gap-3"><AgentAvatar agent={agent} size={48} /><div><p className="font-semibold">{agent.name}</p><p className="text-muted">{agent.email}</p><StatusBadge availability={agent.availability} dot className="mt-1" /></div></div>
-            <div><p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted">Languages</p><p>{agent.languages.join(", ")}</p></div>
-            <div><p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted">Assigned conversations ({agentConvs.length})</p>
-              {agentConvs.length === 0 ? <p className="text-muted">Nothing assigned.</p> : <ul className="space-y-1.5">{agentConvs.map((c) => <li key={c.id}><Link href={`/support/conversations/${c.id}`} className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-2 hover:bg-surface"><ChannelIcon channel={c.channel} /><span className="min-w-0 flex-1 truncate font-medium">{c.subject}</span><StatusBadge status={c.status} /></Link></li>)}</ul>}
-            </div>
-          </div>
-        )}
-      </Drawer>
+        </DataCard>
+      )}
+      {update.isError && <p role="alert" className="text-[12px] text-red-600">{(update.error as { detail?: string })?.detail ?? "Couldn't update the team member."}</p>}
+      <AddMember open={show} onClose={() => setShow(false)} />
     </div>
   );
 }

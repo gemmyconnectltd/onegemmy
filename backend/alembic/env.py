@@ -66,6 +66,14 @@ from app.modules.tenants.models import (  # noqa: F401
     Tenant,
     User,
 )
+from app.modules.support.models import (  # noqa: F401
+    SupportChannel,
+    SupportConversation,
+    SupportMessage,
+    SupportSetting,
+    SupportTicket,
+    SupportWebhookEvent,
+)
 from app.modules.accounting.models import (  # noqa: F401
     Account,
     Budget,

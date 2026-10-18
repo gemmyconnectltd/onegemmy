@@ -17,12 +17,14 @@ const COLLAPSED_KEY = "admin_sidebar_collapsed";
 export function Sidebar({ collapsed, onCollapsedChange }: { collapsed: boolean; onCollapsedChange: (v: boolean) => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isSupportOnly } = useAuth();
+  // Support staff only get Customer Support; everything else in the portal is for platform admins.
+  const navItems = isSupportOnly() ? NAV_ITEMS.filter((i) => i.href === "/support") : NAV_ITEMS;
   const [menuOpen, setMenuOpen] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const w = sidebarWidth(collapsed);
   const initials = user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U";
-  const mobileItems = NAV_ITEMS.slice(0, 4);
+  const mobileItems = navItems.slice(0, 4);
 
   const toggle = () => {
     const next = !collapsed;
@@ -56,7 +58,7 @@ export function Sidebar({ collapsed, onCollapsedChange }: { collapsed: boolean; 
         </Link>
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 flex flex-col gap-0.5" aria-label="Main">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = isNavActive(pathname, item.href);
             return (
               <Link
@@ -108,7 +110,7 @@ export function Sidebar({ collapsed, onCollapsedChange }: { collapsed: boolean; 
             <button onClick={() => setMenuOpen(false)} className="p-2 text-muted hover:text-foreground" aria-label="Close menu"><X size={20} /></button>
           </div>
           <nav className="flex-1 overflow-y-auto px-3 py-4 grid grid-cols-3 gap-2 content-start" aria-label="Main">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = isNavActive(pathname, item.href);
               return (
                 <Link key={item.name} href={item.href} onClick={() => setMenuOpen(false)} className={"flex flex-col items-center justify-center gap-2 py-4 rounded-xl transition-colors" + (active ? " bg-accent" : " bg-surface")}>
