@@ -39,6 +39,7 @@ export function ExchangeRatesPanel({
   const [rate, setRate] = useState("");
   const [effective, setEffective] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const options = currencies.filter((c) => c.code !== targetCurrency);
   const rateNum = Number(rate);
@@ -57,14 +58,16 @@ export function ExchangeRatesPanel({
       });
       setRate("");
       setEffective("");
+      setOpen(false);
     } catch (err) {
       setError((err as { detail?: string })?.detail ?? "Couldn't save the rate. Try again.");
     }
   };
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+    <div className="space-y-3">
+      {!open && <div className="flex justify-end"><Button type="button" variant="primary" onClick={() => setOpen(true)} className="rounded-lg text-[13px]"><Plus size={14} /> Add rate</Button></div>}
+      {open && <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
         <Field label="Currency">
           <Select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Currency to price">
             <option value="">Select…</option>
@@ -85,12 +88,15 @@ export function ExchangeRatesPanel({
           <p className="text-[11px] text-muted">
             New rates apply from their effective time. Documents already posted keep the rate they were posted with.
           </p>
-          <Button type="submit" variant="primary" disabled={!valid || creating} className="rounded-lg text-[13px]">
-            <Plus size={14} /> {creating ? "Saving…" : "Add rate"}
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => { setOpen(false); setError(null); }} className="rounded-lg text-[13px]">Cancel</Button>
+            <Button type="submit" variant="primary" disabled={!valid || creating} className="rounded-lg text-[13px]">
+              <Plus size={14} /> {creating ? "Saving…" : "Add rate"}
+            </Button>
+          </div>
         </div>
         {error && <p className="sm:col-span-3 text-[12px] font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>}
-      </form>
+      </form>}
 
       {loading ? (
         <PageLoader variant="compact" />
@@ -103,6 +109,7 @@ export function ExchangeRatesPanel({
           <TableScroll><table className="w-full min-w-[420px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-border bg-surface text-[11px] uppercase tracking-wide text-muted">
+                <th className="px-3 py-2 font-semibold">Pair</th>
                 <th className="px-3 py-2 font-semibold">Rate</th>
                 <th className="px-3 py-2 font-semibold">Effective from</th>
                 <th className="px-3 py-2 font-semibold">Source</th>
@@ -111,9 +118,8 @@ export function ExchangeRatesPanel({
             <tbody className="divide-y divide-border">
               {rates!.map((r) => (
                 <tr key={r.id}>
-                  <td className="px-3 py-2 font-semibold text-foreground tabular-nums">
-                    1 {r.base_currency} = {formatRate(r.rate)} {r.quote_currency}
-                  </td>
+                  <td className="px-3 py-2 font-semibold text-foreground">{r.base_currency} → {r.quote_currency}</td>
+                  <td className="px-3 py-2 tabular-nums text-foreground">1 {r.base_currency} = {formatRate(r.rate)} {r.quote_currency}</td>
                   <td className="px-3 py-2 text-muted whitespace-nowrap">{fmtDateTime(r.effective_at)}</td>
                   <td className="px-3 py-2 text-muted capitalize">{r.source}</td>
                 </tr>

@@ -1,4 +1,5 @@
 "use client";
+import { AiUsagePanel } from "@/components/admin/AiUsagePanel";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -631,6 +632,8 @@ export default function AdminUsagePage() {
           </div>
         )}
       </div>
+
+      <AiUsagePanel />
     </div>
   );
 }

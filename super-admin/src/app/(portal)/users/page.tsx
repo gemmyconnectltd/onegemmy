@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useState } from "react";
 import { Users, CheckCircle, XCircle, Building2, Search, Filter, AlertTriangle, Shield, Download, CheckCircle2 } from "lucide-react";
@@ -84,7 +85,7 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Users</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">Users</h1>
           <p className="text-sm text-muted mt-0.5">
             {data.total} users · {activeCount} active (this page) · {superadminCount} superadmin{superadminCount !== 1 ? "s" : ""}
           </p>
@@ -167,12 +168,11 @@ export default function AdminUsersPage() {
             title="Created to"
           />
         </div>
-        <button
+        <Button variant="primary"
           onClick={() => setShowExport(true)}
-          className="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-white bg-accent hover:bg-accent/90 rounded-xl transition-colors"
         >
           <Download size={14} /> Export
-        </button>
+        </Button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">

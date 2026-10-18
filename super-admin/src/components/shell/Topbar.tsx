@@ -6,10 +6,26 @@ import { ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 
+const SUPPORT_LABELS: Record<string, string> = {
+  new: "New Message", "email-templates": "Email Templates", "whatsapp-templates": "WhatsApp Templates",
+  team: "Team & Assignments", analytics: "Support Analytics", settings: "Support Settings",
+};
+const BILLING_LABELS: Record<string, string> = {
+  plans: "Plans", subscriptions: "Subscriptions", payments: "Payments", invoices: "Invoices", coupons: "Coupons & Discounts", "billing-settings": "Billing Settings",
+};
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 function breadcrumb(pathname: string): string[] {
   const parts = pathname.split("/").filter(Boolean);
   if (parts.length === 0) return ["Overview"];
-  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1));
+  if (parts[0] === "support") {
+    if (parts.length === 1) return ["Customer Support", "Inbox"];
+    if (parts[1] === "conversations") return ["Customer Support", "Conversation"];
+    return ["Customer Support", SUPPORT_LABELS[parts[1]] ?? cap(parts[1])];
+  }
+  if (parts[0] === "tenants" && parts.length > 1) return ["Tenants", "Details"];
+  if (BILLING_LABELS[parts[0]]) return parts.length === 1 ? ["Plans & Billing", BILLING_LABELS[parts[0]]] : ["Plans & Billing", BILLING_LABELS[parts[0]], "Details"];
+  return parts.map(cap);
 }
 
 export function Topbar() {
@@ -27,7 +43,7 @@ export function Topbar() {
       <div className="flex items-center gap-1.5 text-[14px] min-w-0">
         {crumbs.map((crumb, i) => (
           <span key={i} className="flex items-center gap-1.5 min-w-0">
-            {i > 0 && <span className="text-border">/</span>}
+            {i > 0 && <span className="hidden text-border sm:inline">/</span>}
             <span className={i === crumbs.length - 1 ? "font-semibold text-foreground truncate" : "text-muted hidden sm:inline"}>{crumb}</span>
           </span>
         ))}

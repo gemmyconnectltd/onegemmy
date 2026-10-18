@@ -151,7 +151,7 @@ export default function AdminOverviewPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[26px] font-bold text-foreground tracking-tight">Platform Overview</h1>
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground">Platform Overview</h1>
           <p className="text-sm text-muted mt-0.5">A quick summary of your platform, users, businesses and overall growth.</p>
         </div>
         <div className="flex items-center gap-2">

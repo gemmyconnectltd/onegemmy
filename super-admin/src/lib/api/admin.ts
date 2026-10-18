@@ -165,6 +165,20 @@ export interface AdminUserRow extends AdminUser {
   branch_name: string | null;
 }
 
+/** One row of the platform-wide audit trail (GET /admin/audit/logs). tenant_id is null for platform-level events. */
+export interface AdminAuditLog {
+  id: string;
+  tenant_id: string | null;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  summary: string;
+  ip_address: string | null;
+  created_at: string | null;
+}
+
 export interface AdminUserFilters {
   search?: string;
   tenant_id?: string;
@@ -396,6 +410,9 @@ export const adminApi = {
     request<PaginatedResponse<AdminUserRow>>(`${B}/users${qs({ page, page_size: pageSize, ...filters })}`),
   exportUsers: (data: AdminUserExportRequest) =>
     downloadFilePost(`${B}/users/export`, data, `pesaa_users_${new Date().toISOString().slice(0, 10)}.${data.format}`),
+
+  platformAuditLogs: (page = 1, pageSize = 100) =>
+    request<PaginatedResponse<AdminAuditLog>>(`/admin/audit/logs?page=${page}&page_size=${pageSize}`),
 
   listTenants: (page = 1, pageSize = 20) =>
     request<PaginatedResponse<AdminTenant>>(`${B}/tenants?page=${page}&page_size=${pageSize}`),

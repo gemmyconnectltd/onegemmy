@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, RotateCcw, Save, X } from "lucide-react";
@@ -222,14 +223,13 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
           >
             Discard
           </button>
-          <button
+          <Button variant="primary"
             type="submit"
             disabled={limitsLoading || setLimits.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent/90 text-white text-[13px] font-bold transition-colors disabled:opacity-50"
           >
             {setLimits.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             Save limits
-          </button>
+          </Button>
         </div>
       </form>
     </div>

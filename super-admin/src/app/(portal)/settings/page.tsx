@@ -1,173 +1,117 @@
 "use client";
-import { useState } from "react";
-import React from "react";
-import { Shield, Bell, Globe, Key, Save, CheckCircle } from "lucide-react";
+
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Bell, Coins, Plug, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { Toggle } from "@/components/ui/Toggle";
+import { siteConfig } from "@/lib/config";
+import { useAdminStats } from "@/lib/api/hooks";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { PlatformCurrencySettings } from "@/components/admin/PlatformCurrencySettings";
 import { AiSettings } from "@/components/admin/AiSettings";
+import { NotAvailable, SettingRow } from "@/components/admin/settingsParts";
+import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 
-export default function AdminSettingsPage() {
+const SECTIONS = [
+  { key: "general", label: "General", icon: Settings2, desc: "Platform-wide behaviour." },
+  { key: "currency", label: "Currency & Rates", icon: Coins, desc: "How cross-tenant money is compared." },
+  { key: "ai", label: "Pesaa AI", icon: Sparkles, desc: "Availability and request limits." },
+  { key: "security", label: "Security", icon: ShieldCheck, desc: "Applies to Pesaa platform administrators, not to each business's own policies." },
+  { key: "notifications", label: "Notifications", icon: Bell, desc: "Email alerts for platform events." },
+  { key: "api", label: "API & Integrations", icon: Plug, desc: "Connection details for the Pesaa API." },
+] as const;
+type Key = (typeof SECTIONS)[number]["key"];
+
+/** The API origin comes from the same env var the portal's API client uses — never a hard-coded dev URL. */
+function apiInfo() {
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  let origin = base;
+  let local = false;
+  try { const u = new URL(base); origin = u.origin; local = ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname); } catch { /* keep raw */ }
+  return { base, origin, local };
+}
+
+function SettingsInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const { user } = useAuth();
-  const [saved, setSaved] = useState(false);
-  const [toggles, setToggles] = useState<Record<string, boolean>>({});
+  const stats = useAdminStats({ retry: false });
+  const [dirty, setDirty] = useState<Record<string, boolean>>({});
+  const active: Key = (SECTIONS.find((s) => s.key === params.get("section"))?.key ?? "general");
+  const meta = SECTIONS.find((s) => s.key === active)!;
+  const api = apiInfo();
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+  const setDirtyFor = useCallback((k: string) => (d: boolean) => setDirty((p) => (p[k] === d ? p : { ...p, [k]: d })), []);
+  const dirtyCurrency = setDirtyFor("currency");
+  const dirtyAi = setDirtyFor("ai");
+  const anyDirty = Object.values(dirty).some(Boolean);
 
-  const toggleValue = (label: string, initial: boolean) => toggles[label] ?? initial;
+  // Leaving the page (reload, close tab) with unsaved edits asks first. Switching sections keeps them — every
+  // section stays mounted — and the dot in the navigation shows which ones are pending.
+  useEffect(() => {
+    if (!anyDirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [anyDirty]);
 
-  const sections: {
-    icon: React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>;
-    color: string;
-    title: string;
-    desc: string;
-    items: { label: string; type: string; value: boolean | number | string; options?: string[] }[];
-  }[] = [
-    {
-      icon: Shield,
-      color: "#8b5cf6",
-      title: "Security",
-      desc: "Platform-wide security settings",
-      items: [
-        { label: "Require 2FA for all admins", type: "toggle", value: false },
-        { label: "Session timeout (minutes)", type: "number", value: 60 },
-        { label: "Max login attempts", type: "number", value: 5 },
-      ],
-    },
-    {
-      icon: Bell,
-      color: "#0284c7",
-      title: "Notifications",
-      desc: "System alert preferences",
-      items: [
-        { label: "Email alerts for new tenant signups", type: "toggle", value: true },
-        { label: "Email alerts for suspended tenants", type: "toggle", value: true },
-        { label: "Daily platform summary email", type: "toggle", value: false },
-      ],
-    },
-    {
-      icon: Globe,
-      color: "#059669",
-      title: "Platform",
-      desc: "General platform configuration",
-      items: [
-        { label: "Allow public registration", type: "toggle", value: true },
-        { label: "Maintenance mode", type: "toggle", value: false },
-        { label: "Default tenant plan", type: "select", value: "free", options: ["free", "starter", "professional", "enterprise"] },
-      ],
-    },
-  ];
+  const go = (k: Key) => router.replace(`${pathname}?section=${k}`, { scroll: false });
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Header */}
+    <div className="space-y-5">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Settings</h1>
-        <p className="text-sm text-muted mt-0.5">Platform-wide configuration and preferences</p>
+        <h1 className="text-[22px] font-bold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-0.5 text-sm text-muted">Platform-wide configuration. Signed in as {user?.name ?? "—"}{user?.email ? ` (${user.email})` : ""}.</p>
       </div>
 
-      {/* Admin info */}
-      <div className="bg-card border border-border rounded-xl p-5 flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-          {user?.name?.charAt(0)?.toUpperCase() || "A"}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-foreground truncate">{user?.name}</p>
-          <p className="text-[12px] text-muted truncate">{user?.email}</p>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent/10 text-accent mt-1 inline-block">SUPERADMIN</span>
-        </div>
-        <div className="ml-auto">
-          <div className="flex items-center gap-1.5 text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold">
-            <CheckCircle size={13} /> Active Session
+      <SectionLayout nav={<SecondaryNav label="Settings sections" title="Settings" items={SECTIONS.map((x) => ({ key: x.key, label: x.label, icon: x.icon, dot: x.key === "currency" ? dirty.currency : x.key === "ai" ? dirty.ai : false, active: x.key === active, onSelect: () => go(x.key) }))} />}>
+        <div className="min-w-0 flex-1">
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+            <div className="mb-2 border-b border-border pb-4"><h2 className="text-base font-bold text-foreground">{meta.label}</h2><p className="mt-0.5 text-[12.5px] text-muted">{meta.desc}</p></div>
+
+            <section hidden={active !== "general"}>
+              <SettingRow label="Platform name"><span className="text-sm font-semibold text-foreground">{siteConfig.name}</span></SettingRow>
+              <NotAvailable label="Allow public registration" hint="Whether new businesses can sign up on their own." />
+              <NotAvailable label="Maintenance mode" hint="Temporarily block tenant access while you work on the platform." />
+              <NotAvailable label="Default tenant plan" hint="The plan new businesses start on. Set per tenant when you add one." />
+              <p className="pt-3 text-[12px] text-muted">These platform switches have no backend support yet, so they can&apos;t be saved or enforced. They&apos;ll appear here as real controls once they do.</p>
+            </section>
+            <section hidden={active !== "currency"}><PlatformCurrencySettings onDirtyChange={dirtyCurrency} /></section>
+            <section hidden={active !== "ai"}><AiSettings onDirtyChange={dirtyAi} /></section>
+            <section hidden={active !== "security"}>
+              <NotAvailable label="Require 2FA for platform administrators" />
+              <NotAvailable label="Session timeout" />
+              <NotAvailable label="Maximum login attempts" />
+              <p className="pt-3 text-[12px] text-muted">The backend doesn&apos;t enforce any of these yet, so no switch is shown that would only look like it works. Business-level security (users, sessions) is managed under each tenant.</p>
+            </section>
+            <section hidden={active !== "notifications"}>
+              <NotAvailable label="Email alerts for new tenant registrations" />
+              <NotAvailable label="Email alerts for suspended tenants" />
+              <NotAvailable label="Daily platform summary email" />
+              <p className="pt-3 text-[12px] text-muted">Platform notification emails aren&apos;t built yet, so there are no preferences to save.</p>
+            </section>
+            <section hidden={active !== "api"}>
+              <SettingRow label="API base URL" hint={api.local ? "Local development server." : undefined}><code className="break-all text-[12.5px] text-foreground">{api.base}</code></SettingRow>
+              <SettingRow label="Connection">
+                {stats.isLoading ? <span className="text-[12.5px] text-muted">Checking…</span> : stats.isSuccess
+                  ? <span className="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-600 dark:text-emerald-400"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Reachable</span>
+                  : <span className="flex items-center gap-1.5 text-[13px] font-semibold text-red-600 dark:text-red-400"><span className="h-2 w-2 rounded-full bg-red-500" /> Not reachable</span>}
+              </SettingRow>
+              <SettingRow label="API documentation" hint={api.local ? "Only available on a local development server." : "Interactive docs are disabled on production servers."}>
+                {api.local
+                  ? <a href={`${api.origin}/docs`} target="_blank" rel="noopener noreferrer" className="text-[13px] font-semibold text-accent hover:underline">Open local API docs ↗</a>
+                  : <span className="text-[12.5px] text-muted">Not published</span>}
+              </SettingRow>
+              <p className="pt-3 text-[12px] text-muted">Keys and secrets are server configuration and are never shown here.</p>
+            </section>
           </div>
         </div>
-      </div>
-
-      <PlatformCurrencySettings />
-
-      <AiSettings />
-
-      {/* Settings sections */}
-      {sections.map((section) => (
-        <div key={section.title} className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-3 bg-surface/30">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${section.color}18` }}>
-              <section.icon size={15} style={{ color: section.color }} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-foreground">{section.title}</h2>
-              <p className="text-[11px] text-muted">{section.desc}</p>
-            </div>
-          </div>
-          <div className="divide-y divide-border">
-            {section.items.map((item) => (
-              <div key={item.label} className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
-                <label className="text-sm font-medium text-foreground">{item.label}</label>
-                {item.type === "toggle" && (
-                  <Toggle
-                    checked={toggleValue(item.label, item.value as boolean)}
-                    label={item.label}
-                    size="sm"
-                    onChange={(v) => setToggles((prev) => ({ ...prev, [item.label]: v }))}
-                  />
-                )}
-                {item.type === "number" && (
-                  <input
-                    type="number"
-                    defaultValue={item.value as number}
-                    className="w-24 px-3 py-1.5 text-sm bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 text-right"
-                  />
-                )}
-                {item.type === "select" && (
-                  <select
-                    defaultValue={item.value as string}
-                    className="px-3 py-1.5 text-sm bg-surface border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 capitalize"
-                  >
-                    {item.options?.map((o) => <option key={o} value={o} className="capitalize">{o}</option>)}
-                  </select>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* API Key section */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-center gap-3 bg-surface/30">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-            <Key size={15} className="text-amber-600 dark:text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-foreground">API Access</h2>
-            <p className="text-[11px] text-muted">Platform API configuration</p>
-          </div>
-        </div>
-        <div className="px-5 py-4">
-          <p className="text-[12px] text-muted mb-3">API documentation and keys are managed via the backend. Visit the API docs at:</p>
-          <a
-            href="http://localhost:8000/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[13px] font-semibold text-accent hover:underline font-mono"
-          >
-            http://localhost:8000/docs ↗
-          </a>
-        </div>
-      </div>
-
-      {/* Save */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent hover:bg-accent/90 text-white text-sm font-semibold transition-colors shadow-sm"
-        >
-          {saved ? <><CheckCircle size={15} /> Saved!</> : <><Save size={15} /> Save Changes</>}
-        </button>
-      </div>
+      </SectionLayout>
     </div>
   );
+}
+
+export default function AdminSettingsPage() {
+  return <Suspense fallback={<PageLoader variant="page" />}><SettingsInner /></Suspense>;
 }

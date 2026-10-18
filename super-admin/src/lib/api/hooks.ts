@@ -178,3 +178,9 @@ export const useUpdateAiSettings = mutation(
 );
 export const useAiAdminUsage = (days = 30, opts?: QueryOpts) => useQ([...AI_KEY, "admin", "usage", days], () => aiApi.adminUsage(days), (r) => r.data, opts);
 
+
+export const useFeatureFlags = (opts?: QueryOpts) =>
+  useQ(["admin", "features"], () => adminApi.listFeatures(), (r) => r.data, opts);
+
+export const usePlatformAuditLogs = (page = 1, pageSize = 100, opts?: QueryOpts) =>
+  useQ(["admin", "audit-logs", page, pageSize], () => adminApi.platformAuditLogs(page, pageSize), (r) => r.data, opts);
