@@ -1,14 +1,15 @@
 import uuid
 from urllib.parse import quote
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 
-from app.core.deps import ActiveBranchId, CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
 from app.modules.sales.schemas import OrderBulkCreate, OrderCreate, OrderUpdate
+from app.modules.sales.schemas.order import OrderDecision
 
 router = APIRouter(tags=["Sales - Orders"])
 
@@ -33,7 +34,8 @@ async def list_orders(
 @router.post("/sales/orders")
 async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
-    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id)
+    can_approve = current_user.is_superuser or "credit:approve" in current_user.permissions_names
+    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id, can_approve_credit=can_approve)
     return success_response(data=obj.model_dump(), message="Order created successfully", status_code=201)
 
 
@@ -70,6 +72,24 @@ async def update_order(id: uuid.UUID, data: OrderUpdate, db: DbSession, current_
         user_id=current_user.id, user_name=current_user.full_name or current_user.email,
     )
     return success_response(data=obj.model_dump(), message="Order updated successfully")
+
+
+@router.post("/sales/orders/{id}/approve", dependencies=[Depends(require_permission("credit:approve"))])
+async def approve_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser, data: OrderDecision | None = None):
+    _require_tenant(current_user.tenant_id)
+    obj = await service.approve_order(
+        db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.note if data else None,
+    )
+    return success_response(data=obj.model_dump(), message="Credit sale approved")
+
+
+@router.post("/sales/orders/{id}/reject", dependencies=[Depends(require_permission("credit:approve"))])
+async def reject_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser, data: OrderDecision | None = None):
+    _require_tenant(current_user.tenant_id)
+    obj = await service.reject_order(
+        db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.note if data else None,
+    )
+    return success_response(data=obj.model_dump(), message="Credit sale rejected")
 
 
 @router.delete("/sales/orders/{id}")

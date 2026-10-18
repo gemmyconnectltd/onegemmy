@@ -49,6 +49,19 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
     amount_paid: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # Credit extended when the sale was completed (unpaid balance, base currency, frozen then). Payments that
+    # reduce amount_paid later never change it, so "credit granted today" can be summed reliably for the
+    # per-customer daily limit. Null on orders that predate the limit or had no credit.
+    credit_base: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    # A credit sale over the daily limit is saved as "Awaiting Approval" with nothing posted (no stock, ledger
+    # or VAT entries) and the cash the cashier took recorded here; approving completes it with this amount.
+    requested_paid: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approval_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_customers.id", ondelete="SET NULL"), nullable=True
     )

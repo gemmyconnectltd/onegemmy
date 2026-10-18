@@ -25,6 +25,8 @@ _PERMISSION_RESOURCES = [
     "leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets",
     "bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing",
     "services", "appointments", "queue", "service_commissions",
+    # Customer credit control: credit:approve = approve credit sales over the daily limit and set that limit.
+    "credit",
 ]
 _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 
@@ -32,7 +34,7 @@ _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 # users, roles and permissions. The default "Member"/"Viewer" roles exclude
 # these — only "Admin" (and the tenant owner, who bypasses role checks
 # entirely via is_superuser) can manage who else has access.
-_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions"}
+_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit"}
 
 # What an invite's free-text role ("admin"/"member"/"viewer", whatever the
 # inviter typed or picked) maps to among the seeded defaults. Unrecognized

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
@@ -89,6 +89,12 @@ async def update_tenant(
     tenant_id: uuid.UUID, data: TenantUpdate, db: DbSession, current_user: CurrentUser
 ):
     _require_own_tenant(current_user, tenant_id)
+    # The daily credit limit is the General Manager/CEO's call: only someone holding credit:approve (or the
+    # platform superuser) may set or clear it. Everything else in this PATCH keeps its existing rules.
+    if "credit_daily_limit" in data.model_fields_set and not (
+        current_user.is_superuser or "credit:approve" in current_user.permissions_names
+    ):
+        raise ForbiddenError("Permission required: credit:approve")
     tenant = await service.update_tenant(db, tenant_id, data)
     return success_response(
         data=tenant.model_dump(),

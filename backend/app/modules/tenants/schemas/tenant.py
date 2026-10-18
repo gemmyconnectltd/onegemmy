@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 
@@ -47,6 +48,8 @@ class TenantUpdate(BaseModel):
     currency: str | None = None
     vat_enabled: bool | None = None
     multi_branch: bool | None = None
+    # Needs credit:approve (GM/CEO) — enforced in the route.
+    credit_daily_limit: Decimal | None = Field(default=None, ge=0)
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
@@ -75,6 +78,7 @@ class TenantRead(BaseModel):
     currency: str
     vat_enabled: bool = True
     multi_branch: bool = False
+    credit_daily_limit: Decimal | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None

@@ -20,7 +20,9 @@ class UserRead(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID | None = None
     tenant_name: str | None = None
-    email: EmailStr
+    # Output only: stored addresses are not re-validated for deliverability, so one odd row (e.g. a reserved
+    # test domain in a data copy) can never turn a whole list endpoint into a 500. Input schemas still validate.
+    email: str
     full_name: str
     phone: str | None = None
     role: str

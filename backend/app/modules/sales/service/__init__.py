@@ -17,12 +17,14 @@ from app.modules.sales.service.deal import (
 )
 from app.modules.sales.service.invoice_pdf import generate_order_invoice_pdf
 from app.modules.sales.service.order import (
+    approve_order,
     bulk_create_orders,
     count_orders,
     create_order,
     delete_order,
     get_order,
     list_orders,
+    reject_order,
     update_order,
 )
 from app.modules.sales.service.order_payment import (
@@ -48,6 +50,7 @@ from app.modules.sales.service.target import (
 )
 
 __all__ = [
+    "approve_order",
     "bulk_create_customers",
     "bulk_create_orders",
     "count_customers",
@@ -78,6 +81,7 @@ __all__ = [
     "list_returns",
     "list_targets",
     "record_payment",
+    "reject_order",
     "reverse_payment",
     "update_customer",
     "update_deal",

@@ -123,6 +123,18 @@ class OrderRead(BaseModel):
     base_tax: Decimal | None = None
     base_total: Decimal | None = None
     base_outstanding_balance: Decimal | None = None
+    # Credit approval. status "Awaiting Approval" = a credit sale over the daily limit, held with nothing posted;
+    # `requested_paid` is what the cashier took. approved_* record who completed or rejected it.
+    requested_paid: Decimal | None = None
+    credit_base: Decimal | None = None
+    approved_by: uuid.UUID | None = None
+    approved_at: datetime | None = None
+    approval_note: str | None = None
     payment_status: str = "Unpaid"  # Unpaid | PartiallyPaid | Paid
     is_overdue: bool = False
     payments: list[OrderPaymentRead] = []
+
+
+class OrderDecision(BaseModel):
+    """Body of the approve / reject endpoints."""
+    note: str | None = Field(default=None, max_length=500)

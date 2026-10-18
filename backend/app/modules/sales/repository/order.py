@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import selectinload
@@ -108,6 +109,16 @@ class OrderRepository(BaseRepository[Order]):
         )
         current_max = result.scalar_one() or 0
         return f"ORD-{str(current_max + 1).zfill(4)}"
+
+    async def credit_granted_on(self, tenant_id: uuid.UUID, customer_id: uuid.UUID, day: date) -> Decimal:
+        """Credit (base currency) already granted to one customer on one calendar day by completed sales."""
+        stmt = select(func.coalesce(func.sum(Order.credit_base), 0)).where(
+            Order.tenant_id == tenant_id,
+            Order.customer_id == customer_id,
+            Order.status == "Completed",
+            func.date(Order.ordered_at) == day,
+        )
+        return Decimal((await self.db.execute(stmt)).scalar_one())
 
     async def list_for_customer(self, tenant_id: uuid.UUID, customer_id: uuid.UUID) -> list[Order]:
         result = await self.db.execute(
