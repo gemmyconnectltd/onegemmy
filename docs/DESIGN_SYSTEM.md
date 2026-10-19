@@ -8,7 +8,8 @@ This is the official UI contract for `website/`, `frontend/` (ERP and desktop PO
 - `design-system/tokens.css`: generated variables. Run `node scripts/generate-design-tokens.mjs` after an approved token change.
 - `design-system/button.ts`: one variant/size definition consumed by both existing Base UI Button wrappers. Global CSS declares it as a Tailwind source.
 - `design-system/components.css`: shared visual contracts, including forms, table density, headings, website actions, focus and reduced motion.
-- All three `src/app/globals.css` files import these contracts. Do not redeclare primary tokens in page CSS.
+- `scripts/sync-design-system.mjs` copies these four canonical files into each app’s checked-in `src/design-system/` build artifacts. The token generator refreshes the copies, and `--check` rejects missing/stale/edited copies. Never edit the copies directly.
+- All three `src/app/globals.css` files import their local generated copies; Button wrappers and config also import within their own app. Docker builds must not depend on files outside the app build context. Do not redeclare primary tokens in page CSS.
 - Existing `frontend/src/lib/appConfig.tsx` and `super-admin/src/lib/appConfig.tsx` apply theme variables. Tenant branding is restored through the existing ERP provider; it is not replaced by a forced color override.
 
 ## Colors and themes
@@ -79,7 +80,7 @@ node --test scripts/design-system.test.mjs
 node --test frontend/tests/*.test.cjs
 ```
 
-The checker verifies generated tokens, imports in all apps, literal color classes, competing action implementations, unapproved fonts, token redefinitions and additional table styling. Semantic utilities and dedicated chart colors are allowed. `design-system/legacy-baseline.json` records existing exceptions by file/rule/count; new files or increases fail. Never regenerate it just to pass. Review/reduce allowances as legacy pages are migrated. Checks are bounded static rules, not proof of visual correctness. CI runs design checks/tests, app lint/typecheck/build and ERP unit tests.
+The checker verifies generated tokens, byte-identical app build artifacts, self-contained relative source imports in all apps, literal color classes, competing action implementations, unapproved fonts, token redefinitions and additional table styling. Semantic utilities and dedicated chart colors are allowed. `design-system/legacy-baseline.json` records existing exceptions by file/rule/count; new files or increases fail. Never regenerate it just to pass. Review/reduce allowances as legacy pages are migrated. Checks are bounded static rules, not proof of visual correctness. CI runs design checks/tests, app lint/typecheck and ERP unit tests. Production builds run from isolated app-only copies with dependencies, so sibling repository files cannot accidentally satisfy missing Docker-context imports.
 
 ## Migration status and next stages
 

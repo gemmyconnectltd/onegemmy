@@ -1,4 +1,4 @@
-import designTokens from "../../../design-system/tokens.json";
+import designTokens from "../design-system/tokens.json";
 // Super Admin settings: the platform brand and the currency list/formatting the admin screens use.
 
 export const siteConfig = {

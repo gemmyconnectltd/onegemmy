@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { syncDesignSystem } from './sync-design-system.mjs';
 const root = new URL('../', import.meta.url);
 const tokens = JSON.parse(readFileSync(new URL('design-system/tokens.json', root), 'utf8'));
 const declarations = Object.entries(tokens.light).map(([key, value]) => `  --${key}: ${value};`).join('\n');
@@ -58,3 +59,5 @@ const path = new URL('design-system/tokens.css', root);
 if (process.argv.includes('--check')) {
   if (readFileSync(path, 'utf8') !== output) throw Error('Generated tokens are stale. Run node scripts/generate-design-tokens.mjs');
 } else { writeFileSync(path, output); console.log(`Generated ${fileURLToPath(path)}`); }
+
+syncDesignSystem({ check: process.argv.includes('--check') });

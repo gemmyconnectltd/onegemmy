@@ -52,3 +52,30 @@ test('competing blue actions cannot return through links', () => {
   assert.equal(violations('<Link className="bg-blue-600">Create</Link>', 'frontend/src/app/example.tsx')['competing-action'], 1);
   assert.deepEqual(violations('<Link className="bg-primary">Create</Link>', 'frontend/src/app/example.tsx'), {});
 });
+
+test('each deployable app contains identical, checked design artifacts', async () => {
+  const { syncDesignSystem } = await import('./sync-design-system.mjs');
+  assert.doesNotThrow(() => syncDesignSystem({check:true}));
+  for (const app of ['frontend', 'website', 'super-admin']) {
+    const css = readFileSync(`${root}/${app}/src/app/globals.css`, 'utf8');
+    assert.ok(css.includes('@import "../design-system/tokens.css"'));
+    assert.ok(css.includes('@source "../design-system"'));
+  }
+});
+
+test('artifact validation rejects missing and edited app copies', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { syncDesignSystem, designArtifacts } = await import('./sync-design-system.mjs');
+  const projectRoot = mkdtempSync(join(tmpdir(), 'pesaa-design-sync-'));
+  try {
+    mkdirSync(join(projectRoot, 'design-system'));
+    for (const name of designArtifacts) writeFileSync(join(projectRoot, 'design-system', name), 'canonical\n');
+    assert.throws(() => syncDesignSystem({check:true,projectRoot}), /missing or stale/);
+    syncDesignSystem({projectRoot});
+    assert.doesNotThrow(() => syncDesignSystem({check:true,projectRoot}));
+    writeFileSync(join(projectRoot, 'website/src/design-system/tokens.css'), 'local edit\n');
+    assert.throws(() => syncDesignSystem({check:true,projectRoot}), /website.*missing or stale/);
+  } finally { rmSync(projectRoot, {recursive:true,force:true}); }
+});

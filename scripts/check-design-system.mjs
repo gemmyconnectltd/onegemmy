@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { resolve, relative } from 'node:path';
+import { resolve, relative, dirname, sep } from 'node:path';
+import { designArtifacts } from './sync-design-system.mjs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 export const root = fileURLToPath(new URL('../', import.meta.url));
@@ -19,11 +20,13 @@ export function violations(source, file) {
   if (/\/charts\/|Chart\.tsx$/.test(file)) delete rules['literal-color'];
   return Object.fromEntries(Object.entries(rules).map(([name, pattern]) => [name, [...source.matchAll(pattern)].length]).filter(([, count]) => count));
 }
-function walk(directory) { return readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(resolve(directory, entry.name)) : /\.(tsx|css)$/.test(entry.name) ? [resolve(directory, entry.name)] : []); }
+function walk(directory) { return readdirSync(directory, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(resolve(directory, entry.name)) : /\.(tsx?|css)$/.test(entry.name) ? [resolve(directory, entry.name)] : []); }
 export function audit() {
   const result = {};
   for (const app of apps) for (const path of walk(resolve(root, app, 'src'))) {
     const file = relative(root, path).replaceAll('\\', '/');
+    // Byte-for-byte checked generated assets are canonical build copies, not local overrides.
+    if (designArtifacts.some(name => file === `${app}/src/design-system/${name}`)) continue;
     const found = violations(readFileSync(path, 'utf8'), file);
     if (Object.keys(found).length) result[file] = found;
   }
@@ -40,9 +43,18 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   else {
     const errors = check(current, JSON.parse(readFileSync(baselinePath, 'utf8')));
     for (const app of apps) {
-      const css = readFileSync(resolve(root, app, 'src/app/globals.css'), 'utf8');
+      const appRoot = resolve(root, app);
+      // Relative source imports must not rely on files omitted by app-only Docker contexts.
+      for (const path of walk(resolve(appRoot, 'src'))) {
+        const source = readFileSync(path, 'utf8');
+        for (const match of source.matchAll(/(?:from\s+|@(?:import|source)\s*)["'](\.[^"']+)["']/g)) {
+          const target = resolve(dirname(path), match[1]);
+          if (target !== appRoot && !target.startsWith(appRoot + sep)) errors.push(`${relative(root, path)} imports outside its deployable app: ${match[1]}`);
+        }
+      }
+      const css = readFileSync(resolve(appRoot, 'src/app/globals.css'), 'utf8');
       if (app !== 'website' && !readFileSync(resolve(root, app, 'src/components/ui/Button.tsx'), 'utf8').includes('design-system/button')) errors.push(`${app} must reuse the shared button variants`);
-      for (const name of ['tokens', 'components']) if (!css.includes(`design-system/${name}.css`)) errors.push(`${app} must import shared ${name}`);
+      for (const name of ['tokens', 'components']) if (!css.includes(`../design-system/${name}.css`)) errors.push(`${app} must import shared ${name}`);
     }
     if (errors.length) { console.error(errors.join('\n')); process.exitCode = 1; }
     else console.log('Design system passed: generated tokens, all three consumers, and no new legacy styling violations.');

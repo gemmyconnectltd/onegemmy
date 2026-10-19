@@ -1,0 +1,61 @@
+/* Shared visual contracts. Business layouts and specialized controls stay in their apps. */
+@layer base {
+  body { font-size: var(--type-body); line-height: 1.5; }
+  input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  :disabled { cursor: not-allowed; }
+}
+@layer components {
+  .pesaa-page-title { font-size: var(--type-title); font-weight: 600; line-height: 1.3; letter-spacing: -.025em; overflow-wrap: anywhere; }
+  .pesaa-section-title { font-size: var(--type-section); font-weight: 600; line-height: 1.4; }
+  .pesaa-card-title { font-size: var(--type-card); font-weight: 600; line-height: 1.4; }
+  .pesaa-control { min-height: 40px; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); padding: 8px 12px; font: inherit; }
+  .pesaa-control:focus-visible { border-color: var(--primary); }
+  .pesaa-control:disabled { opacity: .5; }
+  .pesaa-control[aria-invalid="true"] { border-color: var(--error); }
+  .pesaa-label { display: block; margin-bottom: 4px; font-size: var(--type-label); font-weight: 500; }
+  .pesaa-button, .landing-button, .landing-secondary { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; border: 1px solid transparent; border-radius: 8px; font-size: var(--type-body); font-weight: 500; line-height: 1.5; transition: background-color .15s; }
+  .pesaa-button, .landing-button { background: var(--primary); color: var(--primary-foreground); }
+  .pesaa-button:hover, .landing-button:hover { background: var(--primary-hover); }
+  .pesaa-button:active, .landing-button:active { background: var(--primary-active); }
+  .landing-secondary { background: var(--card); border-color: var(--border); color: var(--foreground); }
+  .landing-secondary:hover { background: var(--surface); }
+}
+/* TableScroll is the established, shared table boundary in both authenticated apps.
+   Unlayered rules deliberately own density, replacing page-specific cell sizing. */
+[data-table-container] table { width: 100%; border-collapse: collapse; font-size: var(--type-body); font-variant-numeric: tabular-nums; }
+[data-table-container] :is(th, td) { padding: 12px 16px; vertical-align: middle; border-bottom: 1px solid var(--border); }
+[data-table-container] th { background: var(--surface); color: var(--muted); font-size: var(--type-helper); font-weight: 600; letter-spacing: normal; }
+[data-table-container] tbody tr { height: 52px; }
+[data-table-container] tbody tr:hover { background: color-mix(in srgb, var(--primary) 3%, var(--card)); }
+[data-table-container] tbody tr:last-child td { border-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+/* Operational page headings only; marketing heroes and POS product displays retain their hierarchy. */
+[data-app-content] h1 { font-size: var(--type-title); font-weight: 600; line-height: 1.3; letter-spacing: -.025em; overflow-wrap: anywhere; }
+@layer components {
+  .pesaa-badge { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 6px; padding: 4px 8px; font-size: var(--type-helper); font-weight: 500; line-height: 1.3; }
+  .pesaa-badge-success { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+  .pesaa-badge-warning { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+  .pesaa-badge-error { color: var(--error); background: color-mix(in srgb, var(--error) 10%, transparent); }
+  .pesaa-badge-neutral { color: var(--muted); background: var(--surface); }
+}
+/* One route-selected row per sidebar. A parent yields the solid fill to its
+   active child while expanded. Keyboard focus remains visible for accessibility. */
+.pesaa-nav-row {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--card);
+  color: var(--muted);
+}
+.pesaa-nav-row:not([data-active="true"]):hover {
+  background: var(--primary-light);
+}
+.pesaa-nav-row[data-active="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.pesaa-nav-row :is(svg, [data-nav-indicator]) { color: inherit; }
+.pesaa-nav-row[data-active="true"] [data-nav-indicator] { background: transparent; }

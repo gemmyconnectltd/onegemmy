@@ -1,9 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "../../../design-system/tokens.css";
-@import "../../../design-system/components.css";
-@source "../../../design-system";
+@import "../design-system/tokens.css";
+@import "../design-system/components.css";
+@source "../design-system";
 
 @custom-variant dark (&:is(.dark *));
 

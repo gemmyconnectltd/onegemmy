@@ -1,6 +1,6 @@
 "use client";
 
-import designTokens from "../../../design-system/tokens.json";
+import designTokens from "../design-system/tokens.json";
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {

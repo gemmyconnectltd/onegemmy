@@ -31,4 +31,10 @@ jobs:
       - run: npm run typecheck
       - if: matrix.app == 'frontend'
         run: node --test tests/*.test.cjs
-      - run: npm run build
+      - name: Build with an app-only deployment context
+        run: |
+          isolated_app="$(mktemp -d)"
+          rsync -a --exclude=node_modules --exclude=.next --exclude='.env*' ./ "$isolated_app/"
+          cp -al node_modules "$isolated_app/node_modules"
+          cd "$isolated_app"
+          npm run build

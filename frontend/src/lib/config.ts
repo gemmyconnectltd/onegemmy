@@ -1,4 +1,4 @@
-import designTokens from "../../../design-system/tokens.json";
+import designTokens from "../design-system/tokens.json";
 export type Theme = "light" | "dark";
 
 /**
