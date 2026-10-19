@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +13,7 @@ from app.modules.inventory.schemas.valuation import (
 )
 
 
-def _status(stock: int, min_stock: int) -> str:
+def _status(stock: Decimal, min_stock: Decimal) -> str:
     if stock <= 0:
         return "out"
     if stock <= min_stock:
@@ -27,7 +28,7 @@ def _margin_pct(margin: float, retail_value: float) -> float | None:
 
 
 async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> InventoryValuationReport:
-    products = await ProductRepository(db).list_for_tenant(tenant_id, 0, 100_000)
+    products = await ProductRepository(db).valuation_products(tenant_id)
 
     lines: list[ValuationLine] = []
     by_cat: dict[str, dict] = {}
@@ -35,16 +36,16 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> Invento
 
     for product in products:
         cat_name = product.category.name if product.category else None
-        if product.has_variants and product.variants:
+        if product.has_variants:
             for v in product.variants:
                 if not v.is_active:
                     continue
                 variant_count += 1
-                cost = float(v.cost)
-                price = float(v.price)
-                stock = v.stock
-                cost_value = round(cost * stock, 2)
-                retail_value = round(price * stock, 2)
+                cost = Decimal(str(v.cost or 0))
+                price = Decimal(str(v.price or 0))
+                stock = Decimal(str(v.stock or 0))
+                cost_value = (cost * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                retail_value = (price * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                 margin = round(retail_value - cost_value, 2)
                 lines.append(ValuationLine(
                     id=v.id,
@@ -56,21 +57,21 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> Invento
                     brand=product.brand.name if product.brand else None,
                     unit=product.unit.abbreviation if product.unit else None,
                     stock=stock,
-                    min_stock=v.min_stock,
+                    min_stock=v.min_stock or 0,
                     cost=cost,
                     price=price,
                     cost_value=cost_value,
                     retail_value=retail_value,
                     margin=margin,
                     margin_pct=_margin_pct(margin, retail_value),
-                    status=_status(stock, v.min_stock),
+                    status=_status(stock, v.min_stock or 0),
                 ))
         else:
-            cost = float(product.cost)
-            price = float(product.price)
-            stock = product.stock
-            cost_value = round(cost * stock, 2)
-            retail_value = round(price * stock, 2)
+            cost = Decimal(str(product.cost or 0))
+            price = Decimal(str(product.price or 0))
+            stock = Decimal(str(product.stock or 0))
+            cost_value = (cost * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            retail_value = (price * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             margin = round(retail_value - cost_value, 2)
             lines.append(ValuationLine(
                 id=product.id,
@@ -82,32 +83,36 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> Invento
                 brand=product.brand.name if product.brand else None,
                 unit=product.unit.abbreviation if product.unit else None,
                 stock=stock,
-                min_stock=product.min_stock,
+                min_stock=product.min_stock or 0,
                 cost=cost,
                 price=price,
                 cost_value=cost_value,
                 retail_value=retail_value,
                 margin=margin,
                 margin_pct=_margin_pct(margin, retail_value),
-                status=_status(stock, product.min_stock),
+                status=_status(stock, product.min_stock or 0),
             ))
 
-        key = cat_name or "Uncategorized"
-        bucket = by_cat.setdefault(key, {"name": key, "units": 0, "cost_value": 0.0, "retail_value": 0.0, "margin": 0.0})
-        bucket["units"] += stock
-        bucket["cost_value"] = round(bucket["cost_value"] + cost_value, 2)
-        bucket["retail_value"] = round(bucket["retail_value"] + retail_value, 2)
-        bucket["margin"] = round(bucket["margin"] + margin, 2)
+    # Aggregate every emitted line, including every active variant, exactly once.
+    for line in lines:
+        key = line.category or "Uncategorized"
+        bucket = by_cat.setdefault(key, {
+            "name": key, "units": Decimal(0), "cost_value": Decimal(0),
+            "retail_value": Decimal(0), "margin": Decimal(0),
+        })
+        for field, value in (("units", line.stock), ("cost_value", line.cost_value),
+                             ("retail_value", line.retail_value), ("margin", line.margin)):
+            bucket[field] += Decimal(str(value))
 
     categories = [
         CategoryValuation(**b)
         for b in sorted(by_cat.values(), key=lambda b: b["cost_value"], reverse=True)
     ]
 
-    total_units = sum(l.stock for l in lines)
-    cost_value = round(sum(l.cost_value for l in lines), 2)
-    retail_value = round(sum(l.retail_value for l in lines), 2)
-    margin = round(sum(l.margin for l in lines), 2)
+    total_units = sum((Decimal(str(line.stock)) for line in lines), Decimal(0))
+    cost_value = round(sum((Decimal(str(line.cost_value)) for line in lines), Decimal(0)), 2)
+    retail_value = round(sum((Decimal(str(line.retail_value)) for line in lines), Decimal(0)), 2)
+    margin = round(sum((Decimal(str(line.margin)) for line in lines), Decimal(0)), 2)
 
     summary = ValuationSummary(
         product_count=len(products),

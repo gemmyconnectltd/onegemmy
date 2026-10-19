@@ -10,6 +10,11 @@ from app.modules.manufacturing.models.production_order import ProductionOrder
 class ProductionOrderRepository(BaseRepository[ProductionOrder]):
     model = ProductionOrder
 
+    async def lock_order(self, tenant_id: uuid.UUID, id: uuid.UUID) -> None:
+        await self.db.execute(select(ProductionOrder.id).where(
+            ProductionOrder.tenant_id == tenant_id, ProductionOrder.id == id,
+        ).with_for_update())
+
     async def get_by_id_for_tenant(self, tenant_id: uuid.UUID, id: uuid.UUID) -> ProductionOrder | None:
         # populate_existing: the session keeps expire_on_commit=False, so an
         # object already in the identity map (e.g. just created in this same
@@ -23,20 +28,20 @@ class ProductionOrderRepository(BaseRepository[ProductionOrder]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50) -> list[ProductionOrder]:
+    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50, branch_id: uuid.UUID | None = None) -> list[ProductionOrder]:
         result = await self.db.execute(
             select(ProductionOrder)
             .options(selectinload(ProductionOrder.items))
-            .where(ProductionOrder.tenant_id == tenant_id)
+            .where(ProductionOrder.tenant_id == tenant_id, *([ProductionOrder.branch_id == branch_id] if branch_id else []))
             .order_by(ProductionOrder.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None = None) -> int:
         result = await self.db.execute(
-            select(func.count()).select_from(ProductionOrder).where(ProductionOrder.tenant_id == tenant_id)
+            select(func.count()).select_from(ProductionOrder).where(ProductionOrder.tenant_id == tenant_id, *([ProductionOrder.branch_id == branch_id] if branch_id else []))
         )
         return result.scalar_one()
 

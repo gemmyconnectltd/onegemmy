@@ -14,7 +14,7 @@ class OrderCreate(BaseModel):
     deal_id: uuid.UUID | None = None
     branch_id: uuid.UUID | None = None
     status: str = "Pending"
-    discount: float = 0
+    discount: float = Field(default=0, ge=0, allow_inf_nan=False)
     tax: float = 0
     notes: str | None = None
     client_order_id: str | None = None
@@ -26,7 +26,7 @@ class OrderCreate(BaseModel):
     # which can exceed this when change is given). None preserves the
     # historical default of "fully paid" so every existing caller (POS,
     # CSV import) keeps behaving exactly as before without sending this.
-    amount_paid: float | None = None
+    amount_paid: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     due_date: date | None = None
     ordered_at: datetime | None = None
     # Foreign-currency invoicing. Omit both (every existing client) for the tenant's base currency.
@@ -34,7 +34,7 @@ class OrderCreate(BaseModel):
     # tenant/platform rate effective at the order date. It is frozen on the order when created.
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = Field(default=None, gt=0)
-    items: list[OrderItemCreate] = []
+    items: list[OrderItemCreate] = Field(default_factory=list, max_length=200)
 
 
 class OrderBulkLine(BaseModel):

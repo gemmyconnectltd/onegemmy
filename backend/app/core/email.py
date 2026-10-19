@@ -302,6 +302,7 @@ def _pending_signup_body(
         rows += row("Phone", html.escape(phone))
     if preferred_contact:
         way = {
+            "all": "WhatsApp, phone call and email",
             "email": f"Email ({html.escape(owner_email or '')})",
             "phone": f"Phone call ({html.escape(phone or '')})",
             "whatsapp": f"WhatsApp ({html.escape(phone or '')})",

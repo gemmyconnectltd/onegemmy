@@ -1,10 +1,12 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CustomerCreate(BaseModel):
+    credit_daily_limit: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     name: str
     email: str | None = None
     phone: str | None = None
@@ -25,6 +27,7 @@ class CustomerBulkResult(BaseModel):
 
 
 class CustomerUpdate(BaseModel):
+    credit_daily_limit: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     name: str | None = None
     email: str | None = None
     phone: str | None = None
@@ -38,6 +41,7 @@ class CustomerRead(BaseModel):
 
     id: uuid.UUID
     tenant_id: uuid.UUID
+    credit_daily_limit: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
     name: str
     email: str | None
     phone: str | None

@@ -20,14 +20,15 @@ def _req(**kw):
 
 
 async def test_preferred_contact_is_stored_and_defaults_to_email(db):
+    await auth_service.register(db, _req(preferred_contact="all"))
     await auth_service.register(db, _req(preferred_contact="phone"))
     await auth_service.register(db, _req(preferred_contact="whatsapp"))
     await auth_service.register(db, _req())
-    rows = (await db.execute(select(Tenant).where(Tenant.subscription_status == "pending").order_by(Tenant.created_at.desc()).limit(3))).scalars().all()
-    assert sorted(t.preferred_contact for t in rows) == ["email", "phone", "whatsapp"]
+    rows = (await db.execute(select(Tenant).where(Tenant.subscription_status == "pending").order_by(Tenant.created_at.desc()).limit(4))).scalars().all()
+    assert sorted(t.preferred_contact for t in rows) == ["all", "email", "phone", "whatsapp"]
 
 
-def test_only_email_or_phone_is_accepted():
+def test_unknown_contact_preference_is_rejected():
     with pytest.raises(PydanticValidationError):
         _req(preferred_contact="carrier pigeon")
 
@@ -76,3 +77,8 @@ async def test_admin_tenant_list_and_detail_return_the_preferred_contact(db):
         app.dependency_overrides.clear()
     assert detail["preferred_contact"] == "whatsapp"
     assert next(t for t in listing if t["id"] == str(tenant.id))["preferred_contact"] == "whatsapp"
+
+
+def test_all_contact_preference_is_described_in_admin_email():
+    body = email_mod._pending_signup_body("Business", "business", "https://example.com", preferred_contact="all")
+    assert "WhatsApp, phone call and email" in body

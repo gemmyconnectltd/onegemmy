@@ -254,7 +254,7 @@ function AdminTenantsPageInner() {
                   <td className="px-4 py-3"><Link href={`/tenants/${t.id}`} className="flex items-center gap-3"><TenantLogo name={t.name} src={resolveUploadUrl(t.logo_url)} /><span className="min-w-0"><span className="block truncate text-sm font-semibold text-foreground group-hover:text-accent">{t.name}</span><span className="block truncate font-mono text-[11px] text-muted">{t.slug}</span></span></Link></td>
                   <td className="px-4 py-3"><span className={`rounded-lg px-2 py-1 text-[11px] font-semibold capitalize ${PLAN_COLORS[t.subscription_plan] ?? "bg-surface text-muted"}`}>{stats.data?.plan_names?.[t.subscription_plan] ?? t.subscription_plan}</span></td>
                   <td className="px-4 py-3 text-[13px] font-semibold">{t.usage?.users ?? "—"}</td>
-                  <td className="px-4 py-3"><ContactBadge value={t.preferred_contact} />{(t.preferred_contact === "phone" || t.preferred_contact === "whatsapp") && t.phone && <span className="mt-0.5 block text-[11px] text-muted">{t.phone}</span>}</td>
+                  <td className="px-4 py-3"><ContactBadge value={t.preferred_contact} />{(t.preferred_contact === "phone" || t.preferred_contact === "whatsapp" || t.preferred_contact === "all") && t.phone && <span className="mt-0.5 block text-[11px] text-muted">{t.phone}</span>}</td>
                   <td className="px-4 py-3 text-[12px] text-muted">{t.multi_branch ? "Multi-branch" : "Single"}</td>
                   <td className="px-4 py-3">{acting === t.id ? <Loader2 size={14} className="animate-spin text-muted" /> : <TenantStatusBadge tenant={t} />}</td>
                   <td className="px-4 py-3 text-[12px] text-muted">{t.usage ? fmtRelative(t.usage.last_active_at) : "—"}</td>

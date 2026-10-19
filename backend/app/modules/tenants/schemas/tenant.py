@@ -3,15 +3,29 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from app.shared.schemas import TrimmedModel
 
-PreferredContact = Literal["email", "phone", "whatsapp"]
+PreferredContact = Literal["email", "phone", "whatsapp", "all"]
 HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
 
 
-class TenantCreate(TrimmedModel):
+class TimezoneModel(TrimmedModel):
+    @field_validator("timezone", check_fields=False)
+    @classmethod
+    def valid_timezone(cls, value: str | None) -> str | None:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        if value is None:
+            return None
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError("Choose an IANA timezone, for example Africa/Kigali") from None
+        return value
+
+
+class TenantCreate(TimezoneModel):
     name: str = Field(min_length=1, max_length=255)
     slug: str | None = Field(default=None, max_length=100)
     logo_url: str | None = None
@@ -21,6 +35,7 @@ class TenantCreate(TrimmedModel):
     address: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=100)
     country: str | None = Field(default=None, max_length=100)
+    timezone: str | None = None
     currency: str | None = None
     vat_enabled: bool | None = None
     multi_branch: bool | None = None
@@ -34,7 +49,7 @@ class TenantCreate(TrimmedModel):
     preferred_contact: PreferredContact | None = None
 
 
-class TenantUpdate(TrimmedModel):
+class TenantUpdate(TimezoneModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     slug: str | None = Field(default=None, max_length=100)
     is_active: bool | None = None
@@ -49,6 +64,7 @@ class TenantUpdate(TrimmedModel):
     subscription_status: str | None = None
     # Superadmin-only in practice: the tenant self-service update route
     # rejects this field, see app/modules/tenants/routes/tenant.py.
+    timezone: str | None = None
     currency: str | None = None
     vat_enabled: bool | None = None
     multi_branch: bool | None = None
@@ -81,6 +97,7 @@ class TenantRead(BaseModel):
     country: str | None
     subscription_plan: str
     subscription_status: str
+    timezone: str = "UTC"
     currency: str
     vat_enabled: bool = True
     multi_branch: bool = False

@@ -1,15 +1,21 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.manufacturing import service
 from app.modules.manufacturing.schemas import BomCreate, BomUpdate
 
-router = APIRouter(tags=["Manufacturing - Bill of Materials"])
+
+async def bom_access(request: Request, user: CurrentUser):
+    action = {"GET": "read", "POST": "create", "PATCH": "update", "DELETE": "delete"}[request.method]
+    await require_permission(f"bom:{action}")(user)
+
+
+router = APIRouter(tags=["Manufacturing - Bill of Materials"], dependencies=[Depends(bom_access)])
 
 
 def _require_tenant(tenant_id) -> None:

@@ -25,7 +25,7 @@ const statusBadge: Record<string, string> = {
   "Cancelled": "bg-red-100 text-red-600",
 };
 
-type ComponentRow = { id: string; product_id: string; quantity_required: number };
+type ComponentRow = { id: string; product_id: string; quantity_required: number; wastage_quantity: number };
 const EMPTY_FORM = { product_id: "", quantity: 1, scheduled_date: "", notes: "", components: [] as ComponentRow[] };
 
 export default function WorkOrdersPage() {
@@ -97,7 +97,7 @@ export default function WorkOrdersPage() {
   const closeDrawer = () => setShowAdd(false);
 
   const addComponent = () =>
-    setForm((f) => ({ ...f, components: [...f.components, { id: crypto.randomUUID(), product_id: products[0]?.id ?? "", quantity_required: 1 }] }));
+    setForm((f) => ({ ...f, components: [...f.components, { id: crypto.randomUUID(), product_id: products[0]?.id ?? "", quantity_required: 1, wastage_quantity: 0 }] }));
   const setComponent = (i: number, patch: Partial<ComponentRow>) =>
     setForm((f) => ({ ...f, components: f.components.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) }));
   const removeComponent = (i: number) =>
@@ -111,7 +111,7 @@ export default function WorkOrdersPage() {
       .filter((c) => c.product_id)
       .map((c) => {
         const p = products.find((x) => x.id === c.product_id);
-        return { product_id: c.product_id, product_name: p?.name ?? null, quantity_required: c.quantity_required };
+        return { product_id: c.product_id, product_name: p?.name ?? null, quantity_required: c.quantity_required, wastage_quantity: c.wastage_quantity };
       });
     if (!form.product_id || !product) {
       setFormError("Select the finished product for this work order.");
@@ -314,7 +314,7 @@ export default function WorkOrdersPage() {
             </div>
             {form.components.length === 0 ? (
               <p className="text-[12px] text-muted bg-surface border border-dashed border-border rounded-lg px-3 py-2.5">
-                No components — completion will only add the finished product to stock.
+                Add the raw materials consumed before completing production.
               </p>
             ) : (
               <div className="space-y-2">
@@ -327,7 +327,9 @@ export default function WorkOrdersPage() {
                     </Select>
                     <Input type="number" min={1} value={c.quantity_required}
                       onChange={(e) => setComponent(i, { quantity_required: Number(e.target.value) || 1 })}
-                      className="w-24 text-center" />
+                      aria-label="Material quantity" className="w-24 text-center" />
+                    <Input type="number" min={0} value={c.wastage_quantity} aria-label="Additional wastage quantity" title="Additional raw material wasted"
+                      onChange={(e) => setComponent(i, { wastage_quantity: Number(e.target.value) || 0 })} className="w-24 text-center" />
                     <button type="button" onClick={() => removeComponent(i)}
                       className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50 flex-shrink-0">
                       <X size={14} /> Remove

@@ -2,9 +2,9 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, NotFoundError
-from app.modules.tenants.models import Permission
-from app.modules.tenants.repository import PermissionRepository
+from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.modules.tenants.models import Permission, User
+from app.modules.tenants.repository import PermissionRepository, RoleRepository
 from app.modules.tenants.schemas import PermissionCreate, PermissionRead, PermissionUpdate
 
 
@@ -57,10 +57,24 @@ async def delete_permission(db: AsyncSession, permission_id: uuid.UUID) -> None:
     await db.commit()
 
 
-async def assign_perm_to_role(db: AsyncSession, role_id: uuid.UUID, permission_ids: list[uuid.UUID]) -> None:
-    for pid in permission_ids:
-        await get_permission(db, pid)
-    await PermissionRepository(db).assign_permissions_to_role(role_id, permission_ids)
+async def assign_perm_to_role(db: AsyncSession, role_id: uuid.UUID, permission_ids: list[uuid.UUID], actor: User | None = None) -> None:
+    ids = list(dict.fromkeys(permission_ids))
+    permissions = await PermissionRepository(db).get_by_ids(ids)
+    if len(permissions) != len(ids):
+        raise NotFoundError("One or more permissions no longer exist; reload the permission catalog")
+    if actor is not None:
+        role = await RoleRepository(db).get_by_id_for_tenant(actor.tenant_id, role_id)
+        if role is None:
+            raise NotFoundError("Role not found")
+        if not actor.is_superuser and {permission.name for permission in permissions} - set(actor.permissions_names):
+            raise ForbiddenError("You cannot grant permissions that your own account does not hold; ask an owner")
+    await PermissionRepository(db).assign_permissions_to_role(role_id, ids)
+    if actor is not None:
+        from app.modules.audit.service import record_audit
+        await record_audit(db, tenant_id=actor.tenant_id, actor_user_id=actor.id,
+            actor_name=actor.full_name, action="role.permissions_updated", entity_type="role",
+            entity_id=str(role_id), summary="Role permissions updated",
+            changes={"permissions": sorted(permission.name for permission in permissions)})
     await db.commit()
 
 

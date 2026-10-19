@@ -1,8 +1,9 @@
 import { Mail, MessageCircle, Phone } from "lucide-react";
 import { Badge, type Tone } from "@/components/ui/Badge";
 
-export type PreferredContact = "email" | "phone" | "whatsapp";
+export type PreferredContact = "email" | "phone" | "whatsapp" | "all";
 const META: Record<PreferredContact, { label: string; tone: Tone; icon: typeof Mail }> = {
+  all: { label: "All", tone: "slate", icon: MessageCircle },
   email: { label: "Email", tone: "blue", icon: Mail },
   phone: { label: "Phone call", tone: "amber", icon: Phone },
   whatsapp: { label: "WhatsApp", tone: "green", icon: MessageCircle },

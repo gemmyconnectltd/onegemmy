@@ -1,14 +1,20 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, get_current_active_superuser
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
 from app.modules.tenants.schemas import PermissionCreate, PermissionUpdate
 
-router = APIRouter(tags=["Permissions"])
+
+async def catalog_access(request: Request, user: CurrentUser):
+    if request.method != "GET":
+        await get_current_active_superuser(user)
+
+
+router = APIRouter(tags=["Permissions"], dependencies=[Depends(catalog_access)])
 
 
 @router.get("/permissions")

@@ -51,7 +51,7 @@ function TenantDetailPageInner() {
     return (["overview", "users", "branches", "subscription", "usage", "invoices", "security", "activity"] as const).find((x) => x === t) ?? "overview";
   });
   const [usersSub, setUsersSub] = useState<"users" | "departments" | "roles">("users");
-  const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" } | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" | "all" } | null>(null);
   const removeTenant = useDeleteTenant();
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
@@ -780,7 +780,7 @@ function TenantDetailPageInner() {
       {editForm && <Drawer open onClose={() => setEditForm(null)} title="Edit business"><form className="space-y-4 p-5" onSubmit={e => { e.preventDefault(); updateTenant.mutate({ id, data: { ...editForm, name: editForm.name.trim(), slug: editForm.slug.trim(), phone: editForm.phone.trim(), city: editForm.city.trim(), country: editForm.country.trim() } }, { onSuccess: () => setEditForm(null), onError: () => setNotice({ kind: "error", text: "Could not save business details" }) }); }}>
         {(["name", "slug", "phone", "city"] as const).map(k => <Field key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} required={k === "name" || k === "slug"}><Input required={k === "name" || k === "slug"} value={editForm[k]} onChange={e => setEditForm({ ...editForm, [k]: e.target.value })} /></Field>)}
         <Field label="Country"><Select value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value })}><option value="">Not specified</option>{COUNTRY_NAMES.map(c => <option key={c}>{c}</option>)}</Select></Field>
-        <Field label="Contact preference"><Select value={editForm.preferred_contact} onChange={e => setEditForm({ ...editForm, preferred_contact: e.target.value as typeof editForm.preferred_contact })}><option value="email">Email</option><option value="phone">Phone</option><option value="whatsapp">WhatsApp</option></Select></Field>
+        <Field label="Contact preference"><Select value={editForm.preferred_contact} onChange={e => setEditForm({ ...editForm, preferred_contact: e.target.value as typeof editForm.preferred_contact })}><option value="whatsapp">WhatsApp</option><option value="phone">Phone call</option><option value="email">Email</option><option value="all">All</option></Select></Field>
         <FormFooter submitLabel="Save changes" onCancel={() => setEditForm(null)} disabled={updateTenant.isPending} /></form></Drawer>}
       {/* Change plan drawer */}
       {/* Invite drawer */}

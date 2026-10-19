@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Package, AlertTriangle, TrendingDown, Layers, Boxes, Loader2, Download, FileText } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { inventoryApi } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
 import { useValuationReport } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -27,8 +28,9 @@ export default function InventoryReportPage() {
   const ACCENT = brandColor;
   const ACCENT_DARK = brandColor;
   const accent = theme === "dark" ? ACCENT_DARK : ACCENT;
-  const { data: report, isLoading } = useValuationReport();
   const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [page, setPage] = useState(1);
+  const { data: report, isLoading } = useValuationReport(page, filter);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
   const download = async (format: "csv" | "pdf") => {
@@ -148,7 +150,7 @@ export default function InventoryReportPage() {
             {([["all", "All"], ["low", "Low"], ["out", "Out"] ] as const).map(([key, label]) => (
               <button
                 key={key}
-                onClick={() => setFilter(key)}
+                onClick={() => { setFilter(key); setPage(1); }}
                 className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${filter === key ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}
               >
                 {label}
@@ -193,7 +195,7 @@ export default function InventoryReportPage() {
             {filtered.length > 0 && (
               <tfoot>
                 <tr className="border-t border-border">
-                  <td colSpan={2} className="py-3 text-sm font-bold text-foreground">Total</td>
+                  <td colSpan={2} className="py-3 text-sm font-bold text-foreground">Page totals</td>
                   <td className="py-3 font-bold text-foreground">{filtered.reduce((s, l) => s + l.stock, 0).toLocaleString()}</td>
                   <td className="py-3 text-muted">—</td>
                   <td className="py-3 font-bold text-foreground">{fmtMoney(filtered.reduce((s, l) => s + l.cost_value, 0), currencySymbol)}</td>
@@ -204,6 +206,7 @@ export default function InventoryReportPage() {
               </tfoot>
             )}
           </table></TableScroll>
+          <div className="mt-3 flex items-center justify-between gap-2 text-sm text-muted"><span>{report.total} lines · Page {page}. Exports include all inventory.</span><div className="flex gap-2"><Button variant="outline" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button><Button variant="outline" disabled={page * 50 >= report.total} onClick={() => setPage(page + 1)}>Next</Button></div></div>
         </div>
       </div>
     </div>

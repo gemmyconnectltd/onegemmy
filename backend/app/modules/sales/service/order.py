@@ -55,10 +55,29 @@ async def _exceeds_daily_credit_limit(
     daily limit. The day's total is the credit already granted by COMPLETED sales that day (their stored
     credit_base), so later payments never free up room and unapproved requests never use any."""
     limit = await _daily_credit_limit(db, tenant_id)
-    if limit is None or customer_id is None:
+    if customer_id is None:
         return False
-    already = await OrderRepository(db).credit_granted_on(tenant_id, customer_id, on_day)
+    from app.modules.tenants.models import Tenant
+    customer = (await db.execute(select(Customer).where(
+        Customer.tenant_id == tenant_id, Customer.id == customer_id,
+    ))).scalar_one_or_none()
+    if customer is None:
+        raise ValidationError("Choose a customer belonging to your business")
+    if customer.credit_daily_limit is not None:
+        limit = customer.credit_daily_limit
+    if limit is None:
+        return False
+    timezone = (await db.execute(select(Tenant.timezone).where(Tenant.id == tenant_id))).scalar_one()
+    already = await OrderRepository(db).credit_granted_on(tenant_id, customer_id, on_day, timezone)
     return already + new_credit_base > limit
+
+
+async def _credit_day(db: AsyncSession, tenant_id: uuid.UUID) -> date:
+    from zoneinfo import ZoneInfo
+
+    from app.modules.tenants.models import Tenant
+    timezone = (await db.execute(select(Tenant.timezone).where(Tenant.id == tenant_id))).scalar_one()
+    return datetime.now(ZoneInfo(timezone)).date()
 
 
 def _base_value(value: float | Decimal, currency_code: str, base_currency: str, rate: Decimal) -> Decimal:
@@ -238,17 +257,17 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
 
 async def list_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50,
-    search: str | None = None, payment_status: str | None = None,
+    search: str | None = None, payment_status: str | None = None, branch_id: uuid.UUID | None = None,
 ) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status)
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id)
     return [_to_order_read(i) for i in items]
 
 
 async def count_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None,
-    payment_status: str | None = None,
+    payment_status: str | None = None, branch_id: uuid.UUID | None = None,
 ) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status)
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id)
 
 
 async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> OrderRead:
@@ -287,17 +306,21 @@ async def create_order(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate,
     active_branch_id: uuid.UUID | None = None,
     can_approve_credit: bool = False,
-    enforce_credit_limit: bool = True,
 ) -> OrderRead:
     repo = OrderRepository(db)
+    await repo.lock_financial_writes(tenant_id)
 
     # Idempotency: replaying a client order id (e.g. an offline sale being
     # synced after a retry) must return the existing order, never double-create.
     if data.client_order_id:
         existing = await repo.find_by_client_order_id(tenant_id, data.client_order_id)
         if existing is not None:
+            if active_branch_id and existing.branch_id != active_branch_id:
+                raise ValidationError("This sale reference belongs to another branch")
             return _to_order_read(existing)
 
+    if data.customer_id and await CustomerRepository(db).get_by_id_for_tenant(tenant_id, data.customer_id) is None:
+        raise ValidationError("Choose a customer belonging to this business")
     order_number = await repo.next_order_number(tenant_id)
 
     # Currency context, settled before any amount is stored: the order's own currency, the rate that
@@ -313,6 +336,8 @@ async def create_order(
 
     subtotal = sum(item.line_total for item in data.items)
     gross = round(subtotal - data.discount, 2)
+    if gross < 0:
+        raise ValidationError("The sale discount cannot exceed the subtotal")
     tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
 
     resolved_paid = _resolve_amount_paid(data.amount_paid, data.amount_tendered, total) if data.status == "Completed" else 0.0
@@ -328,7 +353,7 @@ async def create_order(
     over_limit_by_approver = False
     if data.status == "Completed" and outstanding > _PAID_EPSILON:
         credit_base = _base_value(outstanding, currency_code, base_ccy, fx_rate)
-        if enforce_credit_limit and await _exceeds_daily_credit_limit(db, tenant_id, data.customer_id, credit_base, effective_at.date()):
+        if await _exceeds_daily_credit_limit(db, tenant_id, data.customer_id, credit_base, await _credit_day(db, tenant_id)):
             if can_approve_credit:
                 over_limit_by_approver = True
             else:
@@ -347,7 +372,11 @@ async def create_order(
         status=STATUS_AWAITING_APPROVAL if hold_for_approval else data.status,
         requested_paid=resolved_paid if hold_for_approval else None,
         credit_base=None if hold_for_approval else credit_base,
+        credit_granted_at=datetime.now(UTC) if credit_base and not hold_for_approval else None,
         subtotal=subtotal,
+        approved_by=user_id if over_limit_by_approver else None,
+        approved_at=datetime.now(UTC) if over_limit_by_approver else None,
+        approval_note="Credit granted directly by an authorized approver" if over_limit_by_approver else None,
         discount=data.discount,
         tax=tax,
         total=total,
@@ -367,6 +396,10 @@ async def create_order(
         order.ordered_at = data.ordered_at if data.ordered_at.tzinfo else data.ordered_at.replace(tzinfo=UTC)
     order = await repo.save(order)
 
+    if completing:
+        await ProductRepository(db).lock_stock(tenant_id,
+            {item.product_id for item in data.items if item.product_id},
+            {item.variant_id for item in data.items if item.variant_id})
     cogs_total = 0.0
     for item_data in data.items:
         variant = None
@@ -400,6 +433,7 @@ async def create_order(
             product_id=variant.product_id if variant else item_data.product_id,
             variant_id=variant.id if variant else item_data.variant_id,
             product_name=product_name,
+            requested_serial_ids=[str(id) for id in item_data.serial_ids] if item_data.serial_ids else None,
             sku=sku,
             variant_attributes=variant_attributes,
             unit_price=item_data.unit_price,
@@ -448,7 +482,7 @@ async def create_order(
                 reference=reference,
                 order_id=order.id,
                 customer_id=data.customer_id,
-                branch_id=data.branch_id,
+                branch_id=resolved_branch_id,
                 amount=resolved_paid,
                 payment_method=data.payment_method,
                 status="Completed",
@@ -512,9 +546,15 @@ async def _finalize_completed_sale(
     """Everything that makes an open order a real sale — stock out, COGS, targets, the sale ledger entry, VAT
     and the checkout payment row. Shared by "status flipped to Completed" (update_order) and by approving a
     held credit sale, so there is exactly one place that posts a sale."""
+    await ProductRepository(db).lock_stock(tenant_id,
+        {item.product_id for item in obj.items if item.product_id},
+        {item.variant_id for item in obj.items if item.variant_id})
     cogs_total = 0.0
     for item in obj.items:
         cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product)
+        await _assign_serials(db, tenant_id, item.product,
+            [uuid.UUID(id) for id in item.requested_serial_ids] if item.requested_serial_ids else None,
+            float(item.quantity), item.id)
     # The rate frozen on the order (set at creation or while it was open) now becomes final:
     # everything below is posted in the tenant's base currency at that rate.
     base_total, base_tax = float(obj.base_total), float(obj.base_tax)
@@ -548,9 +588,14 @@ async def _finalize_completed_sale(
 
 
 async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: OrderUpdate, user_id: uuid.UUID | None = None, user_name: str | None = None) -> OrderRead:
+    await OrderRepository(db).lock_financial_writes(tenant_id)
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
+    if obj.status in ("Completed", STATUS_REJECTED):
+        protected = set(data.model_fields_set) - {"notes", "due_date"}
+        if protected:
+            raise ValidationError("Posted or rejected sales cannot be repriced or reopened; use a return or a new sale")
     was_completed = obj.status == "Completed"
     before = obj.status
     update_fields = data.model_dump(exclude_unset=True)
@@ -563,6 +608,8 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         obj.status == STATUS_AWAITING_APPROVAL and new_status not in (None, STATUS_AWAITING_APPROVAL)
     ):
         raise ValidationError("Orders awaiting approval can only be approved or rejected by someone with credit approval rights")
+    if data.customer_id and await CustomerRepository(db).get_by_id_for_tenant(tenant_id, data.customer_id) is None:
+        raise ValidationError("Choose a customer belonging to this business")
     base_ccy = await get_base_currency(db, tenant_id)
     # Currency / rate may only change while the order is still open: once Completed they are the
     # frozen basis of the ledger entries, and re-pricing them would silently rewrite history.
@@ -601,7 +648,15 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         if outstanding > _PAID_EPSILON:
             obj.credit_base = _base_value(outstanding, obj.currency_code or base_ccy, base_ccy, document_rate(obj))
 
-        await _finalize_completed_sale(db, tenant_id, obj, resolved_paid, base_ccy, vat_rate, user_id, obj.created_by or id)
+        if outstanding > _PAID_EPSILON and await _exceeds_daily_credit_limit(
+            db, tenant_id, obj.customer_id, obj.credit_base, await _credit_day(db, tenant_id),
+        ):
+            obj.status = STATUS_AWAITING_APPROVAL
+            obj.requested_paid = resolved_paid
+            obj.credit_base = None
+        else:
+            obj.credit_granted_at = datetime.now(UTC) if obj.credit_base else None
+            await _finalize_completed_sale(db, tenant_id, obj, resolved_paid, base_ccy, vat_rate, user_id, obj.created_by or id)
     await OrderRepository(db).save(obj)
     await record_audit(
         db,
@@ -624,6 +679,7 @@ async def approve_order(
 ) -> OrderRead:
     """Completes a credit sale that was held over the daily limit: posts it exactly like a normal completed sale,
     with the cash the cashier recorded, and stamps who approved it and when."""
+    await OrderRepository(db).lock_financial_writes(tenant_id)
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
@@ -641,6 +697,7 @@ async def approve_order(
     _require_credit_sale_fields(obj.customer_id, obj.due_date, outstanding)
     obj.credit_base = _base_value(outstanding, obj.currency_code or base_ccy, base_ccy, document_rate(obj)) if outstanding > _PAID_EPSILON else None
     obj.status = "Completed"
+    obj.credit_granted_at = datetime.now(UTC)
     obj.approved_by = user_id
     obj.approved_at = datetime.now(UTC)
     obj.approval_note = (note or "").strip() or None
@@ -660,6 +717,7 @@ async def reject_order(
     db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, note: str | None = None,
 ) -> OrderRead:
     """Declines a held credit sale. Nothing was ever posted for it, so nothing needs reversing."""
+    await OrderRepository(db).lock_financial_writes(tenant_id)
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
@@ -680,6 +738,7 @@ async def reject_order(
 
 
 async def delete_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID | None = None, user_name: str | None = None) -> None:
+    await OrderRepository(db).lock_financial_writes(tenant_id)
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
@@ -699,7 +758,7 @@ async def delete_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, us
     await db.commit()
 
 
-async def bulk_create_orders(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderBulkCreate) -> OrderBulkResult:
+async def bulk_create_orders(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderBulkCreate, active_branch_id: uuid.UUID | None = None) -> OrderBulkResult:
     """CSV-style order import. Each row is one order line; rows sharing the same
     `order_reference` are merged into a single order (that reference becomes the
     `client_order_id`, so re-running an import is idempotent and never double-creates).
@@ -791,7 +850,7 @@ async def bulk_create_orders(db: AsyncSession, tenant_id: uuid.UUID, user_id: uu
                 ordered_at=lines[0].ordered_at,
                 items=items,
             )
-            await create_order(db, tenant_id, user_id, order_data, enforce_credit_limit=False)
+            await create_order(db, tenant_id, user_id, order_data, active_branch_id)
             created += 1
         except (ValidationError, NotFoundError) as e:
             await db.rollback()

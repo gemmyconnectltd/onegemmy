@@ -58,6 +58,8 @@ async def update_tenant(db: AsyncSession, tenant_id: uuid.UUID, data: TenantUpda
     fields = list(data.model_dump(exclude_unset=True).keys())
     log.info("tenants.update.attempt", extra={"_extra_fields": {"tenant_id": str(tenant_id), "fields": fields}})
     updates = data.model_dump(exclude_unset=True)
+    if "timezone" in updates and updates["timezone"] is None:
+        raise ValidationError("Choose an IANA timezone; it cannot be empty")
     if tenant.archived_at is not None and updates.get("is_active") is True:
         raise ValidationError("Archived businesses cannot be activated")
     if any(key in updates and not updates[key] for key in ("name", "slug")):

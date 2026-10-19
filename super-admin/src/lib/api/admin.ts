@@ -38,7 +38,7 @@ export interface AdminTenant {
   heard_about: string | null;
   referral_code: string | null;
   /** How the business asked to be contacted first (chosen at registration). */
-  preferred_contact?: "email" | "phone" | "whatsapp";
+  preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   usage?: AdminTenantUsage;
 }
 

@@ -102,6 +102,9 @@ export interface ValuationSummary {
 }
 
 export interface InventoryValuationReport {
+  total: number;
+  page: number;
+  page_size: number;
   generated_at: string;
   costing_method: string;
   summary: ValuationSummary;
@@ -204,8 +207,8 @@ export const inventoryApi = {
     request<SingleResponse<null>>(`${BASE}/suppliers/${id}`, { method: "DELETE" }),
 
   // Reports
-  valuationReport: () =>
-    request<SingleResponse<InventoryValuationReport>>(`${BASE}/reports/valuation`),
+  valuationReport: (page = 1, status = "all") =>
+    request<SingleResponse<InventoryValuationReport>>(`${BASE}/reports/valuation${qs({ page, page_size: 50, status })}`),
   exportValuationReport: async (format: "csv" | "pdf") => {
     const token = getStoredToken();
     const res = await fetch(`${API_BASE}${BASE}/reports/valuation/export?format=${format}`, {

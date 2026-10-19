@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { CountrySelect } from "@/components/auth/CountrySelect";
 import { SITE_URL } from "@/lib/links";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,7 +37,7 @@ function countryDialCode(idd?: { root?: string; suffixes?: string[] }): string {
 const COUNTRIES = worldCountriesData
   .map((c) => ({
     name: c.name.common,
-    flag: c.flag,
+    code: c.cca2,
     dial: countryDialCode(c.idd),
     currency: Object.keys(c.currencies ?? {})[0],
   }))
@@ -73,8 +74,10 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [preferredContact, setPreferredContact] = useState<"email" | "phone" | "whatsapp">("email");
+  const [preferredContact, setPreferredContact] = useState<"email" | "phone" | "whatsapp" | "all">("whatsapp");
   const [countryName, setCountryName] = useState("");
+  const countryEdited = useRef(false);
+  const chooseCountry = (name: string) => { countryEdited.current = true; setCountryName(name); };
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -127,15 +130,23 @@ export default function RegisterPage() {
   useEffect(() => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
-    fetch("https://ipwho.is/", { signal: controller.signal })
-      .then((res) => res.json())
-      .then((data: { success?: boolean; country?: string }) => {
-        if (!data.success || !data.country) return;
-        const match = COUNTRIES.find((c) => c.name === data.country);
-        if (match) setCountryName((current) => current || match.name);
+    fetch("https://ipwho.is/", { signal: controller.signal, credentials: "omit", referrerPolicy: "no-referrer" })
+      .then((res) => { if (!res.ok) throw new Error("Location unavailable"); return res.json(); })
+      .then((data: { success?: boolean; country?: string; country_code?: string }) => {
+        if (!data.success || !data.country_code) throw new Error("Location unavailable");
+        const match = COUNTRIES.find((c) => c.code === data.country_code?.toUpperCase());
+        if (match && !countryEdited.current) setCountryName((current) => current || match.name);
       })
       .catch(() => {
-        // Geolocation lookup failed/timed out — leave it to manual selection.
+        // Browser region is only a best-effort fallback, never an asserted physical location.
+        for (const language of navigator.languages) {
+          const region = new Intl.Locale(language).region;
+          const match = COUNTRIES.find(country => country.code === region);
+          if (match && !countryEdited.current) {
+            setCountryName(current => current || match.name);
+            break;
+          }
+        }
       })
       .finally(() => clearTimeout(timeout));
     return () => {
@@ -321,19 +332,8 @@ export default function RegisterPage() {
               <div>
                 <label className="block text-[13px] font-medium text-foreground mb-1.5">Phone Number *</label>
                 <div className="flex gap-2">
-                  <div className="relative w-27.5 shrink-0">
-                    <select
-                      value={countryName}
-                      onChange={(e) => setCountryName(e.target.value)}
-                      required
-                      className={`${selectClass} pr-7`}
-                    >
-                      <option value="">Code</option>
-                      {COUNTRIES.map((c) => (
-                        <option key={c.name} value={c.name}>{c.flag} {c.dial}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                  <div className="w-32 shrink-0">
+                    <CountrySelect countries={COUNTRIES} value={countryName} onChange={chooseCountry} phone />
                   </div>
                   <input
                     type="tel"
@@ -376,36 +376,25 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              <fieldset>
-                <legend className="block text-[13px] font-medium text-foreground mb-1.5">How should we contact you? *</legend>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {([["email", "Email"], ["phone", "Phone call"], ["whatsapp", "WhatsApp"]] as const).map(([value, label]) => (
-                    <label key={value} className={`flex cursor-pointer items-center rounded-xl border px-3 py-2.5 transition-colors ${preferredContact === value ? "border-accent bg-accent/5" : "border-border hover:border-foreground/20"}`}>
-                      <span className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
-                        <input type="radio" name="preferred_contact" value={value} checked={preferredContact === value} onChange={() => setPreferredContact(value)} className="accent-[var(--accent)]" />
+              <fieldset aria-describedby="contact-preference-help">
+                <legend className="block text-[13px] font-medium text-foreground mb-2">How should we contact you? *</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {([["whatsapp", "WhatsApp"], ["phone", "Phone call"], ["email", "Email"], ["all", "All"]] as const).map(([value, label]) => (
+                    <label key={value} className={`flex min-h-11 min-w-0 cursor-pointer items-center rounded-lg border px-3 py-2.5 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent ${preferredContact === value ? "border-accent bg-accent/5" : "border-border hover:border-foreground/20"}`}>
+                      <span className="flex min-w-0 items-center gap-2 whitespace-nowrap text-[13px] font-medium text-foreground">
+                        <input type="radio" name="preferred_contact" value={value} checked={preferredContact === value} onChange={() => setPreferredContact(value)} className="h-4 w-4 shrink-0 accent-[var(--accent)]" />
                         {label}
                       </span>
                     </label>
                   ))}
                 </div>
+                <p id="contact-preference-help" className="mt-2 text-xs leading-5 text-muted">Choose one. All means WhatsApp, phone call or email.</p>
               </fieldset>
 
               <div>
                 <label className="block text-[13px] font-medium text-foreground mb-1.5">Country *</label>
-                <div className="relative">
-                  <select
-                    value={countryName}
-                    onChange={(e) => setCountryName(e.target.value)}
-                    required
-                    className={`${selectClass} pr-8`}
-                  >
-                    <option value="">Select your country</option>
-                    {COUNTRIES.map((c) => (
-                      <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-                </div>
+                <CountrySelect countries={COUNTRIES} value={countryName} onChange={chooseCountry} />
+                <p className="mt-1.5 text-xs text-muted">Suggested from your location when available. Change it if needed.</p>
                 {selectedCountry && (
                   <p className="text-xs text-muted mt-2">
                     {selectedCountry.currency ? (

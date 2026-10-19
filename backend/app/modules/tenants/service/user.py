@@ -75,6 +75,28 @@ async def count_users(
     return await UserRepository(db).count_for_tenant(tenant_id, search, is_active, role_id)
 
 
+def _guard_role_grant(actor: User | None, role) -> None:
+    if actor is None or actor.is_superuser:
+        return
+    if {permission.name for permission in role.permissions} - set(actor.permissions_names):
+        raise ForbiddenError("You cannot grant permissions that your own account does not hold; ask an owner")
+
+
+async def _validated_branches(db: AsyncSession, tenant_id: uuid.UUID,
+                              branch_id: uuid.UUID | None, branch_ids: list[uuid.UUID] | None):
+    from app.modules.tenants.repository import BranchRepository
+    branch_ids = [uuid.UUID(str(id)) for id in branch_ids] if branch_ids is not None else None
+    ids = set(branch_ids or [])
+    if branch_id:
+        ids.add(branch_id)
+    found = await BranchRepository(db).names_for_ids(tenant_id, ids)
+    if set(found) != ids:
+        raise ValidationError("Choose branches belonging to this company")
+    if branch_ids is not None and branch_id and branch_id not in branch_ids:
+        raise ValidationError("The default branch must be included in assigned branches")
+    return [str(id) for id in dict.fromkeys(branch_ids)] if branch_ids is not None else None
+
+
 async def create_user(
     db: AsyncSession, tenant_id: uuid.UUID, data: UserCreate, actor: User | None = None
 ) -> UserRead:
@@ -104,6 +126,7 @@ async def create_user(
             f"Unknown role '{data.role}'. Create the role first, or pick one of the tenant's existing roles."
         )
 
+    _guard_role_grant(actor, role)
     user = User(
         tenant_id=tenant_id,
         email=data.email,
@@ -113,6 +136,7 @@ async def create_user(
         role=role.name.lower(),
         role_id=role.id,
         branch_id=data.branch_id,
+        branch_ids=await _validated_branches(db, tenant_id, data.branch_id, data.branch_ids),
         department_id=data.department_id,
     )
     user = await UserRepository(db).save(user)
@@ -154,6 +178,8 @@ async def update_user(
     if user is None:
         raise NotFoundError("User not found")
     payload = data.model_dump(exclude_unset=True)
+    if "branch_ids" in payload or "branch_id" in payload:
+        payload["branch_ids"] = await _validated_branches(db, tenant_id, payload.get("branch_id", user.branch_id), payload.get("branch_ids", user.branch_ids))
     fields = list(payload.keys())
     log.info("users.update.attempt", extra={"_extra_fields": {"user_id": str(user.id), "fields": fields}})
 
@@ -191,6 +217,7 @@ async def update_user(
         )
         if role is None:
             raise ValidationError("Unknown role — pick one of this company's existing roles.")
+        _guard_role_grant(actor, role)
         losing_admin = _is_admin(user) and not _role_is_admin(role)
         if losing_admin:
             await _assert_not_last_admin(db, tenant_id, user, "demoted")

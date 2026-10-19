@@ -60,6 +60,8 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # Null = no limit (the behaviour before this existed). Set by someone holding credit:approve (GM/CEO).
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
+
     # Whether this tenant operates multiple branches. Controls branch-related
     # UI visibility on the tenant's own dashboard.
     multi_branch: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -1,6 +1,7 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import selectinload
@@ -59,8 +60,11 @@ class OrderRepository(BaseRepository[Order]):
         limit: int = 50,
         search: str | None = None,
         payment_status: str | None = None,
+        branch_id: uuid.UUID | None = None,
     ) -> list[Order]:
         stmt = select(Order).options(*_with_relations()).where(Order.tenant_id == tenant_id)
+        if branch_id is not None:
+            stmt = stmt.where(Order.branch_id == branch_id)
         if status:
             stmt = stmt.where(Order.status == status)
         if search:
@@ -79,8 +83,11 @@ class OrderRepository(BaseRepository[Order]):
         status: str | None = None,
         search: str | None = None,
         payment_status: str | None = None,
+        branch_id: uuid.UUID | None = None,
     ) -> int:
         stmt = select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)
+        if branch_id is not None:
+            stmt = stmt.where(Order.branch_id == branch_id)
         if status:
             stmt = stmt.where(Order.status == status)
         if search:
@@ -110,13 +117,24 @@ class OrderRepository(BaseRepository[Order]):
         current_max = result.scalar_one() or 0
         return f"ORD-{str(current_max + 1).zfill(4)}"
 
-    async def credit_granted_on(self, tenant_id: uuid.UUID, customer_id: uuid.UUID, day: date) -> Decimal:
+    async def lock_financial_writes(self, tenant_id: uuid.UUID) -> None:
+        # One transaction lock orders idempotency, numbering, policy checks and decisions.
+        # All create/update/approve/reject paths acquire this before reading mutable state.
+        from sqlalchemy import text
+        await self.db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {
+            "key": int.from_bytes(tenant_id.bytes[:8], "big", signed=True),
+        })
+
+    async def credit_granted_on(self, tenant_id: uuid.UUID, customer_id: uuid.UUID, day: date, timezone: str = "UTC") -> Decimal:
         """Credit (base currency) already granted to one customer on one calendar day by completed sales."""
+        start = datetime.combine(day, time.min, ZoneInfo(timezone))
+        end = datetime.combine(day + timedelta(days=1), time.min, ZoneInfo(timezone))
+        granted_at = func.coalesce(Order.credit_granted_at, Order.ordered_at)
         stmt = select(func.coalesce(func.sum(Order.credit_base), 0)).where(
             Order.tenant_id == tenant_id,
             Order.customer_id == customer_id,
             Order.status == "Completed",
-            func.date(Order.ordered_at) == day,
+            granted_at >= start, granted_at < end,
         )
         return Decimal((await self.db.execute(stmt)).scalar_one())
 

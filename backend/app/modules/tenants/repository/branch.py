@@ -9,6 +9,14 @@ from app.modules.tenants.models import Branch
 class BranchRepository(BaseRepository[Branch]):
     model = Branch
 
+    async def names_for_ids(self, tenant_id: uuid.UUID, ids: set[uuid.UUID]) -> dict:
+        if not ids:
+            return {}
+        rows = await self.db.execute(select(Branch.id, Branch.name).where(
+            Branch.tenant_id == tenant_id, Branch.id.in_(ids),
+        ))
+        return dict(rows.all())
+
     async def get_by_id_for_tenant(self, tenant_id: uuid.UUID, branch_id: uuid.UUID) -> Branch | None:
         result = await self.db.execute(
             select(Branch).where(Branch.id == branch_id, Branch.tenant_id == tenant_id)
@@ -29,18 +37,18 @@ class BranchRepository(BaseRepository[Branch]):
             stmt = stmt.where(Branch.id != except_branch_id)
         await self.db.execute(stmt.values(is_main=False))
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20) -> list[Branch]:
+    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, ids: list[uuid.UUID] | None = None) -> list[Branch]:
         result = await self.db.execute(
             select(Branch)
-            .where(Branch.tenant_id == tenant_id)
+            .where(Branch.tenant_id == tenant_id, *([Branch.id.in_(ids)] if ids is not None else []))
             .order_by(Branch.name)
             .offset(offset)
             .limit(limit)
         )
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, ids: list[uuid.UUID] | None = None) -> int:
         result = await self.db.execute(
-            select(func.count()).select_from(Branch).where(Branch.tenant_id == tenant_id)
+            select(func.count()).select_from(Branch).where(Branch.tenant_id == tenant_id, *([Branch.id.in_(ids)] if ids is not None else []))
         )
         return result.scalar_one()

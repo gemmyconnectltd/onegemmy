@@ -17,9 +17,15 @@ class RoleRepository(BaseRepository[Role]):
 
     async def get_by_name_for_tenant(self, tenant_id: uuid.UUID, name: str) -> Role | None:
         result = await self.db.execute(
-            select(Role).where(Role.name == name, Role.tenant_id == tenant_id)
+            select(Role).where(func.lower(Role.name) == name.strip().lower(), Role.tenant_id == tenant_id)
+            .order_by((Role.name == name).desc(), Role.created_at, Role.id).limit(1)
         )
         return result.scalar_one_or_none()
+
+    async def template_roles(self, tenant_id: uuid.UUID) -> list[Role]:
+        names = {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager"}
+        result = await self.db.execute(select(Role).where(Role.tenant_id == tenant_id, Role.name.in_(names)))
+        return list(result.scalars().all())
 
     async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int, limit: int) -> list[Role]:
         result = await self.db.execute(

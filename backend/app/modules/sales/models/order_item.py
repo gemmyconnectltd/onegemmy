@@ -21,6 +21,7 @@ class OrderItem(UUIDPKMixin, Base):
     variant_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_product_variants.id", ondelete="SET NULL"), nullable=True
     )
+    requested_serial_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
     sku: Mapped[str | None] = mapped_column(String(100), nullable=True)
     variant_attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)

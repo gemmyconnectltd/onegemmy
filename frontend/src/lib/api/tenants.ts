@@ -25,13 +25,14 @@ export interface Tenant {
   country: string | null;
   subscription_plan: string;
   subscription_status: string;
+  timezone?: string;
   currency: string;
   vat_enabled: boolean;
   multi_branch: boolean;
   /** Most NEW credit one customer can be granted per day, in the base currency. null = no limit. */
   credit_daily_limit?: number | string | null;
   /** How Pesaa should reach the business first. */
-  preferred_contact?: "email" | "phone" | "whatsapp";
+  preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   business_type: string | null;
   industry: string | null;
   business_category: string | null;
@@ -44,12 +45,13 @@ export interface Tenant {
 export interface TenantUpdateInput {
   name?: string;
   /** Base (accounting) currency — refused by the server once the business has recorded transactions. */
+  timezone?: string;
   currency?: string;
   brand_color?: string | null;
   vat_enabled?: boolean;
   /** null clears the limit. Needs credit:approve — the server refuses anyone else. */
   credit_daily_limit?: number | null;
-  preferred_contact?: "email" | "phone" | "whatsapp";
+  preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   website?: string | null;
   phone?: string | null;
   address?: string | null;

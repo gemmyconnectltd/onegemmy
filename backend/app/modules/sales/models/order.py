@@ -14,6 +14,8 @@ from app.modules.tenants.models.mixins import TenantScopedMixin
 class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixin, Base):
     __tablename__ = "sales_orders"
 
+    credit_granted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     order_number: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Pending")
     subtotal: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
@@ -87,6 +89,8 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
     )
 
     __table_args__ = (
+        Index("ix_orders_tenant_customer_credit", "tenant_id", "customer_id", "credit_granted_at"),
+        Index("ix_orders_tenant_branch_ordered", "tenant_id", "branch_id", "ordered_at"),
         Index("uq_sales_orders_tenant_number", "tenant_id", "order_number", unique=True),
         Index("uq_sales_orders_tenant_client", "tenant_id", "client_order_id", unique=True),
         Index("ix_sales_orders_tenant_id", "tenant_id"),

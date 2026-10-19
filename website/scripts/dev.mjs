@@ -1,0 +1,10 @@
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { syncMediaManifest, watchMediaManifest, websiteRoot } from './navigation-media.mjs';
+const require = createRequire(import.meta.url);
+syncMediaManifest();
+const stopWatching = watchMediaManifest();
+const child = spawn(process.execPath, [require.resolve('next/dist/bin/next'), 'dev', '-p', '3002', ...process.argv.slice(2)], { cwd: websiteRoot, stdio: 'inherit' });
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { stopWatching(); child.kill(signal); });
+child.on('error', error => { stopWatching(); console.error(error.message); process.exitCode = 1; });
+child.on('exit', (code, signal) => { stopWatching(); process.exitCode = code ?? (signal ? 1 : 0); });

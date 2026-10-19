@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.branches import branch_allowed
 from app.core.currency import ZERO, to_decimal
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.accounting.models.account import Account
@@ -114,7 +115,7 @@ async def update_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UU
         from app.core.exceptions import ForbiddenError
         from app.modules.accounting.service.workspace import allow
         allow(actor, "journal_entries", "update")
-        if actor.branch_id and actor.branch_id != obj.branch_id:
+        if not branch_allowed(actor, obj.branch_id):
             raise ForbiddenError("Journal is outside the assigned branch")
     if obj.status != "Draft":
         raise ValidationError("Posted journals are immutable; use the authorized reversal workflow")
@@ -136,7 +137,7 @@ async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
     obj = await repo.locked(tenant_id, id)
     if obj is None:
         raise NotFoundError("Transaction not found")
-    if actor is not None and actor.branch_id and obj.branch_id != actor.branch_id:
+    if actor is not None and not branch_allowed(actor, obj.branch_id):
         from app.core.exceptions import ForbiddenError
         raise ForbiddenError("Journal is outside the assigned branch")
     if obj.status == "Posted":
@@ -147,7 +148,7 @@ async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
         raise ValidationError("Journal debits and credits must reconcile before posting")
     if any(l.account is None or l.account.tenant_id != tenant_id or not l.account.is_active or Decimal(l.amount) <= 0 or l.type not in {"debit", "credit"} for l in obj.lines):
         raise ValidationError("Journal contains invalid or cross-business account lines")
-    if actor is not None and actor.branch_id and obj.branch_id != actor.branch_id:
+    if actor is not None and not branch_allowed(actor, obj.branch_id):
         from app.core.exceptions import ForbiddenError
         raise ForbiddenError("Journal is outside the assigned branch")
     obj.status = "Posted"
@@ -182,7 +183,7 @@ async def void_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
         raise ValidationError("Transaction is already void")
     if obj.type not in {"manual", "adjustment"}:
         raise ValidationError("Reverse source journals through their original payment, sales or purchasing workflow")
-    if actor is not None and actor.branch_id and obj.branch_id != actor.branch_id:
+    if actor is not None and not branch_allowed(actor, obj.branch_id):
         from app.core.exceptions import ForbiddenError
         raise ForbiddenError("Journal is outside the assigned branch")
     obj.status = "Void"

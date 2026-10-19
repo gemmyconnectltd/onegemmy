@@ -12,6 +12,7 @@ export interface ApiUser {
   phone: string | null;
   role: string;
   role_id: string | null;
+  branch_ids?: string[] | null;
   branch_id: string | null;
   department_id: string | null;
   is_active: boolean;
@@ -42,12 +43,13 @@ export interface UserCreatePayload {
   phone?: string | null;
   role?: string;
   role_id?: string | null;
+  branch_ids?: string[] | null;
   branch_id?: string | null;
   department_id?: string | null;
 }
 
 export type UserUpdatePayload = Partial<
-  Pick<UserCreatePayload, "full_name" | "phone" | "role" | "role_id" | "branch_id" | "department_id">
+  Pick<UserCreatePayload, "full_name" | "phone" | "role" | "role_id" | "branch_ids" | "branch_id" | "department_id">
 > & { is_active?: boolean };
 
 export interface UserListFilters {

@@ -50,6 +50,7 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurr
     items = relationship("PurchaseItem", back_populates="purchase_order", lazy="selectin", cascade="all, delete-orphan")
 
     __table_args__ = (
+        Index("ix_purchases_tenant_branch_received", "tenant_id", "branch_id", "received_at"),
         Index("uq_purchase_orders_tenant_ref", "tenant_id", "reference", unique=True),
         Index("ix_purchase_orders_tenant_id", "tenant_id"),
         Index("ix_purchases_tenant_created", "tenant_id", "created_at"),

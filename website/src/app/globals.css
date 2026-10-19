@@ -149,3 +149,15 @@ input, select, textarea {
 @media (min-width: 640px) { .landing-section { padding-block: 72px; } .landing-section-heading { margin-bottom: 36px; } }
 
 /* Official cross-application visual contracts. */
+
+/* One shared marketing disclosure system, independent of dashboard navigation. */
+.marketing-header :is(a, button):focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.marketing-mega-panel { animation: marketing-menu-enter 140ms ease-out; }
+.marketing-mega-content { max-height: calc(100dvh - 180px); overscroll-behavior: contain; }
+.mega-menu-section + .mega-menu-section { border-top: 1px solid var(--border); padding-top: 20px; }
+.marketing-mobile-drawer::backdrop { background: rgb(15 23 42 / 15%); }
+.marketing-mobile-drawer[open] { animation: marketing-menu-enter 140ms ease-out; }
+@keyframes marketing-menu-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .marketing-mega-panel, .marketing-mobile-drawer[open] { animation: none; }
+}

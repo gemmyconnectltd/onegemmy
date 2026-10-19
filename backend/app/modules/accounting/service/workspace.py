@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.branches import branch_allowed
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.modules.accounting.models.workspace import (
     AccountingPreference,
@@ -41,7 +42,14 @@ def report_permission(user: User, kind: str) -> uuid.UUID:
 async def resolve_branch(db: AsyncSession, user: User, requested: uuid.UUID | None,
                          active: uuid.UUID | None = None) -> uuid.UUID | None:
     branch_id = requested or active
-    if user.branch_id:
+    if getattr(user, "branch_ids", None) is not None:
+        allowed = {uuid.UUID(str(id)) for id in user.branch_ids}
+        branch_id = branch_id or user.branch_id
+        if not branch_id and len(allowed) == 1:
+            branch_id = next(iter(allowed))
+        if not branch_id or branch_id not in allowed:
+            raise ForbiddenError("Select an assigned branch; company-wide access is not granted")
+    elif user.branch_id:
         if branch_id and branch_id != user.branch_id:
             raise ForbiddenError("This account is restricted to its assigned branch")
         branch_id = user.branch_id
@@ -221,7 +229,7 @@ async def read_snapshot(db: AsyncSession, user: User, snapshot_id: uuid.UUID, pa
     if snapshot is None:
         raise NotFoundError("Report not found")
     report_permission(user, snapshot.kind)
-    if snapshot.kind != "chart-of-accounts" and user.branch_id and snapshot.branch_id != user.branch_id:
+    if snapshot.kind != "chart-of-accounts" and not branch_allowed(user, snapshot.branch_id):
         raise ForbiddenError("Report is outside the assigned branch")
     return {"id": str(snapshot.id), **snapshot.data, "rows": await repo.rows(user.tenant_id, snapshot.id, (page - 1) * page_size, page_size),
             "page": page, "page_size": page_size, "total": snapshot.data["row_count"]}
@@ -235,7 +243,7 @@ async def journal_detail(db, user, journal_id):
     row = await TransactionRepository(db).get_by_id_for_tenant(tenant_id, journal_id)
     if row is None:
         raise NotFoundError("Journal not found")
-    if user.branch_id and row.branch_id != user.branch_id:
+    if not branch_allowed(user, row.branch_id):
         raise ForbiddenError("Journal is outside the assigned branch")
     if any(line.account is None or line.account.tenant_id != tenant_id for line in row.lines):
         raise ValidationError("Journal contains invalid account ownership; finance review required")
@@ -257,7 +265,7 @@ async def source_document(db, user, document_id, payable):
     if contact is not None and contact.tenant_id != tenant_id:
         raise ValidationError("Source document contains invalid contact ownership")
     branch_id = row.purchase_order.branch_id if payable else row.branch_id
-    if user.branch_id and user.branch_id != branch_id:
+    if not branch_allowed(user, branch_id):
         raise ForbiddenError("Document is outside the assigned branch")
     document = await get_bill(db, tenant_id, document_id) if payable else await get_order(db, tenant_id, document_id)
     return document.model_dump()

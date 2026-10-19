@@ -39,8 +39,8 @@ class PermissionRepository(BaseRepository[Permission]):
 
     async def assign_permissions_to_role(self, role_id: uuid.UUID, permission_ids: list[uuid.UUID]) -> None:
         await self.db.execute(role_permissions.delete().where(role_permissions.c.role_id == role_id))
-        for pid in permission_ids:
-            await self.db.execute(role_permissions.insert().values(role_id=role_id, permission_id=pid))
+        if permission_ids:
+            await self.db.execute(role_permissions.insert(), [{"role_id": role_id, "permission_id": id} for id in permission_ids])
         await self.db.flush()
 
     async def get_permissions_for_user(self, tenant_id: uuid.UUID, role_id: uuid.UUID) -> list[Permission]:

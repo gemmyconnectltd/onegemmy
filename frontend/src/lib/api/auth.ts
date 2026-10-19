@@ -1,5 +1,4 @@
 import { request } from "./client";
-import type { SingleResponse } from "./types";
 
 export interface ApiTokenUserInfo {
   id: string;
@@ -13,6 +12,7 @@ export interface ApiTokenUserInfo {
   tenant_slug: string | null;
   // null means "no fixed branch" — an Admin/Owner with implicit access to
   // every branch, same convention as tenant_id null for a platform superuser.
+  branch_ids?: string[] | null;
   branch_id: string | null;
   branch_name: string | null;
   permissions: string[];
@@ -40,7 +40,7 @@ export interface ApiRegisterRequest {
   heard_about?: string;
   referral_code?: string;
   /** How the business wants Pesaa to contact it first. */
-  preferred_contact?: "email" | "phone" | "whatsapp";
+  preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   main_branch_name?: string;
   country?: string;
   currency?: string;

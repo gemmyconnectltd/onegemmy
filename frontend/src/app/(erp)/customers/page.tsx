@@ -1,7 +1,8 @@
 "use client";
+import { useAuth } from "@/lib/auth";
 import { TableScroll } from "@/components/ui/TableScroll";
 
-import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
+import { orderBaseOutstanding, orderBasePaid, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
@@ -59,7 +60,7 @@ const TYPE_OPTS = ["individual", "business", "vip", "wholesale"];
 
 const EMPTY_FORM = {
   name: "", email: "", phone: "", address: "",
-  customer_type: "individual", is_active: true,
+  customer_type: "individual", is_active: true, credit_daily_limit: "",
 };
 type FormState = typeof EMPTY_FORM;
 
@@ -78,6 +79,7 @@ function typeBadge(type: string) {
 }
 
 export default function CustomersPage() {
+  const { hasPermission } = useAuth();
   const { currencySymbol, brandColor } = useAppConfig();
   const COLOR = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
@@ -189,7 +191,7 @@ export default function CustomersPage() {
   const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setShowAdd(true); };
   const openEdit = (c: ApiCustomer) => {
     setEditing(c);
-    setForm({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", address: c.address ?? "", customer_type: c.customer_type, is_active: c.is_active });
+    setForm({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", address: c.address ?? "", customer_type: c.customer_type, is_active: c.is_active, credit_daily_limit: c.credit_daily_limit == null ? "" : String(c.credit_daily_limit) });
     setFormError(null);
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
@@ -203,6 +205,7 @@ export default function CustomersPage() {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       address: form.address.trim() || null,
+      ...(hasPermission("credit:approve") ? { credit_daily_limit: form.credit_daily_limit.trim() === "" ? null : form.credit_daily_limit } : {}),
       customer_type: form.customer_type,
       is_active: form.is_active,
     };
@@ -588,6 +591,7 @@ export default function CustomersPage() {
                 placeholder="jean@example.com" />
             </Field>
           </div>
+          {hasPermission("credit:approve") && <Field label={`Daily credit limit (${currencySymbol})`} hint="Leave empty to inherit the business default. Zero requires approval for any credit. Applies across all branches."><Input aria-label="Customer daily credit limit" inputMode="decimal" value={form.credit_daily_limit} onChange={(e) => setForm((f) => ({ ...f, credit_daily_limit: e.target.value }))} /></Field>}
           <Field label="Address">
             <Input value={form.address}
               onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}

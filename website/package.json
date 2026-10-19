@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3002",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "eslint",
     "design:check": "node ../scripts/check-design-system.mjs",
     "design:test": "node --test ../scripts/design-system.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:navigation": "node --test ../scripts/marketing-navigation.test.mjs",
+    "prebuild": "node scripts/navigation-media.mjs",
+    "media:sync": "node scripts/navigation-media.mjs",
+    "media:check": "node scripts/navigation-media.mjs --check"
   },
   "dependencies": {
     "lucide-react": "^1.30.0",

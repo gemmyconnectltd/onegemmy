@@ -1,3 +1,5 @@
+import { companyRolesApi } from "./companyRoles";
+import { dailyReportsApi, type DailyFilters } from "./dailyReports";
 import { expenseWorkspaceApi, type ExpenseFilters, type ExpenseInput, type ExpenseCategory } from "./expenseWorkspace";
 // TanStack Query hooks for the API integration layer.
 //
@@ -127,8 +129,8 @@ export const useUnitSuggestions = (opts?: QueryOpts) =>
 export const useSuppliers = (page = 1, pageSize = 200, search?: string, opts?: QueryOpts) =>
   useQ([...SUPPLIERS, page, pageSize, search ?? ""], () => inventoryApi.listSuppliers(page, pageSize, search), (r) => r.data, opts);
 
-export const useValuationReport = (opts?: QueryOpts) =>
-  useQ([...VALUATION], () => inventoryApi.valuationReport(), (r) => r.data, opts);
+export const useValuationReport = (page = 1, status = "all", opts?: QueryOpts) =>
+  useQ([...VALUATION, page, status], () => inventoryApi.valuationReport(page, status), (r) => r.data, opts);
 
 export const useCreateProduct = mutation((d: object) => inventoryApi.createProduct(d), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
 export const useBulkCreateProducts = mutation((items: object[]) => inventoryApi.bulkCreateProducts(items), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"]]);
@@ -850,3 +852,11 @@ export const useSaveExpense = mutation(({id, data}: { id?: string; data: Expense
 export const useExpenseAction = mutation(({id, action}: {id: string; action: string}) => expenseWorkspaceApi.action(id, action), EXPENSE_INVALIDATE);
 export const useSaveExpenseCategory = mutation(({id, data}: {id?: string; data: Omit<ExpenseCategory, "id">}) => expenseWorkspaceApi.saveCategory(data, id), EXPENSE_INVALIDATE);
 export const useExpenseReceipt = mutation(({id, file}: {id: string; file: File}) => expenseWorkspaceApi.attach(id, file), EXPENSE_INVALIDATE);
+
+export const useDailyBranchReport = (filters: DailyFilters, page: number) => useQ(["daily-branches", filters, page], () => dailyReportsApi.get(filters, page), (res) => res.data, { placeholderData: undefined });
+
+export const useCompanyRoles = (page: number) => useQ(["company-roles", page], () => companyRolesApi.list(page), (res) => res.data);
+export const useRolePermissions = (id: string | undefined) => useQ(["company-roles", id, "permissions"], () => companyRolesApi.permissions(id!), (res) => res.data, { enabled: !!id, placeholderData: undefined });
+export const usePermissionCatalog = (page: number) => useQ(["permission-catalog", page], () => companyRolesApi.catalog(page), (res) => res.data);
+export const useCreateCompanyRole = mutation((name: string) => companyRolesApi.create(name), [["company-roles"]]);
+export const useAssignRolePermissions = mutation(({id, permissions}: {id: string; permissions: string[]}) => companyRolesApi.assign(id, permissions), [["company-roles"], ["company-users"]]);

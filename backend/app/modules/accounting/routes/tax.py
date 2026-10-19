@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 
+from app.core.branches import has_branch_restriction
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
 from app.core.response import success_response
@@ -26,7 +27,7 @@ router = APIRouter(tags=["Accounting - Tax Management"])
 def _require_tenant(user) -> None:
     from app.modules.accounting.service.workspace import allow
     allow(user, "tax")
-    if user.branch_id:
+    if has_branch_restriction(user):
         raise ValidationError("Tax records require an unrestricted business-wide finance account")
 
 

@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, UploadFile
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
@@ -97,6 +97,8 @@ async def update_tenant(
         current_user.is_superuser or "credit:approve" in current_user.permissions_names
     ):
         raise ForbiddenError("Permission required: credit:approve")
+    if data.model_fields_set - {"credit_daily_limit"}:
+        await require_permission("tenants:update")(current_user)
     tenant = await service.update_tenant(db, tenant_id, data)
     return success_response(
         data=tenant.model_dump(),

@@ -6,6 +6,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.branches import branch_allowed, has_branch_restriction
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
@@ -161,7 +162,7 @@ async def asset_action(db, user: User, asset_id: uuid.UUID, data: AssetAction):
     row = await WorkspaceRepository(db).record(FixedAsset, tenant_id, id=asset_id, lock=True)
     if row is None:
         raise NotFoundError("Asset not found")
-    if user.branch_id and row.branch_id != user.branch_id:
+    if not branch_allowed(user, row.branch_id):
         from app.core.exceptions import ForbiddenError
         raise ForbiddenError("Asset is outside the assigned branch")
     await resolve_branch(db, user, row.branch_id)
@@ -203,7 +204,7 @@ async def post_payroll(db, user: User, payroll_id: uuid.UUID, cash_account_id: u
     from app.modules.hr.models.payroll import PayrollEntry
     tenant_id = allow(user, "payroll", "approve")
     allow(user, "journal_entries", "approve")
-    if user.branch_id:
+    if has_branch_restriction(user):
         raise ValidationError("Payroll records are business-wide and require an unrestricted finance account")
     await ReportingRepository(db).lock_tenant(tenant_id)
     row = await WorkspaceRepository(db).record(PayrollEntry, tenant_id, id=payroll_id, lock=True)

@@ -8,10 +8,11 @@ from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
+from app.modules.sales.routes.access import order_access
 from app.modules.sales.schemas import OrderBulkCreate, OrderCreate, OrderUpdate
 from app.modules.sales.schemas.order import OrderDecision
 
-router = APIRouter(tags=["Sales - Orders"])
+router = APIRouter(tags=["Sales - Orders"], dependencies=[Depends(order_access)])
 
 
 def _require_tenant(tenant_id) -> None:
@@ -21,13 +22,13 @@ def _require_tenant(tenant_id) -> None:
 
 @router.get("/sales/orders")
 async def list_orders(
-    db: DbSession, current_user: CurrentUser, page_params: PageQuery,
+    db: DbSession, current_user: CurrentUser, page_params: PageQuery, active_branch_id: ActiveBranchId,
     status: str | None = Query(None), search: str | None = Query(None),
     payment_status: str | None = Query(None),
 ):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status)
-    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status)
+    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id)
+    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Orders retrieved successfully")
 
 
@@ -40,9 +41,9 @@ async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUs
 
 
 @router.post("/sales/orders/bulk")
-async def bulk_create_orders(data: OrderBulkCreate, db: DbSession, current_user: CurrentUser):
+async def bulk_create_orders(data: OrderBulkCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
-    result = await service.bulk_create_orders(db, current_user.tenant_id, current_user.id, data)
+    result = await service.bulk_create_orders(db, current_user.tenant_id, current_user.id, data, active_branch_id)
     return success_response(data=result.model_dump(), message=f"{result.created} orders imported", status_code=201)
 
 

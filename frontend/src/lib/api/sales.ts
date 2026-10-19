@@ -2,6 +2,7 @@ import { request, qs, downloadFile } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
 export interface ApiCustomer {
+  credit_daily_limit?: string | number | null;
   id: string;
   name: string;
   email: string | null;

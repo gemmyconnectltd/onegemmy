@@ -54,6 +54,7 @@ def _build_user_info(user: User, permission_names: list[str] | None = None) -> T
         tenant_id=user.tenant_id,
         tenant_name=user.tenant.name if user.tenant else None,
         tenant_slug=user.tenant.slug if user.tenant else None,
+        branch_ids=getattr(user, "branch_ids", None),
         branch_id=user.branch_id,
         branch_name=user.branch_rel.name if user.branch_rel else None,
         permissions=permission_names or [],
@@ -68,6 +69,7 @@ def _build_token_claims(user: User) -> dict:
         "role": user.role,
         "role_id": str(user.role_id) if user.role_id else None,
         "is_superuser": user.is_superuser,
+        "branch_ids": getattr(user, "branch_ids", None),
         "branch_id": str(user.branch_id) if user.branch_id else None,
         "permissions": _get_permission_names(user),
     }

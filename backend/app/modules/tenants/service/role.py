@@ -38,9 +38,10 @@ _ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "
 
 # What an invite's free-text role ("admin"/"member"/"viewer", whatever the
 # inviter typed or picked) maps to among the seeded defaults. Unrecognized
-# values fall back to "Member" — a safe, working default rather than no
-# permissions at all.
-_ROLE_NAME_ALIASES = {"admin": "Admin", "owner": "Admin", "member": "Member", "viewer": "Viewer"}
+# values resolve to an existing custom role by name; unknown roles are rejected.
+_ROLE_NAME_ALIASES = {"admin": "Admin", "owner": "Admin", "member": "Member", "viewer": "Viewer",
+                      "owner/ceo": "Owner/CEO", "general manager": "General Manager",
+                      "branch manager": "Branch Manager", "factory manager": "Factory Manager"}
 
 
 async def get_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> RoleRead:
@@ -108,37 +109,13 @@ async def ensure_permissions_seeded(db: AsyncSession) -> list[Permission]:
     return list((await db.execute(select(Permission))).scalars().all())
 
 
-def _merge_missing(role: Role, wanted: list[Permission]) -> None:
-    """Add whatever permissions from `wanted` a role doesn't already have,
-    without touching anything it already holds — so a tenant that hand-edited
-    a default role's permissions via the Roles screen never gets anything
-    taken away, but still picks up newly-added resources (e.g. a later
-    platform release adding a whole new module) automatically."""
-    have = {p.id for p in role.permissions}
-    role.permissions.extend(p for p in wanted if p.id not in have)
-
-
 async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
-    """Every tenant needs Admin/Member/Viewer roles with real permissions
-    from the moment it exists — without them, any user invited after the
-    owner gets role_id=None (see resolve_role_id below, which invite flows
-    use to turn an invite's role string into one of these), meaning zero
-    permissions and an almost-empty sidebar (only Dashboard/Reports/Settings,
-    since every other nav item is gated on a module permission check).
-
-    Creates each role if missing, and — just as importantly — merges in any
-    catalog permissions an *existing* role doesn't have yet, e.g. when a new
-    resource (a whole new module) is added to _PERMISSION_RESOURCES after
-    tenants already have their default roles. Without that merge, every
-    future resource addition would silently never reach non-owner staff on
-    any tenant that predates it. Safe to call repeatedly and for tenants that
-    registered before this existed — resolve_role_id does exactly that for
-    any tenant it encounters with no roles yet."""
+    """Seed missing business templates without changing existing grants or revocations."""
     all_permissions = await ensure_permissions_seeded(db)
-    existing = {r.name: r for r in await RoleRepository(db).list_for_tenant(tenant_id, 0, 1000)}
+    existing = {r.name: r for r in await RoleRepository(db).template_roles(tenant_id)}
 
     if "Admin" in existing:
-        _merge_missing(existing["Admin"], all_permissions)
+        pass  # Preserve deliberate grants and revocations.
     else:
         db.add(Role(
             tenant_id=tenant_id, name="Admin", permissions=all_permissions,
@@ -147,7 +124,7 @@ async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
 
     member_perms = [p for p in all_permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
     if "Member" in existing:
-        _merge_missing(existing["Member"], member_perms)
+        pass  # Preserve deliberate grants and revocations.
     else:
         db.add(Role(
             tenant_id=tenant_id, name="Member", permissions=member_perms,
@@ -156,12 +133,22 @@ async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
 
     viewer_perms = [p for p in all_permissions if p.action == "read" and p.resource not in _ADMIN_ONLY_RESOURCES]
     if "Viewer" in existing:
-        _merge_missing(existing["Viewer"], viewer_perms)
+        pass  # Preserve deliberate grants and revocations.
     else:
         db.add(Role(
             tenant_id=tenant_id, name="Viewer", permissions=viewer_perms,
             description="Read-only access across modules.",
         ))
+    templates = {
+        "Owner/CEO": all_permissions,
+        "General Manager": [p for p in all_permissions if p.resource not in {"roles", "permissions", "billing", "tenants"}],
+        "Branch Manager": [p for p in member_perms if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}],
+        "Factory Manager": [p for p in all_permissions if p.resource in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "stock", "items", "warehouses"}],
+    }
+    for name, permissions in templates.items():
+        if name not in existing:
+            db.add(Role(tenant_id=tenant_id, name=name, permissions=permissions,
+                        description="Configurable business role template; branch assignments are managed separately."))
     await db.flush()
 
 
@@ -171,7 +158,7 @@ async def resolve_role_id(db: AsyncSession, tenant_id: uuid.UUID, role_str: str)
     this works even for tenants that registered before default roles existed
     — it's the single place both invite flows (admin_invite_user and the
     tenant self-service create_user) resolve a role into real access."""
-    name = _ROLE_NAME_ALIASES.get(role_str.strip().lower(), "Member")
+    name = _ROLE_NAME_ALIASES.get(role_str.strip().lower(), role_str.strip())
     role = await get_role_by_name(db, tenant_id, name)
     if role is None:
         await seed_default_roles(db, tenant_id)

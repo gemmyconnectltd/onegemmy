@@ -6,9 +6,10 @@ from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
 from app.core.response import success_response
 from app.modules.sales import service
+from app.modules.sales.routes.access import order_access
 from app.modules.sales.schemas import OrderPaymentCreate, OrderPaymentReverse
 
-router = APIRouter(tags=["Sales - Payments"])
+router = APIRouter(tags=["Sales - Payments"], dependencies=[Depends(order_access)])
 
 
 def _require_tenant(tenant_id) -> None:

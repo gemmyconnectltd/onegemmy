@@ -61,10 +61,10 @@ export function Footer({ appearance = "light", compact = false }: { appearance?:
               Product
             </h4>
             <ul className={`space-y-2 ${light ? "text-slate-500 text-xs" : "text-white/50 text-sm"}`}>
-              <li><a href="/solutions#pos" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Point of Sale</a></li>
-              <li><a href="/solutions#inventory" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Inventory</a></li>
-              <li><a href="/solutions#accounting" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Accounting</a></li>
-              <li><a href="/solutions#sales" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Sales &amp; CRM</a></li>
+              <li><Link href="/products/pos" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Point of Sale</Link></li>
+              <li><Link href="/products/inventory" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Inventory</Link></li>
+              <li><Link href="/products/accounting" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Accounting</Link></li>
+              <li><Link href="/products/customers" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Sales &amp; CRM</Link></li>
               <li><Link href="/pricing" className={`inline-block py-0.5 ${light ? "hover:text-accent" : "hover:text-white"} transition-colors`}>Pricing</Link></li>
             </ul>
           </div>

@@ -1,4 +1,5 @@
 "use client";
+import { RoleManager } from "@/components/users/RoleManager";
 import { Button } from "@/components/ui/Button";
 import { TableScroll } from "@/components/ui/TableScroll";
 
@@ -19,7 +20,7 @@ import { useAuth } from "@/lib/auth";
 import {
   useCompanyUsers, useCreateCompanyUser, useUpdateCompanyUser, useDeleteCompanyUser,
   useActivateCompanyUser, useDeactivateCompanyUser, useResetCompanyUserPassword,
-  useCompanyUserActivity, useCurrentTenant, useMyBranches,
+  useCompanyUserActivity, useCurrentTenant, useMyBranches, useCompanyRoles,
 } from "@/lib/api/hooks";
 import type { ApiUser } from "@/lib/api";
 
@@ -42,7 +43,7 @@ const ACTIVITY_TONE: Record<string, string> = {
   login: "bg-surface text-muted",
 };
 
-const EMPTY_FORM = { full_name: "", email: "", phone: "", role: "member", branch_id: "" };
+const EMPTY_FORM = { full_name: "", email: "", phone: "", role: "member", branch_id: "", branch_ids: [] as string[], restrict_branches: false };
 
 export default function UsersPage() {
   const { brandColor } = useAppConfig();
@@ -53,6 +54,7 @@ export default function UsersPage() {
   const { data: branches } = useMyBranches();
   const { confirm, dialog } = useConfirmDialog();
 
+  const [showRoles, setShowRoles] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchInput, setSearchInput] = useState("");
@@ -119,6 +121,8 @@ export default function UsersPage() {
       phone: u.phone ?? "",
       role: u.role,
       branch_id: u.branch_id ?? "",
+      branch_ids: u.branch_ids ?? [],
+      restrict_branches: u.branch_ids != null,
     });
     setFormError(null);
   };
@@ -136,6 +140,7 @@ export default function UsersPage() {
         phone: form.phone.trim() || null,
         role: form.role,
         branch_id: form.branch_id || null,
+        branch_ids: form.restrict_branches ? form.branch_ids : null,
       });
       setShowAdd(false);
       flash(`${form.full_name.trim()} was added. Check their email for the temporary password.`);
@@ -159,6 +164,7 @@ export default function UsersPage() {
           phone: form.phone.trim() || null,
           role: form.role,
           branch_id: form.branch_id || null,
+        branch_ids: form.restrict_branches ? form.branch_ids : null,
         },
       });
       setEditing(null);
@@ -264,6 +270,8 @@ export default function UsersPage() {
         </div>
       )}
 
+      {hasPermission("roles:update") && <Button variant="outline" onClick={() => setShowRoles(true)}>Manage roles and permissions</Button>}
+      {showRoles && <RoleManager onClose={() => setShowRoles(false)} />}
       {/* Search + filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <form onSubmit={applySearch} className="flex-1 min-w-[220px] relative">
@@ -540,6 +548,8 @@ function UserForm({
   lockedEmail?: boolean;
   onCancel: () => void;
 }) {
+  const [rolePage, setRolePage] = useState(1);
+  const roles = useCompanyRoles(rolePage);
   return (
     <form onSubmit={onSubmit} className="p-5 space-y-4">
       <Field label="Full Name" required>
@@ -576,8 +586,14 @@ function UserForm({
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="admin">Admin</option>
             <option value="member">Member</option>
+            {roles.data?.items.filter((role) => !["admin", "member", "viewer", "owner/ceo", "general manager", "branch manager", "factory manager"].includes(role.name.toLowerCase())).map((role) => <option key={role.id} value={role.name.toLowerCase()}>{role.name}</option>)}
             <option value="viewer">Viewer</option>
+            <option value="owner/ceo">Owner/CEO</option>
+            <option value="general manager">General Manager</option>
+            <option value="branch manager">Branch Manager</option>
+            <option value="factory manager">Factory Manager</option>
           </Select>
+          {(roles.data?.total ?? 0) > 25 && <div className="mt-2 flex gap-2"><Button type="button" variant="outline" disabled={rolePage === 1} onClick={() => setRolePage(rolePage - 1)}>Previous roles</Button><Button type="button" variant="outline" disabled={rolePage * 25 >= (roles.data?.total ?? 0)} onClick={() => setRolePage(rolePage + 1)}>More roles</Button></div>}
         </Field>
         <Field label="Branch">
           <Select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}>
@@ -588,6 +604,10 @@ function UserForm({
           </Select>
         </Field>
       </div>
+      <Field label="Branch access" hint="Limit this user to selected branches, or retain access to all branches.">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.restrict_branches} onChange={(e) => setForm({ ...form, restrict_branches: e.target.checked })} />Restrict to assigned branches</label>
+        {form.restrict_branches && <div className="grid grid-cols-2 gap-2 pt-2">{branches.map((branch) => <label key={branch.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.branch_ids.includes(branch.id)} onChange={(e) => setForm({ ...form, branch_ids: e.target.checked ? [...form.branch_ids, branch.id] : form.branch_ids.filter((id) => id !== branch.id), branch_id: !e.target.checked && form.branch_id === branch.id ? "" : form.branch_id })} />{branch.name}</label>)}</div>}
+      </Field>
       {formError && <p className="text-[12px] font-semibold text-red-600">{formError}</p>}
       <FormFooter
         submitLabel={label}

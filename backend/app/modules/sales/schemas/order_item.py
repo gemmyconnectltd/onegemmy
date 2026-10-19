@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OrderItemCreate(BaseModel):
@@ -10,14 +10,16 @@ class OrderItemCreate(BaseModel):
     product_name: str
     sku: str | None = None
     variant_attributes: dict | None = None
-    unit_price: float
-    quantity: float = 1
-    discount: float = 0
+    unit_price: float = Field(ge=0, allow_inf_nan=False)
+    quantity: float = Field(default=1, gt=0, allow_inf_nan=False)
+    discount: float = Field(default=0, ge=0, allow_inf_nan=False)
     serial_ids: list[uuid.UUID] | None = None
 
     @model_validator(mode="after")
     def compute_line_total(self):
         self.line_total = round((self.unit_price * self.quantity) - self.discount, 2)
+        if self.line_total < 0:
+            raise ValueError("The line discount cannot exceed its value")
         return self
 
     line_total: float = 0

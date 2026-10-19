@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  images: {
+    // Permit content-version queries only for the approved local media directories.
+    localPatterns: [
+      { pathname: "/marketing/**" },
+      { pathname: "/screenshots/**" },
+      { pathname: "/**", search: "" },
+    ],
+  },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },

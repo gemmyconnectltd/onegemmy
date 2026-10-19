@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Query
 
+from app.core.branches import has_branch_restriction
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
@@ -44,7 +45,7 @@ async def backfill_sales(db: DbSession, current_user: CurrentUser):
     from app.core.exceptions import ForbiddenError
     from app.modules.accounting.service.workspace import allow
     allow(current_user, "journal_entries", "approve")
-    if current_user.branch_id:
+    if has_branch_restriction(current_user):
         raise ForbiddenError("Backfill requires an unrestricted finance account")
     count = await service.backfill_sale_transactions(db, current_user.tenant_id, current_user.id)
     return success_response(data={"created": count}, message=f"Backfilled {count} transaction(s)")

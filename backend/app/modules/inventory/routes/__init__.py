@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.modules.inventory.routes.access import inventory_access
 from app.modules.inventory.routes.batch import router as batch_router
 from app.modules.inventory.routes.brand import router as brand_router
 from app.modules.inventory.routes.category import router as category_router
@@ -12,7 +13,7 @@ from app.modules.inventory.routes.unit import router as unit_router
 from app.modules.inventory.routes.valuation import router as valuation_router
 from app.modules.inventory.routes.variant import router as variant_router
 
-inventory_router = APIRouter()
+inventory_router = APIRouter(dependencies=[Depends(inventory_access)])
 inventory_router.include_router(batch_router)
 inventory_router.include_router(category_router)
 inventory_router.include_router(brand_router)

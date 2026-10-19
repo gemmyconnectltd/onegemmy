@@ -13,6 +13,7 @@ from app.modules.tenants.models.mixins import TenantScopedMixin
 class ProductionOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "manufacturing_production_orders"
 
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
     order_number: Mapped[str] = mapped_column(String(50), nullable=False)
     product_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_products.id", ondelete="SET NULL"), nullable=True
@@ -30,6 +31,7 @@ class ProductionOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     )
 
     __table_args__ = (
+        Index("ix_production_tenant_branch_completed", "tenant_id", "branch_id", "completed_at"),
         Index("ix_manufacturing_orders_tenant_status", "tenant_id", "status"),
         UniqueConstraint("tenant_id", "order_number", name="uq_manufacturing_orders_tenant_number"),
     )

@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ProductionItemCreate(BaseModel):
     product_id: uuid.UUID | None = None
     product_name: str | None = None
+    wastage_quantity: int = Field(default=0, ge=0)
     quantity_required: int = Field(default=1, ge=1)
 
 
@@ -23,10 +24,12 @@ class ProductionItemRead(BaseModel):
     production_order_id: uuid.UUID
     product_id: uuid.UUID | None
     product_name: str | None
+    wastage_quantity: int = 0
     quantity_required: int
 
 
 class ProductionOrderCreate(BaseModel):
+    branch_id: uuid.UUID | None = None
     product_id: uuid.UUID | None = None
     product_name: str | None = None
     quantity: int = Field(default=1, ge=1)
@@ -37,6 +40,7 @@ class ProductionOrderCreate(BaseModel):
 
 
 class ProductionOrderUpdate(BaseModel):
+    branch_id: uuid.UUID | None = None
     product_id: uuid.UUID | None = None
     product_name: str | None = None
     quantity: int | None = Field(default=None, ge=1)
@@ -51,6 +55,7 @@ class ProductionOrderRead(BaseModel):
 
     id: uuid.UUID
     tenant_id: uuid.UUID
+    branch_id: uuid.UUID | None = None
     order_number: str
     product_id: uuid.UUID | None
     product_name: str | None

@@ -12,8 +12,8 @@ class ValuationLine(BaseModel):
     category: str | None
     brand: str | None
     unit: str | None
-    stock: int
-    min_stock: int
+    stock: float
+    min_stock: float
     cost: float
     price: float
     cost_value: float
@@ -25,7 +25,7 @@ class ValuationLine(BaseModel):
 
 class CategoryValuation(BaseModel):
     name: str
-    units: int
+    units: float
     cost_value: float
     retail_value: float
     margin: float
@@ -35,7 +35,7 @@ class ValuationSummary(BaseModel):
     product_count: int
     line_count: int
     variant_count: int
-    total_units: int
+    total_units: float
     cost_value: float
     retail_value: float
     margin: float

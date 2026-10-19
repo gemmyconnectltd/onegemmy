@@ -35,7 +35,7 @@ function CreditLimitCard({ tenant, canEdit, symbol }: { tenant: Tenant; canEdit:
 
   return (
     <SettingsCard title="Customer credit" description="Debt a customer can be given on credit in one day.">
-      <SettingRow label="Daily credit limit per customer" hint={canEdit ? "Credit sales that would take a customer over this today wait for your approval. Leave empty for no limit." : "Set by the General Manager/CEO. Credit sales above it need their approval."}>
+      <SettingRow label="Daily credit limit per customer" hint={canEdit ? "Credit sales that would take a customer over this today wait for your approval. Leave empty for no limit; zero requires approval for any credit. Customer-specific limits override this default." : "Set by the General Manager/CEO. Credit sales above it need their approval."}>
         {canEdit ? (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted">{symbol}</span>
@@ -46,6 +46,22 @@ function CreditLimitCard({ tenant, canEdit, symbol }: { tenant: Tenant; canEdit:
       {canEdit && <div className="-mx-4 sm:-mx-5"><SaveBar dirty={dirty} invalid={invalid} saving={updateTenant.isPending} saved={saved} error={error} onSave={() => void save()} onReset={() => { setValue(current); setError(null); }} /></div>}
     </SettingsCard>
   );
+}
+
+function TimezoneCard({ tenant, canEdit }: { tenant: Tenant; canEdit: boolean }) {
+  const update = useUpdateMyTenant();
+  const [value, setValue] = useState(tenant.timezone ?? "UTC");
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  async function save() {
+    setError(null);
+    try { await update.mutateAsync({ id: tenant.id, data: { timezone: value.trim() } }); setSaved(true); }
+    catch { setError("Choose a valid IANA timezone, for example Africa/Kigali."); }
+  }
+  return <SettingsCard title="Business timezone" description="Sets daily credit boundaries and daily branch reporting dates.">
+    <SettingRow label="Timezone" hint="Use an IANA timezone. Existing businesses retain UTC until configured."><Input aria-label="Business timezone" value={value} disabled={!canEdit} onChange={(e) => { setValue(e.target.value); setSaved(false); }} /></SettingRow>
+    {canEdit && <SaveBar dirty={value !== (tenant.timezone ?? "UTC")} invalid={!value.trim()} saving={update.isPending} saved={saved} error={error} onSave={() => void save()} onReset={() => setValue(tenant.timezone ?? "UTC")} />}
+  </SettingsCard>;
 }
 
 export default function FinancialSettingsPage() {
@@ -68,6 +84,7 @@ export default function FinancialSettingsPage() {
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <FinancialSettings color={brandColor} />
+      {tenant && <TimezoneCard key={tenant.timezone} tenant={tenant} canEdit={hasPermission("tenants:update")} />}
       {tenant && <CreditLimitCard key={String(tenant.credit_daily_limit ?? "")} tenant={tenant} canEdit={hasPermission("credit:approve")} symbol={currencySymbol} />}
       <SettingsCard title="VAT Settings" description="Configure Value Added Tax settings." icon={ReceiptText}>
         <SettingRow label={vatEnabled ? "VAT enabled" : "VAT disabled"} hint={vatEnabled ? "18% tax is applied to sales and shown on receipts." : "No tax is applied to sales or shown on receipts."}>

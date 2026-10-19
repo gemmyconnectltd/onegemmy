@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, DbSession
-from app.core.exceptions import ValidationError
+from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
@@ -28,6 +28,8 @@ async def list_customers(db: DbSession, current_user: CurrentUser, page_params: 
 @router.post("/sales/customers")
 async def create_customer(data: CustomerCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
+    if data.credit_daily_limit is not None and not current_user.is_superuser and "credit:approve" not in current_user.permissions_names:
+        raise ForbiddenError("Permission required: credit:approve")
     obj = await service.create_customer(db, current_user.tenant_id, data)
     return success_response(data=obj.model_dump(), message="Customer created successfully", status_code=201)
 
@@ -35,6 +37,8 @@ async def create_customer(data: CustomerCreate, db: DbSession, current_user: Cur
 @router.post("/sales/customers/bulk")
 async def bulk_create_customers(data: CustomerBulkCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
+    if any(item.credit_daily_limit is not None for item in data.items) and not current_user.is_superuser and "credit:approve" not in current_user.permissions_names:
+        raise ForbiddenError("Permission required: credit:approve")
     result = await service.bulk_create_customers(db, current_user.tenant_id, data)
     return success_response(data=result.model_dump(), message=f"{result.created} customers imported", status_code=201)
 
@@ -49,6 +53,8 @@ async def get_customer(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
 @router.patch("/sales/customers/{id}")
 async def update_customer(id: uuid.UUID, data: CustomerUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
+    if "credit_daily_limit" in data.model_fields_set and not current_user.is_superuser and "credit:approve" not in current_user.permissions_names:
+        raise ForbiddenError("Permission required: credit:approve")
     obj = await service.update_customer(db, current_user.tenant_id, id, data)
     return success_response(data=obj.model_dump(), message="Customer updated successfully")
 

@@ -104,6 +104,7 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "accounting",    href: "/reports/accounting",   icon: DollarSign },
     { nameKey: "inventory",  href: "/reports/inventory", icon: Package },
     { nameKey: "customers",  href: "/reports/customers", icon: Users },
+    { nameKey: "dailyBranches", label: "Daily branch activity", href: "/reports/daily", icon: BarChart3 },
   ],
   settings: [
     // One entry fronts the five Business Settings tabs (General, Financial, Security, Notifications, Appearance).

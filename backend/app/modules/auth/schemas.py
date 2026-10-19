@@ -35,7 +35,7 @@ class RegisterRequest(TrimmedModel):
     heard_about: str | None = None
     referral_code: str | None = None
     # How the business wants to be contacted first. Validated here (a public endpoint never stores free text).
-    preferred_contact: Literal["email", "phone", "whatsapp"] = "email"
+    preferred_contact: Literal["email", "phone", "whatsapp", "all"] = "email"
     main_branch_name: str | None = None
 
 
@@ -62,6 +62,7 @@ class TokenUserInfo(BaseModel):
     # None means "no single assigned branch" — in practice this is how an
     # Admin/Owner gets implicit access to every branch, same as a null
     # tenant_id means "no tenant" for a platform superuser.
+    branch_ids: list[uuid.UUID] | None = None
     branch_id: uuid.UUID | None = None
     branch_name: str | None = None
     permissions: list[str]

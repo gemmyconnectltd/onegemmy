@@ -18,6 +18,7 @@ class ProductionItem(UUIDPKMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("inventory_products.id", ondelete="SET NULL"), nullable=True
     )
     product_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    wastage_quantity: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     quantity_required: Mapped[int] = mapped_column(Integer, default=1)
 
     product = relationship("Product", lazy="joined")

@@ -94,6 +94,21 @@ async def get_active_branch_id(
     (e.g. a POS sale) should fall back to the tenant's main branch rather
     than treat None as "no branch restriction" themselves.
     """
+    if current_user.branch_ids is not None:
+        allowed = {uuid.UUID(str(id)) for id in current_user.branch_ids}
+        if not allowed:
+            raise ForbiddenError("No branches assigned. Ask an owner to assign a branch.")
+        selected = x_branch_id or current_user.branch_id
+        if selected is None and len(allowed) == 1:
+            selected = next(iter(allowed))
+        if selected is None:
+            raise ForbiddenError("Select one of your assigned branches")
+        if selected not in allowed:
+            raise ForbiddenError("This branch is not assigned to your account")
+        from app.modules.tenants.repository import BranchRepository
+        if await BranchRepository(db).get_by_id_for_tenant(current_user.tenant_id, selected) is None:
+            raise ForbiddenError("The assigned branch is unavailable; contact an owner")
+        return selected
     if current_user.branch_id is not None:
         return current_user.branch_id
     if x_branch_id is None or current_user.tenant_id is None:
@@ -140,6 +155,6 @@ def require_feature(feature_key: str):
                 "tenant_id": str(user.tenant_id),
                 "feature": feature_key,
             }})
-            raise ForbiddenError("This feature is not enabled for your company")
+            raise ForbiddenError(f"{feature_key.replace('_', ' ').title()} is not enabled for your company. Ask an owner to check the subscription’s enabled modules.")
         return user
     return _check

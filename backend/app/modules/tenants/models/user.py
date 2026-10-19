@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -28,6 +28,8 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     branch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True
     )
+    branch_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
     )

@@ -21,13 +21,13 @@ async def get_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUI
     return _to_read(branch)
 
 
-async def list_branches(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20) -> list[BranchRead]:
-    branches = await BranchRepository(db).list_for_tenant(tenant_id, offset, limit)
+async def list_branches(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, ids: list[uuid.UUID] | None = None) -> list[BranchRead]:
+    branches = await BranchRepository(db).list_for_tenant(tenant_id, offset, limit, ids)
     return [_to_read(b) for b in branches]
 
 
-async def count_branches(db: AsyncSession, tenant_id: uuid.UUID) -> int:
-    return await BranchRepository(db).count_for_tenant(tenant_id)
+async def count_branches(db: AsyncSession, tenant_id: uuid.UUID, ids: list[uuid.UUID] | None = None) -> int:
+    return await BranchRepository(db).count_for_tenant(tenant_id, ids)
 
 
 async def create_branch(db: AsyncSession, tenant_id: uuid.UUID, data: BranchCreate) -> BranchRead:

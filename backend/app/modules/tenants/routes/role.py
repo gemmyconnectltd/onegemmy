@@ -1,14 +1,20 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
 from app.modules.tenants.schemas import RoleCreate, RolePermissionAssign, RoleUpdate
 
-router = APIRouter(tags=["Roles"])
+
+async def authorize_role(request: Request, current_user: CurrentUser):
+    action = "read" if request.method == "GET" else "update"
+    await require_permission(f"roles:{action}")(current_user)
+
+
+router = APIRouter(tags=["Roles"], dependencies=[Depends(authorize_role)])
 
 
 @router.get("/roles")
@@ -75,5 +81,5 @@ async def assign_role_permissions(
 ):
     # Only the owning tenant may edit a role's permissions.
     await service.get_role(db, current_user.tenant_id, role_id)
-    await service.assign_perm_to_role(db, role_id, data.permission_ids)
+    await service.assign_perm_to_role(db, role_id, data.permission_ids, current_user)
     return success_response(message="Permissions assigned to role successfully")

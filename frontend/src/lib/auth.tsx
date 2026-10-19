@@ -29,6 +29,7 @@ export interface User {
   // null means this user has no fixed branch of their own (an Admin/Owner
   // with implicit access to every branch) — see `activeBranchId` below for
   // how they pick one to act in.
+  branchIds?: string[] | null;
   branchId: string | null;
   branchName: string | null;
   permissions: string[];
@@ -58,7 +59,7 @@ export interface RegisterInput {
   referralCode?: string;
   mainBranchName?: string;
   /** "email" (default), "phone" (call) or "whatsapp" — how Pesaa should reach the business first. */
-  preferredContact?: "email" | "phone" | "whatsapp";
+  preferredContact?: "email" | "phone" | "whatsapp" | "all";
 }
 
 // Backend permission resources (resource:action, see backend/app/scripts/seed.py)
@@ -111,7 +112,8 @@ function mapUser(u: ApiTokenUserInfo): User {
     tenantId: u.tenant_id,
     tenantName: u.tenant_name,
     tenantSlug: u.tenant_slug,
-    branchId: u.branch_id,
+    branchIds: u.branch_ids,
+    branchId: u.branch_ids && u.branch_ids.length > 1 ? null : u.branch_id ?? u.branch_ids?.[0] ?? null,
     branchName: u.branch_name,
     permissions: u.permissions ?? [],
   };

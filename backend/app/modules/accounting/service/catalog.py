@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from app.core.branches import branch_allowed, has_branch_restriction
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.workspace import (
@@ -20,7 +21,7 @@ from app.modules.tenants.models import Tenant
 
 async def update_preferences(db, user, data):
     tenant_id = allow(user, "tenants", "update")
-    if user.branch_id:
+    if has_branch_restriction(user):
         raise ValidationError("Fiscal preferences require business-wide administration")
     row = await db.get(AccountingPreference, tenant_id)
     if row is None:
@@ -38,7 +39,7 @@ async def update_bill_terms(db, user, bill_id, data):
     if row is None:
         raise NotFoundError("Supplier bill not found")
     order = await WorkspaceRepository(db).record(PurchaseOrder, tenant_id, id=row.purchase_order_id)
-    if order is None or (user.branch_id and user.branch_id != order.branch_id):
+    if order is None or (not branch_allowed(user, order.branch_id)):
         raise NotFoundError("Supplier bill not found in this branch")
     if data.due_date and data.due_date < row.bill_date:
         raise ValidationError("Due date cannot precede the bill date")

@@ -169,3 +169,132 @@ async def test_a_held_order_cannot_be_pushed_through_by_editing_its_status(db):
         await order_service.update_order(db, t.id, held.id, OrderUpdate(status="Completed"))
     with pytest.raises(ValidationError):
         await order_service.update_order(db, t.id, held.id, OrderUpdate(status="Awaiting Approval"))
+
+
+async def test_exact_limit_zero_limit_and_customer_override(db):
+    t, u, p = await make_tenant(db, limit=D(100))
+    c = await customer(db, t)
+    assert (await sell(db, t, u, p, c, 100)).status == "Completed"
+    assert (await sell(db, t, u, p, c, 1)).status == "Awaiting Approval"
+    other = await customer(db, t, "No automatic credit")
+    other.credit_daily_limit = D(0)
+    await db.flush()
+    assert (await sell(db, t, u, p, other, 1)).status == "Awaiting Approval"
+    t.credit_daily_limit = None
+    await db.flush()
+    assert (await sell(db, t, u, p, other, 1)).status == "Awaiting Approval"
+
+
+async def test_draft_completion_obeys_policy_and_posted_sale_cannot_reopen(db):
+    t, u, p = await make_tenant(db, limit=D(100))
+    c = await customer(db, t)
+    pending = await order_service.create_order(db, t.id, u.id, OrderCreate(
+        status="Pending", customer_id=c.id, amount_tendered=0,
+        due_date=datetime.now(UTC).date() + timedelta(days=2),
+        items=[OrderItemCreate(product_id=p.id, product_name=p.name, unit_price=101, quantity=1)],
+    ))
+    before = await stock(db, p)
+    held = await order_service.update_order(db, t.id, pending.id, OrderUpdate(status="Completed"))
+    assert held.status == "Awaiting Approval"
+    assert await stock(db, p) == before
+    done = await sell(db, t, u, p, c, 1, paid=1)
+    with pytest.raises(ValidationError):
+        await order_service.update_order(db, t.id, done.id, OrderUpdate(status="Pending"))
+
+
+async def test_backdated_new_credit_counts_against_today(db):
+    t, u, p = await make_tenant(db, limit=D(100))
+    c = await customer(db, t)
+    first = await order_service.create_order(db, t.id, u.id, OrderCreate(
+        status="Completed", customer_id=c.id, amount_paid=0,
+        ordered_at=datetime.now(UTC) - timedelta(days=5),
+        due_date=datetime.now(UTC).date() + timedelta(days=2),
+        items=[OrderItemCreate(product_id=p.id, product_name=p.name, unit_price=100, quantity=1)],
+    ))
+    assert first.status == "Completed"
+    assert (await sell(db, t, u, p, c, 1)).status == "Awaiting Approval"
+
+
+async def test_concurrent_credit_requests_are_serialized_in_private_schema():
+    """Two independent DB transactions must not both spend the same remaining allowance.
+
+    All data lives in a randomly named private schema, dropped in finally; existing business
+    records and the application's schema are untouched.
+    """
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from app.core.config import settings
+    from app.core.database import Base, _json_serializer
+
+    schema = f"credit_test_{uuid.uuid4().hex}"
+    control = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
+    engine = None
+    try:
+        async with control.begin() as connection:
+            await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool,
+            json_serializer=_json_serializer, connect_args={"server_settings": {"search_path": schema}})
+        async with engine.begin() as connection:
+            from sqlalchemy import MetaData
+            metadata = MetaData()
+            seen_indexes = set()
+            for table in Base.metadata.sorted_tables:
+                copied = table.to_metadata(metadata)
+                for index in list(copied.indexes):
+                    if index.name in seen_indexes:
+                        copied.indexes.remove(index)
+                    else:
+                        seen_indexes.add(index.name)
+            await connection.run_sync(metadata.create_all)
+        async with AsyncSession(engine, expire_on_commit=False) as setup:
+            t, u, p = await make_tenant(setup, limit=D(100))
+            c = await customer(setup, t)
+            await setup.commit()
+            ids = t.id, u.id, p.id, c.id
+
+        async def request():
+            async with AsyncSession(engine, expire_on_commit=False) as session:
+                tenant_id, user_id, product_id, customer_id = ids
+                return await order_service.create_order(session, tenant_id, user_id, OrderCreate(
+                    status="Completed", customer_id=customer_id, amount_paid=0,
+                    due_date=datetime.now(UTC).date() + timedelta(days=2),
+                    items=[OrderItemCreate(product_id=product_id, product_name="Widget", unit_price=60, quantity=1)],
+                ))
+        first, second = await asyncio.wait_for(asyncio.gather(request(), request()), timeout=30)
+        assert sorted([first.status, second.status]) == ["Awaiting Approval", "Completed"]
+        async with AsyncSession(engine) as verify:
+            assert await verify.scalar(select(Product.stock).where(Product.id == ids[2])) == D(999)
+
+        held = first if first.status == "Awaiting Approval" else second
+        async def approve():
+            async with AsyncSession(engine, expire_on_commit=False) as session:
+                return await order_service.approve_order(session, ids[0], held.id, ids[1], "Manager", "Concurrent approval test")
+        decisions = await asyncio.wait_for(asyncio.gather(approve(), approve(), return_exceptions=True), timeout=30)
+        assert sum(not isinstance(result, Exception) for result in decisions) == 1
+        assert sum(isinstance(result, ValidationError) for result in decisions) == 1
+        async with AsyncSession(engine) as verify:
+            assert await verify.scalar(select(Product.stock).where(Product.id == ids[2])) == D(998)
+    finally:
+        if engine:
+            await engine.dispose()
+        async with control.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+        await control.dispose()
+
+
+async def test_credit_day_uses_business_timezone(db, monkeypatch):
+    t, _, _ = await make_tenant(db)
+    t.timezone = "Africa/Kigali"
+    await db.flush()
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=UTC):
+            return datetime(2026, 1, 1, 23, 30, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(order_service, "datetime", Clock)
+    assert await order_service._credit_day(db, t.id) == datetime(2026, 1, 2, tzinfo=UTC).date()
