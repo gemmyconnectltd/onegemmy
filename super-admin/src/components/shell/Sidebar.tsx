@@ -66,7 +66,8 @@ export function Sidebar({ collapsed, onCollapsedChange }: { collapsed: boolean; 
                 href={item.href}
                 title={collapsed ? item.name : undefined}
                 aria-current={active ? "page" : undefined}
-                className={"group w-full flex items-center gap-3 transition-all duration-150 focus-visible:outline-none" + (collapsed ? " flex-col justify-center gap-1 py-2.5" : " h-11 px-3") + (active ? " bg-accent" : " hover:bg-surface")}
+                data-active={active}
+                className={"pesaa-nav-row group w-full flex items-center gap-3 transition-all duration-150 focus-visible:outline-none" + (collapsed ? " flex-col justify-center gap-1 py-2.5" : " h-11 px-3") + (active ? " bg-accent" : " hover:bg-surface")}
               >
                 <item.icon size={18} strokeWidth={active ? 2.2 : 1.8} className={"flex-shrink-0" + (active ? " text-white" : " text-muted group-hover:text-foreground")} />
                 {!collapsed && <span className={"text-[13px] font-semibold truncate" + (active ? " text-white" : " text-muted group-hover:text-foreground")}>{item.name}</span>}
@@ -109,11 +110,11 @@ export function Sidebar({ collapsed, onCollapsedChange }: { collapsed: boolean; 
             </Link>
             <button onClick={() => setMenuOpen(false)} className="p-2 text-muted hover:text-foreground" aria-label="Close menu"><X size={20} /></button>
           </div>
-          <nav className="flex-1 overflow-y-auto px-3 py-4 grid grid-cols-3 gap-2 content-start" aria-label="Main">
+          <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-0.5" aria-label="Main">
             {navItems.map((item) => {
               const active = isNavActive(pathname, item.href);
               return (
-                <Link key={item.name} href={item.href} onClick={() => setMenuOpen(false)} className={"flex flex-col items-center justify-center gap-2 py-4 rounded-xl transition-colors" + (active ? " bg-accent" : " bg-surface")}>
+                <Link key={item.name} href={item.href} onClick={() => setMenuOpen(false)} aria-current={active ? "page" : undefined} data-active={active} className="pesaa-nav-row flex w-full items-center gap-3 px-3 py-3 transition-colors">
                   <item.icon size={22} strokeWidth={active ? 2.2 : 1.6} className={active ? "text-white" : "text-muted"} />
                   <span className={"text-[11px] font-semibold" + (active ? " text-white" : " text-muted")}>{item.name}</span>
                 </Link>

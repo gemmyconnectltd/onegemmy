@@ -1,5 +1,6 @@
 "use client";
 
+import designTokens from "../../../design-system/tokens.json";
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import {
@@ -17,6 +18,8 @@ const BASE_STRINGS: Record<string, string> = {
   accounting: "Accounting", procurement: "Purchases", hr: "HR",
   customers: "Customers", crm: "CRM", manufacturing: "Mfg",
   reports: "Reports", settings: "Settings", overview: "Overview",
+  salesHistory: "Sales History",
+  purchaseHistory: "Purchase History",
   orders: "Orders", targets: "Targets", returns: "Returns",
   analytics: "Analytics", income: "Income", expenses: "Expenses",
   accounts: "Accounts", invoices: "Invoices", employees: "Employees", recruiting: "Recruiting",
@@ -166,6 +169,9 @@ function applyTheme(theme: Theme, accent: string) {
   root.style.setProperty("--border", base.border);
   root.style.setProperty("--accent", safeAccent);
   root.style.setProperty("--primary", safeAccent);
+  // Tenant branding overrides interaction shades without changing component designs.
+  const custom = safeAccent.toLowerCase() !== DEFAULT_BRAND_COLOR.toLowerCase();
+  for (const [name, value] of Object.entries({ hover: custom ? `color-mix(in srgb, ${safeAccent} 85%, #000)` : designTokens.primaryHover, active: custom ? `color-mix(in srgb, ${safeAccent} 72%, #000)` : designTokens.primaryActive, light: custom || theme === "dark" ? `color-mix(in srgb, ${safeAccent} 8%, ${base.card})` : designTokens.primaryLight, border: custom || theme === "dark" ? `color-mix(in srgb, ${safeAccent} 30%, ${base.card})` : designTokens.primaryBorder })) root.style.setProperty(`--primary-${name}`, value);
   root.style.setProperty("--foreground", base.foreground);
   root.style.setProperty("--muted", base.muted);
 }

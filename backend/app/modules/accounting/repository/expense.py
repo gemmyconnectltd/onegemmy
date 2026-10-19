@@ -44,8 +44,10 @@ class ExpenseRepository(BaseRepository[Expense]):
         return result.scalar_one()
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
-        result = await self.db.execute(
-            select(func.count()).select_from(Expense).where(Expense.tenant_id == tenant_id)
-        )
-        count = result.scalar_one()
-        return f"EXP-{str(count + 1).zfill(4)}"
+        from sqlalchemy import Integer, cast
+
+        from app.modules.accounting.repository.reporting import ReportingRepository
+        await ReportingRepository(self.db).lock_tenant(tenant_id)
+        result = await self.db.execute(select(func.max(cast(func.substring(Expense.reference, 5), Integer))).where(
+            Expense.tenant_id == tenant_id, Expense.reference.op("~")(r"^EXP-[0-9]{1,9}$")))
+        return f"EXP-{(result.scalar_one() or 0) + 1:04d}"

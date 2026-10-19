@@ -14,15 +14,15 @@ export function SecondaryNav({ items, label, title }: { items: TabItem[]; label:
   return (
     <>
       <div className="lg:hidden"><TabStrip items={items} label={label} /></div>
-      <nav aria-label={label} className="hidden w-52 flex-shrink-0 lg:block xl:w-56">
+      <nav aria-label={label} className="hidden w-52 flex-shrink-0 bg-card lg:block xl:w-56">
         <div className="sticky top-20 space-y-0.5">
           {title && <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">{title}</p>}
           {items.map((t) => {
-            const cls = cn("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-semibold transition-colors", t.active ? "bg-accent/10 text-accent" : "text-muted hover:bg-surface hover:text-foreground");
-            const inner = <>{t.icon && <t.icon size={15} className="flex-shrink-0" />}<span className="min-w-0 flex-1 truncate">{t.label}</span>{typeof t.count === "number" && <span className="rounded-md bg-surface px-1.5 py-0.5 text-[10.5px] text-muted">{t.count}</span>}{t.dot && <span title="Unsaved changes" aria-label="Unsaved changes" className="h-1.5 w-1.5 rounded-full bg-amber-500" />}</>;
+            const cls = cn("pesaa-nav-row flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-semibold transition-colors");
+            const inner = <>{t.icon && <t.icon size={15} className="flex-shrink-0" />}<span className="min-w-0 flex-1 truncate">{t.label}</span>{typeof t.count === "number" && <span data-nav-indicator className="rounded-md bg-surface px-1.5 py-0.5 text-[10.5px] text-muted">{t.count}</span>}{t.dot && <span title="Unsaved changes" aria-label="Unsaved changes" className="h-1.5 w-1.5 rounded-full bg-amber-500" />}</>;
             return t.href
-              ? <Link key={t.key} href={t.href} aria-current={t.active ? "page" : undefined} className={cls}>{inner}</Link>
-              : <button key={t.key} type="button" onClick={t.onSelect} aria-current={t.active ? "page" : undefined} className={cls}>{inner}</button>;
+              ? <Link key={t.key} href={t.href} aria-current={t.active ? "page" : undefined} data-active={t.active} className={cls}>{inner}</Link>
+              : <button key={t.key} type="button" onClick={t.onSelect} aria-current={t.active ? "page" : undefined} data-active={t.active} className={cls}>{inner}</button>;
           })}
         </div>
       </nav>

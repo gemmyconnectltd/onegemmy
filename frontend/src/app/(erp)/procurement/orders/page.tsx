@@ -1,13 +1,15 @@
 "use client";
 import { TableScroll } from "@/components/ui/TableScroll";
 
-import { purchaseBaseTotal } from "@/lib/baseMoney";
+import { useAuth } from "@/lib/auth";
+import { Pagination } from "@/components/ui/Pagination";
+import { formatMoney } from "@/lib/money";
 import { fmtMoney } from "@/lib/config";
-import { useState } from "react";
-import { Ban, CheckCircle2, Eye, FileText, Plus, Search, Trash2, Truck, X } from "lucide-react";
+import { useDeferredValue, useEffect, useState } from "react";
+import { Ban, CheckCircle2, Eye, FileText, Pencil, Plus, Search, Trash2, Truck, X } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
+import { Field, Input } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
@@ -15,10 +17,10 @@ import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { fmtDateTime } from "@/lib/date";
 import {
-  usePurchaseOrders, useSuppliers, useProducts,
-  useCreatePurchaseOrder, useReceivePurchaseOrder, useCancelPurchaseOrder, useDeletePurchaseOrder,
+  usePurchaseOrders, useReceivePurchaseOrder, useCancelPurchaseOrder, useDeletePurchaseOrder,
 } from "@/lib/api/hooks";
-import type { PurchaseOrder, PurchaseItemInput } from "@/lib/api";
+import { PurchaseEditor } from "@/components/procurement/PurchaseEditor";
+import type { PurchaseOrder } from "@/lib/api";
 
 type Status = "Draft" | "Received" | "Cancelled";
 const STATUS_ORDER: (Status | "All")[] = ["All", "Draft", "Received", "Cancelled"];
@@ -28,44 +30,31 @@ const STATUS_STYLES: Record<Status, string> = {
   Cancelled: "bg-red-50 text-red-600",
 };
 
-type ItemRow = { rowId: string; product_id: string; unit_cost: string; quantity: string };
-const newRow = (): ItemRow => ({ rowId: crypto.randomUUID(), product_id: "", unit_cost: "", quantity: "1" });
-const EMPTY_FORM = { supplier_id: "", expected_date: "", notes: "" };
-
 export default function PurchaseOrdersPage() {
-  const { currencySymbol, brandColor } = useAppConfig();
+  const { currencySymbol, brandColor, currency } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [filter, setFilter] = useState<Status | "All">("All");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const { user, activeBranchId, hasPermission } = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [items, setItems] = useState<ItemRow[]>([newRow()]);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PurchaseOrder | undefined>(undefined);
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
 
-  const { data, isLoading } = usePurchaseOrders();
-  const { data: suppliersData } = useSuppliers();
-  const { data: productsData } = useProducts(1, 500);
+  const { data, isLoading, error: historyError } = usePurchaseOrders(filter === "All" ? undefined : filter, page, 25, undefined, {search: useDeferredValue(search), from_date: fromDate, to_date: toDate}, `${user?.tenantId}:${activeBranchId}`);
   const orders = data?.items ?? [];
-  const suppliers = suppliersData?.items ?? [];
-  const products = productsData?.items ?? [];
 
-  const createPurchase = useCreatePurchaseOrder();
   const receivePurchase = useReceivePurchaseOrder();
   const cancelPurchase = useCancelPurchaseOrder();
   const deletePurchase = useDeletePurchaseOrder();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
-  const filtered = orders.filter((p) => {
-    const q = search.trim().toLowerCase();
-    return (
-      (filter === "All" || p.status === filter) &&
-      (!q || p.reference.toLowerCase().includes(q) || (p.supplier?.name ?? "").toLowerCase().includes(q))
-    );
-  });
+  const filtered = orders;
 
-  const deletableIds = filtered.filter((p) => p.status === "Draft").map((p) => p.id);
+  const deletableIds = hasPermission("purchase_orders:delete") ? filtered.filter((p) => p.status === "Draft").map((p) => p.id) : [];
   const bulk = useBulkSelection(deletableIds);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -85,60 +74,19 @@ export default function PurchaseOrdersPage() {
   }
 
   const stats = [
-    { label: "Drafts", value: orders.filter((p) => p.status === "Draft").length, color: "#64748b" },
-    { label: "Received", value: orders.filter((p) => p.status === "Received").length, color: "#059669" },
-    { label: "Cancelled", value: orders.filter((p) => p.status === "Cancelled").length, color: "#dc2626" },
-    { label: "Total Value", value: fmt(orders.reduce((s, p) => s + purchaseBaseTotal(p), 0)), color: "#b45309", isStr: true },
+    { label: "Drafts", value: data?.summary?.counts.Draft || 0, color: "#64748b" },
+    { label: "Received", value: data?.summary?.counts.Received || 0, color: "#059669" },
+    { label: "Cancelled", value: data?.summary?.counts.Cancelled || 0, color: "#dc2626" },
+    { label: "Value (excluding cancelled)", value: fmt(Number(data?.summary?.total_value || 0)), color: "#b45309", isStr: true },
   ];
 
-  const openAdd = () => {
-    setForm(EMPTY_FORM);
-    setItems([newRow()]);
-    setFormError(null);
-    setShowModal(true);
-  };
+  const openAdd = () => { setEditing(undefined); setShowModal(true); };
 
-  const updateRow = (i: number, patch: Partial<ItemRow>) =>
-    setItems((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-
-  const pickProduct = (i: number, productId: string) => {
-    const p = products.find((x) => x.id === productId);
-    updateRow(i, { product_id: productId, unit_cost: p ? String(p.cost) : "" });
-  };
-
-  const itemsTotal = items.reduce((s, r) => s + (Number(r.unit_cost) || 0) * (Number(r.quantity) || 0), 0);
-
-  const createPo = async () => {
-    setFormError(null);
-    const validItems: PurchaseItemInput[] = items
-      .filter((r) => r.product_id)
-      .map((r) => {
-        const p = products.find((x) => x.id === r.product_id)!;
-        return {
-          product_id: p.id,
-          product_name: p.name,
-          sku: p.sku ?? null,
-          unit_cost: Number(r.unit_cost) || 0,
-          quantity: Number(r.quantity) || 1,
-        };
-      });
-    if (validItems.length === 0) {
-      setFormError("Add at least one item.");
-      return;
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
+      queueMicrotask(() => setShowModal(true));
     }
-    try {
-      await createPurchase.mutateAsync({
-        supplier_id: form.supplier_id || null,
-        expected_date: form.expected_date || null,
-        notes: form.notes.trim() || null,
-        status: "Draft",
-        items: validItems,
-      });
-      setShowModal(false);
-    } catch (e: unknown) {
-      setFormError((e as { detail?: string })?.detail ?? "Failed to create purchase order");
-    }
-  };
+  }, []);
 
   const [receiving, setReceiving] = useState<PurchaseOrder | null>(null);
   const [billDueDate, setBillDueDate] = useState("");
@@ -171,17 +119,17 @@ export default function PurchaseOrdersPage() {
       {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Purchase Orders</h1>
-          <p className="text-sm text-muted mt-1">Create and track orders from your suppliers.</p>
+          <h1 className="text-2xl font-bold text-foreground">Purchase History</h1>
+          <p className="text-sm text-muted mt-1">Review purchases, supplier costs and receiving history.</p>
         </div>
-        <Button onClick={openAdd} color={brandColor}>
-          <Plus size={16} /> New Purchase Order
+        <Button onClick={openAdd} color={brandColor} disabled={!hasPermission("purchase_orders:create")}>
+          <Plus size={16} /> New Purchase
         </Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="bg-card p-4">
+          <div key={s.label} className="rounded-xl border border-border bg-card p-4">
             <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
             </div>
@@ -196,13 +144,13 @@ export default function PurchaseOrdersPage() {
           {STATUS_ORDER.map((s) => (
             <button
               key={s}
-              onClick={() => setFilter(s)}
+              onClick={() => {setFilter(s); setPage(1);}}
               className={`px-3 py-1.5 text-[13px] font-semibold transition-colors rounded-lg ${
                 filter === s ? "text-white" : "text-foreground/50 hover:text-foreground"
               }`}
               style={filter === s ? { backgroundColor: brandColor } : undefined}
             >
-              {s} <span className="opacity-70">({s === "All" ? orders.length : orders.filter((p) => p.status === s).length})</span>
+              {s} <span className="opacity-70">({s === "All" ? data?.summary?.total || 0 : data?.summary?.counts[s] || 0})</span>
             </button>
           ))}
         </div>
@@ -210,19 +158,21 @@ export default function PurchaseOrdersPage() {
           <Search size={14} className="text-muted flex-shrink-0" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {setSearch(e.target.value); setPage(1);}}
             placeholder="Search reference or supplier..."
             className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
           />
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3"><label className="text-xs text-muted">From<Input aria-label="Purchase date from" type="date" value={fromDate} max={toDate || undefined} onChange={event => {setFromDate(event.target.value); setPage(1);}} /></label><label className="text-xs text-muted">To<Input aria-label="Purchase date to" type="date" value={toDate} min={fromDate || undefined} onChange={event => {setToDate(event.target.value); setPage(1);}} /></label></div>
+      {historyError && <p role="alert" className="text-sm text-red-600">{(historyError as {detail?: string}).detail || "Could not load purchase history."}</p>}
       {bulk.count > 0 && (
         <BulkActionBar count={bulk.count} label="purchase order" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
       )}
 
-      <div className="bg-card border border-border overflow-x-auto">
-        <TableScroll><table className="w-full min-w-[640px]">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <TableScroll><table className="w-full min-w-[1050px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-4 w-10">
@@ -242,15 +192,15 @@ export default function PurchaseOrdersPage() {
             {filtered.map((p) => (
               <tr key={p.id} className="hover:bg-surface/50">
                 <td className="p-4">
-                  {p.status === "Draft" && (
+                  {p.status === "Draft" && hasPermission("purchase_orders:delete") && (
                     <input type="checkbox" checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} className="w-4 h-4 rounded" />
                   )}
                 </td>
-                <td className="p-4 text-[13px] font-bold text-foreground">{p.reference}</td>
+                <td className="whitespace-nowrap p-3 text-[12px] font-semibold text-foreground">{p.reference}</td>
                 <td className="p-4 text-[13px] text-foreground">{p.supplier?.name ?? "—"}</td>
                 <td className="p-4 text-[13px] text-muted whitespace-nowrap">{fmtDateTime(p.created_at)}</td>
                 <td className="p-4 text-[13px] text-muted">{p.items.length}</td>
-                <td className="p-4 text-right text-[13px] font-bold text-foreground tabular-nums">{fmt(p.total)}</td>
+                <td className="p-4 text-right text-[13px] font-bold text-foreground tabular-nums">{formatMoney(p.total, p.currency_code || currency, {showCode: true})}</td>
                 <td className="p-4 text-[13px] text-muted whitespace-nowrap">{p.expected_date ?? "—"}</td>
                 <td className="p-4">
                   <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${STATUS_STYLES[p.status as Status] ?? "bg-surface text-muted"}`}>
@@ -264,8 +214,9 @@ export default function PurchaseOrdersPage() {
                       className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold">
                       <Eye size={13} /> View
                     </button>
-                    {p.status === "Draft" && (
+                    {p.status === "Draft" && hasPermission("purchase_orders:update") && (
                       <>
+                        <button onClick={() => {setEditing(p); setShowModal(true);}} aria-label={`Edit ${p.reference}`} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-accent hover:bg-accent/10"><Pencil size={13} />Edit</button>
                         <button
                           onClick={() => handleReceive(p)}
                           className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
@@ -278,7 +229,7 @@ export default function PurchaseOrdersPage() {
                         >
                           <X size={14} /> Cancel
                         </button>
-                        <button onClick={() => handleDelete(p)}
+                        <button disabled={!hasPermission("purchase_orders:delete")} onClick={() => handleDelete(p)}
                           className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold">
                           <Trash2 size={13} /> Delete
                         </button>
@@ -297,73 +248,8 @@ export default function PurchaseOrdersPage() {
         </table></TableScroll>
       </div>
 
-      {/* New Purchase Order */}
-      <Drawer
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title="New Purchase Order"
-        description="Create a draft order for a supplier."
-        side="right"
-        size="lg"
-        footer={
-          <form onSubmit={(e) => { e.preventDefault(); createPo(); }}>
-            <FormFooter submitLabel={createPurchase.isPending ? "Creating…" : "Create draft order"} onCancel={() => setShowModal(false)} disabled={createPurchase.isPending} />
-          </form>
-        }
-      >
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Supplier">
-              <Select value={form.supplier_id} onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}>
-                <option value="">— Select supplier —</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </Select>
-            </Field>
-            <Field label="Expected Date">
-              <Input type="date" value={form.expected_date} onChange={(e) => setForm((f) => ({ ...f, expected_date: e.target.value }))} />
-            </Field>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[12px] font-semibold text-muted">Items</p>
-              <button type="button" onClick={() => setItems((rows) => [...rows, newRow()])}
-                className="text-[12px] font-semibold flex items-center gap-1 hover:opacity-80 transition-opacity" style={{ color: brandColor }}>
-                <Plus size={13} /> Add item
-              </button>
-            </div>
-            <div className="space-y-2">
-              {items.map((row, i) => (
-                <div key={row.rowId} className="flex items-center gap-2">
-                  <Select value={row.product_id} onChange={(e) => pickProduct(i, e.target.value)} className="flex-1">
-                    <option value="">Select product...</option>
-                    {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.stock} in stock)</option>)}
-                  </Select>
-                  <Input type="number" min={1} value={row.quantity} onChange={(e) => updateRow(i, { quantity: e.target.value })} className="w-20 text-center" placeholder="Qty" />
-                  <Input type="number" min={0} value={row.unit_cost} onChange={(e) => updateRow(i, { unit_cost: e.target.value })} className="w-28 font-mono" placeholder="Unit cost" />
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => setItems((rows) => rows.filter((_, idx) => idx !== i))}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors flex-shrink-0">
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="text-[12px] text-muted text-right mt-2">
-              Items total: <span className="font-semibold text-foreground">{fmt(itemsTotal)}</span>
-            </p>
-          </div>
-
-          <Field label="Notes">
-            <Textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." />
-          </Field>
-
-          {formError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
-          )}
-        </div>
-      </Drawer>
+      <Pagination page={page} pageSize={25} total={data?.total || 0} onPageChange={setPage} itemLabel="purchases" />
+      {showModal && <PurchaseEditor initial={editing} onClose={() => setShowModal(false)} onSaved={() => {setShowModal(false); setEditing(undefined);}} />}
 
       {/* View */}
       <Drawer open={!!receiving} onClose={() => setReceiving(null)} title="Receive Purchase Order"><form className="space-y-4 p-5" onSubmit={e => { e.preventDefault(); if (receiving) receivePurchase.mutate({ id: receiving.id, dueDate: billDueDate || undefined }, { onSuccess: () => setReceiving(null) }); }}><p className="text-sm">Receive {receiving?.reference}, update stock and create the supplier bill.</p><Field label="Supplier bill due date (from agreed terms)"><Input type="date" min={new Date().toISOString().slice(0, 10)} value={billDueDate} onChange={e => setBillDueDate(e.target.value)} /></Field><p className="text-xs text-muted">Leave blank only if terms are unknown. Bills without a due date remain Current and are labelled No due date in aging.</p>{receivePurchase.error && <p role="alert" className="text-sm text-red-600">{receivePurchase.error.message}</p>}<Button type="submit" disabled={receivePurchase.isPending}>Receive & create bill</Button></form></Drawer>
@@ -376,7 +262,7 @@ export default function PurchaseOrdersPage() {
               { label: "Ordered", value: fmtDateTime(viewing.created_at) },
               { label: "Expected", value: viewing.expected_date ?? "—" },
               { label: "Received", value: viewing.received_at ? fmtDateTime(viewing.received_at) : "—" },
-              { label: "Total", value: fmt(viewing.total) },
+              { label: "Total", value: formatMoney(viewing.total, viewing.currency_code || currency, {showCode: true}) },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                 <span className="text-[13px] text-muted font-medium">{label}</span>
@@ -391,9 +277,11 @@ export default function PurchaseOrdersPage() {
                     <div key={it.id} className="flex items-center justify-between bg-surface rounded-lg px-3 py-2.5">
                       <div className="min-w-0">
                         <p className="text-[13px] font-medium text-foreground truncate">{it.product_name}</p>
-                        <p className="text-[11px] text-muted">×{it.quantity} @ {fmt(it.unit_cost)}</p>
+                        <p className="text-[11px] text-muted">×{it.quantity} @ {formatMoney(it.unit_cost, viewing.currency_code || currency, {showCode: true})}</p>
+                        {it.update_catalog_cost && <p className="mt-1 text-[11px] text-accent">Catalog cost update {viewing.status === "Received" ? "applied at receipt" : "on receipt"}</p>}
+                        {it.selling_price != null && <p className="mt-1 text-[11px] text-accent">Selling price {viewing.status === "Received" ? "at receipt" : "on receipt"}: {formatMoney(Number(it.selling_price), currency, {showCode: true})}</p>}
                       </div>
-                      <span className="text-[13px] font-bold text-foreground tabular-nums flex-shrink-0 ml-2">{fmt(it.line_total)}</span>
+                      <span className="text-[13px] font-bold text-foreground tabular-nums flex-shrink-0 ml-2">{formatMoney(it.line_total, viewing.currency_code || currency, {showCode: true})}</span>
                     </div>
                   ))}
                 </div>

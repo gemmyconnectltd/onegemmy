@@ -17,3 +17,11 @@ accounting_router.include_router(tax_router)
 from app.modules.accounting.routes.workspace import router as workspace_router
 
 accounting_router.include_router(workspace_router)
+
+from app.modules.accounting.routes.debt import router as debt_router
+
+accounting_router.include_router(debt_router)
+
+from app.modules.accounting.routes.expense_workspace import router as expense_workspace_router
+
+accounting_router.include_router(expense_workspace_router)

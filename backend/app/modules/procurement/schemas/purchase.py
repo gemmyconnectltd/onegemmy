@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.modules.inventory.schemas.supplier import SupplierRead
 
@@ -13,8 +13,16 @@ class PurchaseItemCreate(BaseModel):
     product_name: str
     sku: str | None = None
     variant_attributes: dict | None = None
-    unit_cost: float = Field(ge=0)
-    quantity: float = Field(default=1, gt=0)
+    unit_cost: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    quantity: Decimal = Field(default=Decimal(1), gt=0, max_digits=12, decimal_places=3)
+    update_catalog_cost: bool = False
+    selling_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+
+    @model_validator(mode="after")
+    def bounded_line(self):
+        if self.unit_cost * self.quantity > Decimal("999999999999.99"):
+            raise ValueError("Purchase line total exceeds the supported amount")
+        return self
 
 
 class PurchaseItemRead(BaseModel):
@@ -29,6 +37,8 @@ class PurchaseItemRead(BaseModel):
     unit_cost: float
     quantity: float
     line_total: float
+    update_catalog_cost: bool = False
+    selling_price: Decimal | None = None
 
 
 class PurchaseCreate(BaseModel):
@@ -44,10 +54,18 @@ class PurchaseCreate(BaseModel):
     # purchase is received (that is when the liability and ledger entry are created).
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = Field(default=None, gt=0)
-    items: list[PurchaseItemCreate] = Field(min_length=1)
+    items: list[PurchaseItemCreate] = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def bounded_total(self):
+        total = sum((item.unit_cost * item.quantity for item in self.items), Decimal(0)) - Decimal(str(self.discount)) + Decimal(str(self.tax))
+        if total < 0 or total > Decimal("999999999999.99"):
+            raise ValueError("Purchase total must be nonnegative and within the supported amount")
+        return self
 
 
 class PurchaseUpdate(BaseModel):
+    items: list[PurchaseItemCreate] | None = Field(default=None, min_length=1, max_length=200)
     supplier_id: uuid.UUID | None = None
     branch_id: uuid.UUID | None = None
     expected_date: date | None = None

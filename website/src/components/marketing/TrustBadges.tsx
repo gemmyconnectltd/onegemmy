@@ -24,7 +24,8 @@ function hasLogoFile(publicPath: string) {
   }
 }
 
-export function TrustBadges() {
+export function TrustBadges({ compact = false }: { compact?: boolean }) {
+  if (compact) return <section aria-label="Data protection certification" className="bg-white px-5 py-7"><div className="mx-auto flex max-w-[1176px] flex-wrap items-center justify-center gap-4 rounded-xl border border-emerald-100 bg-emerald-50/35 px-5 py-4 sm:justify-between"><div className="flex items-center gap-3"><ShieldCheck size={25} className="shrink-0 text-emerald-600" /><div><h2 className="text-xs font-bold text-slate-800">Your business data deserves care</h2><p className="mt-1 text-[11px] text-slate-500">Data Controller & Data Processor certification in Rwanda.</p></div></div>{hasLogoFile(certifications[0].logo) && <Image src={certifications[0].logo} alt={certifications[0].title} width={140} height={45} className="h-9 w-auto object-contain" />}</div></section>;
   return (
     <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-surface">
       <div className="max-w-7xl mx-auto">

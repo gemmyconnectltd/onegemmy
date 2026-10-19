@@ -1,0 +1,35 @@
+{
+  "frontend/src/app/(erp)/support/page.tsx": {
+    "literal-color": 1
+  },
+  "frontend/src/app/globals.css": {
+    "table-style": 8
+  },
+  "frontend/src/components/auth/AuthBrandingPanel.tsx": {
+    "literal-color": 5
+  },
+  "frontend/src/components/dashboard/SupportFab.tsx": {
+    "literal-color": 3
+  },
+  "website/src/app/page.tsx": {
+    "literal-color": 11
+  },
+  "website/src/components/layout/Footer.tsx": {
+    "literal-color": 1
+  },
+  "website/src/components/marketing/FeatureShowcaseTabs.tsx": {
+    "literal-color": 3
+  },
+  "website/src/components/marketing/GlobalReach.tsx": {
+    "literal-color": 2
+  },
+  "website/src/components/marketing/TrustBadges.tsx": {
+    "literal-color": 3
+  },
+  "website/src/components/ui/AppScreenshot.tsx": {
+    "literal-color": 2
+  },
+  "super-admin/src/app/globals.css": {
+    "table-style": 8
+  }
+}

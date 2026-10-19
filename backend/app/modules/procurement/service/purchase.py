@@ -1,16 +1,18 @@
 import uuid
 from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import to_base_amount
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.modules.accounting.repository.reporting import ReportingRepository
+from app.modules.audit.service import record_audit
 from app.modules.currency.service import document_rate, get_base_currency, resolve_document_currency
-from app.modules.inventory.models.product import Product
-from app.modules.inventory.models.variant import ProductVariant
 from app.modules.procurement.models.purchase_item import PurchaseItem
 from app.modules.procurement.models.purchase_order import PurchaseOrder
 from app.modules.procurement.repository import PurchaseOrderRepository
+from app.modules.procurement.repository.pricing import PurchasePricingRepository
 from app.modules.procurement.schemas import (
     PurchaseCreate,
     PurchaseRead,
@@ -29,13 +31,13 @@ def _set_base_amounts(purchase: PurchaseOrder, base_currency: str) -> None:
     purchase.base_total = to_base_amount(purchase.total, code, base_currency, rate)
 
 
-async def list_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[PurchaseRead]:
-    items = await PurchaseOrderRepository(db).list_for_tenant(tenant_id, status, offset, limit)
+async def list_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, **filters) -> list[PurchaseRead]:
+    items = await PurchaseOrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, **filters)
     return [PurchaseRead.model_validate(i) for i in items]
 
 
-async def count_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None) -> int:
-    return await PurchaseOrderRepository(db).count_for_tenant(tenant_id, status)
+async def count_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, **filters) -> int:
+    return await PurchaseOrderRepository(db).count_for_tenant(tenant_id, status, **filters)
 
 
 async def get_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> PurchaseRead:
@@ -66,8 +68,17 @@ async def _resolve_receiving_branch_id(
     return main.id if main else None
 
 
+async def _require_pricing(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, items) -> None:
+    if not any(item.update_catalog_cost or item.selling_price is not None for item in items):
+        return
+    actor = await PurchasePricingRepository(db).actor(tenant_id, user_id)
+    if actor is None or not actor.is_active or (not actor.is_superuser and "pricing:update" not in actor.permissions_names):
+        raise ForbiddenError("Pricing update permission is required to change catalog cost or selling price")
+
+
 async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: PurchaseOrder, items) -> None:
     """Validate each item resolves to a tenant-owned product/variant and persist snapshots."""
+    products, variants = await PurchasePricingRepository(db).catalog(tenant_id, items)
     for item_data in items:
         variant = None
         product = None
@@ -79,23 +90,23 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
             raise ValidationError(f"Item '{item_data.product_name}' must reference a product or variant")
 
         if item_data.variant_id:
-            variant = await db.get(ProductVariant, item_data.variant_id)
+            variant = variants.get(item_data.variant_id)
             if variant is None:
                 raise ValidationError(f"Variant '{item_data.variant_id}' not found")
-            product = await db.get(Product, variant.product_id)
+            product = products.get(variant.product_id)
             if product is None or product.tenant_id != tenant_id:
                 raise ValidationError(f"Variant '{item_data.variant_id}' not found in this tenant")
             product_name = product.name
             sku = variant.sku or product.sku
             variant_attributes = variant.attributes
         elif item_data.product_id:
-            product = await db.get(Product, item_data.product_id)
+            product = products.get(item_data.product_id)
             if product is None or product.tenant_id != tenant_id:
                 raise ValidationError(f"Product '{item_data.product_id}' not found in this tenant")
             if product.has_variants:
                 raise ValidationError(f"Product '{product.name}' has variants — pick a specific variant")
 
-        line_total = round(float(item_data.unit_cost) * float(item_data.quantity), 2)
+        line_total = (item_data.unit_cost * item_data.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         item = PurchaseItem(
             purchase_order_id=purchase.id,
             product_id=variant.product_id if variant else item_data.product_id,
@@ -106,6 +117,8 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
             unit_cost=item_data.unit_cost,
             quantity=item_data.quantity,
             line_total=line_total,
+            update_catalog_cost=item_data.update_catalog_cost,
+            selling_price=item_data.selling_price,
         )
         purchase.items.append(item)
         db.add(item)
@@ -114,20 +127,35 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
 async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder, due_date: date | None = None) -> None:
     """Stock in all items, raise the supplier bill, and post the accounting
     entry. Caller commits."""
+    await _require_pricing(db, tenant_id, user_id, purchase.items)
+    products, variants = await PurchasePricingRepository(db).catalog(tenant_id, purchase.items)
+    changes = []
+    seen = {}
     for item in purchase.items:
-        if item.variant_id:
-            variant = await db.get(ProductVariant, item.variant_id)
-            if variant is None:
-                raise ValidationError(f"Variant for '{item.product_name}' not found")
-            product = await db.get(Product, variant.product_id)
-            factor = float(product.conversion_factor) if product else 1.0
-            variant.stock = float(variant.stock) + (float(item.quantity) * factor)
-        elif item.product_id:
-            product = await db.get(Product, item.product_id)
-            if product is None:
-                raise ValidationError(f"Product '{item.product_name}' not found")
-            factor = float(product.conversion_factor)
-            product.stock = float(product.stock) + (float(item.quantity) * factor)
+        variant = variants.get(item.variant_id) if item.variant_id else None
+        product = products.get(variant.product_id if variant else item.product_id)
+        if product is None or (item.variant_id and variant is None):
+            raise ValidationError("A purchase product or variant is no longer available")
+        target = variant or product
+        factor = Decimal(str(product.conversion_factor))
+        if factor <= 0:
+            raise ValidationError("Product conversion factor must be positive")
+        new_cost = (Decimal(str(item.unit_cost)) * document_rate(purchase) / factor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if item.update_catalog_cost and new_cost > Decimal("9999999999.99"):
+            raise ValidationError("Converted catalog cost exceeds the supported amount")
+        instruction = (new_cost if item.update_catalog_cost else None, item.selling_price)
+        if target.id in seen and seen[target.id] != instruction and any(value is not None for value in instruction):
+            raise ValidationError("Combine duplicate product lines before changing catalog prices")
+        seen[target.id] = instruction
+        old_cost, old_price = str(target.cost), str(target.price)
+        target.stock = Decimal(str(target.stock)) + Decimal(str(item.quantity)) * factor
+        if item.update_catalog_cost:
+            target.cost = new_cost
+        if item.selling_price is not None:
+            target.price = item.selling_price
+        if item.update_catalog_cost or item.selling_price is not None:
+            changes.append({"product_id": str(product.id), "variant_id": str(variant.id) if variant else None, "previous_cost": old_cost, "new_cost": str(target.cost), "previous_price": old_price, "new_price": str(target.price)})
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="purchase.receive", entity_type="purchase", entity_id=str(purchase.id), summary=f"Received purchase {purchase.reference}", changes={"price_changes": changes})
 
     # Receipt is when the liability and ledger entry are created, so this is where the purchase's
     # currency, rate and base value become final.
@@ -146,10 +174,14 @@ async def create_purchase(
     active_branch_id: uuid.UUID | None = None,
 ) -> PurchaseRead:
     repo = PurchaseOrderRepository(db)
+    if data.supplier_id and not await PurchasePricingRepository(db).supplier(tenant_id, data.supplier_id):
+        raise ValidationError("Supplier not found in this company")
+    await ReportingRepository(db).lock_tenant(tenant_id)
+    await _require_pricing(db, tenant_id, user_id, data.items)
     reference = await repo.next_reference(tenant_id)
 
-    subtotal = sum(round(float(i.unit_cost) * float(i.quantity), 2) for i in data.items)
-    total = round(subtotal - data.discount + data.tax, 2)
+    subtotal = sum(((i.unit_cost * i.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for i in data.items), Decimal(0))
+    total = round(subtotal - Decimal(str(data.discount)) + Decimal(str(data.tax)), 2)
     branch_id = await _resolve_receiving_branch_id(db, tenant_id, active_branch_id, data.branch_id)
     currency_code, fx_rate, base_ccy = await resolve_document_currency(
         db, tenant_id, data.currency_code, data.exchange_rate,
@@ -184,6 +216,7 @@ async def create_purchase(
 
 
 async def receive_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, due_date: date | None = None) -> PurchaseRead:
+    await ReportingRepository(db).lock_tenant(tenant_id)
     repo = PurchaseOrderRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -197,14 +230,32 @@ async def receive_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
     return PurchaseRead.model_validate(obj)
 
 
-async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: PurchaseUpdate) -> PurchaseRead:
+async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: PurchaseUpdate, user_id: uuid.UUID | None = None) -> PurchaseRead:
+    await ReportingRepository(db).lock_tenant(tenant_id)
     repo = PurchaseOrderRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Purchase not found")
     if obj.status != "Draft":
         raise ValidationError("Only draft purchases can be edited")
+    if data.supplier_id and not await PurchasePricingRepository(db).supplier(tenant_id, data.supplier_id):
+        raise ValidationError("Supplier not found in this company")
     update_fields = data.model_dump(exclude_unset=True)
+    new_items = update_fields.pop("items", None)
+    if new_items is not None:
+        if not data.items:
+            raise ValidationError("A purchase must contain at least one item")
+        # Validate permissions before replacing draft lines; catalog changes still wait for receipt.
+        actor_id = user_id
+        if any(item.update_catalog_cost or item.selling_price is not None for item in data.items):
+            if actor_id is None:
+                raise ForbiddenError("Pricing actor is required")
+            await _require_pricing(db, tenant_id, actor_id, data.items)
+        obj.items.clear()
+        await db.flush()
+        await _build_items(db, tenant_id, obj, data.items)
+        obj.subtotal = sum(((item.unit_cost * item.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for item in data.items), Decimal(0))
+
     new_currency = update_fields.pop("currency_code", None)
     new_rate = update_fields.pop("exchange_rate", None)
     if new_currency is not None or new_rate is not None:
@@ -219,7 +270,9 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
             raise ValidationError("That branch does not belong to your company")
     for field, value in update_fields.items():
         setattr(obj, field, value)
-    obj.total = round(float(obj.subtotal) - float(obj.discount) + float(obj.tax), 2)
+    obj.total = (Decimal(str(obj.subtotal)) - Decimal(str(obj.discount)) + Decimal(str(obj.tax))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if obj.total < 0 or obj.total > Decimal("999999999999.99"):
+        raise ValidationError("Purchase total is outside the supported amount")
     _set_base_amounts(obj, await get_base_currency(db, tenant_id))
     await repo.save(obj)
     await db.commit()
@@ -228,6 +281,7 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
 
 
 async def cancel_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> PurchaseRead:
+    await ReportingRepository(db).lock_tenant(tenant_id)
     repo = PurchaseOrderRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -242,6 +296,7 @@ async def cancel_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID)
 
 
 async def delete_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> None:
+    await ReportingRepository(db).lock_tenant(tenant_id)
     repo = PurchaseOrderRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:

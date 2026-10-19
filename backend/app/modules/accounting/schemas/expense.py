@@ -1,18 +1,24 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.accounting.schemas.account import AccountRead
 
 
 class ExpenseCreate(BaseModel):
-    title: str
-    amount: float
+    title: str = Field(min_length=1, max_length=255)
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     expense_date: date
-    category: str = "Other"
+    category: str = Field(default="Other", min_length=1, max_length=50)
     notes: str | None = None
+    branch_id: uuid.UUID | None = None
+    supplier_id: uuid.UUID | None = None
+    payment_method: Literal["Cash", "Bank Transfer", "Mobile Money", "Card"] = "Cash"
+    reference_number: str | None = Field(default=None, max_length=100)
+    client_reference: str | None = Field(default=None, min_length=3, max_length=50)
     account_id: uuid.UUID | None = None
     order_id: uuid.UUID | None = None
     # Foreign-currency expense (e.g. an international supplier invoice). Omit for the tenant's base
@@ -20,6 +26,16 @@ class ExpenseCreate(BaseModel):
     # force on `expense_date`.
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = Field(default=None, gt=0)
+
+
+    @field_validator("title", "category")
+    @classmethod
+    def meaningful_text(cls, value: str | None) -> str | None:
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError("A nonempty value is required")
+        return value
 
 
 class ExpenseBulkCreate(BaseModel):
@@ -33,15 +49,28 @@ class ExpenseBulkResult(BaseModel):
 
 
 class ExpenseUpdate(BaseModel):
-    title: str | None = None
-    amount: float | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    amount: Decimal | None = Field(default=None, gt=0, max_digits=14, decimal_places=2)
     expense_date: date | None = None
-    category: str | None = None
-    status: str | None = None  # Pending | Approved | Rejected
+    category: str | None = Field(default=None, min_length=1, max_length=50)
+    # Status changes use the approval/rejection services, never a generic edit.
     notes: str | None = None
+    supplier_id: uuid.UUID | None = None
+    payment_method: Literal["Cash", "Bank Transfer", "Mobile Money", "Card"] | None = None
+    reference_number: str | None = Field(default=None, max_length=100)
     account_id: uuid.UUID | None = None
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = Field(default=None, gt=0)
+
+
+    @field_validator("title", "category")
+    @classmethod
+    def meaningful_text(cls, value: str | None) -> str | None:
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError("A nonempty value is required")
+        return value
 
 
 class ExpenseRead(BaseModel):
@@ -56,6 +85,12 @@ class ExpenseRead(BaseModel):
     category: str
     status: str
     notes: str | None = None
+    branch_id: uuid.UUID | None = None
+    supplier_id: uuid.UUID | None = None
+    payment_method: str = "Cash"
+    reference_number: str | None = None
+    receipt_name: str | None = None
+    receipt_type: str | None = None
     account_id: uuid.UUID | None = None
     order_id: uuid.UUID | None = None
     approved_by: uuid.UUID | None = None

@@ -6,8 +6,7 @@ Usage:
 """
 
 import asyncio
-import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +32,7 @@ RESOURCES = [
     "items", "warehouses", "stock", "orders", "pricing", "returns",
     "invoices", "pos",
     "chart_of_accounts", "journal_entries", "accounts_payable",
-    "accounts_receivable", "banking", "fixed_assets", "budgeting", "tax",
+    "accounts_receivable", "banking", "fixed_assets", "budgeting", "expenses", "tax",
     "employees", "organization", "recruitment", "attendance", "leave",
     "payroll", "performance",
     "vendors", "requisitions", "rfq", "purchase_orders", "goods_receipt", "contracts",
@@ -45,7 +44,7 @@ ACTIONS = ["create", "read", "update", "delete", "approve"]
 ROLE_RESOURCES: dict[str, list[str]] = {
     "Inventory Manager":   ["items", "warehouses", "stock", "orders", "pricing", "returns"],
     "Accounting Manager":     ["invoices", "chart_of_accounts", "journal_entries", "accounts_payable",
-                            "accounts_receivable", "banking", "fixed_assets", "budgeting", "tax"],
+                            "accounts_receivable", "banking", "fixed_assets", "budgeting", "expenses", "tax"],
     "HR Manager":          ["employees", "organization", "recruitment", "attendance", "leave",
                             "payroll", "performance"],
     "Sales Manager":       ["orders", "invoices", "pos", "leads", "accounts", "contacts",
@@ -280,7 +279,7 @@ async def seed_superadmin(session: AsyncSession) -> None:
 
 async def main() -> None:
     async with AsyncSessionLocal() as session:
-        all_permissions = await seed_permissions(session)
+        await seed_permissions(session)
 
     for td in TENANTS:
         async with AsyncSessionLocal() as session:

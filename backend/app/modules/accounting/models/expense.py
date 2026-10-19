@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Index, Numeric, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +27,15 @@ class Expense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMi
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="Pending")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"))
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("inventory_suppliers.id", ondelete="SET NULL"))
+    payment_method: Mapped[str] = mapped_column(String(20), default="Cash", server_default="Cash")
+    reference_number: Mapped[str | None] = mapped_column(String(100))
+    client_reference: Mapped[str | None] = mapped_column(String(50))
+    receipt_key: Mapped[str | None] = mapped_column(String(100))
+    receipt_name: Mapped[str | None] = mapped_column(String(255))
+    receipt_type: Mapped[str | None] = mapped_column(String(50))
+
     account_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("accounting_accounts.id", ondelete="SET NULL"), nullable=True
     )
@@ -50,4 +59,17 @@ class Expense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMi
         Index("ix_accounting_expenses_tenant_id", "tenant_id"),
         Index("ix_accounting_expenses_tenant_status", "tenant_id", "status"),
         Index("ix_accounting_expenses_account_id", "account_id"),
+        Index("ix_expenses_tenant_date", "tenant_id", "expense_date"),
+        Index("ix_expenses_tenant_branch_date", "tenant_id", "branch_id", "expense_date"),
+        Index("ix_expenses_tenant_category_date", "tenant_id", "category", "expense_date"),
+        Index("ix_expenses_tenant_method_date", "tenant_id", "payment_method", "expense_date"),
+        Index("uq_expenses_tenant_client", "tenant_id", "client_reference", unique=True),
     )
+
+
+class ExpenseCategory(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+    __tablename__ = "accounting_expense_categories"
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    __table_args__ = (Index("uq_expense_categories_tenant_name", "tenant_id", "name", unique=True),)

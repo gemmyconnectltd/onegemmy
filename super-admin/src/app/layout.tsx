@@ -8,7 +8,7 @@ import { siteConfig } from "@/lib/config";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#16a34a" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#16A34A" };
 
 // An internal tool: never indexed, never previewed.
 export const metadata: Metadata = {

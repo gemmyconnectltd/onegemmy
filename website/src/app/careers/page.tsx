@@ -1,3 +1,4 @@
+import { PageHero } from "@/components/marketing/PageHero";
 import type { Metadata } from "next";
 import { Mail } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
@@ -10,23 +11,19 @@ export const metadata: Metadata = {
 
 export default function CareersPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="pesaa-landing marketing-page min-h-screen bg-white text-slate-900">
       <Navbar />
-
-      <section className="pt-28 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Careers at {siteConfig.name}
-          </h1>
-          <p className="text-lg text-muted mb-8 leading-relaxed">
-            We&apos;re a lean team building enterprise-grade business
+      <main>
+      <PageHero eyebrow="Build with us" title={`Careers at ${siteConfig.name}`} description={<>We&apos;re a lean team building enterprise-grade business
             management software for companies across East Africa. We
             don&apos;t have open positions listed at the moment, but we
-            welcome inquiries from people interested in joining us.
-          </p>
+            welcome inquiries from people interested in joining us.</>} />
+
+      <section className="landing-section px-5 sm:px-8">
+        <div className="max-w-2xl mx-auto text-center">
           <a
             href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}
-            className="bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors inline-flex items-center justify-center gap-2"
+            className="landing-button px-6 py-3 text-sm"
           >
             <Mail size={20} />
             Introduce Yourself
@@ -34,6 +31,7 @@ export default function CareersPage() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

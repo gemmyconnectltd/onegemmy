@@ -10,3 +10,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 uploads/
+
+# Private expense receipts are runtime data, never source artifacts.
+/private/

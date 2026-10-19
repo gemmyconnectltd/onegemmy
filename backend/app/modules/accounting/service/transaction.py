@@ -259,6 +259,9 @@ _PAYMENT_METHOD_ACCOUNTS: dict[str, tuple[str, str]] = {
     "card": ("1010", "Bank"),
     "mobile": ("1020", "Mobile Money"),
     "mobile_money": ("1020", "Mobile Money"),
+    "mobile money": ("1020", "Mobile Money"),
+    "bank transfer": ("1010", "Bank"),
+    "bank_transfer": ("1010", "Bank"),
 }
 
 
@@ -355,9 +358,13 @@ async def create_expense_transaction(
     amount: float,
     reference: str,
     expense_account_id: uuid.UUID | None,
+    payment_method: str = "Cash",
+    payment_date: date | None = None,
+    branch_id: uuid.UUID | None = None,
 ) -> None:
     """Auto-called when expense is Approved. Debit Expense account, Credit Cash."""
-    cash_id = await _get_account_by_code(db, tenant_id, "1000")
+    code, method_label = _PAYMENT_METHOD_ACCOUNTS.get(payment_method.lower(), ("1000", "Cash"))
+    cash_id = await _get_account_by_code(db, tenant_id, code)
     exp_id = expense_account_id or await _get_account_by_code(db, tenant_id, "5900")
     if not cash_id or not exp_id:
         return
@@ -370,13 +377,14 @@ async def create_expense_transaction(
         reference=txn_ref,
         type="expense",
         status="Posted",
-        transaction_date=datetime.now(UTC).date(),
+        transaction_date=payment_date or datetime.now(UTC).date(),
+        branch_id=branch_id,
         description=f"Expense {reference}",
         created_by=user_id,
     )
     txn = await repo.save(txn)
     db.add(TransactionLine(transaction_id=txn.id, account_id=exp_id,  type="debit",  amount=amount, description="Expense"))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=cash_id, type="credit", amount=amount, description="Cash"))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=cash_id, type="credit", amount=amount, description=method_label))
 
 
 async def create_return_transaction(
@@ -456,6 +464,8 @@ async def create_supplier_payment_transaction(
     reference: str,
     payment_method: str | None,
     ap_amount: float | Decimal | None = None,
+    payment_date: date | None = None,
+    branch_id: uuid.UUID | None = None,
 ) -> None:
     """Auto-called when a supplier bill payment is recorded. Debit Accounts
     Payable (reduces the liability), Credit whichever asset account the money
@@ -479,9 +489,10 @@ async def create_supplier_payment_transaction(
         reference=txn_ref,
         type="supplier_payment",
         status="Posted",
-        transaction_date=datetime.now(UTC).date(),
+        transaction_date=payment_date or datetime.now(UTC).date(),
         description=f"Supplier payment {reference}",
         purchase_id=purchase_id,
+        branch_id=branch_id,
         created_by=user_id,
     )
     txn = await repo.save(txn)
@@ -505,6 +516,8 @@ async def create_customer_payment_transaction(
     reference: str,
     payment_method: str | None,
     ar_amount: float | Decimal | None = None,
+    payment_date: date | None = None,
+    branch_id: uuid.UUID | None = None,
 ) -> uuid.UUID | None:
     """Auto-called when a customer payment is recorded against an order's
     outstanding balance (credit sale or partial-payment follow-up). Debit
@@ -532,9 +545,10 @@ async def create_customer_payment_transaction(
         reference=txn_ref,
         type="customer_payment",
         status="Posted",
-        transaction_date=datetime.now(UTC).date(),
+        transaction_date=payment_date or datetime.now(UTC).date(),
         description=f"Customer payment {reference}",
         order_id=order_id,
+        branch_id=branch_id,
         created_by=user_id,
     )
     txn = await repo.save(txn)

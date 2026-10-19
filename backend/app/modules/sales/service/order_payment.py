@@ -53,6 +53,8 @@ async def record_payment(
     order_id: uuid.UUID,
     data: OrderPaymentCreate,
 ) -> OrderRead:
+    from app.modules.accounting.repository.reporting import ReportingRepository
+    await ReportingRepository(db).lock_tenant(tenant_id)
     order_repo = OrderRepository(db)
     order = await order_repo.get_by_id_for_tenant(tenant_id, order_id)
     if order is None:
@@ -136,7 +138,8 @@ async def record_payment(
     # The ledger is in base currency: cash at the payment-date rate, receivable cleared at the
     # invoice's own frozen rate, any difference booked as realised FX gain/loss.
     txn_id = await create_customer_payment_transaction(
-        db, tenant_id, user_id, order.id, base_cash, reference, data.payment_method, ar_amount=base_clears,
+        db, tenant_id, user_id, order.id, base_cash, reference, data.payment_method,
+        ar_amount=base_clears, payment_date=paid_at.date(), branch_id=payment.branch_id,
     )
     payment.accounting_transaction_id = txn_id
 
@@ -176,6 +179,8 @@ async def reverse_payment(
     if payment.status != _REVERSIBLE_ONLY:
         raise ValidationError("This payment has already been reversed")
 
+    from app.modules.accounting.repository.reporting import ReportingRepository
+    await ReportingRepository(db).lock_tenant(tenant_id)
     order_repo = OrderRepository(db)
     order = await order_repo.get_by_id_for_tenant(tenant_id, payment.order_id)
     if order is None:

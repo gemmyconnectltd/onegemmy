@@ -90,6 +90,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const setSidebarCollapsed = (v: boolean) => writeStored(COLLAPSED_KEY, v ? "1" : "0");
 
   const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -120,8 +121,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-surface print:hidden">
       <Sidebar
-        expanded={false}
-        onExpandChange={() => {}}
+        expanded={sidebarOpen}
+        onExpandChange={setSidebarOpen}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
       />
@@ -132,7 +133,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           paddingBottom: isMobile ? 64 : 0,
         }}
       >
-        <Topbar onToggleSidebar={() => {}} sidebarExpanded={false} />
+        <Topbar onToggleSidebar={() => setSidebarOpen(value => !value)} sidebarExpanded={sidebarOpen} />
         <main data-app-content className="min-w-0 flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
       <SupportFab />

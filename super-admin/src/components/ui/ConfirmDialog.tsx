@@ -40,7 +40,7 @@ export function ConfirmDialog({
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onCancel}>{cancelLabel}</Button>
-          <Button type="button" variant="primary" onClick={onConfirm} disabled={!!confirmText && typed !== confirmText} className={danger ? "bg-red-600 text-white hover:bg-red-700" : undefined}>{confirmLabel}</Button>
+          <Button type="button" variant={danger ? "destructive" : "primary"} onClick={onConfirm} disabled={!!confirmText && typed !== confirmText}>{confirmLabel}</Button>
         </div>
       }
     >

@@ -1,3 +1,4 @@
+import designTokens from "../../../design-system/tokens.json";
 // Super Admin settings: the platform brand and the currency list/formatting the admin screens use.
 
 export const siteConfig = {
@@ -10,9 +11,9 @@ export const siteConfig = {
 
 export type Theme = "light" | "dark";
 
-export const baseThemeLight = { background: "#ffffff", surface: "#f8f8f6", card: "#ffffff", border: "#e8e4de", foreground: "#2b2118", muted: "#7a7d7e" };
-export const baseThemeDark = { background: "#0d0d0f", surface: "#151519", card: "#1c1c21", border: "#2c2c33", foreground: "#f1f1f4", muted: "#a0a2ab" };
-export const BRAND_COLOR = "#16a34a";
+export const baseThemeLight = designTokens.light;
+export const baseThemeDark = designTokens.dark;
+export const BRAND_COLOR = designTokens.primary;
 
 export const currencies = [
   { code: "AFN", symbol: "؋", name: "Afghan Afghani" },

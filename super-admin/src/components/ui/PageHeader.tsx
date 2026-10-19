@@ -7,7 +7,7 @@ export function PageHeader({ title, subtitle, actions, back }: { title: ReactNod
       <div className="flex min-w-0 items-start gap-3">
         {back}
         <div className="min-w-0">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{title}</h1>
+          <h1 className="pesaa-page-title text-foreground">{title}</h1>
           {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
         </div>
       </div>

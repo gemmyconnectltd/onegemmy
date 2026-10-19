@@ -4,9 +4,7 @@ import type { ReactNode } from "react";
 import { SecondSidebar, type NavConfigItem } from "./SecondSidebar";
 import { useAppConfig } from "@/lib/appConfig";
 
-type ModuleKey =
-  | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
-  | "manufacturing" | "customers" | "inventory" | "reports" | "settings" | "repairs";
+import type { ModuleKey } from "@/lib/navigation";
 
 export type { NavConfigItem };
 

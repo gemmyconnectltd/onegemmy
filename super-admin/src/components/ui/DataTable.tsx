@@ -11,7 +11,7 @@ export function DataCard({ label, children, className }: { label: string; childr
   return <div className={cn("overflow-hidden rounded-xl border border-border bg-card", className)}><TableScroll label={label}>{children}</TableScroll></div>;
 }
 
-export const thClass = "px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted";
+export const thClass = "px-4 py-3 text-xs font-semibold text-muted";
 
 export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (

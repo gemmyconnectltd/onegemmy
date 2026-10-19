@@ -1,3 +1,4 @@
+import { expenseWorkspaceApi, type ExpenseFilters, type ExpenseInput, type ExpenseCategory } from "./expenseWorkspace";
 // TanStack Query hooks for the API integration layer.
 //
 // Every data-fetching page/component should use these hooks instead of
@@ -45,7 +46,7 @@ import {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-type QueryOpts = { enabled?: boolean; refetchInterval?: number; staleTime?: number; retry?: boolean | number };
+type QueryOpts = { placeholderData?: undefined; enabled?: boolean; refetchInterval?: number; staleTime?: number; retry?: boolean | number };
 
 function useQ<TResponse, TSelected, TKey extends unknown[]>(
   key: TKey,
@@ -102,6 +103,8 @@ export const useLowStockReport = (opts?: QueryOpts) => useQ([...PRODUCTS, "low-s
 
 export const useAllVariants = (page = 1, pageSize = 200, opts?: QueryOpts) =>
   useQ([...VARIANTS, page, pageSize], () => inventoryApi.listAllVariants(page, pageSize), (r) => r.data, opts);
+
+export const useProduct = (id: string | undefined, opts?: QueryOpts) => useQ([...PRODUCTS, "detail", id], () => inventoryApi.getProduct(id!), r => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true), placeholderData: undefined });
 
 export const useProductVariants = (productId: string | undefined, opts?: QueryOpts) =>
   useQ([...PRODUCTS, productId, "variants"], () => inventoryApi.listVariants(productId!), (r) => r.data, { ...opts, enabled: !!productId && (opts?.enabled ?? true) });
@@ -193,7 +196,7 @@ export const useCreateDeal = mutation((d: object) => salesApi.createDeal(d), [[.
 export const useUpdateDeal = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateDeal(id, data), [[...DEALS]]);
 export const useDeleteDeal = mutation((id: string) => salesApi.deleteDeal(id), [[...DEALS]]);
 
-export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
+export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [["debts"], [...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCreateOrders(items), [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useApproveOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.approveOrder(id, note), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
 export const useRejectOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.rejectOrder(id, note), [[...ORDERS]]);
@@ -325,15 +328,15 @@ export const useDeleteApplicant = mutation((id: string) => hrApi.deleteApplicant
 
 const PURCHASES = ["procurement", "purchase-orders"] as const;
 
-export const usePurchaseOrders = (status?: string, page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...PURCHASES, status ?? "all", page, pageSize], () => procurementApi.listPurchaseOrders(status, page, pageSize), (r) => r.data, opts);
+export const usePurchaseOrders = (status?: string, page = 1, pageSize = 100, opts?: QueryOpts, filters?: import("./procurement").PurchaseHistoryFilters, scope = "") =>
+  useQ([...PURCHASES, scope, status ?? "all", page, pageSize, filters], () => procurementApi.listPurchaseOrders(status, page, pageSize, filters), (r) => r.data, opts);
 
 export const usePurchaseOrder = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...PURCHASES, id], () => procurementApi.getPurchaseOrder(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
-export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
-export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [[...PURCHASES]]);
-export const useReceivePurchaseOrder = mutation((input: string | { id: string; dueDate?: string }) => typeof input === "string" ? procurementApi.receivePurchaseOrder(input) : procurementApi.receivePurchaseOrder(input.id, input.dueDate), [[...PURCHASES], [...PRODUCTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [["debts"], [...PURCHASES], [...PRODUCTS], [...VARIANTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [[...PURCHASES], ["debts"]]);
+export const useReceivePurchaseOrder = mutation((input: string | { id: string; dueDate?: string }) => typeof input === "string" ? procurementApi.receivePurchaseOrder(input) : procurementApi.receivePurchaseOrder(input.id, input.dueDate), [["debts"], [...PURCHASES], [...PRODUCTS], [...VARIANTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
 
@@ -808,12 +811,12 @@ export const useFinancialReconcile = mutation((data: Record<string, unknown>) =>
 export const useFinancialAsset = mutation((data: Record<string, unknown>) => financialApi.registerAsset(data), [FINANCIAL]);
 export const useFinancialAssetAction = mutation(({ id, data }: { id: string; data: Record<string, unknown> }) => financialApi.assetAction(id, data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
 export const useFinancialPayrollPost = mutation(({ id, cashId }: { id: string; cashId: string }) => financialApi.postPayroll(id, cashId), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
-export const useFinancialBillTerms = mutation(({ id, dueDate }: { id: string; dueDate: string | null }) => financialApi.billTerms(id, dueDate), [FINANCIAL]);
+export const useFinancialBillTerms = mutation(({ id, dueDate }: { id: string; dueDate: string | null }) => financialApi.billTerms(id, dueDate), [["debts"], FINANCIAL]);
 export const useFinancialPreferencesSave = mutation((month: number) => financialApi.savePreferences(month), [FINANCIAL]);
 import { sourceApi } from "./financialWorkspace";
 export const useFinancialInvoice = (id: string | null) => useQ([...ORDERS, "financial-document", id], () => sourceApi.invoice(id!), r => r.data, { enabled: !!id });
 export const useFinancialBill = (id: string | null) => useQ([...FINANCIAL, "bill", id], () => sourceApi.bill(id!), r => r.data, { enabled: !!id });
-export const useFinancialBillPayment = mutation(({ id, data }: { id: string; data: object }) => sourceApi.payBill(id, data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
+export const useFinancialBillPayment = mutation(({ id, data }: { id: string; data: object }) => sourceApi.payBill(id, data), [["debts"], FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
 export const useExportFinancialAccounts = mutation(() => financialApi.exportAccounts(), []);
 
 export const useFinancialTaxPayment = mutation((data: object) => financialApi.taxPayment(data), [FINANCIAL]);
@@ -823,3 +826,27 @@ export const useFinancialIncome = (page: number, from?: string, to?: string, sta
 export const useCreateIncomeReceipt = mutation((data: object) => financialApi.createIncome(data), [FINANCIAL, [...TRANSACTIONS], [...REPORTS]]);
 
 export const useCashPosition = (id: string | undefined, branch?: string | null, enabled = true) => useQ([...FINANCIAL, "cash-position", id, branch], () => financialApi.cashPosition(id!), r => r.data, { enabled: !!id && enabled });
+
+// Debt workspace: bounded source-subledger reads; branch belongs in every cache key.
+import { debtApi } from "./debts";
+import type { DebtFilters, DebtKind } from "@/lib/debts";
+import type { DebtPaymentInput } from "@/lib/debts";
+export const useDebtOverview = (branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, "overview", branch], debtApi.overview, r => r.data, { enabled });
+export const useDebtRecords = (kind: DebtKind, filters: DebtFilters, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, filters, branch], () => debtApi.list(kind, filters), r => r.data, { enabled });
+export const useDebtDetail = (kind: DebtKind, id: string | null, page: number, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, id, page, branch], () => debtApi.detail(kind, id!, page), r => r.data, { enabled: !!id && enabled, placeholderData: undefined });
+export const useDebtPayment = mutation((v: { kind: DebtKind; id: string; data: DebtPaymentInput }) => debtApi.pay(v.kind, v.id, v.data), [["debts"], ["sales", "orders"], ["sales", "customers"], ["procurement"], ["accounting", "workspace"], ["accounting", "reports"], ["accounting", "transactions"], ["accounting", "receivables"]]);
+
+export const usePayablePurchases = (page: number, branch: string | null, tenant: string | null | undefined, enabled: boolean) =>
+  useQ(["debts", tenant, branch, "draft-purchases", page], () => debtApi.purchases(page), r => r.data, { enabled });
+export const useReceivePayable = mutation(({ id, dueDate }: { id: string; dueDate: string }) => debtApi.receive(id, dueDate), [["debts"], ["procurement"], ["inventory"], ["accounting"]]);
+
+// Expense Management reuses accounting expense records and invalidates their legacy readers.
+export const useExpenseWorkspace = (filters: ExpenseFilters, page: number, scope: string, enabled = true) => useQ(["expense-workspace", scope, "list", filters, page], () => expenseWorkspaceApi.list(filters, page), r => r.data, { enabled });
+export const useExpenseOverview = (filters: ExpenseFilters, scope: string, enabled = true) => useQ(["expense-workspace", scope, "overview", filters], () => expenseWorkspaceApi.overview(filters), r => r.data, { enabled });
+export const useExpenseDetail = (id: string | null, page: number, scope: string, enabled = true) => useQ(["expense-workspace", scope, "detail", id, page], () => expenseWorkspaceApi.detail(id!, page), r => r.data, { enabled: !!id && enabled, placeholderData: undefined });
+export const useExpenseCategories = (page: number, search: string, scope: string, enabled = true) => useQ(["expense-workspace", scope, "categories", page, search], () => expenseWorkspaceApi.categories(page, search), r => r.data, { enabled });
+const EXPENSE_INVALIDATE = [["expense-workspace"], [...EXPENSES], [...REPORTS], [...TRANSACTIONS], ["accounting", "workspace"]];
+export const useSaveExpense = mutation(({id, data}: { id?: string; data: ExpenseInput }) => id ? expenseWorkspaceApi.edit(id, data) : expenseWorkspaceApi.create(data), EXPENSE_INVALIDATE);
+export const useExpenseAction = mutation(({id, action}: {id: string; action: string}) => expenseWorkspaceApi.action(id, action), EXPENSE_INVALIDATE);
+export const useSaveExpenseCategory = mutation(({id, data}: {id?: string; data: Omit<ExpenseCategory, "id">}) => expenseWorkspaceApi.saveCategory(data, id), EXPENSE_INVALIDATE);
+export const useExpenseReceipt = mutation(({id, file}: {id: string; file: File}) => expenseWorkspaceApi.attach(id, file), EXPENSE_INVALIDATE);

@@ -34,6 +34,8 @@ export interface ApiProduct {
   min_stock: number;
   is_active: boolean;
   has_variants: boolean;
+  tracks_serials?: boolean;
+  conversion_factor?: number;
   category_id: string | null;
   brand_id: string | null;
   unit_id: string | null;
@@ -119,6 +121,7 @@ export const inventoryApi = {
     request<SingleResponse<ApiProduct>>(`${BASE}/products`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateProducts: (items: object[]) =>
     request<SingleResponse<{ created: number; failed: number; errors: string[] }>>(`${BASE}/products/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
+  getProduct: (id: string) => request<SingleResponse<ApiProduct>>(`/tenants/inventory/products/${id}`),
   updateProduct: (id: string, data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteProduct: (id: string) =>

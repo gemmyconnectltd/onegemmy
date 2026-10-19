@@ -15,7 +15,7 @@ export interface BlogPost {
 export const blogPosts: BlogPost[] = [
   {
     slug: "stock-count-vs-shelf",
-    image: "/verticals/grocery.jpg",
+    image: "/marketing/shop-owner.webp",
     icon: Package,
     category: "Inventory",
     readTime: "4 min read",
@@ -29,7 +29,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "vat-inclusive-vs-exclusive-pricing",
-    image: "/verticals/electronics.jpg",
+    image: "/marketing/wholesale-owner.webp",
     icon: Calculator,
     category: "Accounting",
     readTime: "5 min read",
@@ -43,7 +43,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "cost-of-three-different-apps",
-    image: "/verticals/repairs.jpg",
+    image: "/marketing/cafe-owner.webp",
     icon: Layers3,
     category: "Operations",
     readTime: "3 min read",
@@ -57,7 +57,7 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "cash-mobile-money-card-bookkeeping",
-    image: "/verticals/pharmacy.jpg",
+    image: "/marketing/pharmacy-owner.webp",
     icon: Wallet,
     category: "Accounting",
     readTime: "4 min read",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "./Button";
 import { Drawer } from "./Drawer";
 
 interface ConfirmDialogProps {
@@ -35,22 +36,8 @@ export function ConfirmDialog({
       title={title}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-muted hover:text-foreground hover:bg-surface transition-colors"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors ${
-              danger ? "bg-red-600 hover:bg-red-700" : "bg-accent hover:bg-accent/90"
-            }`}
-          >
-            {confirmLabel}
-          </button>
+          <Button type="button" variant="secondary" onClick={onCancel}>{cancelLabel}</Button>
+          <Button type="button" variant={danger ? "destructive" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       }
     >

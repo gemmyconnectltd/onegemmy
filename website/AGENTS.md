@@ -3,3 +3,7 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+## Shared UI contract
+
+Before editing UI, read `../docs/DESIGN_SYSTEM.md` and the root `../AGENTS.md`. This app follows the same mandatory design-system rules, preserves existing shared components and uses the centralized tokens. Run `npm run design:check` and relevant validation.

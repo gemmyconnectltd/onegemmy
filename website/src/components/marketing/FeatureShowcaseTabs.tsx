@@ -28,7 +28,7 @@ const showcase: ShowcaseItem[] = [
     description:
       "Search or scan a product, ring up the sale, and take cash, mobile money, or card — fast enough for a real line at the register, on any browser you already have.",
     points: ["No special terminal hardware needed", "Cash, Mobile Money, and Card", "Hold a sale and come back to it later"],
-    screenshot: "/screenshots/pos-terminal.png",
+    screenshot: "/screenshots/pos-current.webp",
     screenshotAlt: `${siteConfig.name} point of sale screen with products in the cart, totals, and a payment method selector`,
     path: "pos",
   },
@@ -39,7 +39,7 @@ const showcase: ShowcaseItem[] = [
     description:
       "Track stock across every warehouse in real time, with low-stock alerts and purchase orders that keep you ahead of demand instead of reacting to it.",
     points: ["Multi-warehouse tracking", "Low-stock alerts", "Purchase orders & transfers"],
-    screenshot: "/screenshots/inventory-electronics.png",
+    screenshot: "/screenshots/inventory-current.webp",
     screenshotAlt: `${siteConfig.name} inventory overview for an electronics shop, showing stock health, top products by value, and real product photos`,
     path: "inventory",
   },
@@ -50,7 +50,7 @@ const showcase: ShowcaseItem[] = [
     description:
       "Invoicing, expenses, and financial reports stay in sync with every sale and purchase automatically — no manual reconciliation, no surprises at month end.",
     points: ["Automated invoicing", "Expense tracking", "Real-time P&L"],
-    screenshot: "/screenshots/accounting.png",
+    screenshot: "/screenshots/accounting-current.webp",
     screenshotAlt: `${siteConfig.name} accounting overview showing income vs expenses and recent activity`,
     path: "accounting",
   },
@@ -61,7 +61,7 @@ const showcase: ShowcaseItem[] = [
     description:
       "A visual pipeline from first contact to closed deal, with quotes, commissions, and targets built in — so your whole sales team works from one source of truth.",
     points: ["Drag-and-drop pipeline", "Quotes & commissions", "Team targets & performance"],
-    screenshot: "/screenshots/sales-pipeline.png",
+    screenshot: "/screenshots/crm-current.webp",
     screenshotAlt: `${siteConfig.name} CRM pipeline showing leads, qualified deals, and closed-won value by stage`,
     path: "crm",
   },
@@ -72,8 +72,8 @@ const showcase: ShowcaseItem[] = [
     description:
       "Attendance, leave, and payroll for your team, tracked alongside the rest of the business — not in a tool nobody logs into.",
     points: ["Employee directory", "Attendance & leave", "Payroll"],
-    screenshot: "/screenshots/dashboard.png",
-    screenshotAlt: `${siteConfig.name} dashboard`,
+    screenshot: "/screenshots/hr-current.webp",
+    screenshotAlt: `${siteConfig.name} employee directory with team totals, departments and employment status; personal fields redacted`,
     path: "hr",
   },
   {
@@ -83,8 +83,8 @@ const showcase: ShowcaseItem[] = [
     description:
       "Raise a purchase order, receive the goods, and the bill it creates is tracked through to payment — so you always know what you owe and to whom.",
     points: ["Supplier directory", "Purchase orders", "Supplier bills & payments"],
-    screenshot: "/screenshots/dashboard.png",
-    screenshotAlt: `${siteConfig.name} dashboard`,
+    screenshot: "/screenshots/purchases-current.webp",
+    screenshotAlt: `${siteConfig.name} purchases overview with orders, suppliers and spending`,
     path: "procurement",
   },
 ];
@@ -106,8 +106,8 @@ export function FeatureShowcaseTabs() {
             onClick={() => setActive(i)}
             className={`snap-start flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold border transition-colors whitespace-nowrap ${
               i === active
-                ? "bg-[#16a34a] border-[#16a34a] text-white"
-                : "border-border text-foreground/60 hover:border-[#16a34a]/40 hover:text-foreground"
+                ? "bg-primary border-primary text-white"
+                : "border-border text-foreground/60 hover:border-primary/40 hover:text-foreground"
             }`}
           >
             <it.icon size={15} />

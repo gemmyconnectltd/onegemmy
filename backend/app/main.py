@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.errors import ServerErrorMiddleware
 
 from app.api_router import api_router
 from app.core.config import settings
@@ -28,6 +29,11 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(RequestLoggingMiddleware)
+    # Handle failures inside CORS so browsers can read the JSON error envelope.
+    # Starlette’s outer error handler otherwise sends 500s without CORS headers.
+    app.add_middleware(
+        ServerErrorMiddleware, handler=unhandled_exception_handler, debug=False,
+    )
     cors_origins = settings.cors_origins_list
     is_wildcard = "*" in cors_origins
     app.add_middleware(CORSMiddleware,

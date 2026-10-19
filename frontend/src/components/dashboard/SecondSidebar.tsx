@@ -3,30 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard, FileText, Target, RotateCcw, TrendingUp,
-  TrendingDown, CreditCard, Users, UserPlus, Clock, DollarSign, Award,
-  UserCheck, Megaphone, Mail, BarChart2, ShoppingBag, Truck, ClipboardList,
-  Hammer, Package, Layers, Tag, Ruler, Star, Settings,
-  PanelTop, PanelLeft, PanelRight, Building2,
-  CalendarDays, ListChecks, CalendarClock, Sparkles,
-} from "lucide-react";
+import { PanelTop, PanelLeft, PanelRight } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
-type ModuleKey =
-  | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
-  | "manufacturing" | "customers" | "inventory" | "reports" | "settings" | "repairs";
-
+import { MODULE_NAV, isModuleLinkActive, type ModuleKey } from "@/lib/navigation";
+export type { NavConfigItem } from "@/lib/navigation";
 type Orientation = "top" | "left" | "big";
-
-export interface NavConfigItem {
-  nameKey: string;
-  href: string;
-  icon: React.ElementType;
-  exact?: boolean;
-  /** Extra paths that also light this item up (an item that fronts several sibling pages, e.g. tabbed Settings). */
-  activeFor?: string[];
-}
 
 export interface SectionItem {
   key: string;
@@ -36,93 +18,6 @@ export interface SectionItem {
   color?: string;
 }
 
-const navConfigs: Record<ModuleKey, NavConfigItem[]> = {
-  sales: [
-    { nameKey: "overview",  href: "/sales",           icon: LayoutDashboard, exact: true },
-    { nameKey: "orders",    href: "/sales/orders",    icon: FileText },
-    { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw },
-    { nameKey: "targets",   href: "/sales/targets",   icon: Target },
-    { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp },
-  ],
-  accounting: [
-    { nameKey: "overview",  href: "/accounting",          icon: LayoutDashboard, exact: true },
-    { nameKey: "accounts",  href: "/accounting/accounts", icon: CreditCard },
-    { nameKey: "income",    href: "/accounting/income",   icon: TrendingUp },
-    { nameKey: "expenses",  href: "/accounting/expenses", icon: TrendingDown },
-    { nameKey: "invoices",  href: "/accounting/invoices", icon: FileText },
-    { nameKey: "reports",   href: "/accounting/reports",  icon: BarChart2 },
-  ],
-  hr: [
-    { nameKey: "employees",   href: "/hr",              icon: Users, exact: true },
-    { nameKey: "departments", href: "/hr/departments",  icon: Building2 },
-    { nameKey: "attendance",  href: "/hr/attendance",   icon: Clock },
-    { nameKey: "leave",       href: "/hr/leave",        icon: Award },
-    { nameKey: "payroll",     href: "/hr/payroll",      icon: DollarSign },
-    { nameKey: "recruiting",  href: "/hr/recruiting",   icon: UserPlus },
-  ],
-  crm: [
-    { nameKey: "overview",   href: "/crm",           icon: LayoutDashboard, exact: true },
-    { nameKey: "contacts",   href: "/crm/contacts",  icon: UserCheck },
-    { nameKey: "campaigns",  href: "/crm/campaigns", icon: Megaphone },
-    { nameKey: "emails",     href: "/crm/emails",    icon: Mail },
-  ],
-  customers: [
-    { nameKey: "allCustomers", href: "/customers",           icon: Users, exact: true },
-    { nameKey: "segments",     href: "/customers/segments",  icon: Tag },
-    { nameKey: "loyalty",      href: "/customers/loyalty",   icon: Star },
-    { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2 },
-  ],
-  procurement: [
-    { nameKey: "overview",  href: "/procurement",           icon: LayoutDashboard, exact: true },
-    { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList },
-    { nameKey: "orders",    href: "/procurement/orders",    icon: ShoppingBag },
-    { nameKey: "suppliers", href: "/procurement/suppliers", icon: Truck },
-    { nameKey: "returns",   href: "/procurement/returns",   icon: RotateCcw },
-  ],
-  manufacturing: [
-    { nameKey: "overview",   href: "/manufacturing",             icon: LayoutDashboard, exact: true },
-    { nameKey: "workOrders", href: "/manufacturing/work-orders", icon: Hammer },
-    { nameKey: "materials",  href: "/manufacturing/materials",   icon: Package },
-    { nameKey: "bom",        href: "/manufacturing/bom",         icon: ClipboardList },
-    { nameKey: "analytics",  href: "/manufacturing/analytics",   icon: BarChart2 },
-  ],
-  inventory: [
-    { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, exact: true },
-    { nameKey: "products",   href: "/inventory/products",   icon: Package },
-    { nameKey: "categories", href: "/inventory/categories", icon: Tag },
-    { nameKey: "brands",     href: "/inventory/brands",     icon: Star },
-    { nameKey: "units",      href: "/inventory/units",      icon: Ruler },
-    { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck },
-    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers },
-    { nameKey: "serials",    href: "/inventory/serials",    icon: Star },
-    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck },
-    { nameKey: "batches",    href: "/inventory/batches",    icon: Package },
-  ],
-  reports: [
-    { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, exact: true },
-    { nameKey: "sales",      href: "/reports/sales",     icon: TrendingUp },
-    { nameKey: "accounting",    href: "/reports/accounting",   icon: DollarSign },
-    { nameKey: "inventory",  href: "/reports/inventory", icon: Package },
-    { nameKey: "customers",  href: "/reports/customers", icon: Users },
-  ],
-  settings: [
-    // One entry fronts the five Business Settings tabs (General, Financial, Security, Notifications, Appearance).
-    { nameKey: "businessSettings", href: "/settings", icon: Settings, exact: true, activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
-    { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
-    { nameKey: "plansBilling", href: "/settings/billing", icon: CreditCard },
-  ],
-  repairs: [
-    { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
-  ],
-  services: [
-    { nameKey: "overview",         href: "/services",                  icon: LayoutDashboard, exact: true },
-    { nameKey: "appointments",     href: "/services/appointments",     icon: CalendarDays },
-    { nameKey: "walkIns",          href: "/services/walk-ins",         icon: ListChecks },
-    { nameKey: "calendar",         href: "/services/calendar",         icon: CalendarClock },
-    { nameKey: "catalog",          href: "/services/catalog",          icon: Sparkles },
-    { nameKey: "staffCommissions", href: "/services/staff-commissions", icon: UserCheck },
-  ],
-};
 
 interface SecondSidebarProps {
   /** Required when `sections` is not provided (link-mode). Ignored in section-mode. */
@@ -185,7 +80,7 @@ export function SecondSidebar({
   const isTabBar = !showRail;
 
   const navClassName = showRail
-    ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-surface overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
+    ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
     : `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-14 z-10 ${isBig ? "h-12 px-3 gap-1" : "px-3"}`;
 
   const railHeader = showRail && (showToggle || label) && (
@@ -207,41 +102,35 @@ export function SecondSidebar({
     </div>
   );
 
-  const linkClassName = (isActive: boolean, hasCustomColor: boolean) => {
+  const linkClassName = (isActive: boolean) => {
     if (isTabBar) {
       return `relative flex items-center gap-2 -mb-px ${isBig ? "px-3.5 py-2.5" : "px-3.5 py-3"} text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 transition-colors ${
         isActive
-          ? hasCustomColor ? "border-transparent" : "text-foreground border-accent"
+          ? "text-accent border-accent"
           : "text-muted border-transparent hover:text-foreground hover:border-border"
       }`;
     }
-    return `flex items-center lg:mx-2 lg:px-2.5 gap-2.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink ${
-      isActive ? hasCustomColor ? "text-white" : "bg-accent text-white" : "text-foreground/55 hover:bg-surface hover:text-foreground"
+    return `pesaa-nav-row flex items-center lg:w-full lg:px-3 gap-2.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink ${
+      isActive ? "text-white" : "text-muted"
     }`;
   };
 
   const items = isSectionMode
     ? (sections ?? []).map((item) => {
         const isActive = activeKey === item.key;
-        const custom = item.color;
         return (
           <button
             key={item.key}
             type="button"
             onClick={() => onSelect?.(item.key)}
             aria-current={isActive ? "page" : undefined}
-            className={linkClassName(isActive, !!custom)}
-            style={
-              isActive && custom
-                ? isTabBar ? { color: custom, borderColor: custom } : { backgroundColor: custom }
-                : undefined
-            }
+            data-active={!isTabBar && isActive}
+            className={linkClassName(isActive)}
           >
             <item.icon
               size={isTabBar ? 16 : 18}
               strokeWidth={isActive ? 2.2 : 1.8}
-              style={custom ? { color: isActive ? (isTabBar ? custom : "#fff") : custom } : undefined}
-              className={custom ? "flex-shrink-0" : "flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
+              className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
             />
             <span>{item.label}</span>
             {typeof item.count === "number" && (
@@ -252,24 +141,22 @@ export function SecondSidebar({
           </button>
         );
       })
-    : (module ? navConfigs[module] : []).map((item) => {
-        const isActive = (item.exact
-          ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(item.href + "/"))
-          || !!item.activeFor?.some((p) => pathname === p || pathname.startsWith(p + "/"));
+    : (module ? MODULE_NAV[module] : []).map((item) => {
+        const isActive = isModuleLinkActive(pathname, item);
         return (
           <Link
             key={item.nameKey}
             href={item.href}
             aria-current={isActive ? "page" : undefined}
-            className={linkClassName(isActive, false)}
+            data-active={!isTabBar && isActive}
+            className={linkClassName(isActive)}
           >
             <item.icon
               size={isTabBar ? 16 : 18}
               strokeWidth={isActive ? 2.2 : 1.8}
               className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
             />
-            <span>{t(item.nameKey)}</span>
+            <span>{item.label ?? t(item.nameKey)}</span>
           </Link>
         );
       });

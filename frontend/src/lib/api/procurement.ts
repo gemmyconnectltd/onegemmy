@@ -1,4 +1,4 @@
-import { request } from "./client";
+import { request, qs } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
 export interface PurchaseItem {
@@ -11,6 +11,8 @@ export interface PurchaseItem {
   unit_cost: number;
   quantity: number;
   line_total: number;
+  update_catalog_cost?: boolean;
+  selling_price?: string | number | null;
 }
 
 export interface PurchaseOrder {
@@ -49,6 +51,8 @@ export interface PurchaseItemInput {
   sku?: string | null;
   unit_cost: number;
   quantity: number;
+  update_catalog_cost?: boolean;
+  selling_price?: string | null;
 }
 
 export interface PurchaseCreateInput {
@@ -124,10 +128,12 @@ const BASE = "/tenants/procurement/purchase-orders";
 const REQ_BASE = "/tenants/procurement/requisitions";
 const RETURN_BASE = "/tenants/procurement/purchase-returns";
 
+export interface PurchaseHistoryFilters { search?: string; from_date?: string; to_date?: string; }
+export interface PurchaseHistorySummary { total: number; total_value: string; counts: Record<string, number>; }
 export const procurementApi = {
-  listPurchaseOrders: (status?: string, page = 1, pageSize = 100) =>
-    request<PaginatedResponse<PurchaseOrder>>(
-      `${BASE}?page=${page}&page_size=${pageSize}${status ? `&status=${encodeURIComponent(status)}` : ""}`,
+  listPurchaseOrders: (status?: string, page = 1, pageSize = 100, filters?: PurchaseHistoryFilters) =>
+    request<PaginatedResponse<PurchaseOrder> & {data: {summary: PurchaseHistorySummary}}>(
+      `${BASE}${qs({page, page_size: pageSize, status, ...filters})}`,
     ),
   getPurchaseOrder: (id: string) =>
     request<SingleResponse<PurchaseOrder>>(`${BASE}/${id}`),

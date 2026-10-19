@@ -94,6 +94,7 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     bill = await bill_repo.get_by_id_for_tenant(tenant_id, bill_id)
     if bill is None:
         raise NotFoundError("Supplier bill not found")
+    payment_branch_id = bill.purchase_order.branch_id
     if actor is not None:
         from app.core.exceptions import ForbiddenError
         from app.modules.accounting.service.workspace import allow
@@ -112,7 +113,10 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     base_ccy = await get_base_currency(db, tenant_id)
     bill_ccy = document_currency(bill, base_ccy)
     pay_ccy = await require_active_currency(db, data.currency_code) if data.currency_code else bill_ccy
-    paid_at = datetime.now(UTC)
+    paid_at = data.paid_at or datetime.now(UTC)
+    paid_at = paid_at if paid_at.tzinfo else paid_at.replace(tzinfo=UTC)
+    if paid_at.date() > datetime.now(UTC).date() or paid_at.date() < bill.bill_date:
+        raise ValidationError("Payment date must be between the bill date and today")
 
     balance = to_decimal(bill.amount) - to_decimal(bill.amount_paid)
     if bill_ccy == base_ccy and pay_ccy == base_ccy:
@@ -172,12 +176,20 @@ async def record_payment(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     # Ledger in base currency: cash at the payment-date rate, payable cleared at the bill's own frozen
     # rate, any difference booked as realised FX gain/loss.
     await create_supplier_payment_transaction(
-        db, tenant_id, user_id, bill.purchase_order_id, base_cash, reference, data.payment_method, ap_amount=base_clears,
+        db, tenant_id, user_id, bill.purchase_order_id, base_cash, reference,
+        data.payment_method, ap_amount=base_clears, payment_date=paid_at.date(),
+        branch_id=payment_branch_id,
     )
 
     await db.flush()
     from app.modules.audit.service import record_audit
-    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="supplier_payment.create", entity_type="supplier_payment", entity_id=str(payment.id), summary=f"Recorded supplier payment {reference}")
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=user_id, action="supplier_payment.create",
+        entity_type="supplier_payment", entity_id=str(payment.id),
+        summary=f"Recorded supplier payment {reference}",
+        actor_name=actor.full_name if actor else None,
+        changes={"notes": data.notes, "reference_number": data.reference_number},
+    )
     await db.commit()
     obj = await bill_repo.get_by_id_for_tenant(tenant_id, bill_id)
     return _to_read(obj)

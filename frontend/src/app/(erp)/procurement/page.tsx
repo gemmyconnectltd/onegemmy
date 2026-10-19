@@ -1,6 +1,5 @@
 "use client";
 
-import { purchaseBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import Link from "next/link";
 import { ArrowRight, ClipboardList, Plus, RotateCcw, ShoppingBag, Truck, Users, Wallet } from "lucide-react";
@@ -22,26 +21,26 @@ export default function ProcurementPage() {
   const c = chartPalette(theme === "dark");
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
-  const poQ = usePurchaseOrders(undefined, 1, 200);
+  const poQ = usePurchaseOrders(undefined, 1, 100);
   const suppliersQ = useSuppliers();
   const orders = poQ.data?.items ?? [];
   const suppliers = suppliersQ.data?.items ?? [];
 
-  const pending = orders.filter((o) => o.status === "Approved").length;
-  const drafts = orders.filter((o) => o.status === "Draft").length;
-  const totalSpend = orders.reduce((s, o) => s + purchaseBaseTotal(o), 0);
+  const pending = poQ.data?.summary?.counts.Received || 0;
+  const drafts = poQ.data?.summary?.counts.Draft || 0;
+  const totalSpend = Number(poQ.data?.summary?.total_value || 0);
   const spendBySupplier = groupSum(orders, (o) => o.supplier?.name ?? "Unknown supplier", (o) => o.total);
   const recentOrders = [...orders].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")).slice(0, 5);
 
   const stats = [
-    { label: "Pending orders", value: String(pending), icon: Truck, color: "#0284c7", href: "/procurement/orders" },
-    { label: "Draft orders", value: String(drafts), icon: ShoppingBag, color: "#64748b", href: "/procurement/orders" },
+    { label: "Received purchases", value: String(pending), icon: Truck, color: "#0284c7", href: "/procurement/orders" },
+    { label: "Draft purchases", value: String(drafts), icon: ShoppingBag, color: "#64748b", href: "/procurement/orders" },
     { label: "Suppliers", value: String(suppliers.length), icon: Users, color: "#4f46e5", href: "/procurement/suppliers" },
-    { label: "Total spend", value: fmt(totalSpend), icon: Wallet, color: brandColor, href: "/procurement/orders" },
+    { label: "Purchase value", value: fmt(totalSpend), icon: Wallet, color: brandColor, href: "/procurement/orders" },
   ];
 
   const quickLinks = [
-    { label: "Purchase orders", desc: "Create and track orders", href: "/procurement/orders", icon: ShoppingBag, color: "#0284c7" },
+    { label: "Purchase History", desc: "Review purchases and supplier costs", href: "/procurement/orders", icon: ShoppingBag, color: "#0284c7" },
     { label: "Suppliers", desc: "Manage supplier accounts", href: "/procurement/suppliers", icon: Users, color: "#4f46e5" },
     { label: "Requests", desc: "Approve team requisitions", href: "/procurement/requests", icon: ClipboardList, color: "#b45309" },
     { label: "Returns", desc: "Track returns and refunds", href: "/procurement/returns", icon: RotateCcw, color: brandColor },
@@ -60,8 +59,8 @@ export default function ProcurementPage() {
           <Link href="/procurement/requests" className="flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium hover:bg-surface transition-colors rounded-lg">
             <Plus size={16} />New Request
           </Link>
-          <Link href="/procurement/orders" className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium rounded-lg" style={{ backgroundColor: brandColor }}>
-            <Plus size={16} />New Purchase Order
+          <Link href="/procurement/orders?new=1" className="flex items-center gap-2 text-white px-4 py-2 text-sm font-medium rounded-lg" style={{ backgroundColor: brandColor }}>
+            <Plus size={16} />New Purchase
           </Link>
         </div>
       </div>
@@ -96,7 +95,7 @@ export default function ProcurementPage() {
       <div className="grid lg:grid-cols-3 gap-4">
         <BreakdownCard
           title="Spend by Supplier"
-          sub="Purchase orders · all time"
+          sub="Latest 100 purchases"
           icon={Wallet}
           data={spendBySupplier}
           colors={breakdownColors(c)}
@@ -105,7 +104,7 @@ export default function ProcurementPage() {
         />
         <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="text-sm font-bold text-foreground">Recent purchase orders</h2>
+            <h2 className="text-sm font-bold text-foreground">Recent purchases</h2>
             <Link href="/procurement/orders" className="flex items-center gap-1 text-[12px] font-semibold text-accent">
               View all <ArrowRight size={12} />
             </Link>

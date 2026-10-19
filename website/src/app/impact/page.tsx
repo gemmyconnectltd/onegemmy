@@ -1,9 +1,10 @@
+import { CallToAction } from "@/components/marketing/CallToAction";
+import { PageHero } from "@/components/marketing/PageHero";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { Languages, Coins, ShieldCheck, Smartphone, Building2, LayoutGrid } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { appUrl, siteConfig } from "@/lib/site";
+import { siteConfig } from "@/lib/site";
 import { getPlatformStats, MIN_BUSINESSES_TO_SHOW } from "@/lib/publicStats";
 import { TrustBadges } from "@/components/marketing/TrustBadges";
 
@@ -53,62 +54,44 @@ export default async function ImpactPage() {
     { icon: ShieldCheck, value: "100%", label: "Of every business's data kept isolated to their own account" },
   ];
   return (
-    <div className="min-h-screen bg-background">
+    <div className="pesaa-landing marketing-page min-h-screen bg-white text-slate-900">
       <Navbar />
+      <main>
 
-      {/* Hero */}
-      <section className="relative pt-28 pb-14 md:pt-32 md:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <Image
-          src="/verticals/repairs.jpg"
-          alt="Technician repairing an electronic device on a workbench"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Small and Mid-Sized Businesses Drive the East African Economy
-          </h1>
-          <p className="text-lg text-white/70">
-            {`${siteConfig.name} is an early-stage company — we don't report figures or partnerships we haven't earned yet. Here's what we're prepared to commit to today.`}
-          </p>
-        </div>
-      </section>
+      <PageHero eyebrow="Built for growing businesses" title={<>Small and Mid-Sized Businesses Drive the East African Economy</>} description={<>{`${siteConfig.name} is an early-stage company — we don't report figures or partnerships we haven't earned yet. Here's what we're prepared to commit to today.`}</>} image="/marketing/wholesale-owner.webp" imageAlt="Illustrative wholesale merchant managing his business" />
 
       {/* By the numbers — real product facts, not fabricated business claims */}
-      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-[#052e16]">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-center text-sm font-semibold text-[#4ade80] uppercase tracking-wide mb-12">
+      <section className="landing-section px-5 sm:px-8 border-y border-emerald-100 bg-[var(--primary-light)]">
+        <div className="max-w-[1176px] mx-auto">
+          <p className="text-center text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-12">
             By the numbers
           </p>
           <div className={`grid ${NUMBERS_GRID_COLS[numbers.length] ?? "grid-cols-2 md:grid-cols-4"} gap-8 text-center`}>
             {numbers.map((item) => (
               <div key={item.label}>
-                <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-3">
-                  <item.icon size={20} className="text-[#4ade80]" />
+                <div className="w-11 h-11 rounded-xl bg-emerald-100/70 flex items-center justify-center mx-auto mb-3">
+                  <item.icon size={20} className="text-[var(--primary)]" />
                 </div>
-                <div className="text-4xl md:text-5xl font-bold text-white mb-2">
+                <div className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-2">
                   {item.value}
                 </div>
-                <div className="text-white/50 text-sm">{item.label}</div>
+                <div className="text-slate-500 text-sm">{item.label}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <TrustBadges />
+      <TrustBadges compact />
 
       {/* Pillars */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+      <section className="landing-section px-5 sm:px-8">
+        <div className="max-w-[1176px] mx-auto">
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {pillars.map((p) => (
               <div key={p.title} className="flex gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
-                  <p.icon size={20} className="text-[#16a34a]" />
+                <div className="w-11 h-11 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0">
+                  <p.icon size={20} className="text-[var(--primary)]" />
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground mb-1.5">{p.title}</h3>
@@ -121,7 +104,7 @@ export default async function ImpactPage() {
       </section>
 
       {/* Honest framing */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface">
+      <section className="landing-section px-5 sm:px-8 bg-surface">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
             Where we stand today
@@ -140,20 +123,9 @@ export default async function ImpactPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="relative py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
-        <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Become One of Our Early Customer Stories</h2>
-          <p className="text-white/60 mb-8">Get started at no cost, and if the platform delivers for your business, we&apos;d be glad to feature your story here.</p>
-          <a
-            href={appUrl("/register")}
-            className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"
-          >
-            Start Free Trial
-          </a>
-        </div>
-      </section>
+      <CallToAction title={<>Become One of Our Early Customer Stories</>} description={<>Get started at no cost, and if the platform delivers for your business, we&apos;d be glad to feature your story here.</>} />
 
+      </main>
       <Footer />
     </div>
   );

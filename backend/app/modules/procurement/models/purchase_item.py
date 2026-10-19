@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -27,6 +28,8 @@ class PurchaseItem(UUIDPKMixin, Base):
     unit_cost: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False, default=1)
     line_total: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    update_catalog_cost: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    selling_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     purchase_order = relationship("PurchaseOrder", back_populates="items")

@@ -41,12 +41,16 @@ class SupplierBillRepository(BaseRepository[SupplierBill]):
         return result.scalar_one()
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
+        from app.modules.accounting.repository.reporting import ReportingRepository
+
+        await ReportingRepository(self.db).lock_tenant(tenant_id)
         # MAX of the existing numeric suffix, not COUNT(*) — COUNT collides
         # with a still-existing higher number as soon as any bill has ever
         # been deleted for this tenant.
         result = await self.db.execute(
             select(func.max(cast(func.substring(SupplierBill.reference, 6), Integer)))
-            .where(SupplierBill.tenant_id == tenant_id)
+            .where(SupplierBill.tenant_id == tenant_id,
+                   SupplierBill.reference.op("~")(r"^BILL-[0-9]{1,9}$"))
         )
         current_max = result.scalar_one() or 0
         return f"BILL-{str(current_max + 1).zfill(4)}"

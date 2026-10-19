@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../../../design-system/tokens.css";
+@import "../../../design-system/components.css";
+@source "../../../design-system";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -9,93 +12,30 @@
 }
 
 :root {
-  --primary: oklch(0.205 0 0);
-  --surface: #f8f8f6;
-  --muted: oklch(0.97 0 0);
-  --accent: oklch(0.97 0 0);
-  --border: oklch(0.922 0 0);
-  --card: oklch(1 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-hover: #1e1e1e;
   --sidebar-text: rgba(255,255,255,0.55);
   --sidebar-text-active: #ffffff;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --surface: #151519;
-  --foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --card: oklch(0.205 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-hover: #191920;
   --sidebar-text: rgba(255,255,255,0.55);
   --sidebar-text-active: #ffffff;
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 /* Brand tokens. In the product these are set at runtime from the tenant's settings; the public website is
    always the Pesaa brand, so they are fixed here (no providers, no runtime theme). */
 :root {
-  --background: #ffffff;
-  --surface: #f8f8f6;
-  --card: #ffffff;
-  --border: #e8e4de;
-  --foreground: #2b2118;
-  --muted: #7a7d7e;
-  --accent: #16a34a;
-  --primary: #16a34a;
 }
 
 @theme inline {
@@ -187,3 +127,25 @@ input, select, textarea {
     @apply font-sans;
   }
 }
+
+/* Reference landing page: compact white surfaces and the shared primary theme. */
+.pesaa-landing { color-scheme: light; background: #fff; }
+.landing-container { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 20px; }
+.landing-eyebrow { display: flex; align-items: center; justify-content: inherit; gap: 6px; margin-bottom: 10px; color: var(--primary); font-size: 10px; font-weight: 800; letter-spacing: .025em; text-transform: uppercase; }
+.text-center > .landing-eyebrow { justify-content: center; }
+.landing-title { color: var(--foreground); font-size: clamp(25px, 3vw, 34px); font-weight: 800; letter-spacing: -.045em; line-height: 1.18; }
+.landing-description { margin-top: 12px; max-width: 700px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.pesaa-landing a:focus-visible, .pesaa-landing button:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+@media (min-width: 640px) { .landing-container { padding-inline: 32px; } }
+@media (prefers-reduced-motion: reduce) { .pesaa-landing *, .pesaa-landing *::before, .pesaa-landing *::after { scroll-behavior: auto; transition-duration: 0s; animation-duration: 0s; } }
+
+/* Shared landing rhythm, surfaces and action sizing. */
+.landing-section { padding-block: 56px; }
+.landing-section-heading { margin-bottom: 32px; }
+@layer components {
+  .landing-card { border: 1px solid var(--border); border-radius: 16px; background: #fff; box-shadow: 0 3px 16px #0f172a04; }
+}
+.pesaa-landing .landing-button, .pesaa-landing .landing-secondary { min-height: 44px; }
+@media (min-width: 640px) { .landing-section { padding-block: 72px; } .landing-section-heading { margin-bottom: 36px; } }
+
+/* Official cross-application visual contracts. */

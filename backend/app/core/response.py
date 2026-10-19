@@ -24,7 +24,8 @@ def paginated_response(
     total: int,
     page: int,
     page_size: int,
-    message: str = "Success"
+    message: str = "Success",
+    summary: dict | None = None,
 ):
     return JSONResponse(
         status_code=200,
@@ -37,6 +38,7 @@ def paginated_response(
                 "page": page,
                 "page_size": page_size,
                 "total_pages": -(-total // page_size) if page_size else 0,
+                **({"summary": summary} if summary is not None else {}),
             }
         })
     )

@@ -32,6 +32,9 @@ class SupplierBillRead(BaseModel):
 
 
 class SupplierPaymentCreate(BaseModel):
+    paid_at: datetime | None = None
+    reference_number: str | None = Field(default=None, max_length=50)
+    notes: str | None = Field(default=None, max_length=1000)
     client_reference: str | None = Field(default=None, min_length=3, max_length=50)
     amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     payment_method: str | None = None

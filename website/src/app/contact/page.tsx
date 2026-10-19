@@ -1,3 +1,4 @@
+import { PageHero } from "@/components/marketing/PageHero";
 import type { Metadata } from "next";
 import { Mail, MapPin } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
@@ -11,27 +12,18 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="pesaa-landing marketing-page min-h-screen bg-white text-slate-900">
       <Navbar />
+      <main>
+      <PageHero eyebrow="Let’s talk" title="Contact our team" description={`Have questions about ${siteConfig.name}, need help selecting a plan, or want to discuss your business’s requirements? We’re here to help.`} />
 
-      <section className="pt-28 pb-16 md:pt-32 md:pb-24 px-4 sm:px-6 lg:px-8">
+      <section className="landing-section px-5 sm:px-8">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Contact Our Team
-            </h1>
-            <p className="text-lg text-muted max-w-xl mx-auto">
-              Have questions about {siteConfig.name}, need help selecting a plan,
-              or want to discuss your business&apos;s specific requirements?
-              We&apos;re here to help.
-            </p>
-          </div>
-
           <div className="grid lg:grid-cols-5 gap-8 max-w-5xl mx-auto">
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-card p-6 rounded-xl border border-border">
-                <div className="w-10 h-10 rounded-lg bg-[#16a34a]/10 flex items-center justify-center mb-3">
-                  <Mail size={20} className="text-[#16a34a]" />
+              <div className="landing-card p-6">
+                <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center mb-3">
+                  <Mail size={20} className="text-[var(--primary)]" />
                 </div>
                 <h3 className="font-bold text-foreground mb-1.5">Email Us</h3>
                 <p className="text-sm text-muted mb-3">
@@ -39,15 +31,15 @@ export default function ContactPage() {
                 </p>
                 <a
                   href="mailto:info@pesaa.io"
-                  className="text-sm font-semibold text-[#16a34a] hover:underline"
+                  className="text-sm font-semibold text-[var(--primary)] hover:underline"
                 >
                   info@pesaa.io
                 </a>
               </div>
 
-              <div className="bg-card p-6 rounded-xl border border-border">
-                <div className="w-10 h-10 rounded-lg bg-[#16a34a]/10 flex items-center justify-center mb-3">
-                  <MapPin size={20} className="text-[#16a34a]" />
+              <div className="landing-card p-6">
+                <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/10 flex items-center justify-center mb-3">
+                  <MapPin size={20} className="text-[var(--primary)]" />
                 </div>
                 <h3 className="font-bold text-foreground mb-1.5">Headquarters</h3>
                 <p className="text-sm text-muted">
@@ -63,6 +55,7 @@ export default function ContactPage() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

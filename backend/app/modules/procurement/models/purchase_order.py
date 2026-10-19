@@ -52,6 +52,8 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurr
     __table_args__ = (
         Index("uq_purchase_orders_tenant_ref", "tenant_id", "reference", unique=True),
         Index("ix_purchase_orders_tenant_id", "tenant_id"),
+        Index("ix_purchases_tenant_created", "tenant_id", "created_at"),
+        Index("ix_purchases_tenant_branch_created", "tenant_id", "branch_id", "created_at"),
         Index("ix_purchase_orders_supplier_id", "supplier_id"),
         Index("ix_purchase_orders_tenant_status", "tenant_id", "status"),
         Index("ix_purchase_orders_tenant_branch", "tenant_id", "branch_id"),

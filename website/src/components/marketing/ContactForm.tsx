@@ -11,8 +11,7 @@ const INDUSTRIES = ["Retail", "Wholesale", "Manufacturing", "Services", "Hospita
 const EMPLOYEE_COUNTS = ["Just me", "2-5", "6-10", "11-50", "51-200", "200+"];
 const INQUIRY_TYPES = ["Request a demo", "Pricing information", "Technical support", "Partnership", "General inquiry"];
 
-const inputClass =
-  "w-full px-3.5 py-2.5 border border-border rounded-lg text-base sm:text-sm text-foreground placeholder:text-muted/60 bg-surface/30 focus:border-foreground/30 focus:ring-2 focus:ring-foreground/5 outline-none transition-all";
+const inputClass = "pesaa-control placeholder:text-muted/60";
 
 const selectClass = `${inputClass} appearance-none cursor-pointer pr-8`;
 
@@ -90,9 +89,9 @@ export function ContactForm() {
 
   if (status === "success") {
     return (
-      <div className="bg-card border border-border rounded-xl p-8 text-center">
-        <div className="w-12 h-12 rounded-full bg-[#16a34a]/10 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 size={24} className="text-[#16a34a]" />
+      <div className="landing-card p-8 text-center">
+        <div className="w-12 h-12 rounded-full bg-[var(--primary)]/10 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 size={24} className="text-[var(--primary)]" />
         </div>
         <h3 className="font-bold text-foreground mb-1.5">Message sent</h3>
         <p className="text-sm text-muted mb-5">
@@ -101,7 +100,7 @@ export function ContactForm() {
         <button
           type="button"
           onClick={() => setStatus("idle")}
-          className="text-sm font-semibold text-[#16a34a] hover:underline"
+          className="text-sm font-semibold text-[var(--primary)] hover:underline"
         >
           Send another inquiry
         </button>
@@ -110,7 +109,7 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-6 text-left space-y-4">
+    <form onSubmit={handleSubmit} className="landing-card p-6 text-left space-y-4">
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-[13px] font-medium text-foreground mb-1.5">Full name</label>
@@ -193,7 +192,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={status === "loading"}
-        className="w-full bg-[#16a34a] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#15803d] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+        className="w-full bg-[var(--primary)] text-white px-6 py-3 rounded-lg font-bold hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
       >
         {status === "loading" ? (
           <>

@@ -18,7 +18,7 @@ _PERMISSION_RESOURCES = [
     "items", "warehouses", "stock", "orders", "pricing", "returns",
     "invoices", "pos",
     "chart_of_accounts", "journal_entries", "accounts_payable",
-    "accounts_receivable", "banking", "fixed_assets", "budgeting", "tax",
+    "accounts_receivable", "banking", "fixed_assets", "budgeting", "expenses", "tax",
     "employees", "organization", "recruitment", "attendance", "leave",
     "payroll", "performance",
     "vendors", "requisitions", "rfq", "purchase_orders", "goods_receipt", "contracts",

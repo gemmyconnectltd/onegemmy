@@ -128,7 +128,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const token = getStoredToken();
   const activeBranchId = getActiveBranchId();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(typeof FormData !== "undefined" && options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string>),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;

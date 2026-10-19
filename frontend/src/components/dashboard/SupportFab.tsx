@@ -31,7 +31,7 @@ export function SupportFab({ ai = true }: { ai?: boolean }) {
 
   if (aiOpen) return null;
   return (
-    <div className="fixed bottom-6 right-4 z-40 flex flex-col items-end gap-3 pb-[env(safe-area-inset-bottom)] sm:right-6">
+    <div className="fixed bottom-20 right-4 lg:bottom-6 z-40 flex flex-col items-end gap-3 pb-[env(safe-area-inset-bottom)] sm:right-6">
       {ai && (
         <button type="button" aria-label="Ask Pesaa AI" onClick={() => window.dispatchEvent(new CustomEvent(ASK_AI_EVENT))}
           style={{ animationDelay: "0.2s" }} className={`${FAB} fab-ring bg-accent hover:bg-accent/90 focus-visible:ring-accent`}>

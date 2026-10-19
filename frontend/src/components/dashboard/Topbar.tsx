@@ -28,10 +28,14 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 function getBreadcrumb(pathname: string) {
   const parts = pathname.split("/").filter(Boolean);
-  return parts.map((p) => SEGMENT_LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1));
+  return parts.map((p, index) => {
+    if (p === "orders" && index === 1 && parts[0] === "sales") return "Sales History";
+    if (p === "orders" && index === 1 && parts[0] === "procurement") return "Purchase History";
+    return SEGMENT_LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1);
+  });
 }
 
-export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
+export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: TopbarProps) {
   const { user } = useAuth();
   const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
@@ -60,6 +64,9 @@ export function Topbar({ onToggleSidebar, variant = "app" }: TopbarProps) {
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
+        aria-label="Open navigation"
+        aria-expanded={sidebarExpanded}
+        aria-controls="mobile-sidebar-nav"
         className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors lg:hidden"
       >
         <Menu size={18} />

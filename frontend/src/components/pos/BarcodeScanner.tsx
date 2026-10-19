@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ScanLine, X } from "lucide-react";
 
+type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
+type DetectorConstructor = new (options: { formats: string[] }) => Detector;
+
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
   onClose: () => void;
@@ -13,13 +16,13 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   const [error, setError] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState("");
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<any>(null);
+  const detectorRef = useRef<Detector | null>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const supported = "BarcodeDetector" in window;
     if (!supported) {
-      setError("Camera scanner not supported in this browser. Use manual entry below.");
+      queueMicrotask(() => setError("Camera scanner not supported in this browser. Use manual entry below."));
       return;
     }
 
@@ -27,8 +30,8 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
 
     async function start() {
       try {
-        // @ts-ignore
-        detectorRef.current = new BarcodeDetector({ formats: ["ean_13", "ean_8", "code_128", "code_39", "qr_code", "upc_a", "upc_e"] });
+        const NativeDetector = (window as unknown as { BarcodeDetector: DetectorConstructor }).BarcodeDetector;
+        detectorRef.current = new NativeDetector({ formats: ["ean_13", "ean_8", "code_128", "code_39", "qr_code", "upc_a", "upc_e"] });
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         streamRef.current = stream;
         if (videoRef.current) {

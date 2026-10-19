@@ -1,5 +1,5 @@
+import { PageHero } from "@/components/marketing/PageHero";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { Target, Heart, ShieldCheck, Globe2, Mail } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -34,35 +34,17 @@ const values = [
 
 export default function CompanyPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="pesaa-landing marketing-page min-h-screen bg-white text-slate-900">
       <Navbar />
+      <main>
 
-      {/* Hero */}
-      <section className="relative pt-28 pb-14 md:pt-32 md:pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <Image
-          src="/verticals/pharmacy.jpg"
-          alt="Inside a real pharmacy, shelves stocked and organized"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Business Management Software Built for Operational Excellence
-          </h1>
-          <p className="text-lg text-white/70">
-            {`${siteConfig.name} is headquartered in Kigali, Rwanda.`}
-          </p>
-        </div>
-      </section>
+      <PageHero eyebrow="About Pesaa" title={<>Business Management Software Built for Operational Excellence</>} description={<>{`${siteConfig.name} is headquartered in Kigali, Rwanda.`}</>} image="/marketing/business-owner-banner.webp" imageAlt="Illustrative business owner in a neighbourhood shop" />
 
       {/* About */}
-      <section id="about" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
+      <section id="about" className="landing-section px-5 sm:px-8 scroll-mt-20">
         <div className="max-w-3xl mx-auto">
-          <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">About us</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+          <p className="text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-3">About us</p>
+          <h2 className="landing-title mb-6">
             Built to Solve a Real Operational Problem
           </h2>
           <div className="space-y-4 text-muted leading-relaxed text-lg">
@@ -77,10 +59,10 @@ export default function CompanyPage() {
       </section>
 
       {/* Mission */}
-      <section id="mission" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
+      <section id="mission" className="landing-section px-5 sm:px-8 bg-surface scroll-mt-20">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our mission</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+          <p className="text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-3">Our mission</p>
+          <h2 className="landing-title mb-6">
             Enterprise-Grade Tools, Accessible to Every Business
           </h2>
           <p className="text-lg text-muted leading-relaxed">
@@ -94,17 +76,17 @@ export default function CompanyPage() {
       </section>
 
       {/* Values */}
-      <section id="values" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 scroll-mt-20">
-        <div className="max-w-7xl mx-auto">
+      <section id="values" className="landing-section px-5 sm:px-8 scroll-mt-20">
+        <div className="max-w-[1176px] mx-auto">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our values</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">Our operating principles</h2>
+            <p className="text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-3">Our values</p>
+            <h2 className="landing-title">Our operating principles</h2>
           </div>
           <div className="grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {values.map((v) => (
               <div key={v.title} className="flex gap-4">
-                <div className="w-11 h-11 rounded-xl bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
-                  <v.icon size={20} className="text-[#16a34a]" />
+                <div className="w-11 h-11 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0">
+                  <v.icon size={20} className="text-[var(--primary)]" />
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground mb-1.5">{v.title}</h3>
@@ -117,10 +99,10 @@ export default function CompanyPage() {
       </section>
 
       {/* Team / Careers */}
-      <section id="careers" className="py-16 md:py-24 px-4 sm:px-6 lg:px-8 bg-surface scroll-mt-20">
+      <section id="careers" className="landing-section px-5 sm:px-8 bg-surface scroll-mt-20">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">Our team</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
+          <p className="text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-3">Our team</p>
+          <h2 className="landing-title mb-6">
             A lean team, by design
           </h2>
           <p className="text-lg text-muted leading-relaxed mb-8">
@@ -132,7 +114,7 @@ export default function CompanyPage() {
           </p>
           <a
             href={`mailto:info@pesaa.io?subject=Interested%20in%20joining%20${siteConfig.name}`}
-            className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors"
+            className="landing-button px-6 py-3 text-sm"
           >
             <Mail size={18} />
             Introduce Yourself
@@ -140,6 +122,7 @@ export default function CompanyPage() {
         </div>
       </section>
 
+      </main>
       <Footer />
     </div>
   );

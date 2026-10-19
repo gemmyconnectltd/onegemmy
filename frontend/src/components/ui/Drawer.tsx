@@ -72,14 +72,14 @@ export function Drawer({
     title || description ? (
       <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3 flex-shrink-0">
         <div className="min-w-0">
-          {title && <h2 className="text-[15px] font-bold text-foreground">{title}</h2>}
+          {title && <h2 className="pesaa-card-title text-foreground">{title}</h2>}
           {description && <p className="text-[12px] text-muted mt-0.5">{description}</p>}
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="text-muted hover:text-foreground transition-colors flex-shrink-0"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-foreground"
         >
           <X size={16} />
         </button>

@@ -183,7 +183,8 @@ async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
 
     # auto-create journal entry
     await create_expense_transaction(
-        db, tenant_id, user_id, obj.id, float(base_amount), obj.reference, obj.account_id
+        db, tenant_id, user_id, obj.id, float(base_amount), obj.reference, obj.account_id,
+        payment_method=obj.payment_method, payment_date=obj.expense_date, branch_id=obj.branch_id,
     )
 
     await record_audit(

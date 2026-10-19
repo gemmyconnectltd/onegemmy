@@ -1,5 +1,6 @@
+import { CallToAction } from "@/components/marketing/CallToAction";
+import { PageHero } from "@/components/marketing/PageHero";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { Check, ArrowRight, HelpCircle } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -35,45 +36,27 @@ const faqs = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="pesaa-landing marketing-page min-h-screen bg-white text-slate-900">
       <Navbar />
+      <main>
 
-      {/* Hero */}
-      <section className="relative pt-28 pb-12 md:pt-32 md:pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <Image
-          src="/verticals/pharmacy.jpg"
-          alt="Pharmacist organizing medicine on shelves in a pharmacy"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="relative max-w-3xl mx-auto text-center">
-          <h1 className="text-[1.65rem] min-[380px]:text-3xl md:text-5xl font-bold text-white mb-6 leading-tight text-balance">
-            Plans That Scale With Your Business
-          </h1>
-          <p className="text-lg text-white/70">
-            {`From a single-location owner-operator to a multi-branch enterprise, ${siteConfig.name} scales with your operations. Get started at no cost, and upgrade as your needs grow.`}
-          </p>
-        </div>
-      </section>
+      <PageHero eyebrow="Plans & pricing" title={<>Plans That Scale With Your Business</>} description={<>{`From a single-location owner-operator to a multi-branch enterprise, ${siteConfig.name} scales with your operations. Get started at no cost, and upgrade as your needs grow.`}</>} />
 
       {/* Plans */}
-      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+      <section className="landing-section px-5 sm:px-8">
+        <div className="max-w-[1176px] mx-auto">
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan) => (
               <div
                 key={plan.title}
-                className={`p-6 rounded-xl border transition-colors flex flex-col ${
+                className={`landing-card relative p-6 transition-colors flex flex-col ${
                   plan.featured
-                    ? "border-[#16a34a] bg-[#16a34a]/5 shadow-md"
-                    : "border-border hover:border-[#16a34a]/40"
+                    ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-md"
+                    : "border-border hover:border-[var(--primary)]/40"
                 }`}
               >
                 {plan.featured && (
-                  <div className="bg-[#16a34a] text-white text-xs font-bold px-3 py-1 rounded-md inline-block mb-4 w-fit">
+                  <div className="absolute -top-3 left-6 bg-[var(--primary)] text-white text-[10px] font-bold px-3 py-1 rounded-full w-fit">
                     MOST POPULAR
                   </div>
                 )}
@@ -89,10 +72,10 @@ export default function PricingPage() {
                 </ul>
                 <a
                   href={plan.title === "Enterprise" ? "/contact" : appUrl("/register")}
-                  className={`inline-flex items-center justify-center gap-1.5 w-full px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                  className={`inline-flex items-center justify-center gap-1.5 w-full px-4 py-3 rounded-lg font-semibold text-sm transition-colors ${
                     plan.featured
-                      ? "bg-[#16a34a] text-white hover:bg-[#15803d]"
-                      : "border border-border text-foreground hover:border-[#16a34a]/40"
+                      ? "landing-button"
+                      : "landing-secondary"
                   }`}
                 >
                   {plan.title === "Enterprise" ? "Talk to Sales" : "Start Free Trial"}
@@ -108,20 +91,20 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-surface">
+      <section className="landing-section px-5 sm:px-8 bg-surface">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-semibold text-[#16a34a] uppercase tracking-wide mb-3">
+            <p className="text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-3">
               FAQ
             </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+            <h2 className="landing-title">
               Frequently Asked Questions
             </h2>
           </div>
           <div className="space-y-6">
             {faqs.map((item) => (
-              <div key={item.q} className="bg-card border border-border rounded-xl p-5 flex gap-3.5">
-                <HelpCircle size={18} className="text-[#16a34a] flex-shrink-0 mt-0.5" />
+              <div key={item.q} className="landing-card p-5 flex gap-3.5">
+                <HelpCircle size={18} className="text-[var(--primary)] flex-shrink-0 mt-0.5" />
                 <div>
                   <h3 className="font-bold text-foreground mb-1.5">{item.q}</h3>
                   <p className="text-sm text-muted leading-relaxed">{item.a}</p>
@@ -132,29 +115,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="relative py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#052e16] via-[#14532d] to-[#166534]">
-        <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Consolidate Your Business Operations Today</h2>
-          <p className="text-white/60 mb-8">No credit card required, and you may cancel at any time.</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a
-              href={appUrl("/register")}
-              className="bg-[#16a34a] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#15803d] transition-colors inline-flex items-center justify-center gap-2"
-            >
-              Start Free Trial
-              <ArrowRight size={20} />
-            </a>
-            <a
-              href="mailto:info@pesaa.io"
-              className="border border-white/20 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/5 transition-colors"
-            >
-              Contact Sales
-            </a>
-          </div>
-        </div>
-      </section>
+      <CallToAction title={<>Consolidate Your Business Operations Today</>} description={<>No credit card required, and you may cancel at any time.</>} />
 
+      </main>
       <Footer />
     </div>
   );

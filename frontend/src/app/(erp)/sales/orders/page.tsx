@@ -1,7 +1,7 @@
 "use client";
 import { TableScroll } from "@/components/ui/TableScroll";
 
-import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
+import { orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
@@ -83,7 +83,7 @@ interface OrderImportRow {
 
 function parseOrderRow(raw: Record<string, string>): { data: OrderImportRow; errors: string[] } {
   const errors: string[] = [];
-  if (!raw.orderreference) errors.push("orderReference required");
+  if (!raw.orderreference) errors.push("Sale reference required");
   if (!raw.sku) errors.push("sku required");
   if (!raw.unitprice || isNaN(Number(raw.unitprice))) errors.push("invalid unitPrice");
   if (raw.quantity !== undefined && raw.quantity !== "" && isNaN(Number(raw.quantity))) errors.push("invalid quantity");
@@ -332,7 +332,7 @@ export default function SalesOrdersPage() {
   const totalVAT = revenueOrders.reduce((s, o) => s + orderBaseTax(o), 0);
 
   const loadError = ordersQ.error ?? customersQ.error ?? productsQ.error;
-  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load orders" : null;
+  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load sales" : null;
   if (loadErrorMessage !== shownLoadError) {
     setShownLoadError(loadErrorMessage);
     if (loadErrorMessage !== null) setError(loadErrorMessage);
@@ -345,7 +345,7 @@ export default function SalesOrdersPage() {
   const saving = createOrder.isPending || updateOrder.isPending;
 
   const stats = [
-    { label: "Total Orders", value: String(totalOrdersQ.data?.total ?? 0),    icon: ShoppingCart, color: SAL },
+    { label: "Total Sales", value: String(totalOrdersQ.data?.total ?? 0),    icon: ShoppingCart, color: SAL },
     { label: "Completed",    value: String(completedCountQ.data?.total ?? 0), icon: CheckCircle2, color: "#10b981" },
     { label: "Pending",      value: String(pendingCountQ.data?.total ?? 0),   icon: Clock,        color: "#f59e0b" },
     { label: "Revenue",      value: fmt(revenue),                            icon: ShoppingCart, color: "#3b82f6" },
@@ -372,8 +372,8 @@ export default function SalesOrdersPage() {
 
   function confirmBulkDelete() {
     confirm({
-      title: "Delete Orders",
-      message: `Delete ${bulk.count} selected order${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
+      title: "Delete Sales",
+      message: `Delete ${bulk.count} selected sale${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
       onConfirm: async () => {
@@ -422,7 +422,7 @@ export default function SalesOrdersPage() {
         line_total: (Number(i.unit_price) * Number(i.quantity)) - Number(i.discount),
       })),
     };
-    const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save order");
+    const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save sale");
     const onSuccess = () => { setError(null); closeDrawer(); };
     if (editing) {
       updateOrder.mutate({
@@ -447,12 +447,12 @@ export default function SalesOrdersPage() {
       {confirmDialog}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Orders</h1>
-          <p className="text-sm text-muted mt-0.5">{total} total order{total === 1 ? "" : "s"}</p>
+          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Sales History</h1>
+          <p className="text-sm text-muted mt-0.5">{total} total sale{total === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
-          <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Order</Button>
+          <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Sale</Button>
         </div>
       </div>
 
@@ -499,14 +499,14 @@ export default function SalesOrdersPage() {
           </div>
           <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-2 w-52">
             <Search size={14} className="text-muted flex-shrink-0" />
-            <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search orders..."
+            <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search sales..."
               className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
           </div>
         </div>
 
         {bulk.count > 0 && (
           <div className="p-4 border-b border-border">
-            <BulkActionBar count={bulk.count} label="order" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            <BulkActionBar count={bulk.count} label="sale" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
 
@@ -519,7 +519,7 @@ export default function SalesOrdersPage() {
                 <th className="p-4 w-10">
                   <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={orders.length === 0} />
                 </th>
-                <th className="p-4 font-semibold">Order ID</th>
+                <th className="p-4 font-semibold">Sale Reference</th>
                 <th className="p-4 font-semibold">Customer</th>
                 <th className="p-4 font-semibold">Items</th>
                 <th className="p-4 font-semibold">Date</th>
@@ -566,14 +566,14 @@ export default function SalesOrdersPage() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setViewingId(o.id)} aria-label="View order" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
+                        <button onClick={() => setViewingId(o.id)} aria-label="View sale" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
                         {o.status === "Awaiting Approval" && canApproveCredit && (
                           <>
                             <button onClick={() => decideCredit(o, "approve")} disabled={decideBusy} aria-label="Approve credit sale" title="Approve credit" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50">Approve</button>
                             <button onClick={() => decideCredit(o, "reject")} disabled={decideBusy} aria-label="Reject credit sale" title="Reject credit" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 disabled:opacity-50">Reject</button>
                           </>
                         )}
-                        <button onClick={() => openEdit(o)} aria-label="Edit order" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
+                        <button onClick={() => openEdit(o)} aria-label="Edit sale" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
                       </div>
                     </td>
                   </tr>
@@ -585,15 +585,15 @@ export default function SalesOrdersPage() {
         {!loading && orders.length === 0 && (
           <div className="py-16 text-center">
             <ShoppingCart size={32} className="text-border mx-auto mb-3" />
-            <p className="text-sm font-semibold text-muted">No orders found</p>
+            <p className="text-sm font-semibold text-muted">No sales found</p>
           </div>
         )}
         {!loading && orders.length > 0 && (
-          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="orders" color={SAL} />
+          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
         )}
         {!statsLoading && revenueOrders.length > 0 && (
           <div className="px-4 py-3 border-t border-border bg-surface/50 flex flex-wrap items-center gap-6">
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Tax Summary (completed orders)</span>
+            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Tax Summary (completed sales)</span>
             <span className="text-[12px] font-bold" style={{ color: "#6366f1" }}>VAT Collected: {fmt(totalVAT)}</span>
             <span className="text-[12px] font-bold text-foreground">Net (excl. VAT): {fmt(revenue - totalVAT)}</span>
             <span className="text-[12px] font-bold text-foreground">Gross Revenue: {fmt(revenue)}</span>
@@ -602,7 +602,7 @@ export default function SalesOrdersPage() {
       </div>
 
       {/* ── Add / Edit Drawer ── */}
-      <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Order" : "New Order"} description={editing ? editing.order_number : "Create a new sales order"} size="xl">
+      <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Sale" : "New Sale"} description={editing ? editing.order_number : "Record a new sale"} size="xl">
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Customer">
@@ -698,7 +698,7 @@ export default function SalesOrdersPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Order Discount">
+            <Field label="Sale Discount">
               <Input type="number" min="0" value={form.discount} onChange={(e) => setForm({ ...form, discount: e.target.value })} />
             </Field>
             <Field label="Tax">
@@ -730,7 +730,7 @@ export default function SalesOrdersPage() {
             <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
           </Field>
           <FormFooter
-            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Create Order"}
+            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Record Sale"}
             onCancel={closeDrawer}
             disabled={saving || (!editing && items.every((i) => !i.product_name))}
             color={SAL}
@@ -744,7 +744,7 @@ export default function SalesOrdersPage() {
       <Drawer
         open={!!viewing}
         onClose={() => setViewingId(null)}
-        title="Order Details"
+        title="Sale Details"
         description={viewing?.order_number}
         size="lg"
         footer={
@@ -798,16 +798,16 @@ export default function SalesOrdersPage() {
         open={showImport}
         onClose={() => setShowImport(false)}
         onSubmit={async (items) => { await bulkCreateOrders.mutateAsync(items); }}
-        title="Import Orders"
-        itemNoun="order"
-        templateFilename="orders_template.xlsx"
+        title="Import Sales"
+        itemNoun="sale"
+        templateFilename="sales_template.xlsx"
         templateHeaders={ORDER_CSV_HEADERS}
         templateSampleRows={[
           ["INV-1001", "Jean Pierre", "2025-01-05", "Completed", "Cash", "", "PC-001", "2", "5000"],
           ["INV-1001", "Jean Pierre", "2025-01-05", "Completed", "Cash", "", "UC-002", "1", "3000"],
         ]}
         previewColumns={[
-          { key: "orderreference", label: "Order Ref", required: true },
+          { key: "orderreference", label: "Sale Ref", required: true },
           { key: "customer", label: "Customer" },
           { key: "orderedat", label: "Date" },
           { key: "sku", label: "SKU", required: true },
