@@ -18,7 +18,7 @@ export function PageHero({ eyebrow, title, description, image, imageAlt = "" }: 
           <h1 className="text-[clamp(2rem,3.8vw,3.25rem)] font-extrabold leading-[1.12] tracking-[-0.045em] text-[var(--foreground)] text-balance">{title}</h1>
           <p className={`mt-5 max-w-2xl text-[16px] leading-[1.75] text-slate-500 ${image ? "" : "mx-auto"}`}>{description}</p>
         </div>
-        {image && <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface"><Image src={image} alt={imageAlt} fill priority sizes="(min-width: 1240px) 525px, (min-width: 1024px) 45vw, 100vw" className="object-cover" /></div>}
+        {image && <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-surface"><Image src={image} alt={imageAlt} fill priority sizes="(min-width: 1240px) 525px, (min-width: 1024px) 45vw, 100vw" className="object-cover" /></div>}
       </div>
     </section>
   );

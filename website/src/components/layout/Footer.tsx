@@ -3,15 +3,15 @@ import { Mail } from "lucide-react";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { appUrl, siteConfig } from "@/lib/site";
 
-export function Footer({ appearance = "light" }: { appearance?: "dark" | "light" }) {
+export function Footer({ appearance = "light", compact = false }: { appearance?: "dark" | "light"; compact?: boolean }) {
   const light = appearance === "light";
   return (
-    <footer className={`${light ? "bg-white text-slate-800 border-t border-slate-100" : "bg-[var(--primary-active)] text-white"} ${light ? "py-10 md:py-12" : "py-12 md:py-16"} ${light ? "" : "px-4 sm:px-6 lg:px-8"}`}>
+    <footer className={`${light ? "bg-white text-slate-800 border-t border-slate-100" : "bg-[var(--primary-active)] text-white"} ${compact ? "py-7 md:py-8" : light ? "py-10 md:py-12" : "py-12 md:py-16"} ${light ? "" : "px-4 sm:px-6 lg:px-8"}`}>
       <div className={light ? "landing-container" : "max-w-7xl mx-auto"}>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 lg:grid-cols-[1.5fr_repeat(4,minmax(0,1fr))] lg:gap-12 mb-12">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 lg:grid-cols-[1.5fr_repeat(4,minmax(0,1fr))] lg:gap-10 mb-8">
           <div className="col-span-2 md:col-span-4 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-4 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
-              <div className="w-9 h-9 rounded-xl bg-[var(--primary)] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-lg bg-[var(--primary)] flex items-center justify-center">
                 <LogoMark className="text-white" size={20} />
               </div>
               <div>

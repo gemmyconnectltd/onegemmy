@@ -143,7 +143,7 @@ input, select, textarea {
 .landing-section { padding-block: 56px; }
 .landing-section-heading { margin-bottom: 32px; }
 @layer components {
-  .landing-card { border: 1px solid var(--border); border-radius: 16px; background: #fff; box-shadow: 0 3px 16px #0f172a04; }
+  .landing-card { border: 1px solid var(--border); border-radius: var(--radius); background: #fff; box-shadow: 0 3px 16px #0f172a04; }
 }
 .pesaa-landing .landing-button, .pesaa-landing .landing-secondary { min-height: 44px; }
 @media (min-width: 640px) { .landing-section { padding-block: 72px; } .landing-section-heading { margin-bottom: 36px; } }

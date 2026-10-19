@@ -24,8 +24,10 @@ function hasLogoFile(publicPath: string) {
   }
 }
 
-export function TrustBadges({ compact = false }: { compact?: boolean }) {
-  if (compact) return <section aria-label="Data protection certification" className="bg-white px-5 py-7"><div className="mx-auto flex max-w-[1176px] flex-wrap items-center justify-center gap-4 rounded-xl border border-emerald-100 bg-emerald-50/35 px-5 py-4 sm:justify-between"><div className="flex items-center gap-3"><ShieldCheck size={25} className="shrink-0 text-emerald-600" /><div><h2 className="text-xs font-bold text-slate-800">Your business data deserves care</h2><p className="mt-1 text-[11px] text-slate-500">Data Controller & Data Processor certification in Rwanda.</p></div></div>{hasLogoFile(certifications[0].logo) && <Image src={certifications[0].logo} alt={certifications[0].title} width={140} height={45} className="h-9 w-auto object-contain" />}</div></section>;
+export function TrustBadges({ compact = false, inline = false }: { compact?: boolean; inline?: boolean }) {
+  if (inline) return <div className="text-center">{hasLogoFile(certifications[0].logo) ? <Image src={certifications[0].logo} alt="Data protection certification in Rwanda" width={180} height={60} className="mx-auto h-14 w-auto max-w-full object-contain" /> : <ShieldCheck size={40} className="mx-auto text-accent" />}<h3 className="mt-2 text-xs font-semibold">Data Controller & Data Processor</h3><p className="mt-1 text-xs text-muted">Certified in Rwanda.</p></div>;
+
+  if (compact) return <section aria-label="Data protection certification" className="bg-white px-5 py-7"><div className="mx-auto flex max-w-[1176px] flex-wrap items-center justify-center gap-4 rounded-lg border border-emerald-100 bg-emerald-50/35 px-5 py-4 sm:justify-between"><div className="flex items-center gap-3"><ShieldCheck size={25} className="shrink-0 text-emerald-600" /><div><h2 className="text-xs font-bold text-slate-800">Your business data deserves care</h2><p className="mt-1 text-[11px] text-slate-500">Data Controller & Data Processor certification in Rwanda.</p></div></div>{hasLogoFile(certifications[0].logo) && <Image src={certifications[0].logo} alt={certifications[0].title} width={140} height={45} className="h-9 w-auto object-contain" />}</div></section>;
   return (
     <section className="py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-surface">
       <div className="max-w-7xl mx-auto">
@@ -41,7 +43,7 @@ export function TrustBadges({ compact = false }: { compact?: boolean }) {
           {certifications.map((c) => (
             <div
               key={c.title}
-              className="relative overflow-hidden rounded-2xl border border-border bg-card p-8"
+              className="relative overflow-hidden rounded-lg border border-border bg-card p-8"
             >
               <div className="absolute -top-8 -right-8 w-32 h-32 bg-gradient-to-br from-border/70 to-transparent rounded-full blur-2xl" />
               <div className="relative">
@@ -54,7 +56,7 @@ export function TrustBadges({ compact = false }: { compact?: boolean }) {
                     className="h-12 w-auto object-contain mb-6"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-xl bg-[#16a34a]/10 flex items-center justify-center mb-6">
+                  <div className="w-12 h-12 rounded-lg bg-[#16a34a]/10 flex items-center justify-center mb-6">
                     <ShieldCheck size={24} className="text-[#16a34a]" />
                   </div>
                 )}
