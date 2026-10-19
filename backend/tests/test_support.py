@@ -363,3 +363,157 @@ async def test_hub_scopes_events_like_the_inbox():
     finally:
         for s in (sa, sb, sm):
             hub.unsubscribe(s)
+
+
+# ── Email outbox: idempotency, delivery truth, retries ───────────────────────────────────────────────────────
+
+async def email_conv(db, sender="cust@example.com", subject="Invoice question", mid=None):
+    m = email_inbound.EmailIn(message_id=mid or f"<{uuid.uuid4().hex}@example.com>", sender_email=sender, sender_name="Cust", subject=subject, body="Hi there")
+    _, conv = await email_inbound.ingest_email(db, m)
+    return conv
+
+
+@pytest.fixture
+def smtp(monkeypatch):
+    """Fake the SMTP transport: records what would be sent and lets a test choose the outcome."""
+    from app.core.email import EmailDeliveryError
+
+    state = {"sent": [], "error": None}
+    monkeypatch.setattr(settings, "SUPPORT_SMTP_USER", "support@pesaa.test")
+    monkeypatch.setattr(settings, "SUPPORT_SMTP_PASSWORD", "x")
+
+    async def fake(to, subject, html, text=None, **kw):
+        if state["error"]:
+            raise state["error"]
+        state["sent"].append({"to": to, "subject": subject, **kw})
+        return kw["message_id"]
+
+    monkeypatch.setattr(email_inbound, "send_email_message", fake)
+    state["Error"] = EmailDeliveryError
+    return state
+
+
+async def test_email_reply_is_sent_with_thread_headers_and_marked_sent_only_after_acceptance(db, smtp):
+    agent = await make_user(db)
+    conv = await email_conv(db, mid="<c1@example.com>")
+    msg = await messaging.send_reply(db, agent, conv, "Sorted, thanks", [])
+    assert msg.delivery_status == "sent" and msg.provider_message_id.startswith("<")
+    sent = smtp["sent"][0]
+    assert sent["subject"] == "Re: Invoice question" and sent["headers"]["In-Reply-To"] == "<c1@example.com>"
+    assert sent["message_id"] == msg.provider_message_id
+    # the customer's reply to OUR Message-ID lands in the same conversation
+    reply = email_inbound.EmailIn(message_id="<c2@example.com>", sender_email="cust@example.com", sender_name="Cust", subject="Re: Invoice question",
+                                  body="Great", in_reply_to=msg.provider_message_id)
+    _, again = await email_inbound.ingest_email(db, reply)
+    assert again.id == conv.id
+
+
+async def test_repeated_send_with_the_same_client_request_id_sends_one_email(db, smtp):
+    agent = await make_user(db)
+    conv = await email_conv(db)
+    rid = uuid.uuid4()
+    first = await messaging.send_reply(db, agent, conv, "Once", [], rid)
+    second = await messaging.send_reply(db, agent, conv, "Once", [], rid)
+    assert first.id == second.id and len(smtp["sent"]) == 1
+    count = (await db.execute(select(func.count()).select_from(SupportMessage).where(SupportMessage.conversation_id == conv.id, SupportMessage.direction == "outgoing"))).scalar_one()
+    assert count == 1
+
+
+async def test_temporary_smtp_failure_stays_pending_then_the_worker_delivers_it(db, smtp):
+    agent = await make_user(db)
+    conv = await email_conv(db)
+    smtp["error"] = smtp["Error"](retryable=True)
+    msg = await messaging.send_reply(db, agent, conv, "Retry me", [])
+    assert msg.delivery_status == "pending" and msg.send_attempts == 1 and msg.next_attempt_at > datetime.now(UTC)
+    smtp["error"] = None
+    msg.next_attempt_at = datetime.now(UTC) - timedelta(seconds=1)
+    msg.send_started_at = None
+    await db.flush()
+    assert await email_inbound.dispatch_due(db) >= 1
+    await db.refresh(msg)
+    assert msg.delivery_status == "sent" and len(smtp["sent"]) == 1
+
+
+async def test_permanent_and_uncertain_failures_are_failed_and_never_auto_retried(db, smtp):
+    agent = await make_user(db)
+    conv = await email_conv(db)
+    smtp["error"] = smtp["Error"](retryable=False)
+    bad = await messaging.send_reply(db, agent, conv, "Rejected", [])
+    assert bad.delivery_status == "failed" and bad.next_attempt_at is None
+    smtp["error"] = smtp["Error"](uncertain=True)
+    unsure = await messaging.send_reply(db, agent, conv, "Unsure", [])
+    assert unsure.delivery_status == "failed" and "Sent Items" in unsure.delivery_error
+    smtp["error"] = None
+    assert await email_inbound.dispatch_due(db) == 0  # neither is picked up again
+
+
+async def test_retry_of_a_failed_email_reuses_the_message_id(db, smtp):
+    agent = await make_user(db)
+    conv = await email_conv(db)
+    smtp["error"] = smtp["Error"](retryable=False)
+    failed = await messaging.send_reply(db, agent, conv, "Try again", [])
+    smtp["error"] = None
+    again = await messaging.retry_failed(db, agent, conv, failed)
+    assert again.id == failed.id and again.delivery_status == "sent"
+
+
+async def test_email_send_needs_a_configured_mailbox_and_a_customer_address(db, monkeypatch):
+    monkeypatch.setattr(settings, "SUPPORT_SMTP_USER", "")
+    monkeypatch.setattr(settings, "SMTP_USER", "")
+    agent = await make_user(db)
+    conv = await email_conv(db)
+    with pytest.raises(ValidationError):
+        await messaging.send_reply(db, agent, conv, "No mailbox", [])
+
+
+async def test_search_finds_conversations_by_message_content_but_not_internal_notes(db):
+    agent = await make_user(db, role="support_manager")
+    conv = await email_conv(db, subject="Hello")
+    await service.add_note(db, agent, conv, "zebra-secret-note")
+    rows, _ = await service.list_conversations(db, agent, channel="email", search="Hi there")
+    assert conv.id in {r.id for r in rows}
+    rows, _ = await service.list_conversations(db, agent, channel="email", search="zebra-secret-note")
+    assert conv.id not in {r.id for r in rows}
+
+
+async def test_email_test_endpoints_are_super_admin_only(db):
+    agent = await make_user(db, role="support_agent")
+
+    async def override():
+        return agent
+
+    app.dependency_overrides[get_current_user] = override
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+            assert (await c.post("/api/v1/support/channels/email/test-connection")).status_code == 403
+            assert (await c.post("/api/v1/support/channels/email/test-send", json={})).status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+
+async def test_audience_lists_owner_email_and_phone_for_platform_staff_only(db):
+    t = await make_tenant(db)
+    t.phone, t.country = "+250788000111", "Rwanda"
+    owner = await make_user(db, role="owner", tenant=t, email=f"owner-{uuid.uuid4().hex[:6]}@biz.test")
+    member = await make_user(db, role="member", tenant=t)
+    staff = await make_user(db, role="superadmin", superuser=True)
+    biz_user = await make_user(db, role="member", tenant=t)
+
+    async def call(user, path):
+        async def override():
+            return user
+        app.dependency_overrides[get_current_user] = override
+        app.dependency_overrides[get_db] = lambda: db
+        try:
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+                return await c.get(path)
+        finally:
+            app.dependency_overrides.clear()
+
+    res = await call(staff, f"/api/v1/admin/audience?q={owner.email}")
+    assert res.status_code == 200
+    items = res.json()["data"]["items"]
+    assert [(i["name"], i["owner_email"], i["phone"]) for i in items] == [(t.name, owner.email, "+250788000111")]
+    assert member.email not in str(items)
+    assert (await call(biz_user, "/api/v1/admin/audience")).status_code == 403

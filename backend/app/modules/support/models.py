@@ -24,7 +24,7 @@ from app.core.models import TimestampMixin, UUIDPKMixin
 # WhatsApp number has none). Tenant users only ever see tickets whose tenant_id is their own (see routes.py).
 
 CHANNELS = ("whatsapp", "email", "portal")
-CONVERSATION_STATUSES = ("open", "resolved")
+CONVERSATION_STATUSES = ("open", "pending", "resolved")
 TICKET_STATUSES = ("open", "in_progress", "resolved", "closed")
 PRIORITIES = ("low", "normal", "high", "urgent")
 
@@ -98,12 +98,21 @@ class SupportMessage(UUIDPKMixin, Base):
     provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     delivery_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # pending|sent|delivered|read|failed
     delivery_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    client_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    send_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    send_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Set per message in Python, not left to now(): in Postgres now() is the TRANSACTION start, so two messages written
     # in one request would tie and the thread order (and "load earlier" paging) would be arbitrary.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now())
 
     __table_args__ = (
+        Index("uq_support_msg_client_request", "conversation_id", "sender_user_id", "client_request_id",
+              unique=True, postgresql_where="client_request_id IS NOT NULL"),
+        Index("ix_support_email_outbox", "delivery_status", "next_attempt_at",
+              postgresql_where="provider = 'email' AND direction = 'outgoing'"),
         Index("ix_support_msg_conv_created", "conversation_id", "created_at"),
         # Duplicate-event / duplicate-import prevention: one row per provider message.
         Index("uq_support_msg_provider", "provider", "provider_message_id", unique=True,

@@ -1,10 +1,11 @@
-import { BarChart3, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
+import { BarChart3, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Megaphone, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
 
 export const NAV_ITEMS = [
   { name: "Overview", href: "/", icon: LayoutDashboard },
   { name: "Tenants", href: "/tenants", icon: Building2 },
   // One entry for the whole billing area; its six pages are the tab strip at the top of every billing page.
   { name: "Plans & Billing", href: "/plans", icon: CreditCard },
+  { name: "Audience", href: "/audience", icon: Megaphone },
   { name: "Usage", href: "/usage", icon: Activity },
   // One entry for the whole Support area; its seven pages are the tab strip at the top of every Support page.
   { name: "Customer Support", href: "/support", icon: Headset },

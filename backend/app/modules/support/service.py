@@ -226,6 +226,8 @@ async def list_conversations(
             SupportConversation.customer_name.ilike(like), SupportConversation.customer_email.ilike(like),
             SupportConversation.customer_phone.ilike(like), SupportConversation.subject.ilike(like),
             SupportConversation.last_message_preview.ilike(like),
+            select(SupportMessage.id).where(SupportMessage.conversation_id == SupportConversation.id,
+                                            SupportMessage.is_internal_note.is_(False), SupportMessage.body.ilike(like)).exists(),
         ))
     total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
     rows = (await db.execute(
@@ -404,16 +406,18 @@ async def add_note(db: AsyncSession, user: User, conv: SupportConversation, body
 async def record_outgoing(
     db: AsyncSession, user: User, conv: SupportConversation, body: str, attachments: list[dict] | None,
     *, delivery_status: str, provider: str | None, provider_message_id: str | None, error: str | None = None, meta: dict | None = None,
+    client_request_id: uuid.UUID | None = None, next_attempt_at: datetime | None = None,
 ) -> SupportMessage:
     msg = SupportMessage(
         conversation_id=conv.id, direction="outgoing", sender_name=user.full_name, sender_user_id=user.id, body=body,
         attachments=attachments or None, provider=provider, provider_message_id=provider_message_id,
         delivery_status=delivery_status, delivery_error=error, meta=meta,
+        client_request_id=client_request_id, next_attempt_at=next_attempt_at, send_attempts=0,
     )
     db.add(msg)
     _touch(conv, text=body or "(attachment)", incoming=False)
     conv.unread_count = 0
-    if conv.first_response_at is None and delivery_status != "failed":
+    if conv.first_response_at is None and delivery_status not in ("failed", "pending"):
         conv.first_response_at = datetime.now(UTC)
     if conv.assigned_to is None:  # replying claims an unassigned conversation, so two agents don't answer twice
         conv.assigned_to = user.id

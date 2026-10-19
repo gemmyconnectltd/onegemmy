@@ -102,6 +102,9 @@ export const useUsers = (page = 1, pageSize = 50, filters: AdminUserFilters = {}
 export const useTenants = (page = 1, pageSize = 20, opts?: QueryOpts, filters: Record<string, string> = {}) =>
   useQ([...TENANTS, page, pageSize, filters], () => adminApi.listTenants(page, pageSize, filters), r => r.data, opts);
 
+export const useAudience = (page = 1, pageSize = 25, filters: Record<string, string> = {}) =>
+  useQ(["admin", "audience", page, pageSize, filters], () => adminApi.listAudience(page, pageSize, filters), r => r.data);
+
 export const useTenant = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id], () => adminApi.getTenant(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 

@@ -14,6 +14,16 @@ from app.core.logging import get_logger
 
 log = get_logger("email")
 
+class EmailDeliveryError(Exception):
+    """Safe transport outcome; an uncertain SMTP DATA result must not be auto-retried."""
+
+    def __init__(self, *, retryable: bool = False, uncertain: bool = False):
+        self.retryable = retryable
+        self.uncertain = uncertain
+        super().__init__("SMTP acceptance is uncertain; check Sent Items before retrying." if uncertain
+                         else "The mail server did not accept the message.")
+
+
 LOGO_URL = "https://pesaa.io/icons/icon-192x192.png"
 
 
@@ -144,13 +154,18 @@ async def send_email_message(
     to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None,
     sender: str = "accounts", headers: dict[str, str] | None = None,
     attachments: list[tuple[str, str, bytes]] | None = None,
+    *, message_id: str | None = None, from_header: str | None = None,
+    raise_errors: bool = False,
 ) -> str | None:
     """Send an email via SMTP and return its Message-ID (None when it could not be sent) — the id is what lets a
     customer's reply be threaded back onto the conversation. `headers` adds extra headers (In-Reply-To,
     References); `attachments` is a list of (filename, mimetype, bytes). Fails soft. See send_email."""
-    user, password, from_header = _resolve_smtp_credentials(sender)
+    user, password, configured_from = _resolve_smtp_credentials(sender)
+    from_header = from_header or configured_from
     if not user or not password:
-        log.warning("email.disabled", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
+        log.warning("email.disabled", extra={"_extra_fields": {"sender": sender}})
+        if raise_errors:
+            raise EmailDeliveryError()
         return None
 
     body = MIMEMultipart("alternative")
@@ -172,28 +187,48 @@ async def send_email_message(
     msg["From"] = from_header
     msg["To"] = to
     msg["Date"] = formatdate(localtime=True)
-    message_id = _message_id(from_header)
+    message_id = message_id or _message_id(from_header)
     msg["Message-ID"] = message_id
     msg["MIME-Version"] = "1.0"
     if reply_to:
         msg["Reply-To"] = reply_to
     for key, value in (headers or {}).items():
-        msg[key] = value
+        if key.lower() not in {"message-id", "from", "to", "subject"}:
+            msg[key] = value
 
     def _deliver() -> None:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(user, password)
-            server.send_message(msg)
+        data_started = False
+        try:
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(user, password)
+                data_started = True
+                refused = server.send_message(msg)
+                if isinstance(refused, dict) and refused:  # smtplib returns {} when every recipient was accepted
+                    raise smtplib.SMTPRecipientsRefused(refused)
+        except smtplib.SMTPRecipientsRefused as error:
+            codes = [value[0] for value in error.recipients.values()]
+            raise EmailDeliveryError(retryable=bool(codes) and all(400 <= code < 500 for code in codes)) from None
+        except smtplib.SMTPResponseException as error:
+            raise EmailDeliveryError(retryable=400 <= error.smtp_code < 500) from None
+        except (OSError, smtplib.SMTPServerDisconnected):
+            raise EmailDeliveryError(retryable=not data_started, uncertain=data_started) from None
+        except smtplib.SMTPException:
+            raise EmailDeliveryError() from None
 
     try:
         # smtplib blocks: run it off the event loop so a slow mail server never stalls other requests.
         await asyncio.to_thread(_deliver)
-        log.info("email.sent", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
+        log.info("email.sent", extra={"_extra_fields": {"sender": sender}})
         return message_id
-    except Exception:
-        log.exception("email.send_error", extra={"_extra_fields": {"to": to, "subject": subject, "sender": sender}})
+    except Exception as error:
+        log.warning("email.send_error", extra={"_extra_fields": {"sender": sender}})
+        if raise_errors:
+            if isinstance(error, EmailDeliveryError):
+                raise
+            raise EmailDeliveryError(uncertain=True) from None
         return None
 
 

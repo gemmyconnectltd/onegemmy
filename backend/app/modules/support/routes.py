@@ -1,14 +1,17 @@
 import asyncio
+import email.utils
 import json
 import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.core.deps import CurrentUser, DbSession
+from app.core.email import EmailDeliveryError
 from app.core.exceptions import AppError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.rate_limit import rate_limit
@@ -107,8 +110,8 @@ async def related(conversation_id: uuid.UUID, db: DbSession, user: SupportStaff)
 @router.post("/conversations/{conversation_id}/reply", dependencies=[Depends(rate_limit("support-reply", 90, 60))])
 async def reply(conversation_id: uuid.UUID, data: ReplyIn, db: DbSession, user: SupportStaff):
     conv = await service.get_conversation(db, user, conversation_id)
-    msg = await messaging.send_reply(db, user, conv, data.body, data.attachment_ids)
-    return success_response(data=_dump(service.message_to_read(msg)), message="Reply sent" if msg.delivery_status != "failed" else "Reply could not be delivered", status_code=201)
+    msg = await messaging.send_reply(db, user, conv, data.body, data.attachment_ids, data.client_request_id)
+    return success_response(data=_dump(service.message_to_read(msg)), message="Reply could not be delivered" if msg.delivery_status == "failed" else ("Reply queued" if msg.delivery_status == "pending" else "Reply sent"), status_code=201)
 
 
 @router.post("/conversations/{conversation_id}/messages/{message_id}/retry")
@@ -264,7 +267,7 @@ async def channels(db: DbSession, user: SupportStaff):
         "whatsapp": {"configured": openwa.configured(), "status": wa.status if wa else "not_configured", "number": wa.identity if wa else None,
                      "last_connected_at": wa.last_connected_at.isoformat() if wa and wa.last_connected_at else None, "last_error": wa.last_error if wa else None},
         "email": {"outbound_configured": email_inbound.outbound_configured(), "inbound_configured": email_inbound.configured(),
-                  "mailbox": settings.SUPPORT_MAILBOX or None, "status": mail.status if mail else ("not_configured" if not email_inbound.configured() else "connecting"),
+                  "mailbox": settings.SUPPORT_MAILBOX or None, "sender_name": settings.SUPPORT_SENDER_NAME, "reply_address": email.utils.parseaddr(email_inbound.from_header())[1] or None, "status": mail.status if mail else ("not_configured" if not email_inbound.configured() else "connecting"),
                   "last_connected_at": mail.last_connected_at.isoformat() if mail and mail.last_connected_at else None, "last_error": mail.last_error if mail else None},
     }, message="Channels retrieved")
 
@@ -299,6 +302,26 @@ async def email_sync(db: DbSession, user: SupportManager):
     if not email_inbound.configured():
         raise ValidationError("Inbound email isn't configured on the server (Microsoft Graph credentials are missing).")
     return success_response(data={"imported": await email_inbound.sync_mailbox(db)}, message="Mailbox synced")
+
+
+class TestEmailIn(BaseModel):
+    to: EmailStr | None = None  # defaults to the signed-in admin's own address
+
+
+@router.post("/channels/email/test-connection", dependencies=[Depends(rate_limit("support-email-test", 10, 60))])
+async def email_test_connection(user: SupportSuperAdmin):
+    """Signs in to SMTP and Graph without sending anything. Reports ok/error per direction — never credentials."""
+    return success_response(data=await email_inbound.test_connection(), message="Connection checked")
+
+
+@router.post("/channels/email/test-send", dependencies=[Depends(rate_limit("support-email-test", 10, 60))])
+async def email_test_send(data: TestEmailIn, user: SupportSuperAdmin):
+    to = str(data.to or user.email)
+    try:
+        message_id = await email_inbound.send_test_email(to)
+    except EmailDeliveryError as e:
+        raise ValidationError(str(e)) from e
+    return success_response(data={"to": to, "message_id": message_id}, message="Test email accepted by the mail server")
 
 
 @router.post("/maintenance/purge")

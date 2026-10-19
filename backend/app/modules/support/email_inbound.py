@@ -9,6 +9,7 @@ credentials below are NOT configured in this repo, so inbound sync stays off unt
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from email.utils import formataddr, parseaddr
 from html import unescape
 
 import httpx
@@ -16,10 +17,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.email import send_email_message
+from app.core.email import (
+    EmailDeliveryError,
+    _message_id,
+    _resolve_smtp_credentials,
+    send_email_message,
+)
 from app.core.exceptions import ValidationError
 from app.core.logging import get_logger
-from app.modules.support import service
+from app.modules.support import hub, service
 from app.modules.support.models import SupportChannel, SupportConversation, SupportMessage
 
 log = get_logger("support.email")
@@ -118,26 +124,141 @@ def _ack_sender(parent_id: str, refs: list[str]):
         if not conv.customer_email:
             return False
         subject = f"Re: {conv.subject}" if conv.subject else "Your message to Pesaa support"
-        sent = await send_email_message(conv.customer_email, subject, f"<p>{text}</p>", text, sender="support", headers={
+        sent = await send_email_message(conv.customer_email, subject, f"<p>{text}</p>", text, sender="support", from_header=from_header(), headers={
             "In-Reply-To": parent_id, "References": " ".join(refs), "Auto-Submitted": "auto-replied", "Precedence": "bulk"})
         return sent is not None
     return send
 
 
-async def send_reply(conv: SupportConversation, body: str, attachments: list[tuple[str, str, bytes]]) -> str | None:
-    """Reply on the thread: same subject, In-Reply-To the customer's last message, References chain preserved."""
-    if not conv.customer_email:
-        raise ValidationError("This conversation has no customer email address")
+MAX_SEND_ATTEMPTS = 4
+
+
+def from_header() -> str:
+    """`Pesaa Support <support@…>` — the sender display name is configuration, the address is the SMTP mailbox."""
+    _, _, configured_from = _resolve_smtp_credentials("support")
+    address = parseaddr(configured_from)[1] or settings.SUPPORT_MAILBOX or settings.SUPPORT_EMAIL
+    return formataddr((settings.SUPPORT_SENDER_NAME, address))
+
+
+def new_message_id() -> str:
+    return _message_id(from_header())
+
+
+def _reply_parts(conv: SupportConversation, body: str) -> tuple[str, str, dict[str, str]]:
+    """Subject, HTML and threading headers for a reply: same subject, In-Reply-To the customer's last message,
+    References chain preserved so the customer's client (and our own `_resolve_thread`) keep it in one thread."""
     refs = (conv.meta or {}).get("refs") or []
     parent = (conv.meta or {}).get("last_incoming_id")
     subject = conv.subject or "Pesaa support"
     if not subject.lower().startswith("re:"):
         subject = f"Re: {subject}"
-    headers = {}
-    if parent:
-        headers = {"In-Reply-To": parent, "References": " ".join(refs[-10:])}
-    html = "<div style=\"white-space:pre-wrap;font-family:Segoe UI,Arial,sans-serif;font-size:14px\">" + re.sub(r"<", "&lt;", body) + "</div>"
-    return await send_email_message(conv.customer_email, subject, html, body, sender="support", headers=headers, attachments=attachments or None)
+    headers = {"In-Reply-To": parent, "References": " ".join(refs[-10:])} if parent else {}
+    escaped = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    html = f'<div style="white-space:pre-wrap;font-family:Segoe UI,Arial,sans-serif;font-size:14px">{escaped}</div>'
+    return subject, html, headers
+
+
+def _backoff(attempts: int) -> timedelta:
+    return timedelta(seconds=min(900, 30 * 2 ** max(attempts - 1, 0)))
+
+
+async def dispatch_message(db: AsyncSession, msg: SupportMessage) -> SupportMessage:
+    """One delivery attempt for a queued outgoing email. A message only becomes `sent` once the SMTP server has
+    accepted it. Temporary failures are re-queued with backoff; permanent failures and uncertain outcomes (the
+    connection dropped after the message was handed over) are `failed` and never auto-retried, so a customer is
+    never emailed twice by a retry loop."""
+    conv = await db.get(SupportConversation, msg.conversation_id)
+    if conv is None or not conv.customer_email:
+        msg.delivery_status, msg.delivery_error = "failed", "This conversation has no customer email address"
+        await db.commit()
+        return msg
+    files = []
+    for a in msg.attachments or []:
+        try:
+            files.append((a["name"], a["mime"], service.attachment_file(a).read_bytes()))
+        except (OSError, KeyError):
+            log.warning("support.email_attachment_missing")
+    subject, html, headers = _reply_parts(conv, msg.body)
+    msg.send_attempts = (msg.send_attempts or 0) + 1
+    msg.send_started_at = datetime.now(UTC)
+    try:
+        await send_email_message(
+            conv.customer_email, subject, html, msg.body, sender="support", headers=headers, attachments=files or None,
+            message_id=msg.provider_message_id, from_header=from_header(), raise_errors=True)
+        msg.delivery_status, msg.delivery_error, msg.next_attempt_at = "sent", None, None
+        conv.meta = {**(conv.meta or {}), "refs": (((conv.meta or {}).get("refs") or []) + [msg.provider_message_id])[-20:]}
+        if conv.first_response_at is None:
+            conv.first_response_at = datetime.now(UTC)
+    except EmailDeliveryError as e:
+        if e.retryable and msg.send_attempts < MAX_SEND_ATTEMPTS:
+            msg.next_attempt_at = datetime.now(UTC) + _backoff(msg.send_attempts)
+        else:
+            msg.delivery_status, msg.delivery_error, msg.next_attempt_at = "failed", str(e)[:300], None
+    await db.commit()
+    hub.publish({"type": "message.status", "conversation_id": str(msg.conversation_id)})
+    return msg
+
+
+async def dispatch_due(db: AsyncSession, limit: int = 10) -> int:
+    """Background retry: sends queued emails whose time has come. Rows are claimed with SKIP LOCKED so two workers
+    (or a worker and a request) never send the same message."""
+    now = datetime.now(UTC)
+    rows = (await db.execute(
+        select(SupportMessage).where(
+            SupportMessage.provider == "email", SupportMessage.direction == "outgoing", SupportMessage.delivery_status == "pending",
+            SupportMessage.next_attempt_at <= now,
+            (SupportMessage.send_started_at.is_(None)) | (SupportMessage.send_started_at < now - timedelta(minutes=5)),
+        ).order_by(SupportMessage.next_attempt_at).limit(limit).with_for_update(skip_locked=True)
+    )).scalars().all()
+    for m in rows:
+        m.send_started_at = now
+    await db.commit()
+    for m in rows:
+        await dispatch_message(db, m)
+    return len(rows)
+
+
+async def test_connection() -> dict:
+    """Checks both directions without sending anything: SMTP login (outbound) and Graph sign-in + mailbox read (inbound)."""
+    import asyncio
+    import smtplib
+
+    out = {"outbound": {"configured": outbound_configured(), "ok": False, "error": None},
+           "inbound": {"configured": configured(), "ok": False, "error": None}}
+    if outbound_configured():
+        user, password, _ = _resolve_smtp_credentials("support")
+
+        def _login() -> None:
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(user, password)
+
+        try:
+            await asyncio.to_thread(_login)
+            out["outbound"]["ok"] = True
+        except (OSError, smtplib.SMTPException) as e:
+            out["outbound"]["error"] = f"SMTP sign-in failed ({type(e).__name__})"
+    if configured():
+        try:
+            token = await _graph_token()
+            async with httpx.AsyncClient(timeout=20, headers={"Authorization": f"Bearer {token}"}) as client:
+                res = await client.get(f"https://graph.microsoft.com/v1.0/users/{settings.SUPPORT_MAILBOX}/mailFolders/inbox", params={"$select": "id"})
+            out["inbound"]["ok"] = res.status_code == 200
+            if res.status_code != 200:
+                out["inbound"]["error"] = f"Microsoft Graph returned {res.status_code} for the support mailbox"
+        except (httpx.HTTPError, ValidationError) as e:
+            out["inbound"]["error"] = str(getattr(e, "detail", None) or type(e).__name__)[:200]
+    return out
+
+
+async def send_test_email(to: str) -> str:
+    """Real delivery to `to`; returns the Message-ID. Raises EmailDeliveryError when the server doesn't accept it."""
+    text = "This is a test message from the Pesaa Support Center. If you can read it, outbound support email works."
+    return await send_email_message(
+        to, "Pesaa Support — test email", f"<p>{text}</p>", text, sender="support",
+        message_id=new_message_id(), from_header=from_header(), raise_errors=True) or ""
 
 
 # ── Microsoft Graph (inbound) ───────────────────────────────────────────────────────────────────────────────

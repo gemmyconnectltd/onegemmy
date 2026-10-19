@@ -3,6 +3,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -35,14 +37,28 @@ def resolve_token(token: str, user: User) -> dict:
     return claims["att"]
 
 
-async def send_reply(db: AsyncSession, user: User, conv: SupportConversation, body: str, tokens: list[str]) -> SupportMessage:
+async def _existing_request(db: AsyncSession, user: User, conv: SupportConversation, request_id: uuid.UUID | None) -> SupportMessage | None:
+    if request_id is None:
+        return None
+    return (await db.execute(select(SupportMessage).where(
+        SupportMessage.conversation_id == conv.id, SupportMessage.sender_user_id == user.id,
+        SupportMessage.client_request_id == request_id))).scalars().first()
+
+
+async def send_reply(db: AsyncSession, user: User, conv: SupportConversation, body: str, tokens: list[str],
+                     client_request_id: uuid.UUID | None = None) -> SupportMessage:
+    # Idempotent: the composer sends one id per click, so a double-click or a retried request returns the original.
+    if (prior := await _existing_request(db, user, conv, client_request_id)) is not None:
+        return prior
     body = (body or "").strip()
     atts = [resolve_token(t, user) for t in tokens]
     if not body and not atts:
         raise ValidationError("Write a message or attach a file")
     if conv.status == "resolved":
         conv.status, conv.resolved_at = "open", None  # replying reopens
-    provider = {"whatsapp": "whatsapp", "email": "email"}.get(conv.channel)
+    if conv.channel == "email":
+        return await _queue_email(db, user, conv, body, atts, client_request_id)
+    provider = {"whatsapp": "whatsapp"}.get(conv.channel)
     status, provider_id, error = "sent", None, None
     files = [(a["name"], a["mime"], service.attachment_file(a).read_bytes()) for a in atts]
     try:
@@ -54,23 +70,45 @@ async def send_reply(db: AsyncSession, user: User, conv: SupportConversation, bo
             for i, (name, mime, data) in enumerate(files):
                 pid = await openwa.send_file(db, chat, data, name, mime, body if (i == 0 and not provider_id) else "")
                 provider_id = provider_id or pid
-        elif conv.channel == "email":
-            provider_id = await email_inbound.send_reply(conv, body, files)
-            if provider_id is None:
-                raise ValidationError("The email couldn't be sent — check the support mailbox settings")
-            conv.meta = {**(conv.meta or {}), "refs": ((conv.meta or {}).get("refs") or []) + [provider_id]}
         else:  # portal ticket: the tenant reads it in Help & Support
             status = "delivered"
     except (openwa.OpenWAError, ValidationError) as e:
         status, error = "failed", str(getattr(e, "detail", None) or e)[:300]
         log.warning("support.reply_failed", extra={"_extra_fields": {"conversation_id": str(conv.id), "channel": conv.channel}})
-    return await service.record_outgoing(db, user, conv, body, atts, delivery_status=status, provider=provider, provider_message_id=provider_id or None, error=error)
+    return await service.record_outgoing(db, user, conv, body, atts, delivery_status=status, provider=provider, provider_message_id=provider_id or None,
+                                         error=error, client_request_id=client_request_id)
+
+
+async def _queue_email(db: AsyncSession, user: User, conv: SupportConversation, body: str, atts: list[dict],
+                       client_request_id: uuid.UUID | None) -> SupportMessage:
+    """Stores the reply as `pending` with its Message-ID FIRST, then makes one delivery attempt. The row is the outbox:
+    if the attempt hits a temporary error the background worker retries it, and the status is only `sent` once the
+    mail server has accepted the message."""
+    if not conv.customer_email:
+        raise ValidationError("This conversation has no customer email address")
+    if not email_inbound.outbound_configured():
+        raise ValidationError("Support email sending isn't configured on the server")
+    try:
+        msg = await service.record_outgoing(
+            db, user, conv, body, atts, delivery_status="pending", provider="email", provider_message_id=email_inbound.new_message_id(),
+            client_request_id=client_request_id, next_attempt_at=datetime.now(UTC))
+    except IntegrityError:  # two identical requests raced past the lookup; the unique index kept only one
+        await db.rollback()
+        prior = await _existing_request(db, user, conv, client_request_id)
+        if prior is None:
+            raise
+        return prior
+    return await email_inbound.dispatch_message(db, msg)
 
 
 async def retry_failed(db: AsyncSession, user: User, conv: SupportConversation, message: SupportMessage) -> SupportMessage:
     """Re-sends a failed reply (text only — attachments of a failed send should be re-uploaded)."""
     if message.delivery_status != "failed" or message.direction != "outgoing":
         raise ValidationError("Only failed messages can be retried")
+    if message.provider == "email":  # same Message-ID, so a retry can never create a second thread entry
+        message.delivery_status, message.delivery_error, message.send_attempts = "pending", None, 0
+        await db.commit()
+        return await email_inbound.dispatch_message(db, message)
     body = message.body
     await db.delete(message)
     await db.flush()

@@ -396,6 +396,12 @@ export interface FilterOptions {
 
 const B = "/admin";
 
+export interface AudienceRow {
+  id: string; name: string; owner_name: string | null; owner_email: string | null; phone: string | null;
+  country: string | null; city: string | null; plan: string; subscription_status: string; is_active: boolean;
+  preferred_contact: string; industry: string | null; created_at: string; last_active_at: string | null;
+}
+
 export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
@@ -425,6 +431,8 @@ export const adminApi = {
   platformAuditLogs: (page = 1, pageSize = 100) =>
     request<PaginatedResponse<AdminAuditLog>>(`/admin/audit/logs?page=${page}&page_size=${pageSize}`),
 
+  listAudience: (page = 1, pageSize = 25, filters: Record<string, string> = {}) =>
+    request<PaginatedResponse<AudienceRow>>(`${B}/audience${qs({ page, page_size: pageSize, ...filters })}`),
   listTenants: (page = 1, pageSize = 20, filters: Record<string, string> = {}) =>
     request<PaginatedResponse<AdminTenant>>(`${B}/tenants${qs({ page, page_size: pageSize, ...filters })}`),
   createTenant: (data: { name: string; slug: string; owner_full_name: string; owner_email: string; phone?: string; city?: string; country?: string }) =>

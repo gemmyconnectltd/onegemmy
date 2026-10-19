@@ -92,6 +92,8 @@ class Settings(BaseSettings):
     SUPPORT_EMAIL_FROM: str = ""
     # Inbound support mail needs Microsoft Graph (app-only, Mail.ReadWrite on the support mailbox). Unset = off.
     SUPPORT_MAILBOX: str = ""
+    SUPPORT_SENDER_NAME: str = "Pesaa Support"
+    SUPPORT_EMAIL_LOOKBACK_DAYS: int = 7
     GRAPH_TENANT_ID: str = ""
     GRAPH_CLIENT_ID: str = ""
     GRAPH_CLIENT_SECRET: str = ""

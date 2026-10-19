@@ -76,6 +76,7 @@ class TicketRead(BaseModel):
 class ReplyIn(BaseModel):
     body: str = Field(default="", max_length=10000)
     attachment_ids: list[str] = Field(default_factory=list, max_length=5)
+    client_request_id: uuid.UUID | None = None  # one per composer send: a double-click or network retry is a no-op
 
 
 class NoteIn(BaseModel):

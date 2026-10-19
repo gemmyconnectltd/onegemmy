@@ -601,6 +601,43 @@ class AdminTenantCreate(TenantCreate):
     owner_email: EmailStr
 
 
+@router.get("/audience")
+async def admin_audience(
+    db: DbSession, _: SuperUser, page_params: PageQuery, q: str | None = None, plan: str | None = None,
+    country: str | None = None, preferred_contact: Literal["email", "phone", "whatsapp"] | None = None,
+    status: Literal["all", "active", "suspended"] = "active",
+    sort: Literal["name", "created", "last_active"] = "created", dir: Literal["asc", "desc"] = "desc",
+):
+    """Contactable businesses for marketing: one row per business with its owner's name/email and the business phone.
+    Platform-staff only. Archived businesses never appear; owners come from the earliest active owner user."""
+    owner = (select(User.tenant_id, User.full_name.label("owner_name"), User.email.label("owner_email"), User.last_login.label("owner_last_login"))
+             .where(User.role == "owner", User.is_active.is_(True), User.tenant_id.isnot(None))
+             .distinct(User.tenant_id).order_by(User.tenant_id, User.created_at).subquery())
+    stmt = (select(Tenant, owner.c.owner_name, owner.c.owner_email, owner.c.owner_last_login)
+            .outerjoin(owner, owner.c.tenant_id == Tenant.id).where(Tenant.archived_at.is_(None)))
+    if status != "all":
+        stmt = stmt.where(Tenant.is_active.is_(status == "active"))
+    if plan:
+        stmt = stmt.where(Tenant.subscription_plan == plan)
+    if country:
+        stmt = stmt.where(Tenant.country == country)
+    if preferred_contact:
+        stmt = stmt.where(Tenant.preferred_contact == preferred_contact)
+    if q and q.strip():
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Tenant.name.ilike(like), Tenant.phone.ilike(like), owner.c.owner_email.ilike(like), owner.c.owner_name.ilike(like)))
+    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
+    order_col = {"name": func.lower(Tenant.name), "created": Tenant.created_at, "last_active": owner.c.owner_last_login}[sort]
+    order = order_col.asc().nulls_last() if dir == "asc" else order_col.desc().nulls_last()
+    rows = (await db.execute(stmt.order_by(order, Tenant.id).offset(page_params.offset).limit(page_params.limit))).all()
+    items = [{
+        "id": str(t.id), "name": t.name, "owner_name": name, "owner_email": email, "phone": t.phone, "country": t.country, "city": t.city,
+        "plan": t.subscription_plan, "subscription_status": t.subscription_status, "is_active": t.is_active,
+        "preferred_contact": t.preferred_contact, "industry": t.industry, "created_at": t.created_at, "last_active_at": last,
+    } for t, name, email, last in rows]
+    return paginated_response(items=items, total=total, page=page_params.page, page_size=page_params.page_size, message="Audience retrieved")
+
+
 @router.post("/tenants", status_code=201)
 async def admin_create_tenant(data: AdminTenantCreate, db: DbSession, admin: SuperUser):
     from app.modules.admin.service import onboard_business

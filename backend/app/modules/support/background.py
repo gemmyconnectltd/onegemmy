@@ -20,6 +20,9 @@ async def _tick() -> None:
     if email_inbound.configured():
         async with AsyncSessionLocal() as db:
             await email_inbound.sync_mailbox(db)
+    if email_inbound.outbound_configured():
+        async with AsyncSessionLocal() as db:
+            await email_inbound.dispatch_due(db)
     if _last_purge is None or (datetime.now(UTC) - _last_purge).total_seconds() > 3600:
         _last_purge = datetime.now(UTC)
         async with AsyncSessionLocal() as db:
@@ -36,6 +39,6 @@ async def run_forever(interval: int = 60) -> None:
 
 
 def start() -> asyncio.Task | None:
-    if not settings.SUPPORT_BACKGROUND or not (openwa.configured() or email_inbound.configured()):
+    if not settings.SUPPORT_BACKGROUND or not (openwa.configured() or email_inbound.configured() or email_inbound.outbound_configured()):
         return None
     return asyncio.create_task(run_forever())
