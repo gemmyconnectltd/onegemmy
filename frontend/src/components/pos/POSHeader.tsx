@@ -1,7 +1,6 @@
 import { ArrowLeft, ChevronDown, Globe, History, Moon, Sun, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
-import { BarcodeStripe } from "./BarcodeStripe";
 import { HeldSalesDrawer } from "./HeldSalesDrawer";
 import type { HeldOrder } from "./types";
 
@@ -34,8 +33,8 @@ export function POSHeader({
   onToggleLang, showLang, onSetLocale, onToggleTheme,
 }: POSHeaderProps) {
   return (
-    <header className="flex-shrink-0 z-20 bg-card border-b border-border shadow-sm">
-      <div className="min-h-16 flex flex-wrap items-center px-2 sm:px-4 gap-1 sm:gap-3 py-2">
+    <header className="flex-shrink-0 z-20 bg-card border-b border-border ">
+      <div className="min-h-14 flex flex-wrap items-center px-2 sm:px-3 gap-1 sm:gap-3 py-1">
         {/* Back */}
         <Link
           href="/dashboard"
@@ -50,7 +49,7 @@ export function POSHeader({
         <span className="text-[15px] font-bold text-foreground tracking-tight">Point of Sale</span>
 
         {/* Today stats */}
-        <div className="hidden xl:flex items-center gap-3 pl-3.5 pr-4 py-2 bg-accent/[0.07] border border-accent/10 rounded-xl ml-2">
+        <div className="hidden xl:flex items-center gap-3 px-3 py-1.5 bg-accent/[0.07] border border-accent/10 rounded-lg ml-2">
           <div className="flex items-center gap-1.5 text-accent">
             <TrendingUp size={13} />
             <span className="text-[12px] font-bold">{todayCount}</span>
@@ -64,6 +63,7 @@ export function POSHeader({
           {/* Held orders */}
           <button
             onClick={onToggleHeld}
+            aria-label="Held sales" aria-expanded={showHeld}
             className={`relative flex items-center gap-1.5 px-3 py-2 border rounded-lg text-[12px] font-semibold transition-colors ${
               showHeld ? "border-accent bg-accent/5 text-accent" : "border-border text-foreground hover:bg-surface"
             }`}
@@ -81,6 +81,7 @@ export function POSHeader({
           <div className="relative">
             <button
               onClick={onToggleLang}
+              aria-label="POS language" aria-expanded={showLang}
               className="flex items-center gap-1 px-3 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground hover:bg-surface transition-colors"
             >
               <Globe size={14} />
@@ -115,7 +116,7 @@ export function POSHeader({
         </div>
       </div>
 
-      <BarcodeStripe compact />
+
 
       {showHeld && (
         <HeldSalesDrawer

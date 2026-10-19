@@ -17,6 +17,7 @@ export type Product = {
   stock: number;
   image_url?: string | null;
   sku?: string | null;
+  barcode?: string | null;
   has_variants?: boolean;
   variants?: Variant[];
 };
@@ -52,15 +53,20 @@ export type HeldOrder = {
   time: string;
   cart: CartItem[];
   customerName: string;
+  customerId?: string | null;
+  payment?: PaymentMethod;
+  cashGiven?: string;
+  dueDate?: string;
   notes: string;
 };
 
 export type PaymentMethod = "cash" | "mobile" | "card";
 
 export type SaleResult = {
+  cashierName?: string;
   orderId: string;
   /** The real backend Order id (UUID), distinct from `orderId` above (a
-   *  client-generated display id) — needed to download the invoice PDF.
+   *  saved order reference) — needed to download the invoice PDF.
    *  Undefined for sales saved before this field existed. */
   backendOrderId?: string;
   payment: PaymentMethod;

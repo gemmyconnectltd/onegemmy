@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
-import { TAX_RATE, generateOrderId, timeLabel } from "@/components/pos/constants";
+import { TAX_RATE, timeLabel } from "@/components/pos/constants";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { PaymentPanel } from "@/components/pos/PaymentPanel";
 import { ProductCard } from "@/components/pos/ProductCard";
@@ -13,6 +13,8 @@ import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant }
 import { Drawer } from "@/components/ui/Drawer";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
+import { orderToSale } from "@/lib/orders";
+import { useAuth } from "@/lib/auth";
 import { saveSale } from "@/lib/invoices";
 import { useProducts, useCustomers, useCreateOrder, useCurrentTenant } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
@@ -28,6 +30,7 @@ function apiToProduct(p: ApiProduct): Product {
     stock: p.stock,
     image_url: p.image_url,
     sku: p.sku,
+    barcode: p.barcode,
     has_variants: p.has_variants && (p.variants?.length ?? 0) > 0,
     variants: p.variants?.map((v) => ({
       id: v.id,
@@ -67,6 +70,9 @@ export default function POSPage() {
   const [search, setSearch] = useState("");
   const [showLang, setShowLang] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const saleInFlight = useRef(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggleExpanded = (id: string) =>
@@ -119,17 +125,19 @@ export default function POSPage() {
         (p) =>
           (category === "All" || p.category === category) &&
           (p.name.toLowerCase().includes(search.toLowerCase()) ||
-            (p.sku ?? "").toLowerCase().includes(search.toLowerCase()))
+            (p.sku ?? "").toLowerCase().includes(search.toLowerCase()) ||
+            (p.barcode ?? "").toLowerCase().includes(search.toLowerCase()) ||
+            (p.variants ?? []).some(variant => (variant.sku ?? "").toLowerCase().includes(search.toLowerCase())))
       ),
     [products, category, search]
   );
 
   // ── cart actions ─────────────────────────────────────────────────────────
   const addToCart = (p: Product) => {
-    if (p.stock <= 0 || p.has_variants) return;
+    if (saleInFlight.current || p.stock <= 0 || p.has_variants) return;
     setCart((prev) => {
       const existing = prev.find((i) => i.id === p.id);
-      if (existing) return prev.map((i) => i.id === p.id ? { ...i, qty: i.qty + 1 } : i);
+      if (existing) return prev.map((i) => i.id === p.id ? { ...i, qty: Math.min(p.stock, i.qty + 1) } : i);
       return [...prev, { id: p.id, product_id: p.id, variant_id: null, name: p.name, price: p.price, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null }];
     });
     setCashGiven("");
@@ -138,11 +146,11 @@ export default function POSPage() {
   };
 
   const addVariantToCart = (p: Product, v: Variant) => {
-    if (v.stock <= 0) return;
+    if (saleInFlight.current || v.stock <= 0) return;
     const id = `${p.id}::${v.id}`;
     setCart((prev) => {
       const existing = prev.find((i) => i.id === id);
-      if (existing) return prev.map((i) => i.id === id ? { ...i, qty: i.qty + 1 } : i);
+      if (existing) return prev.map((i) => i.id === id ? { ...i, qty: Math.min(v.stock, i.qty + 1) } : i);
       return [...prev, {
         id, product_id: p.id, variant_id: v.id, name: p.name, price: v.price,
         qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url,
@@ -155,8 +163,12 @@ export default function POSPage() {
   };
 
   const updateQty = (id: string, delta: number) => {
+    if (saleInFlight.current) return;
+    const line = cart.find(item => item.id === id);
+    const product = products.find(product => product.id === line?.product_id);
+    const stock = line?.variant_id ? product?.variants?.find(variant => variant.id === line.variant_id)?.stock : product?.stock;
     setCart((prev) =>
-      prev.map((i) => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i).filter((i) => i.qty > 0)
+      prev.map((i) => i.id === id ? { ...i, qty: Math.min(stock ?? Infinity, Math.max(0, i.qty + delta)) } : i).filter((i) => i.qty > 0)
     );
     setCashGiven("");
   };
@@ -187,7 +199,11 @@ export default function POSPage() {
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || filtered.length === 0) return;
-    addToCart(filtered[0]);
+    const match = filtered.find(product => product.barcode === search || product.sku === search) ?? filtered[0];
+    const variant = match.variants?.find(variant => variant.sku === search);
+    if (variant) addVariantToCart(match, variant);
+    else if (match.has_variants) toggleExpanded(match.id);
+    else addToCart(match);
     setSearch("");
   };
 
@@ -211,30 +227,34 @@ export default function POSPage() {
 
   // ── hold / resume ────────────────────────────────────────────────────────
   const holdSale = () => {
-    if (cart.length === 0) return;
+    if (saleInFlight.current || cart.length === 0) return;
     setHeldOrders((prev) => [
-      { id: `H-${Date.now()}`, label: customerName.trim() || `Parked ${timeLabel()}`, time: timeLabel(), cart, customerName, notes },
+      { id: `H-${Date.now()}`, label: customerName.trim() || `Parked ${timeLabel()}`, time: timeLabel(), cart, customerName, customerId, notes, payment, cashGiven, dueDate },
       ...prev,
     ]);
     clearCart();
   };
 
   const resumeHeld = (id: string) => {
+    if (saleInFlight.current) return;
     const held = heldOrders.find((h) => h.id === id);
     if (!held) return;
     setCart(held.cart);
-    setCustomerId(null);
+    setCustomerId(held.customerId ?? null);
+    setPayment(held.payment ?? "cash");
+    setCashGiven(held.cashGiven ?? "");
+    setDueDate(held.dueDate ?? "");
     setCustomerName(held.customerName);
     setNotes(held.notes);
     setHeldOrders((prev) => prev.filter((h) => h.id !== id));
     setShowHeld(false);
   };
 
-  const deleteHeld = (id: string) => setHeldOrders((prev) => prev.filter((h) => h.id !== id));
+  const deleteHeld = (id: string) => !saleInFlight.current && setHeldOrders((prev) => prev.filter((h) => h.id !== id));
 
   // ── complete sale ────────────────────────────────────────────────────────
   const completeSale = async () => {
-    if (saving || cart.length === 0) return;
+    if (saleInFlight.current || saving || cart.length === 0) return;
     if (isCreditSale && !customerId) {
       setSaleError("A customer is required for a partial or credit sale.");
       return;
@@ -243,6 +263,7 @@ export default function POSPage() {
       setSaleError("A due date is required for a partial or credit sale.");
       return;
     }
+    saleInFlight.current = true;
     setSaving(true);
     setSaleError(null);
     try {
@@ -278,33 +299,17 @@ export default function POSPage() {
       // Credit over the customer's daily limit is held for the General Manager/CEO: nothing was sold or posted yet,
       // so no receipt — tell the cashier clearly and let them carry on.
       if (created.data.status === "Awaiting Approval") {
-        setSaleError(`Credit above the daily limit for this customer. Order ${created.data.order_number} was sent for approval — no stock or money has been recorded yet.`);
         clearCart();
+        setSaleError(`Credit above the daily limit for this customer. Order ${created.data.order_number} was sent for approval — no stock or money has been recorded yet.`);
         return;
       }
 
-      const sale: SaleResult = {
-        orderId: generateOrderId(),
-        backendOrderId: created.data.id,
-        payment,
-        customerName: customerName.trim(),
-        notes: notes.trim(),
-        items: cart,
-        subtotal,
-        discount,
-        tax,
-        total,
-        cashGiven,
-        change,
-        timestamp: new Date(),
-        amountPaid: amountPaidNow,
-        balanceDue: remainingBalance,
-        dueDate: isCreditSale ? dueDate : null,
-      };
+      const sale: SaleResult = { ...orderToSale(created.data), cashierName: user?.name };
+      setCartOpen(false);
       setCompletedSale(sale);
       saveSale(sale);
       setTodayCount((c) => c + 1);
-      setTodayRevenue((r) => r + total);
+      setTodayRevenue((r) => r + sale.total);
       clearCart();
     } catch (e: unknown) {
       setSaleError(
@@ -312,15 +317,71 @@ export default function POSPage() {
           "Could not save the sale. Check your connection and try again."
       );
     } finally {
+      saleInFlight.current = false;
       setSaving(false);
     }
   };
 
   const startNewSale = () => {
     clearCart();
+    setCartOpen(false);
     setCompletedSale(null);
     setPayment("cash");
   };
+
+  const checkoutPanel = (
+    <fieldset disabled={saving} className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+          {/* Cart — flex-1 so it fills space and scrolls its own items */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CartPanel
+              cart={cart}
+              customers={customers}
+              customerId={customerId}
+              customerName={customerName}
+              notes={notes}
+              currencySymbol={currencySymbol}
+              fmt={fmt}
+              onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
+              onNotesChange={setNotes}
+              onUpdateQty={updateQty}
+              onUpdateDiscount={updateDiscount}
+              onRemoveItem={removeItem}
+              onClear={clearCart}
+              onHold={holdSale}
+              showCashReceived={payment === "cash"}
+              onUpdateCashReceived={updateItemCashReceived}
+            />
+          </div>
+          {/* Payment — never grows, scrolls its own content if needed */}
+          <div className="flex h-[min(360px,52dvh)] shrink-0 flex-col border-t border-border">
+            <div className="flex min-h-0 flex-1 p-3">
+              <PaymentPanel
+                payment={payment}
+                cashGiven={cashGiven}
+                subtotal={subtotal}
+                discount={discount}
+                tax={tax}
+                total={total}
+                change={change}
+                remainingBalance={remainingBalance}
+                cartCount={cart.length}
+                hasCustomer={!!customerId}
+                dueDate={dueDate}
+                currencySymbol={currencySymbol}
+                fmt={fmt}
+                saving={saving}
+                saleError={saleError}
+                itemsCashReceivedSum={itemsCashReceivedSum}
+                onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
+                onCashChange={setCashGiven}
+                onDueDateChange={setDueDate}
+                onCharge={completeSale}
+                vatEnabled={vatEnabled}
+              />
+            </div>
+          </div>
+    </fieldset>
+  );
 
   // ── render ───────────────────────────────────────────────────────────────
   return (
@@ -332,6 +393,9 @@ export default function POSPage() {
         )}
       </Drawer>
 
+      <Drawer open={cartOpen} onClose={() => setCartOpen(false)} side="right" size="md" title="Cart & checkout">
+        <div className="flex h-[calc(100dvh-100px)] min-h-0 flex-col">{cartOpen && checkoutPanel}</div>
+      </Drawer>
       {/* Header */}
       <POSHeader
         heldCount={heldOrders.length}
@@ -354,10 +418,10 @@ export default function POSPage() {
       />
 
       {/* Body */}
-      <div className="flex-1 min-w-0 flex overflow-y-auto lg:overflow-hidden flex-col lg:flex-row min-h-0">
+      <div className="flex-1 min-w-0 flex overflow-hidden min-h-0">
 
         {/* ── Left: catalog ── */}
-        <div className="min-w-0 h-[55dvh] lg:h-auto lg:flex-1 shrink-0 flex flex-col overflow-hidden min-h-0">
+        <div className="min-w-0 flex-1 flex flex-col overflow-hidden min-h-0">
 
           {/* Status bar */}
           <div className="flex items-center gap-2 px-4 pt-3 flex-shrink-0">
@@ -384,6 +448,7 @@ export default function POSPage() {
             <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
               <Search size={14} className="text-muted flex-shrink-0" />
               <input
+                aria-label="Search products by name, SKU or barcode"
                 ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -404,10 +469,11 @@ export default function POSPage() {
             {categories.map((c) => (
               <button
                 key={c}
+                aria-pressed={category === c}
                 onClick={() => setCategory(c)}
-                className={`px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap rounded-full transition-all flex-shrink-0 ${
+                className={`px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap rounded-lg transition-all flex-shrink-0 ${
                   category === c
-                    ? "bg-accent text-white shadow-sm"
+                    ? "bg-accent text-white"
                     : "bg-card border border-border text-foreground/60 hover:text-foreground hover:border-accent/40"
                 }`}
               >
@@ -428,14 +494,14 @@ export default function POSPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
                 {filtered.map((p) => {
-                  const inCart = cart.find((i) => i.id === p.id);
+                  const inCartQty = cart.filter(item => (item.product_id ?? item.id) === p.id).reduce((sum, item) => sum + item.qty, 0);
                   return (
                     <ProductCard
                       key={p.id}
                       product={p}
-                      inCartQty={inCart?.qty ?? 0}
+                      inCartQty={inCartQty}
                       bumping={bumpId === p.id}
                       expanded={expanded.has(p.id)}
                       currencySymbol={currencySymbol}
@@ -451,59 +517,12 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Right: cart + payment */}
-        <div className="w-full min-w-0 lg:w-[360px] flex-shrink-0 bg-card border-t lg:border-t-0 lg:border-l border-border flex flex-col overflow-hidden">
-          {/* Cart — flex-1 so it fills space and scrolls its own items */}
-          <div className="h-72 lg:h-auto lg:flex-1 min-h-0 overflow-hidden">
-            <CartPanel
-              cart={cart}
-              customers={customers}
-              customerId={customerId}
-              customerName={customerName}
-              notes={notes}
-              currencySymbol={currencySymbol}
-              fmt={fmt}
-              onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
-              onNotesChange={setNotes}
-              onUpdateQty={updateQty}
-              onUpdateDiscount={updateDiscount}
-              onRemoveItem={removeItem}
-              onClear={clearCart}
-              onHold={holdSale}
-              showCashReceived={payment === "cash"}
-              onUpdateCashReceived={updateItemCashReceived}
-            />
-          </div>
-          {/* Payment — never grows, scrolls its own content if needed */}
-          <div className="flex-shrink-0 border-t border-border overflow-y-auto lg:max-h-[48dvh]">
-            <div className="p-3">
-              <PaymentPanel
-                payment={payment}
-                cashGiven={cashGiven}
-                subtotal={subtotal}
-                discount={discount}
-                tax={tax}
-                total={total}
-                change={change}
-                remainingBalance={remainingBalance}
-                cartCount={cart.length}
-                hasCustomer={!!customerId}
-                dueDate={dueDate}
-                currencySymbol={currencySymbol}
-                fmt={fmt}
-                saving={saving}
-                saleError={saleError}
-                itemsCashReceivedSum={itemsCashReceivedSum}
-                onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
-                onCashChange={setCashGiven}
-                onDueDateChange={setDueDate}
-                onCharge={completeSale}
-                vatEnabled={vatEnabled}
-              />
-            </div>
-          </div>
-        </div>
+        {!cartOpen && <aside className="hidden min-w-0 w-[clamp(320px,27vw,400px)] shrink-0 flex-col overflow-hidden border-l border-border bg-card lg:flex">{checkoutPanel}</aside>}
+
       </div>
+      <button onClick={() => setCartOpen(true)} className="m-3 flex min-h-11 shrink-0 items-center justify-between rounded-lg bg-accent px-4 font-semibold text-white lg:hidden">
+        <span>Cart · {cart.reduce((sum, item) => sum + item.qty, 0)} items</span><span>{currencySymbol} {fmt(total)}</span>
+      </button>
     </div>
   );
 }

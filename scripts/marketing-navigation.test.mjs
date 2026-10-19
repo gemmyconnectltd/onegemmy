@@ -102,8 +102,8 @@ test('all products and industries have dedicated routes and distinct detailed co
   const details = {};
   new Function('exports', ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(details);
   const entries = [...navigation.products, ...navigation.industries];
-  assert.equal(new Set(entries.map(item => item.href)).size, 24);
-  assert.equal(new Set(entries.map(item => details.marketingDetails[item.id].headline)).size, 24);
+  assert.equal(new Set(entries.map(item => item.href)).size, navigation.products.length + navigation.industries.length);
+  assert.equal(new Set(entries.map(item => details.marketingDetails[item.id].headline)).size, navigation.products.length + navigation.industries.length);
   for (const item of entries) {
     const detail = details.marketingDetails[item.id];
     assert.equal(detail.steps.length, 3);
@@ -112,10 +112,47 @@ test('all products and industries have dedicated routes and distinct detailed co
   }
 });
 
-test('industry heroes use business photos while product previews remain redacted screenshots', () => {
+test('industry imagery uses photos and stored interface assets remain redacted', () => {
   for (const item of navigation.industries) {
     assert.equal(item.image.kind, 'photo', item.id);
     assert.match(item.image.src, /^\/marketing\//);
   }
   for (const item of navigation.products) assert.equal(item.image.kind, 'screenshot', item.id);
+});
+
+test('products provide people photography and photo fallbacks for menus and detail heroes', () => {
+  for (const product of navigation.products) {
+    assert.equal(product.menuImage.kind, 'photo', product.id);
+    assert.equal(product.menuImage.fallbackKind, 'photo', product.id);
+    for (const key of ['src', 'fallback']) assert.ok(existsSync(`${root}website/public${product.menuImage[key]}`));
+    assert.ok(product.menuImage.alt);
+    assert.equal(product.image.kind, 'screenshot');
+  }
+});
+
+test('every feature has a distinct relevant photo and matching actual product screen', () => {
+  assert.equal(new Set(navigation.products.map(product => product.menuImage.src)).size, 12);
+  for (const product of navigation.products) {
+    assert.equal(product.menuImage.deviceScreen, product.id === "product-pos" ? "/screenshots/pos-current.webp" : product.image.src);
+    assert.ok(existsSync(`${root}website/public${product.menuImage.deviceScreen}`));
+  }
+});
+
+test('homepage covers all 12 reference industries with unique destinations', () => {
+  const shown = navigation.industries.filter(item => item.showcase);
+  assert.equal(shown.length, 12);
+  assert.equal(new Set(shown.map(item => item.href)).size, 12);
+  assert.ok(shown.some(item => item.id === 'industry-agriculture'));
+  assert.ok(navigation.industries.some(item => item.id === 'industry-other'));
+  for (const item of shown) assert.equal(item.image.kind, 'photo');
+});
+
+test('industry showcase sources have enough resolution for desktop and retina heroes', async () => {
+  const sharp = require('sharp');
+  for (const item of navigation.industries.filter(item => item.showcase)) {
+    assert.match(item.image.src, /^\/marketing\/industries\//);
+    const metadata = await sharp(`${root}website/public${item.image.src}`).metadata();
+    assert.ok(metadata.width >= 1536, `${item.id}: source width must be at least 1536`);
+    assert.ok(metadata.height >= 1024, `${item.id}: source height must be at least 1024`);
+  }
 });

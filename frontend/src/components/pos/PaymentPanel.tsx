@@ -2,6 +2,7 @@
 
 import { AlertCircle, Banknote, Calendar, CreditCard, Smartphone, UserRound, Wallet } from "lucide-react";
 
+import { Button } from "@/components/ui/Button";
 import type { PaymentMethod } from "./types";
 
 /** Quick cash-received suggestions: the exact total, then rounded up to the
@@ -59,10 +60,11 @@ export function PaymentPanel({
   const paymentStatus = remainingBalance <= 0 ? "Paid" : cashGiven === "0" ? "Unpaid" : "Partially Paid";
 
   return (
-    <div className="space-y-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
 
       {/* Totals */}
-      <div className="bg-surface rounded-xl px-3.5 py-3 space-y-1.5">
+      <div className="border-b border-border pb-2 space-y-1">
         <div className="flex justify-between text-[12px] font-mono text-muted">
           <span>{vatEnabled ? "Subtotal (incl. VAT)" : "Subtotal"}</span>
           <span>{currencySymbol} {fmt(subtotal)}</span>
@@ -81,7 +83,7 @@ export function PaymentPanel({
         )}
         <div className="flex justify-between items-baseline border-t border-border pt-2 mt-1.5">
           <span className="text-[12px] font-bold text-foreground uppercase tracking-wide">Total</span>
-          <span className="text-[24px] font-extrabold text-accent font-mono tabular-nums tracking-tight">{currencySymbol} {fmt(total)}</span>
+          <span className="text-[20px] font-bold text-accent font-mono tabular-nums tracking-tight">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
 
@@ -90,14 +92,15 @@ export function PaymentPanel({
         {PAYMENT_METHODS.map((m) => (
           <button
             key={m.id}
+            aria-pressed={payment === m.id}
             onClick={() => onPaymentChange(m.id)}
-            className={`flex flex-col items-center justify-center gap-1.5 py-3 text-[11px] font-bold rounded-xl border-2 transition-all ${
+            className={`flex min-h-10 items-center justify-center gap-1.5 py-2 text-[11px] font-semibold rounded-lg border transition-colors ${
               payment === m.id
-                ? "border-accent bg-accent text-white shadow-md shadow-accent/20"
+                ? "border-accent bg-accent/5 text-accent"
                 : "border-border text-foreground/70 hover:border-accent/40 hover:bg-surface"
             }`}
           >
-            <m.icon size={18} strokeWidth={2} />
+            <m.icon size={15} strokeWidth={2} />
             <span>{m.label}</span>
           </button>
         ))}
@@ -109,7 +112,7 @@ export function PaymentPanel({
           not blocked — it just needs a customer and a due date, since it
           leaves a balance the business is owed. */}
       {cartCount > 0 && (
-        <div className="bg-surface rounded-xl px-3.5 py-3 space-y-2.5">
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground uppercase tracking-wide">
               <Wallet size={12} className="text-accent" /> Amount Paid Now
@@ -127,6 +130,7 @@ export function PaymentPanel({
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-mono text-muted">{currencySymbol}</span>
             <input
+              aria-label="Amount paid now"
               type="number"
               inputMode="decimal"
               min={0}
@@ -201,6 +205,8 @@ export function PaymentPanel({
         </div>
       )}
 
+      </div>
+      <div className="shrink-0 space-y-2 border-t border-border bg-card pt-2">
       {/* Error + Charge */}
       {saleError && (
         <div className="flex items-start gap-1.5 text-[11px] font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
@@ -208,10 +214,10 @@ export function PaymentPanel({
           <span>{saleError}</span>
         </div>
       )}
-      <button
+      <Button
         disabled={chargeDisabled}
         onClick={onCharge}
-        className="w-full py-4 bg-accent text-white font-bold text-[16px] rounded-xl shadow-lg shadow-accent/25 hover:brightness-110 active:scale-[0.98] transition disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2"
+        className="w-full min-h-11" aria-busy={saving}
       >
         {saving ? (
           "Saving sale…"
@@ -221,7 +227,8 @@ export function PaymentPanel({
             {cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(isCreditSale ? Number(cashGiven || 0) : total)}</span>}
           </>
         )}
-      </button>
+      </Button>
+      </div>
     </div>
   );
 }

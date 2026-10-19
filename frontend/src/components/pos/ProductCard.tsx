@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
 import { resolveUploadUrl } from "@/lib/api/client";
 
@@ -24,11 +26,15 @@ function attrLabel(attrs: Record<string, string>) {
 }
 
 export function ProductCard({ product, inCartQty, bumping, expanded, currencySymbol, fmt, onAdd, onAddVariant, onToggle, layout = "vertical" }: ProductCardProps) {
-  const outOfStock = product.stock <= 0;
-  const lowStock = !outOfStock && product.stock <= LOW_STOCK_THRESHOLD;
-  const accent = productAccent(product.id);
   const isVariantGroup = product.has_variants && (product.variants?.length ?? 0) > 0;
-  const disabled = outOfStock || isVariantGroup;
+  const availableStock = isVariantGroup ? (product.variants ?? []).reduce((sum, variant) => sum + variant.stock, 0) : product.stock;
+  const outOfStock = availableStock <= 0;
+  const lowStock = !outOfStock && availableStock <= LOW_STOCK_THRESHOLD;
+  const accent = productAccent(product.id);
+  const disabled = outOfStock;
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const imageSrc = resolveUploadUrl(product.image_url);
+  const hasImage = !!imageSrc && failedImage !== imageSrc;
 
   // ── Horizontal (mobile list) ────────────────────────────────────────────────
   if (layout === "horizontal") {
@@ -42,13 +48,13 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         >
           {/* Small thumbnail */}
           <div className="w-14 h-14 rounded-xl overflow-hidden relative flex-shrink-0 bg-surface">
-            {product.image_url ? (
+            {hasImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={resolveUploadUrl(product.image_url) ?? undefined}
+                src={imageSrc ?? undefined}
                 alt={product.name}
                 className="w-full h-full object-cover"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                loading="lazy" decoding="async" onError={() => setFailedImage(imageSrc ?? "")}
               />
             ) : (
               <div
@@ -125,12 +131,12 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
 
   return (
     <div
-      className={`bg-card border-2 rounded-2xl text-left transition-all duration-150 relative overflow-hidden flex flex-col ${
+      className={`bg-card border rounded-lg text-left transition-colors relative overflow-hidden flex flex-col self-start ${
         disabled
           ? "opacity-40 border-border"
           : inCartQty > 0
-          ? "border-accent shadow-md shadow-accent/10 -translate-y-0.5"
-          : "border-border hover:border-accent/40 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5"
+          ? "border-accent ring-1 ring-accent/15"
+          : "border-border hover:border-accent/60"
       } ${bumping ? "scale-[0.96]" : ""}`}
     >
       {/* Cart qty badge */}
@@ -145,16 +151,16 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         type="button"
         onClick={() => (isVariantGroup ? onToggle(product.id) : onAdd(product))}
         disabled={outOfStock}
-        className={`block w-full text-left group ${isVariantGroup ? "cursor-pointer" : "active:scale-[0.97] transition-transform"}`}
+        className={`flex min-h-[194px] w-full flex-col text-left group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${isVariantGroup ? "cursor-pointer" : "active:scale-[0.97] transition-transform"}`}
       >
-        <div className="w-full aspect-square relative overflow-hidden flex items-center justify-center">
-          {product.image_url ? (
+        <div className="w-full h-24 shrink-0 relative overflow-hidden flex items-center justify-center bg-surface/30">
+          {hasImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={resolveUploadUrl(product.image_url) ?? undefined}
+              src={imageSrc ?? undefined}
               alt={product.name}
-              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              className="w-full h-full object-contain p-2"
+              loading="lazy" decoding="async" onError={() => setFailedImage(imageSrc ?? "")}
             />
           ) : (
             <div
@@ -190,7 +196,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         </div>
 
         {/* Info */}
-        <div className="p-3 flex flex-col gap-1 flex-1">
+        <div className="p-2.5 flex flex-col gap-1 flex-1 w-full">
           <p className="text-[12.5px] font-semibold text-foreground leading-tight line-clamp-2 min-h-[2.4em]">{product.name}</p>
           {isVariantGroup ? (
             <p className="text-[10px] text-accent font-semibold flex items-center gap-0.5">
@@ -200,7 +206,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
             <p className="text-[10px] text-muted font-mono truncate">{product.sku}</p>
           ) : null}
           <div className="flex items-center justify-between mt-auto pt-1.5">
-            <p className="text-[15px] text-accent font-bold font-mono tracking-tight">
+            <p className="text-[14px] text-accent font-bold font-mono tracking-tight">
               {currencySymbol} {fmt(product.price)}
             </p>
             {lowStock && !isVariantGroup && (
@@ -209,7 +215,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
               </span>
             )}
           </div>
-          <p className="text-[10px] text-muted truncate">{product.category}</p>
+          <div className="mt-1 flex items-center justify-between gap-1 text-[10px]"><span className="truncate text-muted">{outOfStock ? "Unavailable" : `${availableStock} in stock`}</span><span className="inline-flex shrink-0 items-center gap-1 font-semibold text-accent">{isVariantGroup ? "Choose" : inCartQty > 0 ? "Add more" : "Add"}<Plus size={11} /></span></div>
         </div>
       </button>
 

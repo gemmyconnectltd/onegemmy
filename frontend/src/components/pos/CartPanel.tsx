@@ -68,7 +68,7 @@ export function CartPanel({
     <div className="flex flex-col h-full min-h-0">
 
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-border flex items-center gap-2 flex-shrink-0">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2 flex-shrink-0">
         <ShoppingCart size={15} className="text-accent" />
         <span className="font-bold text-[14px] text-foreground">Cart</span>
         {totalItems > 0 && (
@@ -84,7 +84,7 @@ export function CartPanel({
       </div>
 
       {/* Customer + Notes — always visible, compact */}
-      <div className="px-3.5 py-2.5 border-b border-border flex gap-2 flex-shrink-0">
+      <div className="px-3 py-2 border-b border-border flex gap-2 flex-shrink-0">
         <div ref={custRef} className="flex-1 min-w-0 relative">
           <button
             type="button"
@@ -169,13 +169,13 @@ export function CartPanel({
               const accent = productAccent(item.id);
               const lineTotal = item.price * item.qty - item.discount;
               return (
-                <div key={item.id} className="px-3.5 py-3 flex items-center gap-3 hover:bg-surface/40 transition-colors">
+                <div key={item.id} className="px-3 py-2 flex items-center gap-2 hover:bg-surface/40 transition-colors">
                   {/* Thumbnail */}
                   {item.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveUploadUrl(item.image_url) ?? undefined} alt={item.name} className="w-11 h-11 rounded-xl object-cover flex-shrink-0 ring-1 ring-border" />
+                    <img src={resolveUploadUrl(item.image_url) ?? undefined} alt={item.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0 ring-1 ring-border" />
                   ) : (
-                    <IconBadge Icon={getProductIcon({ emoji: item.emoji })} size={17} color={accent} className="w-11 h-11 flex-shrink-0" rounded="rounded-xl" />
+                    <IconBadge Icon={getProductIcon({ emoji: item.emoji })} size={17} color={accent} className="w-8 h-8 flex-shrink-0" rounded="rounded-lg" />
                   )}
 
                   {/* Name + unit price */}
@@ -205,17 +205,17 @@ export function CartPanel({
                   </div>
 
                   {/* Right: total + qty controls */}
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <span className="text-[14px] font-bold text-foreground font-mono tabular-nums">{currencySymbol} {fmt(lineTotal)}</span>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span className="text-[12px] font-bold text-foreground font-mono tabular-nums">{currencySymbol} {fmt(lineTotal)}</span>
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => onUpdateQty(item.id, -1)} className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-foreground hover:bg-surface hover:border-accent/40 active:scale-90 transition-all">
+                      <button aria-label={`Decrease quantity of ${item.name}`} onClick={() => onUpdateQty(item.id, -1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-foreground hover:bg-surface hover:border-accent/40 active:scale-90 transition-all">
                         <Minus size={13} />
                       </button>
                       <QtyInput value={item.qty} onCommit={(n) => onUpdateQty(item.id, n - item.qty)} className="h-8 w-11 text-[14px]" />
-                      <button onClick={() => onUpdateQty(item.id, 1)} className="w-8 h-8 flex items-center justify-center rounded-full border border-border text-foreground hover:bg-surface hover:border-accent/40 active:scale-90 transition-all">
+                      <button aria-label={`Increase quantity of ${item.name}`} onClick={() => onUpdateQty(item.id, 1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-foreground hover:bg-surface hover:border-accent/40 active:scale-90 transition-all">
                         <Plus size={13} />
                       </button>
-                      <button onClick={() => onRemoveItem(item.id)} className="w-8 h-8 flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-500/5 rounded-full transition-colors">
+                      <button aria-label={`Remove ${item.name}`} onClick={() => onRemoveItem(item.id)} className="w-8 h-8 flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-500/5 rounded-full transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -228,7 +228,7 @@ export function CartPanel({
       </div>
 
       {/* Hold */}
-      <div className="px-3.5 py-2.5 border-t border-border flex-shrink-0">
+      <div className="px-3 py-2 border-t border-border flex-shrink-0">
         <button
           onClick={onHold}
           disabled={cart.length === 0}

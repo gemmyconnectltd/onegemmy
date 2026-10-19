@@ -1,263 +1,43 @@
-import { Check, Copy, Download, Loader2, Printer, UserRound, X } from "lucide-react";
-import { useState } from "react";
-
-import { BarcodeStripe } from "./BarcodeStripe";
-import { getProductIcon, IconBadge } from "./icons";
-import { resolveUploadUrl } from "@/lib/api/client";
+"use client";
+import { Check, Copy, Download, Eye, Loader2, Printer } from "lucide-react";
+import { useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { fmtDateTime } from "@/lib/date";
 import { salesApi } from "@/lib/api/sales";
-import type { SaleResult } from "./types";
+import { printReceipt, type ReceiptPaper } from "@/lib/pos/printReceipt";
 import type { Tenant } from "@/lib/api";
+import type { SaleResult } from "./types";
+import { ReceiptDocument, paymentLabel } from "./ReceiptDocument";
 
-interface ReceiptProps {
-  sale: SaleResult;
-  currencySymbol: string;
-  fmt: (v: number) => string;
-  vatEnabled: boolean;
-  onNewSale: () => void;
-  onClose?: () => void;
-  /** The business this receipt is for — shows logo/name/address at the top
-   *  so a printed receipt is recognizably branded, not just a bare total. */
-  tenant?: Tenant;
-}
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "Cash",
-  mobile: "Mobile Money",
-  card: "Card",
-};
-
+interface ReceiptProps { sale: SaleResult; currencySymbol: string; fmt: (value: number) => string; vatEnabled: boolean; onNewSale: () => void; onClose?: () => void; tenant?: Tenant; }
 export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onClose, tenant }: ReceiptProps) {
+  const receipt = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState(false);
+  const [paper, setPaper] = useState<ReceiptPaper>("80mm");
+  const [busy, setBusy] = useState<"print" | "pdf" | null>(null);
+  const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  const handleDownloadPdf = async () => {
-    if (!sale.backendOrderId) return;
-    setDownloadingPdf(true);
-    try {
-      await salesApi.downloadInvoicePdf(sale.backendOrderId, sale.orderId);
-    } catch {
-      // Non-critical — the user can retry or fall back to Print.
-    } finally {
-      setDownloadingPdf(false);
-    }
+  const handlePrint = async () => {
+    const document = receipt.current?.querySelector<HTMLElement>("[data-pos-receipt]");
+    if (!document || busy) return;
+    setBusy("print"); setError("");
+    try { await printReceipt(document, paper); } catch { setError("Could not open receipt printing. Please try again."); } finally { setBusy(null); }
   };
-
-  const handleCopySummary = () => {
-    const lines = [
-      `Receipt ${sale.orderId}`,
-      fmtDateTime(sale.timestamp),
-      "",
-      ...sale.items.map((i) => {
-        const line = `  ${i.name}  ${i.qty}× ${currencySymbol} ${fmt(i.price)}`;
-        return i.discount > 0 ? `${line}  (-${fmt(i.discount)})` : line;
-      }),
-      "",
-      `Subtotal: ${currencySymbol} ${fmt(sale.subtotal)}`,
-      ...(sale.discount > 0 ? [`Discount: -${currencySymbol} ${fmt(sale.discount)}`] : []),
-      ...(vatEnabled && sale.tax > 0 ? [`VAT (18%): ${currencySymbol} ${fmt(sale.tax)}`] : []),
-      `Total: ${currencySymbol} ${fmt(sale.total)}`,
-      `Paid: ${PAYMENT_LABELS[sale.payment] ?? sale.payment}`,
-      ...(sale.balanceDue
-        ? [
-          `Amount Paid: ${currencySymbol} ${fmt(sale.amountPaid ?? 0)}`,
-          `Balance Due: ${currencySymbol} ${fmt(sale.balanceDue)}`,
-          ...(sale.dueDate ? [`Due Date: ${sale.dueDate}`] : []),
-        ]
-        : sale.cashGiven ? [`Change: ${currencySymbol} ${fmt(sale.change)}`] : []),
-      "",
-      "Thank you!",
-    ];
-    navigator.clipboard.writeText(lines.join("\n")).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+  const handlePdf = async () => {
+    if (!sale.backendOrderId || busy) return;
+    setBusy("pdf"); setError("");
+    try { await salesApi.downloadInvoicePdf(sale.backendOrderId, sale.orderId); } catch { setError("Could not download the receipt document. Please try again."); } finally { setBusy(null); }
   };
-
-  return (
-    <div className="bg-card flex flex-col h-full">
-      {/* Business branding — shows on-screen and on the printed receipt */}
-      {tenant && (
-        <div className="px-5 pt-5 pb-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            {tenant.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={resolveUploadUrl(tenant.logo_url) ?? undefined}
-                alt={tenant.name}
-                className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-accent text-white font-extrabold text-[13px]">
-                {tenant.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <p className="text-[15px] font-extrabold text-foreground">{tenant.name}</p>
-          </div>
-          {(tenant.address || tenant.city) && (
-            <p className="text-[10px] text-muted mt-1">{[tenant.address, tenant.city].filter(Boolean).join(", ")}</p>
-          )}
-          {tenant.phone && <p className="text-[10px] text-muted">{tenant.phone}</p>}
-        </div>
-      )}
-
-      {/* Header — success state */}
-      <div className="px-5 pt-6 pb-5">
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="float-right w-8 h-8 flex items-center justify-center rounded-full bg-surface text-muted"
-            aria-label="Close"
-          >
-            <X size={16} />
-          </button>
-        )}
-        <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center mb-3 shadow-lg shadow-emerald-500/25">
-          <Check size={24} className="text-white" strokeWidth={3} />
-        </div>
-        <h2 className="text-[17px] font-bold text-foreground">{sale.balanceDue ? "Sale completed" : "Payment received"}</h2>
-        <p className="text-[12px] text-muted mt-1 font-mono tracking-wide">{sale.orderId}</p>
-        <p className="text-[11px] text-muted/70 mt-0.5">{fmtDateTime(sale.timestamp)}</p>
-        {sale.customerName && (
-          <p className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-surface text-[11px] text-foreground/70 font-medium">
-            <UserRound size={11} /> {sale.customerName}
-          </p>
-        )}
-      </div>
-
-      <BarcodeStripe />
-
-      {/* Items — scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="px-4 py-3 space-y-0.5">
-          <p className="text-[9px] text-muted uppercase tracking-wider font-semibold mb-2 px-1">Items purchased</p>
-          {sale.items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-2 py-2 px-1">
-              <div className="flex items-center gap-2.5 min-w-0">
-                {item.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={resolveUploadUrl(item.image_url) ?? undefined} alt={item.name} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
-                ) : (
-                  <IconBadge
-                    Icon={getProductIcon({ emoji: item.emoji })}
-                    size={12}
-                    color="var(--accent)"
-                    className="w-8 h-8 flex-shrink-0"
-                    rounded="rounded-lg"
-                  />
-                )}
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-foreground truncate">{item.name}</p>
-                  {item.variant_attributes && Object.keys(item.variant_attributes).length > 0 && (
-                    <p className="text-[10px] text-muted truncate">
-                      {Object.entries(item.variant_attributes).map(([k, v]) => `${k}: ${v}`).join(" · ")}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-muted font-mono">
-                    {item.qty} × {currencySymbol} {fmt(item.price)}
-                    {item.discount > 0 && <span className="text-emerald-600 font-semibold"> (−{fmt(item.discount)})</span>}
-                  </p>
-                </div>
-              </div>
-              <span className="text-[13px] font-semibold text-foreground font-mono tabular-nums flex-shrink-0">
-                {currencySymbol} {fmt(item.price * item.qty - item.discount)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Summary — sticky bottom */}
-      <div className="border-t border-border">
-        <div className="px-4 py-3 space-y-1 font-mono text-[12px]">
-          <div className="flex justify-between text-muted">
-            <span>Subtotal</span><span>{currencySymbol} {fmt(sale.subtotal)}</span>
-          </div>
-          {sale.discount > 0 && (
-            <div className="flex justify-between text-emerald-600 font-semibold">
-              <span>Discount</span><span>−{currencySymbol} {fmt(sale.discount)}</span>
-            </div>
-          )}
-          {vatEnabled && sale.tax > 0 && (
-            <div className="flex justify-between text-muted">
-              <span>VAT (18%)</span><span>{currencySymbol} {fmt(sale.tax)}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-[15px] font-bold text-foreground border-t border-border pt-2 mt-1">
-            <span>Total</span>
-            <span className="text-accent">{currencySymbol} {fmt(sale.total)}</span>
-          </div>
-          <div className="flex justify-between text-[11px] text-muted pt-0.5">
-            <span>Paid via</span>
-            <span className="font-semibold text-foreground">{PAYMENT_LABELS[sale.payment] ?? sale.payment}</span>
-          </div>
-          {!!sale.balanceDue && sale.balanceDue > 0 ? (
-            <>
-              <div className="flex justify-between text-[11px] text-muted">
-                <span>Amount Paid</span><span className="font-semibold text-foreground">{currencySymbol} {fmt(sale.amountPaid ?? 0)}</span>
-              </div>
-              <div className="flex justify-between text-[13px] font-bold text-amber-600 border-t border-border pt-1.5 mt-0.5">
-                <span>Balance Due</span><span>{currencySymbol} {fmt(sale.balanceDue)}</span>
-              </div>
-              {sale.dueDate && (
-                <div className="flex justify-between text-[11px] text-muted">
-                  <span>Due Date</span><span className="font-semibold text-foreground">{fmtDateTime(new Date(sale.dueDate))}</span>
-                </div>
-              )}
-            </>
-          ) : sale.cashGiven && (
-            <div className="flex justify-between text-[11px] text-muted">
-              <span>Change</span><span className="font-semibold text-foreground">{currencySymbol} {fmt(sale.change)}</span>
-            </div>
-          )}
-        </div>
-
-        <p className="text-center text-[10px] text-muted/60 italic px-4 pt-1 pb-3">Thank you for your purchase!</p>
-
-        {/* Actions — fixed at very bottom. "New Sale" is the one thing a
-           cashier does next, so it gets the full-width primary button;
-           Copy/Print/Download are secondary, read-only on this sale, so
-           they're grouped into a single segmented control rather than
-           competing for attention as separate boxes. */}
-        <div className="px-4 pb-4 flex items-center gap-2">
-          <button
-            onClick={onNewSale}
-            className="flex-1 py-3 bg-accent text-white font-bold text-[14px] rounded-xl hover:opacity-90 active:scale-[0.98] transition"
-          >
-            New Sale
-          </button>
-          <div className="flex items-center flex-shrink-0 border border-border rounded-xl overflow-hidden">
-            <button
-              onClick={handleCopySummary}
-              aria-label="Copy receipt"
-              className="w-11 h-11 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-            >
-              {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
-            </button>
-            <div className="w-px h-5 bg-border" />
-            <button
-              onClick={() => window.print()}
-              aria-label="Print receipt"
-              className="w-11 h-11 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-            >
-              <Printer size={15} />
-            </button>
-            {sale.backendOrderId && (
-              <>
-                <div className="w-px h-5 bg-border" />
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={downloadingPdf}
-                  aria-label="Download PDF"
-                  className="w-11 h-11 flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
-                >
-                  {downloadingPdf ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const handleCopy = async () => {
+    try { await navigator.clipboard.writeText(receipt.current?.textContent ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError("Could not copy the receipt. You can print or download it instead."); }
+  };
+  return <div data-pos-confirmation className="bg-card p-5">
+    {!view ? <><div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-accent"><Check size={23} /></div><h2 className="text-lg font-semibold text-foreground">{sale.balanceDue ? "Sale completed" : "Payment received"}</h2><p className="mt-1 text-xs text-muted">{sale.orderId} · {fmtDateTime(sale.timestamp)}</p><dl className="my-5 space-y-2 rounded-lg border border-border p-3 text-sm"><div className="flex justify-between gap-3"><dt className="text-muted">Total amount</dt><dd className="font-semibold tabular-nums text-foreground">{currencySymbol} {fmt(sale.total)}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Payment method</dt><dd className="font-medium text-foreground">{paymentLabel(sale.payment)}</dd></div>{!!sale.balanceDue && <div className="flex justify-between gap-3"><dt className="text-muted">Outstanding</dt><dd className="font-medium tabular-nums text-foreground">{currencySymbol} {fmt(sale.balanceDue)}</dd></div>}</dl></> : <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold">Transaction receipt</h2><Button size="sm" variant="ghost" onClick={() => setView(false)}>Back</Button></div>}
+    <div ref={receipt} className={view ? "mb-4 max-h-[50dvh] overflow-y-auto rounded-lg border border-border" : "hidden"} aria-hidden={!view}><ReceiptDocument sale={sale} tenant={tenant} currencySymbol={currencySymbol} fmt={fmt} vatEnabled={vatEnabled} /></div>
+    <div className="mb-3 flex items-center justify-between gap-3 text-xs"><label htmlFor="receipt-paper" className="text-muted">Print paper</label><select id="receipt-paper" value={paper} onChange={event => setPaper(event.target.value as ReceiptPaper)} className="h-8 rounded-lg border border-border bg-card px-2 text-foreground"><option value="58mm">58mm thermal</option><option value="80mm">80mm thermal</option><option value="A4">A4</option></select></div>
+    {error && <p role="alert" className="mb-3 text-xs text-red-600">{error}</p>}
+    <Button onClick={onNewSale} className="w-full">New Sale</Button>
+    <div className="mt-2 grid grid-cols-2 gap-2"><Button variant="secondary" disabled={!!busy} onClick={handlePrint}>{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Print Receipt</Button><Button variant="secondary" disabled={!!busy || !sale.backendOrderId} onClick={handlePdf}>{busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}Download PDF</Button></div>
+    <div className="mt-2 flex justify-between gap-2"><Button size="sm" variant="ghost" onClick={() => setView(value => !value)}><Eye size={14} />{view ? "Hide Receipt" : "View Receipt"}</Button><Button size="sm" variant="ghost" onClick={handleCopy}><Copy size={14} />{copied ? "Copied" : "Copy"}</Button>{onClose && <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}</div>
+  </div>;
 }

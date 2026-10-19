@@ -15,7 +15,7 @@ export function parsePaymentFromNotes(notes: string | null | undefined): Payment
 }
 
 export function orderToSale(o: ApiOrder): SaleResult {
-  const payment = parsePaymentFromNotes(o.notes) ?? "cash";
+  const payment = METHODS.includes(o.payment_method as PaymentMethod) ? o.payment_method as PaymentMethod : parsePaymentFromNotes(o.notes) ?? "cash";
   const items: CartItem[] = (o.items ?? []).map((i) => ({
     id: i.id,
     product_id: i.product_id ?? undefined,
@@ -31,6 +31,7 @@ export function orderToSale(o: ApiOrder): SaleResult {
   }));
   return {
     orderId: o.order_number,
+    backendOrderId: o.id,
     payment,
     customerName: o.customer?.name ?? "Walk-in",
     notes: o.notes ?? "",
@@ -39,8 +40,11 @@ export function orderToSale(o: ApiOrder): SaleResult {
     discount: o.discount,
     tax: o.tax,
     total: o.total,
-    cashGiven: "",
-    change: 0,
+    cashGiven: o.amount_tendered == null ? "" : String(o.amount_tendered),
+    change: o.change_due ?? 0,
+    amountPaid: o.amount_paid,
+    balanceDue: o.outstanding_balance,
+    dueDate: o.due_date,
     timestamp: new Date(o.ordered_at ?? o.created_at ?? Date.now()),
   };
 }
