@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { BusinessProductImage } from "./BusinessProductImage";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronRight } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
@@ -10,7 +10,7 @@ import type { MarketingDetail } from "@/lib/marketing-details";
 import { appUrl } from "@/lib/site";
 
 export function MarketingDetailPage({ item, detail, industry }: { item: MarketingNavItem; detail: MarketingDetail; industry: boolean }) {
-  const media = item.image!;
+  const media = (item.menuImage ?? item.image)!;
   const Icon = item.icon;
   const related = detail.related.flatMap(id => products.filter(product => product.id === id));
   return <><Navbar /><main>
@@ -19,7 +19,7 @@ export function MarketingDetailPage({ item, detail, industry }: { item: Marketin
         <nav aria-label="Breadcrumb" className="mb-8 flex flex-wrap items-center gap-2 text-xs text-muted"><Link href="/" className="hover:text-accent">Home</Link><ChevronRight size={12} /><Link href={industry ? "/industries" : "/products"} className="hover:text-accent">{industry ? "Industries" : "Products"}</Link><ChevronRight size={12} /><span aria-current="page">{item.title}</span></nav>
         <div className={`grid items-center lg:grid-cols-2 ${industry ? "gap-6 lg:gap-0" : "gap-8 lg:gap-12"}`}>
           <div><p className="mb-4 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-accent"><Icon size={16} />{industry ? `Pesaa for ${item.title}` : item.title}</p><h1 className="text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">{detail.headline}</h1><p className="mt-5 max-w-xl text-base leading-7 text-muted">{detail.intro}</p><div className="mt-6 flex flex-wrap gap-3"><a href={appUrl("/register")} className="landing-button">Get started <ArrowRight size={16} /></a><Link href="/contact" className="landing-secondary">Talk to our team</Link></div><p className="mt-4 text-xs leading-5 text-muted">Start with the tools your business needs. Keep your team in one shared workspace.</p></div>
-          <figure className={industry ? "relative self-stretch overflow-hidden rounded-lg lg:rounded-none" : "overflow-hidden rounded-lg border border-border bg-white"}><div className={industry ? "relative h-[340px] sm:h-[420px] lg:h-full lg:min-h-[480px]" : "relative aspect-[8/5]"}><Image src={navigationMedia[media.src] ?? media.src} alt={media.alt} fill sizes="(min-width: 1024px) 560px, 100vw" priority className={media.kind === "photo" ? "object-cover" : "object-contain p-4"} style={{ objectPosition: media.position ?? "center" }} />{industry && <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/75 via-transparent to-transparent" />}</div><figcaption className={industry ? "sr-only" : "border-t border-border px-4 py-3 text-xs text-muted"}>{media.kind === "photo" ? "Illustrative business photography." : "Focused interface preview. Identifying and business data are redacted."}</figcaption></figure>
+          <figure className={industry ? "relative self-stretch overflow-hidden rounded-lg lg:rounded-none" : "overflow-hidden rounded-lg border border-border bg-white"}><div className={industry ? "relative overflow-hidden h-[340px] sm:h-[420px] lg:h-full lg:min-h-[480px]" : "relative aspect-[8/5] overflow-hidden"}><BusinessProductImage screen={media.deviceScreen} src={navigationMedia[media.src] ?? media.src} alt={media.alt} fill sizes="(min-width: 1024px) 600px, 100vw" priority className={media.kind === "photo" ? "object-cover" : "object-contain p-4"} style={{ objectPosition: media.position ?? "center" }} />{industry && <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/75 via-transparent to-transparent" />}</div><figcaption className={industry ? "sr-only" : "border-t border-border px-4 py-3 text-xs text-muted"}>{media.deviceScreen ? `Illustrative ${item.title.toLowerCase()} preview inspired by Pesaa. Not a live screen.` : media.kind === "photo" ? "Illustrative business photography." : "Focused interface preview. Identifying and business data are redacted."}</figcaption></figure>
         </div>
       </div>
     </section>

@@ -1,11 +1,13 @@
+import { IndustryShowcase } from "@/components/marketing/IndustryShowcase";
+import { BusinessProductImage } from "@/components/marketing/BusinessProductImage";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight, BarChart3, ChevronRight, CircleCheck,
   ClipboardList, Package, Receipt, RefreshCw,
-  ShoppingBag, ShoppingCart, Smartphone, TrendingUp, Truck,
-  Users, UtensilsCrossed, WifiOff,
+  ShoppingCart, Smartphone, TrendingUp, Truck,
+  Users, WifiOff,
 } from "lucide-react";
 import { Footer } from "@/components/layout/Footer";
 import { LandingHeader } from "@/components/marketing/LandingHeader";
@@ -19,10 +21,6 @@ export const metadata: Metadata = { title: `Home - ${siteConfig.name}` };
 const features = [
   { title: "Sales & POS", description: "Fast and flexible sales, from any device.", icon: ShoppingCart, href: "/products/pos" },
   { title: "Inventory Management", description: "Track stock, set alerts and avoid stockouts.", icon: Package, href: "/products/inventory" },
-];
-const industries = [
-  { title: "Retail Stores", description: "Manage sales, inventory and multiple branches.", image: "/marketing/shop-owner.webp", href: "/industries/retail", icon: ShoppingBag },
-  { title: "Restaurants & Cafés", description: "Keep sales, stock and your team in sync.", image: "/marketing/cafe-owner.webp", href: "/industries/restaurants", icon: UtensilsCrossed },
 ];
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="mb-3 inline-flex rounded-lg bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase leading-none text-accent">{children}</p>;
@@ -45,7 +43,7 @@ export default function Home() {
             <p className="mt-6 flex items-center gap-2 text-xs text-muted"><CircleCheck size={17} className="text-accent" />Built for African businesses</p>
           </div>
           <div className="relative mx-auto h-[340px] w-full max-w-[650px] sm:h-[420px] lg:h-[480px]">
-            <div className="absolute inset-y-0 left-0 -right-4 overflow-hidden rounded-lg lg:-right-20 lg:rounded-none"><Image src="/marketing/shop-owner.webp" alt="Shop owner managing her business on a tablet" fill priority sizes="(min-width: 1024px) 55vw, 100vw" className="object-cover object-[center_35%]" /><div className="absolute inset-0 bg-gradient-to-r from-white/75 via-transparent to-transparent" /></div>
+            <div className="absolute inset-y-0 left-0 -right-4 overflow-hidden rounded-lg lg:-right-20 lg:rounded-none"><BusinessProductImage screen="/screenshots/pos-current.webp" src="/marketing/pesaa-tablet-owner.webp" alt="Illustrative shop owner with the designed Pesaa point-of-sale preview on her tablet" fill priority sizes="(min-width: 1024px) 55vw, 100vw" className="object-cover object-center" /><div className="absolute inset-0 bg-gradient-to-r from-white/75 via-transparent to-transparent" /></div>
             <div aria-label="Illustrative sales example" className="absolute left-0 top-5 w-40 rounded-lg border border-border bg-white/95 p-4 shadow-lg sm:top-12 sm:w-48"><p className="text-xs text-muted">Total sales <span className="text-[10px]">· example</span></p><p className="mt-1 text-base font-bold">RWF 1,250,000</p><div className="mt-4 flex items-end justify-between"><span className="text-[11px] font-semibold text-accent">↑ 12% this week</span><span aria-hidden className="flex items-end gap-1">{[12,19,26,34].map(height => <span key={height} style={{height}} className="w-2 rounded-sm bg-primary" />)}</span></div></div>
             <div aria-label="Illustrative business totals" className="absolute bottom-5 right-0 w-44 space-y-3 rounded-lg border border-border bg-white/95 p-4 shadow-lg sm:bottom-14 sm:w-52">{[{label:"Purchases",value:"660,000",icon:Truck},{label:"Expenses",value:"68,000",icon:Receipt},{label:"Profit",value:"522,000",icon:TrendingUp}].map(item => <div key={item.label} className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-accent"><item.icon size={20} /></span><div><p className="text-[11px] text-muted">{item.label}</p><p className="text-xs font-bold">RWF {item.value}</p></div></div>)}<p className="text-[10px] text-muted">Illustrative example</p></div>
           </div>
@@ -69,7 +67,7 @@ export default function Home() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">{[{title:"Works offline",description:"Keep selling even without internet.",icon:WifiOff},{title:"Automatic sync",description:"Queued sales sync when you reconnect.",icon:RefreshCw}].map(item=><div key={item.title} className="flex items-center gap-3 rounded-lg bg-white/85 p-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-accent"><item.icon size={25} /></span><div><h3 className="text-xs font-semibold">{item.title}</h3><p className="mt-1 text-xs leading-relaxed text-muted">{item.description}</p></div></div>)}</div>
       </div></section>
 
-      <section id="industries" className="landing-container scroll-mt-6 py-8 lg:py-10"><div className="mb-5 text-center"><Eyebrow>Industry solutions</Eyebrow><h2 className="landing-title">Built for different types of businesses</h2><p className="landing-description mx-auto">Whether you run a retail shop, restaurant, pharmacy or service business, Pesaa adapts to your needs.</p></div><div className="grid gap-6 sm:grid-cols-2">{industries.map(item=><Link key={item.title} href={item.href} className="landing-card group overflow-hidden transition-colors hover:border-primary/40"><div className="relative h-32 overflow-hidden sm:h-36"><Image src={item.image} alt={`${item.title} business environment`} fill sizes="(min-width: 1240px) 570px, (min-width: 640px) 50vw, 100vw" className="object-cover object-[center_35%] transition-transform duration-300 group-hover:scale-105" /></div><div className="relative flex items-center gap-4 px-4 pb-4 pt-3"><span className="-mt-10 flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border-4 border-white bg-primary/10 text-accent"><item.icon size={27} /></span><div className="min-w-0 flex-1"><h3 className="text-sm font-semibold">{item.title}</h3><p className="mt-1 max-w-[310px] text-sm leading-snug text-muted">{item.description}</p></div><CardArrow /></div></Link>)}</div><div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-medium text-muted"><Link href="/industries/pharmacies" className="hover:text-accent">Pharmacies</Link><Link href="/industries/wholesale" className="hover:text-accent">Wholesale</Link><Link href="/industries/service-businesses" className="hover:text-accent">Service businesses</Link></div></section>
+      <IndustryShowcase />
 
       <section aria-label="Global reach and security" className="bg-primary/5 py-6"><div className="landing-container grid items-center gap-6 md:grid-cols-[1.2fr_0.9fr_1fr]"><GlobalReach variant="summary" /><div className="border-border text-center md:border-x md:px-5"><Image src="/certifications/rra-logo.jpg" alt="Rwanda Revenue Authority" width={93} height={93} className="mx-auto h-20 w-20 object-contain" /><h3 className="mt-2 text-xs font-semibold">Rwanda Revenue Authority</h3><p className="mt-1 text-xs leading-relaxed text-muted">Rwanda tax calculations and reporting.</p></div><TrustBadges inline /></div><CallToAction /></section>
     </main>

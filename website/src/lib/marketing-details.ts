@@ -575,5 +575,29 @@ export const marketingDetails: Record<string, MarketingDetail> = {
       "product-branches"
     ],
     "note": "Choose the modules that fit your operations. Access and available workflows depend on company setup and permissions."
+  },
+  "industry-agriculture": {
+    "headline": "Keep seasonal stock and supplier activity connected.",
+    "intro": "Organize the business side of an agriculture input store, from purchasing and stock records to customer sales.",
+    "steps": [
+      [
+        "Prepare for seasonal demand",
+        "Review product availability and supplier purchases."
+      ],
+      [
+        "Keep stock organized",
+        "Maintain product details, categories and supported batch information."
+      ],
+      [
+        "Review daily activity",
+        "Follow sales, customer balances and operating expenses."
+      ]
+    ],
+    "related": [
+      "product-inventory",
+      "product-purchases",
+      "product-reports"
+    ],
+    "note": "Choose modules and permissions for your operations. Pesaa business records do not replace specialist agricultural advice or regulatory compliance systems."
   }
 };

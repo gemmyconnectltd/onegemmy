@@ -1,0 +1,14 @@
+import Link from "next/link";
+import { ArrowRight, ChevronRight } from "lucide-react";
+import { industries } from "@/lib/navigation";
+import { IndustryScenePhoto } from "./IndustryScenePhoto";
+
+const order = ["retail", "restaurants", "pharmacies", "wholesale", "service-businesses", "hardware", "supermarkets", "automotive", "manufacturing", "hospitality", "electronics", "agriculture"];
+
+export function IndustryShowcase() {
+  return <section id="industries" aria-labelledby="industries-title" className="relative isolate overflow-hidden border-y border-border bg-white py-8 lg:py-10"><div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 -z-10 h-80 w-80 rounded-full bg-primary/5" /><div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-24 -z-10 h-80 w-80 rounded-full bg-primary/5" /><div className="landing-container"><div className="mx-auto mb-7 max-w-3xl text-center"><p className="mb-3 inline-flex rounded-lg bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase leading-none text-accent">Industry solutions</p><h2 id="industries-title" className="landing-title">Built for different <span className="text-accent">types of businesses</span></h2><p className="landing-description mx-auto">Whether you run a retail shop, restaurant, pharmacy or service business, explore the tools that fit your daily operations.</p></div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{order.map(slug => {
+    const item = industries.find(industry => industry.id === `industry-${slug}`)!;
+    const Icon = item.icon;
+    return <Link key={item.id} href={item.href} data-industry-card={item.id} className="group flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-white transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><div className="relative aspect-[12/5] overflow-hidden"><IndustryScenePhoto scene={item.image!} /></div><div className="relative flex flex-1 items-start gap-3 px-3 pb-4 pt-3"><span className="relative -mt-6 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border-4 border-white bg-primary/10 text-accent"><Icon size={24} strokeWidth={1.8} aria-hidden="true" /></span><div className="flex min-w-0 flex-1 flex-col"><h3 className="text-sm font-semibold leading-5 text-foreground">{item.title}</h3><p className="mt-1 text-xs leading-5 text-muted">{item.description}</p><span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent">Learn more<ArrowRight size={12} aria-hidden="true" /></span></div><span className="mt-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted transition-colors group-hover:border-primary/40 group-hover:text-accent"><ChevronRight size={17} aria-hidden="true" /></span></div></Link>;
+  })}</div></div></section>;
+}

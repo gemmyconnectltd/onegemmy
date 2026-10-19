@@ -9,13 +9,14 @@ import { MegaMenuContent, MegaMenuSection, ProductMenuFooter } from "./MegaMenu"
 import { marketingMenus, type MarketingMenu } from "@/lib/navigation";
 import { appUrl, siteConfig } from "@/lib/site";
 
-type Disclosure = MarketingMenu | "language";
+type Disclosure = MarketingMenu;
 function Brand({ onNavigate }: { onNavigate: () => void }) {
   return <Link href="/" onClick={onNavigate} aria-label={`${siteConfig.name} home`} className="inline-flex shrink-0 items-center gap-2 rounded-lg text-foreground"><span className="flex h-8 w-8 items-center justify-center sm:h-9 sm:w-9 rounded-lg bg-primary text-white"><LogoMark size={25} strokeWidth={3.5} /></span><span className="text-xl font-bold tracking-tight sm:text-2xl">{siteConfig.name}</span></Link>;
 }
 export function LandingHeader() {
   const pathname = usePathname();
   const [dropdown, setDropdown] = useState<Disclosure | null>(null);
+  const [resourceLeft, setResourceLeft] = useState(16);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expanded, setExpanded] = useState<MarketingMenu | null>(null);
   const header = useRef<HTMLElement>(null);
@@ -65,9 +66,26 @@ export function LandingHeader() {
     return () => media.removeEventListener("change", resize);
   }, []);
 
+  function positionResources(trigger: HTMLElement) {
+    const bounds = header.current?.getBoundingClientRect();
+    if (!bounds) return;
+    setResourceLeft(Math.max(16, Math.min(trigger.getBoundingClientRect().left - bounds.left, bounds.width - 376)));
+  }
+  useEffect(() => {
+    if (dropdown !== "resources") return;
+    const resize = () => {
+      const trigger = header.current?.querySelector<HTMLElement>('[data-disclosure="resources"]');
+      if (trigger) positionResources(trigger);
+    };
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [dropdown]);
+
   function triggerKey(event: React.KeyboardEvent<HTMLButtonElement>, key: Disclosure) {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    event.preventDefault(); setDropdown(key);
+    event.preventDefault();
+    if (key === "resources") positionResources(event.currentTarget);
+    setDropdown(key);
     const last = event.key === "ArrowUp";
     requestAnimationFrame(() => {
       const links = panel.current?.querySelectorAll<HTMLAnchorElement>("a");
@@ -84,16 +102,16 @@ export function LandingHeader() {
     <div className="landing-container flex h-[72px] items-center justify-between gap-2 lg:gap-4">
       <Brand onNavigate={close} />
       <nav aria-label="Main navigation" className="hidden items-center gap-4 lg:flex">
-        {marketingMenus.map(menu => <button key={menu.key} type="button" data-disclosure={menu.key} aria-expanded={dropdown === menu.key} aria-controls={`mega-${menu.key}`} onKeyDown={event => triggerKey(event, menu.key)} onClick={() => setDropdown(current => current === menu.key ? null : menu.key)} className={triggerClass}>{menu.label}<ChevronDown size={14} aria-hidden="true" className={`transition-transform ${dropdown === menu.key ? "rotate-180" : ""}`} /></button>)}
+        {marketingMenus.map(menu => <button key={menu.key} type="button" data-disclosure={menu.key} aria-expanded={dropdown === menu.key} aria-controls={`mega-${menu.key}`} onKeyDown={event => triggerKey(event, menu.key)} onClick={event => { if (menu.key === "resources") positionResources(event.currentTarget); setDropdown(current => current === menu.key ? null : menu.key); }} className={triggerClass}>{menu.label}<ChevronDown size={14} aria-hidden="true" className={`transition-transform ${dropdown === menu.key ? "rotate-180" : ""}`} /></button>)}
         <Link href="/company" onClick={close} aria-current={pathname === "/company" ? "page" : undefined} className={`${triggerClass} aria-[current=page]:text-accent`}>About</Link>
       </nav>
       <div className="hidden items-center gap-3 lg:flex">
-        <button type="button" data-disclosure="language" aria-label="Language: English" aria-expanded={dropdown === "language"} aria-controls="mega-language" onKeyDown={event => triggerKey(event, "language")} onClick={() => setDropdown(current => current === "language" ? null : "language")} className={triggerClass}><Globe size={16} aria-hidden="true" />EN<ChevronDown size={12} aria-hidden="true" className={dropdown === "language" ? "rotate-180" : ""} /></button>
+        <span lang="en" aria-label="Website language: English" title="Website language: English" className="inline-flex items-center gap-2 px-2 text-sm font-medium text-muted"><Globe size={16} aria-hidden="true" />English</span>
         <a href={appUrl("/login")} className="landing-secondary text-sm">Sign in</a><a href={appUrl("/register")} className="landing-button text-sm">Get started<ArrowRight size={16} aria-hidden="true" /></a>
       </div>
       <div className="flex shrink-0 items-center gap-2 lg:hidden"><a href={appUrl("/register")} className="landing-button whitespace-nowrap text-sm">Get started<ArrowRight size={15} aria-hidden="true" className="hidden sm:block" /></a><button ref={mobileTrigger} type="button" aria-label="Open menu" aria-expanded={mobileOpen} aria-controls="mobile-navigation" onClick={() => { setDropdown(null); setMobileOpen(true); }} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border"><Menu size={21} aria-hidden="true" /></button></div>
     </div>
-    {dropdown && <div className="absolute inset-x-0 top-full hidden lg:block"><div className={`landing-container flex ${dropdown === "resources" || dropdown === "language" ? "justify-end" : ""}`}><div ref={panel} id={`mega-${dropdown}`} className={`marketing-mega-panel mt-3 overflow-hidden rounded-2xl border border-border bg-white shadow-xl ${dropdown === "language" ? "w-56" : dropdown === "resources" ? "w-[440px]" : "w-full"}`} onKeyDown={event => {
+    {dropdown && <div className={`absolute top-full hidden lg:block ${dropdown === "resources" ? "" : "inset-x-0"}`} style={dropdown === "resources" ? { left: resourceLeft, width: 360, maxWidth: "calc(100vw - 32px)" } : undefined}><div className={dropdown === "resources" ? "" : "landing-container flex"}><div ref={panel} id={`mega-${dropdown}`} className={`marketing-mega-panel mt-2 w-full overflow-hidden border border-border bg-white ${dropdown === "resources" ? "rounded-lg shadow-lg" : "rounded-2xl shadow-xl"}`} onKeyDown={event => {
       if (!["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       const links = Array.from(event.currentTarget.querySelectorAll<HTMLAnchorElement>("a"));
       const index = links.indexOf(document.activeElement as HTMLAnchorElement);
@@ -104,7 +122,7 @@ export function LandingHeader() {
       const next = event.key === "Home" ? 0 : event.key === "End" ? links.length - 1 : index + (event.key === "ArrowDown" ? step : event.key === "ArrowUp" ? -step : event.key === "ArrowLeft" ? -1 : 1);
       links[(next + links.length) % links.length]?.focus();
     }}>
-      {dropdown === "language" ? <div className="p-3"><p className="px-3 pb-2 text-xs font-semibold uppercase tracking-widest text-muted">Language</p><a href={pathname} lang="en" hrefLang="en" aria-current="true" onClick={close} className="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm text-accent hover:bg-primary/5">English<Check size={16} aria-hidden="true" /></a></div> : <>{activeMenu && <MegaMenuContent key={activeMenu.key} sections={activeMenu.sections} onNavigate={close} preview={dropdown !== "resources"} />}{dropdown === "product" && <ProductMenuFooter onNavigate={close} />}</>}
+      {activeMenu && <MegaMenuContent key={activeMenu.key} sections={activeMenu.sections} onNavigate={close} preview={dropdown !== "resources"} />}{dropdown === "product" && <ProductMenuFooter onNavigate={close} />}
     </div></div></div>}
     <dialog ref={dialog} id="mobile-navigation" aria-label="Main navigation" onCancel={event => { event.preventDefault(); closeMobile(); }} onClick={event => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right) closeMobile(); } }} className="marketing-mobile-drawer m-0 ml-auto h-dvh max-h-dvh w-full max-w-md border-l border-border bg-white p-0 text-foreground">
       <div className="flex h-full flex-col"><div className="flex shrink-0 items-center justify-between border-b border-border p-5"><Brand onNavigate={closeMobile} /><button ref={closeButton} type="button" aria-label="Close menu" onClick={closeMobile} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border"><X size={21} aria-hidden="true" /></button></div>

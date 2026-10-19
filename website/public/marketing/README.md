@@ -27,3 +27,15 @@ Use case: photorealistic-natural. Asset: Pesaa website coordinated business-owne
 ### business-owner-banner.webp
 
 Use case: photorealistic-natural. Asset: Pesaa website coordinated business-owner campaign photograph, business-owner-banner. A friendly confident Black Rwandan male shop owner in an emerald green apron over a navy shirt, standing with arms folded and smiling in his bright neighbourhood grocery. Wide landscape composition with man on the right third and softly blurred cream and sage shop interior and plants on left two thirds, left side will contain website text. Waist-up medium portrait (except banner is wide), natural candid expression, realistic hands and skin texture, subject's face fully visible in upper middle, same premium editorial photography art direction throughout collection: soft warm daylight, clean cream and sage palette, emerald green wardrobe accents, subtle shallow depth of field, authentic modern African small business, straight eye-level lens. Landscape 3:2 image, generous room around head for a consistent website card crop. No text, logos, watermark, borders, collage or UI. Create one photo only. Save as project asset.
+
+### pesaa-tablet-owner.webp
+
+Generated edit of shop-owner.webp, 2026-10-19, with the device facing the viewer. Illustrative campaign scene, not a customer endorsement. BusinessProductImage now overlays the explicitly requested designed, feature-specific UI using a clipped SVG; label it illustrative. The photo intentionally has an empty screen and must be rendered with its deviceScreen metadata.
+
+### features/*.webp
+
+Feature-specific illustrative scenes edited from `pesaa-tablet-owner` on 2026-10-19 with the built-in image generation tool. Inventory: warehouse/scanner; purchases: supplier receiving; expenses: receipts/calculator; debts: credit desk; customers: reception; accounting: finance office; reports: analysis; services: salon reception; manufacturing: factory floor; HR: staff office; branches: regional operations. The tablet geometry is intentionally shared so `BusinessProductImage` can display each module's designed UI preview precisely. Actual screenshot references identify the feature; the visible preview is illustrative, as requested. These are illustrative campaign images, not customer endorsements. Never render the blank-screen source alone or substitute POS for unrelated module interfaces.
+
+### industries/*.webp
+
+Full-resolution, individually generated industry campaign scenes for the 12-card homepage showcase, menu previews and industry heroes. Inspired by the user's industry-grid reference, not cropped from that reference. Sources are at least 1536 × 1024; Next Image serves responsive versions at quality 85. Centered subjects and generous headroom preserve faces across card, menu and hero framing. These are illustrative business scenes, not customer endorsements. Avoid specialist capability claims (such as clinical workflows, hotel reservations, warranties or kitchen management) not established by the actual product.

@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: {
+    qualities: [75, 85],
     // Permit content-version queries only for the approved local media directories.
     localPatterns: [
       { pathname: "/marketing/**" },
