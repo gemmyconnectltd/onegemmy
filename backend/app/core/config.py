@@ -94,6 +94,15 @@ class Settings(BaseSettings):
     SUPPORT_MAILBOX: str = ""
     SUPPORT_SENDER_NAME: str = "Pesaa Support"
     SUPPORT_EMAIL_LOOKBACK_DAYS: int = 7
+    # Inbound support mail over IMAP (cPanel and any standard mailbox). Read-only: never marks, moves or deletes mail.
+    # SUPPORT_IMAP_SYNC_ENABLED is the explicit per-environment switch — keep it false anywhere that shares the mailbox
+    # with production (staging), so only ONE environment ever imports a given mailbox.
+    SUPPORT_IMAP_HOST: str = ""
+    SUPPORT_IMAP_PORT: int = 993
+    SUPPORT_IMAP_USER: str = ""
+    SUPPORT_IMAP_PASSWORD: str = ""
+    SUPPORT_IMAP_FOLDER: str = "INBOX"
+    SUPPORT_IMAP_SYNC_ENABLED: bool = False
     GRAPH_TENANT_ID: str = ""
     GRAPH_CLIENT_ID: str = ""
     GRAPH_CLIENT_SECRET: str = ""
@@ -109,6 +118,7 @@ class Settings(BaseSettings):
     # Where the public marketing-site contact form is delivered.
     CONTACT_INBOX: str = "robertniyitanga3@gmail.com"
     FRONTEND_URL: str = "http://localhost:3000"
+    API_PUBLIC_URL: str = "http://localhost:8000"  # public origin of this API; used in unsubscribe links in outgoing marketing messages
 
     UPLOAD_DIR: str = "uploads"
 

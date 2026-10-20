@@ -17,7 +17,7 @@ async def _tick() -> None:
     if openwa.configured():
         async with AsyncSessionLocal() as db:
             await openwa.health_tick(db)
-    if email_inbound.configured():
+    if email_inbound.inbound_enabled():
         async with AsyncSessionLocal() as db:
             await email_inbound.sync_mailbox(db)
     if email_inbound.outbound_configured():
@@ -39,6 +39,6 @@ async def run_forever(interval: int = 60) -> None:
 
 
 def start() -> asyncio.Task | None:
-    if not settings.SUPPORT_BACKGROUND or not (openwa.configured() or email_inbound.configured() or email_inbound.outbound_configured()):
+    if not settings.SUPPORT_BACKGROUND or not (openwa.configured() or email_inbound.inbound_enabled() or email_inbound.outbound_configured()):
         return None
     return asyncio.create_task(run_forever())

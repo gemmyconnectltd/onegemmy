@@ -353,6 +353,11 @@ async def ingest_incoming(
             await db.flush()
     except IntegrityError:  # duplicate delivery that slipped past the check: the unique index is the final guard
         return None, conv, False
+    if channel == "whatsapp" and conv.tenant_id and (body or "").strip().lower() in ("stop", "unsubscribe"):
+        tenant = await db.get(Tenant, conv.tenant_id)  # honours the "Reply STOP" line in outgoing marketing messages
+        if tenant is not None and not tenant.marketing_opt_out:
+            tenant.marketing_opt_out, tenant.marketing_opt_out_at = True, datetime.now(UTC)
+            await db.flush()
     reopened = conv.status == "resolved"
     if reopened:
         conv.status, conv.resolved_at = "open", None

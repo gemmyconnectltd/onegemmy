@@ -633,7 +633,7 @@ async def admin_audience(
     items = [{
         "id": str(t.id), "name": t.name, "owner_name": name, "owner_email": email, "phone": t.phone, "country": t.country, "city": t.city,
         "plan": t.subscription_plan, "subscription_status": t.subscription_status, "is_active": t.is_active,
-        "preferred_contact": t.preferred_contact, "industry": t.industry, "created_at": t.created_at, "last_active_at": last,
+        "preferred_contact": t.preferred_contact, "marketing_opt_out": t.marketing_opt_out, "industry": t.industry, "created_at": t.created_at, "last_active_at": last,
     } for t, name, email, last in rows]
     return paginated_response(items=items, total=total, page=page_params.page, page_size=page_params.page_size, message="Audience retrieved")
 

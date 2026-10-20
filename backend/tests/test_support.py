@@ -517,3 +517,69 @@ async def test_audience_lists_owner_email_and_phone_for_platform_staff_only(db):
     assert [(i["name"], i["owner_email"], i["phone"]) for i in items] == [(t.name, owner.email, "+250788000111")]
     assert member.email not in str(items)
     assert (await call(biz_user, "/api/v1/admin/audience")).status_code == 403
+
+
+# ── Outreach: start conversations with businesses, opt-outs ─────────────────────────────────────────────────────
+
+async def biz_with_owner(db, phone="+250788111222", pref="email"):
+    t = await make_tenant(db)
+    t.phone, t.preferred_contact = phone, pref
+    owner = await make_user(db, role="owner", tenant=t, email=f"o-{uuid.uuid4().hex[:6]}@biz.test")
+    return t, owner
+
+
+async def test_outreach_emails_each_business_in_its_own_conversation_with_an_unsubscribe_link(db, smtp):
+    from app.modules.support import outreach
+    staff = await make_user(db, role="support_manager")
+    (a, oa), (b, ob) = await biz_with_owner(db), await biz_with_owner(db)
+    rid = uuid.uuid4()
+    res = await outreach.send_outreach(db, staff, [a.id, b.id], channel="email", subject="New feature", body="Try our reports", request_id=rid)
+    assert [r.status for r in res] == ["sent", "sent"]
+    assert {s["to"] for s in smtp["sent"]} == {oa.email, ob.email}
+    first = smtp["sent"][0]
+    assert first["subject"] == "New feature" and "List-Unsubscribe" in first["headers"]
+    convs = (await db.execute(select(SupportConversation).where(SupportConversation.tenant_id.in_([a.id, b.id])))).scalars().all()
+    assert len(convs) == 2 and all((c.meta or {}).get("outbound") for c in convs)
+    again = await outreach.send_outreach(db, staff, [a.id, b.id], channel="email", subject="New feature", body="Try our reports", request_id=rid)
+    assert len(smtp["sent"]) == 2 and [r.status for r in again] == ["sent", "sent"]  # same request: nobody is emailed twice
+
+
+async def test_opted_out_and_unreachable_businesses_are_skipped_and_the_unsubscribe_link_works(db, smtp):
+    from app.modules.support import outreach
+    staff = await make_user(db, role="support_manager")
+    (a, _), (b, _) = await biz_with_owner(db), await biz_with_owner(db)
+    c = await make_tenant(db)  # no owner
+    token = outreach.unsubscribe_token(a.id)
+    assert outreach.tenant_from_token(token) == a.id and outreach.tenant_from_token(token + "x") is None
+    assert await outreach.opt_out(db, outreach.tenant_from_token(token))
+    res = await outreach.send_outreach(db, staff, [a.id, b.id, c.id], channel="email", subject="Hi", body="Hello", request_id=uuid.uuid4())
+    assert {r.name: (r.status, r.reason) for r in res} == {a.name: ("skipped", "Opted out of marketing"), b.name: ("sent", None), c.name: ("skipped", "No owner email")}
+    assert len(smtp["sent"]) == 1
+
+
+async def test_whatsapp_outreach_needs_a_connected_session_and_stop_opts_the_business_out(db, monkeypatch):
+    from app.modules.support import outreach
+    staff = await make_user(db, role="support_manager")
+    t, _ = await biz_with_owner(db, phone="250788333444", pref="whatsapp")
+    res = await outreach.send_outreach(db, staff, [t.id], channel="whatsapp", subject="", body="Hello", request_id=uuid.uuid4())
+    assert res[0].status == "skipped" and "isn't connected" in res[0].reason
+    await service.ingest_incoming(db, channel="whatsapp", thread_id="250788333444@c.us", provider_message_id=f"wa-{uuid.uuid4().hex}",
+                                  body="STOP", customer_phone="250788333444")
+    await db.refresh(t)
+    assert t.marketing_opt_out is True
+
+
+async def test_outreach_is_manager_only(db):
+    agent = await make_user(db, role="support_agent")
+
+    async def override():
+        return agent
+
+    app.dependency_overrides[get_current_user] = override
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as c:
+            res = await c.post("/api/v1/support/outreach", json={"tenant_ids": [str(uuid.uuid4())], "body": "x", "client_request_id": str(uuid.uuid4())})
+            assert res.status_code == 403
+    finally:
+        app.dependency_overrides.clear()

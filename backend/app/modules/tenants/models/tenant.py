@@ -47,6 +47,11 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # editable in Settings; shown to staff who review a signup or answer support so they use the channel asked for.
     preferred_contact: Mapped[str] = mapped_column(String(10), nullable=False, default="email", server_default="email")
 
+    # Marketing opt-out: set when the business uses the unsubscribe link or replies STOP. Every outreach send skips an
+    # opted-out business; support replies to a conversation the business started are not marketing and are unaffected.
+    marketing_opt_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    marketing_opt_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # ISO 4217 code. Locked from the tenant's own side (see /api/v1/tenants
     # update_tenant) — only a platform superadmin can change it, since the
     # app doesn't convert historical amounts recorded under the old currency.

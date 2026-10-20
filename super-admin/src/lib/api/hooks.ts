@@ -105,6 +105,8 @@ export const useTenants = (page = 1, pageSize = 20, opts?: QueryOpts, filters: R
 export const useAudience = (page = 1, pageSize = 25, filters: Record<string, string> = {}) =>
   useQ(["admin", "audience", page, pageSize, filters], () => adminApi.listAudience(page, pageSize, filters), r => r.data);
 
+export const useSendOutreach = mutation((d: Parameters<typeof adminApi.sendOutreach>[0]) => adminApi.sendOutreach(d), [["admin", "audience"]]);
+
 export const useTenant = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id], () => adminApi.getTenant(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 

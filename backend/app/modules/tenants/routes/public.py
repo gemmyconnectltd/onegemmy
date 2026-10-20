@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 
@@ -84,3 +85,17 @@ async def submit_contact_form(data: ContactRequest):
             status_code=503,
         )
     return success_response(message="Message sent successfully")
+
+
+@router.get("/unsubscribe", response_class=HTMLResponse, dependencies=[Depends(rate_limit("unsubscribe", limit=30, window_seconds=3600))])
+async def unsubscribe(token: str, db: DbSession):
+    """Target of the unsubscribe link in outgoing marketing email. The signed token IS the authorisation — no login."""
+    from app.modules.support import outreach
+
+    tenant_id = outreach.tenant_from_token(token)
+    ok = tenant_id is not None and await outreach.opt_out(db, tenant_id)
+    title, text = ("You're unsubscribed", "We won't send you marketing messages any more. You'll still get account and support emails.") if ok else (
+        "This link isn't valid", "The unsubscribe link is invalid or has expired. Reply to the email and we'll remove you.")
+    return HTMLResponse(f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>{title}</title>"
+                        f"<body style='font-family:system-ui,sans-serif;max-width:420px;margin:15vh auto;padding:0 20px;color:#10182d'>"
+                        f"<h1 style='font-size:22px'>{title}</h1><p style='color:#5b6478'>{text}</p></body>", status_code=200 if ok else 400)

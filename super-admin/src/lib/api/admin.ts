@@ -399,8 +399,10 @@ const B = "/admin";
 export interface AudienceRow {
   id: string; name: string; owner_name: string | null; owner_email: string | null; phone: string | null;
   country: string | null; city: string | null; plan: string; subscription_status: string; is_active: boolean;
-  preferred_contact: string; industry: string | null; created_at: string; last_active_at: string | null;
+  preferred_contact: string; marketing_opt_out: boolean; industry: string | null; created_at: string; last_active_at: string | null;
 }
+
+export interface OutreachResult { tenant_id: string; name: string; status: "sent" | "queued" | "failed" | "skipped"; channel: string | null; reason: string | null }
 
 export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
@@ -433,6 +435,8 @@ export const adminApi = {
 
   listAudience: (page = 1, pageSize = 25, filters: Record<string, string> = {}) =>
     request<PaginatedResponse<AudienceRow>>(`${B}/audience${qs({ page, page_size: pageSize, ...filters })}`),
+  sendOutreach: (data: { tenant_ids: string[]; channel: "preferred" | "email" | "whatsapp"; subject: string; body: string; client_request_id: string }) =>
+    request<SingleResponse<{ results: OutreachResult[] }>>("/support/outreach", { method: "POST", body: JSON.stringify(data) }),
   listTenants: (page = 1, pageSize = 20, filters: Record<string, string> = {}) =>
     request<PaginatedResponse<AdminTenant>>(`${B}/tenants${qs({ page, page_size: pageSize, ...filters })}`),
   createTenant: (data: { name: string; slug: string; owner_full_name: string; owner_email: string; phone?: string; city?: string; country?: string }) =>

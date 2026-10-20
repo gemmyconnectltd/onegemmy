@@ -6,6 +6,7 @@ IMAP or Graph anywhere. Outbound support replies therefore reuse that exact SMTP
 mail needs Microsoft Graph with an Entra app registration (app-only, Mail.ReadWrite on the support mailbox) — the
 credentials below are NOT configured in this repo, so inbound sync stays off until they are, and everything in
 `sync_mailbox` is untested against a real mailbox. The parsing/threading core (`ingest_email`) is tested."""
+import asyncio
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,20 @@ _token: dict = {"value": None, "expires": datetime.min.replace(tzinfo=UTC)}
 
 def configured() -> bool:
     return bool(settings.SUPPORT_MAILBOX and settings.GRAPH_TENANT_ID and settings.GRAPH_CLIENT_ID and settings.GRAPH_CLIENT_SECRET)
+
+
+def inbound_provider() -> str | None:
+    """Which provider imports mail in THIS environment: IMAP when explicitly enabled, otherwise Microsoft Graph when
+    its credentials are set, otherwise none."""
+    from app.modules.support import email_imap
+
+    if email_imap.enabled():
+        return "imap"
+    return "graph" if configured() else None
+
+
+def inbound_enabled() -> bool:
+    return inbound_provider() is not None
 
 
 def outbound_configured() -> bool:
@@ -96,7 +111,7 @@ async def ingest_email(db: AsyncSession, m: EmailIn) -> tuple[bool, SupportConve
     """Stores one inbound email (deduplicated by Message-ID), threads it, and sends the optional acknowledgement.
     Returns (imported, conversation)."""
     sender = m.sender_email.lower().strip()
-    if sender and sender == (settings.SUPPORT_MAILBOX or "").lower():
+    if sender and sender in {(settings.SUPPORT_MAILBOX or "").lower(), (settings.SUPPORT_IMAP_USER or "").lower()} - {""}:
         return False, None  # our own sent mail echoed back by the mailbox
     attachments = []
     for a in m.attachments:
@@ -150,10 +165,14 @@ def _reply_parts(conv: SupportConversation, body: str) -> tuple[str, str, dict[s
     refs = (conv.meta or {}).get("refs") or []
     parent = (conv.meta or {}).get("last_incoming_id")
     subject = conv.subject or "Pesaa support"
-    if not subject.lower().startswith("re:"):
+    if parent and not subject.lower().startswith("re:"):  # a message we start ourselves is not a "Re:"
         subject = f"Re: {subject}"
     headers = {"In-Reply-To": parent, "References": " ".join(refs[-10:])} if parent else {}
+    unsubscribe = (conv.meta or {}).get("unsubscribe_url")
+    if unsubscribe:  # marketing: one-click unsubscribe the mail clients can show natively
+        headers["List-Unsubscribe"] = f"<{unsubscribe}>"
     escaped = body.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    escaped = re.sub(r"(https?://[^\s<]+)", r'<a href="\1">\1</a>', escaped)
     html = f'<div style="white-space:pre-wrap;font-family:Segoe UI,Arial,sans-serif;font-size:14px">{escaped}</div>'
     return subject, html, headers
 
@@ -220,7 +239,6 @@ async def dispatch_due(db: AsyncSession, limit: int = 10) -> int:
 
 async def test_connection() -> dict:
     """Checks both directions without sending anything: SMTP login (outbound) and Graph sign-in + mailbox read (inbound)."""
-    import asyncio
     import smtplib
 
     out = {"outbound": {"configured": outbound_configured(), "ok": False, "error": None},
@@ -240,7 +258,18 @@ async def test_connection() -> dict:
             out["outbound"]["ok"] = True
         except (OSError, smtplib.SMTPException) as e:
             out["outbound"]["error"] = f"SMTP sign-in failed ({type(e).__name__})"
-    if configured():
+    from app.modules.support import email_imap
+
+    out["inbound"]["provider"] = inbound_provider() or ("imap" if email_imap.configured() else None)
+    out["inbound"]["sync_enabled"] = inbound_enabled()
+    if email_imap.configured():  # read-only login + open folder; works whether or not sync is enabled in this environment
+        out["inbound"]["configured"] = True
+        try:
+            await asyncio.to_thread(email_imap.test_login)
+            out["inbound"]["ok"] = True
+        except email_imap.IMAPSyncError as e:
+            out["inbound"]["error"] = str(e)
+    elif configured():
         try:
             token = await _graph_token()
             async with httpx.AsyncClient(timeout=20, headers={"Authorization": f"Bearer {token}"}) as client:
@@ -292,7 +321,18 @@ def _from_graph(item: dict) -> EmailIn:
 
 
 async def sync_mailbox(db: AsyncSession) -> int:
-    """Imports mail received since the stored cursor. Returns the number of messages imported."""
+    """Single entry point for inbound sync: dispatches to the provider enabled for this environment. Returns the number
+    of messages imported."""
+    provider = inbound_provider()
+    if provider == "imap":
+        return await sync_imap(db)
+    if provider == "graph":
+        return await _sync_graph(db)
+    return 0
+
+
+async def _sync_graph(db: AsyncSession) -> int:
+    """Microsoft Graph: imports mail received since the stored cursor."""
     if not configured():
         return 0
     ch = (await db.execute(select(SupportChannel).where(SupportChannel.kind == CHANNEL_KIND, SupportChannel.name == settings.SUPPORT_MAILBOX))).scalars().first()
@@ -330,3 +370,42 @@ async def sync_mailbox(db: AsyncSession) -> int:
         ch.status, ch.last_error = "error", str(e)[:300]
         await db.commit()
         return 0
+
+
+async def sync_imap(db: AsyncSession) -> int:
+    """IMAP: imports mail newer than the stored (UIDVALIDITY, UID) cursor. Read-only on the mailbox. The cursor only
+    advances past messages that were stored (or deliberately skipped), so a failure part-way retries the rest."""
+    from app.modules.support import email_imap
+
+    name = settings.SUPPORT_IMAP_USER
+    ch = (await db.execute(select(SupportChannel).where(SupportChannel.kind == CHANNEL_KIND, SupportChannel.name == name))).scalars().first()
+    if ch is None:
+        ch = SupportChannel(kind=CHANNEL_KIND, name=name, identity=name, status="connecting", state={})
+        db.add(ch)
+        await db.flush()
+    state = dict(ch.state or {})
+    try:
+        result = await email_imap.fetch_new_async(state.get("imap_last_uid"), state.get("imap_uidvalidity"))
+    except email_imap.IMAPSyncError as e:
+        ch.status, ch.last_error = "error", str(e)[:300]
+        await db.commit()
+        log.warning("support.imap_sync_failed")
+        return 0
+    imported, last_uid = 0, state.get("imap_last_uid") if state.get("imap_uidvalidity") == result.uidvalidity else None
+    try:
+        for item in result.items:
+            if item.email is not None:
+                ok, _ = await ingest_email(db, item.email)
+                imported += int(ok)
+            last_uid = item.uid
+            await db.commit()  # per message, so one bad message can't roll back the ones already stored
+    except Exception:
+        await db.rollback()
+        log.exception("support.imap_ingest_failed")
+        ch = await db.get(SupportChannel, ch.id)
+        ch.status, ch.last_error = "error", "A message couldn't be stored; it will be retried on the next sync"
+    else:
+        ch.status, ch.last_error, ch.last_connected_at = "connected", None, datetime.now(UTC)
+    ch.state = {**(ch.state or {}), "imap_uidvalidity": result.uidvalidity, "imap_last_uid": last_uid}
+    await db.commit()
+    return imported

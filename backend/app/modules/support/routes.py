@@ -3,10 +3,11 @@ import email.utils
 import json
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 
 from app.core.config import settings
@@ -16,7 +17,7 @@ from app.core.exceptions import AppError, ForbiddenError, NotFoundError, Validat
 from app.core.pagination import PageQuery
 from app.core.rate_limit import rate_limit
 from app.core.response import paginated_response, success_response
-from app.modules.support import email_inbound, hub, messaging, openwa, service
+from app.modules.support import email_inbound, hub, messaging, openwa, outreach, service
 from app.modules.support.deps import (
     STAFF_ROLES,
     SupportManager,
@@ -266,8 +267,8 @@ async def channels(db: DbSession, user: SupportStaff):
     return success_response(data={
         "whatsapp": {"configured": openwa.configured(), "status": wa.status if wa else "not_configured", "number": wa.identity if wa else None,
                      "last_connected_at": wa.last_connected_at.isoformat() if wa and wa.last_connected_at else None, "last_error": wa.last_error if wa else None},
-        "email": {"outbound_configured": email_inbound.outbound_configured(), "inbound_configured": email_inbound.configured(),
-                  "mailbox": settings.SUPPORT_MAILBOX or None, "sender_name": settings.SUPPORT_SENDER_NAME, "reply_address": email.utils.parseaddr(email_inbound.from_header())[1] or None, "status": mail.status if mail else ("not_configured" if not email_inbound.configured() else "connecting"),
+        "email": {"outbound_configured": email_inbound.outbound_configured(), "inbound_configured": email_inbound.inbound_enabled(),
+                  "inbound_provider": email_inbound.inbound_provider(), "mailbox": settings.SUPPORT_IMAP_USER or settings.SUPPORT_MAILBOX or None, "sender_name": settings.SUPPORT_SENDER_NAME, "reply_address": email.utils.parseaddr(email_inbound.from_header())[1] or None, "status": mail.status if mail else ("not_configured" if not email_inbound.inbound_enabled() else "connecting"),
                   "last_connected_at": mail.last_connected_at.isoformat() if mail and mail.last_connected_at else None, "last_error": mail.last_error if mail else None},
     }, message="Channels retrieved")
 
@@ -299,8 +300,8 @@ async def whatsapp_disconnect(db: DbSession, user: SupportSuperAdmin):
 
 @router.post("/channels/email/sync")
 async def email_sync(db: DbSession, user: SupportManager):
-    if not email_inbound.configured():
-        raise ValidationError("Inbound email isn't configured on the server (Microsoft Graph credentials are missing).")
+    if not email_inbound.inbound_enabled():
+        raise ValidationError("Inbound email sync isn't enabled in this environment (set SUPPORT_IMAP_SYNC_ENABLED=true and the IMAP settings, or configure Microsoft Graph).")
     return success_response(data={"imported": await email_inbound.sync_mailbox(db)}, message="Mailbox synced")
 
 
@@ -322,6 +323,21 @@ async def email_test_send(data: TestEmailIn, user: SupportSuperAdmin):
     except EmailDeliveryError as e:
         raise ValidationError(str(e)) from e
     return success_response(data={"to": to, "message_id": message_id}, message="Test email accepted by the mail server")
+
+
+class OutreachIn(BaseModel):
+    tenant_ids: list[uuid.UUID] = Field(min_length=1, max_length=outreach.MAX_RECIPIENTS)
+    channel: Literal["email", "whatsapp", "preferred"] = "preferred"
+    subject: str = Field(default="", max_length=200)
+    body: str = Field(min_length=1, max_length=5000)
+    client_request_id: uuid.UUID  # one per "Send" click: re-sending the same request never messages anyone twice
+
+
+@router.post("/outreach", dependencies=[Depends(rate_limit("support-outreach", 10, 60))])
+async def send_outreach(data: OutreachIn, db: DbSession, user: SupportManager):
+    """Starts a separate conversation with each chosen business and sends the message on the chosen channel."""
+    results = await outreach.send_outreach(db, user, data.tenant_ids, channel=data.channel, subject=data.subject, body=data.body, request_id=data.client_request_id)
+    return success_response(data={"results": [r.__dict__ for r in results]}, message="Outreach processed")
 
 
 @router.post("/maintenance/purge")
