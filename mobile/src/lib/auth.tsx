@@ -29,7 +29,7 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, tenantSlug?: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (email: string, password: string, tenantSlug?: string) => Promise<{ ok: boolean; pendingActivation?: boolean; error?: string }>;
   register: (data: { tenantName: string; tenantSlug: string; email: string; password: string; fullName: string }) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string, tenantSlug?: string): Promise<{ ok: boolean; error?: string }> => {
+  const login = useCallback(async (email: string, password: string, tenantSlug?: string): Promise<{ ok: boolean; pendingActivation?: boolean; error?: string }> => {
     try {
       const res = await authApi.login(email, password, tenantSlug);
       setStoredToken(res.data.access_token);
@@ -138,6 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // account/tenant — those need very different messages, so the
         // generic "invalid credentials" fallback below must not swallow
         // the specific ones the backend already gives us in `detail`.
+        if (detail === "This account is awaiting activation") {
+          return { ok: false, pendingActivation: true };
+        }
         if (detail === "This account has been suspended") {
           return { ok: false, error: "Your business account has been suspended. Please contact support@pesaa.io to have it reactivated." };
         }

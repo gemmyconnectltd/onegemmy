@@ -215,6 +215,8 @@ async def login(db: AsyncSession, data: LoginRequest) -> TokenResponse:
         log.warning("auth.login.inactive_user", extra={"_extra_fields": {"user_id": str(user.id)}})
         raise UnauthorizedError("User is inactive")
     if user.tenant is not None and not user.tenant.is_active:
+        if user.tenant.subscription_status == "pending":
+            raise UnauthorizedError("This account is awaiting activation")
         log.warning("auth.login.suspended_tenant", extra={"_extra_fields": {"user_id": str(user.id), "tenant_id": str(user.tenant_id)}})
         raise UnauthorizedError("This account has been suspended")
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Eye, EyeOff, Loader2, Smartphone, Sparkles } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Clock3, Loader2, Smartphone, Sparkles } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
 
@@ -22,16 +22,20 @@ export default function MobileLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingActivation, setPendingActivation] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (loading) return;
     setError(null);
+    setPendingActivation(false);
     setLoading(true);
     const result = await login(email, password, tenantSlug);
     if (result.ok) {
       router.replace("/");
+    } else if (result.pendingActivation) {
+      setPendingActivation(true);
     } else {
       setError(result.error ?? "Invalid email or password");
     }
@@ -41,6 +45,7 @@ export default function MobileLoginPage() {
   const fillDemo = (demo: (typeof DEMO_ACCOUNTS)[number]) => {
     setEmail(demo.email);
     setPassword(demo.password);
+    setPendingActivation(false);
     setTenantSlug(demo.slug);
     setError(null);
   };
@@ -57,6 +62,19 @@ export default function MobileLoginPage() {
             <p className="text-[11px] text-muted">Mobile Point of Sale</p>
           </div>
         </div>
+
+          {pendingActivation && (
+            <div role="status" aria-live="polite" className="mb-6 rounded-xl border border-border bg-surface p-6">
+              <Clock3 size={24} aria-hidden="true" className="mb-4 text-muted" />
+              <h2 className="text-lg font-semibold text-foreground">Welcome to Pesaa</h2>
+              <p className="mt-2 text-sm text-foreground">Your registration is complete. Activation is the next step.</p>
+              <p className="mt-2 text-sm text-muted">Our team will review your business account before you can sign in. There’s no need to register again.</p>
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="text-sm text-muted">Have a question about getting started?</p>
+                <a href="mailto:support@pesaa.io" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent underline underline-offset-4 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">Contact the Pesaa team</a>
+              </div>
+            </div>
+          )}
 
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">

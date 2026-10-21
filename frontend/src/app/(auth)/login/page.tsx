@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
+import { Eye, EyeOff, Clock3, AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePageTitle } from "@/lib/pageTitles";
 import { Logo } from "@/components/ui/Logo";
@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
+  const [pendingActivation, setPendingActivation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -46,10 +47,13 @@ export default function LoginPage() {
 
   const submitLogin = async (emailToUse: string, passwordToUse: string, slug: string | undefined) => {
     setError("");
+    setPendingActivation(false);
     setLoading(true);
     const result = await login(emailToUse, passwordToUse, slug, rememberMe);
     if (result.ok) {
       redirectAfterLogin();
+    } else if (result.pendingActivation) {
+      setPendingActivation(true);
     } else {
       setError(result.error ?? "Invalid email or password");
     }
@@ -64,6 +68,7 @@ export default function LoginPage() {
   const fillDemo = (demo: { email: string; password: string }, slug: string | undefined) => {
     setEmail(demo.email);
     setPassword(demo.password);
+    setPendingActivation(false);
     setTenantSlug(slug);
     setError("");
     emailRef.current?.focus();
@@ -82,9 +87,22 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-[26px] font-bold text-foreground tracking-tight">Welcome back</h1>
-            <p className="text-sm text-muted mt-1.5">Sign in to your account to continue</p>
+            <h1 className="text-[26px] font-bold text-foreground tracking-tight">{pendingActivation ? "You’re almost ready" : "Welcome back"}</h1>
+            <p className="text-sm text-muted mt-1.5">{pendingActivation ? "Your business account is awaiting activation" : "Sign in to your account to continue"}</p>
           </div>
+
+          {pendingActivation && (
+            <div role="status" aria-live="polite" className="mb-6 rounded-xl border border-border bg-surface p-6">
+              <Clock3 size={24} aria-hidden="true" className="mb-4 text-muted" />
+              <h2 className="text-lg font-semibold text-foreground">Welcome to Pesaa</h2>
+              <p className="mt-2 text-sm text-foreground">Your registration is complete. Activation is the next step.</p>
+              <p className="mt-2 text-sm text-muted">Our team will review your business account before you can sign in. There’s no need to register again.</p>
+              <div className="mt-4 border-t border-border pt-4">
+                <p className="text-sm text-muted">Have a question about getting started?</p>
+                <a href="mailto:support@pesaa.io" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-accent underline underline-offset-4 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">Contact the Pesaa team</a>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-600 px-4 py-3 mb-6 text-sm rounded-lg">

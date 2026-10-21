@@ -42,6 +42,8 @@ async def get_current_user(
         log.warning("auth.inactive_user", extra={"_extra_fields": {"user_id": user_id}})
         raise UnauthorizedError("User is inactive")
     if user.tenant is not None and not user.tenant.is_active:
+        if user.tenant.subscription_status == "pending":
+            raise UnauthorizedError("This account is awaiting activation")
         log.warning("auth.suspended_tenant", extra={"_extra_fields": {"user_id": user_id, "tenant_id": tenant_id}})
         raise UnauthorizedError("This account has been suspended")
 
