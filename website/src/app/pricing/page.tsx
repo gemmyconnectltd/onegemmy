@@ -1,11 +1,12 @@
 import { CallToAction } from "@/components/marketing/CallToAction";
 import { PageHero } from "@/components/marketing/PageHero";
 import type { Metadata } from "next";
-import { Check, ArrowRight, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 import { Navbar } from "@/components/ui/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { appUrl, siteConfig } from "@/lib/site";
-import { plans } from "@/lib/plans";
+import { siteConfig } from "@/lib/site";
+import { PlanComparison } from "@/components/marketing/PlanComparison";
+import { PricingPlans } from "@/components/marketing/PricingPlans";
 
 export const metadata: Metadata = {
   title: `Pricing - ${siteConfig.name}`,
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 const faqs = [
   {
     q: "Is a credit card required to get started?",
-    a: "No. The Free plan requires no card and can be used indefinitely — upgrade only when your business requires additional users or modules.",
+    a: "No. You can register and explore without a card — choose a plan when your business is ready.",
   },
   {
     q: "Can I change plans later?",
@@ -40,58 +41,31 @@ export default function PricingPage() {
       <Navbar />
       <main>
 
-      <PageHero eyebrow="Plans & pricing" title={<>Plans That Scale With Your Business</>} description={<>{`From a single-location owner-operator to a multi-branch enterprise, ${siteConfig.name} scales with your operations. Get started at no cost, and upgrade as your needs grow.`}</>} />
+      <PageHero eyebrow="Plans & pricing" title={<>Plans That Scale With Your Business</>} description={<>{`From a single-location owner-operator to a multi-branch enterprise, ${siteConfig.name} scales with your operations. Pick the plan that fits today and upgrade as your needs grow.`}</>} />
 
       {/* Plans */}
       <section className="landing-section px-5 sm:px-8">
         <div className="max-w-[1176px] mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {plans.map((plan) => (
-              <div
-                key={plan.title}
-                className={`landing-card relative p-6 transition-colors flex flex-col ${
-                  plan.featured
-                    ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-md"
-                    : "border-border hover:border-[var(--primary)]/40"
-                }`}
-              >
-                {plan.featured && (
-                  <div className="absolute -top-3 left-6 bg-[var(--primary)] text-white text-[10px] font-bold px-3 py-1 rounded-full w-fit">
-                    MOST POPULAR
-                  </div>
-                )}
-                <h3 className="text-xl font-bold text-foreground mb-2">{plan.title}</h3>
-                <p className="text-muted text-sm mb-5">{plan.subtitle}</p>
-                <ul className="space-y-3 mb-6 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-foreground/70 text-sm">
-                      <Check size={16} className="text-emerald-500 flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={plan.title === "Enterprise" ? "/contact" : appUrl("/register")}
-                  className={`inline-flex items-center justify-center gap-1.5 w-full px-4 py-3 rounded-lg font-semibold text-sm transition-colors ${
-                    plan.featured
-                      ? "landing-button"
-                      : "landing-secondary"
-                  }`}
-                >
-                  {plan.title === "Enterprise" ? "Talk to Sales" : "Start Free Trial"}
-                  <ArrowRight size={14} />
-                </a>
-              </div>
-            ))}
-          </div>
+          <PricingPlans />
           <p className="text-center text-sm text-muted mt-10">
-            {`Final pricing depends on your business size and requirements — every account starts on the Free plan with no credit card required. Contact us and we'll help you select the right plan.`}
+            {`Not sure which plan fits? Contact us and we'll help you choose. Annual billing saves 20%.`}
           </p>
         </div>
       </section>
 
-      {/* FAQ */}
+      {/* Feature comparison */}
       <section className="landing-section px-5 sm:px-8 bg-surface">
+        <div className="max-w-[1176px] mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="landing-title">Compare every feature</h2>
+            <p className="mt-3 text-sm text-muted">See exactly what is included in each plan.</p>
+          </div>
+          <PlanComparison />
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="landing-section px-5 sm:px-8">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-3">
