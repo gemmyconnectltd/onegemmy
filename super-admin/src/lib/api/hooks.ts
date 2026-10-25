@@ -89,6 +89,33 @@ export const useAnalyticsSignupInsights = (q: Parameters<typeof adminApi.analyti
 export const useAnalyticsSignupInsightsAll = (q: Parameters<typeof adminApi.analyticsSignupInsightsAll>[0], opts?: QueryOpts) =>
   useQ(analyticsKey("signup-insights-all", q), () => adminApi.analyticsSignupInsightsAll(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
 
+export const useWebsiteTraffic = (q: Parameters<typeof adminApi.analyticsTraffic>[0], opts?: QueryOpts) =>
+  useQ(analyticsKey("traffic", q), () => adminApi.analyticsTraffic(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+type RangeQ = { from?: string; to?: string };
+export const useTrafficSources = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("traffic-sources", q), () => adminApi.analyticsTrafficSources(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useTrafficPages = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("traffic-pages", q), () => adminApi.analyticsTrafficPages(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useTrafficCampaigns = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("traffic-campaigns", q), () => adminApi.analyticsTrafficCampaigns(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+
+export const useErpTraffic = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("erp-traffic", q), () => adminApi.erpTraffic(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useErpModules = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("erp-modules", q), () => adminApi.erpTrafficModules(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useErpBusinesses = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("erp-businesses", q), () => adminApi.erpTrafficBusinesses(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useErpDevices = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("erp-devices", q), () => adminApi.erpTrafficDevices(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useErpEngagement = (q: RangeQ, opts?: QueryOpts) =>
+  useQ(analyticsKey("erp-engagement", q), () => adminApi.erpTrafficEngagement(q), (r) => r.data, { ...ANALYTICS_OPTS, ...opts });
+export const useErpRealtime = () =>
+  useQ([...ADMIN_ANALYTICS, "erp-realtime"], () => adminApi.erpTrafficRealtime(), (r) => r.data, { refetchInterval: 30_000, staleTime: 15_000 });
+
+export const useWebsiteTrafficRealtime = () =>
+  useQ([...ADMIN_ANALYTICS, "traffic-realtime"], () => adminApi.analyticsTrafficRealtime(), (r) => r.data, { refetchInterval: 30_000, staleTime: 15_000 });
+
 export const useAnalyticsRecentTenants = (q: Parameters<typeof adminApi.analyticsRecentTenants>[0], opts?: QueryOpts) =>
   useQ(analyticsKey("recent-tenants", q), () => adminApi.analyticsRecentTenants(q), (r) => r.data.items, { ...ANALYTICS_OPTS, ...opts });
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ElementType, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export interface TabItem { key: string; label: string; icon?: ElementType; href?: string; count?: number; dot?: boolean; active: boolean; onSelect?: () => void }
+export interface TabItem { /** Optional heading in the second sidebar (ignored by the tab strip). */ group?: string; key: string; label: string; icon?: ElementType; href?: string; count?: number; dot?: boolean; active: boolean; onSelect?: () => void }
 
 /** Horizontal tab strip used by every multi-page area (Billing, Support) and tabbed detail page (Tenant). */
 export function TabStrip({ items, label, trailing }: { items: TabItem[]; label: string; trailing?: ReactNode }) {

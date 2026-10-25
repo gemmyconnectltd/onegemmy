@@ -87,6 +87,14 @@ class Settings(BaseSettings):
     # ── Customer support center ───────────────────────────────────────────────────────────────────────────────
     # Support mail is sent through the SAME SMTP host as every other Pesaa email (set SMTP_HOST=smtp.office365.com
     # for Outlook); SUPPORT_* only select which mailbox/From it uses, falling back to the shared SMTP_* values.
+    # Marketing mail (campaigns, newsletters, automations). Falls back to the shared SMTP_* values when unset.
+    MARKETING_SMTP_USER: str = ""
+    MARKETING_SMTP_PASSWORD: str = ""
+    MARKETING_EMAIL_FROM: str = ""
+    MARKETING_BACKGROUND: bool = True  # run the send/schedule worker in this process
+    # Outside production, live marketing sends only go to these addresses (comma-separated); everyone else is skipped, so a
+    # local or staging copy of the data can never email real businesses. Test sends to an address typed in are always allowed.
+    MARKETING_TEST_RECIPIENTS: str = ""
     SUPPORT_SMTP_USER: str = ""
     SUPPORT_SMTP_PASSWORD: str = ""
     SUPPORT_EMAIL_FROM: str = ""

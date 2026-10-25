@@ -42,6 +42,8 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     business_location: Mapped[str | None] = mapped_column(String(255))
     heard_about: Mapped[str | None] = mapped_column(String(100))
     referral_code: Mapped[str | None] = mapped_column(String(50))
+    # Anonymous id of the website visitor who registered this business (first-touch attribution). Not personal data.
+    attribution_visitor_id: Mapped[str | None] = mapped_column(String(64), index=True)
     # How the business wants Pesaa to reach it first: "email" (the owner's login email), "phone" (a call to the
     # business phone above) or "whatsapp" (a WhatsApp message to that same number). Chosen at registration and
     # editable in Settings; shown to staff who review a signup or answer support so they use the channel asked for.

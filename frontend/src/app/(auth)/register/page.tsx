@@ -63,6 +63,17 @@ const inputClass = (focused: boolean) =>
 
 const selectClass = "w-full px-3.5 py-2.5 border border-border rounded-lg text-base sm:text-sm text-foreground bg-surface/30 transition-all outline-none appearance-none cursor-pointer";
 
+const VISITOR_KEY = "pesaa_vid";
+
+/** `vid` arrives on the link from the marketing website; kept for the tab so a reload or step change keeps it. */
+function readVisitorId(): string | undefined {
+  try {
+    return sessionStorage.getItem(VISITOR_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export default function RegisterPage() {
   usePageTitle("Create Account");
   const router = useRouter();
@@ -127,6 +138,16 @@ export default function RegisterPage() {
   // phone country-code) to wherever the visitor actually is, via IP
   // geolocation. Never blocks or errors the form — a slow/failed/unmatched
   // lookup just leaves the field for them to pick manually, same as today.
+  useEffect(() => {
+    const vid = new URLSearchParams(window.location.search).get("vid");
+    if (!vid || !/^[A-Za-z0-9-]{16,64}$/.test(vid)) return;
+    try {
+      sessionStorage.setItem(VISITOR_KEY, vid);
+    } catch {
+      /* attribution is optional */
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
@@ -207,6 +228,7 @@ export default function RegisterPage() {
       businessLocation: businessLocation || undefined,
       heardAbout: heardAbout || undefined,
       referralCode: referralCode || undefined,
+      visitorId: readVisitorId(),
       preferredContact,
       mainBranchName: hasMultipleBranches && mainBranchName ? mainBranchName : undefined,
     });

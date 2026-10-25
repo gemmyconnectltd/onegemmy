@@ -67,6 +67,8 @@ from app.modules.tenants.models import (  # noqa: F401
     Tenant,
     User,
 )
+from app.modules.marketing import models as marketing_models  # noqa: F401
+from app.modules.traffic.models import ErpActivity, WebsiteVisit  # noqa: F401
 from app.modules.support.models import (  # noqa: F401
     SupportChannel,
     SupportConversation,

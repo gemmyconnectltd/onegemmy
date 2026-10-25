@@ -35,6 +35,7 @@ from app.modules.auth.schemas import (
 from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import TenantRepository, UserRepository
 from app.modules.tenants.routes.currency import SUPPORTED_CURRENCIES
+from app.modules.traffic.classify import VISITOR_ID_RE
 
 log = get_logger("auth")
 
@@ -141,6 +142,7 @@ async def register(db: AsyncSession, data: RegisterRequest) -> RegisterResponse:
         business_location=data.business_location,
         heard_about=data.heard_about,
         referral_code=data.referral_code,
+        attribution_visitor_id=data.visitor_id if data.visitor_id and VISITOR_ID_RE.match(data.visitor_id) else None,
         preferred_contact=data.preferred_contact,
     )
     tenant = await TenantRepository(db).save(tenant)

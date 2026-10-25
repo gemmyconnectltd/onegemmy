@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Sidebar, sidebarWidth } from "@/components/dashboard/Sidebar";
+import { ActivityTracker } from "@/components/dashboard/ActivityTracker";
 import { SupportFab } from "@/components/dashboard/SupportFab";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -136,6 +137,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <Topbar onToggleSidebar={() => setSidebarOpen(value => !value)} sidebarExpanded={sidebarOpen} />
         <main data-app-content className="min-w-0 flex-1 px-4 sm:px-8 py-4 sm:py-6">{children}</main>
       </div>
+      <ActivityTracker />
       <SupportFab />
       <ProductTour steps={TOUR_STEPS} storageKey="onegemmy_tour_seen" />
     </div>

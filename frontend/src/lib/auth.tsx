@@ -57,6 +57,8 @@ export interface RegisterInput {
   businessLocation?: string;
   heardAbout?: string;
   referralCode?: string;
+  /** Anonymous website-visitor id (from the `vid` link parameter), used only for acquisition attribution. */
+  visitorId?: string;
   mainBranchName?: string;
   /** "email" (default), "phone" (call) or "whatsapp" — how Pesaa should reach the business first. */
   preferredContact?: "email" | "phone" | "whatsapp" | "all";
@@ -238,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         business_location: data.businessLocation,
         heard_about: data.heardAbout,
         referral_code: data.referralCode,
+        visitor_id: data.visitorId,
         main_branch_name: data.mainBranchName,
         preferred_contact: data.preferredContact,
       });

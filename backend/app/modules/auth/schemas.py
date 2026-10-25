@@ -1,7 +1,7 @@
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.shared.schemas import TrimmedModel
 
@@ -34,6 +34,8 @@ class RegisterRequest(TrimmedModel):
     business_location: str | None = None
     heard_about: str | None = None
     referral_code: str | None = None
+    # Anonymous id from the marketing website (see /public/visits); ignored unless it looks like one.
+    visitor_id: str | None = Field(default=None, max_length=64)
     # How the business wants to be contacted first. Validated here (a public endpoint never stores free text).
     preferred_contact: Literal["email", "phone", "whatsapp", "all"] = "email"
     main_branch_name: str | None = None

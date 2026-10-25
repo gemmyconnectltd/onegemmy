@@ -394,6 +394,107 @@ export interface FilterOptions {
   businessTypes: FilterOption[];
 }
 
+// ── Website Traffic (GET /admin/analytics/traffic) ───────────────────────────
+
+export interface TrafficStat { value: number | null; previous: number | null; changePct: number | null; tracked?: number }
+export interface TrafficFunnelStage { key: string; label: string; count: number; pctOfPrevious: number | null; dropOff: number | null }
+export interface TrafficCounts { visitors: number; signups: number; paying: number }
+/** One bucket; `previous` is the same bucket of the previous equal-length period (null where that period is shorter). */
+export interface TrafficPoint extends TrafficCounts { period: string; previousPeriod: string | null; previous: TrafficCounts | null }
+export interface TrafficRealtime {
+  activeNow: number;
+  last48Hours: number;
+  hourly: { hour: string; visitors: number }[];
+  activePages: { path: string; visitors: number }[];
+  generatedAt: string;
+}
+export interface TrafficReport {
+  period: AnalyticsRange;
+  groupBy: AnalyticsGroupBy;
+  /** False until the website has recorded at least one visit — metrics that need visits are then unavailable. */
+  trackingActive: boolean;
+  kpis: { visitors: TrafficStat; signups: TrafficStat; paying: TrafficStat; conversionRate: TrafficStat };
+  series: TrafficPoint[];
+  funnel: TrafficFunnelStage[];
+  funnelNote: { signupsTracked: number; signupsTotal: number };
+  sources: { channel: TrafficChannel; visitors: number; pct: number }[];
+  pages: { path: string; visitors: number; signups: number; conversionRate: number }[];
+  campaigns: { campaign: string; visitors: number; signups: number; paying: number; conversionRate: number }[];
+  generatedAt: string;
+}
+
+export type TrafficChannel = "organic" | "direct" | "social" | "referral" | "paid" | "other";
+export interface TrafficSourcesDetail {
+  period: AnalyticsRange;
+  groupBy: AnalyticsGroupBy;
+  channels: { channel: TrafficChannel; visitors: number; views: number; pct: number; signups: number; paying: number; conversionRate: number }[];
+  series: ({ period: string } & Record<TrafficChannel, number>)[];
+  referrers: { host: string; channel: TrafficChannel; visitors: number; views: number }[];
+  totalVisitors: number;
+  signupsTracked: number;
+}
+export interface TrafficPagesDetail {
+  period: AnalyticsRange;
+  pages: { path: string; visitors: number; views: number; signups: number; paying: number; conversionRate: number }[];
+  truncated: boolean;
+}
+export interface TrafficCampaignsDetail {
+  period: AnalyticsRange;
+  campaigns: { campaign: string; visitors: number; views: number; signups: number; paying: number; conversionRate: number }[];
+  sources: { campaign: string; source: string | null; medium: string | null; visitors: number; views: number; signups: number; paying: number }[];
+  truncated: boolean;
+}
+
+// ── ERP Traffic (GET /admin/analytics/erp-traffic) ───────────────────────────
+
+export interface ErpStat { value: number | null; previous: number | null; changePct: number | null }
+export interface ErpCounts { users: number; businesses: number; sessions: number; views: number }
+export type ErpBusinessStatus = "growing" | "steady" | "declining" | "new" | "quiet" | "inactive";
+export interface ErpBusiness {
+  id: string; name: string; plan: string; users: number; sessions: number; views: number; previousViews: number;
+  changePct: number | null; status: ErpBusinessStatus; lastActive: string | null; signedUp: string | null;
+}
+export interface ErpMix { name: string; users: number; businesses: number; sessions: number; views: number; pct: number }
+export interface ErpReport {
+  period: AnalyticsRange;
+  groupBy: AnalyticsGroupBy;
+  trackingActive: boolean;
+  kpis: {
+    activeUsers: ErpStat; activeBusinesses: ErpStat; sessions: ErpStat; pageViews: ErpStat; stickiness: ErpStat; pagesPerSession: ErpStat;
+    adoption: { value: number | null; activeTenants: number };
+  };
+  series: (ErpCounts & { period: string; previousPeriod: string | null; previous: ErpCounts | null })[];
+  modules: { module: string; views: number; users: number; businesses: number; sessions: number; pctOfViews: number }[];
+  devices: { types: ErpMix[]; os: ErpMix[]; browsers: ErpMix[] };
+  topBusinesses: ErpBusiness[];
+  quiet: { count: number; items: ErpBusiness[] };
+  generatedAt: string;
+}
+export interface ErpRealtime {
+  onlineUsers: number; onlineBusinesses: number;
+  activeModules: { module: string; users: number }[];
+  hourly: { hour: string; users: number }[];
+  generatedAt: string;
+}
+export interface ErpModulesDetail {
+  period: AnalyticsRange; groupBy: AnalyticsGroupBy; activeTenants: number;
+  modules: { module: string; views: number; users: number; businesses: number; sessions: number; pctOfViews: number; adoption: number; viewsPerUser: number }[];
+  series: ({ period: string } & Record<string, number | string>)[];
+  seriesModules: string[];
+}
+export interface ErpDevicesDetail {
+  period: AnalyticsRange; groupBy: AnalyticsGroupBy; deviceNames: string[];
+  types: ErpMix[]; os: ErpMix[]; browsers: ErpMix[];
+  series: ({ period: string } & Record<string, number | string>)[];
+  byModule: ({ module: string; total: number } & Record<string, number | string>)[];
+}
+export interface ErpBusinessesDetail { period: AnalyticsRange; businesses: ErpBusiness[]; counts: Partial<Record<ErpBusinessStatus, number>>; truncated: boolean }
+export interface ErpEngagementDetail {
+  period: AnalyticsRange; asOf: string; dau: number; wau: number; mau: number; dauMau: number | null; wauMau: number | null;
+  heatmap: number[][]; heatmapTotal: number;
+  cohorts: { week: string; size: number; retention: (number | null)[] }[];
+}
+
 const B = "/admin";
 
 export interface AudienceRow {
@@ -423,6 +524,18 @@ export const adminApi = {
     request<PaginatedResponse<InsightItem>>(`${B}/analytics/signup-insights/all${qs({ ...q })}`),
   analyticsRecentTenants: (q: AnalyticsFilters & { limit?: number }) =>
     request<SingleResponse<{ items: RecentTenant[] }>>(`${B}/analytics/recent-tenants${qs({ ...q })}`),
+  analyticsTraffic: (q: { from?: string; to?: string }) =>
+    request<SingleResponse<TrafficReport>>(`${B}/analytics/traffic${qs({ ...q })}`),
+  analyticsTrafficSources: (q: { from?: string; to?: string }) => request<SingleResponse<TrafficSourcesDetail>>(`${B}/analytics/traffic/sources${qs({ ...q })}`),
+  analyticsTrafficPages: (q: { from?: string; to?: string }) => request<SingleResponse<TrafficPagesDetail>>(`${B}/analytics/traffic/pages${qs({ ...q })}`),
+  analyticsTrafficCampaigns: (q: { from?: string; to?: string }) => request<SingleResponse<TrafficCampaignsDetail>>(`${B}/analytics/traffic/campaigns${qs({ ...q })}`),
+  erpTraffic: (q: { from?: string; to?: string }) => request<SingleResponse<ErpReport>>(`${B}/analytics/erp-traffic${qs({ ...q })}`),
+  erpTrafficRealtime: () => request<SingleResponse<ErpRealtime>>(`${B}/analytics/erp-traffic/realtime`),
+  erpTrafficModules: (q: { from?: string; to?: string }) => request<SingleResponse<ErpModulesDetail>>(`${B}/analytics/erp-traffic/modules${qs({ ...q })}`),
+  erpTrafficBusinesses: (q: { from?: string; to?: string }) => request<SingleResponse<ErpBusinessesDetail>>(`${B}/analytics/erp-traffic/businesses${qs({ ...q })}`),
+  erpTrafficDevices: (q: { from?: string; to?: string }) => request<SingleResponse<ErpDevicesDetail>>(`${B}/analytics/erp-traffic/devices${qs({ ...q })}`),
+  erpTrafficEngagement: (q: { from?: string; to?: string }) => request<SingleResponse<ErpEngagementDetail>>(`${B}/analytics/erp-traffic/engagement${qs({ ...q })}`),
+  analyticsTrafficRealtime: () => request<SingleResponse<TrafficRealtime>>(`${B}/analytics/traffic/realtime`),
   analyticsFilterOptions: (q: AnalyticsFilters) =>
     request<SingleResponse<FilterOptions>>(`${B}/analytics/filter-options${qs({ ...q })}`),
   listUsers: (page = 1, pageSize = 50, filters: AdminUserFilters = {}) =>

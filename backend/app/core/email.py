@@ -17,9 +17,10 @@ log = get_logger("email")
 class EmailDeliveryError(Exception):
     """Safe transport outcome; an uncertain SMTP DATA result must not be auto-retried."""
 
-    def __init__(self, *, retryable: bool = False, uncertain: bool = False):
+    def __init__(self, *, retryable: bool = False, uncertain: bool = False, rejected: bool = False):
         self.retryable = retryable
         self.uncertain = uncertain
+        self.rejected = rejected  # the server permanently refused the recipient (5xx) — a hard bounce
         super().__init__("SMTP acceptance is uncertain; check Sent Items before retrying." if uncertain
                          else "The mail server did not accept the message.")
 
@@ -41,6 +42,12 @@ def _resolve_smtp_credentials(sender: str) -> tuple[str, str, str]:
     the legacy single-mailbox SMTP_USER/SMTP_PASSWORD/EMAIL_FROM settings
     when its own isn't configured, so a deployment that hasn't set the new
     per-category env vars yet keeps sending exactly as it did before."""
+    if sender == "marketing":
+        return (
+            settings.MARKETING_SMTP_USER or settings.SMTP_USER,
+            settings.MARKETING_SMTP_PASSWORD or settings.SMTP_PASSWORD,
+            settings.MARKETING_EMAIL_FROM or settings.EMAIL_FROM,
+        )
     if sender == "support":
         return (
             settings.SUPPORT_SMTP_USER or settings.SMTP_USER,
@@ -210,7 +217,8 @@ async def send_email_message(
                     raise smtplib.SMTPRecipientsRefused(refused)
         except smtplib.SMTPRecipientsRefused as error:
             codes = [value[0] for value in error.recipients.values()]
-            raise EmailDeliveryError(retryable=bool(codes) and all(400 <= code < 500 for code in codes)) from None
+            raise EmailDeliveryError(retryable=bool(codes) and all(400 <= code < 500 for code in codes),
+                                     rejected=bool(codes) and all(500 <= code < 600 for code in codes)) from None
         except smtplib.SMTPResponseException as error:
             raise EmailDeliveryError(retryable=400 <= error.smtp_code < 500) from None
         except (OSError, smtplib.SMTPServerDisconnected):
