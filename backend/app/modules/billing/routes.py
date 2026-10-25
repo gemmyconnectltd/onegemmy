@@ -4,13 +4,14 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from pydantic import Field
 
 from app.core.deps import CurrentUser, DbSession, SuperUser, get_current_active_superuser
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.rate_limit import rate_limit
 from app.core.response import paginated_response, success_response
-from app.modules.billing import payments, provider, refunds, service
+from app.modules.billing import enrollment, payments, provider, refunds, service
 from app.modules.billing.pdf import invoice_pdf
 from app.modules.billing.repository import BillingRepository
 from app.modules.billing.schemas import (
@@ -22,6 +23,7 @@ from app.modules.billing.schemas import (
     PlanInput,
     RefundCallback,
     RefundRequest,
+    Strict,
     SubscriptionAction,
 )
 
@@ -77,6 +79,28 @@ async def plan_update(
     id: uuid.UUID, data: PlanInput, db: DbSession, actor: SuperUser, key: Key
 ) -> Response:
     return success_response(await service.save_plan(db, actor, data, id, key))
+
+
+class EnrollRequest(Strict):
+    mode: Literal["trial", "complimentary"]
+    trial_days: int = Field(default=30, ge=1, le=365)
+    plan_id: uuid.UUID | None = None  # omit to give each business the cheapest plan that fits it
+    notify: bool = False
+    keep_modules: bool = True  # False: choose by users/branches only; a business may lose modules its plan doesn't include
+    dry_run: bool = True
+    confirm_count: int | None = Field(default=None, ge=0)
+    tenant_ids: list[uuid.UUID] | None = Field(default=None, max_length=500)  # optional pilot: only these businesses
+
+
+@admin_router.post("/enroll-existing", dependencies=[Depends(rate_limit("billing_enroll", 10, 60))])
+async def enroll_existing(data: EnrollRequest, db: DbSession, actor: SuperUser) -> Response:
+    """Move businesses with no subscription onto a plan without charging them (free trial or complimentary). Dry run by
+    default; a real run needs the exact count from the preview."""
+    result = await enrollment.enroll_existing(db, actor, mode=data.mode, trial_days=data.trial_days, plan_id=data.plan_id, notify=data.notify,
+                                              dry_run=data.dry_run, confirm_count=data.confirm_count, tenant_ids=data.tenant_ids, keep_modules=data.keep_modules)
+    if not data.dry_run:
+        await db.commit()
+    return success_response(result)
 
 
 @admin_router.get("/plans/{id}/prices")

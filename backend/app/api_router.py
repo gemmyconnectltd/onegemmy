@@ -8,6 +8,7 @@ from app.modules.ai.routes import admin_router as ai_admin_router
 from app.modules.ai.routes import router as ai_router
 from app.modules.audit.routes import router as audit_router
 from app.modules.auth.routes import router as auth_router
+from app.modules.billing.public import router as billing_public_router
 from app.modules.billing.routes import admin_router as billing_admin_router
 from app.modules.billing.routes import callback_router as billing_callback_router
 from app.modules.billing.routes import tenant_router as billing_tenant_router
@@ -31,6 +32,7 @@ from app.modules.traffic.routes import public_router as traffic_public_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(billing_admin_router)
+api_router.include_router(billing_public_router)
 api_router.include_router(billing_tenant_router)
 api_router.include_router(billing_callback_router)
 api_router.include_router(admin_router)

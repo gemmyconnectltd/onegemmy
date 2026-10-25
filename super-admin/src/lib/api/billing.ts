@@ -65,6 +65,12 @@ export interface SubscriptionActionInput { action: "cancel" | "reactivate" | "ex
 function query(filters: object): string {
   return new URLSearchParams(Object.entries(filters).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])).toString();
 }
+export interface EnrollInput { mode: "trial" | "complimentary"; trial_days: number; keep_modules: boolean; notify: boolean; dry_run: boolean; confirm_count?: number }
+export interface EnrollResult {
+  dryRun: boolean; mode: string; trialDays: number; keepModules: boolean; candidates: number; toEnroll: number; skippedCount: number;
+  byPlan: { plan: string; businesses: number; currencies: Record<string, number> }[]; skipped: { id: string; name: string; reason: string }[];
+  sample: { id: string; name: string; plan: string; currency: string }[]; enrolled?: number; failed?: { id: string; name: string; reason: string }[];
+}
 export function createBillingApi(base: string) {
   const post = <T>(path: string, data: object, key: string) => request<Envelope<T>>(`${base}${path}`, { method: "POST", body: JSON.stringify(data), headers: { "Idempotency-Key": key } });
   return {
@@ -85,6 +91,7 @@ export function createBillingApi(base: string) {
     pdf: (id: string, receipt?: string) => downloadFile(`${base}/invoices/${id}/pdf${receipt ? `?receipt=${receipt}` : ""}`, receipt ? "receipt.pdf" : "invoice.pdf"),
     savePlan: (data: Omit<BillingPlan, "id" | "version"> & { expected_version?: number }, key: string, id?: string) => request<Envelope<BillingPlan>>(`${base}/plans${id ? `/${id}` : ""}`, { method: id ? "PUT" : "POST", body: JSON.stringify(data), headers: { "Idempotency-Key": key } }),
     settings: () => request<Envelope<BillingSettings>>(`${base}/settings`),
+    enrollExisting: (d: EnrollInput) => request<Envelope<EnrollResult>>(`${base}/enroll-existing`, { method: "POST", body: JSON.stringify(d) }),
     saveSettings: (data: BillingSettings) => request<Envelope<BillingSettings>>(`${base}/settings`, { method: "PUT", body: JSON.stringify(data) }),
     report: (filters: BillingFilters) => request<Envelope<BillingReport>>(`${base}/overview?${query(filters)}`),
   };

@@ -129,6 +129,9 @@ async def save_plan(
         )
     await db.flush()
     await audit(db, actor, None, "plan_saved", plan, {"before": before, "after": serialize(plan)})
+    from app.modules.billing.public import invalidate_public_pricing
+
+    invalidate_public_pricing()  # the website reflects a plan change straight away
     result = {
         **serialize(plan),
         "prices": [{"id": str(p.id), **p.terms} for p in await repo.prices(plan)],
@@ -559,3 +562,40 @@ async def billing_report(
     ]
     financials = await daily_report(db, start, end, currency, plan_id, status)
     return {"updated_at": report.updated_at, "subscriptions": subs, **financials}
+
+
+async def grant_subscription(
+    db: AsyncSession, actor: User, tenant_id: uuid.UUID, plan: BillingPlan, price: BillingPrice, cycle: str, *,
+    trial_days: int = 0, discount_bps: int = 0, notify: bool = False, reason: str = "",
+) -> BillingSubscription:
+    """Puts a business that has NO subscription onto `plan` without charging it now: either a free trial of `trial_days`
+    (the first invoice is issued by the worker when it ends) or, with `discount_bps` 10000, a complimentary subscription.
+    Raises if the business already has a subscription or its current users/branches exceed the plan's allowance.
+    Unlike confirm_change this issues no invoice, so a platform-initiated move can never lock a business out for non-payment."""
+    authorize(actor, "update", platform=True)
+    repo = BillingRepository(db)
+    await repo.tenant(tenant_id, lock=True)
+    if await repo.subscription(tenant_id) is not None:
+        raise ConflictError("This business already has a subscription")
+    if plan.status != "active" or price.plan_id != plan.id or price.version != plan.version:
+        raise ValidationError("This plan is not available")
+    usage = await repo.usage(tenant_id)
+    validate_usage(price.terms, usage)
+    now = now_utc()
+    trial = trial_days > 0
+    end = now + timedelta(days=trial_days) if trial else next_period(now, cycle)
+    amounts = cost(price.terms, cycle, usage["users"], usage["branches"], discount_bps)
+    sub = BillingSubscription(
+        tenant_id=tenant_id, plan_id=plan.id, price_id=price.id, terms=price.terms, currency=price.currency, cycle=cycle,
+        seats=usage["users"], branches=usage["branches"], recurring=amounts["total"], recurring_net=amounts["subtotal"], credit=0,
+        discount_bps=discount_bps, billing_anchor_day=end.day if trial else now.day, period_start=now, period_end=end,
+        trial_end=end if trial else None, cancel_at_end=False, revision=1, status="trialing" if trial else "active",
+    )
+    db.add(sub)
+    await db.flush()
+    await sync_tenant(repo, sub)
+    await audit(db, actor, tenant_id, "plan_granted", sub, {"after": serialize(sub), "reason": reason, "trial_days": trial_days, "discount_bps": discount_bps})
+    if notify:
+        await notice(db, tenant_id, f"granted:{sub.id}", "Your Pesaa plan",
+                     f"Your business is now on the {plan.name} plan" + (f" with a {trial_days}-day free trial." if trial else ". Review it in Settings → Plans & Billing."))
+    return sub

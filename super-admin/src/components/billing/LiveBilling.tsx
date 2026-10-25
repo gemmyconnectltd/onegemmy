@@ -15,7 +15,7 @@ import {
   useBillingReport, useBillingSettings, useBillingSaveSettings, useBillingMethods,
   useBillingAction, useBillingOverview, useBillingRefresh, useTenants, useBillingRefunds, useBillingRefund, useBillingRefreshRefund, useBillingHistory,
 } from "@/lib/api/hooks";
-import type { BillingKind, BillingPayment, BillingPlan, BillingTerms, BillingSettings, ChangePlanInput } from "@/lib/api/billing";
+import type { BillingKind, BillingPayment, BillingPlan, BillingTerms, BillingSettings, ChangePlanInput, EnrollInput, EnrollResult } from "@/lib/api/billing";
 import { BillingError, BillingPagination, BillingStatus, billingMoney, billingDate, DownloadInvoice, PlanChange } from "./BillingShared";
 
 const title = (kind: string) => kind.charAt(0).toUpperCase() + kind.slice(1);
@@ -135,8 +135,44 @@ export function LiveBillingOverview() {
 export function LiveBillingSettings() {
   const settings = useBillingSettings();
   const methods = useBillingMethods();
-  return <div className="space-y-4"><h1 className="text-[22px] font-bold">Billing Settings</h1><p className="text-sm text-muted">Tax is configured on each plan price. New prices default to 18% Rwanda VAT; existing agreed prices retain their tax rate. <Link href="/plans" className="text-accent underline">Manage plan prices and limits</Link></p><BillingError error={settings.error || methods.error} />{settings.isLoading ? <PageLoader variant="compact" /> : settings.data && <SettingsForm initial={settings.data} />}<section className="space-y-2 rounded-xl border border-border bg-card p-5"><h2 className="text-sm font-bold">pawaPay</h2><p className="text-sm text-muted">{methods.data?.configured ? `Configured · ${methods.data.mode}` : "Not configured"}</p>{methods.data?.signed_requests_required && !methods.data.signing_configured && <p className="text-sm text-muted">This pawaPay account requires signed initiation requests. Configure the matching RSA private key and public-key ID on the server to enable payments.</p>}<p className="text-xs text-muted">Credentials are managed on the server. Mobile money payments require customer approval; no automatic debit retries or saved cards are enabled.</p></section></div>;
+  return <div className="space-y-4"><h1 className="text-[22px] font-bold">Billing Settings</h1><p className="text-sm text-muted">Tax is configured on each plan price. New prices default to 18% Rwanda VAT; existing agreed prices retain their tax rate. <Link href="/plans" className="text-accent underline">Manage plan prices and limits</Link></p><BillingError error={settings.error || methods.error} />{settings.isLoading ? <PageLoader variant="compact" /> : settings.data && <SettingsForm initial={settings.data} />}<EnrollExisting /><section className="space-y-2 rounded-xl border border-border bg-card p-5"><h2 className="text-sm font-bold">pawaPay</h2><p className="text-sm text-muted">{methods.data?.configured ? `Configured · ${methods.data.mode}` : "Not configured"}</p>{methods.data?.signed_requests_required && !methods.data.signing_configured && <p className="text-sm text-muted">This pawaPay account requires signed initiation requests. Configure the matching RSA private key and public-key ID on the server to enable payments.</p>}<p className="text-xs text-muted">Credentials are managed on the server. Mobile money payments require customer approval; no automatic debit retries or saved cards are enabled.</p></section></div>;
 }
+function EnrollExisting() {
+  const [mode, setMode] = useState<"trial" | "complimentary">("complimentary");
+  const [days, setDays] = useState(30);
+  const [keep, setKeep] = useState(true);
+  const [notify, setNotify] = useState(false);
+  const [preview, setPreview] = useState<EnrollResult | null>(null);
+  const [done, setDone] = useState<EnrollResult | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
+  const input = (dry: boolean, count?: number): EnrollInput => ({ mode, trial_days: days, keep_modules: keep, notify, dry_run: dry, confirm_count: count });
+  const run = async (dry: boolean, count?: number) => {
+    setBusy(true); setError(null);
+    try { const r = (await billingApi.enrollExisting(input(dry, count))).data; if (dry) { setPreview(r); setDone(null); } else { setDone(r); setPreview(null); } } catch (e) { setError(e); }
+    setBusy(false);
+  };
+  const reset = () => { setPreview(null); setDone(null); };
+  return <section className="space-y-3 rounded-xl border border-border bg-card p-5"><h2 className="text-sm font-bold">Move existing businesses onto plans</h2>
+    <p className="text-sm text-muted">Businesses that signed up before billing have no plan. This puts each one on the cheapest plan that fits it <strong>without charging anyone or sending an invoice</strong>: either a free trial (the first invoice is issued when it ends) or a complimentary plan (no invoices until you end the discount). Businesses that already have a plan are never touched.</p>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field label="How"><Select value={mode} onChange={e => { setMode(e.target.value as "trial" | "complimentary"); reset(); }}><option value="complimentary">Complimentary — on a plan, free until you end it</option><option value="trial">Free trial, then billed</option></Select></Field>
+      {mode === "trial" && <Field label="Trial length (days)"><Input type="number" min={1} max={365} value={days} onChange={e => { setDays(Number(e.target.value)); reset(); }} /></Field>}
+    </div>
+    <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={keep} onChange={e => { setKeep(e.target.checked); reset(); }} /><span>Keep every module a business uses today<span className="block text-xs text-muted">Recommended. A plan only includes certain modules, so with this on each business gets the cheapest plan that still covers what it uses. Turn it off to choose by users and branches only — businesses may then lose modules their plan doesn&apos;t include.</span></span></label>
+    <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={notify} onChange={e => setNotify(e.target.checked)} /><span>Email each business that it has been placed on a plan</span></label>
+    <BillingError error={error} />
+    <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy} onClick={() => run(true)}>{busy && !preview ? "Checking…" : "Preview"}</Button></div>
+    {preview && <div className="space-y-2 rounded-lg border border-border p-4 text-sm" aria-live="polite">
+      <p className="font-semibold">{preview.toEnroll} of {preview.candidates} businesses would be placed on a plan{preview.skippedCount > 0 ? ` · ${preview.skippedCount} skipped` : ""}</p>
+      <ul className="space-y-1">{preview.byPlan.map(r => <li key={r.plan} className="flex justify-between gap-3"><span>{r.plan}</span><span className="text-muted">{r.businesses} ({Object.entries(r.currencies).map(([c, n]) => `${n} ${c}`).join(", ")})</span></li>)}</ul>
+      {preview.skippedCount > 0 && <details><summary className="cursor-pointer text-muted">Skipped businesses</summary><ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto text-xs">{preview.skipped.map(s => <li key={s.id}>{s.name} — {s.reason}</li>)}</ul></details>}
+      <Button disabled={busy || preview.toEnroll === 0} onClick={() => confirm({ title: `Place ${preview.toEnroll} businesses on plans?`, message: mode === "trial" ? `Each gets a ${days}-day free trial on its plan. No invoice is issued now; the first invoice is created when the trial ends.` : "Each gets a complimentary plan: no invoices, until you end the discount in its subscription. Neither choice charges anyone today.", confirmText: preview.toEnroll > 20 ? String(preview.toEnroll) : undefined, confirmLabel: "Place on plans", onConfirm: () => run(false, preview.toEnroll) })}>{busy ? "Working…" : `Place ${preview.toEnroll} businesses on plans`}</Button></div>}
+    {done && <p role="status" className="text-sm text-accent">Done: {done.enrolled} businesses placed on plans{done.failed && done.failed.length > 0 ? `, ${done.failed.length} failed (${done.failed.slice(0, 3).map(f => `${f.name}: ${f.reason}`).join("; ")})` : ""}.</p>}
+    {dialog}</section>;
+}
+
 function SettingsForm({ initial }: { initial: BillingSettings }) {
   const [form, setForm] = useState(initial);
   const save = useBillingSaveSettings();

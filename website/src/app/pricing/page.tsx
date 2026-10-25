@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/Footer";
 import { siteConfig } from "@/lib/site";
 import { PlanComparison } from "@/components/marketing/PlanComparison";
 import { PricingPlans } from "@/components/marketing/PricingPlans";
+import { fetchPricing } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: `Pricing - ${siteConfig.name}`,
@@ -35,7 +36,9 @@ const faqs = [
   },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const pricing = await fetchPricing();
+  const hasPlans = !!pricing && pricing.plans.length > 0;
   return (
     <div className="pesaa-landing marketing-page min-h-screen bg-white text-slate-900">
       <Navbar />
@@ -46,7 +49,13 @@ export default function PricingPage() {
       {/* Plans */}
       <section className="landing-section px-5 sm:px-8">
         <div className="max-w-[1176px] mx-auto">
-          <PricingPlans />
+          {hasPlans ? <PricingPlans pricing={pricing} /> : (
+            <div className="mx-auto max-w-xl rounded-xl border border-border bg-white p-8 text-center">
+              <h2 className="text-lg font-bold text-foreground">Pricing is being updated</h2>
+              <p className="mt-2 text-sm text-muted">We couldn&apos;t load our current plans right now. Contact our team and we&apos;ll send you up-to-date pricing.</p>
+              <a href="/contact" className="landing-button mt-5 inline-flex">Contact sales</a>
+            </div>
+          )}
           <p className="text-center text-sm text-muted mt-10">
             {`Not sure which plan fits? Contact us and we'll help you choose. Annual billing saves 20%.`}
           </p>
@@ -60,7 +69,7 @@ export default function PricingPage() {
             <h2 className="landing-title">Compare every feature</h2>
             <p className="mt-3 text-sm text-muted">See exactly what is included in each plan.</p>
           </div>
-          <PlanComparison />
+          {hasPlans && <PlanComparison pricing={pricing} currency={pricing.currencies.includes("RWF") ? "RWF" : pricing.currencies[0]} />}
         </div>
       </section>
 
