@@ -15,20 +15,24 @@ export interface NavConfigItem {
   exact?: boolean;
   /** Extra paths that also light this item up (an item that fronts several sibling pages, e.g. tabbed Settings). */
   activeFor?: string[];
+  /** Heading the item sits under in the second sidebar (long lists are grouped). */
+  group?: string;
+  /** Permission the user needs to see this item (e.g. "users:read"). Owners always pass. */
+  requires?: string;
 }
 
 
 export const ACCOUNTING_NAV = [
   { href: "/accounting", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/accounting/accounts", label: "Chart of Accounts", icon: BookOpen },
-  { href: "/accounting/ledger", label: "General Ledger", icon: ListOrdered },
-  { href: "/accounting/receivables", label: "Accounts Receivable", icon: Users },
-  { href: "/accounting/payables", label: "Accounts Payable", icon: Truck },
-  { href: "/accounting/cash-bank", label: "Cash & Bank", icon: Landmark },
-  { href: "/accounting/assets", label: "Fixed Assets", icon: Building2 },
-  { href: "/accounting/payroll", label: "Payroll", icon: Wallet },
-  { href: "/accounting/tax", label: "Tax Management", icon: ReceiptText },
-  { href: "/accounting/reports", label: "Financial Reports", icon: ChartNoAxesCombined },
+  { href: "/accounting/accounts", label: "Chart of Accounts", icon: BookOpen, group: "Books" },
+  { href: "/accounting/ledger", label: "General Ledger", icon: ListOrdered, group: "Books" },
+  { href: "/accounting/receivables", label: "Accounts Receivable", icon: Users, group: "Money in and out" },
+  { href: "/accounting/payables", label: "Accounts Payable", icon: Truck, group: "Money in and out" },
+  { href: "/accounting/cash-bank", label: "Cash & Bank", icon: Landmark, group: "Money in and out" },
+  { href: "/accounting/assets", label: "Fixed Assets", icon: Building2, group: "Assets and payroll" },
+  { href: "/accounting/payroll", label: "Payroll", icon: Wallet, group: "Assets and payroll" },
+  { href: "/accounting/tax", label: "Tax Management", icon: ReceiptText, group: "Compliance and reports" },
+  { href: "/accounting/reports", label: "Financial Reports", icon: ChartNoAxesCombined, group: "Compliance and reports" },
 ];
 
 export const DEBT_NAV = [
@@ -88,15 +92,14 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
   ],
   inventory: [
     { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, exact: true },
-    { nameKey: "products",   href: "/inventory/products",   icon: Package },
-    { nameKey: "categories", href: "/inventory/categories", icon: Tag },
-    { nameKey: "brands",     href: "/inventory/brands",     icon: Star },
-    { nameKey: "units",      href: "/inventory/units",      icon: Ruler },
-    { nameKey: "suppliers",  href: "/inventory/suppliers",  icon: Truck },
-    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers },
-    { nameKey: "serials",    href: "/inventory/serials",    icon: Star },
-    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck },
-    { nameKey: "batches",    href: "/inventory/batches",    icon: Package },
+    { nameKey: "products",   href: "/inventory/products",   icon: Package, group: "Catalog" },
+    { nameKey: "categories", href: "/inventory/categories", icon: Tag, group: "Catalog" },
+    { nameKey: "brands",     href: "/inventory/brands",     icon: Star, group: "Catalog" },
+    { nameKey: "units",      href: "/inventory/units",      icon: Ruler, group: "Catalog" },
+    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers, group: "Catalog" },
+    { nameKey: "serials",    href: "/inventory/serials",    icon: Star, group: "Stock" },
+    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck, group: "Stock" },
+    { nameKey: "batches",    href: "/inventory/batches",    icon: Package, group: "Stock" },
   ],
   reports: [
     { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, exact: true },
@@ -106,12 +109,8 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "customers",  href: "/reports/customers", icon: Users },
     { nameKey: "dailyBranches", label: "Daily branch activity", href: "/reports/daily", icon: BarChart3 },
   ],
-  settings: [
-    // One entry fronts the five Business Settings tabs (General, Financial, Security, Notifications, Appearance).
-    { nameKey: "businessSettings", href: "/settings", icon: Settings, exact: true, activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
-    { nameKey: "usersRoles",    href: "/settings/users",         icon: Users },
-    { nameKey: "plansBilling", href: "/settings/billing", icon: CreditCard },
-  ],
+  // Settings has no second sidebar: its pages are in the main sidebar's Administration group and Business Settings has its own tabs.
+  settings: [],
   repairs: [
     { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
   ],
@@ -129,33 +128,75 @@ export function isModuleLinkActive(path: string, item: NavConfigItem) {
   return (item.exact ? path === item.href : path === item.href || path.startsWith(item.href + "/")) || !!item.activeFor?.some(prefix => path === prefix || path.startsWith(prefix + "/"));
 }
 
-export type PrimaryNavItem = { name: string; href: string; icon: LucideIcon; feature?: string; module?: ModuleKey; access?: string };
-export type PrimaryNavGroup = { label?: string; items: PrimaryNavItem[] };
+export type PrimaryNavItem = {
+  name: string; href: string; icon: LucideIcon; feature?: string; module?: ModuleKey; access?: string;
+  /** Permission needed to see the item (e.g. "users:read"); owners always pass. */
+  permission?: string;
+  /** Match only this exact path (plus `activeFor`) instead of everything beneath it. */
+  exact?: boolean; activeFor?: string[];
+  /** Stable key for the product tour (`data-tour="nav-<tour>"`). Defaults to the lower-cased name. */
+  tour?: string;
+};
+export type PrimaryNavGroup = { id?: string; label?: string; items: PrimaryNavItem[] };
+
+/** The single source of truth for the main sidebar and the mobile menu: grouped by what people are doing, not by module. */
 export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
-  { items: [{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard }] },
-  { label: "Daily operations", items: [
+  { id: "workspace", label: "Workspace", items: [{ name: "Overview", href: "/dashboard", icon: LayoutDashboard, tour: "dashboard" }] },
+  { id: "operations", label: "Operations", items: [
     { name: "Sales", href: "/sales", icon: ShoppingCart, feature: "sales", module: "sales" },
     { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
     { name: "Inventory", href: "/inventory", icon: Warehouse, feature: "inventory", module: "inventory" },
     { name: "Purchases", href: "/procurement", icon: ShoppingBag, feature: "procurement", module: "procurement" },
+    { name: "Manufacturing", href: "/manufacturing", icon: Factory, feature: "manufacturing", module: "manufacturing" },
+  ] },
+  { id: "relationships", label: "Relationships", items: [
     { name: "Customers", href: "/customers", icon: Users, feature: "sales", module: "customers" },
   ] },
-  { label: "Financial management", items: [
+  { id: "finance", label: "Finance", items: [
+    { name: "Expenses", href: "/expenses", icon: Receipt, feature: "accounting", module: "expenses" },
     { name: "Debt Management", href: "/debts", icon: ArrowLeftRight, feature: "accounting", module: "debts" },
-    { name: "Expense Management", href: "/expenses", icon: Receipt, feature: "accounting", module: "expenses" },
     { name: "Accounting", href: "/accounting", icon: HandCoins, feature: "accounting", module: "accounting" },
   ] },
-  { label: "Business management", items: [
-    { name: "Manufacturing", href: "/manufacturing", icon: Factory, feature: "manufacturing", module: "manufacturing" },
-    { name: "Branch Management", href: "/branches", icon: Building2 },
+  { id: "people", label: "People", items: [
     { name: "HR", href: "/hr", icon: UserCog, feature: "hr", module: "hr" },
+  ] },
+  { id: "insights", label: "Insights", items: [
     { name: "Reports", href: "/reports", icon: BarChart3, module: "reports", access: "" },
   ] },
-  { label: "System", items: [
-    { name: "Settings", href: "/settings", icon: Settings, module: "settings", access: "" },
+  { id: "administration", label: "Administration", items: [
+    { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
+    { name: "Branches", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
+    { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing" },
+    { name: "Business Settings", href: "/settings", icon: Settings, module: "settings", access: "", exact: true, tour: "settings",
+      activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance", "/settings/profile"] },
     { name: "Help & Support", href: "/support", icon: LifeBuoy },
   ] },
 ];
+
+/** Whether `path` belongs to a primary item. Exact items (the dashboard, Business Settings) don't swallow their siblings. */
+export function isPrimaryActive(path: string, item: Pick<PrimaryNavItem, "href" | "exact" | "activeFor">): boolean {
+  if (path === item.href) return true;
+  if (item.activeFor?.some(prefix => path === prefix || path.startsWith(prefix + "/"))) return true;
+  return item.href !== "/dashboard" && !item.exact && path.startsWith(item.href + "/");
+}
+
+/** Title, icon and one-line purpose shown at the top of a module's second sidebar. */
+export const MODULE_TITLES: Record<ModuleKey, { title: string; icon: LucideIcon; blurb: string }> = {
+  sales: { title: "Sales", icon: ShoppingCart, blurb: "Orders, returns and targets" },
+  inventory: { title: "Inventory", icon: Warehouse, blurb: "Products and stock" },
+  procurement: { title: "Purchases", icon: ShoppingBag, blurb: "Suppliers and purchase orders" },
+  manufacturing: { title: "Manufacturing", icon: Factory, blurb: "Production and materials" },
+  services: { title: "Services", icon: CalendarClock, blurb: "Bookings and staff" },
+  customers: { title: "Customers", icon: Users, blurb: "Directory and loyalty" },
+  expenses: { title: "Expenses", icon: Receipt, blurb: "Spending and categories" },
+  debts: { title: "Debt Management", icon: ArrowLeftRight, blurb: "Who owes whom" },
+  accounting: { title: "Accounting", icon: HandCoins, blurb: "Books, banking and tax" },
+  hr: { title: "HR", icon: UserCog, blurb: "Team, attendance and payroll" },
+  crm: { title: "CRM", icon: Megaphone, blurb: "Contacts and campaigns" },
+  reports: { title: "Reports", icon: BarChart3, blurb: "Performance and trends" },
+  settings: { title: "Settings", icon: Settings, blurb: "Business, team and billing" },
+  repairs: { title: "Repairs", icon: Hammer, blurb: "Jobs in progress" },
+};
 export const ADMIN_NAV_ITEMS: PrimaryNavItem[] = [
   {name: "Overview", href: "/admin", icon: LayoutDashboard},
   {name: "Tenants", href: "/admin/tenants", icon: Building2},
@@ -165,6 +206,19 @@ export const ADMIN_NAV_ITEMS: PrimaryNavItem[] = [
   {name: "Settings", href: "/admin/settings", icon: Settings},
 ];
 
-export function visiblePrimaryNavigation(features: Record<string, boolean> | undefined, canAccess: (module: string) => boolean): PrimaryNavGroup[] {
-  return PRIMARY_NAV_GROUPS.map(group => ({...group, items: group.items.filter(item => (!item.feature || features?.[item.feature] !== false) && (!item.module || item.access === "" || canAccess(item.access || item.module)))})).filter(group => group.items.length);
+export function visiblePrimaryNavigation(
+  features: Record<string, boolean> | undefined,
+  canAccess: (module: string) => boolean,
+  can: (permission: string) => boolean = () => true,
+): PrimaryNavGroup[] {
+  const visible = (item: PrimaryNavItem) =>
+    (!item.feature || features?.[item.feature] !== false)
+    && (!item.module || item.access === "" || canAccess(item.access || item.module))
+    && (!item.permission || can(item.permission));
+  return PRIMARY_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(visible) })).filter(group => group.items.length);
+}
+
+/** Second-sidebar links the user may see (those with `requires` need that permission). */
+export function visibleModuleLinks(module: ModuleKey, can: (permission: string) => boolean = () => true): NavConfigItem[] {
+  return MODULE_NAV[module].filter(link => !link.requires || can(link.requires));
 }

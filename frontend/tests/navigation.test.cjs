@@ -10,24 +10,56 @@ const nav = {};
 vm.runInNewContext(code, {exports: nav, require: name => {if(name !== 'lucide-react')throw Error(name);return new Proxy({}, {get: (_, key) => key});}});
 const plain = value => JSON.parse(JSON.stringify(value));
 
-test('keeps all existing primary modules independent and in the requested group order', () => {
+test('keeps every existing module and groups them by what people do', () => {
   const expected = [
-    ['Dashboard'], ['Sales','Services','Inventory','Purchases','Customers'],
-    ['Debt Management','Expense Management','Accounting'],
-    ['Manufacturing','Branch Management','HR','Reports'], ['Settings','Help & Support'],
+    ['Overview'], ['Sales','Services','Inventory','Purchases','Manufacturing'], ['Customers'],
+    ['Expenses','Debt Management','Accounting'], ['HR'], ['Reports'],
+    ['Team & Access','Branches','Subscription & Billing','Business Settings','Help & Support'],
   ];
   assert.deepEqual(plain(nav.PRIMARY_NAV_GROUPS.map(group => group.items.map(item => item.name))), expected);
+  assert.deepEqual(plain(nav.PRIMARY_NAV_GROUPS.map(group => group.label)), ['Workspace','Operations','Relationships','Finance','People','Insights','Administration']);
   const hrefs = nav.PRIMARY_NAV_GROUPS.flatMap(group => group.items.map(item => item.href));
   assert.equal(hrefs.length, new Set(hrefs).size);
+  assert.equal(new Set(nav.PRIMARY_NAV_GROUPS.map(group => group.id)).size, nav.PRIMARY_NAV_GROUPS.length);
 });
-test('reuses existing feature and permission gates without industry assumptions', () => {
-  const all = nav.visiblePrimaryNavigation(undefined, () => true).flatMap(group => group.items.map(item => item.name));
-  assert.equal(all.length, 15);
-  const denied = nav.visiblePrimaryNavigation(undefined, () => false).flatMap(group => group.items.map(item => item.name));
-  assert.deepEqual(plain(denied), ['Dashboard','Branch Management','Reports','Settings','Help & Support']);
-  const disabled = nav.visiblePrimaryNavigation({services:false}, () => true).flatMap(group => group.items.map(item => item.name));
+test('reuses feature, module and permission gates and never returns an empty group', () => {
+  const names = groups => groups.flatMap(group => group.items.map(item => item.name));
+  assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).length, 17);
+  const denied = nav.visiblePrimaryNavigation(undefined, () => false, () => false);
+  assert.deepEqual(plain(names(denied)), ['Overview','Reports','Business Settings','Help & Support']);
+  assert.ok(denied.every(group => group.items.length > 0));
+  const disabled = names(nav.visiblePrimaryNavigation({services:false}, () => true, () => true));
   assert.equal(disabled.includes('Services'), false);
   assert.equal(disabled.includes('Manufacturing'), true);
+  const onlyUsers = names(nav.visiblePrimaryNavigation(undefined, () => false, p => p === 'users:read'));
+  assert.deepEqual(plain(onlyUsers), ['Overview','Reports','Team & Access','Business Settings','Help & Support']);
+});
+test('a cashier-like user sees no finance, people or administration clutter', () => {
+  const cashier = new Set(['sales']);
+  const groups = nav.visiblePrimaryNavigation(undefined, module => cashier.has(module), () => false);
+  const names = groups.flatMap(group => group.items.map(item => item.name));
+  assert.deepEqual(plain(names), ['Overview','Sales','Reports','Business Settings','Help & Support']);
+  assert.equal(groups.some(group => group.label === 'Finance' || group.label === 'People'), false);
+});
+test('Administration items activate on their own page only, not their siblings', () => {
+  const admin = nav.PRIMARY_NAV_GROUPS.find(group => group.id === 'administration').items;
+  const byName = Object.fromEntries(admin.map(item => [item.name, item]));
+  assert.equal(nav.isPrimaryActive('/settings/users', byName['Team & Access']), true);
+  assert.equal(nav.isPrimaryActive('/settings/users', byName['Business Settings']), false);
+  assert.equal(nav.isPrimaryActive('/settings', byName['Business Settings']), true);
+  assert.equal(nav.isPrimaryActive('/settings/security', byName['Business Settings']), true);
+  assert.equal(nav.isPrimaryActive('/settings/billing', byName['Subscription & Billing']), true);
+  assert.equal(nav.isPrimaryActive('/branches/abc', byName['Branches']), true);
+  assert.equal(nav.isPrimaryActive('/dashboard', nav.PRIMARY_NAV_GROUPS[0].items[0]), true);
+  assert.equal(nav.isPrimaryActive('/sales/orders', nav.PRIMARY_NAV_GROUPS[1].items[0]), true);
+  assert.equal(nav.isPrimaryActive('/sales-reports', nav.PRIMARY_NAV_GROUPS[1].items[0]), false);
+});
+test('second sidebar has a title for every module and groups long lists', () => {
+  const settings = can => nav.visibleModuleLinks('settings', can);
+  assert.deepEqual(plain(settings(() => true)), []);  // Settings has no second sidebar: its pages live in the main sidebar
+  for (const key of Object.keys(nav.MODULE_NAV)) assert.ok(nav.MODULE_TITLES[key] && nav.MODULE_TITLES[key].title && nav.MODULE_TITLES[key].blurb, key);
+  const inventory = nav.MODULE_NAV.inventory.filter(link => link.group).map(link => link.group);
+  assert.deepEqual(plain([...new Set(inventory)]), ['Catalog','Stock']);
 });
 test('both sidebar surfaces use the same expense, debt and accounting module links', () => {
   assert.deepEqual(plain(nav.MODULE_NAV.expenses.map(item => item.href)), ['/expenses','/expenses/list','/expenses/categories']);
@@ -39,4 +71,18 @@ test('deep links activate the correct submenu without highlighting a sibling ove
   assert.equal(nav.isModuleLinkActive('/sales/orders', nav.MODULE_NAV.sales[1]), true);
   assert.equal(nav.isModuleLinkActive('/expenses/new', nav.MODULE_NAV.expenses[1]), true);
   assert.equal(nav.isModuleLinkActive('/sales/orders-unrelated', nav.MODULE_NAV.sales[1]), false);
+});
+
+test('no page is listed twice: not across modules and not in both sidebars', () => {
+  const second = Object.entries(nav.MODULE_NAV).flatMap(([module, links]) => links.map(link => ({module, href: link.href})));
+  const hrefs = second.map(link => link.href);
+  assert.deepEqual(plain(hrefs.filter((href, index) => hrefs.indexOf(href) !== index)), []);
+  const primary = new Set(nav.PRIMARY_NAV_GROUPS.flatMap(group => group.items.map(item => item.href)));
+  // The only overlap allowed is a module's own Overview, which is the page its main-sidebar link opens.
+  const overlap = second.filter(link => primary.has(link.href) && !nav.MODULE_NAV[link.module].some(other => other.exact && other.href === link.href));
+  assert.deepEqual(plain(overlap), []);
+});
+test('suppliers are managed under Purchases only', () => {
+  assert.equal(Object.values(nav.MODULE_NAV).flat().filter(link => /suppliers$/.test(link.href)).length, 1);
+  assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === '/procurement/suppliers'));
 });

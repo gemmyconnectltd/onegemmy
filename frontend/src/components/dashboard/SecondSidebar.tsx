@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelTop, PanelLeft, PanelRight } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
-import { MODULE_NAV, isModuleLinkActive, type ModuleKey } from "@/lib/navigation";
+import { MODULE_TITLES, isModuleLinkActive, visibleModuleLinks, type ModuleKey } from "@/lib/navigation";
+import { useAuth } from "@/lib/auth";
 export type { NavConfigItem } from "@/lib/navigation";
 type Orientation = "top" | "left" | "big";
 
@@ -55,6 +56,8 @@ export function SecondSidebar({
 }: SecondSidebarProps) {
   const pathname = usePathname();
   const { t } = useAppConfig();
+  const { hasPermission } = useAuth();
+  const meta = module ? MODULE_TITLES[module] : undefined;
   const isSectionMode = !!sections;
 
   const [internalOrientation, setInternalOrientation] = useState<Orientation>(defaultOrientation);
@@ -80,13 +83,15 @@ export function SecondSidebar({
   const isTabBar = !showRail;
 
   const navClassName = showRail
-    ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-44 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
+    ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-52 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
     : `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-14 z-10 ${isBig ? "h-12 px-3 gap-1" : "px-3"}`;
 
-  const railHeader = showRail && (showToggle || label) && (
-    <div className="hidden lg:flex items-center justify-between gap-2 h-[46px] px-3 flex-shrink-0 border-b border-border">
-      <span className="text-[11px] font-bold uppercase tracking-wider text-foreground/50 truncate">
-        {label ?? (module ? t(module) : "")}
+  const railHeader = showRail && (showToggle || label || meta) && (
+    <div className="hidden lg:flex items-center gap-2.5 min-h-[60px] px-4 py-3 flex-shrink-0 border-b border-border">
+      {meta && <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><meta.icon size={16} aria-hidden /></span>}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] font-bold text-foreground">{label ?? meta?.title ?? (module ? t(module) : "")}</span>
+        {meta && !label && <span className="block truncate text-[11px] text-muted">{meta.blurb}</span>}
       </span>
       {showToggle && (
         <button
@@ -110,7 +115,7 @@ export function SecondSidebar({
           : "text-muted border-transparent hover:text-foreground hover:border-border"
       }`;
     }
-    return `pesaa-nav-row flex items-center lg:w-full lg:px-3 gap-2.5 px-3 py-2 text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink ${
+    return `pesaa-nav-row flex items-center lg:w-full lg:px-4 gap-2.5 px-3 py-2.5 text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink ${
       isActive ? "text-white" : "text-muted"
     }`;
   };
@@ -141,23 +146,28 @@ export function SecondSidebar({
           </button>
         );
       })
-    : (module ? MODULE_NAV[module] : []).map((item) => {
+    : (module ? visibleModuleLinks(module, hasPermission) : []).map((item, index, list) => {
         const isActive = isModuleLinkActive(pathname, item);
+        const heading = showRail && item.group && item.group !== list[index - 1]?.group
+          ? <span key={`group-${item.group}`} className="hidden lg:block px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted">{item.group}</span>
+          : null;
         return (
-          <Link
-            key={item.nameKey}
-            href={item.href}
-            aria-current={isActive ? "page" : undefined}
-            data-active={!isTabBar && isActive}
-            className={linkClassName(isActive)}
-          >
-            <item.icon
-              size={isTabBar ? 16 : 18}
-              strokeWidth={isActive ? 2.2 : 1.8}
-              className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
-            />
-            <span>{item.label ?? t(item.nameKey)}</span>
-          </Link>
+          <Fragment key={item.nameKey}>
+            {heading}
+            <Link
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              data-active={!isTabBar && isActive}
+              className={linkClassName(isActive)}
+            >
+              <item.icon
+                size={isTabBar ? 16 : 18}
+                strokeWidth={isActive ? 2.2 : 1.8}
+                className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
+              />
+              <span>{item.label ?? t(item.nameKey)}</span>
+            </Link>
+          </Fragment>
         );
       });
 
@@ -196,7 +206,6 @@ export function SecondSidebar({
       ) : showRail ? (
         <>
           {railHeader}
-          <div className="hidden lg:block mx-3 mb-1 border-t border-border" />
           {items}
           {/* Mobile only — railHeader (with its own toggle) is desktop-only. */}
           <div className="lg:hidden ml-auto flex items-center flex-shrink-0">{toggleButton}</div>

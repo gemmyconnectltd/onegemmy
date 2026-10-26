@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { SuppliersManager } from "@/components/inventory/SuppliersManager";
-
-export default function SuppliersPage() {
-  return <SuppliersManager />;
+// Suppliers are managed under Purchases; keep old links working.
+export default function InventorySuppliersRedirect() {
+  redirect("/procurement/suppliers");
 }

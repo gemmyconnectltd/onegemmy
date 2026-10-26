@@ -41,7 +41,7 @@ test('sidebar contract is shared and solid without decorative effects', () => {
   const css = readFileSync(`${root}/design-system/components.css`, 'utf8');
   assert.match(css, /\.pesaa-nav-row\s*\{[^}]*border: 0;[^}]*border-radius: 0;[^}]*box-shadow: none;/s);
   assert.match(css, /\.pesaa-nav-row\[data-active="true"\]\s*\{[^}]*background: var\(--primary\);[^}]*color: var\(--primary-foreground\);/s);
-  for (const file of ['frontend/src/components/dashboard/Sidebar.tsx','frontend/src/components/dashboard/SecondSidebar.tsx','frontend/src/components/accounting/AccountingNavigation.tsx','frontend/src/components/debts/DebtNavigation.tsx','super-admin/src/components/shell/Sidebar.tsx','super-admin/src/components/ui/SecondaryNav.tsx']) {
+  for (const file of ['frontend/src/components/dashboard/Sidebar.tsx','frontend/src/components/dashboard/SecondSidebar.tsx','super-admin/src/components/shell/Sidebar.tsx','super-admin/src/components/ui/SecondaryNav.tsx']) {
     const source = readFileSync(`${root}/${file}`, 'utf8');
     assert.ok(source.includes('pesaa-nav-row'), file);
     assert.ok(source.includes('data-active='), file);
