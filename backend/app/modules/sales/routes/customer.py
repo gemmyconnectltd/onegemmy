@@ -2,12 +2,13 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
 from app.modules.sales.schemas import CustomerBulkCreate, CustomerCreate, CustomerUpdate
+from app.modules.sales.service import customer_profile
 
 router = APIRouter(tags=["Sales - Customers"])
 
@@ -41,6 +42,17 @@ async def bulk_create_customers(data: CustomerBulkCreate, db: DbSession, current
         raise ForbiddenError("Permission required: credit:approve")
     result = await service.bulk_create_customers(db, current_user.tenant_id, data)
     return success_response(data=result.model_dump(), message=f"{result.created} customers imported", status_code=201)
+
+
+@router.get("/sales/customers/{id}/profile")
+async def customer_profile_view(id: uuid.UUID, db: DbSession, current_user: CurrentUser, branch: ActiveBranchId):
+    return success_response(data=await customer_profile.profile(db, current_user, branch, id), message="Customer profile retrieved successfully")
+
+
+@router.get("/sales/customers/{id}/records/{section}")
+async def customer_records(id: uuid.UUID, section: str, db: DbSession, current_user: CurrentUser, branch: ActiveBranchId, page_params: PageQuery):
+    return success_response(data=await customer_profile.section(db, current_user, branch, id, section, page_params.page, min(page_params.page_size, 50)),
+                            message="Customer records retrieved successfully")
 
 
 @router.get("/sales/customers/{id}")

@@ -150,8 +150,19 @@ export interface ApiTarget {
 
 const BASE = "/tenants/sales";
 
+export type CustomerSection = "orders" | "payments" | "returns" | "debts";
+export interface CustomerSectionPage { items: Record<string, string | number | boolean | null>[]; total: number; page?: number; page_size?: number; currency?: string }
+export interface CustomerProfile {
+  name: string; currency: string; deals: number | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; customer_type: string; is_active: boolean; credit_daily_limit: string | null; created_at: string } | null;
+  summary: { completed_orders?: number; lifetime_sales?: string; first_order_at?: string | null; last_order_at?: string | null; returns?: number; refunded?: string; outstanding?: string; overdue?: string };
+  sections: Record<CustomerSection, CustomerSectionPage | null>;
+}
+
 export const salesApi = {
   // Customers
+  customerProfile: (id: string) => request<SingleResponse<CustomerProfile>>(`${BASE}/customers/${encodeURIComponent(id)}/profile`),
+  customerRecords: (id: string, section: CustomerSection, page: number) => request<SingleResponse<CustomerSectionPage>>(`${BASE}/customers/${encodeURIComponent(id)}/records/${section}${qs({ page, page_size: 10 })}`),
   listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string) =>
     request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers${qs({ page, page_size: pageSize, search, customer_type: customerType })}`),
   createCustomer: (data: object) =>

@@ -6,6 +6,7 @@ import { orderBaseOutstanding, orderBasePaid, orderBaseTotal } from "@/lib/baseM
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import { useAppConfig } from "@/lib/appConfig";
+import Link from "next/link";
 import { useState, useMemo } from "react";
 import {
   Users, Plus, Search, Phone, Mail, MapPin, TrendingUp, Star,
@@ -368,7 +369,7 @@ export default function CustomersPage() {
                           style={{ backgroundColor: COLOR }}>
                           {initials(c.name)}
                         </div>
-                        <span className="text-sm font-semibold text-foreground">{c.name}</span>
+                        <Link href={`/customers/${c.id}`} className="text-sm font-semibold text-foreground hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">{c.name}</Link>
                       </div>
                     </td>
                     <td className="px-4 py-3">
