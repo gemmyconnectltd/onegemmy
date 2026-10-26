@@ -1,5 +1,5 @@
 export type DebtKind = "receivable" | "payable";
-export type DebtStatus = "Unpaid" | "PartiallyPaid" | "Paid";
+export type DebtStatus = "Unpaid" | "PartiallyPaid" | "Paid" | "WrittenOff";
 export interface DebtRecord {
   id: string;
   kind: DebtKind;
@@ -13,7 +13,22 @@ export interface DebtRecord {
   due_date: string | null;
   status: DebtStatus;
   is_overdue: boolean;
+  written_off?: string;
+  is_manual?: boolean;
+  party_id?: string | null;
 }
+export const AGING_BUCKETS = ["0-30", "31-60", "61-90", "90+"] as const;
+export type Aging = Record<(typeof AGING_BUCKETS)[number], string>;
+export interface DebtSummaryTotals { outstanding: string; overdue: string; total?: number; aging: Aging }
+export interface StatementRow { date: string; type: "invoice" | "payment" | "write_off"; reference: string; description: string; debit: string; credit: string; balance: string }
+export interface DebtStatementData {
+  kind: DebtKind; currency: string; date_from: string; date_to: string; opening: string; closing: string;
+  party: { id: string; name: string; email: string | null };
+  rows: StatementRow[]; totals: { billed: string; paid: string; written_off: string; outstanding: string }; aging: Aging;
+}
+export interface ManualDebtInput { party_id: string; branch_id?: string; amount: string; issue_date: string; due_date?: string; reference?: string; notes?: string }
+export interface DebtEditInput { due_date?: string | null; notes?: string | null; reference?: string }
+export function reasonError(value: string): string | null { return value.trim().length < 3 ? "Enter a reason (at least 3 characters)." : null; }
 export interface DebtFilters {
   page: number;
   search: string;

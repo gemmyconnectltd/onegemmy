@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { formatMoney } from "@/lib/money";
 import { useAppConfig } from "@/lib/appConfig";
 import { BranchFilter } from "@/components/accounting/FinancialShared";
-import type { DebtRecord } from "./types";
+import { AGING_BUCKETS, type Aging, type DebtRecord } from "./types";
 
 export function useDebtMoney() {
   const { currency } = useAppConfig();
@@ -17,7 +17,8 @@ export function DebtHeader({ title, description, action }: { title: string; desc
 export function DebtBadge({ record }: { record: Pick<DebtRecord, "status" | "is_overdue"> }) {
   const status = record.is_overdue ? "Overdue" : record.status;
   const color = status === "Overdue" ? "pesaa-badge-error" : status === "Paid" ? "pesaa-badge-success" : status === "PartiallyPaid" ? "pesaa-badge-warning" : "pesaa-badge-neutral";
-  return <span className={`pesaa-badge ${color}`}><span className="h-1 w-1 rounded-full bg-current" />{status === "PartiallyPaid" ? "Partially Paid" : status}{record.is_overdue && record.status === "PartiallyPaid" && <span>· Partially Paid</span>}</span>;
+  const text = status === "PartiallyPaid" ? "Partially Paid" : status === "WrittenOff" ? "Written off" : status;
+  return <span className={`pesaa-badge ${color}`}><span className="h-1 w-1 rounded-full bg-current" /><span className="whitespace-nowrap">{text}</span>{record.is_overdue && record.status === "PartiallyPaid" && <span>· Partially Paid</span>}</span>;
 }
 export function DebtSummary({ items, currency }: { currency?: string; items: { label: string; value: string; overdue?: boolean }[] }) {
   const money = useDebtMoney();
@@ -27,3 +28,10 @@ export function DebtSummary({ items, currency }: { currency?: string; items: { l
   })}</dl>;
 }
 export function debtDate(value: string | null) { return value ? new Intl.DateTimeFormat("en", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value.slice(0, 10) + "T00:00:00Z")) : "No due date"; }
+
+const bucketLabel: Record<(typeof AGING_BUCKETS)[number], string> = { "0-30": "0–30 days", "31-60": "31–60 days", "61-90": "61–90 days", "90+": "90+ days" };
+/** Outstanding balance by age (days past the due date; debts not yet due count under 0–30). */
+export function DebtAging({ aging, currency, title = "Aging" }: { aging: Aging; currency?: string; title?: string }) {
+  const money = useDebtMoney();
+  return <section aria-label={title} className="rounded-xl border border-border bg-card p-4"><h2 className="mb-3 text-[12px] font-semibold">{title}</h2><dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">{AGING_BUCKETS.map((bucket, index) => <div key={bucket} className={`min-w-0 rounded-lg border px-3 py-2.5 ${index === 3 && Number(aging[bucket]) > 0 ? "border-red-500/30 bg-red-500/5" : "border-border bg-surface"}`}><dt className="text-[11px] text-muted">{bucketLabel[bucket]}</dt><dd className="mt-1 break-words text-[15px] font-bold tabular-nums">{money(aging[bucket], currency)}</dd></div>)}</dl></section>;
+}

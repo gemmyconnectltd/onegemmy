@@ -3,7 +3,7 @@
 import { useDeferredValue, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useCreateOrder, useCustomers, useProducts, useSerials } from "@/lib/api/hooks";
+import { useCreateOrder, useProducts, useSerials } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api/inventory";
 import { purchaseLineMinor, scaled } from "@/lib/purchaseAmounts";
 import { Button } from "@/components/ui/Button";
@@ -12,17 +12,19 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { FinancialError, FinancialPagination } from "@/components/accounting/FinancialShared";
 import { DebtDrawer } from "./DebtDrawer";
 import { useDebtMoney } from "./DebtShared";
+import { ManualDebtForm } from "./ManualDebtForm";
+import { PartySearch, type Party } from "./PartySearch";
 
 type Line = { key: string; product: ApiProduct; variant: string; price: string; quantity: string; serials: string[] };
-export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string | null) => void }) {
-  const { activeBranchId, user } = useAuth();
+export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string | null, manual?: boolean) => void }) {
+  const { activeBranchId, user, hasPermission } = useAuth();
+  const canSale = hasPermission("orders:create");
+  const canManual = hasPermission("accounts_receivable:create");
+  const [mode, setMode] = useState<"sale" | "manual">(canSale ? "sale" : "manual");
   const money = useDebtMoney();
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
-  const [customerPage, setCustomerPage] = useState(1);
+  const [customer, setCustomer] = useState<Party | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const customers = useCustomers(customerPage, 25, useDeferredValue(customerSearch));
   const products = useProducts(page, 25, useDeferredValue(search), true);
   const [lines, setLines] = useState<Line[]>([]);
   const [paid, setPaid] = useState("0");
@@ -44,6 +46,7 @@ export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; 
     if (!customer || !due || !lines.length || totals.some(value => value === null) || paidMinor === null || outstanding <= BigInt(0) || lines.some(line => (line.product.has_variants && !line.variant) || (line.product.tracks_serials && line.serials.length !== Number(line.quantity)))) {
       setError("Choose a customer and items, select any required variants and serial numbers, and enter a due date. The amount paid must be less than the sale total."); return;
     }
+    if (!(activeBranchId ?? user?.branchId)) { setError("Choose a specific branch (top right) before recording a credit sale. It cannot be saved against “All branches”."); return; }
     busy.current = true; setError("");
     key.current ??= crypto.randomUUID();
     try {
@@ -52,13 +55,10 @@ export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; 
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not record the receivable. Try again."); }
     finally { busy.current = false; }
   }
-  return <DebtDrawer open onClose={() => { if (!busy.current) onClose(); }} title="Record Receivable" size="lg"><form onSubmit={submit} className="space-y-5 p-5">
+  return <DebtDrawer open onClose={() => { if (!busy.current) onClose(); }} title="Record Receivable" size="lg"><div className="space-y-5 p-5">{canSale && canManual && <div role="tablist" aria-label="Receivable type" className="flex rounded-lg border border-border p-1 text-xs font-semibold">{(["sale", "manual"] as const).map(value => <button key={value} type="button" role="tab" aria-selected={mode === value} onClick={() => setMode(value)} className={`flex-1 rounded-md px-3 py-2 ${mode === value ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{value === "sale" ? "Credit sale" : "Opening balance"}</button>)}</div>}{mode === "manual" ? <ManualDebtForm kind="receivable" onCancel={onClose} onCreated={id => onCreated(id, true)} /> : <form onSubmit={submit} className="space-y-5">
     <p className="text-xs leading-relaxed text-muted">Record a credit sale here. Saving updates stock and records the customer’s unpaid balance.</p>
     <fieldset disabled={create.isPending} className="space-y-5">
-      <section className="space-y-2"><Field label="Customer" required><Input aria-label="Search customers" placeholder="Search customers…" value={customerSearch} onChange={event => { setCustomerSearch(event.target.value); setCustomerPage(1); }} /></Field>
-
-        {customers.isLoading ? <PageLoader variant="compact" /> : customers.error ? <FinancialError error={customers.error} /> : <><Select aria-label="Customer" required value={customer?.id ?? ""} onChange={event => { const item = customers.data?.items.find(value => value.id === event.target.value); setCustomer(item ? { id: item.id, name: item.name } : null); }}><option value="">Select customer</option>{customer && !customers.data?.items.some(item => item.id === customer.id) && <option value={customer.id}>{customer.name}</option>}{customers.data?.items.filter(item => item.is_active).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select>{(customers.data?.total ?? 0) > 25 && <FinancialPagination page={customerPage} total={customers.data?.total ?? 0} size={25} onPage={setCustomerPage} />}</>}
-      </section>
+      <section className="space-y-2"><Field label="Customer" required><PartySearch kind="receivable" value={customer} onChange={setCustomer} /></Field></section>
       <section className="space-y-2"><Field label="Sale items" required><Input aria-label="Search products" placeholder="Search products…" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} /></Field>
         {products.isLoading ? <PageLoader variant="compact" /> : products.error ? <FinancialError error={products.error} /> : <><Select aria-label="Add product" value="" onChange={event => { const product = products.data?.items.find(item => item.id === event.target.value); if (product) setLines(current => [...current, { key: crypto.randomUUID(), product, variant: "", price: String(product.price), quantity: "1", serials: [] }]); }}><option value="">Add a product</option>{products.data?.items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</Select>{(products.data?.total ?? 0) > 25 && <FinancialPagination page={page} total={products.data?.total ?? 0} size={25} onPage={setPage} />}</>}
         {lines.map((line, index) => <div key={line.key} className="space-y-3 rounded-lg border border-border p-3"><div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{line.product.name}</span><Button type="button" variant="ghost" aria-label={`Remove item ${index + 1}`} onClick={() => setLines(current => current.filter(item => item.key !== line.key))}><Trash2 size={14} /></Button></div>
@@ -74,7 +74,7 @@ export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; 
       {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" disabled={create.isPending || !customer || !lines.length}><Plus size={14} />{create.isPending ? "Saving…" : "Save receivable"}</Button></div>
     </fieldset>
-  </form></DebtDrawer>;
+  </form>}</div></DebtDrawer>;
 }
 
 function SerialPicker({ line, onChange }: { line: Line; onChange: (ids: string[]) => void }) {

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { FinancialError } from "@/components/accounting/FinancialShared";
 import type { DebtPayment, DebtPaymentInput, DebtRecord } from "@/lib/debts";
 import { DebtDrawer } from "./DebtDrawer";
 import { DebtBadge, debtDate, useDebtMoney } from "./DebtShared";
 import { DebtPaymentForm } from "./DebtPaymentForm";
+import type { DebtAction } from "./DebtActionDialog";
 
 export type { DebtPayment } from "@/lib/debts";
 
@@ -19,15 +21,18 @@ interface DebtDetailsProps {
   historyError?: unknown;
   supplierMetadataSupported?: boolean;
   historyFooter?: ReactNode;
+  startPaying?: boolean;
+  permissions?: { edit: boolean; writeOff: boolean; void: boolean };
+  onAction?: (action: DebtAction) => void;
 }
 
 export function DebtDetails({
   record, payments, onClose, onRecord, canPay, historyError,
-  supplierMetadataSupported = false, historyFooter,
+  supplierMetadataSupported = false, historyFooter, permissions, onAction, startPaying = false,
 }: DebtDetailsProps) {
   const money = useDebtMoney();
   const [tab, setTab] = useState<"overview" | "history">("overview");
-  const [paying, setPaying] = useState(false);
+  const [paying, setPaying] = useState(startPaying && canPay && Number(record.outstanding) > 0);
   const [busy, setBusy] = useState(false);
   const party = record.kind === "receivable" ? "Customer" : "Supplier";
   const initials = record.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase();
@@ -52,7 +57,7 @@ export function DebtDetails({
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-xs font-semibold text-accent">{initials}</span>
-                <div className="min-w-0"><h2 className="text-sm font-semibold">{record.name}</h2><p className="mt-1 text-[11px] text-muted">{party} · {record.kind === "receivable" ? "Credit sale" : "Credit purchase"}</p></div>
+                <div className="min-w-0"><h2 className="text-sm font-semibold">{record.name}</h2><p className="mt-1 text-[11px] text-muted">{party} · {record.is_manual ? "Opening balance" : record.kind === "receivable" ? "Credit sale" : "Credit purchase"}</p></div>
               </div>
               <DebtBadge record={record} />
             </div>
@@ -82,6 +87,7 @@ export function DebtDetails({
                   {[
                     { label: "Original amount", amount: record.original, color: "" },
                     { label: "Paid amount", amount: record.paid, color: "text-accent" },
+                    ...(Number(record.written_off ?? 0) > 0 ? [{ label: "Written off", amount: record.written_off!, color: "text-muted" }] : []),
                     { label: "Outstanding", amount: record.outstanding, color: "text-amber-600" },
                   ].map(item => <div key={item.label} className="flex flex-wrap items-center justify-between gap-2 py-3"><dt className="text-xs text-muted">{item.label}</dt><dd className={`text-sm font-semibold tabular-nums ${item.color}`}>{money(item.amount, record.currency)}</dd></div>)}
                 </dl>
@@ -109,7 +115,13 @@ export function DebtDetails({
                 {historyFooter}
               </section>
             )}
-            {canPay && record.status !== "Paid" && <div className="border-t border-border pt-4"><Button className="w-full" onClick={() => setPaying(true)}>Record payment</Button></div>}
+            {onAction && permissions && Number(record.outstanding) > 0 && (permissions.edit || permissions.writeOff || permissions.void) && <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+              {permissions.edit && <Button size="sm" variant="secondary" onClick={() => onAction("edit")}>Edit</Button>}
+              {permissions.writeOff && <Button size="sm" variant="secondary" onClick={() => onAction("write-off")}>Write off</Button>}
+              {permissions.void && record.is_manual && Number(record.paid) === 0 && <Button size="sm" variant="secondary" onClick={() => onAction("void")}>Void</Button>}
+            </div>}
+            {record.party_id && <Link href={`/debts/statements?kind=${record.kind}&party=${record.party_id}`} className="inline-flex text-xs font-semibold text-accent hover:underline">View account statement</Link>}
+            {canPay && Number(record.outstanding) > 0 && <div className="border-t border-border pt-4"><Button className="w-full" onClick={() => setPaying(true)}>Record payment</Button></div>}
           </>
         )}
       </div>

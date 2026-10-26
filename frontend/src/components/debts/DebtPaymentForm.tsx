@@ -21,12 +21,14 @@ export function DebtPaymentForm({ record, onRecord, onCancel, supplierMetadataSu
   const [error, setError] = useState<unknown>(null);
   const submitting = useRef(false);
   const key = useRef<string | null>(null);
+  const [touched, setTouched] = useState(false);
+  const amountProblem = amount || touched ? paymentError(amount, record.outstanding) : null;
   const supportsMetadata = record.kind === "receivable" || supplierMetadataSupported;
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (submitting.current) return;
-    const invalid = paymentError(amount, record.outstanding);
-    if (invalid) { setError(new Error(invalid)); return; }
+    setTouched(true);
+    if (paymentError(amount, record.outstanding)) return;
     submitting.current = true;
     setBusy(true); setError(null);
     key.current ??= crypto.randomUUID();
@@ -34,13 +36,13 @@ export function DebtPaymentForm({ record, onRecord, onCancel, supplierMetadataSu
     catch (cause) { setError(cause); }
     finally { submitting.current = false; setBusy(false); }
   }
-  return <form onSubmit={submit} className="space-y-4">
+  return <form onSubmit={submit} className="space-y-4" noValidate>
     <div className="rounded-xl border border-border bg-surface px-4 py-3"><p className="mb-2 text-sm font-semibold">{record.name}</p><p className="text-[11px] text-muted">Outstanding · {record.reference}</p><p className="mt-1 text-lg font-semibold tabular-nums">{money(record.outstanding, record.currency)}</p></div>
-    <label className="block text-xs font-medium">Payment amount ({record.currency})<Input aria-label="Payment amount" autoFocus required inputMode="decimal" placeholder="0.00" value={amount} disabled={busy} onChange={e => setAmount(e.target.value)} /><button type="button" disabled={busy} onClick={() => setAmount(record.outstanding)} className="mt-1.5 text-[11px] font-semibold text-accent hover:underline">Pay full balance</button></label>
+    <label className="block text-xs font-medium">Payment amount ({record.currency})<Input aria-label="Payment amount" autoFocus required inputMode="decimal" placeholder="0.00" aria-invalid={!!amountProblem} aria-describedby="payment-amount-error" value={amount} disabled={busy} onChange={e => setAmount(e.target.value)} />{amountProblem && <span id="payment-amount-error" role="alert" className="mt-1 block text-[11px] text-red-600">{amountProblem}</span>}<button type="button" disabled={busy} onClick={() => setAmount(record.outstanding)} className="mt-1.5 text-[11px] font-semibold text-accent hover:underline">Pay full balance</button></label>
     <div className="grid grid-cols-2 gap-3"><label className="block text-xs font-medium">Payment date<Input aria-label="Payment date" type="date" required min={record.issue_date?.slice(0, 10)} value={date} max={new Date().toISOString().slice(0, 10)} disabled={busy || !supportsMetadata} onChange={e => setDate(e.target.value)} /></label><label className="block text-xs font-medium">Payment method<Select aria-label="Payment method" value={method} disabled={busy} onChange={e => setMethod(e.target.value)}>{["Cash", "Mobile Money", "Bank Transfer", "Card"].map(value => <option key={value}>{value}</option>)}</Select></label></div>
     {supportsMetadata && <><label className="block text-xs font-medium">Reference (optional)<Input aria-label="Payment reference" maxLength={50} value={reference} disabled={busy} onChange={e => setReference(e.target.value)} /></label><label className="block text-xs font-medium">Notes (optional)<Textarea aria-label="Payment notes" rows={3} value={notes} maxLength={1000} disabled={busy} onChange={e => setNotes(e.target.value)} /></label></>}
     {!supportsMetadata && <p className="text-[11px] text-muted">Supplier payments use today’s date and an automatically generated reference.</p>}
     <FinancialError error={error} />
-    <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>Cancel</Button><Button type="submit" disabled={busy}>{busy && <Loader2 size={14} className="animate-spin" />}{busy ? "Recording…" : "Record payment"}</Button></div>
+    <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>Cancel</Button><Button type="submit" disabled={busy || !!amountProblem}>{busy && <Loader2 size={14} className="animate-spin" />}{busy ? "Recording…" : "Record payment"}</Button></div>
   </form>;
 }

@@ -39,6 +39,7 @@ export const DEBT_NAV = [
   { href: "/debts", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/debts/receivables", label: "Receivables (Customers)", icon: Users },
   { href: "/debts/payables", label: "Payables (Suppliers)", icon: Truck },
+  { href: "/debts/statements", label: "Statements", icon: FileText },
 ];
 
 export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {

@@ -23,3 +23,10 @@ test('rejects zero, negative, non-finite, exponent and excess-precision amounts'
 test('requires a verifiable backend balance', () => {
   assert.equal(api.paymentError('1', 'not available'), 'The balance could not be verified. Refresh this record before paying.');
 });
+test('write-off and void need a real reason', () => {
+  for (const value of ['', '  ', 'ab']) assert.ok(api.reasonError(value));
+  assert.equal(api.reasonError('Customer closed'), null);
+});
+test('aging buckets are the four agreed ranges', () => {
+  assert.deepEqual([...api.AGING_BUCKETS], ['0-30', '31-60', '61-90', '90+']);
+});

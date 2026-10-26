@@ -831,12 +831,21 @@ export const useCashPosition = (id: string | undefined, branch?: string | null, 
 
 // Debt workspace: bounded source-subledger reads; branch belongs in every cache key.
 import { debtApi } from "./debts";
-import type { DebtFilters, DebtKind } from "@/lib/debts";
+import type { CustomerSection } from "./sales";
+import type { DebtEditInput, DebtFilters, DebtKind, ManualDebtInput } from "@/lib/debts";
 import type { DebtPaymentInput } from "@/lib/debts";
 export const useDebtOverview = (branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, "overview", branch], debtApi.overview, r => r.data, { enabled });
 export const useDebtRecords = (kind: DebtKind, filters: DebtFilters, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, filters, branch], () => debtApi.list(kind, filters), r => r.data, { enabled });
 export const useDebtDetail = (kind: DebtKind, id: string | null, page: number, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, id, page, branch], () => debtApi.detail(kind, id!, page), r => r.data, { enabled: !!id && enabled, placeholderData: undefined });
 export const useDebtPayment = mutation((v: { kind: DebtKind; id: string; data: DebtPaymentInput }) => debtApi.pay(v.kind, v.id, v.data), [["debts"], ["sales", "orders"], ["sales", "customers"], ["procurement"], ["accounting", "workspace"], ["accounting", "reports"], ["accounting", "transactions"], ["accounting", "receivables"]]);
+const debtKeys: unknown[][] = [["debts"], ["sales", "orders"], ["sales", "customers"], ["procurement"], ["accounting", "workspace"], ["accounting", "reports"], ["accounting", "transactions"], ["accounting", "receivables"]];
+export const useDebtEdit = mutation((v: { kind: DebtKind; id: string; data: DebtEditInput }) => debtApi.edit(v.kind, v.id, v.data), debtKeys);
+export const useDebtWriteOff = mutation((v: { kind: DebtKind; id: string; reason: string }) => debtApi.writeOff(v.kind, v.id, v.reason), debtKeys);
+export const useDebtVoid = mutation((v: { kind: DebtKind; id: string; reason: string }) => debtApi.void(v.kind, v.id, v.reason), debtKeys);
+export const useCreateManualDebt = mutation((v: { kind: DebtKind; data: ManualDebtInput }) => debtApi.createManual(v.kind, v.data), debtKeys);
+export const useDebtRemind = mutation((v: { ids: string[]; message: string }) => debtApi.remind(v.ids, v.message), [["debts"]]);
+export const useSendStatement = mutation((v: { partyId: string; from: string; to: string }) => debtApi.sendStatement(v.partyId, v.from, v.to), [["debts"]]);
+export const useDebtStatement = (kind: DebtKind, partyId: string | null, from: string, to: string, branch: string | null, tenant?: string | null) => useQ(["debts", tenant, "statement", kind, partyId, from, to, branch], () => debtApi.statement(kind, partyId!, from, to), r => r.data, { enabled: !!partyId });
 
 export const usePayablePurchases = (page: number, branch: string | null, tenant: string | null | undefined, enabled: boolean) =>
   useQ(["debts", tenant, branch, "draft-purchases", page], () => debtApi.purchases(page), r => r.data, { enabled });
@@ -860,3 +869,6 @@ export const useRolePermissions = (id: string | undefined) => useQ(["company-rol
 export const usePermissionCatalog = (page: number) => useQ(["permission-catalog", page], () => companyRolesApi.catalog(page), (res) => res.data);
 export const useCreateCompanyRole = mutation((name: string) => companyRolesApi.create(name), [["company-roles"]]);
 export const useAssignRolePermissions = mutation(({id, permissions}: {id: string; permissions: string[]}) => companyRolesApi.assign(id, permissions), [["company-roles"], ["company-users"]]);
+
+export const useCustomerProfile = (id: string, branch: string | null, tenant?: string | null) => useQ(["sales", "customers", tenant, "profile", id, branch], () => salesApi.customerProfile(id), r => r.data);
+export const useCustomerRecords = (id: string, section: CustomerSection, page: number, branch: string | null, enabled: boolean, tenant?: string | null) => useQ(["sales", "customers", tenant, "records", id, section, page, branch], () => salesApi.customerRecords(id, section, page), r => r.data, { enabled });

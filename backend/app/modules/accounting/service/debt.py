@@ -42,7 +42,7 @@ async def records(
     rows = repo.filtered(
         repo.projection(tenant, kind, currency, branch, datetime.now(UTC).date()), filters
     )
-    summary = await repo.summary(rows)
+    summary = await repo.summary(rows, datetime.now(UTC).date())
     items = await repo.page(rows, (page - 1) * size, size)
     return encoded(
         {
@@ -70,7 +70,7 @@ async def overview(db: AsyncSession, user: User, active: uuid.UUID | None) -> di
         projection = repo.projection(
             user.tenant_id, kind, currency, branch, datetime.now(UTC).date()
         )
-        totals[kind] = await repo.summary(projection.subquery())
+        totals[kind] = await repo.summary(projection.subquery(), datetime.now(UTC).date())
         projections.append(projection)
     if not projections:
         raise ForbiddenError("Debt viewing permission is required")
@@ -94,7 +94,7 @@ async def detail(
     )
     if row is None:
         raise NotFoundError("Debt record not found in this branch")
-    payments, total = await repo.history(tenant, kind, document_id, (payment_page - 1) * 25, 25)
+    payments, total = await repo.history(tenant, kind, document_id, (payment_page - 1) * 25, 25, manual=bool(row.get("is_manual")))
     for payment in payments:
         payment["currency"] = payment.pop("currency_code") or row["currency"]
     return encoded(
@@ -125,9 +125,10 @@ async def pay(
         raise ValidationError("Payment date cannot be in the future")
     if row["issue_date"] and paid_at.date().isoformat() < row["issue_date"]:
         raise ValidationError("Payment cannot precede the original transaction")
-    prior = await DebtRepository(db).payment_key(tenant, kind, data.client_payment_id)
+    manual = bool(row.get("is_manual"))
+    prior = await DebtRepository(db).payment_key(tenant, kind, data.client_payment_id, manual)
     if prior:
-        prior_document = prior.bill_id if kind == "payable" else prior.order_id
+        prior_document = prior.debt_id if manual else prior.bill_id if kind == "payable" else prior.order_id
         if (
             prior_document != document_id
             or Decimal(str(prior.amount)) != data.amount
@@ -135,7 +136,7 @@ async def pay(
             or prior.paid_at != paid_at
         ):
             raise ConflictError("Payment retry key was already used with different details")
-        if kind == "receivable":
+        if manual or kind == "receivable":
             metadata = {"notes": prior.notes, "reference_number": prior.reference_number}
         else:
             metadata = await DebtRepository(db).payment_metadata(tenant, prior.id)
@@ -146,7 +147,10 @@ async def pay(
         return current
     if data.amount > Decimal(row["outstanding"]):
         raise ValidationError("Payment cannot exceed the outstanding balance")
-    if kind == "receivable":
+    if manual:
+        from app.modules.accounting.service.debt_actions import pay_manual
+        await pay_manual(db, user, kind, document_id, paid_at, data, tenant)
+    elif kind == "receivable":
         from app.modules.sales.schemas.order_payment import OrderPaymentCreate
         from app.modules.sales.service.order_payment import record_payment
 
