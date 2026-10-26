@@ -1,19 +1,37 @@
+import type { LucideIcon } from "lucide-react";
 import { BarChart3, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Megaphone, Mail, Send, FileText, Workflow, LineChart, Newspaper, Gauge, MousePointerClick, Share2, LayoutGrid, Smartphone, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
 
-export const NAV_ITEMS = [
-  { name: "Overview", href: "/", icon: LayoutDashboard },
-  { name: "Tenants", href: "/tenants", icon: Building2 },
-  // One entry for the whole billing area; its six pages are the tab strip at the top of every billing page.
-  { name: "Plans & Billing", href: "/plans", icon: CreditCard },
-  // One entry for Website Traffic and ERP Traffic; their pages are the second sidebar on every traffic page.
-  { name: "Traffic", href: "/traffic", icon: MousePointerClick },
-  // One entry for the whole Marketing Hub; its eight pages are the second sidebar on every marketing page.
-  { name: "Marketing", href: "/marketing", icon: Megaphone },
-  { name: "Usage", href: "/usage", icon: Activity },
-  // One entry for the whole Support area; its seven pages are the tab strip at the top of every Support page.
-  { name: "Customer Support", href: "/support", icon: Headset },
-  { name: "Settings", href: "/settings", icon: Settings },
-] as const;
+export interface NavItem { name: string; href: string; icon: LucideIcon }
+export interface NavGroup { id: string; label: string; items: NavItem[] }
+
+/** The main sidebar, grouped by what an administrator is doing. Only modules that exist appear here. */
+export const NAV_GROUPS: NavGroup[] = [
+  { id: "overview", label: "Overview", items: [
+    { name: "Overview", href: "/", icon: LayoutDashboard },
+    { name: "Usage", href: "/usage", icon: Activity },
+  ] },
+  { id: "business", label: "Business", items: [
+    { name: "Tenants", href: "/tenants", icon: Building2 },
+  ] },
+  { id: "revenue", label: "Revenue", items: [
+    // One entry for the whole billing area; its pages are the second sidebar on every billing page.
+    { name: "Plans & Billing", href: "/plans", icon: CreditCard },
+  ] },
+  { id: "growth", label: "Growth", items: [
+    // One entry for Website Traffic and ERP Traffic; their pages are the second sidebar on every traffic page.
+    { name: "Traffic", href: "/traffic", icon: MousePointerClick },
+    // One entry for the whole Marketing Hub; its eight pages are the second sidebar on every marketing page.
+    { name: "Marketing", href: "/marketing", icon: Megaphone },
+  ] },
+  { id: "operations", label: "Support", items: [
+    // One entry for the whole Support area; its pages are the second sidebar on every Support page.
+    { name: "Customer Support", href: "/support", icon: Headset },
+  ] },
+  { id: "platform", label: "Platform", items: [
+    { name: "Settings", href: "/settings", icon: Settings },
+  ] },
+];
+export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 /** The four sections of Customer Support (shown in its second sidebar). */
 export const SUPPORT_NAV = [
@@ -85,4 +103,31 @@ export function isNavActive(pathname: string, href: string): boolean {
 export function isSupportActive(pathname: string, href: string): boolean {
   if (href === "/support") return pathname === "/support";
   return isNavActive(pathname, href);
+}
+
+
+const SECTION_NAVS: { prefix: string; section: string; items: readonly { name: string; href: string; group?: string }[] }[] = [
+  { prefix: "/marketing", section: "Marketing", items: MARKETING_NAV },
+  { prefix: "/traffic", section: "Traffic", items: TRAFFIC_NAV },
+  { prefix: "/erp-traffic", section: "Traffic", items: TRAFFIC_NAV },
+  { prefix: "/support", section: "Customer Support", items: SUPPORT_NAV },
+  ...BILLING_NAV.map((i) => ({ prefix: i.href, section: "Plans & Billing", items: BILLING_NAV })),
+];
+
+/** Breadcrumb trail for the top bar, built from the same navigation lists the sidebars use. */
+export function breadcrumbFor(pathname: string): string[] {
+  if (pathname === "/") return ["Overview"];
+  for (const { prefix, section, items } of SECTION_NAVS) {
+    if (pathname !== prefix && !pathname.startsWith(prefix + "/")) continue;
+    const match = [...items].filter((i) => pathname === i.href || pathname.startsWith(i.href + "/")).sort((a, b) => b.href.length - a.href.length)[0];
+    const trail = [section];
+    if (match?.group) trail.push(match.group);
+    if (match && match.name !== section) trail.push(match.name);
+    if (match && pathname !== match.href) trail.push("Details");
+    return trail;
+  }
+  const top = NAV_ITEMS.filter((i) => i.href !== "/" && (pathname === i.href || pathname.startsWith(i.href + "/")))[0];
+  if (top) return pathname === top.href ? [top.name] : [top.name, "Details"];
+  if (pathname.startsWith("/users")) return ["Tenants", "Users"];
+  return pathname.split("/").filter(Boolean).map((p) => p.charAt(0).toUpperCase() + p.slice(1));
 }

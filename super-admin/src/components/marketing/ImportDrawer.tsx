@@ -30,7 +30,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
   const result = done ?? preview;
   const close = () => { reset(); onClose(); };
   return (
-    <Drawer open={open} onClose={close} side="right" size="xl" title="Import contacts" description="Add people who agreed to hear from you. Invalid, test and duplicate addresses are skipped."
+    <Drawer open={open} onClose={close} dirty={open && !done && (!!csv.trim() || !!source.trim() || !!tags.trim())} side="right" size="xl" title="Import contacts" description="Add people who agreed to hear from you. Invalid, test and duplicate addresses are skipped."
       footer={<div className="flex justify-end gap-2"><Button variant="outline" onClick={close}>{done ? "Close" : "Cancel"}</Button>
         {!done && <><Button variant="outline" onClick={check} disabled={!csv.trim() || source.trim().length < 3 || run.isPending}>Check file</Button>
           <Button onClick={commit} disabled={!preview || preview.new === 0 || !ok || run.isPending}>Import {preview?.new ?? 0} contacts</Button></>}</div>}>

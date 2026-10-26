@@ -1,28 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, LogOut, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
-
-const SUPPORT_LABELS: Record<string, string> = { tickets: "Tickets", team: "Team", settings: "Settings" };
-const BILLING_LABELS: Record<string, string> = {
-  plans: "Plans", subscriptions: "Subscriptions", payments: "Payments", invoices: "Invoices", coupons: "Coupons & Discounts", "billing-settings": "Billing Settings",
-};
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-function breadcrumb(pathname: string): string[] {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts.length === 0) return ["Overview"];
-  if (parts[0] === "support") {
-    if (parts.length === 1) return ["Customer Support", "Inbox"];
-    return ["Customer Support", SUPPORT_LABELS[parts[1]] ?? cap(parts[1])];
-  }
-  if (parts[0] === "tenants" && parts.length > 1) return ["Tenants", "Details"];
-  if (BILLING_LABELS[parts[0]]) return parts.length === 1 ? ["Plans & Billing", BILLING_LABELS[parts[0]]] : ["Plans & Billing", BILLING_LABELS[parts[0]], "Details"];
-  return parts.map(cap);
-}
+import { breadcrumbFor } from "./nav";
 
 export function Topbar() {
   const { user, logout } = useAuth();
@@ -30,20 +13,27 @@ export function Topbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [showUser, setShowUser] = useState(false);
-  const crumbs = breadcrumb(pathname);
+  const crumbs = breadcrumbFor(pathname);
+  const menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showUser) return;
+    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") { setShowUser(false); menu.current?.querySelector("button")?.focus(); } };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [showUser]);
 
   const signOut = () => { setShowUser(false); logout(); router.replace("/login"); };
 
   return (
     <header className="h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-4 gap-3 sticky top-0 z-30">
-      <div className="flex items-center gap-1.5 text-[14px] min-w-0">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[14px] min-w-0"><ol className="flex min-w-0 items-center gap-1.5">
         {crumbs.map((crumb, i) => (
-          <span key={i} className="flex items-center gap-1.5 min-w-0">
-            {i > 0 && <span className="hidden text-border sm:inline">/</span>}
-            <span className={i === crumbs.length - 1 ? "font-semibold text-foreground truncate" : "text-muted hidden sm:inline"}>{crumb}</span>
-          </span>
+          <li key={i} className="flex items-center gap-1.5 min-w-0">
+            {i > 0 && <span aria-hidden className="hidden text-border sm:inline">/</span>}
+            <span aria-current={i === crumbs.length - 1 ? "page" : undefined} className={i === crumbs.length - 1 ? "font-semibold text-foreground truncate" : "text-muted hidden sm:inline"}>{crumb}</span>
+          </li>
         ))}
-      </div>
+      </ol></nav>
       <div className="flex-1" />
       <button
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -53,8 +43,8 @@ export function Topbar() {
       >
         {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
       </button>
-      <div className="relative">
-        <button onClick={() => setShowUser((v) => !v)} aria-expanded={showUser} className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity">
+      <div className="relative" ref={menu}>
+        <button onClick={() => setShowUser((v) => !v)} aria-expanded={showUser} aria-haspopup="menu" aria-label="Account menu" className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity">
           <div className="w-7 h-7 bg-accent rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
             {user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
           </div>

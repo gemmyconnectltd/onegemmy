@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 
@@ -17,6 +17,8 @@ interface DrawerProps {
   size?: DrawerSize;
   children?: ReactNode;
   footer?: ReactNode;
+  /** When true, closing (Escape, backdrop, ✕) first asks whether to discard unsaved changes. */
+  dirty?: boolean;
 }
 
 const DrawerDepth = createContext(0);
@@ -50,13 +52,18 @@ export function Drawer({
   size = "md",
   children,
   footer,
+  dirty = false,
 }: DrawerProps) {
   const depth = useContext(DrawerDepth);
   const isClient = useSyncExternalStore(subscribe, clientSnapshot, serverSnapshot);
+  const [confirming, setConfirming] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) { setWasOpen(open); setConfirming(false); } // never carry a pending "discard?" over to the next time it opens
+  const requestClose = () => { if (dirty) setConfirming(true); else onClose(); };
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") { if (dirty) setConfirming(true); else onClose(); }
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -64,7 +71,7 @@ export function Drawer({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open, onClose, dirty]);
 
   if (!open || !isClient) return null;
 
@@ -77,7 +84,7 @@ export function Drawer({
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={requestClose}
           aria-label="Close"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface hover:text-foreground"
         >
@@ -88,7 +95,7 @@ export function Drawer({
       <div className="flex items-center justify-end px-4 py-3 flex-shrink-0">
         <button
           type="button"
-          onClick={onClose}
+          onClick={requestClose}
           aria-label="Close"
           className="text-muted hover:text-foreground transition-colors"
         >
@@ -97,18 +104,30 @@ export function Drawer({
       </div>
     );
 
+
+  const discardBar = confirming && (
+    <div role="alertdialog" aria-label="Discard unsaved changes" className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-5 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+      <p className="text-[13px] font-medium text-foreground">Discard your unsaved changes?</p>
+      <div className="flex gap-2">
+        <button type="button" autoFocus onClick={() => setConfirming(false)} className="min-h-9 rounded-lg border border-border px-3 text-[13px] font-semibold text-foreground hover:bg-surface">Keep editing</button>
+        <button type="button" onClick={() => { setConfirming(false); onClose(); }} className="min-h-9 rounded-lg bg-red-600 px-3 text-[13px] font-semibold text-white hover:bg-red-700">Discard</button>
+      </div>
+    </div>
+  );
+
   if (side === "center") {
     return <DrawerDepth.Provider value={depth + 1}>{createPortal(
       <div style={{ zIndex: 100 + depth * 20 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/40 animate-drawer-fade" onClick={onClose} aria-hidden="true" />
+        <div className="absolute inset-0 bg-black/40 animate-drawer-fade" onClick={requestClose} aria-hidden="true" />
         <div
           role="dialog"
           aria-modal="true"
-          className={`relative bg-card border border-border shadow-2xl w-full ${CENTER_WIDTHS[size]} max-h-[90vh] flex flex-col animate-drawer-center`}
+          className={`relative overflow-hidden bg-card border border-border shadow-2xl w-full ${CENTER_WIDTHS[size]} max-h-[90vh] flex flex-col animate-drawer-center`}
         >
           {header}
           <div className="flex-1 overflow-y-auto">{children}</div>
           {footer && <div className="px-5 py-4 border-t border-border flex-shrink-0">{footer}</div>}
+          {discardBar}
         </div>
       </div>, document.body
     )}</DrawerDepth.Provider>;
@@ -117,7 +136,7 @@ export function Drawer({
   const isLeft = side === "left";
   return <DrawerDepth.Provider value={depth + 1}>{createPortal(
     <>
-      <div style={{ zIndex: 50 + depth * 20 }} className="fixed inset-0 z-50 bg-black/40 animate-drawer-fade" onClick={onClose} aria-hidden="true" />
+      <div style={{ zIndex: 50 + depth * 20 }} className="fixed inset-0 z-50 bg-black/40 animate-drawer-fade" onClick={requestClose} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
@@ -129,6 +148,7 @@ export function Drawer({
         {header}
         <div className="flex-1 overflow-y-auto">{children}</div>
         {footer && <div className="px-5 py-4 border-t border-border flex-shrink-0">{footer}</div>}
+        {discardBar}
       </div>
     </>, document.body
   )}</DrawerDepth.Provider>;

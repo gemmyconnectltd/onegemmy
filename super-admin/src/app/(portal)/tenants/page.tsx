@@ -280,7 +280,7 @@ function AdminTenantsPageInner() {
       )}
       {total > 0 && <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} noun="tenant" />}
 
-      <Drawer open={showCreate} onClose={closeCreate} title="Onboard New Tenant" description="Create a new business on the platform">
+      <Drawer open={showCreate} onClose={closeCreate} dirty={showCreate && !createdTenant && (!!form.name || !!form.slug || !!form.owner_full_name || !!form.owner_email || !!form.phone || !!form.city)} title="Onboard New Tenant" description="Create a new business on the platform">
         {createdTenant && selectedPrice ? <PlanChange tenantId={createdTenant} input={{ plan_id: selectedPrice.split(":")[0], currency: selectedPrice.split(":")[1], cycle: "monthly" }} onClose={closeCreate} onDone={closeCreate} /> : <form onSubmit={handleCreate} className="space-y-4 p-5">
           {notice && <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{notice}</p>}
           <Field label="Owner full name" required><Input required value={form.owner_full_name} onChange={e => setForm({ ...form, owner_full_name: e.target.value })} /></Field>
