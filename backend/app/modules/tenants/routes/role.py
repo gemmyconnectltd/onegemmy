@@ -30,6 +30,24 @@ async def list_roles(db: DbSession, current_user: CurrentUser, page_params: Page
     )
 
 
+@router.get("/roles/review")
+async def review_roles(db: DbSession, current_user: CurrentUser):
+    """Roles that can delete or approve, and how many people hold each, so an owner can decide whether to tighten them."""
+    return success_response(data=await service.review_roles(db, current_user.tenant_id), message="Role review retrieved")
+
+
+@router.post("/roles/{role_id}/tighten")
+async def tighten_role(role_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    """Owner-initiated: remove delete and approve from the built-in Member role. Never runs automatically."""
+    removed = await service.tighten_member_role(db, current_user.tenant_id, role_id)
+    from app.modules.audit.service import record_audit
+
+    await record_audit(db, tenant_id=current_user.tenant_id, actor_user_id=current_user.id, actor_name=current_user.full_name, action="role.tightened",
+                       entity_type="role", entity_id=str(role_id), summary="Removed delete and approve permissions from Member", changes={"removed": removed})
+    await db.commit()
+    return success_response(data={"removed": removed}, message="Member role tightened")
+
+
 @router.post("/roles")
 async def create_role(data: RoleCreate, db: DbSession, current_user: CurrentUser):
     role = await service.create_role(db, current_user.tenant_id, data)

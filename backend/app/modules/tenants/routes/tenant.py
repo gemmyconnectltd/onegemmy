@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Depends, UploadFile
 
 from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
@@ -40,7 +40,12 @@ async def list_tenants(db: DbSession, current_user: CurrentUser, page_params: Pa
     )
 
 
-@router.post("/")
+async def _platform_admin_only(current_user: CurrentUser) -> None:
+    if current_user.tenant_id is not None or not current_user.is_superuser:
+        raise ForbiddenError("Creating a company requires platform administration")
+
+
+@router.post("/", dependencies=[Depends(_platform_admin_only)])
 async def create_tenant(data: TenantCreate, db: DbSession, current_user: CurrentUser):
     tenant = await service.create_tenant(db, data)
     return success_response(
@@ -113,7 +118,7 @@ async def delete_tenant(tenant_id: uuid.UUID, db: DbSession, current_user: Curre
     return success_response(message="Company deleted successfully")
 
 
-@router.post("/{tenant_id}/logo")
+@router.post("/{tenant_id}/logo", dependencies=[Depends(require_permission("tenants:update"))])
 async def upload_logo(tenant_id: uuid.UUID, file: UploadFile, db: DbSession, current_user: CurrentUser):
     _require_own_tenant(current_user, tenant_id)
     if file.content_type not in ALLOWED_LOGO_TYPES:

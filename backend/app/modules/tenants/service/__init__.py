@@ -50,7 +50,9 @@ from app.modules.tenants.service.role import (
     get_role_by_name,
     list_roles,
     resolve_role_id,
+    review_roles,
     seed_default_roles,
+    tighten_member_role,
     update_role,
 )
 from app.modules.tenants.service.tenant import (
@@ -140,11 +142,13 @@ __all__ = [
     "list_users",
     "reset_tenant_features",
     "resolve_role_id",
+    "review_roles",
     "seed_default_roles",
     "set_main_branch",
     "set_tenant_features",
     "set_tenant_limits",
     "set_user_active",
+    "tighten_member_role",
     "update_branch",
     "update_department",
     "update_my_profile",

@@ -39,7 +39,25 @@ _ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "
 # What an invite's free-text role ("admin"/"member"/"viewer", whatever the
 # inviter typed or picked) maps to among the seeded defaults. Unrecognized
 # values resolve to an existing custom role by name; unknown roles are rejected.
-_ROLE_NAME_ALIASES = {"admin": "Admin", "owner": "Admin", "member": "Member", "viewer": "Viewer",
+# Narrow, job-shaped templates: resource → the actions the role gets. Nothing outside these lists is granted.
+_CRUD = ("create", "read", "update")
+FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
+    "Cashier": ("Runs the till: sells, takes payment and looks up products and customers. No finance or admin access.", {
+        "pos": _CRUD, "orders": ("create", "read"), "invoices": ("read",), "items": ("read",), "stock": ("read",), "pricing": ("read",),
+        "contacts": ("create", "read"), "returns": ("read",),
+    }),
+    "Accountant": ("Keeps the books: accounting, expenses, tax, banking and payables/receivables. Can approve finance entries; can't change inventory or staff.", {
+        "chart_of_accounts": _CRUD, "journal_entries": (*_CRUD, "approve"), "accounts_payable": (*_CRUD, "approve"), "accounts_receivable": (*_CRUD, "approve"),
+        "banking": _CRUD, "fixed_assets": _CRUD, "budgeting": _CRUD, "tax": _CRUD, "expenses": (*_CRUD, "approve"), "invoices": _CRUD,
+        "orders": ("read",), "items": ("read",), "contacts": ("read",), "vendors": ("read",), "purchase_orders": ("read",), "payroll": ("read",),
+    }),
+    "Inventory Officer": ("Looks after stock: products, warehouses, receiving and counts. Can raise purchase requests; can't see finance.", {
+        "items": _CRUD, "warehouses": _CRUD, "stock": _CRUD, "pricing": ("read", "update"), "returns": ("read",), "vendors": ("read",),
+        "requisitions": ("create", "read"), "purchase_orders": ("read",), "goods_receipt": _CRUD,
+    }),
+}
+
+_ROLE_NAME_ALIASES = {"cashier": "Cashier", "accountant": "Accountant", "inventory officer": "Inventory Officer", "admin": "Admin", "owner": "Admin", "member": "Member", "viewer": "Viewer",
                       "owner/ceo": "Owner/CEO", "general manager": "General Manager",
                       "branch manager": "Branch Manager", "factory manager": "Factory Manager"}
 
@@ -122,13 +140,16 @@ async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
             description="Full access, same as the account owner.",
         ))
 
-    member_perms = [p for p in all_permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+    # Everything operational, including delete and approve — for roles that are meant to run a location (Branch Manager).
+    ops_perms = [p for p in all_permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+    # The everyday default for a new team member: create, view and edit — but never delete or approve anything.
+    member_perms = [p for p in ops_perms if p.action in {"create", "read", "update"}]
     if "Member" in existing:
         pass  # Preserve deliberate grants and revocations.
     else:
         db.add(Role(
             tenant_id=tenant_id, name="Member", permissions=member_perms,
-            description="Full access to day-to-day operations. Can't manage users, roles or tenant settings.",
+            description="Day-to-day work: create, view and edit records. Can't delete or approve, or manage users, roles or settings.",
         ))
 
     viewer_perms = [p for p in all_permissions if p.action == "read" and p.resource not in _ADMIN_ONLY_RESOURCES]
@@ -142,13 +163,17 @@ async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     templates = {
         "Owner/CEO": all_permissions,
         "General Manager": [p for p in all_permissions if p.resource not in {"roles", "permissions", "billing", "tenants"}],
-        "Branch Manager": [p for p in member_perms if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}],
+        "Branch Manager": [p for p in ops_perms if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}],
         "Factory Manager": [p for p in all_permissions if p.resource in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "stock", "items", "warehouses"}],
     }
     for name, permissions in templates.items():
         if name not in existing:
             db.add(Role(tenant_id=tenant_id, name=name, permissions=permissions,
                         description="Configurable business role template; branch assignments are managed separately."))
+    for name, (description, grants) in FOCUSED_ROLES.items():
+        if name not in existing:
+            db.add(Role(tenant_id=tenant_id, name=name, description=description,
+                        permissions=[p for p in all_permissions if p.action in grants.get(p.resource, ())]))
     await db.flush()
 
 
@@ -164,3 +189,39 @@ async def resolve_role_id(db: AsyncSession, tenant_id: uuid.UUID, role_str: str)
         await seed_default_roles(db, tenant_id)
         role = await get_role_by_name(db, tenant_id, name)
     return role.id if role else None
+
+
+async def review_roles(db: AsyncSession, tenant_id: uuid.UUID) -> list[dict]:
+    """Which roles can delete or approve outside the admin-only areas, and how many people hold each — so an owner can decide
+    whether to tighten them. Nothing changes until `tighten_member_role` is called."""
+    from sqlalchemy import func
+
+    from app.modules.tenants.models import User
+
+    roles = (await db.execute(select(Role).where(Role.tenant_id == tenant_id).order_by(Role.name))).scalars().all()
+    counts = dict((await db.execute(select(User.role_id, func.count()).where(User.tenant_id == tenant_id, User.is_active.is_(True)).group_by(User.role_id))).all())
+    out = []
+    for r in roles:
+        names = [p.name for p in r.permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+        out.append({
+            "id": str(r.id), "name": r.name, "users": counts.get(r.id, 0), "permissions": len(r.permissions),
+            "deletePermissions": sum(n.endswith(":delete") for n in names), "approvePermissions": sum(n.endswith(":approve") for n in names),
+            "builtIn": r.name in {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager", "Cashier", "Accountant", "Inventory Officer"},
+            "canTighten": r.name == "Member" and any(n.endswith((":delete", ":approve")) for n in names),
+        })
+    return out
+
+
+async def tighten_member_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> int:
+    """Removes delete and approve permissions from the built-in Member role (the recommended baseline). Returns how many
+    permissions were removed. An explicit owner action; custom roles are never touched."""
+    role = await RoleRepository(db).get_by_id_for_tenant(tenant_id, role_id)
+    if role is None:
+        raise NotFoundError("Role not found")
+    if role.name != "Member":
+        raise ConflictError("Only the built-in Member role can be tightened this way")
+    keep = [p for p in role.permissions if p.action in {"create", "read", "update"}]
+    removed = len(role.permissions) - len(keep)
+    role.permissions = keep
+    await db.flush()
+    return removed

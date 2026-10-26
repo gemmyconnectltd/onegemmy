@@ -43,7 +43,20 @@ const ACTIVITY_TONE: Record<string, string> = {
   login: "bg-surface text-muted",
 };
 
-const EMPTY_FORM = { full_name: "", email: "", phone: "", role: "member", branch_id: "", branch_ids: [] as string[], restrict_branches: false };
+const BUILT_IN_ROLES = ["admin", "member", "viewer", "owner/ceo", "general manager", "branch manager", "factory manager", "cashier", "accountant", "inventory officer"];
+const ROLE_HELP: Record<string, string> = {
+  viewer: "Can look at information but not change anything.",
+  cashier: "Runs the till: sells, takes payment and looks up products and customers.",
+  accountant: "Keeps the books: accounting, expenses, tax and banking. No stock or staff changes.",
+  "inventory officer": "Looks after stock: products, receiving and counts. No finance access.",
+  member: "Everyday work: create, view and edit records. Can't delete or approve.",
+  "branch manager": "Runs a location, including deleting and approving. Not users, billing or settings.",
+  "general manager": "Runs the business day to day. Not roles, billing or company settings.",
+  "factory manager": "Manufacturing and the stock it uses.",
+  admin: "Full access to everything, including users and billing. Give this sparingly.",
+  "owner/ceo": "Full access to everything, including users and billing. Give this sparingly.",
+};
+const EMPTY_FORM = { full_name: "", email: "", phone: "", role: "viewer", branch_id: "", branch_ids: [] as string[], restrict_branches: false };
 
 export default function UsersPage() {
   const { brandColor } = useAppConfig();
@@ -241,7 +254,7 @@ export default function UsersPage() {
   if (isError) {
     return (
       <div className="space-y-6">
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Users &amp; Roles</h1>
+        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Team &amp; Access</h1>
         <ErrorState message="Could not load your team" onRetry={() => refetch()} />
       </div>
     );
@@ -252,7 +265,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Users &amp; Roles</h1>
+          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Team &amp; Access</h1>
           <p className="text-sm text-muted mt-0.5">
             {total} user{total === 1 ? "" : "s"} · {activeCount} active · {users.length - activeCount} deactivated
             {tenant?.name ? ` · ${tenant.name}` : ""}
@@ -582,16 +595,19 @@ function UserForm({
         />
       </Field>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Role" hint="Determines what they can access.">
+        <Field label="Role" hint={ROLE_HELP[form.role] ?? "Determines what they can access."}>
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-            <option value="admin">Admin</option>
+            <option value="viewer">Viewer — view only</option>
+            <option value="cashier">Cashier</option>
+            <option value="accountant">Accountant</option>
+            <option value="inventory officer">Inventory Officer</option>
             <option value="member">Member</option>
-            {roles.data?.items.filter((role) => !["admin", "member", "viewer", "owner/ceo", "general manager", "branch manager", "factory manager"].includes(role.name.toLowerCase())).map((role) => <option key={role.id} value={role.name.toLowerCase()}>{role.name}</option>)}
-            <option value="viewer">Viewer</option>
-            <option value="owner/ceo">Owner/CEO</option>
-            <option value="general manager">General Manager</option>
             <option value="branch manager">Branch Manager</option>
+            <option value="general manager">General Manager</option>
             <option value="factory manager">Factory Manager</option>
+            {roles.data?.items.filter((role) => !BUILT_IN_ROLES.includes(role.name.toLowerCase())).map((role) => <option key={role.id} value={role.name.toLowerCase()}>{role.name}</option>)}
+            <option value="admin">Admin — full access</option>
+            <option value="owner/ceo">Owner/CEO — full access</option>
           </Select>
           {(roles.data?.total ?? 0) > 25 && <div className="mt-2 flex gap-2"><Button type="button" variant="outline" disabled={rolePage === 1} onClick={() => setRolePage(rolePage - 1)}>Previous roles</Button><Button type="button" variant="outline" disabled={rolePage * 25 >= (roles.data?.total ?? 0)} onClick={() => setRolePage(rolePage + 1)}>More roles</Button></div>}
         </Field>

@@ -23,7 +23,7 @@ class RoleRepository(BaseRepository[Role]):
         return result.scalar_one_or_none()
 
     async def template_roles(self, tenant_id: uuid.UUID) -> list[Role]:
-        names = {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager"}
+        names = {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager", "Cashier", "Accountant", "Inventory Officer"}
         result = await self.db.execute(select(Role).where(Role.tenant_id == tenant_id, Role.name.in_(names)))
         return list(result.scalars().all())
 

@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from app.core.access import require_module_write
 from app.core.currency import normalize_code
 from app.core.deps import CurrentUser, DbSession, SuperUser
 from app.core.exceptions import ForbiddenError
@@ -63,7 +64,7 @@ async def list_tenant_rates(
     )
 
 
-@tenant_router.post("/exchange-rates", status_code=201)
+@tenant_router.post("/exchange-rates", status_code=201, dependencies=[Depends(require_module_write("accounting"))])
 async def create_tenant_rate(data: ExchangeRateCreate, db: DbSession, current_user: CurrentUser):
     tenant_id = _require_tenant(current_user)
     row = await service.create_rate(db, tenant_id, current_user.id, data)

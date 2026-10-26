@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.core.access import require_module_write
 from app.core.deps import require_feature
 from app.modules.accounting.routes import accounting_router
 from app.modules.admin.analytics import router as admin_analytics_router
@@ -51,12 +52,12 @@ api_router.include_router(support_router)
 api_router.include_router(auth_router)
 api_router.include_router(tenants_router)
 api_router.include_router(global_router)
-api_router.include_router(inventory_router, prefix="/tenants", dependencies=[Depends(require_feature("inventory"))])
-api_router.include_router(sales_router, prefix="/tenants", dependencies=[Depends(require_feature("sales"))])
-api_router.include_router(accounting_router, prefix="/tenants", dependencies=[Depends(require_feature("accounting"))])
-api_router.include_router(hr_router, prefix="/tenants", dependencies=[Depends(require_feature("hr"))])
-api_router.include_router(procurement_router, prefix="/tenants", dependencies=[Depends(require_feature("procurement"))])
-api_router.include_router(crm_router, prefix="/tenants", dependencies=[Depends(require_feature("crm"))])
-api_router.include_router(manufacturing_router, prefix="/tenants", dependencies=[Depends(require_feature("manufacturing"))])
-api_router.include_router(repairs_router, prefix="/tenants", dependencies=[Depends(require_feature("repairs"))])
-api_router.include_router(services_router, prefix="/tenants", dependencies=[Depends(require_feature("services"))])
+api_router.include_router(inventory_router, prefix="/tenants", dependencies=[Depends(require_feature("inventory")), Depends(require_module_write("inventory"))])
+api_router.include_router(sales_router, prefix="/tenants", dependencies=[Depends(require_feature("sales")), Depends(require_module_write("sales"))])
+api_router.include_router(accounting_router, prefix="/tenants", dependencies=[Depends(require_feature("accounting")), Depends(require_module_write("accounting"))])
+api_router.include_router(hr_router, prefix="/tenants", dependencies=[Depends(require_feature("hr")), Depends(require_module_write("hr"))])
+api_router.include_router(procurement_router, prefix="/tenants", dependencies=[Depends(require_feature("procurement")), Depends(require_module_write("procurement"))])
+api_router.include_router(crm_router, prefix="/tenants", dependencies=[Depends(require_feature("crm")), Depends(require_module_write("crm"))])
+api_router.include_router(manufacturing_router, prefix="/tenants", dependencies=[Depends(require_feature("manufacturing")), Depends(require_module_write("manufacturing"))])
+api_router.include_router(repairs_router, prefix="/tenants", dependencies=[Depends(require_feature("repairs")), Depends(require_module_write("repairs"))])
+api_router.include_router(services_router, prefix="/tenants", dependencies=[Depends(require_feature("services")), Depends(require_module_write("services"))])

@@ -1,15 +1,23 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.tenants import service
 from app.modules.tenants.schemas import DepartmentCreate, DepartmentImportRequest, DepartmentUpdate
 
-router = APIRouter(tags=["Departments"])
+
+async def department_access(request: Request, current_user: CurrentUser):
+    """Reading departments is open to staff (they appear in pickers); changing them needs departments:create/update/delete."""
+    if request.method != "GET":
+        action = {"POST": "create", "PATCH": "update", "PUT": "update", "DELETE": "delete"}.get(request.method, "update")
+        await require_permission(f"departments:{action}")(current_user)
+
+
+router = APIRouter(tags=["Departments"], dependencies=[Depends(department_access)])
 
 
 @router.get("/departments")
