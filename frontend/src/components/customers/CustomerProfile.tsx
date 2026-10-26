@@ -10,6 +10,7 @@ import type { CustomerSection, CustomerSectionPage } from "@/lib/api/sales";
 import { formatMoney } from "@/lib/money";
 import { Button } from "@/components/ui/Button";
 import { PageLoader } from "@/components/ui/PageLoader";
+import { SaleDocumentById } from "@/components/sales/SaleDocumentDrawer";
 import { BranchFilter, FinancialError } from "@/components/accounting/FinancialShared";
 
 type Row = CustomerSectionPage["items"][number];
@@ -85,15 +86,17 @@ function SectionTable({ id, section, initial, money, branch, tenant }: { id: str
   const [page, setPage] = useState(1);
   const more = useCustomerRecords(id, section, page, branch, page > 1, tenant);
   const data = page === 1 ? initial : more.data;
+  const [openOrder, setOpenOrder] = useState<string | null>(null);
   const columns = COLUMNS[section];
   const pages = Math.max(1, Math.ceil(initial.total / 10));
   return <div role="tabpanel" id={`cust-panel-${section}`} aria-labelledby={`cust-tab-${section}`} tabIndex={0} className="outline-offset-4">
     {more.error && <FinancialError error={more.error} />}
     {!data ? <div className="p-5"><PageLoader variant="compact" /></div> : !data.items.length ? <p className="px-5 py-12 text-center text-sm text-muted">No {TITLES[section].toLowerCase()} recorded for this customer{branch ? " in this branch" : ""}.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-[12px]">
       <caption className="sr-only">{TITLES[section]}</caption>
-      <thead className="border-b border-border bg-surface text-[10px] uppercase tracking-wide text-muted"><tr>{columns.map(c => <th key={c.label} scope="col" className={`px-4 py-3 font-medium ${c.right ? "text-right" : ""}`}>{c.label}</th>)}</tr></thead>
-      <tbody className="divide-y divide-border">{data.items.map(row => <tr key={String(row.id)}>{columns.map(c => <td key={c.label} className={`whitespace-nowrap px-4 py-3 tabular-nums ${c.right ? "text-right" : ""}`}>{c.cell(row, money)}</td>)}</tr>)}</tbody>
+      <thead className="border-b border-border bg-surface text-[10px] uppercase tracking-wide text-muted"><tr>{columns.map(c => <th key={c.label} scope="col" className={`px-4 py-3 font-medium ${c.right ? "text-right" : ""}`}>{c.label}</th>)}{section === "orders" && <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>}</tr></thead>
+      <tbody className="divide-y divide-border">{data.items.map(row => <tr key={String(row.id)}>{columns.map(c => <td key={c.label} className={`whitespace-nowrap px-4 py-3 tabular-nums ${c.right ? "text-right" : ""}`}>{c.cell(row, money)}</td>)}{section === "orders" && <td className="px-4 py-3 text-right"><Button size="sm" variant="ghost" aria-label={`View invoice ${row.order_number}`} onClick={() => setOpenOrder(String(row.id))}>Invoice</Button></td>}</tr>)}</tbody>
     </table></div>}
     {pages > 1 && <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-muted"><span>{initial.total} records · Page {page} of {pages}</span><div className="flex gap-2"><Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button><Button variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</Button></div></div>}
+    {openOrder && <SaleDocumentById orderId={openOrder} onClose={() => setOpenOrder(null)} />}
   </div>;
 }

@@ -4,20 +4,19 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { DocMoney } from "@/components/currency/DocMoney";
 import { orderBaseOutstanding, orderBasePaid, orderBaseTotal } from "@/lib/baseMoney";
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Search, Eye, Printer,
   BadgeCheck, Clock, FileText, TrendingUp, Plus,
   Download, MoreHorizontal, Loader2,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { Drawer } from "@/components/ui/Drawer";
 import { useAppConfig } from "@/lib/appConfig";
-import { useOrders, useCurrentTenant } from "@/lib/api/hooks";
+import { useOrders } from "@/lib/api/hooks";
 import type { ApiOrder, ApiOrderPayment } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
-import { InvoiceDocument, StatusBadge, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { StatusBadge, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { SaleDocumentDrawer } from "@/components/sales/SaleDocumentDrawer";
 import { salesApi } from "@/lib/api/sales";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
@@ -31,7 +30,6 @@ type PaymentFilter = "all" | "Paid" | "PartiallyPaid" | "Unpaid" | "Overdue";
 export default function InvoicesPage() {
   const { currencySymbol, brandColor } = useAppConfig();
   const { data, isLoading } = useOrders(1, 200);
-  const { data: tenant } = useCurrentTenant();
   const orders = data?.items ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -293,49 +291,9 @@ export default function InvoicesPage() {
       )}
 
       {/* Invoice Detail Drawer */}
-      <Drawer
-        open={!!viewing}
-        onClose={() => setViewingId(null)}
-        title="Invoice Detail"
-        description={viewing ? `${viewing.order_number}` : undefined}
-        side="right"
-        size="lg"
-        footer={
-          viewing && (
-            <div className="flex gap-2">
-              {viewing.status === "Completed" && viewing.outstanding_balance > 0 && (
-                <Button color={brandColor} className="flex-1" onClick={() => setRecordingPaymentFor(viewing)}>
-                  <BadgeCheck size={15} /> Record Payment
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                onClick={() => downloadInvoicePdf(viewing)}
-                disabled={downloadingPdfId === viewing.id}
-              >
-                {downloadingPdfId === viewing.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} PDF
-              </Button>
-              <Button color={brandColor} onClick={() => window.print()}>
-                <Printer size={15} /> Print
-              </Button>
-              <Button variant="secondary" onClick={() => setViewingId(null)}>
-                Close
-              </Button>
-            </div>
-          )
-        }
-      >
-        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={brandColor} fmt={fmt} onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)} />}
-      </Drawer>
-
-      {/* Print-only view: portaled out of the app shell (which is hidden via
-          print:hidden) so printing shows just the invoice, nothing else. */}
-      {viewing && typeof document !== "undefined" && createPortal(
-        <div className="hidden print:block">
-          <InvoiceDocument order={viewing} tenant={tenant} brandColor={brandColor} fmt={fmt} />
-        </div>,
-        document.body,
-      )}
+      {viewing && <SaleDocumentDrawer order={viewing} onClose={() => setViewingId(null)}
+        onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)}
+        extraActions={viewing.status === "Completed" && viewing.outstanding_balance > 0 ? <Button color={brandColor} onClick={() => setRecordingPaymentFor(viewing)}><BadgeCheck size={15} /> Record Payment</Button> : undefined} />}
 
       <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={brandColor} fmt={fmt} />
       <ReversePaymentDrawer payment={reversingPayment} onClose={() => setReversingPayment(null)} fmt={fmt} />

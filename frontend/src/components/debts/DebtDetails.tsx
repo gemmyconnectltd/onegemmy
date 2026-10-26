@@ -9,6 +9,7 @@ import { DebtDrawer } from "./DebtDrawer";
 import { DebtBadge, debtDate, useDebtMoney } from "./DebtShared";
 import { DebtPaymentForm } from "./DebtPaymentForm";
 import type { DebtAction } from "./DebtActionDialog";
+import { SaleDocumentById } from "@/components/sales/SaleDocumentDrawer";
 
 export type { DebtPayment } from "@/lib/debts";
 
@@ -34,6 +35,7 @@ export function DebtDetails({
   const [tab, setTab] = useState<"overview" | "history">("overview");
   const [paying, setPaying] = useState(startPaying && canPay && Number(record.outstanding) > 0);
   const [busy, setBusy] = useState(false);
+  const [invoice, setInvoice] = useState(false);
   const party = record.kind === "receivable" ? "Customer" : "Supplier";
   const initials = record.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase();
   const tabs = ["overview", "history"] as const;
@@ -120,11 +122,13 @@ export function DebtDetails({
               {permissions.writeOff && <Button size="sm" variant="secondary" onClick={() => onAction("write-off")}>Write off</Button>}
               {permissions.void && record.is_manual && Number(record.paid) === 0 && <Button size="sm" variant="secondary" onClick={() => onAction("void")}>Void</Button>}
             </div>}
+            {record.kind === "receivable" && !record.is_manual && <button type="button" onClick={() => setInvoice(true)} className="mr-4 inline-flex text-xs font-semibold text-accent hover:underline">View invoice</button>}
             {record.party_id && <Link href={`/debts/statements?kind=${record.kind}&party=${record.party_id}`} className="inline-flex text-xs font-semibold text-accent hover:underline">View account statement</Link>}
             {canPay && Number(record.outstanding) > 0 && <div className="border-t border-border pt-4"><Button className="w-full" onClick={() => setPaying(true)}>Record payment</Button></div>}
           </>
         )}
       </div>
+      {invoice && <SaleDocumentById orderId={record.id} onClose={() => setInvoice(false)} />}
     </DebtDrawer>
   );
 }

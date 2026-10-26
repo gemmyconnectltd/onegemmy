@@ -6,20 +6,19 @@ import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, AlertCircle, ChevronDown, Upload, Printer, Download, Loader2,
+  Eye, Edit2, AlertCircle, ChevronDown, Upload,
 } from "lucide-react";
-import { createPortal } from "react-dom";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useEffect, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useDeleteOrder, useBulkCreateOrders, useCurrentTenant } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useDeleteOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
-import { salesApi } from "@/lib/api/sales";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
-import { InvoiceDocument, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import { SaleDocumentDrawer } from "@/components/sales/SaleDocumentDrawer";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
 import { accountingApi } from "@/lib/api/accounting";
@@ -268,7 +267,6 @@ export default function SalesOrdersPage() {
   const { currencySymbol, brandColor } = useAppConfig();
   const SAL = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
-  const { data: tenant } = useCurrentTenant();
 
   const [error, setError] = useState<string | null>(null);
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
@@ -286,18 +284,6 @@ export default function SalesOrdersPage() {
   const [reversingPayment, setReversingPayment] = useState<ApiOrderPayment | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [items, setItems] = useState<ItemRow[]>([newItem()]);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  const handleDownloadPdf = async (order: ApiOrder) => {
-    setDownloadingPdf(true);
-    try {
-      await salesApi.downloadInvoicePdf(order.id, order.order_number);
-    } catch {
-      // Non-critical — the user can retry or fall back to Print.
-    } finally {
-      setDownloadingPdf(false);
-    }
-  };
 
   // Reset to page 1 right where a filter changes, not via an effect.
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
@@ -738,58 +724,9 @@ export default function SalesOrdersPage() {
         </form>
       </Drawer>
 
-      {/* ── View Drawer — the same branded invoice document used in
-          Accounting > Invoices, so an order looks the same everywhere it's
-          shown or printed. ── */}
-      <Drawer
-        open={!!viewing}
-        onClose={() => setViewingId(null)}
-        title="Sale Details"
-        description={viewing?.order_number}
-        size="lg"
-        footer={
-          viewing && (
-            <div className="flex gap-2">
-              {viewing.status === "Completed" && viewing.outstanding_balance > 0 && (
-                <Button onClick={() => setRecordingPaymentFor(viewing)} color={SAL} className="rounded-lg">
-                  Record Payment
-                </Button>
-              )}
-              <button
-                onClick={() => viewing && handleDownloadPdf(viewing)}
-                disabled={downloadingPdf}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/70 hover:text-foreground hover:bg-surface transition-colors disabled:opacity-60"
-              >
-                {downloadingPdf ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} PDF
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="flex items-center justify-center gap-2 text-white px-4 py-2.5 text-[13px] font-bold transition-colors rounded-lg"
-                style={{ backgroundColor: SAL }}
-              >
-                <Printer size={15} /> Print
-              </button>
-              <button
-                onClick={() => setViewingId(null)}
-                className="px-4 py-2.5 text-[13px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:bg-surface transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          )
-        }
-      >
-        {viewing && <InvoiceDocument order={viewing} tenant={tenant} brandColor={SAL} fmt={fmt} onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)} />}
-      </Drawer>
-
-      {/* Print-only view: portaled out of the app shell (which is hidden via
-          print:hidden) so printing shows just the invoice, nothing else. */}
-      {viewing && typeof document !== "undefined" && createPortal(
-        <div className="hidden print:block">
-          <InvoiceDocument order={viewing} tenant={tenant} brandColor={SAL} fmt={fmt} />
-        </div>,
-        document.body,
-      )}
+      {viewing && <SaleDocumentDrawer order={viewing} onClose={() => setViewingId(null)}
+        onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)}
+        extraActions={viewing.status === "Completed" && viewing.outstanding_balance > 0 ? <Button onClick={() => setRecordingPaymentFor(viewing)} color={SAL} className="rounded-lg">Record Payment</Button> : undefined} />}
 
       <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={SAL} fmt={fmt} />
       <ReversePaymentDrawer payment={reversingPayment} onClose={() => setReversingPayment(null)} fmt={fmt} />

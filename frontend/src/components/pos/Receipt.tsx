@@ -8,6 +8,7 @@ import { printReceipt, type ReceiptPaper } from "@/lib/pos/printReceipt";
 import type { Tenant } from "@/lib/api";
 import type { SaleResult } from "./types";
 import { ReceiptDocument, paymentLabel } from "./ReceiptDocument";
+import { SaleDocumentById } from "@/components/sales/SaleDocumentDrawer";
 
 interface ReceiptProps { sale: SaleResult; currencySymbol: string; fmt: (value: number) => string; vatEnabled: boolean; onNewSale: () => void; onClose?: () => void; tenant?: Tenant; }
 export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onClose, tenant }: ReceiptProps) {
@@ -17,6 +18,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
   const [busy, setBusy] = useState<"print" | "pdf" | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [invoice, setInvoice] = useState(false);
   const handlePrint = async () => {
     const document = receipt.current?.querySelector<HTMLElement>("[data-pos-receipt]");
     if (!document || busy) return;
@@ -38,6 +40,6 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
     {error && <p role="alert" className="mb-3 text-xs text-red-600">{error}</p>}
     <Button onClick={onNewSale} className="w-full">New Sale</Button>
     <div className="mt-2 grid grid-cols-2 gap-2"><Button variant="secondary" disabled={!!busy} onClick={handlePrint}>{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Print Receipt</Button><Button variant="secondary" disabled={!!busy || !sale.backendOrderId} onClick={handlePdf}>{busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}Download PDF</Button></div>
-    <div className="mt-2 flex justify-between gap-2"><Button size="sm" variant="ghost" onClick={() => setView(value => !value)}><Eye size={14} />{view ? "Hide Receipt" : "View Receipt"}</Button><Button size="sm" variant="ghost" onClick={handleCopy}><Copy size={14} />{copied ? "Copied" : "Copy"}</Button>{onClose && <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}</div>
-  </div>;
+    <div className="mt-2 flex justify-between gap-2"><Button size="sm" variant="ghost" onClick={() => setView(value => !value)}><Eye size={14} />{view ? "Hide Receipt" : "View Receipt"}</Button>{sale.backendOrderId && <Button size="sm" variant="ghost" onClick={() => setInvoice(true)}><Eye size={14} />Invoice</Button>}<Button size="sm" variant="ghost" onClick={handleCopy}><Copy size={14} />{copied ? "Copied" : "Copy"}</Button>{onClose && <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}</div>
+  {invoice && sale.backendOrderId && <SaleDocumentById orderId={sale.backendOrderId} onClose={() => setInvoice(false)} />}</div>;
 }

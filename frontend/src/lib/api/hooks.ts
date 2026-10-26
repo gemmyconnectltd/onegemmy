@@ -872,3 +872,5 @@ export const useAssignRolePermissions = mutation(({id, permissions}: {id: string
 
 export const useCustomerProfile = (id: string, branch: string | null, tenant?: string | null) => useQ(["sales", "customers", tenant, "profile", id, branch], () => salesApi.customerProfile(id), r => r.data);
 export const useCustomerRecords = (id: string, section: CustomerSection, page: number, branch: string | null, enabled: boolean, tenant?: string | null) => useQ(["sales", "customers", tenant, "records", id, section, page, branch], () => salesApi.customerRecords(id, section, page), r => r.data, { enabled });
+
+export const useOrder = (id: string | null, opts?: QueryOpts) => useQ(["sales", "orders", "one", id], () => salesApi.getOrder(id!), r => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });

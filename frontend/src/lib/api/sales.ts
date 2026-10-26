@@ -161,6 +161,7 @@ export interface CustomerProfile {
 
 export const salesApi = {
   // Customers
+  getOrder: (id: string) => request<SingleResponse<ApiOrder>>(`${BASE}/orders/${encodeURIComponent(id)}`),
   customerProfile: (id: string) => request<SingleResponse<CustomerProfile>>(`${BASE}/customers/${encodeURIComponent(id)}/profile`),
   customerRecords: (id: string, section: CustomerSection, page: number) => request<SingleResponse<CustomerSectionPage>>(`${BASE}/customers/${encodeURIComponent(id)}/records/${section}${qs({ page, page_size: 10 })}`),
   listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string) =>
