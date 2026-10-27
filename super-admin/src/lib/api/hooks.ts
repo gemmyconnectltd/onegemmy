@@ -4,7 +4,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData, type UseMutationOptions } from "@tanstack/react-query";
 import { adminApi, currencyApi, aiApi } from "@/lib/api";
 import type {
-  AdminUserFilters,
+  AdminUserFilters, EngagementCategory, EngagementQuery, UsagePeriod,
 } from "@/lib/api";
 
 const CURRENCY_KEY = ["currency"] as const;
@@ -241,3 +241,13 @@ export const useBillingRefund = mutation((v: { reference: string; amount: number
 export const useBillingRefreshRefund = mutation((reference: string) => billingApi.refreshRefund(reference), [BILLING]);
 
 export const useBillingHistory = (id: string, page: number) => useQ([...BILLING, "history", id, page], () => billingApi.history(id, page), r => r.data, { enabled: !!id });
+
+// Platform Usage drill-downs — each page keeps its own page/search/period in the query key.
+export const useUsageEngagement = (category: EngagementCategory, f: EngagementQuery, opts?: QueryOpts) =>
+  useQ(["admin", "usage", "engagement", category, f], () => adminApi.usageEngagement(category, f), (r) => r.data, opts);
+export const useUsageModule = (key: string, period: UsagePeriod, f: { page: number; q: string; status: string }, opts?: QueryOpts) =>
+  useQ(["admin", "usage", "module", key, period, f], () => adminApi.usageModule(key, period, f), (r) => r.data, opts);
+export const useUsageSales = (currency: string, period: UsagePeriod, f: { page: number; q: string }, opts?: QueryOpts) =>
+  useQ(["admin", "usage", "sales", currency, period, f], () => adminApi.usageSales(currency, period, f), (r) => r.data, opts);
+export const useUsageTenant = (id: string, opts?: QueryOpts) =>
+  useQ(["admin", "usage", "tenant", id], () => adminApi.usageTenant(id), (r) => r.data, opts);

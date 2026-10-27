@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtRelative } from "@/lib/date";
 import { type AdminAuditLog, type AdminBranch, type AdminTenant, type AdminTenantStats, type TenantLimits } from "@/lib/api/admin";
-import { useBillingOverview } from "@/lib/api/hooks";
+import { useBillingOverview, useUsageTenant } from "@/lib/api/hooks";
 import { billingDate, billingMoney } from "@/components/billing/BillingShared";
 import { TenantStatusBadge } from "@/components/tenants/StatusBadge";
 
@@ -90,7 +90,36 @@ export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go,
   );
 }
 
-export function UsagePanel({ tenant, stats, limits, branches, usersCount, currencySymbol }: Common & { currencySymbol: string }) {
+function ModuleUsageCards({ tenantId, go }: { tenantId: string; go: (t: PanelTab) => void }) {
+  const usage = useUsageTenant(tenantId);
+  if (usage.isLoading) return <Card title="Module usage"><p className="text-[12.5px] text-muted">Loading…</p></Card>;
+  if (usage.isError || !usage.data) return <Card title="Module usage"><p role="alert" className="text-[12.5px] text-red-600">Could not load module usage. <button type="button" className="font-semibold underline" onClick={() => void usage.refetch()}>Try again</button></p></Card>;
+  const d = usage.data;
+  return (
+    <>
+      <Card title="Module usage" action={<span className="text-[11.5px] text-muted">Engagement: <strong className="capitalize text-foreground">{d.tier}</strong> · {d.tier_definition}</span>}>
+        <TableScroll label="Module usage"><table className="w-full min-w-[560px] text-left text-[13px]">
+          <thead><tr>{["Module", "Entitlement", "Actual use", "Records", "Last activity"].map((h) => <th key={h} scope="col" className="px-3 py-2 text-xs font-semibold text-muted">{h}</th>)}</tr></thead>
+          <tbody className="divide-y divide-border">{d.modules.map((m) => (
+            <tr key={m.key}>
+              <td className="px-3 py-2 font-semibold"><Link href={`/usage/modules/${m.key}`} className="text-accent hover:underline">{m.label}</Link></td>
+              <td className="px-3 py-2 text-muted">{m.enabled === null ? "Not a plan feature" : m.enabled ? "Included" : "Not included"}</td>
+              <td className="px-3 py-2">{m.used ? <span className="font-semibold text-accent">In use</span> : <span className="text-muted">Not used</span>}</td>
+              <td className="px-3 py-2 tabular-nums">{m.records.toLocaleString()}</td>
+              <td className="px-3 py-2 text-muted">{m.last_activity ? fmtRelative(m.last_activity) : "—"}</td>
+            </tr>))}</tbody></table></TableScroll>
+        <p className="mt-2 text-[11.5px] text-muted">&ldquo;Included&rdquo; is what the plan allows; &ldquo;In use&rdquo; means the business has created at least one record in that module. Users are counted per business ({d.users}), not per module.</p>
+      </Card>
+      <Card title="Recent activity" action={<TabLink tab="activity" go={go}>View all</TabLink>}>
+        {d.recent_activity.length === 0 ? <p className="text-[12.5px] text-muted">No audited activity has been recorded for this business yet.</p> : (
+          <ul className="divide-y divide-border/60">{d.recent_activity.slice(0, 8).map((e) => (
+            <li key={e.id} className="flex items-start justify-between gap-3 py-2 text-[13px]"><span className="min-w-0"><span className="block break-words">{e.summary}</span>{e.actor && <span className="text-[11.5px] text-muted">{e.actor}</span>}</span><span className="shrink-0 text-[11.5px] text-muted">{e.created_at ? fmtRelative(e.created_at) : ""}</span></li>))}</ul>)}
+      </Card>
+    </>
+  );
+}
+
+export function UsagePanel({ tenant, stats, limits, branches, usersCount, currencySymbol, go }: Common & { currencySymbol: string }) {
   return (
     <div className="space-y-4">
       <Card title="Plan allowances">
@@ -109,6 +138,7 @@ export function UsagePanel({ tenant, stats, limits, branches, usersCount, curren
           </div>
         </Card>
       )}
+      <ModuleUsageCards tenantId={tenant.id} go={go} />
     </div>
   );
 }

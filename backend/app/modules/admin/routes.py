@@ -17,7 +17,6 @@ from app.core.logging import get_logger
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.core.security import hash_password, validate_password_strength
-from app.modules.accounting.models.transaction import Transaction
 from app.modules.admin.analytics import (
     all_time_sales_by_plan,
     all_time_sales_converted,
@@ -25,13 +24,9 @@ from app.modules.admin.analytics import (
 )
 from app.modules.admin.export import build_users_export, resolve_columns
 from app.modules.admin.repository import tenant_plan_labels
+from app.modules.admin.usage import FEATURE_MODULES, tier_case
 from app.modules.audit.service import record_audit
-from app.modules.hr.models.employee import Employee
 from app.modules.inventory.models.product import Product
-from app.modules.manufacturing.models.production_order import ProductionOrder
-from app.modules.procurement.models.purchase_order import PurchaseOrder
-from app.modules.repairs.models.job import RepairJob
-from app.modules.sales.models.deal import Deal
 from app.modules.sales.models.order import Order
 from app.modules.tenants import service
 from app.modules.tenants.models import Branch, Tenant, User
@@ -163,19 +158,8 @@ async def admin_stats(db: DbSession, _: SuperUser):
     }, message="Platform stats retrieved")
 
 
-# One row per core module — each is a single count query against that
-# module's own table (tenant-scoped), never per-tenant, so this stays cheap
-# no matter how many tenants exist.
-_FEATURE_MODULES = [
-    ("sales", "Sales", Order),
-    ("inventory", "Inventory", Product),
-    ("accounting", "Accounting", Transaction),
-    ("hr", "HR", Employee),
-    ("procurement", "Purchases", PurchaseOrder),
-    ("manufacturing", "Manufacturing", ProductionOrder),
-    ("crm", "CRM", Deal),
-    ("repairs", "Repairs", RepairJob),
-]
+# The module catalogue lives in usage.py so the overview and the drill-down pages share it.
+_FEATURE_MODULES = [(key, label, model) for key, label, model, _ in FEATURE_MODULES]
 
 
 @router.get("/feature-usage")
@@ -279,12 +263,7 @@ async def admin_usage_breakdown(db: DbSession, _: SuperUser):
         .group_by(Order.tenant_id)
         .subquery()
     )
-    tier = case(
-        (func.coalesce(order_counts.c.cnt, 0) == 0, "dormant"),
-        (func.coalesce(order_counts.c.cnt, 0) < 10, "light"),
-        (func.coalesce(order_counts.c.cnt, 0) < 50, "moderate"),
-        else_="heavy",
-    )
+    tier = tier_case(order_counts.c.cnt)
     tier_rows = (await db.execute(
         select(tier.label("tier"), func.count().label("tenants"))
         .select_from(Tenant)

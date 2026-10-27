@@ -157,6 +157,32 @@ export interface AdminUsageBreakdown {
   top_tenants: AdminUsageTopTenant[];
 }
 
+// ── Platform Usage drill-downs ──
+export type UsagePeriod = "30" | "90" | "365" | "all";
+export type EngagementCategory = "dormant" | "light" | "moderate" | "heavy";
+export interface UsageTenantRow { id: string; name: string; slug: string; plan: string; status: "active" | "pending" | "suspended"; subscription_status: string; users: number; currency: string }
+export interface UsagePage<Row, Summary> { data: { items: Row[]; total: number; page: number; page_size: number; summary: Summary }; message: string }
+export interface EngagementRow extends UsageTenantRow { orders: number; last_activity: string | null; category: EngagementCategory }
+export interface ModuleUsageRow extends UsageTenantRow { records: number; tier: EngagementCategory; last_activity: string | null }
+export interface ModuleUsageSummary {
+  module: { key: string; label: string; description: string }; period: UsagePeriod;
+  kpis: { total_tenants: number; tenants_using: number; adoption_pct: number; total_records: number; active_tenants_in_period: number; records_in_period: number };
+  engagement_mix: Record<EngagementCategory, number> | null;
+  trend: { month: string; new_adopters: number; tenants_using: number }[];
+}
+export interface CurrencySalesRow { id: string; name: string; slug: string; plan: string; status: string; currency: string; sales: number; orders: number }
+export interface CurrencySalesSummary {
+  currency: string; period: UsagePeriod; grouping: "day" | "month";
+  kpis: { total_sales: number; transactions: number; average_order_value: number; selling_tenants: number };
+  trend: { date: string; sales: number; orders: number }[];
+}
+export interface TenantUsageDetail {
+  tier: EngagementCategory; tier_definition: string; orders: number; users: number;
+  modules: { key: string; label: string; enabled: boolean | null; used: boolean; records: number; last_activity: string | null }[];
+  recent_activity: { id: string; action: string; summary: string; actor: string | null; created_at: string | null }[];
+}
+export interface EngagementQuery { page: number; q: string; status: string; sort: string; dir: string }
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -509,6 +535,10 @@ export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
   featureUsage: () => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage`),
+  usageEngagement: (category: EngagementCategory, f: EngagementQuery) => request<UsagePage<EngagementRow, { category: string; definition: string }>>(`/admin/usage/engagement/${category}${qs({ page: f.page, page_size: 25, q: f.q || undefined, status: f.status, sort: f.sort, dir: f.dir })}`),
+  usageModule: (key: string, period: UsagePeriod, f: { page: number; q: string; status: string }) => request<UsagePage<ModuleUsageRow, ModuleUsageSummary>>(`/admin/usage/modules/${encodeURIComponent(key)}${qs({ page: f.page, page_size: 25, period, q: f.q || undefined, status: f.status })}`),
+  usageSales: (currency: string, period: UsagePeriod, f: { page: number; q: string }) => request<UsagePage<CurrencySalesRow, CurrencySalesSummary>>(`/admin/usage/sales/${encodeURIComponent(currency)}${qs({ page: f.page, page_size: 25, period, q: f.q || undefined })}`),
+  usageTenant: (id: string) => request<SingleResponse<TenantUsageDetail>>(`/admin/usage/tenants/${encodeURIComponent(id)}`),
   usageBreakdown: () => request<SingleResponse<AdminUsageBreakdown>>(`${B}/usage-breakdown`),
 
   // Platform Overview analytics — server-side aggregates and filtering, one call per dashboard section.
