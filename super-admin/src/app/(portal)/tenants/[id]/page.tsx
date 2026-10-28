@@ -15,11 +15,11 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
-  useTenant, useTenantStats, useTenantUsers, useSuspendTenant, useActivateTenant,
+  useTenant, useTenantStats, useTenantUsers, useActivateTenant,
   useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
   useTenantBranches, useCreateBranch, useDeleteBranch, useResetUserPassword,
-  useDeleteTenant, useUpdateTenant, useResetTenantData, useTenantLimits, usePlatformAuditLogs,
+  useUpdateTenant, useResetTenantData, useTenantLimits, usePlatformAuditLogs,
 } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
 import { useAppConfig } from "@/lib/appConfig";
@@ -34,6 +34,7 @@ import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
 import { ContactBadge } from "@/components/tenants/ContactBadge";
 import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
+import { OperationsPanel } from "./TenantOperations";
 import { ActivityPanel, OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
 import { resolveUploadUrl } from "@/lib/api/client";
 
@@ -48,11 +49,10 @@ function TenantDetailPageInner() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<PanelTab>(() => {
     const t = searchParams.get("tab");
-    return (["overview", "users", "branches", "subscription", "usage", "invoices", "security", "activity"] as const).find((x) => x === t) ?? "overview";
+    return (["overview", "users", "branches", "subscription", "usage", "invoices", "security", "activity", "operations"] as const).find((x) => x === t) ?? "overview";
   });
   const [usersSub, setUsersSub] = useState<"users" | "departments" | "roles">("users");
   const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" | "all" } | null>(null);
-  const removeTenant = useDeleteTenant();
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
   const [showAddRole, setShowAddRole] = useState(false);
@@ -89,7 +89,6 @@ function TenantDetailPageInner() {
   // Only the tenant itself is essential: stats/users/branches failing must not hide the whole page.
   const coreError = tenantError;
 
-  const suspendTenant = useSuspendTenant();
   const activateTenant = useActivateTenant();
   const updateTenant = useUpdateTenant();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
@@ -171,28 +170,16 @@ function TenantDetailPageInner() {
     });
   }
 
+  // Suspending needs a reason and a typed confirmation (Operations tab); reactivating does not.
   const toggleStatus = () => {
     if (!tenant) return;
-
-    const action = tenant.is_active ? "suspend" : "activate";
-    const run = () => {
-      setActing(true);
-      setNotice(null);
-      const onSettled = () => setActing(false);
-      const onSuccess = () => setNotice({ kind: "success", text: `Tenant ${action}d` });
-      const onError = () => setNotice({ kind: "error", text: "Failed to update status" });
-      if (tenant.is_active) {
-        suspendTenant.mutate(id, { onSuccess, onError, onSettled });
-      } else {
-        activateTenant.mutate({ id }, { onSuccess, onError, onSettled });
-      }
-    };
-    confirm({
-      title: `${tenant.is_active ? "Suspend" : "Activate"} organization?`,
-      message: `Are you sure you want to ${action} "${tenant.name}"? This affects the whole company.`,
-      confirmLabel: tenant.is_active ? "Suspend" : "Activate",
-      danger: action === "suspend",
-      onConfirm: run,
+    if (tenant.is_active) { setTab("operations"); return; }
+    setActing(true);
+    setNotice(null);
+    activateTenant.mutate({ id }, {
+      onSuccess: () => setNotice({ kind: "success", text: "Business reactivated" }),
+      onError: () => setNotice({ kind: "error", text: "Failed to update status" }),
+      onSettled: () => setActing(false),
     });
   };
 
@@ -357,10 +344,8 @@ function TenantDetailPageInner() {
   const confirmResetPassword = () => {
     if (!resetUser) return;
     resetPassword.mutate({ tenantId: id, userId: resetUser.id }, {
-      onSuccess: (res) => {
-        setTempPassword(res.data?.temp_password ?? null);
-      },
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to reset password" }),
+      onSuccess: () => { setNotice({ kind: "success", text: `Recovery link emailed to ${resetUser.full_name}. It expires in 30 minutes.` }); setResetUser(null); },
+      onError: (err: unknown) => { setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Could not send the recovery link" }); setResetUser(null); },
     });
   };
 
@@ -439,7 +424,7 @@ function TenantDetailPageInner() {
   const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: setTab };
   const TABS: { key: PanelTab; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" }, { key: "users", label: "Users", count: users.length }, { key: "branches", label: "Branches", count: branches.length },
-    { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" },
+    { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
   ];
 
   return (
@@ -462,7 +447,7 @@ function TenantDetailPageInner() {
           <Button variant="primary" type="button" onClick={openInvite}><UserPlus size={14} /> Invite User</Button>
           <ActionMenu label="More actions" items={[
                       { label: "Edit business", icon: <Building2 size={14} />, onSelect: () => setEditForm({ name: tenant.name.trim(), slug: tenant.slug, phone: tenant.phone ?? "", city: tenant.city ?? "", country: tenant.country ?? "", preferred_contact: tenant.preferred_contact ?? "email" }) },
-            { label: tenant.is_active ? "Suspend business" : "Activate business", disabled: !!tenant.archived_at, icon: <Power size={14} />, danger: tenant.is_active, onSelect: toggleStatus },
+            { label: tenant.is_active ? "Suspend business…" : "Activate business", disabled: !!tenant.archived_at, icon: <Power size={14} />, danger: tenant.is_active, onSelect: toggleStatus },
             { label: "Reset business data", icon: <RotateCcw size={14} />, danger: true, onSelect: openResetData },
           ]} />
         </div>
@@ -484,6 +469,7 @@ function TenantDetailPageInner() {
           {tab === "usage" && <UsagePanel {...panelProps} currencySymbol={tenantCurrencySymbol} />}
           {tab === "invoices" && <LiveBillingList kind="invoices" tenantId={id} />}
           {tab === "security" && <SecurityPanel tenant={tenant} usersCount={users.length} inactiveUsers={users.filter((u) => !u.is_active).length} events={tenantEvents} eventsLoading={audit.isLoading} />}
+          {tab === "operations" && <OperationsPanel tenant={tenant} users={users} />}
           {tab === "activity" && <ActivityPanel events={tenantEvents} loading={audit.isLoading} error={audit.isError} scanned={audit.data?.items.length ?? 0} />}
           {tab === "users" && (
             <div role="group" aria-label="User management" className="flex gap-1 rounded-lg border border-border bg-surface p-1 text-[12.5px] font-semibold sm:w-fit">
@@ -758,7 +744,7 @@ function TenantDetailPageInner() {
           </div>
           <h2 className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</h2>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-4 py-3"><div><p className="text-sm font-semibold">Delete tenant</p><p className="text-xs text-muted">Archive this business and disable access. Financial records and activity are retained.</p></div><Button variant="outline" disabled={removeTenant.isPending} onClick={() => confirm({ title: "Delete tenant?", message: "The business will be archived and all access disabled. Records remain available for audit.", confirmText: tenant.name.trim(), confirmLabel: "Delete tenant", danger: true, onConfirm: () => removeTenant.mutate(id, { onSuccess: () => router.push("/tenants"), onError: () => setNotice({ kind: "error", text: "Could not archive this business" }) }) })}><Trash2 size={14} /> Delete tenant</Button></div>
+        <div className="flex flex-wrap items-center justify-between gap-4 py-3"><div><p className="text-sm font-semibold">Archive business</p><p className="text-xs text-muted">Needs a reason, the typed business name and a second administrator&apos;s approval. Records are always retained.</p></div><Button variant="outline" onClick={() => setTab("operations")}>Go to Actions</Button></div>
         <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-red-500/20">
           <div className="max-w-xl">
             <p className="text-sm font-semibold text-foreground">Reset Business Data</p>
@@ -881,59 +867,14 @@ function TenantDetailPageInner() {
         </form>
       </Drawer>
 
-      {/* Reset password drawer */}
-      <Drawer
-        open={!!resetUser}
-        onClose={() => { setResetUser(null); setTempPassword(null); setCopied(false); }}
-        title="Reset Password"
-        description={resetUser ? `Set a new temporary password for ${resetUser.full_name}` : ""}
-      >
-        <div className="p-5 space-y-4">
-          {tempPassword === null ? (
-            <>
-              <p className="text-sm text-muted">
-                This will immediately invalidate the user&apos;s current password and generate a new temporary one. They&apos;ll need to sign in with the new password shown here.
-              </p>
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  onClick={() => { setResetUser(null); setCopied(false); }}
-                  className="px-4 py-2 rounded-lg text-[13px] font-semibold text-muted hover:text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <Button variant="primary"
-                  onClick={confirmResetPassword}
-                  disabled={resetPassword.isPending}
-                >
-                  {resetPassword.isPending ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}
-                  Reset Password
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[13px] px-4 py-3">
-                Temporary password shown once — copy it now and share with the user securely.
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-surface border border-border rounded-lg px-4 py-3 font-mono text-sm text-foreground break-all">
-                  {tempPassword}
-                </code>
-                <Button variant="secondary" size="sm"
-                  onClick={copyPassword}
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy"}
-                </Button>
-              </div>
-              <div className="flex justify-end pt-2">
-                <Button variant="primary"
-                  onClick={() => { setResetUser(null); setTempPassword(null); setCopied(false); }}
-                >
-                  Done
-                </Button>
-              </div>
-            </>
-          )}
+      {/* Account recovery drawer */}
+      <Drawer open={!!resetUser} onClose={() => setResetUser(null)} title="Send recovery link" description={resetUser ? `Help ${resetUser.full_name} regain access` : ""}>
+        <div className="space-y-4 p-5">
+          <p className="text-sm text-muted">We email {resetUser?.full_name} a link to choose a new password. It expires in 30 minutes. You will never see their password or the link, and the action is recorded in the audit log.</p>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setResetUser(null)}>Cancel</Button>
+            <Button variant="primary" onClick={confirmResetPassword} disabled={resetPassword.isPending}>{resetPassword.isPending ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}Email recovery link</Button>
+          </div>
         </div>
       </Drawer>
 

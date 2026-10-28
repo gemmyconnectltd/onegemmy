@@ -88,6 +88,9 @@ class TenantRead(BaseModel):
     slug: str
     is_active: bool
     archived_at: datetime | None = None
+    suspended_at: datetime | None = None
+    suspension_reason: str | None = None
+    reactivated_at: datetime | None = None
     logo_url: str | None
     brand_color: str | None
     website: str | None

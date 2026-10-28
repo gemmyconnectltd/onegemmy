@@ -1,8 +1,9 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, Index, Numeric, String, false
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -16,6 +17,12 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Who suspended / reactivated the business, when, and why (platform admins only; kept as the last action).
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    suspension_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    reactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reactivated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     logo_url: Mapped[str | None] = mapped_column(String(500))
     brand_color: Mapped[str | None] = mapped_column(String(7))

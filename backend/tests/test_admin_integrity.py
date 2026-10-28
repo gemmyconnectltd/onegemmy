@@ -69,7 +69,6 @@ async def test_admin_create_edit_archive_owner_and_role_filters(db, monkeypatch)
     from app.core.database import get_db
     from app.core.deps import get_current_user
     from app.main import app
-    from app.modules.audit.models import AuditLog
 
     sent = []
 
@@ -119,8 +118,11 @@ async def test_admin_create_edit_archive_owner_and_role_filters(db, monkeypatch)
             assert users.json()["data"]["total"] == 1
             listing = await client.get(f"/api/v1/admin/tenants?q=new-{key}&sort=name&dir=asc&page_size=1")
             assert listing.json()["data"]["total"] == 1
-            archived = await client.delete(f"/api/v1/admin/tenants/{tenant_id}")
-            assert archived.status_code == 200, archived.text
+            # One-click deletion no longer exists; archiving is a two-administrator request (see test_tenant_lifecycle).
+            assert (await client.delete(f"/api/v1/admin/tenants/{tenant_id}")).status_code == 405
+            from app.modules.tenants.service import archive_tenant
+            await archive_tenant(db, uuid.UUID(tenant_id))
+            await db.flush()
             tenant = await db.get(Tenant, uuid.UUID(tenant_id))
             assert tenant.archived_at is not None and tenant.is_active is False
             assert (await db.get(User, owner.id)) is not None
@@ -128,7 +130,6 @@ async def test_admin_create_edit_archive_owner_and_role_filters(db, monkeypatch)
             assert activation.status_code == 422
             bypass = await client.patch(f"/api/v1/admin/tenants/{tenant_id}", json={"is_active": True})
             assert bypass.status_code == 422
-            assert (await db.execute(select(AuditLog.id).where(AuditLog.entity_id == tenant_id, AuditLog.action == "tenant.delete"))).first()
     finally:
         app.dependency_overrides.clear()
 

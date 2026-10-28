@@ -330,6 +330,11 @@ async def send_password_reset_email(
     return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None, sender=sender)
 
 
+async def send_notice_email(to: str, subject: str, title: str, body_html: str, preheader: str = "", sender: str = "admin") -> bool:
+    """A branded one-off notice (suspension, platform announcement). `body_html` must already be escaped."""
+    return await send_email(to, subject, _branded_html(title, body_html, preheader), text_body=None, sender=sender)
+
+
 def _pending_signup_body(
     tenant_name: str, tenant_slug: str, review_url: str, owner_name: str | None = None, owner_email: str | None = None,
     phone: str | None = None, preferred_contact: str | None = None,

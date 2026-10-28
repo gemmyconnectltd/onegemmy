@@ -7,18 +7,15 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  AlertTriangle, Ban, Building2, CheckCircle2, Clock3, Download, Eye, Loader2, Plus, Power, Trash2, UserRound, Users as UsersIcon, X, XCircle,
+  AlertTriangle, Archive, Ban, Bell, Building2, CheckCircle2, Clock3, Download, Eye, Loader2, Plus, Power, UserRound, Users as UsersIcon, X, XCircle,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { BulkActionBar } from "@/components/ui/BulkActionBar";
-import { useBulkSelection } from "@/lib/useBulkSelection";
 import { fmtRelative } from "@/lib/date";
 import { adminApi, tenantStatusLabel, type AdminTenant } from "@/lib/api/admin";
 import { resolveUploadUrl } from "@/lib/api/client";
-import { useTenants, useCreateTenant, useSuspendTenant, useActivateTenant, useDeleteTenant, useAdminFeatureUsage, useAdminStats, useBillingRecords } from "@/lib/api/hooks";
+import { useTenants, useCreateTenant, useActivateTenant, useAdminFeatureUsage, useAdminStats, useBillingRecords } from "@/lib/api/hooks";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
 import { ContactBadge } from "@/components/tenants/ContactBadge";
 import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
@@ -98,18 +95,12 @@ function AdminTenantsPageInner() {
   const pageRows = loaded;
 
   const createTenant = useCreateTenant();
-  const suspendTenant = useSuspendTenant();
   const activateTenant = useActivateTenant();
-  const deleteTenant = useDeleteTenant();
-  const { confirm, dialog: confirmDialog } = useConfirmDialog();
-  const bulk = useBulkSelection(pageRows.map((t) => t.id));
-  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const update = (patch: Partial<Filters>) => {
     const next = { ...f, ...patch };
     setF(next);
     setPage(1);
-    bulk.clear();
     router.replace(`/tenants${toQuery(next)}${toQuery(next) ? "&" : "?"}sort=${sort.key}&dir=${sort.dir}`, { scroll: false });
   };
   const clearAll = () => update({ ...EMPTY });
@@ -127,23 +118,13 @@ function AdminTenantsPageInner() {
   const cancelled = stats.data?.cancelled_tenants ?? "—";
   const closeCreate = () => { setShowCreate(false); setSelectedPrice(""); setCreatedTenant(null); setNotice(null); setForm({ name: "", slug: "", owner_full_name: "", owner_email: "", phone: "", city: "", country: "Rwanda" }); };
 
+  // Suspending and archiving need a reason and a typed confirmation, so they live on the business's Operations tab.
+  // Approving or reactivating needs neither, so it still happens in place.
   const toggleStatus = (t: AdminTenant) => {
-    const run = () => {
-      setActing(t.id);
-      const done = { onError: () => setError(`Failed to ${t.is_active ? "suspend" : "activate"} tenant`), onSettled: () => setActing(null) };
-      if (t.is_active) suspendTenant.mutate(t.id, done); else activateTenant.mutate({ id: t.id }, done);
-    };
-    if (t.is_active) confirm({ title: "Suspend organization?", message: `Suspend "${t.name}"? This logs out everyone in the company immediately.`, confirmLabel: "Suspend", danger: true, onConfirm: run });
-    else run();
+    if (t.is_active) { router.push(`/tenants/${t.id}?tab=operations`); return; }
+    setActing(t.id);
+    activateTenant.mutate({ id: t.id }, { onError: () => setError("Failed to activate tenant"), onSettled: () => setActing(null) });
   };
-  const remove = (t: AdminTenant) => confirm({
-    title: "Delete organization?", confirmText: t.name.trim(), message: `Archive "${t.name}" and disable access? Records will be retained.`, confirmLabel: "Delete", danger: true,
-    onConfirm: () => { setActing(t.id); deleteTenant.mutate(t.id, { onError: () => setError("Failed to delete tenant"), onSettled: () => setActing(null) }); },
-  });
-  const confirmBulkDelete = () => confirm({
-    title: "Delete organizations?", confirmText: pageRows.filter(t => bulk.selected.has(t.id)).map(t => t.name.trim()).join(", "), message: `Archive ${bulk.count} selected businesses and disable access? All records will be retained.`, confirmLabel: "Delete", danger: true,
-    onConfirm: async () => { setBulkDeleting(true); await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteTenant.mutateAsync(id))); setBulkDeleting(false); bulk.clear(); },
-  });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,7 +171,6 @@ function AdminTenantsPageInner() {
 
   return (
     <div className="space-y-5">
-      {confirmDialog}
       <PageHeader title="Tenants (Businesses)" subtitle="Manage all businesses on the Pesaa platform."
         actions={<>
           <Link href="/users"><Button variant="outline"><UserRound size={14} /> Search all users</Button></Link>
@@ -241,16 +221,13 @@ function AdminTenantsPageInner() {
         <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400"><AlertTriangle size={15} /> Failed to load tenants <button onClick={() => void active.refetch()} className="ml-auto font-semibold underline">Retry</button></div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          {bulk.count > 0 && <div className="border-b border-border px-5 py-3"><BulkActionBar count={bulk.count} label="organization" pluralLabel="organizations" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} /></div>}
           <TableScroll label="Tenants"><table className="w-full min-w-[1080px] text-left">
             <thead><tr className="border-b border-border bg-surface/50">
-              <th scope="col" className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select all on this page" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="h-4 w-4 rounded" disabled={pageRows.length === 0} /></th>
               {sortTh("name", "Business")}{sortTh("plan", "Plan")}{sortTh("users", "Users")}{th("Contact via")}{th("Branches")}{th("Status")}{th("Last active")}{sortTh("created", "Created")}{th("Country")}<th scope="col" aria-label="Actions" className="px-4 py-3" />
             </tr></thead>
             <tbody className="divide-y divide-border">
               {pageRows.map((t) => (
                 <tr key={t.id} className="group transition-colors hover:bg-surface/40">
-                  <td className="px-4 py-3"><input type="checkbox" aria-label={`Select ${t.name}`} checked={bulk.selected.has(t.id)} onChange={() => bulk.toggle(t.id)} className="h-4 w-4 rounded" /></td>
                   <td className="px-4 py-3"><Link href={`/tenants/${t.id}`} className="flex items-center gap-3"><TenantLogo name={t.name} src={resolveUploadUrl(t.logo_url)} /><span className="min-w-0"><span className="block truncate text-sm font-semibold text-foreground group-hover:text-accent">{t.name}</span><span className="block truncate font-mono text-[11px] text-muted">{t.slug}</span></span></Link></td>
                   <td className="px-4 py-3"><span className={`rounded-lg px-2 py-1 text-[11px] font-semibold capitalize ${PLAN_COLORS[t.subscription_plan] ?? "bg-surface text-muted"}`}>{stats.data?.plan_names?.[t.subscription_plan] ?? t.subscription_plan}</span></td>
                   <td className="px-4 py-3 text-[13px] font-semibold">{t.usage?.users ?? "—"}</td>
@@ -265,8 +242,10 @@ function AdminTenantsPageInner() {
                     <ActionMenu label={`More actions for ${t.name}`} items={[
                       { label: "View details", icon: <Eye size={14} />, onSelect: () => router.push(`/tenants/${t.id}`) },
                       { label: "Manage users", icon: <UsersIcon size={14} />, onSelect: () => router.push(`/tenants/${t.id}?tab=users`) },
-                      { label: t.is_active ? "Suspend" : t.subscription_status === "pending" ? "Approve" : "Reactivate", icon: <Power size={14} />, danger: t.is_active, disabled: !!t.archived_at, onSelect: () => toggleStatus(t) },
-                      { label: "Delete", icon: <Trash2 size={14} />, danger: true, onSelect: () => remove(t) },
+                      { label: t.is_active ? "Suspend access…" : t.subscription_status === "pending" ? "Approve" : "Reactivate", icon: <Power size={14} />, disabled: !!t.archived_at, onSelect: () => toggleStatus(t) },
+                      { label: "Send message", icon: <Bell size={14} />, onSelect: () => router.push(`/tenants/${t.id}?tab=operations`) },
+                      { label: "Export data", icon: <Download size={14} />, onSelect: () => router.push(`/tenants/${t.id}?tab=operations`) },
+                      { label: "Archive business…", icon: <Archive size={14} />, danger: true, disabled: !!t.archived_at, onSelect: () => router.push(`/tenants/${t.id}?tab=operations`) },
                     ]} />
                   </div></td>
                 </tr>

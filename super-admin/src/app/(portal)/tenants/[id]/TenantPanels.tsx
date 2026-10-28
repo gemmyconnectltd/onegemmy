@@ -11,7 +11,7 @@ import { useBillingOverview, useUsageTenant } from "@/lib/api/hooks";
 import { billingDate, billingMoney } from "@/components/billing/BillingShared";
 import { TenantStatusBadge } from "@/components/tenants/StatusBadge";
 
-export type PanelTab = "overview" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity";
+export type PanelTab = "overview" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = { sole: "Sole Proprietorship", partnership: "Partnership", llc: "Limited Liability (LLC)", unregistered: "Not Registered" };
 

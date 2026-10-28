@@ -1,4 +1,4 @@
-import { request, qs, downloadFilePost } from "./client";
+import { request, qs, downloadFile, downloadFilePost } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
 /** Attached only by listTenants (one batched query per page, not per tenant —
@@ -18,6 +18,9 @@ export interface AdminTenant {
   slug: string;
   is_active: boolean;
   archived_at?: string | null;
+  suspended_at?: string | null;
+  suspension_reason?: string | null;
+  reactivated_at?: string | null;
   subscription_plan: string;
   subscription_status: string;
   currency: string;
@@ -182,6 +185,14 @@ export interface TenantUsageDetail {
   recent_activity: { id: string; action: string; summary: string; actor: string | null; created_at: string | null }[];
 }
 export interface EngagementQuery { page: number; q: string; status: string; sort: string; dir: string }
+
+// ── Tenant lifecycle ──
+export interface NotificationInput { kind: "announcement" | "billing" | "maintenance" | "security"; audience: "owner" | "admins" | "selected" | "all"; user_ids: string[]; subject: string; message: string; action_url?: string }
+export interface NotificationRecord { id: string; kind: string; audience: string; subject: string; status: string; recipients: number; sent: number; failed: number; created_at: string }
+export interface ExportInput { categories: string[]; fmt: "csv" | "xlsx" | "zip"; date_from?: string; date_to?: string }
+export interface ExportRecord { id: string; categories: string[]; format: string; requested_by: string | null; created_at: string; downloads: number; last_downloaded_at: string | null }
+export interface ArchiveRequest { id: string; status: "pending" | "executed" | "rejected" | "cancelled"; reason: string; requested_by_id: string | null; requested_by: string | null; created_at: string; decided_at: string | null; decision_note: string | null; checks: { warnings?: string[]; completed_orders?: number; last_export_at?: string | null } }
+export interface ArchiveOverview { archived_at: string | null; requests: ArchiveRequest[] }
 
 export interface AdminUser {
   id: string;
@@ -588,12 +599,22 @@ export const adminApi = {
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}`),
   updateTenant: (id: string, data: Partial<AdminTenant>) =>
     request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  suspendTenant: (id: string) =>
-    request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/suspend`, { method: "POST" }),
-  activateTenant: (id: string) =>
-    request<SingleResponse<AdminTenant>>(`${B}/tenants/${id}/activate`, { method: "POST" }),
-  deleteTenant: (id: string) =>
-    request<SingleResponse<unknown>>(`${B}/tenants/${id}`, { method: "DELETE" }),
+  suspendTenant: (id: string, body: { reason: string; confirm_name: string; notify_owner: boolean }) =>
+    request<SingleResponse<{ notified_owner: boolean }>>(`${B}/tenants/${id}/suspend`, { method: "POST", body: JSON.stringify(body) }),
+  activateTenant: (id: string, note = "") =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${id}/activate`, { method: "POST", body: JSON.stringify({ note }) }),
+  sendNotification: (id: string, body: NotificationInput) =>
+    request<SingleResponse<{ id: string; status: string; sent: number; failed: number; recipients: number }>>(`${B}/tenants/${id}/notifications`, { method: "POST", body: JSON.stringify(body) }),
+  notifications: (id: string) => request<SingleResponse<NotificationRecord[]>>(`${B}/tenants/${id}/notifications`),
+  requestExport: (id: string, body: ExportInput) =>
+    request<SingleResponse<{ id: string; expires_at: string; download_url: string }>>(`${B}/tenants/${id}/exports`, { method: "POST", body: JSON.stringify(body) }),
+  downloadExport: (url: string) => downloadFile(url, "export.zip"),
+  exports: (id: string) => request<SingleResponse<ExportRecord[]>>(`${B}/tenants/${id}/exports`),
+  archiveRequests: (id: string) => request<SingleResponse<ArchiveOverview>>(`${B}/tenants/${id}/deletion-requests`),
+  requestArchive: (id: string, body: { reason: string; confirm_name: string; acknowledge: boolean }) =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${id}/deletion-requests`, { method: "POST", body: JSON.stringify(body) }),
+  decideArchive: (id: string, requestId: string, action: "approve" | "reject" | "cancel", note = "") =>
+    request<SingleResponse<unknown>>(`${B}/tenants/${id}/deletion-requests/${requestId}/${action}`, { method: "POST", body: JSON.stringify({ note }) }),
   resetTenantData: (id: string, confirmName: string) =>
     request<SingleResponse<{ deleted: Record<string, number> }>>(`${B}/tenants/${id}/reset-data`, {
       method: "POST",
@@ -642,6 +663,6 @@ export const adminApi = {
     request<SingleResponse<TenantLimits>>(`${B}/tenants/${tenantId}/limits`),
   setTenantLimits: (tenantId: string, data: TenantLimits) =>
     request<SingleResponse<TenantLimits>>(`${B}/tenants/${tenantId}/limits`, { method: "PATCH", body: JSON.stringify(data) }),
-  resetUserPassword: (tenantId: string, userId: string) =>
-    request<SingleResponse<{ user_id: string; email: string; full_name: string; temp_password: string }>>(`${B}/tenants/${tenantId}/users/${userId}/reset-password`, { method: "POST" }),
+  sendRecoveryLink: (tenantId: string, userId: string) =>
+    request<SingleResponse<{ email: string }>>(`${B}/tenants/${tenantId}/users/${userId}/recovery-link`, { method: "POST" }),
 };

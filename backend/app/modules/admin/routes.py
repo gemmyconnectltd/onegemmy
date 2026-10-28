@@ -9,9 +9,8 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.deps import DbSession, SuperUser
-from app.core.email import send_account_approved_email, send_invite_email
+from app.core.email import send_invite_email
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.core.logging import get_logger
 from app.core.pagination import PageQuery
@@ -646,64 +645,6 @@ async def admin_update_tenant(tenant_id: uuid.UUID, data: TenantUpdate, db: DbSe
     return success_response(data=tenant.model_dump(), message="Tenant updated")
 
 
-@router.post("/tenants/{tenant_id}/suspend")
-async def admin_suspend_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
-    tenant = await service.update_tenant(db, tenant_id, TenantUpdate(is_active=False))
-    await record_audit(
-        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
-        action="tenant.suspend", entity_type="tenant", entity_id=str(tenant_id),
-        summary=f"Tenant '{tenant.name}' suspended",
-    )
-    await db.commit()
-    invalidate_analytics_cache()
-    return success_response(data=tenant.model_dump(), message="Tenant suspended")
-
-
-@router.post("/tenants/{tenant_id}/activate")
-async def admin_activate_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
-    existing = await db.get(Tenant, tenant_id)
-    if existing is not None and existing.archived_at is not None:
-        raise ValidationError("Archived businesses cannot be activated")
-    was_pending_signup = existing is not None and existing.subscription_status == "pending"
-    update = TenantUpdate(is_active=True, subscription_status="active") if was_pending_signup else TenantUpdate(is_active=True)
-    tenant = await service.update_tenant(db, tenant_id, update)
-    await record_audit(
-        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
-        action="tenant.activate", entity_type="tenant", entity_id=str(tenant_id),
-        summary=f"Tenant '{tenant.name}' activated",
-    )
-    await db.commit()
-
-    if was_pending_signup:
-        owner = (await db.execute(
-            select(User).where(User.tenant_id == tenant_id, User.role == "owner")
-        )).scalar_one_or_none()
-        if owner:
-            await send_account_approved_email(
-                to=owner.email,
-                full_name=owner.full_name,
-                tenant_name=tenant.name,
-                dashboard_url=f"{settings.FRONTEND_URL}/dashboard",
-                sender="admin",
-            )
-    invalidate_analytics_cache()
-    return success_response(data=tenant.model_dump(), message="Tenant activated")
-
-
-@router.delete("/tenants/{tenant_id}")
-async def admin_delete_tenant(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
-    tenant = await service.get_by_id(db, tenant_id)
-    await service.archive_tenant(db, tenant_id)
-    await record_audit(
-        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
-        action="tenant.delete", entity_type="tenant", entity_id=str(tenant_id),
-        summary=f"Tenant '{tenant.name}' archived; records retained",
-    )
-    await db.commit()
-    invalidate_analytics_cache()
-    return success_response(message="Tenant archived; all records retained")
-
-
 class ResetTenantDataRequest(BaseModel):
     confirm_name: str
 
@@ -1006,24 +947,3 @@ async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db:
     await db.commit()
     invalidate_analytics_cache()
     return success_response(message="User removed")
-
-
-@router.post("/tenants/{tenant_id}/users/{user_id}/reset-password")
-async def admin_reset_tenant_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, admin: SuperUser):
-    user = await db.get(User, user_id)
-    if not user or user.tenant_id != tenant_id:
-        raise NotFoundError("User not found in tenant")
-    temp_password = secrets.token_urlsafe(12)
-    user.hashed_password = hash_password(temp_password)
-    await UserRepository(db).save(user)
-    await record_audit(
-        db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
-        action="user.password_reset", entity_type="user", entity_id=str(user_id),
-        summary=f"Password reset for '{user.email}'",
-    )
-    await db.commit()
-    log.info("admin.reset_password.success", extra={"_extra_fields": {"tenant_id": str(tenant_id), "user_id": str(user_id)}})
-    return success_response(
-        data={"user_id": str(user.id), "email": user.email, "full_name": user.full_name, "temp_password": temp_password},
-        message="Password reset successfully",
-    )

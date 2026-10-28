@@ -154,9 +154,8 @@ export const useTenantBranches = (id: string | undefined, opts?: QueryOpts) =>
 
 export const useCreateTenant = mutation((d: Parameters<typeof adminApi.createTenant>[0]) => adminApi.createTenant(d), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
 export const useUpdateTenant = mutation(({ id, data }: { id: string; data: Parameters<typeof adminApi.updateTenant>[1] }) => adminApi.updateTenant(id, data), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
-export const useSuspendTenant = mutation((id: string) => adminApi.suspendTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
+export const useSuspendTenant = mutation(({ id, body }: { id: string; body: Parameters<typeof adminApi.suspendTenant>[1] }) => adminApi.suspendTenant(id, body), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
 export const useActivateTenant = mutation(({ id }: { id: string }) => adminApi.activateTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
-export const useDeleteTenant = mutation((id: string) => adminApi.deleteTenant(id), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
 export const useResetTenantData = mutation(({ id, confirmName }: { id: string; confirmName: string }) => adminApi.resetTenantData(id, confirmName), [[...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS], ["admin", "feature-usage"], ["admin", "tenant-analytics"], ["admin", "usage-breakdown"]]);
 export const useInviteUser = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.inviteUser>[1] }) => adminApi.inviteUser(tenantId, data), [[...TENANTS], [...ADMIN_ANALYTICS]]);
 export const useDeleteUser = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.deleteUser(tenantId, userId), [[...TENANTS], [...ADMIN_ANALYTICS]]);
@@ -179,7 +178,7 @@ export const useTenantLimits = (id: string | undefined, opts?: QueryOpts) =>
 export const useSetTenantFeatures = mutation(({ tenantId, features }: { tenantId: string; features: Record<string, boolean> }) => adminApi.setTenantFeatures(tenantId, { features }), [[...TENANTS]]);
 export const useResetTenantFeatures = mutation((tenantId: string) => adminApi.resetTenantFeatures(tenantId), [[...TENANTS]]);
 export const useSetTenantLimits = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.setTenantLimits>[1] }) => adminApi.setTenantLimits(tenantId, data), [[...TENANTS]]);
-export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.resetUserPassword(tenantId, userId), [[...TENANTS]]);
+export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.sendRecoveryLink(tenantId, userId), [[...TENANTS]]);
 
 // ── Platform currency ───────────────────────────────────────────────────────────────────────────
 
@@ -251,3 +250,12 @@ export const useUsageSales = (currency: string, period: UsagePeriod, f: { page: 
   useQ(["admin", "usage", "sales", currency, period, f], () => adminApi.usageSales(currency, period, f), (r) => r.data, opts);
 export const useUsageTenant = (id: string, opts?: QueryOpts) =>
   useQ(["admin", "usage", "tenant", id], () => adminApi.usageTenant(id), (r) => r.data, opts);
+
+const OPS = [["admin", "tenant-ops"]] as unknown as unknown[][];
+export const useTenantNotifications = (id: string, opts?: QueryOpts) => useQ(["admin", "tenant-ops", "notifications", id], () => adminApi.notifications(id), (r) => r.data, opts);
+export const useSendTenantNotification = mutation(({ id, body }: { id: string; body: Parameters<typeof adminApi.sendNotification>[1] }) => adminApi.sendNotification(id, body), OPS);
+export const useTenantExports = (id: string, opts?: QueryOpts) => useQ(["admin", "tenant-ops", "exports", id], () => adminApi.exports(id), (r) => r.data, opts);
+export const useRequestTenantExport = mutation(({ id, body }: { id: string; body: Parameters<typeof adminApi.requestExport>[1] }) => adminApi.requestExport(id, body), OPS);
+export const useArchiveRequests = (id: string, opts?: QueryOpts) => useQ(["admin", "tenant-ops", "archive", id], () => adminApi.archiveRequests(id), (r) => r.data, opts);
+export const useRequestArchive = mutation(({ id, body }: { id: string; body: Parameters<typeof adminApi.requestArchive>[1] }) => adminApi.requestArchive(id, body), [...OPS, [...TENANTS]]);
+export const useDecideArchive = mutation(({ id, requestId, action, note }: { id: string; requestId: string; action: "approve" | "reject" | "cancel"; note?: string }) => adminApi.decideArchive(id, requestId, action, note), [...OPS, [...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
