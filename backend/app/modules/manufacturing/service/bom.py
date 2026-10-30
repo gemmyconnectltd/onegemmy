@@ -38,7 +38,12 @@ async def _build_items(
     db: AsyncSession, tenant_id: uuid.UUID, bom_id: uuid.UUID, items: list[BomItemCreate]
 ) -> list[BillOfMaterialItem]:
     created: list[BillOfMaterialItem] = []
+    seen: set[uuid.UUID] = set()
     for item_data in items:
+        if item_data.component_product_id is not None:
+            if item_data.component_product_id in seen:
+                raise ValidationError("A component can only be listed once. Combine the quantities into a single row.")
+            seen.add(item_data.component_product_id)
         name = await _resolve_product(db, tenant_id, item_data.component_product_id, item_data.component_product_name)
         if item_data.component_product_id is None and name is None:
             raise ValidationError("Each component must reference a product or provide a name")
@@ -77,7 +82,8 @@ async def update_bom(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data
         raise NotFoundError("Bill of materials not found")
 
     payload = data.model_dump(exclude_unset=True)
-    items = payload.pop("items", None)
+    payload.pop("items", None)
+    items = data.items
     if "product_id" in payload or "product_name" in payload:
         product_id = payload.get("product_id", obj.product_id)
         fallback = payload.get("product_name", obj.product_name)

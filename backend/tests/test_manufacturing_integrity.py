@@ -62,3 +62,24 @@ async def test_aggregate_shortage_and_completed_create_cannot_bypass_stock(db):
         await complete_production_order(db, tenant.id, order.id)
     assert await db.scalar(select(Product.stock).where(Product.id == raw.id)) == 10
     assert await db.scalar(select(Product.stock).where(Product.id == finished.id)) == 0
+
+
+async def test_bom_edit_replaces_components_and_rejects_duplicates(db):
+    from app.modules.manufacturing.schemas import BomCreate, BomItemCreate, BomUpdate
+    from app.modules.manufacturing.service.bom import create_bom, update_bom
+
+    tenant, raw, finished = await factory(db)
+    bom = await create_bom(db, tenant.id, BomCreate(
+        name="Recipe", product_id=finished.id, items=[BomItemCreate(component_product_id=raw.id, quantity_required=1)],
+    ))
+    renamed = await update_bom(db, tenant.id, bom.id, BomUpdate(name="Recipe v2"))
+    assert renamed.name == "Recipe v2" and len(renamed.items) == 1
+    changed = await update_bom(db, tenant.id, bom.id, BomUpdate(
+        items=[BomItemCreate(component_product_id=raw.id, quantity_required=4)],
+    ))
+    assert [i.quantity_required for i in changed.items] == [4]
+    duplicate = [BomItemCreate(component_product_id=raw.id), BomItemCreate(component_product_id=raw.id)]
+    with pytest.raises(ValidationError):
+        await update_bom(db, tenant.id, bom.id, BomUpdate(items=duplicate))
+    with pytest.raises(ValidationError):
+        await create_bom(db, tenant.id, BomCreate(name="Dup", items=duplicate))

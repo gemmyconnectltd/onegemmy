@@ -167,7 +167,7 @@ async def _complete(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Pr
         if product.stock < quantity:
             raise ValidationError(
                 f"Insufficient stock for component '{product.name}': "
-                f"{product.stock} available, {quantity} required"
+                f"{product.stock:g} available, {quantity:g} required"
             )
     for item in obj.items:
         if item.product_id is None:
