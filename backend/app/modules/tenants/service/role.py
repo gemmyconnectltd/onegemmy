@@ -15,6 +15,7 @@ from app.modules.tenants.schemas import RoleCreate, RoleRead, RoleUpdate
 # maps sidebar modules to a subset of these resources.
 _PERMISSION_RESOURCES = [
     "tenants", "users", "roles", "permissions", "departments", "branches", "billing",
+    "approvals",
     "items", "warehouses", "stock", "orders", "pricing", "returns",
     "invoices", "pos",
     "chart_of_accounts", "journal_entries", "accounts_payable",
@@ -34,7 +35,8 @@ _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 # users, roles and permissions. The default "Member"/"Viewer" roles exclude
 # these — only "Admin" (and the tenant owner, who bypasses role checks
 # entirely via is_superuser) can manage who else has access.
-_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "billing"}
+# "approvals": whoever decides requests is chosen deliberately (granted on a role), never handed out by a template.
+_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "billing", "approvals"}
 
 # What an invite's free-text role ("admin"/"member"/"viewer", whatever the
 # inviter typed or picked) maps to among the seeded defaults. Unrecognized
@@ -56,6 +58,10 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
         "requisitions": ("create", "read"), "purchase_orders": ("read",), "goods_receipt": _CRUD,
     }),
 }
+
+# The roles every business is given. They can be tuned (permissions) but never renamed or deleted.
+SYSTEM_ROLES = frozenset({"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager",
+                          "Cashier", "Accountant", "Inventory Officer"})
 
 _ROLE_NAME_ALIASES = {"cashier": "Cashier", "accountant": "Accountant", "inventory officer": "Inventory Officer", "admin": "Admin", "owner": "Admin", "member": "Member", "viewer": "Viewer",
                       "owner/ceo": "Owner/CEO", "general manager": "General Manager",
@@ -96,7 +102,10 @@ async def update_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID
     role = await RoleRepository(db).get_by_id_for_tenant(tenant_id, role_id)
     if role is None:
         raise NotFoundError("Role not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    if role.name in SYSTEM_ROLES and changes.get("name") not in (None, role.name):
+        raise ConflictError(f"{role.name} is a built-in role and can't be renamed. Create a custom role instead.")
+    for field, value in changes.items():
         setattr(role, field, value)
     role = await RoleRepository(db).save(role)
     await db.commit()
@@ -107,6 +116,14 @@ async def delete_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID
     role = await RoleRepository(db).get_by_id_for_tenant(tenant_id, role_id)
     if role is None:
         raise NotFoundError("Role not found")
+    if role.name in SYSTEM_ROLES:
+        raise ConflictError(f"{role.name} is a built-in role and can't be deleted.")
+    from sqlalchemy import func
+
+    from app.modules.tenants.models import User
+    assigned = (await db.execute(select(func.count()).select_from(User).where(User.tenant_id == tenant_id, User.role_id == role_id))).scalar_one()
+    if assigned:
+        raise ConflictError(f"{assigned} {'person has' if assigned == 1 else 'people have'} this role. Move them to another role first.")
     await RoleRepository(db).delete(role)
     await db.commit()
 
@@ -206,7 +223,7 @@ async def review_roles(db: AsyncSession, tenant_id: uuid.UUID) -> list[dict]:
         out.append({
             "id": str(r.id), "name": r.name, "users": counts.get(r.id, 0), "permissions": len(r.permissions),
             "deletePermissions": sum(n.endswith(":delete") for n in names), "approvePermissions": sum(n.endswith(":approve") for n in names),
-            "builtIn": r.name in {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager", "Cashier", "Accountant", "Inventory Officer"},
+            "builtIn": r.name in SYSTEM_ROLES,
             "canTighten": r.name == "Member" and any(n.endswith((":delete", ":approve")) for n in names),
         })
     return out

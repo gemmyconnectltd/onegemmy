@@ -44,7 +44,7 @@ export function ConfirmDialog({
         </div>
       }
     >
-      <div className="px-5 py-4 space-y-3"><p className="text-sm text-muted leading-relaxed">{message}</p>{confirmText && <label className="block text-sm">Type <strong>{confirmText}</strong> to confirm<input className="mt-2 w-full rounded-lg border border-border bg-surface p-2" aria-label="Business name confirmation" value={typed} onChange={e => setTyped(e.target.value)} autoComplete="off" /></label>}</div>
+      <div className="px-5 py-4 space-y-3"><p className="text-sm text-muted leading-relaxed">{message}</p>{confirmText && <label className="block text-sm">Type <strong>{confirmText}</strong> to confirm<input className="mt-2 w-full rounded-lg border border-border bg-surface p-2" aria-label={`Type ${confirmText} to confirm`} value={typed} onChange={e => setTyped(e.target.value)} autoComplete="off" /></label>}</div>
     </Drawer>
   );
 }

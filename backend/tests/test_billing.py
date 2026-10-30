@@ -65,6 +65,10 @@ def test_client_prices_and_tenant_admin_are_not_platform_authority():
 
 @pytest.fixture
 async def billing(db, monkeypatch):
+    from app.core.config import settings
+    # These tests are about the subscription rules themselves, which are off by default.
+    monkeypatch.setattr(settings, "ENFORCE_SUBSCRIPTION_WRITE_BLOCK", True)
+    monkeypatch.setattr(settings, "ENFORCE_PLAN_ENTITLEMENTS", True)
     monkeypatch.setattr(
         BillingRepository,
         "catalog",
@@ -680,3 +684,18 @@ async def test_plan_modules_grant_access_without_allowing_override_escalation(bi
     b.tenant.features = {"hr": False}
     await b.db.commit()
     assert (await get_effective_features(b.db, b.tenant.id))["hr"] is False
+
+
+@pytest.mark.db
+async def test_with_the_write_block_off_a_suspended_subscription_blocks_nothing(billing, monkeypatch):
+    """The current default: subscription state (suspended, expired, unpaid) never stops a business changing its own data."""
+    from app.core.config import settings
+    b = billing
+    await subscribe(b, await b.plan(trial_days=7))
+    sub = await BillingRepository(b.db).subscription(b.tenant.id)
+    sub.status = "suspended"
+    await b.db.flush()
+    with pytest.raises(ForbiddenError):  # the rule, when it is turned on
+        await enforce_write(b.db, b.tenant.id, "/api/v1/tenants/sales/orders", "POST")
+    monkeypatch.setattr(settings, "ENFORCE_SUBSCRIPTION_WRITE_BLOCK", False)
+    await enforce_write(b.db, b.tenant.id, "/api/v1/tenants/sales/orders", "POST")  # off: nothing is blocked

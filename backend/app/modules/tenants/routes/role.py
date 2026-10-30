@@ -48,6 +48,23 @@ async def tighten_role(role_id: uuid.UUID, db: DbSession, current_user: CurrentU
     return success_response(data={"removed": removed}, message="Member role tightened")
 
 
+@router.post("/roles/seed-defaults")
+async def seed_default_roles_route(db: DbSession, current_user: CurrentUser):
+    """Adds the built-in roles this business doesn't have yet (Branch Manager, Cashier ...). Roles it already has are left exactly as they are."""
+    from app.modules.audit.service import record_audit
+    from app.modules.tenants.repository import RoleRepository
+
+    before = {r.name for r in await RoleRepository(db).template_roles(current_user.tenant_id)}
+    await service.seed_default_roles(db, current_user.tenant_id)
+    after = {r.name for r in await RoleRepository(db).template_roles(current_user.tenant_id)}
+    added = sorted(after - before)
+    if added:
+        await record_audit(db, tenant_id=current_user.tenant_id, actor_user_id=current_user.id, actor_name=current_user.full_name, action="role.defaults_added",
+                           entity_type="role", summary=f"Added built-in roles: {', '.join(added)}", changes={"added": added})
+    await db.commit()
+    return success_response(data={"added": added}, message="Built-in roles added" if added else "Your business already has every built-in role")
+
+
 @router.post("/roles")
 async def create_role(data: RoleCreate, db: DbSession, current_user: CurrentUser):
     role = await service.create_role(db, current_user.tenant_id, data)

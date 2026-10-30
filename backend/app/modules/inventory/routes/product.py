@@ -72,7 +72,8 @@ async def get_product(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
 @router.patch("/inventory/products/{id}")
 async def update_product(id: uuid.UUID, data: ProductUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.update_product(db, current_user.tenant_id, id, data)
+    from app.modules.approvals.service import can_decide
+    obj = await service.update_product(db, current_user.tenant_id, id, data, can_approve=can_decide(current_user))
     return success_response(data=obj.model_dump(), message="Product updated successfully")
 
 

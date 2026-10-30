@@ -12,6 +12,7 @@ import {
   useTenantLimits,
 } from "@/lib/api/hooks";
 import { Field, Input } from "@/components/ui/Form";
+import { Badge } from "@/components/ui/Badge";
 import { Toggle } from "@/components/ui/Toggle";
 
 const LIMIT_FIELDS: { key: keyof TenantLimits; label: string; hint: string; placeholder: string }[] = [
@@ -38,8 +39,10 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
   const [draftTouched, setDraftTouched] = useState(false);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
-  const enabledMap = useMemo(() => {
-    const base = features ? Object.fromEntries(features.map((f) => [f.key, f.enabled])) : {};
+  // The switch is Pesaa's own: "allowed" unless Pesaa has restricted the module for this business. It never reflects, and never
+  // writes, the business's own on/off choice or what the plan includes.
+  const allowedMap = useMemo(() => {
+    const base = features ? Object.fromEntries(features.map((f) => [f.key, !f.restricted])) : {};
     return { ...base, ...dirty };
   }, [features, dirty]);
 
@@ -47,7 +50,8 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
     if (!features) return {};
     const out: Record<string, boolean> = {};
     for (const f of features) {
-      if (map[f.key] !== f.default_enabled) out[f.key] = map[f.key];
+      if (map[f.key] === false) out[f.key] = false;
+      else if (f.overridden && !f.restricted) out[f.key] = true; // keep an existing grant exactly as it was
     }
     return out;
   };
@@ -57,12 +61,12 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
     setDirty(next);
     setNotice(null);
     setFeatures.mutate(
-      { tenantId, features: overridesFor({ ...enabledMap, [key]: value }) },
+      { tenantId, features: overridesFor({ ...allowedMap, [key]: value }) },
       {
         onSuccess: (res) => {
           queryClient.setQueryData(featuresKey, res);
           setDirty({});
-          setNotice({ kind: "success", text: "Features updated" });
+          setNotice({ kind: "success", text: "Restrictions updated" });
         },
         onError: () => {
           setDirty({});
@@ -78,7 +82,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
       onSuccess: (res) => {
         queryClient.setQueryData(featuresKey, res);
         setDirty({});
-        setNotice({ kind: "success", text: "Features reset to platform defaults" });
+        setNotice({ kind: "success", text: "All restrictions removed. The business's own choices are unchanged" });
       },
       onError: () => setNotice({ kind: "error", text: "Failed to reset features" }),
     });
@@ -142,7 +146,8 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
           <div>
             <h2 className="text-sm font-bold text-foreground">Module Access</h2>
             <p className="text-[11px] text-muted mt-0.5">
-              Toggle which ERP modules this company can use. Changes apply immediately.
+              What this business&apos;s plan includes, whether Pesaa allows each module, and what the business chose. The switch below is Pesaa&apos;s
+              restriction only; it never changes the business&apos;s own on/off choice. Changes apply immediately.
             </p>
           </div>
           <button
@@ -151,7 +156,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
             className="flex items-center gap-1.5 text-[12px] font-semibold text-muted hover:text-foreground transition-colors disabled:opacity-50"
           >
             <RotateCcw size={13} className={resetFeatures.isPending ? "animate-spin" : ""} />
-            Reset to defaults
+            Remove all restrictions
           </button>
         </div>
         {featuresLoading ? (
@@ -168,17 +173,18 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface text-muted uppercase tracking-wide">
                       {f.module}
                     </span>
-                    {f.overridden && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent uppercase tracking-wide">
-                        Overridden
-                      </span>
-                    )}
+                    <Badge tone={f.status === "enabled" ? "green" : f.status === "restricted" ? "red" : f.status === "available" ? "slate" : "amber"} dot>
+                      {{ enabled: "In use", available: "Turned off by business", not_included: "Not in plan", restricted: "Restricted by Pesaa" }[f.status]}
+                    </Badge>
                   </div>
                   {f.description && <p className="text-[11px] text-muted mt-0.5">{f.description}</p>}
+                  <p className="text-[11px] text-muted mt-0.5">
+                    Plan: {f.included ? "included" : "not included"} · Pesaa: {f.restricted ? "restricted" : "allowed"} · Business: {f.business_off ? "turned off" : "on"}
+                  </p>
                 </div>
                 <Toggle
-                  checked={enabledMap[f.key] ?? false}
-                  label={`${f.name} module`}
+                  checked={allowedMap[f.key] ?? true}
+                  label={`Allow ${f.name} for this business`}
                   disabled={setFeatures.isPending}
                   onChange={(v) => handleToggle(f.key, v)}
                 />

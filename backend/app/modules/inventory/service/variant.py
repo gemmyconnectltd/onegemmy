@@ -66,13 +66,17 @@ async def create_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uui
     return VariantRead.model_validate(obj)
 
 
-async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID, data: VariantUpdate) -> VariantRead:
+async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID, data: VariantUpdate, can_approve: bool = True) -> VariantRead:
     await _get_product_or_404(db, tenant_id, product_id)
     repo = VariantRepository(db)
     obj = await repo.get_by_id_for_product(product_id, id)
     if obj is None:
         raise NotFoundError("Variant not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    from app.modules.approvals.service import guard_direct_change
+    guard_direct_change({"price": obj.price, "promo_price": obj.promo_price, "stock": obj.stock}, updates, can_approve,
+                        {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"})
+    for field, value in updates.items():
         setattr(obj, field, value)
     await repo.save(obj)
     await db.commit()

@@ -1,11 +1,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, UploadFile
+from pydantic import BaseModel
 
 from app.core.deps import CurrentUser, DbSession, require_permission
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
+from app.modules.audit.service import record_audit
 from app.modules.tenants import service
 from app.modules.tenants.schemas import TenantCreate, TenantUpdate
 
@@ -68,15 +70,44 @@ async def get_current_tenant(db: DbSession, current_user: CurrentUser):
 async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUser):
     """Effective feature flags + usage limits for the current tenant."""
     if current_user.tenant_id is None:
-        features, limits = {}, {}
+        features, limits, modules = {}, {}, {}
     else:
-        features = await service.get_effective_features(db, current_user.tenant_id)
+        modules = await service.resolve_modules(db, current_user.tenant_id)
+        features = {k: v == "enabled" for k, v in modules.items()}
         limits_data = await service.get_tenant_limits(db, current_user.tenant_id)
         limits = limits_data.model_dump()
     return success_response(
-        data={"features": features, "limits": limits},
+        data={"features": features, "modules": modules, "limits": limits},
         message="Current company entitlements retrieved successfully",
     )
+
+
+class ModuleActivation(BaseModel):
+    enabled: bool
+
+
+@router.get("/me/modules")
+async def get_my_modules(db: DbSession, current_user: CurrentUser):
+    """The plan and every module's state for the signed-in business (see service.resolve_modules)."""
+    if current_user.tenant_id is None:
+        raise ForbiddenError("Modules belong to a business account")
+    return success_response(data=await service.my_modules(db, current_user.tenant_id), message="Modules retrieved")
+
+
+@router.patch("/me/modules/{key}", dependencies=[Depends(require_permission("tenants:update"))])
+async def set_my_module(key: str, data: ModuleActivation, db: DbSession, current_user: CurrentUser):
+    """The business administrator turns a module their plan includes on or off. Data is never deleted."""
+    if current_user.tenant_id is None:
+        raise ForbiddenError("Modules belong to a business account")
+    result = await service.set_module_activation(db, current_user.tenant_id, key, data.enabled)
+    await record_audit(
+        db, tenant_id=current_user.tenant_id, actor_user_id=current_user.id,
+        actor_name=current_user.full_name or current_user.email,
+        action="tenant.module.enable" if data.enabled else "tenant.module.disable", entity_type="module", entity_id=key,
+        summary=f"Module {key} turned {'on' if data.enabled else 'off'}", changes={"enabled": data.enabled},
+    )
+    await db.commit()
+    return success_response(data=result, message="Module updated")
 
 
 @router.get("/{tenant_id}")

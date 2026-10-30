@@ -8,12 +8,15 @@ from app.core.exceptions import ForbiddenError
 
 async def inventory_access(request: Request, user: CurrentUser) -> None:
     path = request.url.path
-    if "/transfers" in path and has_branch_restriction(user):
+    # A person limited to some branches may START a transfer that involves their branch (the route checks that): it always waits for
+    # an approval, so company-wide stock is never moved on their say-so. Everything else about transfers stays with company-wide users.
+    starts_transfer = request.method == "POST" and path.rstrip("/").endswith("/inventory/transfers")
+    if "/transfers" in path and has_branch_restriction(user) and not starts_transfer:
         raise ForbiddenError("Stock transfers currently use company-wide stock. Ask an owner with company-wide access to manage this transfer.")
     action = {"GET": "read", "POST": "create", "PATCH": "update", "PUT": "update",
               "DELETE": "delete"}.get(request.method, "read")
     stock_operation = any(part in path for part in ("/restock", "/transfers", "/reports/valuation", "/low-stock"))
-    if stock_operation and request.method != "GET" and has_branch_restriction(user):
+    if stock_operation and request.method != "GET" and has_branch_restriction(user) and not starts_transfer:
         raise ForbiddenError("Direct stock corrections use company-wide balances. Ask an owner with company-wide access to make this correction.")
     resource = "stock" if stock_operation else "items"
     await require_permission(f"{resource}:{action}")(user)

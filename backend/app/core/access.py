@@ -7,7 +7,7 @@ permission on one of that module's resources — the same module→resource map 
 also refuses. A few sensitive endpoints need an exact permission (see EXACT).
 
 - The business owner (`is_superuser` inside their tenant) and platform staff (no tenant) are not restricted here.
-- Reads are not gated by this dependency; they are covered by the dashboard / read-scope work.
+- Reads need some permission in the module (decide_read): a person whose role grants nothing there can't read it either.
 - The frontend hides what a user can't use, but this is the security boundary."""
 import re
 from collections.abc import Awaitable, Callable, Iterable
@@ -55,6 +55,14 @@ EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
     ("DELETE", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:delete",)),
 ]
 
+# Lookups other modules' screens legitimately read (staff pickers, customer pickers, VAT rates at the till). A read of these paths is
+# also allowed to people holding any permission in the listed resources, so hiding a module never breaks the screen that borrows from it.
+READ_ALSO: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
+    (re.compile(r"^/hr/employees"), ("services", "appointments", "queue", "service_commissions", "orders", "pos")),
+    (re.compile(r"^/sales/customers"), ("services", "appointments", "queue", "accounts_receivable", "accounts_payable", "repairs", "items")),
+    (re.compile(r"^/accounting/tax/rates"), ("orders", "pos", "invoices", "items")),
+]
+
 # POSTs that only compute or look something up and change nothing.
 READ_ONLY_POSTS = re.compile(r"(/calculate/|/search$|/preview$)")
 
@@ -80,10 +88,27 @@ def decide(module: str, method: str, path: str, permissions: Iterable[str]) -> t
     return allowed, f"a {'/'.join(sorted(actions))} permission in {module}"
 
 
+def decide_read(module: str, path: str, permissions: Iterable[str]) -> tuple[bool, str]:
+    """May a non-owner holding `permissions` read `path` in `module`? They need some permission (any action) on one of the module's
+    resources: the same test Access Management and the menu use, so what is hidden is also what the server refuses."""
+    held = {p.split(":", 1)[0] for p in permissions}
+    resources = set(MODULE_RESOURCES[module])
+    for pattern, extra in READ_ALSO:
+        if pattern.match(path):
+            resources |= set(extra)
+    return bool(held & resources), f"access to {module}"
+
+
 def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
     """Router-level dependency: refuses writes to `module` from users whose role grants no write permission there."""
     async def _check(request: Request, user: CurrentUser) -> None:
-        if request.method in ("GET", "HEAD", "OPTIONS") or user.tenant_id is None or user.is_superuser:
+        if user.tenant_id is None or user.is_superuser or request.method == "OPTIONS":
+            return
+        if request.method in ("GET", "HEAD"):
+            allowed, needed = decide_read(module, tenant_path(request.url.path), user.permissions_names)
+            if not allowed:
+                log.warning("access.denied", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "method": request.method, "path": request.url.path}})
+                raise ForbiddenError(f"You don't have access to this. Ask an administrator for {needed}.")
             return
         allowed, needed = decide(module, request.method, tenant_path(request.url.path), user.permissions_names)
         if not allowed:

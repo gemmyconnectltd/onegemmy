@@ -1,3 +1,5 @@
+import { accessApi, type AccessFilters } from "./access";
+import { branchWorkspaceApi, type BranchFilters } from "./branchWorkspace";
 import { companyRolesApi } from "./companyRoles";
 import { dailyReportsApi, type DailyFilters } from "./dailyReports";
 import { expenseWorkspaceApi, type ExpenseFilters, type ExpenseInput, type ExpenseCategory } from "./expenseWorkspace";
@@ -469,6 +471,17 @@ const CURRENT_TENANT = ["tenants", "me", "current"] as const;
 export const useMyEntitlements = (opts?: QueryOpts) =>
   useQ([...ENTITLEMENTS], () => tenantsApi.entitlements(), (r) => r.data, opts);
 
+const MODULES = ["tenants", "me", "modules"] as const;
+
+export const useMyModules = (opts?: QueryOpts) =>
+  useQ([...MODULES], () => tenantsApi.modules(), (r) => r.data, opts);
+
+/** Turning a module on or off changes what the sidebar and every guarded page allow, so both views refresh. */
+export const useSetMyModule = mutation(
+  ({ key, enabled }: { key: string; enabled: boolean }) => tenantsApi.setModule(key, enabled),
+  [[...MODULES], [...ENTITLEMENTS], ["users"], ["company-roles"]],
+);
+
 export const useCurrentTenant = (opts?: QueryOpts) =>
   useQ([...CURRENT_TENANT], () => tenantsApi.getCurrent(), (r) => r.data, opts);
 
@@ -595,6 +608,12 @@ export const useMyBranchStats = (id: string | undefined, opts?: QueryOpts) =>
 export const useCreateMyBranch = mutation((d: object) => branchesApi.create(d), [[...BRANCHES_KEY]]);
 export const useUpdateMyBranch = mutation(({ id, data }: { id: string; data: object }) => branchesApi.update(id, data), [[...BRANCHES_KEY]]);
 export const useDeleteMyBranch = mutation((id: string) => branchesApi.delete(id), [[...BRANCHES_KEY]]);
+// Branch workspace: they sit under the branches key, so every branch mutation (edit, create, delete, make main) refreshes them.
+export const useBranchOverview = (f: BranchFilters, opts?: QueryOpts) => useQ([...BRANCHES_KEY, "overview", f], () => branchWorkspaceApi.overview(f), (r) => r.data, opts);
+export const useBranchSales = (id: string | undefined, from: string | undefined, to: string | undefined, opts?: QueryOpts) =>
+  useQ([...BRANCHES_KEY, id, "sales", from ?? "", to ?? ""], () => branchWorkspaceApi.sales(id!, from, to), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useBranchActivity = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...BRANCHES_KEY, id, "activity"], () => branchWorkspaceApi.activity(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 export const useSetMainBranch = mutation((id: string) => branchesApi.setMain(id), [[...BRANCHES_KEY]]);
 
 export const useCreateTransfer = mutation((d: object) => transfersApi.create(d), [[...TRANSFERS_KEY]]);
@@ -867,8 +886,20 @@ export const useDailyBranchReport = (filters: DailyFilters, page: number) => use
 export const useCompanyRoles = (page: number) => useQ(["company-roles", page], () => companyRolesApi.list(page), (res) => res.data);
 export const useRolePermissions = (id: string | undefined) => useQ(["company-roles", id, "permissions"], () => companyRolesApi.permissions(id!), (res) => res.data, { enabled: !!id, placeholderData: undefined });
 export const usePermissionCatalog = (page: number) => useQ(["permission-catalog", page], () => companyRolesApi.catalog(page), (res) => res.data);
-export const useCreateCompanyRole = mutation((name: string) => companyRolesApi.create(name), [["company-roles"]]);
-export const useAssignRolePermissions = mutation(({id, permissions}: {id: string; permissions: string[]}) => companyRolesApi.assign(id, permissions), [["company-roles"], ["company-users"]]);
+export const useCreateCompanyRole = mutation(({name, description}: {name: string; description?: string}) => companyRolesApi.create(name, description), [["company-roles"]]);
+// A role's permissions decide what its holders can do, so anything derived from them (people's access, module access) refreshes too.
+const ROLE_INVALIDATIONS = [["company-roles"], ["company-users"], ["users"], [...["tenants", "me", "modules"]]];
+export const useAssignRolePermissions = mutation(({id, permissions}: {id: string; permissions: string[]}) => companyRolesApi.assign(id, permissions), ROLE_INVALIDATIONS);
+
+// Users → Access Management and Roles & Permissions.
+export const useAccessSummary = (f: AccessFilters, opts?: QueryOpts) => useQ(["users", "access", "summary", f], () => accessApi.summary(f), (r) => r.data, opts);
+export const useUserAccess = (id: string | undefined, opts?: QueryOpts) => useQ(["users", "access", "one", id], () => accessApi.user(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useRoleAccess = (id: string | undefined, opts?: QueryOpts) => useQ(["company-roles", "access", id], () => accessApi.role(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useRoleSummaries = (opts?: QueryOpts) => useQ(["company-roles", "summary"], () => accessApi.roles(), (r) => r.data, opts);
+export const useUpdateRole = mutation(({id, data}: {id: string; data: Parameters<typeof accessApi.updateRole>[1]}) => accessApi.updateRole(id, data), ROLE_INVALIDATIONS);
+export const useSeedDefaultRoles = mutation((_: void) => accessApi.seedDefaults(), ROLE_INVALIDATIONS);
+export const useDeleteCompanyRole = mutation((id: string) => accessApi.deleteRole(id), ROLE_INVALIDATIONS);
+export const useModuleDetail = (key: string | undefined, opts?: QueryOpts) => useQ(["tenants", "me", "modules", "detail", key], () => accessApi.module(key!), (r) => r.data, { ...opts, enabled: !!key && (opts?.enabled ?? true) });
 
 export const useCustomerProfile = (id: string, branch: string | null, tenant?: string | null) => useQ(["sales", "customers", tenant, "profile", id, branch], () => salesApi.customerProfile(id), r => r.data);
 export const useCustomerRecords = (id: string, section: CustomerSection, page: number, branch: string | null, enabled: boolean, tenant?: string | null) => useQ(["sales", "customers", tenant, "records", id, section, page, branch], () => salesApi.customerRecords(id, section, page), r => r.data, { enabled });

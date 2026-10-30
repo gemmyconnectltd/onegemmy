@@ -52,7 +52,8 @@ async def get_variant(product_id: uuid.UUID, id: uuid.UUID, db: DbSession, curre
 @router.patch("/inventory/products/{product_id}/variants/{id}")
 async def update_variant(product_id: uuid.UUID, id: uuid.UUID, data: VariantUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.update_variant(db, current_user.tenant_id, product_id, id, data)
+    from app.modules.approvals.service import can_decide
+    obj = await service.update_variant(db, current_user.tenant_id, product_id, id, data, can_approve=can_decide(current_user))
     return success_response(data=obj.model_dump(), message="Variant updated")
 
 

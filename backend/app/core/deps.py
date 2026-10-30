@@ -145,18 +145,26 @@ def require_feature(feature_key: str):
     """Gate a whole router (or route) behind a tenant feature flag.
 
     Platform superusers (no tenant) bypass the check so the /admin console
-    keeps working regardless of tenant entitlements.
+    keeps working regardless of tenant entitlements. A module the business's own administrator has turned off
+    (state "available") stays readable so history is never locked away, but takes no new writes.
     """
-    async def _check(db: DbSession, user: CurrentUser) -> User:
+    async def _check(request: Request, db: DbSession, user: CurrentUser) -> User:
         if user.tenant_id is None:
             return user
         from app.modules.tenants import service
 
-        if not await service.feature_enabled(db, user.tenant_id, feature_key):
-            log.warning("features.forbidden_disabled", extra={"_extra_fields": {
-                "tenant_id": str(user.tenant_id),
-                "feature": feature_key,
-            }})
-            raise ForbiddenError(f"{feature_key.replace('_', ' ').title()} is not enabled for your company. Ask an owner to check the subscription’s enabled modules.")
-        return user
+        status = await service.module_status(db, user.tenant_id, feature_key)
+        if status == "enabled" or (status == "available" and request.method in ("GET", "HEAD", "OPTIONS")):
+            return user
+        label = feature_key.replace("_", " ").title()
+        log.warning("features.forbidden_disabled", extra={"_extra_fields": {
+            "tenant_id": str(user.tenant_id),
+            "feature": feature_key,
+            "status": status,
+        }})
+        if status == "available":
+            raise ForbiddenError(f"{label} is turned off for your business. An administrator can turn it back on in Business Settings → Features & Modules.")
+        if status == "restricted":
+            raise ForbiddenError(f"{label} is currently restricted for your business. Contact Pesaa support.")
+        raise ForbiddenError(f"{label} is not part of your plan. An owner can upgrade in Subscription & Billing.")
     return _check

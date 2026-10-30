@@ -136,6 +136,15 @@ class Settings(BaseSettings):
     LOG_FILE: str | None = None
     LOG_FORMAT: str = "console"
 
+    # Whether a business's plan decides which modules it can use. Off for now: every module is available to every business and the
+    # plan changes nothing about features. Pesaa's own restrictions and each business's own on/off choice still apply. Turn it on
+    # (ENFORCE_PLAN_ENTITLEMENTS=true) to bring plan-based access back; no data changes either way.
+    ENFORCE_PLAN_ENTITLEMENTS: bool = False
+    # Whether an unpaid, lapsed or cancelled subscription (or a business that hasn't chosen a plan) blocks changes to its data
+    # ("Pay your plan invoice…", "Subscription is read-only…"). Off for now: subscription state blocks nothing. Turn it on
+    # (ENFORCE_SUBSCRIPTION_WRITE_BLOCK=true) to bring the rule back; invoices and subscriptions themselves are not touched.
+    ENFORCE_SUBSCRIPTION_WRITE_BLOCK: bool = False
+
     SEED_ADMIN_PASSWORD: str = "admin123"
     SEED_USER_PASSWORD: str = "user123"
     SEED_SUPER_ADMIN_PASSWORD: str = "superadmin123"

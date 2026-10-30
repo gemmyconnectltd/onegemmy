@@ -1,8 +1,10 @@
 import uuid
 
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.tenants.models import Branch
 from app.modules.tenants.repository import BranchRepository
 from app.modules.tenants.schemas import BranchCreate, BranchRead, BranchUpdate
@@ -51,6 +53,13 @@ async def update_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.
     branch = await BranchRepository(db).get_by_id_for_tenant(tenant_id, branch_id)
     if branch is None:
         raise NotFoundError("Branch not found")
+    if data.status and data.status != "active" and branch.status == "active":
+        if branch.is_main:
+            raise ValidationError("The main branch can't be deactivated. Make another branch the main one first.")
+        others = (await db.execute(select(func.count()).select_from(Branch).where(
+            Branch.tenant_id == tenant_id, Branch.id != branch_id, Branch.status == "active"))).scalar_one()
+        if others == 0:
+            raise ValidationError("This is your only active branch, so it can't be deactivated.")
     if data.status == "active" and branch.status != "active":
         from app.modules.tenants import service
         await service.enforce_limit(db, tenant_id, "max_branches", await count_branches(db, tenant_id), noun="branch")
@@ -71,7 +80,12 @@ async def delete_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.
         raise NotFoundError("Branch not found")
     if branch.is_main:
         raise ValidationError("Cannot delete the main branch. Set another branch as main first.")
-    await BranchRepository(db).delete(branch)
+    try:
+        await BranchRepository(db).delete(branch)
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise ConflictError("This branch has records attached to it (sales, expenses, transfers ...), so it can't be deleted. Deactivate it instead.") from None
     from app.modules.billing.worker import sync_usage
     await sync_usage(db, tenant_id)
     await db.commit()

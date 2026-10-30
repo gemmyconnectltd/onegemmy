@@ -1,7 +1,6 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
@@ -44,8 +43,9 @@ async def get_transfer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) ->
 async def create_transfer(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: StockTransferCreate
 ) -> StockTransferRead:
-    if data.from_branch_id and data.to_branch_id and data.from_branch_id == data.to_branch_id:
-        raise ValidationError("Source and destination branch must be different")
+    # No branch means the main store, so "main store to main store" is the same place just like a branch to itself.
+    if data.from_branch_id == data.to_branch_id:
+        raise ValidationError("Source and destination must be different places")
     if not data.items:
         raise ValidationError("A transfer needs at least one item")
     repo = TransferRepository(db)
@@ -125,10 +125,8 @@ async def delete_transfer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID)
 async def _apply_stock_movement(
     db: AsyncSession, tenant_id: uuid.UUID, transfer: StockTransfer
 ) -> None:
-    """Decrement stock for each item when a transfer is completed.
-    Stock is a single global quantity on the product/variant — we decrement
-    from source and increment at destination. If source stock would go
-    negative we raise a ValidationError before touching anything.
+    """Check a transfer can be completed. Stock is a single quantity on the product/variant, so a transfer between places changes
+    where stock is, not how much there is: the only rule is that the business holds enough of each item to move it.
     """
     # Validate all items have enough stock first
     for item in transfer.items:
@@ -146,14 +144,5 @@ async def _apply_stock_movement(
                     f"Not enough stock for '{item.product_name}' "
                     f"(available: {float(product.stock)}, requested: {float(item.quantity)})"
                 )
-
-    # Apply movements
-    for item in transfer.items:
-        if item.variant_id:
-            variant = await db.get(ProductVariant, item.variant_id)
-            if variant:
-                variant.stock = float(variant.stock) - float(item.quantity)
-        elif item.product_id:
-            product = await db.get(Product, item.product_id)
-            if product and product.tenant_id == tenant_id:
-                product.stock = float(product.stock) - float(item.quantity)
+    # Nothing is subtracted: stock is one quantity for the whole business, so moving it between branches (or to and from the
+    # main store) leaves the total unchanged. Completing a transfer used to take the quantity off that total and put it nowhere.

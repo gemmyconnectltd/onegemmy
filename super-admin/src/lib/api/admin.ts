@@ -276,6 +276,23 @@ export interface AdminBranch {
   updated_at: string | null;
 }
 
+export interface FeaturePlan { id: string; name: string; status: string }
+export interface FeatureRef { key: string; name: string }
+export interface DirectoryFeature {
+  key: string; name: string; module: string; description: string | null; default_enabled: boolean; is_active: boolean;
+  needs: FeatureRef[]; needed_by: FeatureRef[]; plans: FeaturePlan[];
+  /** Businesses whose plan includes it. */
+  entitled_tenants: number;
+  /** Entitled and not switched off by Pesaa or by the business. */
+  active_tenants: number;
+  /** Businesses with at least one record in the module (real use); null when the module has no table to count. */
+  using_tenants: number | null;
+}
+export interface FeatureDirectory { features: DirectoryFeature[]; total_tenants: number }
+export interface FeatureHistoryEntry { id: string; action: string; summary: string; actor: string | null; changes: Record<string, unknown> | null; at: string | null }
+export interface FeatureDetail extends DirectoryFeature { overridden_off_tenants: number; deactivated_by_tenant: number; history: FeatureHistoryEntry[] }
+export interface FeaturePatch { name?: string; description?: string | null; default_enabled?: boolean; is_active?: boolean; confirm_key?: string }
+
 export interface FeatureFlag {
   key: string;
   name: string;
@@ -291,8 +308,16 @@ export interface TenantFeatureState {
   module: string;
   description: string | null;
   default_enabled: boolean;
+  /** Usable right now: in the plan, not restricted by Pesaa and not turned off by the business. */
   enabled: boolean;
   overridden: boolean;
+  /** enabled | available (the business turned it off) | not_included | restricted */
+  status: "enabled" | "available" | "not_included" | "restricted";
+  included: boolean;
+  /** Pesaa switched it off for this business. */
+  restricted: boolean;
+  /** The business's own administrator turned it off. */
+  business_off: boolean;
 }
 
 export interface TenantLimits {
@@ -653,6 +678,12 @@ export const adminApi = {
 
   listFeatures: () =>
     request<SingleResponse<FeatureFlag[]>>(`${B}/features`),
+  featureDirectory: () =>
+    request<SingleResponse<FeatureDirectory>>(`${B}/features/directory`),
+  featureDetail: (key: string) =>
+    request<SingleResponse<FeatureDetail>>(`${B}/features/${encodeURIComponent(key)}/detail`),
+  updateFeature: (key: string, data: FeaturePatch) =>
+    request<SingleResponse<null>>(`${B}/features/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(data) }),
   tenantFeatures: (tenantId: string) =>
     request<SingleResponse<TenantFeatureState[]>>(`${B}/tenants/${tenantId}/features`),
   setTenantFeatures: (tenantId: string, data: { features: Record<string, boolean> }) =>

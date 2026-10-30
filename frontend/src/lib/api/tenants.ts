@@ -1,8 +1,32 @@
 import { request, getStoredToken, API_BASE } from "./client";
 import type { SingleResponse } from "./types";
 
+/** enabled = usable; available = included in the plan but turned off by the business; not_included = the plan lacks it;
+ *  restricted = Pesaa has switched it off for this business. */
+export type ModuleStatus = "enabled" | "available" | "not_included" | "restricted";
+
+export interface ModuleLink { key: string; name: string; status: ModuleStatus }
+
+export interface TenantModule {
+  key: string;
+  name: string;
+  description: string | null;
+  status: ModuleStatus;
+  /** Modules this one needs switched on. */
+  needs: ModuleLink[];
+  /** Modules that rely on this one. */
+  needed_by: ModuleLink[];
+}
+
+export interface TenantModules {
+  plan: { name: string; status: string } | null;
+  modules: TenantModule[];
+}
+
 export interface TenantEntitlements {
   features: Record<string, boolean>;
+  /** Why each module is or isn't usable (absent on older servers). */
+  modules?: Record<string, ModuleStatus>;
   limits: {
     max_users: number | null;
     max_branches: number | null;
@@ -71,6 +95,10 @@ const T = "/tenants";
 export const tenantsApi = {
   entitlements: () =>
     request<SingleResponse<TenantEntitlements>>(`${T}/me/entitlements`),
+  modules: () =>
+    request<SingleResponse<TenantModules>>(`${T}/me/modules`),
+  setModule: (key: string, enabled: boolean) =>
+    request<SingleResponse<TenantModules>>(`${T}/me/modules/${key}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   getCurrent: () =>
     request<SingleResponse<Tenant>>(`${T}/me/current`),
   update: (id: string, data: TenantUpdateInput) =>

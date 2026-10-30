@@ -86,3 +86,28 @@ test('suppliers are managed under Purchases only', () => {
   assert.equal(Object.values(nav.MODULE_NAV).flat().filter(link => /suppliers$/.test(link.href)).length, 1);
   assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === '/procurement/suppliers'));
 });
+test('every module a menu item depends on is a real feature in the platform catalogue', () => {
+  // Mirrors the feature_flags catalogue; a key missing from it would make the module unreachable for every business.
+  const catalogue = new Set(['accounting', 'appointments', 'crm', 'hr', 'inventory', 'manufacturing', 'procurement', 'queue', 'repairs', 'sales', 'services']);
+  const used = nav.PRIMARY_NAV_GROUPS.flatMap(group => group.items).map(item => item.feature).filter(Boolean);
+  assert.ok(used.length > 0);
+  for (const key of used) assert.ok(catalogue.has(key), key);
+  assert.equal(names(nav.visiblePrimaryNavigation({ sales: false }, () => true, () => true)).includes('Customers'), false);
+
+  function names(groups) { return groups.flatMap(group => group.items.map(item => item.name)); }
+});
+
+test('the Overview and Reports are for the business owner only', () => {
+  const names = groups => groups.flatMap(group => group.items.map(item => item.name));
+  const everyone = names(nav.visiblePrimaryNavigation(undefined, () => true, () => true, false));
+  assert.equal(everyone.includes('Overview'), false);
+  assert.equal(everyone.includes('Reports'), false);
+  assert.equal(everyone.includes('Sales'), true); // their own modules are unaffected
+  const owner = names(nav.visiblePrimaryNavigation(undefined, () => true, () => true, true));
+  assert.ok(owner.includes('Overview') && owner.includes('Reports'));
+  // Someone who can only do HR lands on HR, never on the owner's Overview.
+  const hrOnly = module => module === 'hr';
+  assert.equal(nav.firstAllowedHref(undefined, hrOnly, () => false, false), '/hr');
+  assert.equal(nav.firstAllowedHref(undefined, () => false, () => false, false), '/settings');
+  assert.equal(nav.firstAllowedHref(undefined, hrOnly, () => false, true), '/dashboard');
+});

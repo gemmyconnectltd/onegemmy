@@ -41,6 +41,13 @@ class ValidationError(AppError):
     detail = "Validation error"
 
 
+class ApprovalRequiredError(AppError):
+    """The change is real but this person may not make it themselves: it has to be requested and approved."""
+
+    status_code = status.HTTP_409_CONFLICT
+    detail = "This change needs approval"
+
+
 class QuotaExceededError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     detail = "Usage limit exceeded"

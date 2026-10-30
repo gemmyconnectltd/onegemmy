@@ -29,6 +29,12 @@ class TenantFeatureState(BaseModel):
     default_enabled: bool
     enabled: bool
     overridden: bool
+    # The layers behind `enabled`. Pesaa's restriction and the business's own switch are separate on purpose: removing a
+    # restriction never changes what the business chose, and the business can't lift a restriction.
+    status: str = "enabled"  # enabled | available (business turned it off) | not_included | restricted
+    included: bool = True  # the plan covers it
+    restricted: bool = False  # Pesaa switched it off for this business
+    business_off: bool = False  # the business's administrator turned it off
 
 
 class TenantLimitsUpdate(BaseModel):

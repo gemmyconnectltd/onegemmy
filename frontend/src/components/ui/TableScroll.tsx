@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/** Keeps wide tables inside their own keyboard-accessible scrolling region. */
+/** Keeps wide tables inside their own keyboard-accessible scrolling region. `relative` matters: without it a visually hidden
+ *  (sr-only, absolutely positioned) column header escapes the region and makes the whole page scroll sideways. */
 export function TableScroll({ children, label = "Data table", className = "" }: {
   children: ReactNode;
   label?: string;
@@ -30,7 +31,7 @@ export function TableScroll({ children, label = "Data table", className = "" }: 
         </p>
       )}
       <div ref={viewport} role="region" aria-label={label} tabIndex={overflows ? 0 : undefined}
-        className="pesaa-table-scroll w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent print:overflow-visible">
+        className="pesaa-table-scroll relative w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent print:overflow-visible">
         {children}
       </div>
     </div>

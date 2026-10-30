@@ -26,9 +26,12 @@ const SEGMENT_LABELS: Record<string, string> = {
   procurement: "Purchases",
 };
 
+const ID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function getBreadcrumb(pathname: string) {
   const parts = pathname.split("/").filter(Boolean);
   return parts.map((p, index) => {
+    if (ID_SEGMENT.test(p)) return "Details"; // a record's id is not a name; showing it also overflowed the bar
     if (p === "orders" && index === 1 && parts[0] === "sales") return "Sales History";
     if (p === "orders" && index === 1 && parts[0] === "procurement") return "Purchase History";
     return SEGMENT_LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1);

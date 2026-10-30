@@ -91,7 +91,7 @@ export default function TransfersPage() {
   async function handleAdd() {
     setCreateError("");
     if (validItems.length === 0 || createTransfer.isPending) return;
-    if (fromBranch && toBranch && fromBranch === toBranch) return;
+    if (fromBranch === toBranch) return;
     if (stockErrors.length > 0) {
       setCreateError("Some items exceed available stock.");
       return;
@@ -194,7 +194,7 @@ export default function TransfersPage() {
               </select>
             </div>
           </div>
-          {fromBranch && toBranch && fromBranch === toBranch && (
+          {fromBranch === toBranch && (
             <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Source and destination must be different.</p>
           )}
 

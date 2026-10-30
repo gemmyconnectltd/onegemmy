@@ -135,6 +135,8 @@ export type PrimaryNavItem = {
   permission?: string;
   /** Match only this exact path (plus `activeFor`) instead of everything beneath it. */
   exact?: boolean; activeFor?: string[];
+  /** Only the business owner sees it (the Overview and Reports show business-wide performance, not one person's work). */
+  ownerOnly?: boolean;
   /** Stable key for the product tour (`data-tour="nav-<tour>"`). Defaults to the lower-cased name. */
   tour?: string;
 };
@@ -142,7 +144,7 @@ export type PrimaryNavGroup = { id?: string; label?: string; items: PrimaryNavIt
 
 /** The single source of truth for the main sidebar and the mobile menu: grouped by what people are doing, not by module. */
 export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
-  { id: "workspace", label: "Workspace", items: [{ name: "Overview", href: "/dashboard", icon: LayoutDashboard, tour: "dashboard" }] },
+  { id: "workspace", label: "Workspace", items: [{ name: "Overview", href: "/dashboard", icon: LayoutDashboard, tour: "dashboard", ownerOnly: true }] },
   { id: "operations", label: "Operations", items: [
     { name: "Sales", href: "/sales", icon: ShoppingCart, feature: "sales", module: "sales" },
     { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
@@ -162,14 +164,14 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
     { name: "HR", href: "/hr", icon: UserCog, feature: "hr", module: "hr" },
   ] },
   { id: "insights", label: "Insights", items: [
-    { name: "Reports", href: "/reports", icon: BarChart3, module: "reports", access: "" },
+    { name: "Reports", href: "/reports", icon: BarChart3, module: "reports", access: "", ownerOnly: true },
   ] },
   { id: "administration", label: "Administration", items: [
     { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
     { name: "Branches", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
     { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing" },
     { name: "Business Settings", href: "/settings", icon: Settings, module: "settings", access: "", exact: true, tour: "settings",
-      activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance", "/settings/profile"] },
+      activeFor: ["/settings/financial", "/settings/features", "/settings/security", "/settings/notifications", "/settings/appearance", "/settings/profile"] },
     { name: "Help & Support", href: "/support", icon: LifeBuoy },
   ] },
 ];
@@ -211,12 +213,24 @@ export function visiblePrimaryNavigation(
   features: Record<string, boolean> | undefined,
   canAccess: (module: string) => boolean,
   can: (permission: string) => boolean = () => true,
+  isOwner = true,
 ): PrimaryNavGroup[] {
   const visible = (item: PrimaryNavItem) =>
-    (!item.feature || features?.[item.feature] !== false)
+    (!item.ownerOnly || isOwner)
+    && (!item.feature || features?.[item.feature] !== false)
     && (!item.module || item.access === "" || canAccess(item.access || item.module))
     && (!item.permission || can(item.permission));
   return PRIMARY_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(visible) })).filter(group => group.items.length);
+}
+
+/** Where someone lands when their usual home page isn't theirs: the first page their role gives them. */
+export function firstAllowedHref(
+  features: Record<string, boolean> | undefined,
+  canAccess: (module: string) => boolean,
+  can: (permission: string) => boolean,
+  isOwner: boolean,
+): string {
+  return visiblePrimaryNavigation(features, canAccess, can, isOwner).flatMap(g => g.items)[0]?.href ?? "/support";
 }
 
 /** Second-sidebar links the user may see (those with `requires` need that permission). */

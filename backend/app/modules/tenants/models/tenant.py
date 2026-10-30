@@ -83,6 +83,9 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # Per-tenant feature overrides, e.g. {"hr": false, "pos": true}.
     # Effective value = catalog default merged with these overrides.
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # The business's own on/off choices for modules its plan includes, e.g. {"hr": false}. Owned by the tenant administrator;
+    # absent = on. It can only switch an entitled module off or back on, never grant one the plan does not include.
+    module_activation: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
     # Usage quotas, e.g. {"max_users": 10, "max_branches": 3}. None/absent = unlimited.
     limits: Mapped[dict] = mapped_column(JSONB, default=dict)
 

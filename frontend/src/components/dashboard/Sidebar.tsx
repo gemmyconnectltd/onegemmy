@@ -24,11 +24,11 @@ const serverSnapshot = () => false;
 export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange, variant = "app" }: SidebarProps) {
   const path = usePathname();
   const router = useRouter();
-  const { user, logout, hasModuleAccess, hasPermission } = useAuth();
+  const { user, logout, hasModuleAccess, hasPermission, isSuperAdmin } = useAuth();
   const { logoUrl } = useAppConfig();
   const admin = variant === "admin";
   const { data: entitlements } = useMyEntitlements({enabled: !admin});
-  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : visiblePrimaryNavigation(entitlements?.features, hasModuleAccess, hasPermission);
+  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : visiblePrimaryNavigation(entitlements?.features, hasModuleAccess, hasPermission, isSuperAdmin());
   const allItems = groups.flatMap(group => group.items);
   const mobileItems = allItems.slice(0, 5);
   const isMobile = useSyncExternalStore(subscribeMobile, mobileSnapshot, serverSnapshot);

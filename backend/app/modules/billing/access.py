@@ -3,12 +3,15 @@ from datetime import timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import ForbiddenError
 from app.modules.billing.repository import BillingRepository
 from app.modules.billing.service import now_utc
 
 
 async def enforce_write(db: AsyncSession, tenant_id: uuid.UUID, path: str, method: str) -> None:
+    if not settings.ENFORCE_SUBSCRIPTION_WRITE_BLOCK:
+        return  # subscription state doesn't block changes at the moment (see the setting)
     if method in {"GET", "HEAD", "OPTIONS"} or path.startswith(
         ("/api/v1/auth/", "/api/v1/tenants/billing/", "/api/v1/support/")
     ):

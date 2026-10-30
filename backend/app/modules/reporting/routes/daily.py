@@ -2,13 +2,16 @@ import uuid
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import CurrentUser, DbSession, require_feature
 from app.core.response import success_response
 from app.modules.reporting.service.daily import daily_export_report, daily_report, export_report
+from app.modules.reporting.service.day import day_report
 
-router = APIRouter(tags=["Daily branch reports"])
+# The report combines sales, stock, debt and expense figures, so a business needs all three modules (read access survives a
+# module the business has turned off, as everywhere else).
+router = APIRouter(tags=["Daily branch reports"], dependencies=[Depends(require_feature(k)) for k in ("sales", "inventory", "accounting")])
 
 
 @router.get("/reports/daily-branches")
@@ -17,6 +20,13 @@ async def daily(db: DbSession, current_user: CurrentUser, from_date: date | None
                 page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
                 active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
     return success_response(data=await daily_report(db, current_user, from_date, to_date, branch_id or active, page, page_size))
+
+
+@router.get("/reports/daily-branches/day")
+async def day(db: DbSession, current_user: CurrentUser, day: date | None = None, branch_id: uuid.UUID | None = None,
+              active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+    """One day for one branch (or all the person's branches): sales per item, debt, deposits, stock movement and expenses."""
+    return success_response(data=await day_report(db, current_user, day, branch_id or active), message="Day report retrieved")
 
 
 @router.get("/reports/daily-branches/export")

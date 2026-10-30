@@ -1,5 +1,4 @@
 "use client";
-import { RoleManager } from "@/components/users/RoleManager";
 import { Button } from "@/components/ui/Button";
 import { TableScroll } from "@/components/ui/TableScroll";
 
@@ -67,7 +66,6 @@ export default function UsersPage() {
   const { data: branches } = useMyBranches();
   const { confirm, dialog } = useConfirmDialog();
 
-  const [showRoles, setShowRoles] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchInput, setSearchInput] = useState("");
@@ -283,8 +281,6 @@ export default function UsersPage() {
         </div>
       )}
 
-      {hasPermission("roles:update") && <Button variant="outline" onClick={() => setShowRoles(true)}>Manage roles and permissions</Button>}
-      {showRoles && <RoleManager onClose={() => setShowRoles(false)} />}
       {/* Search + filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <form onSubmit={applySearch} className="flex-1 min-w-[220px] relative">

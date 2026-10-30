@@ -180,3 +180,22 @@ async def test_role_review_and_explicit_tightening(db):
 
 
 _ = Permission
+
+
+@pytest.mark.parametrize(
+    ("module", "path", "held", "allowed"),
+    [
+        ("hr", "/hr/employees", [], False),
+        ("hr", "/hr/payroll", ["orders:read"], False),
+        ("hr", "/hr/employees", ["employees:read"], True),
+        ("hr", "/hr/employees", ["payroll:read"], True),
+        ("sales", "/sales/orders", ["pos:create"], True),  # a cashier can look sales up
+        ("hr", "/hr/employees", ["appointments:read"], True),  # ...but the staff picker a services user needs stays open
+        ("sales", "/sales/customers", ["appointments:read"], True),
+        ("sales", "/sales/targets", ["appointments:read"], False),
+        ("accounting", "/accounting/tax/rates", ["pos:create"], True),
+        ("accounting", "/accounting/budgets", ["pos:create"], False),
+    ],
+)
+def test_read_rule(module, path, held, allowed):
+    assert access.decide_read(module, path, held)[0] is allowed
