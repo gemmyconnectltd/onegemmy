@@ -4,6 +4,7 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.core.period import DatePeriod
 from app.modules.inventory.models.batch import InventoryBatch
 from app.modules.inventory.repository.batch import BatchRepository
 from app.modules.inventory.schemas.batch import BatchCreate, BatchRead, BatchUpdate
@@ -19,14 +20,14 @@ def _to_read(obj: InventoryBatch) -> BatchRead:
 
 
 async def list_batches(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID | None,
-                       expiring_in_days: int | None, offset: int, limit: int) -> list[BatchRead]:
-    items = await BatchRepository(db).list_for_tenant(tenant_id, product_id, expiring_in_days, offset, limit)
+                       expiring_in_days: int | None, offset: int, limit: int, period: DatePeriod | None = None) -> list[BatchRead]:
+    items = await BatchRepository(db).list_for_tenant(tenant_id, product_id, expiring_in_days, offset, limit, period)
     return [_to_read(i) for i in items]
 
 
 async def count_batches(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID | None,
-                        expiring_in_days: int | None) -> int:
-    return await BatchRepository(db).count_for_tenant(tenant_id, product_id, expiring_in_days)
+                        expiring_in_days: int | None, period: DatePeriod | None = None) -> int:
+    return await BatchRepository(db).count_for_tenant(tenant_id, product_id, expiring_in_days, period)
 
 
 async def get_batch(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> BatchRead:

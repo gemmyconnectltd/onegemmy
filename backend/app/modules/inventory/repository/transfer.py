@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.orm import selectinload
 
+from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
 from app.modules.inventory.models.transfer import StockTransfer
 
@@ -26,19 +27,23 @@ class TransferRepository(BaseRepository[StockTransfer]):
         return result.scalar_one_or_none()
 
     async def list_for_tenant(
-        self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 20
+        self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 20, period: DatePeriod | None = None
     ) -> list[StockTransfer]:
         stmt = select(StockTransfer).options(*self._with_relations()).where(StockTransfer.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(StockTransfer.status == status)
+        if period:
+            stmt = period.apply(stmt, StockTransfer.created_at)
         stmt = stmt.order_by(StockTransfer.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, period: DatePeriod | None = None) -> int:
         stmt = select(func.count()).select_from(StockTransfer).where(StockTransfer.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(StockTransfer.status == status)
+        if period:
+            stmt = period.apply(stmt, StockTransfer.created_at)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import ONE, compute_settlement, to_base_amount, to_decimal
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.period import DatePeriod
 from app.modules.accounting.schemas.tax import TaxCalculationCreate
 from app.modules.accounting.service.tax import (
     calculate_vat,
@@ -258,16 +259,17 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
 async def list_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50,
     search: str | None = None, payment_status: str | None = None, branch_id: uuid.UUID | None = None,
+    period: DatePeriod | None = None,
 ) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id)
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period)
     return [_to_order_read(i) for i in items]
 
 
 async def count_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None,
-    payment_status: str | None = None, branch_id: uuid.UUID | None = None,
+    payment_status: str | None = None, branch_id: uuid.UUID | None = None, period: DatePeriod | None = None,
 ) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id)
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period)
 
 
 async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> OrderRead:

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
+from app.core.period import PeriodQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
 from app.modules.sales.schemas import CustomerBulkCreate, CustomerCreate, CustomerUpdate
@@ -19,10 +20,10 @@ def _require_tenant(tenant_id) -> None:
 
 
 @router.get("/sales/customers")
-async def list_customers(db: DbSession, current_user: CurrentUser, page_params: PageQuery, search: str | None = None, customer_type: str | None = None):
+async def list_customers(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery, search: str | None = None, customer_type: str | None = None):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_customers(db, current_user.tenant_id, page_params.offset, page_params.limit, search, customer_type)
-    total = await service.count_customers(db, current_user.tenant_id, search, customer_type)
+    items = await service.list_customers(db, current_user.tenant_id, page_params.offset, page_params.limit, search, customer_type, period)
+    total = await service.count_customers(db, current_user.tenant_id, search, customer_type, period)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Customers retrieved successfully")
 
 

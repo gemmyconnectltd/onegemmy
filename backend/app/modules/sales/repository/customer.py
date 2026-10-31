@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import func, or_, select
 
+from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
 from app.modules.sales.models.customer import Customer
 
@@ -17,7 +18,7 @@ class CustomerRepository(BaseRepository[Customer]):
 
     async def list_for_tenant(
         self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50, search: str | None = None,
-        customer_type: str | None = None,
+        customer_type: str | None = None, period: DatePeriod | None = None,
     ) -> list[Customer]:
         stmt = select(Customer).where(Customer.tenant_id == tenant_id)
         if search:
@@ -25,17 +26,21 @@ class CustomerRepository(BaseRepository[Customer]):
             stmt = stmt.where(or_(Customer.name.ilike(like), Customer.email.ilike(like), Customer.phone.ilike(like)))
         if customer_type:
             stmt = stmt.where(Customer.customer_type == customer_type)
+        if period:
+            stmt = period.apply(stmt, Customer.created_at)
         stmt = stmt.order_by(Customer.name).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None, period: DatePeriod | None = None) -> int:
         stmt = select(func.count()).select_from(Customer).where(Customer.tenant_id == tenant_id)
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Customer.name.ilike(like), Customer.email.ilike(like), Customer.phone.ilike(like)))
         if customer_type:
             stmt = stmt.where(Customer.customer_type == customer_type)
+        if period:
+            stmt = period.apply(stmt, Customer.created_at)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

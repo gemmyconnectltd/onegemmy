@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import func, select
 
+from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
 from app.modules.inventory.models.batch import InventoryBatch
 
@@ -16,7 +17,7 @@ class BatchRepository(BaseRepository[InventoryBatch]):
         return result.scalar_one_or_none()
 
     async def list_for_tenant(self, tenant_id: uuid.UUID, product_id: uuid.UUID | None,
-                               expiring_in_days: int | None, offset: int, limit: int) -> list[InventoryBatch]:
+                               expiring_in_days: int | None, offset: int, limit: int, period: DatePeriod | None = None) -> list[InventoryBatch]:
         stmt = select(InventoryBatch).where(InventoryBatch.tenant_id == tenant_id)
         if product_id:
             stmt = stmt.where(InventoryBatch.product_id == product_id)
@@ -24,12 +25,14 @@ class BatchRepository(BaseRepository[InventoryBatch]):
             from datetime import date, timedelta
             cutoff = date.today() + timedelta(days=expiring_in_days)
             stmt = stmt.where(InventoryBatch.expiry_date <= cutoff, InventoryBatch.expiry_date.isnot(None))
+        if period:
+            stmt = period.apply(stmt, InventoryBatch.received_at)
         stmt = stmt.order_by(InventoryBatch.expiry_date.asc().nullslast()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def count_for_tenant(self, tenant_id: uuid.UUID, product_id: uuid.UUID | None,
-                                expiring_in_days: int | None) -> int:
+                                expiring_in_days: int | None, period: DatePeriod | None = None) -> int:
         stmt = select(func.count()).select_from(InventoryBatch).where(InventoryBatch.tenant_id == tenant_id)
         if product_id:
             stmt = stmt.where(InventoryBatch.product_id == product_id)
@@ -37,6 +40,8 @@ class BatchRepository(BaseRepository[InventoryBatch]):
             from datetime import date, timedelta
             cutoff = date.today() + timedelta(days=expiring_in_days)
             stmt = stmt.where(InventoryBatch.expiry_date <= cutoff, InventoryBatch.expiry_date.isnot(None))
+        if period:
+            stmt = period.apply(stmt, InventoryBatch.received_at)
         return (await self.db.execute(stmt)).scalar_one()
 
     async def get_by_batch_number(self, tenant_id: uuid.UUID, batch_number: str) -> InventoryBatch | None:

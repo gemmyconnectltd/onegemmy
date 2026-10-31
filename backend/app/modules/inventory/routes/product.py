@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, UploadFile
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
+from app.core.period import PeriodQuery
 
 
 def _require_tenant(tenant_id) -> None:
@@ -26,11 +27,11 @@ router = APIRouter(tags=["Inventory - Products"])
 
 
 @router.get("/inventory/products")
-async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery,
+async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
                         search: str | None = None, is_active: bool | None = None):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active)
-    total = await service.count_products(db, current_user.tenant_id, search, is_active)
+    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period)
+    total = await service.count_products(db, current_user.tenant_id, search, is_active, period)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Products retrieved successfully")
 
 

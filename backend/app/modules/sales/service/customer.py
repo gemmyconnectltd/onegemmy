@@ -4,6 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
+from app.core.period import DatePeriod
 from app.modules.sales.models.customer import Customer
 from app.modules.sales.repository import CustomerRepository
 from app.modules.sales.schemas import (
@@ -17,14 +18,14 @@ from app.modules.sales.schemas import (
 
 async def list_customers(
     db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50, search: str | None = None,
-    customer_type: str | None = None,
+    customer_type: str | None = None, period: DatePeriod | None = None,
 ) -> list[CustomerRead]:
-    items = await CustomerRepository(db).list_for_tenant(tenant_id, offset, limit, search, customer_type)
+    items = await CustomerRepository(db).list_for_tenant(tenant_id, offset, limit, search, customer_type, period)
     return [CustomerRead.model_validate(i) for i in items]
 
 
-async def count_customers(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None) -> int:
-    return await CustomerRepository(db).count_for_tenant(tenant_id, search, customer_type)
+async def count_customers(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None, period: DatePeriod | None = None) -> int:
+    return await CustomerRepository(db).count_for_tenant(tenant_id, search, customer_type, period)
 
 
 async def get_customer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> CustomerRead:

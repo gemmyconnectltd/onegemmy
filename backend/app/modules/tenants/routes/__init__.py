@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.modules.reporting.routes.daily import router as daily_router
+from app.modules.reporting.routes.performance import router as performance_router
 from app.modules.tenants.routes.access import router as access_router
 from app.modules.tenants.routes.branch import router as branch_router
 from app.modules.tenants.routes.currency import router as currency_router
@@ -15,6 +16,7 @@ tenants_router = APIRouter(prefix="/tenants")
 global_router = APIRouter(prefix="/global")
 
 tenants_router.include_router(daily_router)
+tenants_router.include_router(performance_router)
 tenants_router.include_router(branch_router)
 tenants_router.include_router(department_router)
 tenants_router.include_router(access_router)

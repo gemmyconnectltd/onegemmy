@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.period import DatePeriod
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.transfer import StockTransfer, StockTransferItem
 from app.modules.inventory.models.variant import ProductVariant
@@ -23,14 +24,14 @@ async def _transfer_to_read(obj: StockTransfer) -> StockTransferRead:
 
 
 async def list_transfers(
-    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 20
+    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 20, period: DatePeriod | None = None
 ) -> list[StockTransferRead]:
-    items = await TransferRepository(db).list_for_tenant(tenant_id, status, offset, limit)
+    items = await TransferRepository(db).list_for_tenant(tenant_id, status, offset, limit, period)
     return [await _transfer_to_read(t) for t in items]
 
 
-async def count_transfers(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None) -> int:
-    return await TransferRepository(db).count_for_tenant(tenant_id, status)
+async def count_transfers(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, period: DatePeriod | None = None) -> int:
+    return await TransferRepository(db).count_for_tenant(tenant_id, status, period)
 
 
 async def get_transfer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> StockTransferRead:

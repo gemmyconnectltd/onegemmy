@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Integer, cast, func, or_, select
 from sqlalchemy.orm import selectinload
 
+from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
 from app.modules.sales.models.customer import Customer
 from app.modules.sales.models.order import Order
@@ -61,6 +62,7 @@ class OrderRepository(BaseRepository[Order]):
         search: str | None = None,
         payment_status: str | None = None,
         branch_id: uuid.UUID | None = None,
+        period: DatePeriod | None = None,
     ) -> list[Order]:
         stmt = select(Order).options(*_with_relations()).where(Order.tenant_id == tenant_id)
         if branch_id is not None:
@@ -73,6 +75,8 @@ class OrderRepository(BaseRepository[Order]):
                 or_(Order.order_number.ilike(like), Customer.name.ilike(like))
             )
         stmt = _payment_status_filter(stmt, payment_status, datetime.now(UTC).date())
+        if period:
+            stmt = period.apply(stmt, Order.ordered_at)
         stmt = stmt.order_by(Order.ordered_at.desc()).offset(offset).limit(limit).execution_options(populate_existing=True)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -84,6 +88,7 @@ class OrderRepository(BaseRepository[Order]):
         search: str | None = None,
         payment_status: str | None = None,
         branch_id: uuid.UUID | None = None,
+        period: DatePeriod | None = None,
     ) -> int:
         stmt = select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)
         if branch_id is not None:
@@ -96,6 +101,8 @@ class OrderRepository(BaseRepository[Order]):
                 or_(Order.order_number.ilike(like), Customer.name.ilike(like))
             )
         stmt = _payment_status_filter(stmt, payment_status, datetime.now(UTC).date())
+        if period:
+            stmt = period.apply(stmt, Order.ordered_at)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

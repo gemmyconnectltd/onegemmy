@@ -5,11 +5,17 @@ from fastapi import APIRouter, Query
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
+from app.core.period import PeriodQuery
 from app.core.response import paginated_response, success_response
-from app.modules.inventory.service.batch import (
-    count_batches, create_batch, delete_batch, get_batch, list_batches, update_batch,
-)
 from app.modules.inventory.schemas.batch import BatchCreate, BatchUpdate
+from app.modules.inventory.service.batch import (
+    count_batches,
+    create_batch,
+    delete_batch,
+    get_batch,
+    list_batches,
+    update_batch,
+)
 
 router = APIRouter(tags=["Inventory - Batches"])
 
@@ -21,13 +27,13 @@ def _require_tenant(tenant_id) -> None:
 
 @router.get("/inventory/batches")
 async def list_batches_route(
-    db: DbSession, current_user: CurrentUser, page_params: PageQuery,
+    db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
     product_id: uuid.UUID | None = Query(None),
     expiring_in_days: int | None = Query(None, description="Filter batches expiring within N days"),
 ):
     _require_tenant(current_user.tenant_id)
-    items = await list_batches(db, current_user.tenant_id, product_id, expiring_in_days, page_params.offset, page_params.limit)
-    total = await count_batches(db, current_user.tenant_id, product_id, expiring_in_days)
+    items = await list_batches(db, current_user.tenant_id, product_id, expiring_in_days, page_params.offset, page_params.limit, period)
+    total = await count_batches(db, current_user.tenant_id, product_id, expiring_in_days, period)
     return paginated_response(items=[i.model_dump() for i in items], total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="Batches retrieved successfully")

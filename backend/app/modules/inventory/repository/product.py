@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
+from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
 from app.modules.inventory.models.product import Product
 
@@ -71,7 +72,8 @@ class ProductRepository(BaseRepository[Product]):
         return result.scalar_one_or_none()
 
     async def list_for_tenant(
-        self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None, is_active: bool | None = None
+        self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None, is_active: bool | None = None,
+        period: DatePeriod | None = None,
     ) -> list[Product]:
         stmt = (
             select(Product)
@@ -83,17 +85,21 @@ class ProductRepository(BaseRepository[Product]):
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like)))
         if is_active is not None:
             stmt = stmt.where(Product.is_active == is_active)
+        if period:
+            stmt = period.apply(stmt, Product.created_at)
         stmt = stmt.order_by(Product.name).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None) -> int:
         stmt = select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id)
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like)))
         if is_active is not None:
             stmt = stmt.where(Product.is_active == is_active)
+        if period:
+            stmt = period.apply(stmt, Product.created_at)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

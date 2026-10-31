@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
+from app.core.period import PeriodQuery
 from app.core.response import paginated_response, success_response
 from app.modules.inventory import service
 from app.modules.inventory.schemas import StockTransferCreate, StockTransferUpdate
@@ -18,12 +19,12 @@ def _require_tenant(tenant_id) -> None:
 
 
 @router.get("/inventory/transfers")
-async def list_transfers(db: DbSession, current_user: CurrentUser, page_params: PageQuery,
+async def list_transfers(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
                          status: str | None = None):
     _require_tenant(current_user.tenant_id)
     items = await service.list_transfers(db, current_user.tenant_id, status,
-                                         page_params.offset, page_params.limit)
-    total = await service.count_transfers(db, current_user.tenant_id, status)
+                                         page_params.offset, page_params.limit, period)
+    total = await service.count_transfers(db, current_user.tenant_id, status, period)
     return paginated_response(items=[i.model_dump() for i in items], total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="Transfers retrieved successfully")
