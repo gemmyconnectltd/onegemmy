@@ -59,3 +59,24 @@
 }
 .pesaa-nav-row :is(svg, [data-nav-indicator]) { color: inherit; }
 .pesaa-nav-row[data-active="true"] [data-nav-indicator] { background: transparent; }
+
+/* Paper: a printable document (invoice, statement) on screen. It keeps the light neutrals in dark mode, like the page it is printed on,
+   so text never turns light-on-white. Brand colour and semantic colours still come from the tenant theme. */
+@layer components {
+  .pesaa-paper {
+    color-scheme: light;
+    --background: #F8FAFC;
+    --surface: #F1F5F9;
+    --card: #FFFFFF;
+    --foreground: #0F172A;
+    --muted: #64748B;
+    --border: #E2E8F0;
+    --primary-light: color-mix(in srgb, var(--primary) 8%, #FFFFFF);
+    --primary-border: color-mix(in srgb, var(--primary) 30%, #FFFFFF);
+    --success: #15803D;
+    --warning: #B45309;
+    --error: #B91C1C;
+    background: var(--card);
+    color: var(--foreground);
+  }
+}

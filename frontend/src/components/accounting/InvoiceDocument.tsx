@@ -88,7 +88,7 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
   const businessLocation = [tenant?.address, tenant?.city, tenant?.country].filter(Boolean).join(", ");
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="pesaa-paper flex flex-col h-full">
       {/* Branded header — the tenant's color and logo, full-bleed */}
       <div className="relative overflow-hidden px-7 py-7 flex-shrink-0" style={{ backgroundColor: brandColor }}>
         {/* Soft decorative circle, purely visual */}

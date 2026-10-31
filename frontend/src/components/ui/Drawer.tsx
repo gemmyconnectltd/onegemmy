@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { X } from "lucide-react";
 
 export type DrawerSide = "left" | "right" | "center";
-export type DrawerSize = "sm" | "md" | "lg" | "xl";
+export type DrawerSize = "sm" | "md" | "lg" | "xl" | "document";
 
 interface DrawerProps {
   open: boolean;
@@ -25,8 +25,8 @@ const clientSnapshot = () => true;
 const serverSnapshot = () => false;
 
 const SIDE_WIDTHS: Record<Exclude<DrawerSide, "center">, Record<DrawerSize, string>> = {
-  left: { sm: "sm:w-80", md: "sm:w-96", lg: "sm:w-[420px]", xl: "sm:w-[480px]" },
-  right: { sm: "sm:w-80", md: "sm:w-96", lg: "sm:w-[420px]", xl: "sm:w-[480px]" },
+  left: { sm: "sm:w-80", md: "sm:w-96", lg: "sm:w-[420px]", xl: "sm:w-[480px]", document: "sm:w-[480px]" },
+  right: { sm: "sm:w-80", md: "sm:w-96", lg: "sm:w-[420px]", xl: "sm:w-[480px]", document: "sm:w-[480px]" },
 };
 
 const CENTER_WIDTHS: Record<DrawerSize, string> = {
@@ -34,6 +34,7 @@ const CENTER_WIDTHS: Record<DrawerSize, string> = {
   md: "max-w-md",
   lg: "max-w-lg",
   xl: "max-w-xl",
+  document: "max-w-3xl",
 };
 
 /**

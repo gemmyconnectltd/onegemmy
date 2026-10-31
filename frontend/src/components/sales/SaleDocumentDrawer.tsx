@@ -54,7 +54,7 @@ export function SaleDocumentDrawer({ order, onClose, initialLayout = "invoice", 
   const invoiceDocument = (interactive: boolean) => <InvoiceDocument order={order} tenant={tenant} brandColor={brandColor} fmt={fmt} onReversePayment={interactive ? onReversePayment : undefined} />;
 
   return <>
-    <Drawer open onClose={onClose} title={layout === "invoice" ? "Invoice" : "Receipt"} description={order.order_number} size="lg"
+    <Drawer open onClose={onClose} title={layout === "invoice" ? "Invoice" : "Receipt"} description={order.order_number} side={layout === "invoice" ? "center" : "right"} size={layout === "invoice" ? "document" : "lg"}
       footer={<div className="space-y-2">
         {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
         <div className="flex flex-wrap items-center gap-2">
