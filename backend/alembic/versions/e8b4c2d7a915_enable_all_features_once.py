@@ -1,15 +1,14 @@
-"""enable every module for every business (one-off)
+"""withdrawn: bulk enable of every module (no-op)
 
-Clears Pesaa's restrictions (tenants.features) and the businesses' own switches
-(tenants.module_activation). Plan entitlements are untouched. Runs once per database,
-on the next `alembic upgrade head` (local and production).
+This revision originally cleared tenants.features and tenants.module_activation for
+every business. It was withdrawn because each business keeps its own module settings.
+The revision id is kept so databases that already recorded it still resolve their
+history; it changes nothing.
 
 Revision ID: e8b4c2d7a915
 Revises: d6e1f8a3b290
 """
 from collections.abc import Sequence
-
-from alembic import op
 
 revision: str = 'e8b4c2d7a915'
 down_revision: str | None = 'd6e1f8a3b290'
@@ -18,9 +17,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("UPDATE tenants SET features = '{}'::jsonb, module_activation = '{}'::jsonb")
+    pass
 
 
 def downgrade() -> None:
-    # The cleared overrides are not recoverable; nothing to undo.
     pass
