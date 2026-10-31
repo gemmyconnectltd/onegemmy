@@ -27,19 +27,19 @@ test('reuses feature, module and permission gates and never returns an empty gro
   assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).length, 16);
   assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).includes('Subscription & Billing'), false);
   const denied = nav.visiblePrimaryNavigation(undefined, () => false, () => false);
-  assert.deepEqual(plain(names(denied)), ['Overview','Reports','Business Settings','Help & Support']);
+  assert.deepEqual(plain(names(denied)), ['Overview','Reports','Help & Support']);
   assert.ok(denied.every(group => group.items.length > 0));
   const disabled = names(nav.visiblePrimaryNavigation({services:false}, () => true, () => true));
   assert.equal(disabled.includes('Services'), false);
   assert.equal(disabled.includes('Manufacturing'), true);
   const onlyUsers = names(nav.visiblePrimaryNavigation(undefined, () => false, p => p === 'users:read'));
-  assert.deepEqual(plain(onlyUsers), ['Overview','Reports','Team & Access','Business Settings','Help & Support']);
+  assert.deepEqual(plain(onlyUsers), ['Overview','Reports','Team & Access','Help & Support']);
 });
 test('a cashier-like user sees no finance, people or administration clutter', () => {
   const cashier = new Set(['sales']);
   const groups = nav.visiblePrimaryNavigation(undefined, module => cashier.has(module), () => false);
   const names = groups.flatMap(group => group.items.map(item => item.name));
-  assert.deepEqual(plain(names), ['Overview','Sales','Reports','Business Settings','Help & Support']);
+  assert.deepEqual(plain(names), ['Overview','Sales','Reports','Help & Support']);
   assert.equal(groups.some(group => group.label === 'Finance' || group.label === 'People'), false);
 });
 test('Administration items activate on their own page only, not their siblings', () => {
@@ -117,6 +117,6 @@ test('the Overview and Reports are for the business owner only', () => {
   // Someone who can only do HR lands on HR, never on the owner's Overview.
   const hrOnly = module => module === 'hr';
   assert.equal(nav.firstAllowedHref(undefined, hrOnly, () => false, false), '/hr');
-  assert.equal(nav.firstAllowedHref(undefined, () => false, () => false, false), '/settings');
+  assert.equal(nav.firstAllowedHref(undefined, () => false, () => false, false), '/support');
   assert.equal(nav.firstAllowedHref(undefined, hrOnly, () => false, true), '/dashboard');
 });

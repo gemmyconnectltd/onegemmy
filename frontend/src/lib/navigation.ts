@@ -165,8 +165,8 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
     { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
     { name: "Branches", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
     { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing", hidden: true },
-    { name: "Business Settings", href: "/settings", icon: Settings, module: "settings", access: "", exact: true, tour: "settings",
-      activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance", "/settings/profile"] },
+    { name: "Business Settings", href: "/settings", icon: Settings, permission: "tenants:update", exact: true, tour: "settings",
+      activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
     { name: "Help & Support", href: "/support", icon: LifeBuoy },
   ] },
 ];

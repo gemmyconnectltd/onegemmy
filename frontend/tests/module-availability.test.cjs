@@ -61,7 +61,8 @@ test('a page is open only to people whose role gives them its module or permissi
   assert.deepEqual(plain(mod.accessForPath('/pos')), { name: 'Sales', module: 'sales' });
   assert.deepEqual(plain(mod.accessForPath('/settings/users')), { name: 'Team & Access', permission: 'users:read' });
   assert.deepEqual(plain(mod.accessForPath('/settings/billing')), { name: 'Subscription & Billing', permission: 'billing:read' });
-  for (const open of ['/settings', '/support']) assert.equal(mod.accessForPath(open), null, open);
+  for (const open of ['/support', '/profile', '/settings/profile']) assert.equal(mod.accessForPath(open), null, open);
+  for (const page of ['/settings', '/settings/financial', '/settings/security', '/settings/notifications', '/settings/appearance']) assert.deepEqual(plain(mod.accessForPath(page)), { name: 'Business Settings', permission: 'tenants:update' }, page);
   assert.deepEqual(plain(mod.accessForPath('/dashboard')), { name: 'Overview', ownerOnly: true });  // the Overview and Reports are the owner's
   assert.deepEqual(plain(mod.accessForPath('/reports/daily')), { name: 'Reports', ownerOnly: true });
   assert.equal(mod.accessForPath('/somewhere/else'), null);

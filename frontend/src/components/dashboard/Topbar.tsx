@@ -46,7 +46,7 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
   const [showLang, setShowLang] = useState(false);
   const [showUser, setShowUser] = useState(false);
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, hasPermission } = useAuth();
   const breadcrumb = getBreadcrumb(pathname);
 
   const handleLogout = () => {
@@ -218,13 +218,15 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
               >
                 <UserCircle size={13} /> My Profile
               </Link>
-              <Link
-                href="/settings"
-                onClick={() => setShowUser(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-foreground hover:bg-surface transition-colors"
-              >
-                Settings
-              </Link>
+              {hasPermission("tenants:update") && (
+                <Link
+                  href="/settings"
+                  onClick={() => setShowUser(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-foreground hover:bg-surface transition-colors"
+                >
+                  Business Settings
+                </Link>
+              )}
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] text-red-600 hover:bg-red-50 transition-colors"
