@@ -28,10 +28,27 @@ from app.modules.tenants.models import Role, User
 
 log = get_logger("approvals")
 
-KINDS = ("price_change", "stock_adjustment", "stock_transfer")
-KIND_LABEL = {"price_change": "Price change", "stock_adjustment": "Stock adjustment", "stock_transfer": "Stock transfer", "credit": "Credit sale"}
+KINDS = ("price_change", "stock_adjustment", "stock_transfer", "debt_over_limit")
+KIND_LABEL = {"price_change": "Price change", "stock_adjustment": "Stock adjustment", "stock_transfer": "Stock transfer", "credit": "Credit sale", "debt_over_limit": "Debt over the limit"}
 GM_ROLE = "General Manager"
 AUTHORITY = "approvals:approve"
+
+
+async def rule_on(db: AsyncSession, tenant_id: uuid.UUID, kind: str) -> bool:
+    """Whether this kind of request needs approval at all for the business (Business Settings -> Approval rules). A missing rule means on."""
+    from app.modules.tenants.models import Tenant
+    rules = (await db.execute(select(Tenant.approval_rules).where(Tenant.id == tenant_id))).scalar_one_or_none() or {}
+    return bool(rules.get(kind, True))
+
+
+async def exempt_fields(db: AsyncSession, tenant_id: uuid.UUID) -> frozenset[str]:
+    """Guarded product fields the business has chosen to let people change directly (their approval rule is switched off)."""
+    off: set[str] = set()
+    if not await rule_on(db, tenant_id, "price_change"):
+        off |= {"price", "promo_price"}
+    if not await rule_on(db, tenant_id, "stock_adjustment"):
+        off.add("stock")
+    return frozenset(off)
 
 
 def can_decide(user) -> bool:
@@ -42,12 +59,12 @@ def _num(value) -> float:
     return float(value if value is not None else 0)
 
 
-def guard_direct_change(current: dict, updates: dict, can_approve: bool, labels: dict[str, str]) -> None:
+def guard_direct_change(current: dict, updates: dict, can_approve: bool, labels: dict[str, str], exempt: frozenset[str] = frozenset()) -> None:
     """A person without approval authority may not change a guarded field (price, stock) directly: they must send a request.
     Saving a form that merely re-sends the unchanged value is fine."""
     if can_approve:
         return
-    changed = [labels[f] for f in labels if f in updates and updates[f] is not None and abs(_num(updates[f]) - _num(current.get(f))) > 1e-9]
+    changed = [labels[f] for f in labels if f not in exempt and f in updates and updates[f] is not None and abs(_num(updates[f]) - _num(current.get(f))) > 1e-9]
     if changed:
         raise ApprovalRequiredError(f"Changing {' and '.join(changed)} needs approval. Send a request instead: someone with approval authority will review it.")
 
@@ -63,7 +80,7 @@ async def create_request(db: AsyncSession, user, *, kind: str, subject_id: uuid.
     title, snapshot = await _describe(db, tenant_id, kind, subject_id, payload)
     if kind in ("price_change", "stock_adjustment") and (reason is None or len(reason) < 5):
         raise ValidationError("Say why: give a short reason of at least 5 characters")
-    existing = (await db.execute(select(ApprovalRequest).where(
+    existing = None if kind == "debt_over_limit" else (await db.execute(select(ApprovalRequest).where(
         ApprovalRequest.tenant_id == tenant_id, ApprovalRequest.kind == kind, ApprovalRequest.subject_id == subject_id, ApprovalRequest.status == "pending",
     ))).scalars().first()
     if existing is not None:
@@ -84,6 +101,12 @@ async def create_request(db: AsyncSession, user, *, kind: str, subject_id: uuid.
 
 async def _describe(db: AsyncSession, tenant_id: uuid.UUID, kind: str, subject_id: uuid.UUID | None, payload: dict) -> tuple[str, dict]:
     """Validate what is being asked for and capture what it is right now, so the decision is made on the facts at request time."""
+    if kind == "debt_over_limit":
+        from app.modules.sales.models.customer import Customer
+        customer = await db.get(Customer, subject_id) if subject_id else None
+        if customer is None or customer.tenant_id != tenant_id:
+            raise NotFoundError("Customer not found")
+        return f"Debt of {payload.get('amount')} for {customer.name}", {"customer_name": customer.name}
     if kind == "stock_transfer":
         transfer = await db.get(StockTransfer, subject_id) if subject_id else None
         if transfer is None or transfer.tenant_id != tenant_id:
@@ -142,6 +165,10 @@ async def decide(db: AsyncSession, user, request_id: uuid.UUID, *, approve: bool
 
 async def _apply(db: AsyncSession, request: ApprovalRequest) -> None:
     payload = request.payload
+    if request.kind == "debt_over_limit":
+        from app.modules.accounting.service.debt_actions import insert_manual
+        await insert_manual(db, request.tenant_id, request.requested_by, "receivable", uuid.UUID(str(payload["branch_id"])), payload)
+        return
     if request.kind == "stock_transfer":
         return  # approval unlocks the transfer; the people doing it still move it along
     product = await db.get(Product, request.subject_id)
@@ -182,7 +209,7 @@ async def _get(db: AsyncSession, tenant_id: uuid.UUID, request_id: uuid.UUID, lo
 
 async def open_transfer_request(db: AsyncSession, user, transfer: StockTransfer) -> ApprovalRequest | None:
     """A person without approval authority who creates a transfer gets a request opened for it automatically."""
-    if can_decide(user):
+    if can_decide(user) or not await rule_on(db, user.tenant_id, "stock_transfer"):
         return None
     return await create_request(db, user, kind="stock_transfer", subject_id=transfer.id, branch_id=transfer.from_branch_id or transfer.to_branch_id,
                                 reason=transfer.notes, payload={})
@@ -190,7 +217,7 @@ async def open_transfer_request(db: AsyncSession, user, transfer: StockTransfer)
 
 async def require_transfer_approval(db: AsyncSession, user, transfer_id: uuid.UUID) -> None:
     """Starting or completing a transfer needs approval authority, or an approved request for that transfer."""
-    if can_decide(user):
+    if can_decide(user) or not await rule_on(db, user.tenant_id, "stock_transfer"):
         return
     status = (await db.execute(select(ApprovalRequest.status).where(
         ApprovalRequest.tenant_id == user.tenant_id, ApprovalRequest.kind == "stock_transfer", ApprovalRequest.subject_id == transfer_id,

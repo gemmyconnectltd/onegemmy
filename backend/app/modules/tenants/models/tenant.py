@@ -75,6 +75,10 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # Most NEW credit (unpaid balance) one customer may be granted in a single day, in the base currency.
     # Null = no limit (the behaviour before this existed). Set by someone holding credit:approve (GM/CEO).
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    # The most one client may owe in total (base currency) before a new debt needs approval; None = no limit.
+    debt_limit_per_client: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True, default=200000, server_default="200000")
+    # Which kinds of request need approval: {"debt_over_limit": true, "price_change": true, "stock_adjustment": true, "stock_transfer": true}. A missing key means on.
+    approval_rules: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
 

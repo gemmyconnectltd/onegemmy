@@ -14,7 +14,7 @@ test('keeps every existing module and groups them by what people do', () => {
   const expected = [
     ['Overview'], ['Sales','Services','Inventory','Purchases','Manufacturing'], ['Customers'],
     ['Expenses','Debt Management','Accounting'], ['HR'], ['Reports'],
-    ['Team & Access','Branches','Subscription & Billing','Business Settings','Help & Support'],
+    ['Team & Access','Approvals','Branches','Subscription & Billing','Business Settings','Help & Support'],
   ];
   assert.deepEqual(plain(nav.PRIMARY_NAV_GROUPS.map(group => group.items.map(item => item.name))), expected);
   assert.deepEqual(plain(nav.PRIMARY_NAV_GROUPS.map(group => group.label)), ['Workspace','Operations','Relationships','Finance','People','Insights','Administration']);
@@ -24,7 +24,7 @@ test('keeps every existing module and groups them by what people do', () => {
 });
 test('reuses feature, module and permission gates and never returns an empty group', () => {
   const names = groups => groups.flatMap(group => group.items.map(item => item.name));
-  assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).length, 16);
+  assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).length, 17);
   assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).includes('Subscription & Billing'), false);
   const denied = nav.visiblePrimaryNavigation(undefined, () => false, () => false);
   assert.deepEqual(plain(names(denied)), ['Overview','Reports','Help & Support']);

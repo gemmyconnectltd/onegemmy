@@ -170,6 +170,8 @@ export const repairsApi = {
 };
 
 export const transfersApi = {
+  /** Every active branch by name: a branch-restricted person may send stock to any of them. */
+  destinations: () => request<SingleResponse<{ id: string; name: string }[]>>(`${TRANSFERS}/destinations`),
   list: (page = 1, pageSize = 100, status?: string, period?: PeriodRange) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (status) params.set("status", status);

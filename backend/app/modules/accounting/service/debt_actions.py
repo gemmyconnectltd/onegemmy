@@ -100,6 +100,37 @@ async def void(db: AsyncSession, user: User, kind: DebtKind, document_id: uuid.U
     return {"id": str(document_id), "voided": True}
 
 
+async def client_outstanding(db: AsyncSession, tenant: uuid.UUID, customer_id: uuid.UUID) -> Decimal:
+    """Everything one client owes the business right now, in base currency, across all branches: unpaid sales and opening balances."""
+    from app.modules.accounting.repository.debt import DebtRepository
+    from app.modules.currency.service import get_base_currency
+    currency = await get_base_currency(db, tenant)
+    rows = DebtRepository(db).projection(tenant, "receivable", currency, None, datetime.now(UTC).date()).subquery()
+    return Decimal((await db.execute(select(func.coalesce(func.sum(rows.c.base_outstanding), 0)).where(rows.c.party_id == customer_id))).scalar_one())
+
+
+async def insert_manual(db: AsyncSession, tenant: uuid.UUID, user_id: uuid.UUID | None, kind: DebtKind, branch: uuid.UUID, data) -> ManualDebt:
+    """Write an opening-balance debt. `data` is a ManualDebtRequest or the same fields held in an approval request."""
+    get = (lambda k, d=None: getattr(data, k, d)) if not isinstance(data, dict) else (lambda k, d=None: data.get(k, d))
+    from datetime import date as date_type
+
+    def day(value):
+        return value if isinstance(value, date_type) or value is None else date_type.fromisoformat(str(value))
+    issue = day(get("issue_date"))
+    reference = (get("reference") or "").strip() or f"{'OB' if kind == 'receivable' else 'OP'}-{issue:%y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+    if await db.scalar(select(func.count()).select_from(ManualDebt).where(ManualDebt.tenant_id == tenant, ManualDebt.reference == reference)):
+        raise ConflictError("That reference is already used")
+    party = uuid.UUID(str(get("party_id")))
+    debt = ManualDebt(tenant_id=tenant, kind=kind, reference=reference, branch_id=branch, amount=Decimal(str(get("amount"))), issue_date=issue,
+                      due_date=day(get("due_date")), notes=get("notes") or None, created_by=user_id,
+                      customer_id=party if kind == "receivable" else None, supplier_id=party if kind == "payable" else None)
+    from app.modules.currency.service import get_base_currency
+    debt.currency_code = await get_base_currency(db, tenant)
+    db.add(debt)
+    await db.flush()
+    return debt
+
+
 async def create_manual(db: AsyncSession, user: User, kind: DebtKind, active, data: ManualDebtRequest) -> dict:
     tenant = allow(user, base.resource(kind), "create")
     branch = await resolve_branch(db, user, data.branch_id, active)
@@ -115,22 +146,36 @@ async def create_manual(db: AsyncSession, user: User, kind: DebtKind, active, da
     party = (await db.execute(select(Party).where(Party.tenant_id == tenant, Party.id == data.party_id))).scalar_one_or_none()
     if party is None:
         raise NotFoundError("Customer not found" if kind == "receivable" else "Supplier not found")
-    reference = data.reference.strip() or f"{'OB' if kind == 'receivable' else 'OP'}-{data.issue_date:%y%m%d}-{uuid.uuid4().hex[:6].upper()}"
-    if await db.scalar(select(func.count()).select_from(ManualDebt).where(ManualDebt.tenant_id == tenant, ManualDebt.reference == reference)):
-        raise ConflictError("That reference is already used")
-    debt = ManualDebt(tenant_id=tenant, kind=kind, reference=reference, branch_id=branch, amount=data.amount, issue_date=data.issue_date,
-                      due_date=data.due_date, notes=data.notes or None, created_by=user.id,
-                      customer_id=data.party_id if kind == "receivable" else None,
-                      supplier_id=data.party_id if kind == "payable" else None)
-    from app.modules.currency.service import get_base_currency
-    debt.currency_code = await get_base_currency(db, tenant)
-    db.add(debt)
-    await db.flush()
+    if kind == "receivable":
+        held = await hold_if_over_limit(db, user, tenant, party, branch, data)
+        if held is not None:
+            return held
+    debt = await insert_manual(db, tenant, user.id, kind, branch, data)
     await record_audit(db, tenant_id=tenant, actor_user_id=user.id, actor_name=user.full_name, action=f"debt.{kind}.create_manual",
-                       entity_type=f"debt_{kind}", entity_id=str(debt.id), summary=f"Recorded opening balance {reference}",
+                       entity_type=f"debt_{kind}", entity_id=str(debt.id), summary=f"Recorded opening balance {debt.reference}",
                        changes={"party": party.name, "amount": str(data.amount), "branch_id": str(branch)})
     await db.commit()
-    return {"id": str(debt.id), "reference": reference}
+    return {"id": str(debt.id), "reference": debt.reference}
+
+
+async def hold_if_over_limit(db: AsyncSession, user: User, tenant: uuid.UUID, customer, branch: uuid.UUID, data) -> dict | None:
+    """A client's total debt may not pass the business's limit on a person's say-so: it waits as a request, counted nowhere until approved.
+    People with approval authority record it directly, and the business can switch the rule off."""
+    from app.modules.approvals import service as approvals
+    from app.modules.tenants.models import Tenant
+    if approvals.can_decide(user) or not await approvals.rule_on(db, tenant, "debt_over_limit"):
+        return None
+    limit = (await db.execute(select(Tenant.debt_limit_per_client).where(Tenant.id == tenant))).scalar_one_or_none()
+    if limit is None:
+        return None
+    owed = await client_outstanding(db, tenant, customer.id)
+    if owed + Decimal(str(data.amount)) <= limit:
+        return None
+    payload = {"party_id": str(customer.id), "amount": str(data.amount), "issue_date": data.issue_date.isoformat(), "due_date": data.due_date.isoformat() if data.due_date else None,
+               "reference": data.reference, "notes": data.notes, "branch_id": str(branch), "currently_owed": str(owed), "limit": str(limit)}
+    request = await approvals.create_request(db, user, kind="debt_over_limit", subject_id=customer.id, branch_id=branch,
+                                             reason=f"{customer.name} would owe {owed + Decimal(str(data.amount)):,.0f}, over the limit of {limit:,.0f}", payload=payload)
+    return {"pending_approval": True, "approval_request_id": str(request.id), "message": "This takes the client over the debt limit, so it was sent for approval and is not counted yet."}
 
 
 async def pay_manual(db: AsyncSession, user: User, kind: DebtKind, document_id: uuid.UUID, paid_at: datetime,

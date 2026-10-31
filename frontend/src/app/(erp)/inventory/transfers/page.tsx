@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Plus, Search, Trash2, ArrowLeftRight, AlertCircle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiStockTransfer } from "@/lib/api";
-import { useTransfers, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts } from "@/lib/api/hooks";
+import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -51,7 +51,8 @@ export default function TransfersPage() {
   const [items, setItems] = useState<ItemRow[]>([newItem()]);
   const [createError, setCreateError] = useState("");
 
-  const { data, isLoading } = useTransfers(1, 100, status || undefined, undefined, range);
+  const { data, isLoading, isError, error: loadError, refetch } = useTransfers(1, 100, status || undefined, undefined, range);
+  const destinations = useTransferDestinations().data ?? [];
   const { data: branchesData } = useMyBranches();
   const { data: productsData } = useProducts(1, 500);
   const createTransfer = useCreateTransfer();
@@ -194,7 +195,7 @@ export default function TransfersPage() {
               <select value={toBranch} onChange={(e) => setToBranch(e.target.value)}
                 className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-card outline-none">
                 <option value="">— Any / Main store</option>
-                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}{b.location ? ` · ${b.location}` : ""}</option>)}
+                {(destinations.length ? destinations : branches).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
           </div>
@@ -339,7 +340,11 @@ export default function TransfersPage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
+        {isError ? (
+          <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-6 text-center text-sm text-red-700 dark:text-red-400">
+            {(loadError as { detail?: string } | null)?.detail ?? "Transfers could not be loaded."} <button type="button" className="font-semibold underline" onClick={() => void refetch()}>Try again</button>
+          </div>
+        ) : filtered.length === 0 && (
           <div className="py-16 text-center bg-card border border-border rounded-xl">
             <ArrowLeftRight size={36} className="text-border mx-auto mb-3" />
             <p className="text-sm font-semibold text-muted">No transfers found</p>

@@ -18,13 +18,34 @@ def _require_tenant(tenant_id) -> None:
         raise ValidationError("This account has no tenant. Log in as a tenant user.")
 
 
+def _my_branches(user) -> list[uuid.UUID] | None:
+    """The branches a restricted person may see transfers for; None means every branch."""
+    from app.core.branches import has_branch_restriction
+    if not has_branch_restriction(user):
+        return None
+    ids = user.branch_ids if user.branch_ids is not None else [user.branch_id]
+    return [uuid.UUID(str(i)) for i in ids if i]
+
+
+@router.get("/inventory/transfers/destinations")
+async def transfer_destinations(db: DbSession, current_user: CurrentUser):
+    """Every active branch of the business, by name only: a branch-restricted person may send stock TO any branch."""
+    _require_tenant(current_user.tenant_id)
+    from sqlalchemy import select
+
+    from app.modules.tenants.models import Branch
+    rows = (await db.execute(select(Branch.id, Branch.name).where(Branch.tenant_id == current_user.tenant_id, Branch.status == "active").order_by(Branch.name))).all()
+    return success_response(data=[{"id": str(i), "name": n} for i, n in rows], message="Destinations retrieved successfully")
+
+
 @router.get("/inventory/transfers")
 async def list_transfers(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
                          status: str | None = None):
     _require_tenant(current_user.tenant_id)
+    mine = _my_branches(current_user)
     items = await service.list_transfers(db, current_user.tenant_id, status,
-                                         page_params.offset, page_params.limit, period)
-    total = await service.count_transfers(db, current_user.tenant_id, status, period)
+                                         page_params.offset, page_params.limit, period, mine)
+    total = await service.count_transfers(db, current_user.tenant_id, status, period, mine)
     return paginated_response(items=[i.model_dump() for i in items], total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="Transfers retrieved successfully")
@@ -36,8 +57,8 @@ async def create_transfer(data: StockTransferCreate, db: DbSession, current_user
     from app.core.branches import has_branch_restriction
     if has_branch_restriction(current_user):
         mine = {str(b) for b in (current_user.branch_ids if current_user.branch_ids is not None else [current_user.branch_id]) if b}
-        if not ({str(data.from_branch_id), str(data.to_branch_id)} & mine):
-            raise ForbiddenError("A transfer you start must involve one of your branches")
+        if str(data.from_branch_id) not in mine:
+            raise ForbiddenError("You can only send stock out of your own branch. Any branch can be the destination.")
     obj = await service.create_transfer(db, current_user.tenant_id, current_user.id, data)
     # A person without approval authority gets a request opened for the transfer; it can't be started until it is approved.
     from app.modules.approvals import service as approvals
@@ -53,6 +74,9 @@ async def create_transfer(data: StockTransferCreate, db: DbSession, current_user
 async def get_transfer(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     obj = await service.get_transfer(db, current_user.tenant_id, id)
+    mine = _my_branches(current_user)
+    if mine is not None and not ({obj.from_branch_id, obj.to_branch_id} & set(mine)):
+        raise ForbiddenError("This transfer does not involve your branches")
     return success_response(data=obj.model_dump(), message="Transfer retrieved successfully")
 
 

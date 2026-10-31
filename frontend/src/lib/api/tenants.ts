@@ -58,6 +58,10 @@ export interface Tenant {
   multi_branch: boolean;
   /** Most NEW credit one customer can be granted per day, in the base currency. null = no limit. */
   credit_daily_limit?: number | string | null;
+  /** The most one client may owe before a new debt needs approval (base currency). null = no limit. */
+  debt_limit_per_client?: number | string | null;
+  /** Which requests need approval; a missing key means on. */
+  approval_rules?: Record<string, boolean>;
   /** How Pesaa should reach the business first. */
   preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   business_type: string | null;
@@ -78,6 +82,8 @@ export interface TenantUpdateInput {
   vat_enabled?: boolean;
   /** null clears the limit. Needs credit:approve — the server refuses anyone else. */
   credit_daily_limit?: number | null;
+  debt_limit_per_client?: number | null;
+  approval_rules?: Record<string, boolean>;
   preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   website?: string | null;
   phone?: string | null;

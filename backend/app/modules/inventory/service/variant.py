@@ -73,9 +73,10 @@ async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uui
     if obj is None:
         raise NotFoundError("Variant not found")
     updates = data.model_dump(exclude_unset=True)
-    from app.modules.approvals.service import guard_direct_change
+    from app.modules.approvals.service import exempt_fields, guard_direct_change
     guard_direct_change({"price": obj.price, "promo_price": obj.promo_price, "stock": obj.stock}, updates, can_approve,
-                        {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"})
+                        {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"},
+                        await exempt_fields(db, tenant_id))
     for field, value in updates.items():
         setattr(obj, field, value)
     await repo.save(obj)

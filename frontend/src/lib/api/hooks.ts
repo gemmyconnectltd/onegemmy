@@ -593,6 +593,9 @@ export const useDeleteSerial = mutation((id: string) => serialsApi.delete(id), [
 const TRANSFERS_KEY = ["inventory", "transfers"] as const;
 const BRANCHES_KEY = ["inventory", "branches"] as const;
 
+export const useTransferDestinations = (opts?: QueryOpts) =>
+  useQ([...TRANSFERS_KEY, "destinations"], () => transfersApi.destinations(), (r) => r.data, opts);
+
 export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts, period?: PeriodRange) =>
   useQ([...TRANSFERS_KEY, page, pageSize, status ?? "all", periodKey(period)], () => transfersApi.list(page, pageSize, status, period), (r) => r.data, opts);
 
@@ -605,6 +608,14 @@ export const useOperationsReport = (q: { from?: string; to?: string; branch?: st
   useQ(["reports", "operations", q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.operations(q), (r) => r.data);
 export const useFinancialBreakdown = (q: { from?: string; to?: string; branch?: string }, opts?: QueryOpts) =>
   useQ(["reports", "financial", q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.financial(q), (r) => r.data, opts);
+
+const APPROVALS = ["approvals"] as const;
+export const useApprovals = (page: number, filters: { status?: ApprovalStatus; kind?: string; mine?: boolean }) =>
+  useQ([...APPROVALS, "list", page, filters], () => approvalsApi.list(page, filters), (r) => r.data);
+export const useApprovalSummary = (opts?: QueryOpts) => useQ([...APPROVALS, "summary"], () => approvalsApi.summary(), (r) => r.data, { refetchInterval: 60000, ...opts });
+export const useDecideApproval = mutation(({ id, approve, note }: { id: string; approve: boolean; note?: string }) => (approve ? approvalsApi.approve(id, note) : approvalsApi.reject(id, note ?? "")), [[...APPROVALS], [...PRODUCTS]]);
+export const useCancelApproval = mutation((id: string) => approvalsApi.cancel(id), [[...APPROVALS]]);
+export const useCreateApproval = mutation((d: NewApproval) => approvalsApi.create(d), [[...APPROVALS]]);
 
 export const useMyBranches = (opts?: QueryOpts) =>
   useQ([...BRANCHES_KEY], () => branchesApi.list(), (r) => r.data, opts);
@@ -865,6 +876,7 @@ import type { DebtEditInput, DebtFilters, DebtKind, ManualDebtInput } from "@/li
 import type { DebtPaymentInput } from "@/lib/debts";
 import { periodKey, type PeriodRange } from "@/lib/period";
 import { reportsApi, type PerformanceQuery, type SalesDimension } from "./reports";
+import { approvalsApi, type ApprovalStatus, type NewApproval } from "./approvals";
 export const useDebtOverview = (branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, "overview", branch], debtApi.overview, r => r.data, { enabled });
 export const useDebtRecords = (kind: DebtKind, filters: DebtFilters, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, filters, branch], () => debtApi.list(kind, filters), r => r.data, { enabled });
 export const useDebtDetail = (kind: DebtKind, id: string | null, page: number, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, id, page, branch], () => debtApi.detail(kind, id!, page), r => r.data, { enabled: !!id && enabled, placeholderData: undefined });

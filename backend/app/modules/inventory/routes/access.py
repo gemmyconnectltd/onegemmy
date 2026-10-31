@@ -11,8 +11,9 @@ async def inventory_access(request: Request, user: CurrentUser) -> None:
     # A person limited to some branches may START a transfer that involves their branch (the route checks that): it always waits for
     # an approval, so company-wide stock is never moved on their say-so. Everything else about transfers stays with company-wide users.
     starts_transfer = request.method == "POST" and path.rstrip("/").endswith("/inventory/transfers")
-    if "/transfers" in path and has_branch_restriction(user) and not starts_transfer:
-        raise ForbiddenError("Stock transfers currently use company-wide stock. Ask an owner with company-wide access to manage this transfer.")
+    reads_transfer = request.method == "GET" and "/transfers" in path  # the routes narrow these to the person's own branches
+    if "/transfers" in path and has_branch_restriction(user) and not starts_transfer and not reads_transfer:
+        raise ForbiddenError("You can request and follow transfers for your branches. An owner approves and completes them.")
     action = {"GET": "read", "POST": "create", "PATCH": "update", "PUT": "update",
               "DELETE": "delete"}.get(request.method, "read")
     stock_operation = any(part in path for part in ("/restock", "/transfers", "/reports/valuation", "/low-stock"))

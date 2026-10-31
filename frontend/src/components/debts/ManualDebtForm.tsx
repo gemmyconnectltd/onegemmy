@@ -16,6 +16,7 @@ export function ManualDebtForm({ kind, onCreated, onCancel }: { kind: DebtKind; 
   const branches = useMyBranches();
   const create = useCreateManualDebt();
   const today = new Date().toISOString().slice(0, 10);
+  const [held, setHeld] = useState<string | null>(null);
   const [party, setParty] = useState<Party | null>(null);
   const [branch, setBranch] = useState(activeBranchId ?? user?.branchId ?? "");
   const [amount, setAmount] = useState("");
@@ -42,10 +43,13 @@ export function ManualDebtForm({ kind, onCreated, onCancel }: { kind: DebtKind; 
     busy.current = true; setError(null);
     try {
       const response = await create.mutateAsync({ kind, data: { party_id: party!.id, branch_id: branch, amount, issue_date: issue, ...(due ? { due_date: due } : {}), ...(reference.trim() ? { reference: reference.trim() } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}) } });
+      const body = response.data as unknown as { pending_approval?: boolean; message?: string };
+      if (body.pending_approval) { setHeld(body.message ?? "Sent for approval."); return; }
       onCreated(response.data.id);
     } catch (cause) { setError(cause); } finally { busy.current = false; }
   }
   const note = (key: keyof typeof errors) => touched && errors[key] ? <span role="alert" className="mt-1 block text-[11px] text-red-600">{errors[key]}</span> : null;
+  if (held) return <div className="space-y-4" role="status"><p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-800 dark:text-amber-300"><strong className="block">Waiting for approval</strong>{held} You can follow it under Approvals.</p><Button type="button" onClick={onCancel}>Done</Button></div>;
   return <form onSubmit={submit} className="space-y-4" noValidate>
     <p className="text-xs leading-relaxed text-muted">{kind === "receivable" ? "Record money a customer already owes you, such as an opening balance. No stock is deducted and it is not counted as a sale." : "Record money you already owe a supplier, without creating a purchase. No stock is added."}</p>
     <div className="text-xs font-medium"><span className="mb-1 block">{kind === "receivable" ? "Customer" : "Supplier"}</span><PartySearch kind={kind} value={party} onChange={setParty} />{note("party")}</div>

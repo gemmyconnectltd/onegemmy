@@ -14,6 +14,8 @@ import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { ProductFormDrawer, CSV_HEADERS as PRODUCT_CSV_HEADERS, type ProductFormValues, type ProductBulkRow } from "@/components/inventory/ProductFormDrawer";
+import { RequestChangeDrawer } from "@/components/inventory/RequestChangeDrawer";
+import { useCan } from "@/lib/can";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
@@ -75,6 +77,11 @@ export default function ProductsPage() {
   const [formKey, setFormKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null);
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
+  const [requestTarget, setRequestTarget] = useState<ApiProduct | null>(null);
+  const can = useCan();
+  const canEdit = can("items", "update"), canDelete = can("items", "delete"), canRestock = can("stock", "create"), canAdd = can("items", "create");
+  const canAskPrice = !canEdit && can("pricing", "create"), canAskStock = !canEdit && can("stock", "create");
+  const hasRowActions = canEdit || canDelete || canRestock || canAskPrice || canAskStock || can("items", "read");
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
   const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
@@ -168,12 +175,12 @@ export default function ProductsPage() {
             // Batch and date columns stay empty: they belong to batches, not to the product itself.
             return { filename: "products", headers: PRODUCT_CSV_HEADERS, rows: items.map((x) => [x.name, x.sku, x.category?.name, x.brand?.name, x.unit?.name, x.cost, x.price, x.stock, x.min_stock, "", "", "", x.barcode, x.subcategory]) };
           }} />
-          <Button variant="secondary" onClick={() => { setEditing(null); setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }} className="rounded-lg">
+          {canAdd && <Button variant="secondary" onClick={() => { setEditing(null); setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }} className="rounded-lg">
             <Upload size={15} /> Import
-          </Button>
-          <Button onClick={() => { setEditing(null); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }} color={INV_COLOR} className="rounded-lg">
+          </Button>}
+          {canAdd && <Button onClick={() => { setEditing(null); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }} color={INV_COLOR} className="rounded-lg">
             <Plus size={15} /> Add Product
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -255,30 +262,34 @@ export default function ProductsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 relative">
-                    <button onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
+                    {hasRowActions && <button onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
                       className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors opacity-0 group-hover:opacity-100">
                       <MoreVertical size={14} />
-                    </button>
+                    </button>}
                     {openMenu === p.id && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
                         <div className="absolute right-4 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
-                          <button onClick={() => { setOpenMenu(null); setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}
+                          {canEdit && <button onClick={() => { setOpenMenu(null); setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <Edit2 size={13} className="text-muted" /> Edit
-                          </button>
-                          <button onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
+                          </button>}
+                          {(canAskPrice || canAskStock) && <button onClick={() => { setOpenMenu(null); setRequestTarget(p); }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
+                            <Edit2 size={13} className="text-muted" /> Request a change
+                          </button>}
+                          {canRestock && <button onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <PackagePlus size={13} style={{ color: INV_COLOR }} /> Restock
-                          </button>
+                          </button>}
                           <button onClick={() => { setOpenMenu(null); setVariantsTarget(p); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
                             <Layers size={13} className="text-muted" /> Variants
                           </button>
-                          <button onClick={() => { setOpenMenu(null); setDeleteTarget(p); }}
+                          {canDelete && <button onClick={() => { setOpenMenu(null); setDeleteTarget(p); }}
                             className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
                             <Trash2 size={13} /> Delete
-                          </button>
+                          </button>}
                         </div>
                       </>
                     )}
@@ -311,6 +322,7 @@ export default function ProductsPage() {
         color={INV_COLOR}
       />
 
+      {requestTarget && <RequestChangeDrawer product={requestTarget} canPrice={can("pricing", "create")} canStock={can("stock", "create")} onClose={() => setRequestTarget(null)} />}
       <RestockDrawer
         open={!!restockTarget}
         onClose={() => setRestockTarget(null)}

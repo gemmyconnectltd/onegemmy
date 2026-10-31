@@ -24,14 +24,15 @@ async def _transfer_to_read(obj: StockTransfer) -> StockTransferRead:
 
 
 async def list_transfers(
-    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 20, period: DatePeriod | None = None
+    db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 20, period: DatePeriod | None = None,
+    branches: list[uuid.UUID] | None = None,
 ) -> list[StockTransferRead]:
-    items = await TransferRepository(db).list_for_tenant(tenant_id, status, offset, limit, period)
+    items = await TransferRepository(db).list_for_tenant(tenant_id, status, offset, limit, period, branches)
     return [await _transfer_to_read(t) for t in items]
 
 
-async def count_transfers(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, period: DatePeriod | None = None) -> int:
-    return await TransferRepository(db).count_for_tenant(tenant_id, status, period)
+async def count_transfers(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, period: DatePeriod | None = None, branches: list[uuid.UUID] | None = None) -> int:
+    return await TransferRepository(db).count_for_tenant(tenant_id, status, period, branches)
 
 
 async def get_transfer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> StockTransferRead:

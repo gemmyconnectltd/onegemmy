@@ -1,6 +1,6 @@
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, Ruler, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
+import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, Ruler, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
 
 export type ModuleKey =
   | "debts" | "expenses" | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
@@ -23,15 +23,15 @@ export interface NavConfigItem {
 
 
 export const ACCOUNTING_NAV = [
-  { href: "/accounting/accounts", label: "Chart of Accounts", icon: BookOpen, group: "Books" },
-  { href: "/accounting/ledger", label: "General Ledger", icon: ListOrdered, group: "Books" },
-  { href: "/accounting/receivables", label: "Accounts Receivable", icon: Users, group: "Money in and out" },
-  { href: "/accounting/payables", label: "Accounts Payable", icon: Truck, group: "Money in and out" },
-  { href: "/accounting/cash-bank", label: "Cash & Bank", icon: Landmark, group: "Money in and out" },
-  { href: "/accounting/assets", label: "Fixed Assets", icon: Building2, group: "Assets and payroll" },
-  { href: "/accounting/payroll", label: "Payroll", icon: Wallet, group: "Assets and payroll" },
-  { href: "/accounting/tax", label: "Tax Management", icon: ReceiptText, group: "Compliance and reports" },
-  { href: "/accounting/reports", label: "Financial Reports", icon: ChartNoAxesCombined, group: "Compliance and reports" },
+  { href: "/accounting/accounts", label: "Chart of Accounts", icon: BookOpen, group: "Books", requires: "chart_of_accounts:read" },
+  { href: "/accounting/ledger", label: "General Ledger", icon: ListOrdered, group: "Books", requires: "journal_entries:read" },
+  { href: "/accounting/receivables", label: "Accounts Receivable", icon: Users, group: "Money in and out", requires: "accounts_receivable:read" },
+  { href: "/accounting/payables", label: "Accounts Payable", icon: Truck, group: "Money in and out", requires: "accounts_payable:read" },
+  { href: "/accounting/cash-bank", label: "Cash & Bank", icon: Landmark, group: "Money in and out", requires: "banking:read" },
+  { href: "/accounting/assets", label: "Fixed Assets", icon: Building2, group: "Assets and payroll", requires: "fixed_assets:read" },
+  { href: "/accounting/payroll", label: "Payroll", icon: Wallet, group: "Assets and payroll", requires: "payroll:read" },
+  { href: "/accounting/tax", label: "Tax Management", icon: ReceiptText, group: "Compliance and reports", requires: "tax:read" },
+  { href: "/accounting/reports", label: "Financial Reports", icon: ChartNoAxesCombined, group: "Compliance and reports", requires: "journal_entries:read" },
 ];
 
 export const DEBT_NAV = [
@@ -50,7 +50,6 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "deals", label: "Deals", href: "/sales/deals", icon: ClipboardList },
     { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw },
     { nameKey: "targets",   href: "/sales/targets",   icon: Target },
-    { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp },
   ],
   accounting: ACCOUNTING_NAV.map(item => ({ ...item, nameKey: item.label, label: item.label })),
   debts: DEBT_NAV.map(item => ({ ...item, nameKey: item.label, label: item.label })),
@@ -163,6 +162,7 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   ] },
   { id: "administration", label: "Administration", items: [
     { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
+    { name: "Approvals", href: "/approvals", icon: ClipboardCheck, permission: "approvals:read", tour: "approvals" },
     { name: "Branches", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
     { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing", hidden: true },
     { name: "Business Settings", href: "/settings", icon: Settings, permission: "tenants:update", exact: true, tour: "settings",

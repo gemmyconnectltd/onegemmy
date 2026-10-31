@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.database import get_db
 from app.core.security import create_access_token
@@ -196,3 +196,75 @@ async def test_people_only_see_their_own_requests_and_cannot_touch_other_busines
 async def test_branch_manager_template_never_carries_approval_authority():
     from app.modules.tenants.service.role import _ADMIN_ONLY_RESOURCES
     assert "approvals" in _ADMIN_ONLY_RESOURCES  # so no template (Branch Manager, Member ...) can approve what its holders ask for
+
+
+@pytest.mark.db
+async def test_a_branch_manager_can_list_and_follow_transfers_for_their_branch_and_send_to_any_branch(db):
+    tenant, manager, _ops, _, _, product, kabuga, _, roaming = await people(db)
+    other, third = Branch(tenant_id=tenant.id, name="Rubavu"), Branch(tenant_id=tenant.id, name="Musanze")
+    db.add_all([other, third])
+    await db.flush()
+    item = [{"product_id": str(product.id), "product_name": "Charger", "quantity": 1}]
+    try:
+        async with client(db, roaming) as c:  # a transfer that does not involve Kabuga
+            unrelated = await c.post(f"{API}/inventory/transfers", json={"from_branch_id": str(other.id), "to_branch_id": str(third.id), "items": item})
+            assert unrelated.status_code == 201
+        async with client(db, manager) as c:
+            made = await c.post(f"{API}/inventory/transfers", json={"from_branch_id": str(kabuga.id), "to_branch_id": str(third.id), "items": item})
+            assert made.status_code == 201, made.text  # any branch can be the destination
+            listed = await c.get(f"{API}/inventory/transfers")
+            assert listed.status_code == 200, listed.text  # was a silent 403
+            ids = {t["id"] for t in listed.json()["data"]["items"]} if "items" in listed.json()["data"] else {t["id"] for t in listed.json()["data"]}
+            assert made.json()["data"]["id"] in ids and unrelated.json()["data"]["id"] not in ids  # only transfers touching their branch
+            assert (await c.get(f"{API}/inventory/transfers/{unrelated.json()['data']['id']}")).status_code == 403
+            assert (await c.get(f"{API}/inventory/transfers/{made.json()['data']['id']}")).status_code == 200
+            names = {d["name"] for d in (await c.get(f"{API}/inventory/transfers/destinations")).json()["data"]}
+            assert {"Kabuga", "Rubavu", "Musanze"} <= names  # not just their own branch
+            assert (await c.post(f"{API}/inventory/transfers", json={"from_branch_id": str(other.id), "to_branch_id": str(kabuga.id), "items": item})).status_code == 403  # From stays limited
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_debt_over_the_limit_waits_for_approval_and_is_counted_only_once_approved(db):
+    from app.modules.accounting.models.debt import ManualDebt
+    from app.modules.sales.models.customer import Customer
+    tenant, manager, ops, _, owner, _, kabuga, _, _ = await people(db)
+    tenant.debt_limit_per_client = 200000
+    client_row = Customer(tenant_id=tenant.id, name="Big Buyer")
+    db.add(client_row)
+    await db.flush()
+
+    def body(amount, ref):
+        return {"party_id": str(client_row.id), "branch_id": str(kabuga.id), "amount": amount, "issue_date": "2026-03-01", "reference": ref}
+
+    async def recorded():
+        return float((await db.execute(select(func.coalesce(func.sum(ManualDebt.amount), 0)).where(ManualDebt.tenant_id == tenant.id))).scalar_one())
+
+    try:
+        async with client(db, manager) as c:
+            under = await c.post(f"{API}/debts/receivable/manual", json=body(150000, "OB-UNDER"))
+            assert under.status_code == 200, under.text  # under the limit: recorded straight away
+            over = await c.post(f"{API}/debts/receivable/manual", json=body(250000, "OB-OVER"))
+            assert over.status_code == 200, over.text
+            held = over.json()["data"]
+            assert held["pending_approval"] is True and held["approval_request_id"]
+            assert await recorded() == 150000  # the 250,000 is not counted anywhere yet
+        async with client(db, ops) as c:
+            assert (await c.post(f"{API}/approvals/{held['approval_request_id']}/approve")).status_code == 200
+        assert await recorded() == 400000  # now it is a real debt
+        async with client(db, manager) as c:
+            again = await c.post(f"{API}/debts/receivable/manual", json=body(10000, "OB-REJECT"))
+            assert again.json()["data"]["pending_approval"] is True  # the client is already over the limit
+            request_id = again.json()["data"]["approval_request_id"]
+        async with client(db, ops) as c:
+            assert (await c.post(f"{API}/approvals/{request_id}/reject", json={"note": "Client must pay first"})).status_code == 200
+        assert await recorded() == 400000  # rejected: nothing recorded
+        async with client(db, owner) as c:  # people with approval authority record it directly
+            assert "pending_approval" not in (await c.post(f"{API}/debts/receivable/manual", json=body(10000, "OB-OWNER"))).json()["data"]
+        tenant.approval_rules = {"debt_over_limit": False}
+        await db.flush()
+        async with client(db, manager) as c:  # the business switched the rule off
+            assert "pending_approval" not in (await c.post(f"{API}/debts/receivable/manual", json=body(999999, "OB-FREE"))).json()["data"]
+    finally:
+        app.dependency_overrides.clear()

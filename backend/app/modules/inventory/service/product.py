@@ -132,9 +132,10 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
     if obj is None:
         raise NotFoundError("Product not found")
     updates = data.model_dump(exclude_unset=True)
-    from app.modules.approvals.service import guard_direct_change
+    from app.modules.approvals.service import exempt_fields, guard_direct_change
     guard_direct_change({"price": obj.price, "promo_price": obj.promo_price, "stock": obj.stock}, updates, can_approve,
-                        {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"})
+                        {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"},
+                        await exempt_fields(db, tenant_id))
     if "image_url" in updates and not updates["image_url"]:
         updates["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
     if "sku" in updates and not updates["sku"]:

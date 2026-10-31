@@ -156,6 +156,10 @@ export default function UsersPage() {
       setFormError("Name and email are required");
       return;
     }
+    if (form.restrict_branches && !form.branch_ids.length && !form.branch_id) {
+      setFormError("Choose at least one branch for this person, or untick \"Restrict to assigned branches\".");
+      return;
+    }
     try {
       await createUser.mutateAsync({
         email: form.email.trim(),
@@ -163,7 +167,7 @@ export default function UsersPage() {
         phone: form.phone.trim() || null,
         role: form.role,
         branch_id: form.branch_id || null,
-        branch_ids: form.restrict_branches ? form.branch_ids : null,
+        branch_ids: form.restrict_branches ? [...new Set([...form.branch_ids, ...(form.branch_id ? [form.branch_id] : [])])] : null,
       });
       setShowAdd(false);
       flash(`${form.full_name.trim()} was added. Check their email for the temporary password.`);
@@ -187,7 +191,7 @@ export default function UsersPage() {
           phone: form.phone.trim() || null,
           role: form.role,
           branch_id: form.branch_id || null,
-        branch_ids: form.restrict_branches ? form.branch_ids : null,
+        branch_ids: form.restrict_branches ? [...new Set([...form.branch_ids, ...(form.branch_id ? [form.branch_id] : [])])] : null,
         },
       });
       setEditing(null);
@@ -570,7 +574,7 @@ function UserForm({
           {(roles.data?.total ?? 0) > 25 && <div className="mt-2 flex gap-2"><Button type="button" variant="outline" disabled={rolePage === 1} onClick={() => setRolePage(rolePage - 1)}>Previous roles</Button><Button type="button" variant="outline" disabled={rolePage * 25 >= (roles.data?.total ?? 0)} onClick={() => setRolePage(rolePage + 1)}>More roles</Button></div>}
         </Field>
         <Field label="Branch">
-          <Select value={form.branch_id} onChange={(e) => setForm({ ...form, branch_id: e.target.value })}>
+          <Select value={form.branch_id} onChange={(e) => { const id = e.target.value; setForm({ ...form, branch_id: id, branch_ids: form.restrict_branches && id && !form.branch_ids.includes(id) ? [...form.branch_ids, id] : form.branch_ids }); }}>
             <option value="">All branches</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
@@ -579,7 +583,7 @@ function UserForm({
         </Field>
       </div>
       <Field label="Branch access" hint="Limit this user to selected branches, or retain access to all branches.">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.restrict_branches} onChange={(e) => setForm({ ...form, restrict_branches: e.target.checked })} />Restrict to assigned branches</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.restrict_branches} onChange={(e) => setForm({ ...form, restrict_branches: e.target.checked, branch_ids: e.target.checked && form.branch_id && !form.branch_ids.includes(form.branch_id) ? [...form.branch_ids, form.branch_id] : form.branch_ids })} />Restrict to assigned branches</label>
         {form.restrict_branches && <div className="grid grid-cols-2 gap-2 pt-2">{branches.map((branch) => <label key={branch.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.branch_ids.includes(branch.id)} onChange={(e) => setForm({ ...form, branch_ids: e.target.checked ? [...form.branch_ids, branch.id] : form.branch_ids.filter((id) => id !== branch.id), branch_id: !e.target.checked && form.branch_id === branch.id ? "" : form.branch_id })} />{branch.name}</label>)}</div>}
       </Field>
       {formError && <p className="text-[12px] font-semibold text-red-600">{formError}</p>}

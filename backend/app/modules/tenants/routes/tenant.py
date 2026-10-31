@@ -133,6 +133,10 @@ async def update_tenant(
         current_user.is_superuser or "credit:approve" in current_user.permissions_names
     ):
         raise ForbiddenError("Permission required: credit:approve")
+    if {"debt_limit_per_client", "approval_rules"} & data.model_fields_set and not (
+        current_user.is_superuser or "approvals:approve" in current_user.permissions_names
+    ):
+        raise ForbiddenError("Permission required: approvals:approve")
     if data.model_fields_set - {"credit_daily_limit"}:
         await require_permission("tenants:update")(current_user)
     tenant = await service.update_tenant(db, tenant_id, data)

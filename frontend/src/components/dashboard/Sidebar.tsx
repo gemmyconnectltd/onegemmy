@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
-import { useMyEntitlements } from "@/lib/api/hooks";
+import { useApprovalSummary, useMyEntitlements } from "@/lib/api/hooks";
 import { siteConfig } from "@/lib/config";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { Drawer } from "@/components/ui/Drawer";
@@ -77,6 +77,7 @@ function toggleGroup(id: string) {
 
 function NavigationGroups({groups, path, collapsed = false, onNavigate, admin}: {groups: NavGroup[]; path: string; collapsed?: boolean; expandSidebar?: () => void; onNavigate?: () => void; admin: boolean}) {
   const folded = new Set<string>(JSON.parse(useSyncExternalStore(subscribeCollapsed, readCollapsed, () => "[]")));
+  const pendingApprovals = useApprovalSummary({ enabled: !admin }).data?.pending ?? 0;
   const rowClass = `pesaa-nav-row relative flex h-10 w-full items-center gap-3 px-4 text-left text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${collapsed ? "justify-center px-0" : ""}`;
   return <>{groups.map((group, index) => {
     const id = group.id ?? "root", foldable = !!group.id && !!group.label && group.items.length > 1 && !collapsed;
@@ -92,7 +93,7 @@ function NavigationGroups({groups, path, collapsed = false, onNavigate, admin}: 
         const selected = isPrimaryActive(path, item);
         const tour = admin ? undefined : `nav-${item.tour ?? item.name.toLowerCase()}`;
         return <Link key={item.href} href={item.href} aria-current={selected ? "page" : undefined} onClick={onNavigate} title={collapsed ? item.name : undefined} data-active={selected} data-tour={tour} className={rowClass}>
-          <item.icon size={18} strokeWidth={selected ? 2 : 1.7} className="shrink-0" aria-hidden />{!collapsed && <span className="min-w-0 flex-1 truncate">{item.name}</span>}
+          <item.icon size={18} strokeWidth={selected ? 2 : 1.7} className="shrink-0" aria-hidden />{!collapsed && <span className="min-w-0 flex-1 truncate">{item.name}</span>}{!collapsed && item.href === "/approvals" && pendingApprovals > 0 && <span aria-label={`${pendingApprovals} waiting`} className="rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">{pendingApprovals}</span>}
         </Link>;
       })}</div>
     </section>;

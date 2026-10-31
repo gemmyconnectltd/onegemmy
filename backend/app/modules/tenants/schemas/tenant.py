@@ -74,6 +74,9 @@ class TenantUpdate(TimezoneModel):
     multi_branch: bool | None = None
     # Needs credit:approve (GM/CEO) — enforced in the route.
     credit_daily_limit: Decimal | None = Field(default=None, ge=0)
+    # Approval rules are the owner's call: enforced in the route (tenants:update plus approvals:approve).
+    debt_limit_per_client: Decimal | None = Field(default=None, ge=0)
+    approval_rules: dict[str, bool] | None = None
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
@@ -111,6 +114,8 @@ class TenantRead(BaseModel):
     vat_enabled: bool = True
     multi_branch: bool = False
     credit_daily_limit: Decimal | None = None
+    debt_limit_per_client: Decimal | None = None
+    approval_rules: dict[str, bool] = {}
     business_type: str | None = None
     industry: str | None = None
     business_category: str | None = None
