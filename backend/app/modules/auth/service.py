@@ -58,6 +58,7 @@ def _build_user_info(user: User, permission_names: list[str] | None = None) -> T
         branch_ids=getattr(user, "branch_ids", None),
         branch_id=user.branch_id,
         branch_name=user.branch_rel.name if user.branch_rel else None,
+        disabled_modules=[] if user.is_superuser else list(getattr(user, "disabled_modules", None) or []),
         permissions=permission_names or [],
     )
 

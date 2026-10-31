@@ -180,6 +180,15 @@ async def update_user(
     payload = data.model_dump(exclude_unset=True)
     if "branch_ids" in payload or "branch_id" in payload:
         payload["branch_ids"] = await _validated_branches(db, tenant_id, payload.get("branch_id", user.branch_id), payload.get("branch_ids", user.branch_ids))
+    if "disabled_modules" in payload:
+        from app.core.access import MODULE_RESOURCES
+        from app.core.exceptions import ValidationError
+        if user.is_superuser:
+            raise ValidationError("The business owner always has access to every feature.")
+        unknown = [m for m in payload["disabled_modules"] or [] if m not in MODULE_RESOURCES]
+        if unknown:
+            raise ValidationError(f"Unknown feature: {', '.join(unknown)}")
+        payload["disabled_modules"] = sorted(set(payload["disabled_modules"] or []))
     fields = list(payload.keys())
     log.info("users.update.attempt", extra={"_extra_fields": {"user_id": str(user.id), "fields": fields}})
 

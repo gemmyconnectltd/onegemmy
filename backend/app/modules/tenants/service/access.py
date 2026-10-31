@@ -72,7 +72,7 @@ def matrix(catalog: list[Permission], granted: set[str], everything: bool, state
     return out
 
 
-def module_access(granted: set[str], everything: bool, states: dict[str, str], names: dict[str, str]) -> list[dict]:
+def module_access(granted: set[str], everything: bool, states: dict[str, str], names: dict[str, str], blocked: frozenset[str] | set[str] = frozenset()) -> list[dict]:
     """Per ERP module: what the permissions allow, and what is effective once the business's module state is applied."""
     out = []
     for module, resources in _module_resources().items():
@@ -81,10 +81,10 @@ def module_access(granted: set[str], everything: bool, states: dict[str, str], n
         status = states.get(module, NOT_INCLUDED)
         out.append({
             "key": module, "name": names.get(module, module.title()), "status": status,
-            "can_view": view, "can_change": write,
+            "can_view": view, "can_change": write, "blocked": module in blocked,
             # A module the business turned off stays readable but takes no new records; one outside the plan or restricted is closed.
-            "effective_view": view and status in (ENABLED, "available"),
-            "effective_change": write and status == ENABLED,
+            "effective_view": view and module not in blocked and status in (ENABLED, "available"),
+            "effective_change": write and module not in blocked and status == ENABLED,
         })
     return out
 
@@ -124,7 +124,7 @@ async def user_access(db: AsyncSession, tenant_id: uuid.UUID, user: User) -> dic
         "user": {"id": str(user.id), "full_name": user.full_name, "email": user.email, "is_active": user.is_active, "is_owner": owner,
                  "role": role.name if role else (user.role or None), "role_id": str(user.role_id) if user.role_id else None},
         "branches": await branch_scope(db, tenant_id, user),
-        "modules": module_access(granted, owner, states, names),
+        "modules": module_access(granted, owner, states, names, set() if owner else set(user.disabled_modules or [])),
         "groups": matrix(catalog, granted, owner, states, names),
     }
 
@@ -166,7 +166,7 @@ async def access_summary(db: AsyncSession, tenant_id: uuid.UUID, *, search: str 
         if status == "active" and not u.is_active or status == "inactive" and u.is_active:
             continue
         granted = perms.get(u.role_id, set()) if u.role_id else set()
-        access = module_access(granted, is_owner(u), states, names)
+        access = module_access(granted, is_owner(u), states, names, set() if is_owner(u) else set(u.disabled_modules or []))
         rows.append({
             "id": str(u.id), "full_name": u.full_name, "email": u.email, "is_active": u.is_active, "is_owner": is_owner(u),
             "role": roles.get(u.role_id) or u.role, "role_id": str(u.role_id) if u.role_id else None,

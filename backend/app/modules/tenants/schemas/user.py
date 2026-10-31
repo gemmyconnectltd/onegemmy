@@ -31,6 +31,7 @@ class UserRead(BaseModel):
     role: str
     role_id: uuid.UUID | None
     branch_ids: list[uuid.UUID] | None = None
+    disabled_modules: list[str] | None = None
     branch_id: uuid.UUID | None
     department_id: uuid.UUID | None
     is_active: bool
@@ -48,6 +49,7 @@ class UserUpdate(TrimmedModel):
     role_id: uuid.UUID | None = None
     branch_ids: list[uuid.UUID] | None = Field(default=None, max_length=100)
     branch_id: uuid.UUID | None = None
+    disabled_modules: list[str] | None = Field(default=None, max_length=50)
     department_id: uuid.UUID | None = None
     is_active: bool | None = None
 

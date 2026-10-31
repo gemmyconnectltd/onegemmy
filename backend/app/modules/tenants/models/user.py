@@ -29,6 +29,8 @@ class User(UUIDPKMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True
     )
     branch_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    # ERP modules switched off for this person on top of their role (None/[] = follow the role). Never applies to the owner.
+    disabled_modules: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True

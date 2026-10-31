@@ -104,6 +104,9 @@ def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
     async def _check(request: Request, user: CurrentUser) -> None:
         if user.tenant_id is None or user.is_superuser or request.method == "OPTIONS":
             return
+        if module in (getattr(user, "disabled_modules", None) or []):
+            log.warning("access.feature_off", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "path": request.url.path}})
+            raise ForbiddenError("This feature has been switched off for your account. Ask an administrator of your business.")
         if request.method in ("GET", "HEAD"):
             allowed, needed = decide_read(module, tenant_path(request.url.path), user.permissions_names)
             if not allowed:
