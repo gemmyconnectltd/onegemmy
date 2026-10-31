@@ -19,15 +19,13 @@ export function Pill({ tone = "slate", children }: { tone?: Tone; children: Reac
 }
 
 export const USER_TABS = [
-  { label: "All Users", href: "/settings/users" },
-  { label: "Access Management", href: "/settings/users/access" },
-  { label: "Roles & Permissions", href: "/settings/users/roles" },
+  { label: "People", href: "/settings/users" },
 ] as const;
 
-/** The tab strip shared by the three Users pages. Detail pages (one person, one role) show their own header instead. */
+/** The tab strip shared by the People and Roles pages. Detail pages (one person, one role) show their own header instead. */
 export function UsersTabs() {
   const pathname = usePathname();
-  if (!USER_TABS.some((t) => t.href === pathname)) return null;
+  if (USER_TABS.length < 2 || !USER_TABS.some((t) => t.href === pathname)) return null;
   return (
     <nav aria-label="Users" className="no-scrollbar mb-5 flex overflow-x-auto border-b border-border">
       {USER_TABS.map((t) => {

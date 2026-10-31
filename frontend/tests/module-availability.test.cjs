@@ -29,7 +29,7 @@ test('a page is tied to the module that controls it, including POS and the custo
 });
 
 test('pages every business has are never blocked by a module', () => {
-  for (const p of ['/dashboard', '/settings', '/settings/features', '/settings/billing', '/support', '/reports', '/branches', '/settings/users']) assert.equal(mod.featureForPath(p), null, p);
+  for (const p of ['/dashboard', '/settings', '/settings/billing', '/support', '/reports', '/branches', '/settings/users']) assert.equal(mod.featureForPath(p), null, p);
 });
 
 test('explains why a module is unavailable in plain words', () => {

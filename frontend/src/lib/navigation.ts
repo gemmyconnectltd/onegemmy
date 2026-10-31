@@ -137,6 +137,8 @@ export type PrimaryNavItem = {
   exact?: boolean; activeFor?: string[];
   /** Only the business owner sees it (the Overview and Reports show business-wide performance, not one person's work). */
   ownerOnly?: boolean;
+  /** Kept so the route and its tests stay valid, but not shown in any menu for now. */
+  hidden?: boolean;
   /** Stable key for the product tour (`data-tour="nav-<tour>"`). Defaults to the lower-cased name. */
   tour?: string;
 };
@@ -169,9 +171,9 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   { id: "administration", label: "Administration", items: [
     { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
     { name: "Branches", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
-    { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing" },
+    { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing", hidden: true },
     { name: "Business Settings", href: "/settings", icon: Settings, module: "settings", access: "", exact: true, tour: "settings",
-      activeFor: ["/settings/financial", "/settings/features", "/settings/security", "/settings/notifications", "/settings/appearance", "/settings/profile"] },
+      activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance", "/settings/profile"] },
     { name: "Help & Support", href: "/support", icon: LifeBuoy },
   ] },
 ];
@@ -216,7 +218,8 @@ export function visiblePrimaryNavigation(
   isOwner = true,
 ): PrimaryNavGroup[] {
   const visible = (item: PrimaryNavItem) =>
-    (!item.ownerOnly || isOwner)
+    !item.hidden
+    && (!item.ownerOnly || isOwner)
     && (!item.feature || features?.[item.feature] !== false)
     && (!item.module || item.access === "" || canAccess(item.access || item.module))
     && (!item.permission || can(item.permission));

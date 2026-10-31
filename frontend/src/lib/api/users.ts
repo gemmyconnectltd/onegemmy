@@ -13,6 +13,7 @@ export interface ApiUser {
   role: string;
   role_id: string | null;
   branch_ids?: string[] | null;
+  disabled_modules?: string[] | null;
   branch_id: string | null;
   department_id: string | null;
   is_active: boolean;
@@ -50,7 +51,7 @@ export interface UserCreatePayload {
 
 export type UserUpdatePayload = Partial<
   Pick<UserCreatePayload, "full_name" | "phone" | "role" | "role_id" | "branch_ids" | "branch_id" | "department_id">
-> & { is_active?: boolean };
+> & { is_active?: boolean; disabled_modules?: string[] };
 
 export interface UserListFilters {
   search?: string;

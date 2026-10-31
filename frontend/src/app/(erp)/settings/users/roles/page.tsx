@@ -10,7 +10,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input } from "@/components/ui/Form";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { TableScroll } from "@/components/ui/TableScroll";
-import { Pill } from "@/components/users/AccessParts";
+import { Back, Pill } from "@/components/users/AccessParts";
 import { useCompanyRoles, useCreateCompanyRole, useDeleteCompanyRole, useRoleSummaries, useSeedDefaultRoles } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
 
@@ -47,7 +47,7 @@ export default function RolesPage() {
   return (
     <div className="min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-[22px] font-bold tracking-tight text-foreground">Roles &amp; Permissions</h1><p className="mt-0.5 text-sm text-muted">Reusable sets of permissions. Give a person a role to decide what they can do.</p></div>
+        <div><Back href="/settings/users">Team &amp; Access</Back><h1 className="text-[22px] font-bold tracking-tight text-foreground">Roles &amp; Permissions</h1><p className="mt-0.5 text-sm text-muted">Reusable sets of permissions. Give a person a role to decide what they can do.</p></div>
         {canEdit && <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={seed.isPending} onClick={() => void seed.mutateAsync().then((r) => setSeeded(r.data.added.length ? `Added: ${r.data.added.join(", ")}.` : "Your business already has every built-in role.")).catch((e: { detail?: string }) => setError(e?.detail ?? "Couldn't add the built-in roles."))}>{seed.isPending && <Loader2 size={13} className="animate-spin" />} Add built-in roles</Button><Button onClick={() => setOpen(true)}><Plus size={15} /> New role</Button></div>}
       </div>
       {seeded && <p role="status" className="rounded-lg bg-emerald-500/10 px-3 py-2 text-[13px] font-medium text-emerald-700 dark:text-emerald-400">{seeded} Roles you already had were not changed.</p>}

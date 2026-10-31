@@ -15,6 +15,7 @@ export interface ApiTokenUserInfo {
   branch_ids?: string[] | null;
   branch_id: string | null;
   branch_name: string | null;
+  disabled_modules?: string[];
   permissions: string[];
 }
 

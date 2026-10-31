@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -61,8 +60,7 @@ export function BranchForm({ initial = EMPTY_BRANCH, others, submitLabel, onSubm
       {problem?.kind === "limit" && (
         <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[13px] text-amber-800 dark:text-amber-300">
           <p className="font-semibold">Your plan&apos;s branch limit is reached</p>
-          <p className="mt-0.5">{problem.message}. Upgrade your plan, or deactivate a branch you no longer use.</p>
-          <Link href="/settings/billing" className="mt-2 inline-block font-semibold underline">See plans</Link>
+          <p className="mt-0.5">{problem.message}. Deactivate a branch you no longer use, or contact support.</p>
         </div>
       )}
       {problem?.kind === "other" && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-700 dark:text-red-400">{problem.message}</p>}

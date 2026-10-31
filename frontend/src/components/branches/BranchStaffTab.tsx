@@ -56,7 +56,7 @@ export function BranchStaffTab({ branchId, branchName }: { branchId: string; bra
         <Stat label="Active" value={noFilter ? rows.filter((r) => r.is_active).length : "—"} sub={total > 20 ? "On this page" : undefined} />
         <Stat label="Branch managers" value={noFilter ? rows.filter((r) => r.role === "Branch Manager").length : "—"} sub="Holding the Branch Manager role" />
       </div>
-      <p className="text-[12px] text-muted">People who have no branch limit (such as owners) work in every branch and aren&apos;t listed here. Roles and permissions are managed in <Link href="/settings/users/access" className="font-semibold text-accent hover:underline">Access Management</Link>.</p>
+      <p className="text-[12px] text-muted">People who have no branch limit (such as owners) work in every branch and aren&apos;t listed here. Roles and permissions are managed in <Link href="/settings/users" className="font-semibold text-accent hover:underline">Team &amp; Access</Link>.</p>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1 sm:max-w-xs"><Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden /><Input className="pl-9" aria-label="Search staff" placeholder="Search name or email" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /></div>

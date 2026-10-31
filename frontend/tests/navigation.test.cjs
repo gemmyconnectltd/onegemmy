@@ -24,7 +24,8 @@ test('keeps every existing module and groups them by what people do', () => {
 });
 test('reuses feature, module and permission gates and never returns an empty group', () => {
   const names = groups => groups.flatMap(group => group.items.map(item => item.name));
-  assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).length, 17);
+  assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).length, 16);
+  assert.equal(names(nav.visiblePrimaryNavigation(undefined, () => true, () => true)).includes('Subscription & Billing'), false);
   const denied = nav.visiblePrimaryNavigation(undefined, () => false, () => false);
   assert.deepEqual(plain(names(denied)), ['Overview','Reports','Business Settings','Help & Support']);
   assert.ok(denied.every(group => group.items.length > 0));

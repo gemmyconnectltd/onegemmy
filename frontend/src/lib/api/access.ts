@@ -12,6 +12,8 @@ export interface AccessModule {
   can_change: boolean;
   effective_view: boolean;
   effective_change: boolean;
+  /** Switched off for this one person, whatever their role allows. */
+  blocked?: boolean;
 }
 
 export interface PermissionCell { id: string; name: string; label: string; granted: boolean }

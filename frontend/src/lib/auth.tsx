@@ -32,6 +32,8 @@ export interface User {
   branchIds?: string[] | null;
   branchId: string | null;
   branchName: string | null;
+  /** ERP modules an administrator switched off for this person (never set for the owner). */
+  disabledModules: string[];
   permissions: string[];
 }
 
@@ -117,6 +119,7 @@ function mapUser(u: ApiTokenUserInfo): User {
     branchIds: u.branch_ids,
     branchId: u.branch_ids && u.branch_ids.length > 1 ? null : u.branch_id ?? u.branch_ids?.[0] ?? null,
     branchName: u.branch_name,
+    disabledModules: u.disabled_modules ?? [],
     permissions: u.permissions ?? [],
   };
 }
@@ -290,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
     if (user.isSuperuser) return true;
     const key = module.toLowerCase();
+    if (user.disabledModules.includes(key)) return false;
     const resources = MODULE_RESOURCES[key];
     if (!resources) return user.permissions.some((p) => p.startsWith(key + ":"));
     return user.permissions.some((p) => resources.some((r) => p.startsWith(r + ":")));

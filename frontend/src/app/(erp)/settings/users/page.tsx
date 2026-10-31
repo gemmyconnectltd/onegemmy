@@ -1,11 +1,11 @@
 "use client";
 import { Button } from "@/components/ui/Button";
-import { TableScroll } from "@/components/ui/TableScroll";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
-  Plus, Pencil, Trash2, UserCheck, UserX, Search, Eye, KeyRound,
-  Phone, AlertTriangle,
+  Plus, Pencil, Trash2, UserCheck, UserX, Search, KeyRound,
+  AlertTriangle, ShieldCheck,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
@@ -19,16 +19,17 @@ import { useAuth } from "@/lib/auth";
 import {
   useCompanyUsers, useCreateCompanyUser, useUpdateCompanyUser, useDeleteCompanyUser,
   useActivateCompanyUser, useDeactivateCompanyUser, useResetCompanyUserPassword,
-  useCompanyUserActivity, useCurrentTenant, useMyBranches, useCompanyRoles,
+  useCompanyUserActivity, useCurrentTenant, useMyBranches, useCompanyRoles, useRoleSummaries,
 } from "@/lib/api/hooks";
 import type { ApiUser } from "@/lib/api";
+import { fmtDate, fmtDateTime } from "@/lib/date";
 
 type Tab = "profile" | "activity";
 
 const STATUS_FILTERS = [
-  { value: "all", label: "All statuses" },
-  { value: "active", label: "Active only" },
-  { value: "inactive", label: "Deactivated only" },
+  { value: "all", label: "Everyone" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Deactivated" },
 ] as const;
 
 const ACTIVITY_TONE: Record<string, string> = {
@@ -71,9 +72,11 @@ export default function UsersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
+  const [roleId, setRoleId] = useState("");
+  const roleList = useRoleSummaries();
 
   const isActive = status === "all" ? undefined : status === "active";
-  const { data, isLoading, isError, isFetching, refetch } = useCompanyUsers({ page, pageSize, search, isActive });
+  const { data, isLoading, isError, isFetching, refetch } = useCompanyUsers({ page, pageSize, search, isActive, roleId: roleId || undefined });
 
   const createUser = useCreateCompanyUser();
   const updateUser = useUpdateCompanyUser();
@@ -94,6 +97,14 @@ export default function UsersPage() {
   const canUpdate = hasPermission("users:update");
   const canDelete = hasPermission("users:delete");
 
+  const branchNames = Object.fromEntries((branches?.items ?? []).map((b) => [b.id, b.name]));
+  const branchText = (u: ApiUser) => {
+    const ids = u.branch_ids ?? (u.branch_id ? [u.branch_id] : null);
+    if (u.is_superuser || ids === null) return "All branches";
+    if (ids.length === 0) return "None yet";
+    return ids.map((id) => branchNames[id] ?? "Branch").join(", ");
+  };
+
   const users = data?.items ?? [];
   const total = data?.total ?? 0;
   const activeCount = users.filter((u) => u.is_active).length;
@@ -108,6 +119,7 @@ export default function UsersPage() {
     setSearchInput("");
     setSearch("");
     setStatus("all");
+    setRoleId("");
     setPage(1);
   };
 
@@ -303,111 +315,61 @@ export default function UsersPage() {
             <option key={f.value} value={f.value}>{f.label}</option>
           ))}
         </Select>
+        <Select
+          value={roleId}
+          onChange={(e) => { setRoleId(e.target.value); setPage(1); }}
+          className="w-auto!"
+          aria-label="Filter by role"
+        >
+          <option value="">Any role</option>
+          {roleList.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+        </Select>
         {isFetching && <span className="text-[11px] text-muted">Updating…</span>}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <TableScroll><table className="w-full min-w-[760px]">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted">
-                <th className="p-4 font-semibold">User</th>
-                <th className="p-4 font-semibold">Phone</th>
-                <th className="p-4 font-semibold">Role</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-surface/50 transition-colors">
-                  <td className="p-4">
-                    <button
-                      type="button"
-                      onClick={() => { setViewing(u); setTab("profile"); }}
-                      className="flex items-center gap-2.5 text-left min-w-0"
-                    >
-                      <UserAvatar name={u.full_name} color={C} />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-foreground truncate">{u.full_name}</span>
-                        <span className="block text-[12px] text-muted truncate">{u.email}</span>
-                      </span>
-                    </button>
-                  </td>
-                  <td className="p-4 text-[13px] text-muted">
-                    <span className="flex items-center gap-1.5">
-                      <Phone size={13} className="flex-shrink-0" />
-                      {u.phone || "—"}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${roleBadgeClass(u.role)}`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="p-4"><StatusPill isActive={u.is_active} /></td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => { setViewing(u); setTab("profile"); }}
-                        title="View profile"
-                        aria-label={`View ${u.full_name}'s profile`}
-                        className="w-7 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors flex items-center justify-center"
-                      >
-                        <Eye size={13} />
-                      </button>
-                      {canUpdate && (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(u)}
-                          title={u.is_active ? "Deactivate" : "Reactivate"}
-                          aria-label={`${u.is_active ? "Deactivate" : "Reactivate"} ${u.full_name}`}
-                          className="w-7 h-7 rounded-lg bg-surface text-muted hover:text-amber-500 hover:bg-amber-500/10 transition-colors flex items-center justify-center"
-                        >
-                          {u.is_active ? <UserX size={13} /> : <UserCheck size={13} />}
-                        </button>
-                      )}
-                      {canUpdate && (
-                        <button
-                          type="button"
-                          onClick={() => openEdit(u)}
-                          title="Edit user"
-                          aria-label={`Edit ${u.full_name}`}
-                          className="w-7 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors flex items-center justify-center"
-                        >
-                          <Pencil size={13} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(u)}
-                          title="Remove user"
-                          aria-label={`Remove ${u.full_name}`}
-                          className="w-7 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors flex items-center justify-center"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table></TableScroll>
-        </div>
+      <div className="space-y-3">
+        {users.length > 0 && (
+          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {users.map((u) => (
+              <li key={u.id} className={`flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 ${u.is_active ? "" : "opacity-75"}`}>
+                <div className="flex items-start gap-3">
+                  <UserAvatar name={u.full_name} color={C} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{u.full_name}{u.id === currentUserId && <span className="ml-1.5 text-[11px] font-medium text-muted">(you)</span>}</p>
+                    <p className="truncate text-[12px] text-muted">{u.email}</p>
+                  </div>
+                  <StatusPill isActive={u.is_active} />
+                </div>
+                <div>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${roleBadgeClass(u.role)}`}>{u.role}</span>
+                  {ROLE_HELP[u.role.toLowerCase()] && <p className="mt-1.5 text-[12px] leading-snug text-muted">{ROLE_HELP[u.role.toLowerCase()]}</p>}
+                </div>
+                <dl className="grid grid-cols-[6rem_1fr] gap-y-1.5 text-[13px]">
+                  <dt className="text-muted">Phone</dt><dd className="min-w-0 truncate text-foreground">{u.phone || "Not added"}</dd>
+                  <dt className="text-muted">Works in</dt><dd className="min-w-0 truncate text-foreground">{branchText(u)}</dd>
+                  <dt className="text-muted">Features</dt><dd className="text-foreground">{u.is_superuser ? "Everything" : u.disabled_modules?.length ? `${u.disabled_modules.length} switched off` : "All their role allows"}</dd>
+                  <dt className="text-muted">Last sign-in</dt><dd className="text-foreground">{u.last_login ? fmtDateTime(u.last_login) : "Never signed in"}</dd>
+                  <dt className="text-muted">Added</dt><dd className="text-foreground">{u.created_at ? fmtDate(u.created_at) : "—"}</dd>
+                </dl>
+                <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                  <Link href={`/settings/users/access/${u.id}`}><Button variant="secondary" size="sm"><ShieldCheck size={13} /> Manage access</Button></Link>
+                  <Button variant="ghost" size="sm" onClick={() => { setViewing(u); setTab("profile"); }} aria-label={`More about ${u.full_name}`}>Details</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
         {users.length === 0 && (
           <EmptyState
             message={
-              search || status !== "all"
+              search || status !== "all" || roleId
                 ? "No users match your search. Try clearing the filters."
                 : "No users yet. Add your first team member to get started."
             }
           />
         )}
-        {(search || status !== "all") && users.length > 0 && (
-          <div className="px-5 py-3 border-t border-border">
+        {(search || status !== "all" || roleId) && users.length > 0 && (
+          <div>
             <button
               type="button"
               onClick={clearFilters}

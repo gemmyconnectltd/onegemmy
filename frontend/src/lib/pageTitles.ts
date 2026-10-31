@@ -66,7 +66,6 @@ const ERP_PAGE_TITLES: Record<string, string> = {
   "/settings": "Business Settings",
   "/settings/billing": "Subscription & Billing",
   "/settings/financial": "Financial Settings",
-  "/settings/features": "Features & Modules",
   "/profile": "My Profile",
   "/settings/profile": "My Profile",
   "/settings/users": "Team & Access",

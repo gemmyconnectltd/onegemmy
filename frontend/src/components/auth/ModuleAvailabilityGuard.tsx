@@ -45,11 +45,9 @@ export function ModuleAvailabilityGuard({ children }: { children: ReactNode }) {
     <div role="alert" className="mx-auto flex max-w-md flex-col items-center py-16 text-center">
       <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-surface text-muted"><PackageX size={26} /></span>
       <h1 className="text-lg font-bold text-foreground">{target.name} isn&apos;t available</h1>
-      <p className="mt-1 text-sm text-muted">{reason} {admin ? "You can change this below." : "Ask an administrator of your business if you need it."}</p>
+      <p className="mt-1 text-sm text-muted">{reason} {admin ? "Contact support if you need it." : "Ask an administrator of your business if you need it."}</p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
-        {admin && status === "available" && <Link href="/settings/features"><Button variant="default">Open Features &amp; Modules</Button></Link>}
-        {admin && (status === "not_included" || !status) && <Link href="/settings/billing"><Button variant="default">See plans</Button></Link>}
-        {status === "restricted" && <Link href="/support"><Button variant="default">Contact support</Button></Link>}
+        {(status === "restricted" || status === "available") && <Link href="/support"><Button variant="default">Contact support</Button></Link>}
         <Link href="/dashboard"><Button variant="outline">Back to overview</Button></Link>
       </div>
     </div>
