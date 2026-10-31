@@ -1,4 +1,6 @@
 "use client";
+import { PeriodFilter } from "@/components/ui/PeriodFilter";
+import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
 
 import { useState } from "react";
 import { Plus, Search, Trash2, ArrowLeftRight, AlertCircle } from "lucide-react";
@@ -39,6 +41,8 @@ const newItem = (): ItemRow => ({
 
 export default function TransfersPage() {
   const [status, setStatus] = useState<string>("");
+  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const range = periodRange(period);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
   const [fromBranch, setFromBranch] = useState("");
@@ -47,7 +51,7 @@ export default function TransfersPage() {
   const [items, setItems] = useState<ItemRow[]>([newItem()]);
   const [createError, setCreateError] = useState("");
 
-  const { data, isLoading } = useTransfers(1, 100, status || undefined);
+  const { data, isLoading } = useTransfers(1, 100, status || undefined, undefined, range);
   const { data: branchesData } = useMyBranches();
   const { data: productsData } = useProducts(1, 500);
   const createTransfer = useCreateTransfer();
@@ -279,6 +283,7 @@ export default function TransfersPage() {
           <option value="">All statuses</option>
           {Object.keys(STATUS_COLORS).map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
         </select>
+        <PeriodFilter value={period} onChange={setPeriod} label="Created" />
       </div>
 
       <BulkActionBar count={bulk.count} label="transfer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />

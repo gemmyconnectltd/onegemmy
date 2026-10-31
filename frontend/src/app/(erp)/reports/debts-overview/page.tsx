@@ -1,2 +1,4 @@
-import { DebtOverviewScreen } from "@/components/debts/DebtWorkspace";
-export default function Page() { return <DebtOverviewScreen />; }
+import { redirect } from "next/navigation";
+
+// Working screens (add, edit, restock) are not reports. This address now opens the matching read-only report.
+export default function Page() { redirect("/reports/finance"); }

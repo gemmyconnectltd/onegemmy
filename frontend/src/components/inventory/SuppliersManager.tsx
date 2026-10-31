@@ -1,4 +1,7 @@
 "use client";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { fetchEvery } from "@/lib/exportTable";
+import { inventoryApi } from "@/lib/api/inventory";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
@@ -138,6 +141,10 @@ export function SuppliersManager() {
           <p className="text-xs text-muted mt-0.5">{total} supplier{total === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportButton build={async () => {
+            const items = await fetchEvery((p, s) => inventoryApi.listSuppliers(p, s, debouncedSearch || undefined), 500);
+            return { filename: "suppliers", headers: SUPPLIER_CSV_HEADERS, rows: items.map((x) => [x.name, x.email, x.phone, x.address]) };
+          }} />
           <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
           <Button onClick={() => setAdding(true)} color={INV_COLOR}>
             <Plus size={15} /> Add Supplier

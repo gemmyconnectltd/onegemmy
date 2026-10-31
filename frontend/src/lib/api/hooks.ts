@@ -99,8 +99,8 @@ const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
-export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts) =>
-  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any"], () => inventoryApi.listProducts(page, pageSize, search, isActive), (r) => r.data, opts);
+export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange) =>
+  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period)], () => inventoryApi.listProducts(page, pageSize, search, isActive, period), (r) => r.data, opts);
 
 /** Count + list of products at/below their own minimum stock, computed on the server over ALL products. */
 export const useLowStockReport = (opts?: QueryOpts) => useQ([...PRODUCTS, "low-stock-report"], () => inventoryApi.lowStockReport(), (r) => r.data, opts);
@@ -173,14 +173,14 @@ const ORDERS = ["sales", "orders"] as const;
 const RETURNS = ["sales", "returns"] as const;
 const TARGETS = ["sales", "targets"] as const;
 
-export const useCustomers = (page = 1, pageSize = 200, search?: string, customerType?: string, opts?: QueryOpts) =>
-  useQ([...CUSTOMERS, page, pageSize, search ?? "", customerType ?? "all"], () => salesApi.listCustomers(page, pageSize, search, customerType), (r) => r.data, opts);
+export const useCustomers = (page = 1, pageSize = 200, search?: string, customerType?: string, opts?: QueryOpts, period?: PeriodRange) =>
+  useQ([...CUSTOMERS, page, pageSize, search ?? "", customerType ?? "all", periodKey(period)], () => salesApi.listCustomers(page, pageSize, search, customerType, period), (r) => r.data, opts);
 
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
-export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all"], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus), (r) => r.data, opts);
+export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange) =>
+  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period)], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period), (r) => r.data, opts);
 
 export const useOrderPayments = (orderId: string | undefined, opts?: QueryOpts) =>
   useQ([...ORDERS, orderId, "payments"], () => salesApi.listOrderPayments(orderId!), (r) => r.data, { ...opts, enabled: !!orderId && (opts?.enabled ?? true) });
@@ -571,8 +571,8 @@ export const useDeleteRepairJob = mutation((id: string) => repairsApi.delete(id)
 
 const BATCHES_KEY = ["inventory", "batches"] as const;
 
-export const useBatches = (productId?: string, expiringInDays?: number, page = 1, pageSize = 100, opts?: QueryOpts) =>
-  useQ([...BATCHES_KEY, productId ?? "all", expiringInDays ?? "all", page, pageSize], () => batchesApi.list(productId, expiringInDays, page, pageSize), (r) => r.data, opts);
+export const useBatches = (productId?: string, expiringInDays?: number, page = 1, pageSize = 100, opts?: QueryOpts, period?: PeriodRange) =>
+  useQ([...BATCHES_KEY, productId ?? "all", expiringInDays ?? "all", page, pageSize, periodKey(period)], () => batchesApi.list(productId, expiringInDays, page, pageSize, period), (r) => r.data, opts);
 
 export const useCreateBatch = mutation((d: object) => batchesApi.create(d), [[...BATCHES_KEY]]);
 export const useUpdateBatch = mutation(({ id, data }: { id: string; data: object }) => batchesApi.update(id, data), [[...BATCHES_KEY]]);
@@ -593,8 +593,18 @@ export const useDeleteSerial = mutation((id: string) => serialsApi.delete(id), [
 const TRANSFERS_KEY = ["inventory", "transfers"] as const;
 const BRANCHES_KEY = ["inventory", "branches"] as const;
 
-export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
-  useQ([...TRANSFERS_KEY, page, pageSize, status ?? "all"], () => transfersApi.list(page, pageSize, status), (r) => r.data, opts);
+export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts, period?: PeriodRange) =>
+  useQ([...TRANSFERS_KEY, page, pageSize, status ?? "all", periodKey(period)], () => transfersApi.list(page, pageSize, status, period), (r) => r.data, opts);
+
+export const usePerformance = (q: PerformanceQuery, opts?: QueryOpts) =>
+  useQ(["reports", "performance", q.from ?? "", q.to ?? "", q.branch ?? "", q.compare, q.compareFrom ?? "", q.compareTo ?? ""], () => reportsApi.performance(q), (r) => r.data, opts);
+
+export const useSalesBreakdown = (q: { from?: string; to?: string; branch?: string }, dimension: SalesDimension) =>
+  useQ(["reports", "sales", dimension, q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.salesBreakdown(q, dimension), (r) => r.data);
+export const useOperationsReport = (q: { from?: string; to?: string; branch?: string }) =>
+  useQ(["reports", "operations", q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.operations(q), (r) => r.data);
+export const useFinancialBreakdown = (q: { from?: string; to?: string; branch?: string }, opts?: QueryOpts) =>
+  useQ(["reports", "financial", q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.financial(q), (r) => r.data, opts);
 
 export const useMyBranches = (opts?: QueryOpts) =>
   useQ([...BRANCHES_KEY], () => branchesApi.list(), (r) => r.data, opts);
@@ -853,6 +863,8 @@ import { debtApi } from "./debts";
 import type { CustomerSection } from "./sales";
 import type { DebtEditInput, DebtFilters, DebtKind, ManualDebtInput } from "@/lib/debts";
 import type { DebtPaymentInput } from "@/lib/debts";
+import { periodKey, type PeriodRange } from "@/lib/period";
+import { reportsApi, type PerformanceQuery, type SalesDimension } from "./reports";
 export const useDebtOverview = (branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, "overview", branch], debtApi.overview, r => r.data, { enabled });
 export const useDebtRecords = (kind: DebtKind, filters: DebtFilters, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, filters, branch], () => debtApi.list(kind, filters), r => r.data, { enabled });
 export const useDebtDetail = (kind: DebtKind, id: string | null, page: number, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, id, page, branch], () => debtApi.detail(kind, id!, page), r => r.data, { enabled: !!id && enabled, placeholderData: undefined });

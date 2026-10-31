@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { PanelTop, PanelLeft, PanelRight } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -55,6 +55,9 @@ export function SecondSidebar({
   showToggle = true,
 }: SecondSidebarProps) {
   const pathname = usePathname();
+  const search = useSearchParams();
+  // Moving between report sections keeps the chosen period, comparison and branch.
+  const carried = module === "reports" ? ["period", "from", "to", "compare", "cfrom", "cto", "branch"].flatMap((k) => (search.get(k) ? [`${k}=${encodeURIComponent(search.get(k) ?? "")}`] : [])).join("&") : "";
   const { t } = useAppConfig();
   const { hasPermission } = useAuth();
   const meta = module ? MODULE_TITLES[module] : undefined;
@@ -155,7 +158,7 @@ export function SecondSidebar({
           <Fragment key={item.nameKey}>
             {heading}
             <Link
-              href={item.href}
+              href={carried ? `${item.href}?${carried}` : item.href}
               aria-current={isActive ? "page" : undefined}
               data-active={!isTabBar && isActive}
               className={linkClassName(isActive)}

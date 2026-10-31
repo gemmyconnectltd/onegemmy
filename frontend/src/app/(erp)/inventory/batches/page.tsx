@@ -1,4 +1,6 @@
 "use client";
+import { PeriodFilter } from "@/components/ui/PeriodFilter";
+import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
@@ -33,10 +35,12 @@ function expiryLabel(days: number | null) {
 
 export default function BatchesPage() {
   const [expiringFilter, setExpiringFilter] = useState<number | undefined>(undefined);
+  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const range = periodRange(period);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const { data, isLoading } = useBatches(undefined, expiringFilter);
+  const { data, isLoading } = useBatches(undefined, expiringFilter, 1, 100, undefined, range);
   const createBatch = useCreateBatch();
   const deleteBatch = useDeleteBatch();
   const batches: InventoryBatch[] = data?.items ?? [];
@@ -112,7 +116,8 @@ export default function BatchesPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <PeriodFilter value={period} onChange={setPeriod} label="Received" />
         {[
           { label: "All", value: undefined },
           { label: "Expiring in 7 days", value: 7 },
@@ -225,7 +230,7 @@ export default function BatchesPage() {
             ))}
             {batches.length === 0 && (
               <tr><td colSpan={8} className="px-4 py-16 text-center text-muted text-sm">
-                No batches recorded yet. Add a batch to start tracking expiry dates.
+                {period.key !== "all" ? "No batches were received in this period. Choose another period or clear the filter." : "No batches recorded yet. Add a batch to start tracking expiry dates."}
               </td></tr>
             )}
           </tbody>

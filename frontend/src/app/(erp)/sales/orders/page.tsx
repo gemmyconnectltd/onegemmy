@@ -1,4 +1,10 @@
 "use client";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { fetchEvery } from "@/lib/exportTable";
+import { salesApi } from "@/lib/api/sales";
+import Link from "next/link";
+import { PeriodFilter } from "@/components/ui/PeriodFilter";
+import { ALL_TIME, periodFromQuery, periodLabel, periodRange, type PeriodValue } from "@/lib/period";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
@@ -9,7 +15,7 @@ import {
   Eye, Edit2, AlertCircle, ChevronDown, Upload,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
@@ -289,8 +295,15 @@ export default function SalesOrdersPage() {
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
   const onStatusFilterChange = (s: string) => { setStatusFilter(s); setPage(1); };
   const onPaymentStatusFilterChange = (s: string) => { setPaymentStatusFilter(s); setPage(1); };
+  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const range = useMemo(() => periodRange(period), [period]);
+  // Opened from a report number: show the sales behind it for the same dates.
+  useEffect(() => { const linked = periodFromQuery(window.location.search); if (linked) queueMicrotask(() => setPeriod(linked)); }, []);
+  const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
+  const filtersActive = statusFilter !== "All" || paymentStatusFilter !== "All" || period.key !== "all" || search.trim() !== "";
+  const clearFilters = () => { setStatusFilter("All"); setPaymentStatusFilter("All"); setPeriod(ALL_TIME); setSearch(""); setPage(1); };
 
-  const ordersQ = useOrders(page, pageSize, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter);
+  const ordersQ = useOrders(page, pageSize, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, undefined, range);
   // Customer/product pickers for the create/edit form need the full lists, not
   // the current table page — kept as their own, separately-paginated fetches.
   const customersQ = useCustomers(1, 200);
@@ -308,10 +321,10 @@ export default function SalesOrdersPage() {
   // cheap page_size=1 calls read `.total` for the status breakdown, and a
   // capped fetch of Completed orders (same pattern the dashboard uses) feeds
   // the revenue/VAT sums.
-  const totalOrdersQ = useOrders(1, 1);
-  const completedCountQ = useOrders(1, 1, "Completed");
-  const pendingCountQ = useOrders(1, 1, "Pending");
-  const revenueQ = useOrders(1, 500, "Completed");
+  const totalOrdersQ = useOrders(1, 1, undefined, undefined, undefined, undefined, range);
+  const completedCountQ = useOrders(1, 1, "Completed", undefined, undefined, undefined, range);
+  const pendingCountQ = useOrders(1, 1, "Pending", undefined, undefined, undefined, range);
+  const revenueQ = useOrders(1, 500, "Completed", undefined, undefined, undefined, range);
   const statsLoading = totalOrdersQ.isLoading || completedCountQ.isLoading || pendingCountQ.isLoading || revenueQ.isLoading;
   const revenueOrders = revenueQ.data?.items ?? [];
   const revenue = revenueOrders.reduce((s, o) => s + orderBaseTotal(o), 0);
@@ -374,7 +387,6 @@ export default function SalesOrdersPage() {
   const itemsSubtotal = items.reduce((s, i) => s + (Number(i.unit_price) * Number(i.quantity)) - Number(i.discount), 0);
   const orderTotal = Math.max(0, itemsSubtotal - Number(form.discount) + Number(form.tax));
 
-  const openAdd = () => { setForm(EMPTY_FORM); setItems([newItem()]); setShowAdd(true); };
   const openEdit = (o: ApiOrder) => {
     setEditing(o);
     setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "" });
@@ -437,8 +449,14 @@ export default function SalesOrdersPage() {
           <p className="text-sm text-muted mt-0.5">{total} total sale{total === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportButton build={async () => {
+            const sales = await fetchEvery((p, s) => salesApi.listOrders(p, s, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, range), 500);
+            // One row per item, the same layout the Import template uses, so the file can be imported back.
+            const rows = sales.flatMap((o) => (o.items.length ? o.items : [null]).map((i) => [o.order_number, o.customer?.name ?? "", o.ordered_at ?? "", o.status, o.payment_method ?? "", o.notes ?? "", i?.sku ?? "", i?.quantity ?? "", i?.unit_price ?? ""]));
+            return { filename: "sales", headers: ORDER_CSV_HEADERS, rows };
+          }} />
           <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
-          <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Sale</Button>
+          <Link href="/pos"><Button color={SAL}><Plus size={15} /> New Sale</Button></Link>
         </div>
       </div>
 
@@ -462,33 +480,32 @@ export default function SalesOrdersPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-border flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
-            {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled"].map((s) => (
-              <button key={s} onClick={() => onStatusFilterChange(s)}
-                className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors ${statusFilter === s ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
-                style={statusFilter === s ? { backgroundColor: SAL } : undefined}>{s}</button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 bg-surface border border-border rounded-xl p-1">
-            {[
-              { key: "All", label: "All Payments" },
-              { key: "Paid", label: "Paid" },
-              { key: "PartiallyPaid", label: "Partially Paid" },
-              { key: "Unpaid", label: "Unpaid" },
-              { key: "Overdue", label: "Overdue" },
-            ].map((s) => (
-              <button key={s.key} onClick={() => onPaymentStatusFilterChange(s.key)}
-                className={`px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-colors whitespace-nowrap ${paymentStatusFilter === s.key ? "text-white" : "text-foreground/50 hover:text-foreground"}`}
-                style={paymentStatusFilter === s.key ? { backgroundColor: SAL } : undefined}>{s.label}</button>
-            ))}
-          </div>
-          <div className="ml-auto flex items-center gap-2 border border-border rounded-lg px-3 py-2 w-52">
-            <Search size={14} className="text-muted flex-shrink-0" />
-            <input value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search sales..."
-              className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted" />
-          </div>
+        <div role="tablist" aria-label="Sale status" className="no-scrollbar flex overflow-x-auto border-b border-border px-2">
+          {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled"].map((s) => (
+            <button key={s} role="tab" aria-selected={statusFilter === s} onClick={() => onStatusFilterChange(s)}
+              className={`whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-accent ${statusFilter === s ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"}`}>{s}</button>
+          ))}
         </div>
+        <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
+          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+            <Input className="pl-9" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search reference or customer" aria-label="Search sales" />
+          </div>
+          <PeriodFilter value={period} onChange={onPeriodChange} label="Sale date" />
+          <Select aria-label="Payment status" value={paymentStatusFilter} onChange={(e) => onPaymentStatusFilterChange(e.target.value)} className="w-auto">
+            <option value="All">All payments</option>
+            <option value="Paid">Paid</option>
+            <option value="PartiallyPaid">Partially paid</option>
+            <option value="Unpaid">Unpaid</option>
+            <option value="Overdue">Overdue</option>
+          </Select>
+          {filtersActive && <button type="button" onClick={clearFilters} className="ml-auto text-[13px] font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">Clear filters</button>}
+        </div>
+        {(period.key !== "all" || filtersActive) && (
+          <p role="status" className="border-b border-border bg-surface/50 px-4 py-2 text-[12px] text-muted">
+            Showing <strong className="text-foreground">{total}</strong> sale{total === 1 ? "" : "s"}{period.key !== "all" && <> from <strong className="text-foreground">{periodLabel(period)}</strong></>}. The totals above follow the same dates.
+          </p>
+        )}
 
         {bulk.count > 0 && (
           <div className="p-4 border-b border-border">

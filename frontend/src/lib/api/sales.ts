@@ -1,5 +1,6 @@
 import { request, qs, downloadFile } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
+import { periodParams, type PeriodRange } from "@/lib/period";
 
 export interface ApiCustomer {
   credit_daily_limit?: string | number | null;
@@ -164,8 +165,8 @@ export const salesApi = {
   getOrder: (id: string) => request<SingleResponse<ApiOrder>>(`${BASE}/orders/${encodeURIComponent(id)}`),
   customerProfile: (id: string) => request<SingleResponse<CustomerProfile>>(`${BASE}/customers/${encodeURIComponent(id)}/profile`),
   customerRecords: (id: string, section: CustomerSection, page: number) => request<SingleResponse<CustomerSectionPage>>(`${BASE}/customers/${encodeURIComponent(id)}/records/${section}${qs({ page, page_size: 10 })}`),
-  listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string) =>
-    request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers${qs({ page, page_size: pageSize, search, customer_type: customerType })}`),
+  listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string, period?: PeriodRange) =>
+    request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers${qs({ page, page_size: pageSize, search, customer_type: customerType, ...periodParams(period) })}`),
   createCustomer: (data: object) =>
     request<SingleResponse<ApiCustomer>>(`${BASE}/customers`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateCustomers: (items: object[]) =>
@@ -186,8 +187,8 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/deals/${id}`, { method: "DELETE" }),
 
   // Orders
-  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string) =>
-    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus })}`),
+  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange) =>
+    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, ...periodParams(period) })}`),
   createOrder: (data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateOrders: (items: object[]) =>

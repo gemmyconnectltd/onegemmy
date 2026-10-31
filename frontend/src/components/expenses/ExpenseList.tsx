@@ -1,4 +1,8 @@
 "use client";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { periodFromQuery } from "@/lib/period";
+import { fetchEvery } from "@/lib/exportTable";
+import { expenseWorkspaceApi } from "@/lib/api/expenseWorkspace";
 import { useDeferredValue, useEffect, useState } from "react";
 import { Check, Eye, Search, Trash2, Upload, X } from "lucide-react";
 import { useExpenseWorkspace, useExpenseCategories, useExpenseAction, useBulkCreateExpenses } from "@/lib/api/hooks";
@@ -48,6 +52,8 @@ function List() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("record"), edit = params.get("edit");
+    const linked = periodFromQuery(window.location.search);
+    if (linked) queueMicrotask(() => setFilters(previous => ({ ...previous, from_date: linked.from, to_date: linked.to })));
     queueMicrotask(() => {
       if (edit && /^[0-9a-f-]{36}$/i.test(edit)) setEditor(edit);
       else if (params.get("create") === "1") setEditor("new");
@@ -71,6 +77,10 @@ function List() {
         <label className="w-36 text-[11px] text-muted">From<Input aria-label="Expense date from" type="date" value={filters.from_date || ""} max={filters.to_date || undefined} onChange={e => filter({from_date: e.target.value})} /></label>
         <label className="w-36 text-[11px] text-muted">To<Input aria-label="Expense date to" type="date" value={filters.to_date || ""} min={filters.from_date || undefined} onChange={e => filter({to_date: e.target.value})} /></label>
         {Object.values(filters).some(Boolean) && <Button variant="ghost" onClick={() => { setFilters({}); setPage(1); }}>Clear</Button>}
+        <ExportButton build={async () => {
+          const items = await fetchEvery((p, s) => expenseWorkspaceApi.list(deferred, p, s), 100);
+          return { filename: "expenses", headers: ["title", "amount", "expenseDate", "category", "notes"], rows: items.map((x) => [x.title, x.amount, x.expense_date, x.category, x.notes]) };
+        }} />
         {can("create") && <Button variant="outline" onClick={() => setImporting(true)}><Upload size={14} />Import</Button>}
       </div>
       {bulk.count > 0 && <div className="p-3"><BulkActionBar count={bulk.count} label="expense" onClear={bulk.clear} deleting={action.isPending} onDelete={() => confirm({title: "Delete selected expenses?", message: "Only unapproved expenses will be removed. This cannot be undone.", danger: true, confirmLabel: "Delete", onConfirm: async () => { setError(null); const results = await Promise.allSettled([...bulk.selected].map(id => action.mutateAsync({id, action: "delete"}))); if (results.some(result => result.status === "rejected")) setError({detail: "Some expenses could not be deleted. Refresh and review their status."}); bulk.clear(); }})} /></div>}

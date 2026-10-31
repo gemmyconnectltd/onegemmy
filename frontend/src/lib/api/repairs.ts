@@ -1,5 +1,6 @@
 import { request } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
+import type { PeriodRange } from "@/lib/period";
 
 export interface RepairJobPart {
   id: string;
@@ -169,9 +170,11 @@ export const repairsApi = {
 };
 
 export const transfersApi = {
-  list: (page = 1, pageSize = 100, status?: string) => {
+  list: (page = 1, pageSize = 100, status?: string, period?: PeriodRange) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     if (status) params.set("status", status);
+    if (period?.from) params.set("from_date", period.from);
+    if (period?.to) params.set("to_date", period.to);
     return request<PaginatedResponse<ApiStockTransfer>>(`${TRANSFERS}?${params}`);
   },
   create: (data: object) =>
@@ -218,8 +221,10 @@ export const serialsApi = {
 };
 
 export const batchesApi = {
-  list: (productId?: string, expiringInDays?: number, page = 1, pageSize = 100) => {
+  list: (productId?: string, expiringInDays?: number, page = 1, pageSize = 100, period?: PeriodRange) => {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (period?.from) params.set("from_date", period.from);
+    if (period?.to) params.set("to_date", period.to);
     if (productId) params.set("product_id", productId);
     if (expiringInDays != null) params.set("expiring_in_days", String(expiringInDays));
     return request<PaginatedResponse<InventoryBatch>>(`${BATCHES}?${params}`);

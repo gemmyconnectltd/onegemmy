@@ -1,4 +1,9 @@
 "use client";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { fetchEvery } from "@/lib/exportTable";
+import { salesApi } from "@/lib/api/sales";
+import { PeriodFilter } from "@/components/ui/PeriodFilter";
+import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
 import { useAuth } from "@/lib/auth";
 import { TableScroll } from "@/components/ui/TableScroll";
 
@@ -103,8 +108,11 @@ export default function CustomersPage() {
   // Reset to page 1 right where a filter changes, not via an effect.
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
   const onTypeFilterChange = (t: string) => { setTypeFilter(t); setPage(1); };
+  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const range = periodRange(period);
+  const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
 
-  const customersQ = useCustomers(page, pageSize, debouncedSearch || undefined, typeFilter === "All" ? undefined : typeFilter);
+  const customersQ = useCustomers(page, pageSize, debouncedSearch || undefined, typeFilter === "All" ? undefined : typeFilter, undefined, range);
   // Order history feeds the revenue/top-spender stats and each row's per-customer
   // totals; it's independent of which page of customers is showing.
   const ordersQ = useOrders(1, 500);
@@ -276,6 +284,10 @@ export default function CustomersPage() {
           <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${total} total customer${total === 1 ? "" : "s"}`}</p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportButton build={async () => {
+            const items = await fetchEvery((p, s) => salesApi.listCustomers(p, s, debouncedSearch || undefined, typeFilter === "All" ? undefined : typeFilter, range), 500);
+            return { filename: "customers", headers: CUSTOMER_CSV_HEADERS, rows: items.map((c) => [c.name, c.email, c.phone, c.address, c.customer_type]) };
+          }} />
           <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
           <Button color={COLOR} onClick={openAdd}><Plus size={15} /> Add Customer</Button>
         </div>
@@ -318,6 +330,7 @@ export default function CustomersPage() {
             </button>
           ))}
         </div>
+        <PeriodFilter value={period} onChange={onPeriodChange} label="Added" />
       </div>
 
       {/* Table */}

@@ -15,7 +15,7 @@ export interface ExpenseInput { title: string; amount: string; expense_date: str
 const base = "/tenants/expense-management";
 const clean = (filters: ExpenseFilters) => Object.fromEntries(Object.entries(filters).filter(([, value]) => value));
 export const expenseWorkspaceApi = {
-  list: (filters: ExpenseFilters, page: number) => request<SingleResponse<ExpensePage>>(`${base}/search?page=${page}&page_size=25`, { method: "POST", body: JSON.stringify(clean(filters)) }),
+  list: (filters: ExpenseFilters, page: number, pageSize = 25) => request<SingleResponse<ExpensePage>>(`${base}/search?page=${page}&page_size=${pageSize}`, { method: "POST", body: JSON.stringify(clean(filters)) }),
   overview: (filters: ExpenseFilters) => request<SingleResponse<ExpensePage>>(`${base}/overview`, { method: "POST", body: JSON.stringify(clean(filters)) }),
   detail: (id: string, page: number) => request<SingleResponse<ExpenseDetail>>(`${base}/${id}?history_page=${page}`),
   create: (data: ExpenseInput) => request<SingleResponse<ExpenseRecord>>(base, {method: "POST", body: JSON.stringify(data)}),

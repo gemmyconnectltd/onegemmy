@@ -1,4 +1,9 @@
 "use client";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { fetchEvery } from "@/lib/exportTable";
+import { inventoryApi } from "@/lib/api/inventory";
+import { PeriodFilter } from "@/components/ui/PeriodFilter";
+import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -8,7 +13,7 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
-import { ProductFormDrawer, type ProductFormValues, type ProductBulkRow } from "@/components/inventory/ProductFormDrawer";
+import { ProductFormDrawer, CSV_HEADERS as PRODUCT_CSV_HEADERS, type ProductFormValues, type ProductBulkRow } from "@/components/inventory/ProductFormDrawer";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
@@ -60,6 +65,9 @@ export default function ProductsPage() {
   // set state on top of the render that just committed it).
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
   const onStatusFilterChange = (f: "all" | "active" | "inactive") => { setStatusFilter(f); setPage(1); };
+  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const range = periodRange(period);
+  const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<"single" | "bulk">("single");
@@ -70,7 +78,7 @@ export default function ProductsPage() {
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
   const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
-  const { data, isLoading, isFetching } = useProducts(page, pageSize, debouncedSearch || undefined, isActive);
+  const { data, isLoading, isFetching } = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -155,6 +163,11 @@ export default function ProductsPage() {
           <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportButton build={async () => {
+            const items = await fetchEvery((p, s) => inventoryApi.listProducts(p, s, debouncedSearch || undefined, isActive, range), 500);
+            // Batch and date columns stay empty: they belong to batches, not to the product itself.
+            return { filename: "products", headers: PRODUCT_CSV_HEADERS, rows: items.map((x) => [x.name, x.sku, x.category?.name, x.brand?.name, x.unit?.name, x.cost, x.price, x.stock, x.min_stock, "", "", "", x.barcode, x.subcategory]) };
+          }} />
           <Button variant="secondary" onClick={() => { setEditing(null); setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }} className="rounded-lg">
             <Upload size={15} /> Import
           </Button>
@@ -171,6 +184,7 @@ export default function ProductsPage() {
             <input type="text" placeholder="Search products..." value={search} onChange={(e) => onSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-surface/50" />
           </div>
+          <PeriodFilter value={period} onChange={onPeriodChange} label="Date added" />
           <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
             {(["all", "active", "inactive"] as const).map((f) => (
               <button key={f} onClick={() => onStatusFilterChange(f)}

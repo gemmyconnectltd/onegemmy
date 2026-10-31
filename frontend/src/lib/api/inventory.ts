@@ -1,5 +1,6 @@
 import { request, getStoredToken, API_BASE, qs } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
+import { periodParams, type PeriodRange } from "@/lib/period";
 export interface ApiVariant {
   id: string;
   product_id: string;
@@ -118,8 +119,8 @@ export const inventoryApi = {
   // Products
   /** Server-side low-stock report (every product at/below its own minimum) — the same rule Pesaa AI uses. */
   lowStockReport: () => request<SingleResponse<{ items: { id: string; name: string; stock: number; min_stock: number }[]; total: number }>>("/tenants/inventory/products/low-stock"),
-  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean) =>
-    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, is_active: isActive === undefined ? undefined : String(isActive) })}`),
+  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange) =>
+    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, is_active: isActive === undefined ? undefined : String(isActive), ...periodParams(period) })}`),
   createProduct: (data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateProducts: (items: object[]) =>

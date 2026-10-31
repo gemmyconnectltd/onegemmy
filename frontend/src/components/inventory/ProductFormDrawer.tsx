@@ -29,7 +29,7 @@ export interface ProductFormValues {
 const FALLBACK_CATEGORIES = ["Accessories", "Cables", "Audio", "Chargers", "Storage", "Networking"];
 const FALLBACK_UNITS = ["Piece", "Box", "Kilogram", "Gram", "Litre", "Metre", "Pack"];
 
-const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate", "barcode", "subcategory"];
+export const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate", "barcode", "subcategory"];
 
 /** A bulk-import row is a product plus optional batch/lot info — pharmacy,
  *  cosmetics, and anyone else tracking expiry can carry it in the same

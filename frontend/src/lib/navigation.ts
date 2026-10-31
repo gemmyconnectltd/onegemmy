@@ -23,7 +23,6 @@ export interface NavConfigItem {
 
 
 export const ACCOUNTING_NAV = [
-  { href: "/accounting", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/accounting/accounts", label: "Chart of Accounts", icon: BookOpen, group: "Books" },
   { href: "/accounting/ledger", label: "General Ledger", icon: ListOrdered, group: "Books" },
   { href: "/accounting/receivables", label: "Accounts Receivable", icon: Users, group: "Money in and out" },
@@ -36,7 +35,6 @@ export const ACCOUNTING_NAV = [
 ];
 
 export const DEBT_NAV = [
-  { href: "/debts", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/debts/receivables", label: "Receivables (Customers)", icon: Users },
   { href: "/debts/payables", label: "Payables (Suppliers)", icon: Truck },
   { href: "/debts/statements", label: "Statements", icon: FileText },
@@ -44,13 +42,12 @@ export const DEBT_NAV = [
 
 export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
   expenses: [
-    { nameKey: "overview", href: "/expenses", icon: LayoutDashboard, exact: true },
     { nameKey: "expenses", href: "/expenses/list", icon: FileText, activeFor: ["/expenses/new"] },
     { nameKey: "categories", href: "/expenses/categories", icon: Tag },
   ],
   sales: [
-    { nameKey: "overview",  href: "/sales",           icon: LayoutDashboard, exact: true },
     { nameKey: "salesHistory", href: "/sales/orders",    icon: FileText },
+    { nameKey: "deals", label: "Deals", href: "/sales/deals", icon: ClipboardList },
     { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw },
     { nameKey: "targets",   href: "/sales/targets",   icon: Target },
     { nameKey: "analytics", href: "/sales/analytics", icon: TrendingUp },
@@ -66,7 +63,6 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "recruiting",  href: "/hr/recruiting",   icon: UserPlus },
   ],
   crm: [
-    { nameKey: "overview",   href: "/crm",           icon: LayoutDashboard, exact: true },
     { nameKey: "contacts",   href: "/crm/contacts",  icon: UserCheck },
     { nameKey: "campaigns",  href: "/crm/campaigns", icon: Megaphone },
     { nameKey: "emails",     href: "/crm/emails",    icon: Mail },
@@ -78,21 +74,18 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2 },
   ],
   procurement: [
-    { nameKey: "overview",  href: "/procurement",           icon: LayoutDashboard, exact: true },
     { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList },
     { nameKey: "purchaseHistory", href: "/procurement/orders",    icon: ShoppingBag },
     { nameKey: "suppliers", href: "/procurement/suppliers", icon: Truck },
     { nameKey: "returns",   href: "/procurement/returns",   icon: RotateCcw },
   ],
   manufacturing: [
-    { nameKey: "overview",   href: "/manufacturing",             icon: LayoutDashboard, exact: true },
     { nameKey: "workOrders", href: "/manufacturing/work-orders", icon: Hammer },
     { nameKey: "materials",  href: "/manufacturing/materials",   icon: Package },
     { nameKey: "bom",        href: "/manufacturing/bom",         icon: ClipboardList },
     { nameKey: "analytics",  href: "/manufacturing/analytics",   icon: BarChart2 },
   ],
   inventory: [
-    { nameKey: "overview",   href: "/inventory",            icon: LayoutDashboard, exact: true },
     { nameKey: "products",   href: "/inventory/products",   icon: Package, group: "Catalog" },
     { nameKey: "categories", href: "/inventory/categories", icon: Tag, group: "Catalog" },
     { nameKey: "brands",     href: "/inventory/brands",     icon: Star, group: "Catalog" },
@@ -103,12 +96,13 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "batches",    href: "/inventory/batches",    icon: Package, group: "Stock" },
   ],
   reports: [
-    { nameKey: "overview",   href: "/reports",           icon: LayoutDashboard, exact: true },
-    { nameKey: "sales",      href: "/reports/sales",     icon: TrendingUp },
-    { nameKey: "accounting",    href: "/reports/accounting",   icon: DollarSign },
-    { nameKey: "inventory",  href: "/reports/inventory", icon: Package },
-    { nameKey: "customers",  href: "/reports/customers", icon: Users },
-    { nameKey: "dailyBranches", label: "Daily branch activity", href: "/reports/daily", icon: BarChart3 },
+    { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true },
+    { nameKey: "sales",      label: "Sales & Profitability",  href: "/reports/sales",      icon: TrendingUp,
+      activeFor: ["/reports/sales-report"] },
+    { nameKey: "operations", label: "Operations",             href: "/reports/operations", icon: Package,
+      activeFor: ["/reports/inventory", "/reports/inventory-overview", "/reports/inventory-report", "/reports/procurement-overview", "/reports/manufacturing-overview", "/reports/services-overview", "/reports/daily"] },
+    { nameKey: "accounting", label: "Financial Reports",      href: "/reports/finance",    icon: DollarSign,
+      activeFor: ["/reports/accounting", "/reports/accounting-overview", "/reports/expenses-overview", "/reports/debts-overview"] },
   ],
   // Settings has no second sidebar: its pages are in the main sidebar's Administration group and Business Settings has its own tabs.
   settings: [],
@@ -116,7 +110,6 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
   ],
   services: [
-    { nameKey: "overview",         href: "/services",                  icon: LayoutDashboard, exact: true },
     { nameKey: "appointments",     href: "/services/appointments",     icon: CalendarDays },
     { nameKey: "walkIns",          href: "/services/walk-ins",         icon: ListChecks },
     { nameKey: "calendar",         href: "/services/calendar",         icon: CalendarClock },

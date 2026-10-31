@@ -1,2 +1,4 @@
 import { redirect } from "next/navigation";
-export default function Page() { redirect("/accounting/reports"); }
+
+// Finance reports are one page now.
+export default function Page() { redirect("/reports/finance"); }

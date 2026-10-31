@@ -63,15 +63,23 @@ test('second sidebar has a title for every module and groups long lists', () => 
   assert.deepEqual(plain([...new Set(inventory)]), ['Catalog','Stock']);
 });
 test('both sidebar surfaces use the same expense, debt and accounting module links', () => {
-  assert.deepEqual(plain(nav.MODULE_NAV.expenses.map(item => item.href)), ['/expenses','/expenses/list','/expenses/categories']);
+  assert.deepEqual(plain(nav.MODULE_NAV.expenses.map(item => item.href)), ['/expenses/list','/expenses/categories']);
   assert.deepEqual(plain(nav.MODULE_NAV.debts.map(item => item.href)), plain(nav.DEBT_NAV.map(item => item.href)));
   assert.deepEqual(plain(nav.MODULE_NAV.accounting.map(item => item.href)), plain(nav.ACCOUNTING_NAV.map(item => item.href)));
 });
-test('deep links activate the correct submenu without highlighting a sibling overview', () => {
-  assert.equal(nav.isModuleLinkActive('/sales/orders', nav.MODULE_NAV.sales[0]), false);
-  assert.equal(nav.isModuleLinkActive('/sales/orders', nav.MODULE_NAV.sales[1]), true);
-  assert.equal(nav.isModuleLinkActive('/expenses/new', nav.MODULE_NAV.expenses[1]), true);
-  assert.equal(nav.isModuleLinkActive('/sales/orders-unrelated', nav.MODULE_NAV.sales[1]), false);
+test('deep links activate the correct submenu without highlighting a sibling', () => {
+  assert.equal(nav.isModuleLinkActive('/sales/orders', nav.MODULE_NAV.sales[0]), true);
+  assert.equal(nav.isModuleLinkActive('/sales/returns', nav.MODULE_NAV.sales[0]), false);
+  assert.equal(nav.isModuleLinkActive('/expenses/new', nav.MODULE_NAV.expenses[0]), true);
+  assert.equal(nav.isModuleLinkActive('/sales/orders-unrelated', nav.MODULE_NAV.sales[0]), false);
+});
+test('modules have no overview tab; reports are four read-only sections', () => {
+  for (const [module, links] of Object.entries(nav.MODULE_NAV)) {
+    if (module === 'reports') continue;
+    assert.equal(links.some(link => /overview/i.test(String(link.nameKey)) || /overview/i.test(String(link.label ?? ''))), false, module);
+  }
+  assert.deepEqual(plain(nav.MODULE_NAV.reports.map(link => link.href)), ['/reports','/reports/sales','/reports/operations','/reports/finance']);
+  assert.ok(nav.MODULE_NAV.sales.some(link => link.href === '/sales/deals'));
 });
 
 test('no page is listed twice: not across modules and not in both sidebars', () => {
