@@ -101,6 +101,17 @@ export interface AdminFeatureUsageModule {
   adoption_pct: number;
 }
 
+export interface TopValue { name: string; count: number; percent: number }
+/** Market-research figures for the businesses a set of filters selects. */
+export interface TenantMarketSummary {
+  total: number; new_30_days: number; previous_30_days: number;
+  top_industry: TopValue | null; top_country: TopValue | null; top_size: TopValue | null; top_business_type: TopValue | null;
+  paying: { count: number; percent: number }; recording_sales: { count: number; percent: number };
+}
+export interface FilterValue { value: string; count: number }
+/** Every value a business can be filtered by, with how many businesses have it. */
+export interface TenantFilterOptions { industries: FilterValue[]; sizes: FilterValue[]; countries: FilterValue[]; business_types: FilterValue[]; heard_about: FilterValue[]; plans: FilterValue[] }
+
 export interface AdminFeatureUsage {
   total_tenants: number;
   modules: AdminFeatureUsageModule[];
@@ -288,7 +299,10 @@ export interface DirectoryFeature {
   /** Businesses with at least one record in the module (real use); null when the module has no table to count. */
   using_tenants: number | null;
 }
-export interface FeatureDirectory { features: DirectoryFeature[]; total_tenants: number }
+export interface FeatureDirectory {
+  features: DirectoryFeature[]; total_tenants: number; all_tenants: number;
+  options: { industries: FilterValue[]; sizes: FilterValue[]; countries: FilterValue[]; business_types: FilterValue[]; plans: { value: string; label: string; count: number }[] };
+}
 export interface FeatureHistoryEntry { id: string; action: string; summary: string; actor: string | null; changes: Record<string, unknown> | null; at: string | null }
 export interface FeatureDetail extends DirectoryFeature { overridden_off_tenants: number; deactivated_by_tenant: number; history: FeatureHistoryEntry[] }
 export interface FeaturePatch { name?: string; description?: string | null; default_enabled?: boolean; is_active?: boolean; confirm_key?: string }
@@ -570,7 +584,9 @@ export interface OutreachResult { tenant_id: string; name: string; status: "sent
 export const adminApi = {
   stats: () => request<SingleResponse<AdminPlatformStats>>(`${B}/stats`),
   tenantAnalytics: () => request<SingleResponse<AdminTenantAnalytics>>(`${B}/tenant-analytics`),
-  featureUsage: () => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage`),
+  featureUsage: (filters: Record<string, string> = {}) => request<SingleResponse<AdminFeatureUsage>>(`${B}/feature-usage${qs(filters)}`),
+  tenantSummary: (filters: Record<string, string> = {}) => request<SingleResponse<TenantMarketSummary>>(`${B}/tenants/summary${qs(filters)}`),
+  tenantFilterOptions: () => request<SingleResponse<TenantFilterOptions>>(`${B}/tenants/filter-options`),
   usageEngagement: (category: EngagementCategory, f: EngagementQuery) => request<UsagePage<EngagementRow, { category: string; definition: string }>>(`/admin/usage/engagement/${category}${qs({ page: f.page, page_size: 25, q: f.q || undefined, status: f.status, sort: f.sort, dir: f.dir })}`),
   usageModule: (key: string, period: UsagePeriod, f: { page: number; q: string; status: string }) => request<UsagePage<ModuleUsageRow, ModuleUsageSummary>>(`/admin/usage/modules/${encodeURIComponent(key)}${qs({ page: f.page, page_size: 25, period, q: f.q || undefined, status: f.status })}`),
   usageSales: (currency: string, period: UsagePeriod, f: { page: number; q: string }) => request<UsagePage<CurrencySalesRow, CurrencySalesSummary>>(`/admin/usage/sales/${encodeURIComponent(currency)}${qs({ page: f.page, page_size: 25, period, q: f.q || undefined })}`),
@@ -678,8 +694,8 @@ export const adminApi = {
 
   listFeatures: () =>
     request<SingleResponse<FeatureFlag[]>>(`${B}/features`),
-  featureDirectory: () =>
-    request<SingleResponse<FeatureDirectory>>(`${B}/features/directory`),
+  featureDirectory: (filters: Record<string, string> = {}) =>
+    request<SingleResponse<FeatureDirectory>>(`${B}/features/directory${qs(filters)}`),
   featureDetail: (key: string) =>
     request<SingleResponse<FeatureDetail>>(`${B}/features/${encodeURIComponent(key)}/detail`),
   updateFeature: (key: string, data: FeaturePatch) =>

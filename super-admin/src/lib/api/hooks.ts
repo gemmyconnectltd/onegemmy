@@ -62,8 +62,12 @@ export const useAdminStats = (opts?: QueryOpts) =>
 export const useAdminTenantAnalytics = (opts?: QueryOpts) =>
   useQ(["admin", "tenant-analytics"], () => adminApi.tenantAnalytics(), (r) => r.data, opts);
 
-export const useAdminFeatureUsage = (opts?: QueryOpts) =>
-  useQ(["admin", "feature-usage"], () => adminApi.featureUsage(), (r) => r.data, opts);
+export const useAdminFeatureUsage = (filters: Record<string, string> = {}, opts?: QueryOpts) =>
+  useQ(["admin", "feature-usage", filters], () => adminApi.featureUsage(filters), (r) => r.data, opts);
+export const useTenantSummary = (filters: Record<string, string> = {}, opts?: QueryOpts) =>
+  useQ(["admin", "tenant-summary", filters], () => adminApi.tenantSummary(filters), (r) => r.data, opts);
+export const useTenantFilterOptions = (opts?: QueryOpts) =>
+  useQ(["admin", "tenant-filter-options"], () => adminApi.tenantFilterOptions(), (r) => r.data, opts);
 
 export const useAdminUsageBreakdown = (opts?: QueryOpts) =>
   useQ(["admin", "usage-breakdown"], () => adminApi.usageBreakdown(), (r) => r.data, opts);
@@ -175,7 +179,7 @@ export const useTenantFeatures = (id: string | undefined, opts?: QueryOpts) =>
 export const useTenantLimits = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "limits"], () => adminApi.tenantLimits(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
-export const useFeatureDirectory = (opts?: QueryOpts) => useQ(["admin", "features", "directory"], () => adminApi.featureDirectory(), (r) => r.data, opts);
+export const useFeatureDirectory = (filters: Record<string, string> = {}, opts?: QueryOpts) => useQ(["admin", "features", "directory", filters], () => adminApi.featureDirectory(filters), (r) => r.data, opts);
 export const useFeatureDetail = (key: string, opts?: QueryOpts) => useQ(["admin", "features", "detail", key], () => adminApi.featureDetail(key), (r) => r.data, opts);
 export const useUpdateFeature = mutation(({ key, data }: { key: string; data: Parameters<typeof adminApi.updateFeature>[1] }) => adminApi.updateFeature(key, data), [["admin", "features"]]);
 export const useSetTenantFeatures = mutation(({ tenantId, features }: { tenantId: string; features: Record<string, boolean> }) => adminApi.setTenantFeatures(tenantId, { features }), [[...TENANTS]]);

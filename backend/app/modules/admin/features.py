@@ -6,10 +6,11 @@ Three different numbers are kept apart on purpose (see the Platform Usage rules 
   - using:     businesses with at least one record in the module's own table (real adoption)
 Features are tied to code (routers, permissions), so the catalogue can be edited and switched off but not invented here.
 """
+import re
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select
 
@@ -51,12 +52,36 @@ async def _plans_by_feature(db: DbSession) -> dict[str, list[dict]]:
     return {k: list(v.values()) for k, v in seen.items()}
 
 
-async def _tenant_counts(db: DbSession, flags: list[FeatureFlag]) -> dict[str, dict[str, int]]:
+
+
+class Segment(BaseModel):
+    """Which businesses to count: every filter narrows the same set, so each number is about the same group."""
+    industry: str | None = None
+    size: str | None = None
+    country: str | None = None
+    business_type: str | None = None
+    plan: uuid.UUID | None = None
+
+    def conditions(self) -> list:
+        out = [Tenant.archived_at.is_(None)]
+        for column, value in ((Tenant.industry, self.industry), (Tenant.employee_count, self.size), (Tenant.country, self.country), (Tenant.business_type, self.business_type)):
+            if value:
+                out.append(column == value)
+        if self.plan:
+            out.append(BillingSubscription.plan_id == self.plan)
+        return out
+
+    def ids(self):
+        return (select(Tenant.id).select_from(Tenant).outerjoin(BillingSubscription, BillingSubscription.tenant_id == Tenant.id).where(*self.conditions()))
+
+
+async def _tenant_counts(db: DbSession, flags: list[FeatureFlag], segment: Segment | None = None) -> dict[str, dict[str, int]]:
     """entitled / active per feature, from one pass over the businesses (the same rules as resolve_modules)."""
+    segment = segment or Segment()
     rows = (await db.execute(
         select(Tenant.features, Tenant.module_activation, BillingSubscription.terms, BillingSubscription.status)
         .select_from(Tenant).outerjoin(BillingSubscription, BillingSubscription.tenant_id == Tenant.id)
-        .where(Tenant.archived_at.is_(None))
+        .where(*segment.conditions())
     )).all()
     out = {f.key: {"entitled": 0, "active": 0} for f in flags}
     for overrides, activation, terms, sub_status in rows:
@@ -78,11 +103,30 @@ async def _tenant_counts(db: DbSession, flags: list[FeatureFlag]) -> dict[str, d
     return out
 
 
-async def _using(db: DbSession, key: str) -> int | None:
+async def _using(db: DbSession, key: str, segment: Segment | None = None) -> int | None:
+    segment = segment or Segment()
     if key not in MODULES:
         return None
     model = MODULES[key][1]
-    return (await db.execute(select(func.count(func.distinct(model.tenant_id))).select_from(model))).scalar_one()
+    return (await db.execute(select(func.count(func.distinct(model.tenant_id))).select_from(model).where(model.tenant_id.in_(segment.ids())))).scalar_one()
+
+
+async def _options(db: DbSession) -> dict:
+    """The values a business can be filtered by, with how many businesses have each, so the filter menus only offer real choices."""
+    def counted(column):
+        return select(column, func.count(Tenant.id)).where(Tenant.archived_at.is_(None), column.is_not(None), column != "").group_by(column).order_by(func.count(Tenant.id).desc(), column)
+    async def values(column):
+        return [{"value": v, "count": int(c)} for v, c in (await db.execute(counted(column))).all()]
+    sizes = await values(Tenant.employee_count)
+    def smallest(label: str) -> int:
+        found = re.search(r"\d+", label)
+        return int(found.group()) if found else (1 if label.lower().startswith("just") else 10**9)
+    sizes.sort(key=lambda r: (smallest(r["value"]), r["value"]))
+    plans = (await db.execute(select(BillingPlan.id, BillingPlan.name, func.count(Tenant.id)).select_from(BillingPlan)
+                              .join(BillingSubscription, BillingSubscription.plan_id == BillingPlan.id).join(Tenant, Tenant.id == BillingSubscription.tenant_id)
+                              .where(Tenant.archived_at.is_(None)).group_by(BillingPlan.id, BillingPlan.name).order_by(BillingPlan.name))).all()
+    return {"industries": await values(Tenant.industry), "sizes": sizes, "countries": await values(Tenant.country),
+            "business_types": await values(Tenant.business_type), "plans": [{"value": str(i), "label": n, "count": int(c)} for i, n, c in plans]}
 
 
 async def _link_names(db: DbSession) -> dict[str, str]:
@@ -100,14 +144,18 @@ def _row(f: FeatureFlag, names: dict[str, str], plans: dict[str, list[dict]], co
 
 
 @router.get("/directory")
-async def feature_directory(db: DbSession, _: SuperUser):
+async def feature_directory(db: DbSession, _: SuperUser, industry: Annotated[str | None, Query(max_length=100)] = None, size: Annotated[str | None, Query(max_length=20)] = None,
+                            country: Annotated[str | None, Query(max_length=100)] = None, business_type: Annotated[str | None, Query(max_length=50)] = None, plan: uuid.UUID | None = None):
+    segment = Segment(industry=industry, size=size, country=country, business_type=business_type, plan=plan)
     flags = (await db.execute(select(FeatureFlag).order_by(FeatureFlag.module, FeatureFlag.key))).scalars().all()
-    names, plans, counts = {f.key: f.name for f in flags}, await _plans_by_feature(db), await _tenant_counts(db, list(flags))
+    names, plans, counts = {f.key: f.name for f in flags}, await _plans_by_feature(db), await _tenant_counts(db, list(flags), segment)
     items = []
     for f in flags:
-        items.append({**_row(f, names, plans, counts), "using_tenants": await _using(db, f.key)})
-    total = (await db.execute(select(func.count()).select_from(Tenant).where(Tenant.archived_at.is_(None)))).scalar_one()
-    return success_response(data={"features": items, "total_tenants": total}, message="Feature directory retrieved")
+        items.append({**_row(f, names, plans, counts), "using_tenants": await _using(db, f.key, segment)})
+    total = (await db.execute(select(func.count()).select_from(segment.ids().subquery()))).scalar_one()
+    everyone = (await db.execute(select(func.count()).select_from(Tenant).where(Tenant.archived_at.is_(None)))).scalar_one()
+    return success_response(data={"features": items, "total_tenants": total, "all_tenants": everyone, "options": await _options(db),
+                                  "segment": segment.model_dump(mode="json", exclude_none=True)}, message="Feature directory retrieved")
 
 
 async def _flag(db: DbSession, key: str) -> FeatureFlag:

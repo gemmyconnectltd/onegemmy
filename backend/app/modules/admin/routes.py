@@ -162,10 +162,16 @@ _FEATURE_MODULES = [(key, label, model) for key, label, model, _ in FEATURE_MODU
 
 
 @router.get("/feature-usage")
-async def admin_feature_usage(db: DbSession, _: SuperUser):
-    """How much each core module is actually being used platform-wide —
-    adoption (tenants with at least one record) and volume (total records)."""
-    total_tenants = (await db.execute(select(func.count()).select_from(Tenant))).scalar_one()
+async def admin_feature_usage(db: DbSession, _: SuperUser, q: str | None = None, status: Literal["all", "active", "pending", "suspended", "trial", "cancelled"] = "all",
+                              plan: str | None = None, country: str | None = None, industry: str | None = None, businessType: str | None = None,
+                              heardAbout: str | None = None, size: str | None = None, created_from: date | None = None, created_to: date | None = None):
+    """How much each core module is actually being used, for all businesses or for the group the filters select:
+    adoption (businesses with at least one record) and volume (total records)."""
+    conditions = TenantRepository.admin_conditions({"q": q, "status": status, "plan": plan, "country": country, "industry": industry, "businessType": businessType,
+                                                    "heardAbout": heardAbout, "size": size, "from": created_from.isoformat() if created_from else None,
+                                                    "to": created_to.isoformat() if created_to else None})
+    segment = select(Tenant.id).where(*conditions)
+    total_tenants = (await db.execute(select(func.count()).select_from(Tenant).where(*conditions))).scalar_one()
 
     modules = []
     for key, label, model in _FEATURE_MODULES:
@@ -173,7 +179,7 @@ async def admin_feature_usage(db: DbSession, _: SuperUser):
             select(
                 func.count(func.distinct(model.tenant_id)).label("tenants_using"),
                 func.count().label("total_records"),
-            ).select_from(model)
+            ).select_from(model).where(model.tenant_id.in_(segment))
         )).one()
         modules.append({
             "key": key,
@@ -547,19 +553,61 @@ async def admin_export_users(data: AdminUserExportRequest, db: DbSession, admin:
 
 # ── Tenant CRUD ───────────────────────────────────────────────────────────────
 
+@router.get("/tenants/summary")
+async def admin_tenant_summary(db: DbSession, _: SuperUser, q: str | None = None, status: Literal["all", "active", "pending", "suspended", "trial", "cancelled"] = "all",
+                               plan: str | None = None, country: str | None = None, industry: str | None = None, businessType: str | None = None,
+                               heardAbout: str | None = None, size: str | None = None, feature: str | None = None,
+                               featureState: Literal["using", "not_using"] | None = None, created_from: date | None = None, created_to: date | None = None):
+    """Market-research figures for the businesses the filters select: how many, how fast they join, what they are like, and whether they use the product.
+    Archived businesses never count (they are not part of the market)."""
+    from datetime import UTC, datetime, timedelta
+
+    conditions = TenantRepository.admin_conditions({
+        "q": q, "status": status, "plan": plan, "country": country, "industry": industry, "businessType": businessType, "heardAbout": heardAbout,
+        "size": size, "feature": feature, "featureState": featureState,
+        "from": created_from.isoformat() if created_from else None, "to": created_to.isoformat() if created_to else None})
+    conditions.append(Tenant.archived_at.is_(None))
+    total = (await db.execute(select(func.count()).select_from(Tenant).where(*conditions))).scalar_one()
+
+    async def top(column) -> dict | None:
+        row = (await db.execute(select(column, func.count()).where(*conditions, column.is_not(None), column != "").group_by(column).order_by(func.count().desc(), column).limit(1))).first()
+        return {"name": row[0], "count": int(row[1]), "percent": round(row[1] / total * 100) if total else 0} if row else None
+
+    async def count(*extra) -> int:
+        return (await db.execute(select(func.count()).select_from(Tenant).where(*conditions, *extra))).scalar_one()
+
+    now = datetime.now(UTC)
+    new_30, previous_30 = await count(Tenant.created_at >= now - timedelta(days=30)), await count(Tenant.created_at >= now - timedelta(days=60), Tenant.created_at < now - timedelta(days=30))
+    paying = await count(Tenant.subscription_plan != "free")
+    selling = await count(Tenant.id.in_(select(Order.tenant_id).distinct()))
+    return success_response(data={
+        "total": total, "new_30_days": new_30, "previous_30_days": previous_30,
+        "top_industry": await top(Tenant.industry), "top_country": await top(Tenant.country), "top_size": await top(Tenant.employee_count), "top_business_type": await top(Tenant.business_type),
+        "paying": {"count": paying, "percent": round(paying / total * 100) if total else 0},
+        "recording_sales": {"count": selling, "percent": round(selling / total * 100) if total else 0},
+    }, message="Market summary retrieved")
+
+
+@router.get("/tenants/filter-options")
+async def admin_tenant_filter_options(db: DbSession, _: SuperUser):
+    """Every value a business can be filtered by, with how many businesses have it."""
+    return success_response(data=await TenantRepository(db).filter_options(), message="Filter options retrieved")
+
+
 @router.get("/tenants")
 async def admin_list_tenants(
     db: DbSession, _: SuperUser, page_params: PageQuery, q: str | None = None,
     status: Literal["all", "active", "pending", "suspended", "trial", "cancelled"] = "all",
     plan: str | None = None, country: str | None = None, industry: str | None = None,
-    businessType: str | None = None, heardAbout: str | None = None,
+    businessType: str | None = None, heardAbout: str | None = None, size: str | None = None,
+    feature: str | None = None, featureState: Literal["using", "not_using"] | None = None,
     sort: Literal["name", "created", "users", "plan"] = "created",
     dir: Literal["asc", "desc"] = "desc", created_from: date | None = None,
     created_to: date | None = None,
 ):
     rows, total = await TenantRepository(db).admin_page(page_params.offset, page_params.limit, {
         "q": q, "status": status, "plan": plan, "country": country, "industry": industry,
-        "businessType": businessType, "heardAbout": heardAbout, "sort": sort, "dir": dir,
+        "businessType": businessType, "heardAbout": heardAbout, "size": size, "feature": feature, "featureState": featureState, "sort": sort, "dir": dir,
         "from": created_from.isoformat() if created_from else None,
         "to": created_to.isoformat() if created_to else None,
     })
