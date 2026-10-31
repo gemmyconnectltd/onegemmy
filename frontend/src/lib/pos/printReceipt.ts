@@ -21,15 +21,25 @@ export async function printReceipt(source: HTMLElement, paper: ReceiptPaper): Pr
       body{font:12px/1.4 Arial,sans-serif;width:${paper === "A4" ? "186mm" : `${Number.parseInt(paper) - 4}mm`}}
       .pos-receipt{width:100%;overflow:visible;height:auto;padding:2mm}
       h1{font-size:16px;margin:3px 0}h2,p{margin:3px 0}small{font-size:10px}
-      .receipt-heading{text-align:center;border-bottom:1px dashed gray;padding-bottom:8px;margin-bottom:8px}
-      .receipt-logo{display:block;margin:0 auto 6px;max-width:30mm;max-height:16mm;object-fit:contain}
+      .receipt-heading{text-align:left;border-bottom:1px dashed gray;padding-bottom:8px;margin-bottom:8px}
+      .receipt-logo{display:block;margin:0 0 6px;max-width:30mm;max-height:16mm;object-fit:contain}
       table{width:100%;border-collapse:collapse;table-layout:fixed}th{font-size:10px;text-align:left;border-bottom:1px solid gray}
       td,th{padding:5px 2px;vertical-align:top}th:last-child,td:last-child{width:31%;text-align:right}
       .receipt-item-name{overflow-wrap:anywhere;white-space:normal}.receipt-meta{font-size:10px;color:#333}
       .receipt-totals{border-top:1px dashed gray;padding-top:6px;margin-top:6px}
       .receipt-row{display:flex;justify-content:space-between;gap:8px;margin:3px 0;overflow-wrap:anywhere}
       .receipt-row strong{text-align:right}.receipt-grand{font-size:15px;font-weight:bold;border-top:1px solid gray;padding-top:5px}
-      .receipt-footer{text-align:center;margin-top:12px;font-size:10px}tr{break-inside:avoid}thead{display:table-header-group}
+      .receipt-footer{text-align:left;margin-top:12px;font-size:10px}tr{break-inside:avoid}thead{display:table-header-group}
+      ${paper === "A4" ? `
+      body{font-size:13px;line-height:1.5}.pos-receipt{padding:0}
+      h1{font-size:24px;margin:4px 0 8px}
+      .receipt-heading{border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:16px}
+      .receipt-logo{max-width:46mm;max-height:24mm;margin-bottom:10px}
+      th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:8px 6px;border-bottom:2px solid #111}
+      td{padding:9px 6px;border-bottom:1px solid #ddd}th:last-child,td:last-child{width:24%}
+      .receipt-totals{width:60%;border-top:0;margin-top:14px}
+      .receipt-grand{font-size:17px}
+      .receipt-footer{border-top:1px solid #ddd;padding-top:10px;margin-top:28px;font-size:11px}` : ""}
       @media print{html,body,.pos-receipt{overflow:visible!important;height:auto!important;max-height:none!important}}
     `;
     doc.head.appendChild(style);

@@ -89,6 +89,10 @@ def _tenant_contact_lines(tenant: Tenant) -> list[str]:
         lines.append(tenant.country)
     if tenant.phone:
         lines.append(f"Tel: {tenant.phone}")
+    if getattr(tenant, "email", None):
+        lines.append(f"Email: {tenant.email}")
+    if getattr(tenant, "tin", None):
+        lines.append(f"TIN: {tenant.tin}")
     if tenant.website:
         lines.append(tenant.website)
     return lines

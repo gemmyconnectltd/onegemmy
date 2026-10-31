@@ -44,6 +44,9 @@ export interface Tenant {
   brand_color: string | null;
   website: string | null;
   phone: string | null;
+  /** The business's own contact email and taxpayer number: printed on every receipt and invoice. */
+  email?: string | null;
+  tin?: string | null;
   address: string | null;
   city: string | null;
   country: string | null;
@@ -78,6 +81,8 @@ export interface TenantUpdateInput {
   preferred_contact?: "email" | "phone" | "whatsapp" | "all";
   website?: string | null;
   phone?: string | null;
+  email?: string | null;
+  tin?: string | null;
   address?: string | null;
   city?: string | null;
   country?: string | null;

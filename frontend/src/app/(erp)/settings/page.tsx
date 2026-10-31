@@ -13,7 +13,7 @@ const URL_RE = /^https?:\/\/\S+\.\S+$/i;
 /** Owns the form's local state, initialised from `tenant` — only mounts once `tenant` has loaded. */
 function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
   const updateTenant = useUpdateMyTenant();
-  const initial = { name: tenant.name ?? "", phone: tenant.phone ?? "", address: tenant.address ?? "", city: tenant.city ?? "", country: tenant.country ?? "", website: tenant.website ?? "", business_type: tenant.business_type ?? "", preferred_contact: tenant.preferred_contact ?? "email" };
+  const initial = { name: tenant.name ?? "", phone: tenant.phone ?? "", email: tenant.email ?? "", tin: tenant.tin ?? "", address: tenant.address ?? "", city: tenant.city ?? "", country: tenant.country ?? "", website: tenant.website ?? "", business_type: tenant.business_type ?? "", preferred_contact: tenant.preferred_contact ?? "email" };
   const [form, setForm] = useState(initial);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +21,7 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
 
   const dirty = (Object.keys(initial) as (keyof typeof initial)[]).some((k) => form[k].trim() !== initial[k].trim());
   const nameErr = !form.name.trim() ? "Business name is required" : null;
+  const emailErr = form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ? "Enter a valid email, e.g. info@mybusiness.com" : null;
   const webErr = form.website.trim() && !URL_RE.test(form.website.trim()) ? "Use a full address, e.g. https://example.com" : null;
 
   // Leaving with unsaved edits asks first.
@@ -36,7 +37,7 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
     if (!dirty || nameErr || webErr) return;
     setError(null);
     try {
-      await updateTenant.mutateAsync({ id: tenant.id, data: { name: form.name.trim(), phone: form.phone.trim() || null, address: form.address.trim() || null, city: form.city.trim() || null, country: form.country.trim() || null, website: form.website.trim() || null, business_type: form.business_type.trim() || null, preferred_contact: form.preferred_contact === "phone" || form.preferred_contact === "whatsapp" || form.preferred_contact === "all" ? form.preferred_contact : "email" } });
+      await updateTenant.mutateAsync({ id: tenant.id, data: { name: form.name.trim(), phone: form.phone.trim() || null, email: form.email.trim() || null, tin: form.tin.trim() || null, address: form.address.trim() || null, city: form.city.trim() || null, country: form.country.trim() || null, website: form.website.trim() || null, business_type: form.business_type.trim() || null, preferred_contact: form.preferred_contact === "phone" || form.preferred_contact === "whatsapp" || form.preferred_contact === "all" ? form.preferred_contact : "email" } });
       setSaved(true);
     } catch (err: unknown) {
       setError((err as { detail?: string })?.detail ?? "Couldn't save your business information. Try again.");
@@ -50,6 +51,8 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
       <div className="grid gap-4 py-3 sm:grid-cols-2">
         <Field label="Business name" required><Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="My Shop" aria-invalid={!!nameErr} />{nameErr && <p role="alert" className="mt-1 text-[11px] text-red-600">{nameErr}</p>}</Field>
         <Field label="Phone"><Input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+250 7XX XXX XXX" /></Field>
+        <Field label="Business email"><Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="info@mybusiness.com" aria-invalid={!!emailErr} />{emailErr && <p role="alert" className="mt-1 text-[11px] text-red-600">{emailErr}</p>}</Field>
+        <Field label="TIN (tax number)"><Input value={form.tin} onChange={(e) => set("tin", e.target.value)} placeholder="e.g. 123456789" /></Field>
         <Field label="Address" className="sm:col-span-2"><Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="KG 7 Ave" /></Field>
         <Field label="City"><Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Kigali" /></Field>
         <Field label="Country"><Input value={form.country} onChange={(e) => set("country", e.target.value)} placeholder="Rwanda" /></Field>

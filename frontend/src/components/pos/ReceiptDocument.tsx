@@ -14,11 +14,12 @@ export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled 
   const money = (value: number) => `${currencySymbol} ${fmt(value)}`;
   const row = (label: string, value: string) => <div className="receipt-row flex justify-between gap-3 py-0.5"><span>{label}</span><strong className="text-right tabular-nums">{value}</strong></div>;
   return <article className="pos-receipt bg-card p-4 text-xs text-foreground" data-pos-receipt>
-    <header className="receipt-heading mb-3 border-b border-dashed border-border pb-3 text-center">
-      {tenant?.logo_url && <img className="receipt-logo mx-auto mb-2 max-h-12 max-w-32 object-contain" src={resolveUploadUrl(tenant.logo_url) ?? undefined} alt={tenant.name} />}
+    <header className="receipt-heading mb-3 border-b border-dashed border-border pb-3 text-left">
+      {tenant?.logo_url && <img className="receipt-logo mb-2 max-h-12 max-w-32 object-contain" src={resolveUploadUrl(tenant.logo_url) ?? undefined} alt={tenant.name} />}
       <h1 className="text-base font-bold">{tenant?.name ?? "Receipt"}</h1>
       {tenant && <p>{[tenant.address, tenant.city, tenant.country].filter(Boolean).join(", ")}</p>}
-      {tenant?.phone && <p>{tenant.phone}</p>}{tenant?.website && <p>{tenant.website}</p>}
+      {tenant?.phone && <p>{tenant.phone}</p>}{tenant?.email && <p>{tenant.email}</p>}{tenant?.website && <p>{tenant.website}</p>}
+      {tenant?.tin && <p className="font-semibold">TIN: {tenant.tin}</p>}
       <p className="mt-2 font-semibold">Receipt {sale.orderId}</p><p>{fmtDateTime(sale.timestamp)}</p>
       {sale.cashierName && <p>Cashier: {sale.cashierName}</p>}{sale.customerName && <p>Customer: {sale.customerName}</p>}
     </header>
@@ -31,6 +32,6 @@ export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled 
       {row("Payment", paymentLabel(sale.payment))}{row("Amount paid", money(sale.amountPaid ?? sale.total))}
       {!!sale.balanceDue && sale.balanceDue > 0 ? <>{row("Balance due", money(sale.balanceDue))}{sale.dueDate && row("Due date", sale.dueDate)}</> : row("Change", money(sale.change))}
     </section>
-    <footer className="receipt-footer mt-4 text-center text-xs text-muted">Thank you for your purchase!</footer>
+    <footer className="receipt-footer mt-4 text-left text-xs text-muted">Thank you for your purchase!</footer>
   </article>;
 }

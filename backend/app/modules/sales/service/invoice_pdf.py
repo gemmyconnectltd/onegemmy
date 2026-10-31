@@ -78,6 +78,10 @@ def _tenant_contact_lines(tenant: Tenant) -> list[str]:
         lines.append(tenant.country)
     if tenant.phone:
         lines.append(f"Tel: {tenant.phone}")
+    if getattr(tenant, "email", None):
+        lines.append(f"Email: {tenant.email}")
+    if getattr(tenant, "tin", None):
+        lines.append(f"TIN: {tenant.tin}")
     if tenant.website:
         lines.append(tenant.website)
     return lines
@@ -370,7 +374,7 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
         ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     thanks_lines = [Paragraph(f"Thank you for your business{' — ' + esc(tenant.name) if tenant.name else ''}!", styles["footer_thanks"])]
-    contact_bits = [b for b in (tenant.website, tenant.phone) if b]
+    contact_bits = [b for b in (tenant.website, tenant.phone, getattr(tenant, "email", None)) if b]
     if contact_bits:
         thanks_lines.append(Paragraph(esc(" · ".join(contact_bits)), styles["footer_muted"]))
     thanks_cell = Table([[p] for p in thanks_lines], colWidths=[CONTENT_W - 22 * mm - 6 * mm])

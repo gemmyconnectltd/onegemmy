@@ -28,6 +28,8 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     brand_color: Mapped[str | None] = mapped_column(String(7))
     website: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(50))
+    email: Mapped[str | None] = mapped_column(String(255))  # the business's own contact email, printed on receipts and invoices
+    tin: Mapped[str | None] = mapped_column(String(50))  # taxpayer identification number, printed on receipts and invoices
     address: Mapped[str | None] = mapped_column(String(500))
     city: Mapped[str | None] = mapped_column(String(100))
     country: Mapped[str | None] = mapped_column(String(100))

@@ -117,10 +117,14 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
                   {tenant?.phone && (
                     <p className="flex items-center gap-1.5 text-[12px] text-white/80"><Phone size={11} className="flex-shrink-0" /> {tenant.phone}</p>
                   )}
+                  {tenant?.email && (
+                    <p className="flex items-center gap-1.5 text-[12px] text-white/80"><Mail size={11} className="flex-shrink-0" /> {tenant.email}</p>
+                  )}
                   {tenant?.website && (
                     <p className="flex items-center gap-1.5 text-[12px] text-white/80"><Globe size={11} className="flex-shrink-0" /> {tenant.website}</p>
                   )}
                 </div>
+                {tenant?.tin && <p className="text-[12px] font-semibold text-white/90">TIN: {tenant.tin}</p>}
               </div>
             </div>
           </div>

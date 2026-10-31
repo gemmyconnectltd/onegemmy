@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
 from app.shared.schemas import TrimmedModel
 
@@ -32,6 +32,8 @@ class TenantCreate(TimezoneModel):
     brand_color: HexColor | None = None
     website: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
+    email: EmailStr | None = None
+    tin: str | None = Field(default=None, max_length=50)
     address: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=100)
     country: str | None = Field(default=None, max_length=100)
@@ -57,6 +59,8 @@ class TenantUpdate(TimezoneModel):
     brand_color: HexColor | None = None
     website: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
+    email: EmailStr | None = None
+    tin: str | None = Field(default=None, max_length=50)
     address: str | None = Field(default=None, max_length=500)
     city: str | None = Field(default=None, max_length=100)
     country: str | None = Field(default=None, max_length=100)
@@ -95,6 +99,8 @@ class TenantRead(BaseModel):
     brand_color: str | None
     website: str | None
     phone: str | None
+    email: str | None = None
+    tin: str | None = None
     address: str | None
     city: str | None
     country: str | None
