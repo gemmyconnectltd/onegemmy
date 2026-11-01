@@ -290,7 +290,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((permission: string): boolean => {
     if (!currentUser) return false;
     if (currentUser.isSuperuser) return true;
-    return currentUser.permissions.includes(permission);
+    // If permissions array is populated, use it (new permission-aware users)
+    if (currentUser.permissions.length > 0) return currentUser.permissions.includes(permission);
+    // Fallback for existing users with no permissions: derive from role
+    const role = currentUser.role?.toLowerCase();
+    if (role === "admin" || role === "owner") return true;
+    if (role === "viewer") return permission.endsWith(":read") || permission.endsWith(":view");
+    // member — grant everything except destructive admin actions
+    const blocked = ["users:delete", "users:create", "settings:update", "billing:update"];
+    return !blocked.includes(permission);
   }, [currentUser]);
 
   const hasAnyPermission = useCallback((perms: string[]): boolean => {
@@ -302,6 +310,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser.isSuperuser) return true;
     const key = module.toLowerCase();
     if (currentUser.disabledModules.includes(key)) return false;
+    // If no permissions set, fall back to role — admins and members see everything
+    if (currentUser.permissions.length === 0) {
+      const role = currentUser.role?.toLowerCase();
+      return role === "admin" || role === "owner" || role === "member";
+    }
     const resources = MODULE_RESOURCES[key];
     if (!resources) return currentUser.permissions.some((p) => p.startsWith(key + ":"));
     return currentUser.permissions.some((p) => resources.some((r) => p.startsWith(r + ":")));
