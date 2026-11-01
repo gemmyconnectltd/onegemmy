@@ -6,12 +6,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
-import { useApprovalSummary, useMyEntitlements } from "@/lib/api/hooks";
+import { useApprovalSummary } from "@/lib/api/hooks";
+import { sidebarPrimaryNavigation } from "@/lib/sidebarNavigation";
 import { siteConfig } from "@/lib/config";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { Drawer } from "@/components/ui/Drawer";
 import { LogOut, Menu, PanelLeft, ChevronDown } from "lucide-react";
-import { ADMIN_NAV_ITEMS, isPrimaryActive, visiblePrimaryNavigation, type PrimaryNavGroup as NavGroup } from "@/lib/navigation";
+import { ADMIN_NAV_ITEMS, isPrimaryActive, type PrimaryNavGroup as NavGroup } from "@/lib/navigation";
 
 interface SidebarProps { expanded: boolean; onExpandChange: (value: boolean) => void; collapsed: boolean; onCollapsedChange: (value: boolean) => void; variant?: "app" | "admin"; }
 export const SIDEBAR_W_COLLAPSED = 64;
@@ -24,11 +25,10 @@ const serverSnapshot = () => false;
 export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange, variant = "app" }: SidebarProps) {
   const path = usePathname();
   const router = useRouter();
-  const { user, logout, hasModuleAccess, hasPermission, isSuperAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const { logoUrl } = useAppConfig();
   const admin = variant === "admin";
-  const { data: entitlements } = useMyEntitlements({enabled: !admin});
-  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : visiblePrimaryNavigation(entitlements?.features, hasModuleAccess, hasPermission, isSuperAdmin());
+  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : sidebarPrimaryNavigation();
   const allItems = groups.flatMap(group => group.items);
   const mobileItems = allItems.slice(0, 5);
   const isMobile = useSyncExternalStore(subscribeMobile, mobileSnapshot, serverSnapshot);

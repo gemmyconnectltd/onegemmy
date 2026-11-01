@@ -6,8 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { PanelTop, PanelLeft, PanelRight } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
-import { MODULE_TITLES, isModuleLinkActive, visibleModuleLinks, type ModuleKey } from "@/lib/navigation";
-import { useAuth } from "@/lib/auth";
+import { sidebarModuleLinks } from "@/lib/sidebarNavigation";
+import { MODULE_TITLES, isModuleLinkActive, type ModuleKey } from "@/lib/navigation";
 export type { NavConfigItem } from "@/lib/navigation";
 type Orientation = "top" | "left" | "big";
 
@@ -59,7 +59,6 @@ export function SecondSidebar({
   // Moving between report sections keeps the chosen period, comparison and branch.
   const carried = module === "reports" ? ["period", "from", "to", "compare", "cfrom", "cto", "branch"].flatMap((k) => (search.get(k) ? [`${k}=${encodeURIComponent(search.get(k) ?? "")}`] : [])).join("&") : "";
   const { t } = useAppConfig();
-  const { hasPermission } = useAuth();
   const meta = module ? MODULE_TITLES[module] : undefined;
   const isSectionMode = !!sections;
 
@@ -149,7 +148,7 @@ export function SecondSidebar({
           </button>
         );
       })
-    : (module ? visibleModuleLinks(module, hasPermission) : []).map((item, index, list) => {
+    : (module ? sidebarModuleLinks(module) : []).map((item, index, list) => {
         const isActive = isModuleLinkActive(pathname, item);
         const heading = showRail && item.group && item.group !== list[index - 1]?.group
           ? <span key={`group-${item.group}`} className="hidden lg:block px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted">{item.group}</span>
