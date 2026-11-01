@@ -290,13 +290,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((permission: string): boolean => {
     if (!currentUser) return false;
     if (currentUser.isSuperuser) return true;
-    // If permissions array is populated, use it (new permission-aware users)
-    if (currentUser.permissions.length > 0) return currentUser.permissions.includes(permission);
-    // Fallback for existing users with no permissions: derive from role
+    // Admins and owners get full access always
     const role = currentUser.role?.toLowerCase();
     if (role === "admin" || role === "owner") return true;
-    if (role === "viewer") return permission.endsWith(":read") || permission.endsWith(":view");
-    // member — grant everything except destructive admin actions
+    // Viewers only get read access
+    if (role === "viewer") {
+      const action = permission.split(":")[1];
+      return action === "read" || action === "view";
+    }
+    // Members: check explicit permissions, fall back to allowing everything except admin actions
+    if (currentUser.permissions.length > 0) return currentUser.permissions.includes(permission);
     const blocked = ["users:delete", "users:create", "settings:update", "billing:update"];
     return !blocked.includes(permission);
   }, [currentUser]);
@@ -310,11 +313,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser.isSuperuser) return true;
     const key = module.toLowerCase();
     if (currentUser.disabledModules.includes(key)) return false;
-    // If no permissions set, fall back to role — admins and members see everything
-    if (currentUser.permissions.length === 0) {
-      const role = currentUser.role?.toLowerCase();
-      return role === "admin" || role === "owner" || role === "member";
-    }
+    // Admins and owners always see all modules
+    const role = currentUser.role?.toLowerCase();
+    if (role === "admin" || role === "owner") return true;
+    // Members see all modules
+    if (role === "member") return true;
+    // Viewers see all modules (read-only enforced at action level)
+    if (role === "viewer") return true;
+    // Fall back to permission check for custom roles
     const resources = MODULE_RESOURCES[key];
     if (!resources) return currentUser.permissions.some((p) => p.startsWith(key + ":"));
     return currentUser.permissions.some((p) => resources.some((r) => p.startsWith(r + ":")));

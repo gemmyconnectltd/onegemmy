@@ -182,7 +182,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((permission: string): boolean => {
     if (!user) return false;
     if (user.isSuperuser) return true;
-    return user.permissions.includes(permission);
+    const role = user.role?.toLowerCase();
+    if (role === "admin" || role === "owner") return true;
+    if (role === "viewer") {
+      const action = permission.split(":")[1];
+      return action === "read" || action === "view";
+    }
+    if (user.permissions.length > 0) return user.permissions.includes(permission);
+    const blocked = ["users:delete", "users:create", "settings:update", "billing:update"];
+    return !blocked.includes(permission);
   }, [user]);
 
   const hasAnyPermission = useCallback((perms: string[]): boolean => {
@@ -192,6 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasModuleAccess = useCallback((module: string): boolean => {
     if (!user) return false;
     if (user.isSuperuser) return true;
+    const role = user.role?.toLowerCase();
+    if (role === "admin" || role === "owner" || role === "member" || role === "viewer") return true;
     return user.permissions.some((p) => p.startsWith(module.toLowerCase() + ":"));
   }, [user]);
 
