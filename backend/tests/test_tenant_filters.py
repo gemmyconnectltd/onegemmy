@@ -65,3 +65,18 @@ async def test_market_summary_describes_the_filtered_group(db):
     assert body["top_size"]["name"] == "2-5" and body["paying"] == {"count": 1, "percent": 33} and body["recording_sales"]["count"] == 1
     narrowed = json.loads((await admin_tenant_summary(db, None, country=f"Rwanda-{tag}", industry=f"Services-{tag}")).body)["data"]
     assert narrowed["total"] == 1 and narrowed["top_industry"]["percent"] == 100
+
+
+async def test_distribution_normalizes_labels_and_filters_missing_values(db):
+    tag = uuid.uuid4().hex[:6]
+    label = f"Retail-{tag}"
+    a = await make(db, "A", industry=f" {label} ", country=None)
+    b = await make(db, "B", industry=label.lower(), country="  ")
+    options = await TenantRepository(db).filter_options()
+    group = next(row for row in options["industries"] if row["value"].lower() == label.lower())
+    assert group["count"] == 2
+    rows, total = await TenantRepository(db).admin_page(
+        0, 25, {"industry": group["value"], "country": "__unspecified__"}
+    )
+    assert total == 2
+    assert {row.id for row in rows} == {a.id, b.id}

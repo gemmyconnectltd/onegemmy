@@ -7,7 +7,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  AlertTriangle, Archive, CreditCard, Factory, Globe, ShoppingCart, SlidersHorizontal, Bell, Building2, Download, Eye, Loader2, Plus, Power, UserRound, Users as UsersIcon, X,
+  ChevronDown, AlertTriangle, Archive, CreditCard, Factory, Globe, ShoppingCart, SlidersHorizontal, Bell, Building2, Download, Eye, Loader2, Plus, Power, UserRound, Users as UsersIcon, X,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Drawer } from "@/components/ui/Drawer";
@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Metric } from "@/components/ui/Metric";
 import { SearchBox, Pagination, thClass } from "@/components/ui/DataTable";
+
+import { DistributionPanel, distributionLabel } from "@/components/tenants/DistributionPanel";
 
 const PAGE_SIZE = 25;
 const SCAN_SIZE = 100; // backend page_size cap — used when a filter/sort needs more than one server page
@@ -86,6 +88,7 @@ function AdminTenantsPageInner() {
   const [exporting, setExporting] = useState(false);
   const [form, setForm] = useState({ name: "", slug: "", owner_full_name: "", owner_email: "", phone: "", city: "", country: "Rwanda" });
 
+  const [distribution, setDistribution] = useState<"industry" | "country" | null>(null);
   const [showMore, setShowMore] = useState(false);
   const moreCount = [f.businessType, f.heardAbout, f.feature, f.from, f.to].filter(Boolean).length;
   const filtered = isFiltered(f);
@@ -98,7 +101,8 @@ function AdminTenantsPageInner() {
   const { data: featureUsage } = useAdminFeatureUsage(usageFilters);
   const summaryFilters: Record<string, string> = { ...usageFilters, ...(f.feature ? { feature: f.feature, featureState: f.featureState } : {}) };
   const summary = useTenantSummary(summaryFilters).data;
-  const options = useTenantFilterOptions().data;
+  const filterOptions = useTenantFilterOptions();
+  const options = filterOptions.data;
   const loaded = useMemo(() => active.data?.items ?? [], [active.data]);
   const total = active.data?.total ?? 0;
   const pageRows = loaded;
@@ -169,9 +173,9 @@ function AdminTenantsPageInner() {
   const th = (label: string, cls = "") => <th scope="col" className={cn(thClass, cls)}>{label}</th>;
 
   const chips: { label: string; clear: () => void }[] = [
-    ...(f.industry ? [{ label: `Industry: ${f.industry}`, clear: () => update({ industry: "" }) }] : []),
+    ...(f.industry ? [{ label: `Industry: ${distributionLabel(f.industry)}`, clear: () => update({ industry: "" }) }] : []),
     ...(f.size ? [{ label: `Size: ${f.size}`, clear: () => update({ size: "" }) }] : []),
-    ...(f.country ? [{ label: `Country: ${f.country}`, clear: () => update({ country: "" }) }] : []),
+    ...(f.country ? [{ label: `Country: ${distributionLabel(f.country)}`, clear: () => update({ country: "" }) }] : []),
     ...(f.businessType ? [{ label: `Business type: ${BUSINESS_TYPE_LABELS[f.businessType] ?? f.businessType}`, clear: () => update({ businessType: "" }) }] : []),
     ...(f.plan !== "all" ? [{ label: `Plan: ${stats.data?.plan_names?.[f.plan] ?? f.plan}`, clear: () => update({ plan: "all" }) }] : []),
     ...(f.heardAbout ? [{ label: `Found us via: ${f.heardAbout}`, clear: () => update({ heardAbout: "" }) }] : []),
@@ -184,7 +188,7 @@ function AdminTenantsPageInner() {
   const pick = (list: { value: string; count: number }[] | undefined, current: string, label: (v: string) => string | undefined = () => undefined) => {
     const rows = list ?? [];
     const all = current && !rows.some((r) => r.value === current) ? [...rows, { value: current, count: 0 }] : rows;
-    return all.map((r) => <option key={r.value} value={r.value}>{label(r.value) ?? r.value} ({r.count})</option>);
+    return all.map((r) => <option key={r.value} value={r.value}>{label(r.value) ?? distributionLabel(r.value)} ({r.count})</option>);
   };
 
   return (
@@ -197,12 +201,20 @@ function AdminTenantsPageInner() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Market summary">
         <Metric label="Businesses" value={summary?.total ?? "—"} sub={summary ? `+${summary.new_30_days} in 30 days` : undefined} icon={Building2} tone="bg-violet-500/10 text-violet-600" />
-        <Metric label="Top industry" value={summary?.top_industry?.name ?? "—"} sub={summary?.top_industry ? `${summary.top_industry.percent}% of businesses` : undefined} icon={Factory} tone="bg-sky-500/10 text-sky-600" />
-        <Metric label="Top country" value={summary?.top_country?.name ?? "—"} sub={summary?.top_country ? `${summary.top_country.percent}% of businesses` : undefined} icon={Globe} tone="bg-emerald-500/10 text-emerald-600" />
+        <button type="button" aria-expanded={distribution === "industry"} aria-controls="tenant-distribution" onClick={() => setDistribution(current => current === "industry" ? null : "industry")} className={cn("relative min-w-0 rounded-xl text-left transition-colors [&>div]:h-full [&>div]:pr-6 hover:ring-1 hover:ring-accent focus-visible:outline-2 focus-visible:outline-accent", distribution === "industry" && "ring-2 ring-accent")}>
+          <Metric label="Top industry" value={summary?.top_industry?.name ?? "—"} sub={summary?.top_industry ? `${summary.top_industry.percent}% of businesses` : undefined} icon={Factory} tone="bg-sky-500/10 text-sky-600" />
+          <ChevronDown aria-hidden size={14} className={cn("absolute right-2 top-3 text-muted transition-transform motion-reduce:transition-none", distribution === "industry" && "rotate-180 text-accent")} />
+        </button>
+        <button type="button" aria-expanded={distribution === "country"} aria-controls="tenant-distribution" onClick={() => setDistribution(current => current === "country" ? null : "country")} className={cn("relative min-w-0 rounded-xl text-left transition-colors [&>div]:h-full [&>div]:pr-6 hover:ring-1 hover:ring-accent focus-visible:outline-2 focus-visible:outline-accent", distribution === "country" && "ring-2 ring-accent")}>
+          <Metric label="Top country" value={summary?.top_country?.name ?? "—"} sub={summary?.top_country ? `${summary.top_country.percent}% of businesses` : undefined} icon={Globe} tone="bg-emerald-500/10 text-emerald-600" />
+          <ChevronDown aria-hidden size={14} className={cn("absolute right-2 top-3 text-muted transition-transform motion-reduce:transition-none", distribution === "country" && "rotate-180 text-accent")} />
+        </button>
         <Metric label="Common size" value={summary?.top_size?.name ?? "—"} sub={summary?.top_size ? `${summary.top_size.percent}% of businesses` : undefined} icon={UsersIcon} tone="bg-amber-500/10 text-amber-600" />
         <Metric label="On a paid plan" value={summary ? `${summary.paying.percent}%` : "—"} sub={summary ? `${summary.paying.count} of ${summary.total}` : undefined} icon={CreditCard} tone="bg-rose-500/10 text-rose-600" />
         <Metric label="Recording sales" value={summary ? `${summary.recording_sales.percent}%` : "—"} sub={summary ? `${summary.recording_sales.count} of ${summary.total}` : undefined} icon={ShoppingCart} tone="bg-slate-500/10 text-slate-600" />
       </div>
+
+      {distribution && <DistributionPanel key={distribution} dimension={distribution} rows={(distribution === "industry" ? options?.industries : options?.countries) ?? []} selected={f[distribution]} loading={filterOptions.isLoading} failed={filterOptions.isError} refreshing={filterOptions.isFetching} onSelect={value => update({ [distribution]: value })} onRefresh={() => void filterOptions.refetch()} />}
 
       {error && (
         <div role="alert" className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400"><AlertTriangle size={15} /> {error}<button onClick={() => setError(null)} className="ml-auto text-xs font-medium text-muted hover:text-foreground">Dismiss</button></div>
