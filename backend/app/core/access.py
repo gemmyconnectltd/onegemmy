@@ -51,6 +51,7 @@ PATH_RESOURCES: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
 
 # Exact permission(s) (any one of) for specific endpoints — evaluated before the coarse module rule.
 EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
+    ("POST", re.compile(r"^/sales/orders$"), ("orders:create", "pos:create")),
     ("POST", re.compile(r"^/procurement/purchase-orders$"), ("purchase_orders:create",)),
     ("PATCH", re.compile(r"^/procurement/purchase-orders/[^/]+$"), ("purchase_orders:update",)),
     ("DELETE", re.compile(r"^/procurement/purchase-orders/[^/]+$"), ("purchase_orders:delete",)),
@@ -131,7 +132,7 @@ def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
                 raise ForbiddenError(f"You don't have access to this. Ask an administrator for {needed}.")
             return
         allowed, needed = decide(module, request.method, tenant_path(request.url.path),
-                                 permissions_for_method(request.method, user.permissions_names, getattr(user, "role_permissions_names", user.permissions_names)))
+                                 permissions_for_method(request.method, user.permissions_names, getattr(user, "role_permissions_names", user.permissions_names), path=tenant_path(request.url.path)))
         if not allowed:
             log.warning("access.denied", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "method": request.method, "path": request.url.path}})
             raise ForbiddenError(f"You don't have permission to do this. Ask an administrator for {needed}.")

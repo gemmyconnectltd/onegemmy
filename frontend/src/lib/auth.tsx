@@ -290,10 +290,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((permission: string): boolean => {
     if (!currentUser) return false;
     if (currentUser.isSuperuser) return true;
+    // Current server grants take precedence over a legacy role-name fallback.
+    if (currentUser.permissions.includes(permission)) return true;
     // Admins and owners get full access always
     const role = currentUser.role?.toLowerCase();
     if (role === "admin" || role === "owner") return true;
-    // Viewers only get read access
+    // Without a matching server grant, legacy Viewer sessions fall back to read access.
     if (role === "viewer") {
       const action = permission.split(":")[1];
       return action === "read" || action === "view";

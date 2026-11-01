@@ -14,7 +14,7 @@ def request(method="GET", path="/api/v1/tenants/inventory/products"):
 
 
 def person(disabled, superuser=False):
-    return SimpleNamespace(id="u1", tenant_id="t1", is_superuser=superuser, disabled_modules=disabled, permissions_names=["items:read", "items:update"])
+    return SimpleNamespace(id="u1", tenant_id="t1", role="custom", is_superuser=superuser, disabled_modules=disabled, permissions_names=["items:read", "items:update"])
 
 
 async def test_switched_off_module_is_refused_for_reads_and_writes():

@@ -61,7 +61,7 @@ async def _user(db, perms: list[str], *, owner: bool = False):
     role = Role(tenant_id=tenant.id, name=f"r-{n}", permissions=[catalog[p] for p in perms])
     db.add(role)
     await db.flush()
-    user = User(email=f"u{n}@x.test", hashed_password="x", full_name="U", role="owner" if owner else "member", tenant_id=tenant.id, role_id=role.id, is_active=True, is_superuser=owner)
+    user = User(email=f"u{n}@x.test", hashed_password="x", full_name="U", role="owner" if owner else "custom test role", tenant_id=tenant.id, role_id=role.id, is_active=True, is_superuser=owner)
     db.add(user)
     await db.flush()
     return user, create_access_token(str(user.id), {"tenant_id": str(tenant.id)})

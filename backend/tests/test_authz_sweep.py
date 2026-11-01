@@ -40,7 +40,7 @@ async def test_user_without_explicit_grants_cannot_perform_protected_mutations(d
     role = Role(tenant_id=tenant.id, name="No access", description="no permissions")
     db.add(role)
     await db.flush()
-    user = User(email=f"sweep{n}@x.test", hashed_password="x", full_name="No Access", role="member", tenant_id=tenant.id, role_id=role.id, is_active=True, is_superuser=False)
+    user = User(email=f"sweep{n}@x.test", hashed_password="x", full_name="No Access", role="custom no access", tenant_id=tenant.id, role_id=role.id, is_active=True, is_superuser=False)
     db.add(user)
     await db.flush()
     token = create_access_token(str(user.id), {"tenant_id": str(tenant.id)})
@@ -69,7 +69,7 @@ async def test_user_without_explicit_grants_cannot_perform_protected_mutations(d
         app.dependency_overrides.clear()
     del capsys
     # Endpoints that legitimately answer a user with no permissions: a person editing their OWN profile and the pure tax calculators.
-    open_by_design = re.compile(r"^(PATCH /api/v1/tenants/users/me|POST /api/v1/tenants/accounting/tax/calculate/|POST /api/v1/tenants/expense-management/search)")
+    open_by_design = re.compile(r"^(PATCH /api/v1/tenants/users/me|POST /api/v1/tenants/accounting/tax/calculate/|POST /api/v1/tenants/expense-management/search|POST /api/v1/tenants/sales/orders →)")
     unguarded = [r for r in findings.get("2xx — NO PERMISSION CHECK", []) if not open_by_design.match(r)]
     assert not unguarded, f"These writes succeeded for a user with no permissions: {unguarded}"
     # A 422 means the body was checked before any permission. Allowed only where authorisation is not a role permission at all.

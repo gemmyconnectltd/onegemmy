@@ -6,9 +6,11 @@ role link or empty role grants, without modifying the database or assigning a br
 Login, token refresh and `/tenants/users/me` publish the same effective permission names;
 the frontend's current-session refresh picks them up after backend deployment.
 
-Explicit role grants still govern creation, deletion and approval. In particular, the coarse
-POST gate uses stored role grants so an automatic `update` grant cannot inadvertently authorize
-creation or payments. Existing endpoint-specific validation and approval workflows remain.
+POS checkout also grants `pos:create` and `orders:create` for creating one sale through
+`POST /sales/orders`. The coarse POST gate accepts these baseline grants only on that exact
+checkout path. Bulk imports, refunds, existing-invoice payments, deletion, approvals and other
+creation endpoints still require explicit role grants. Existing endpoint-specific validation,
+credit limits, approval workflows, idempotency and stock checks remain.
 
 Tenant/branch ownership, authentication, disabled modules and subscription/business feature
 availability remain enforced. Tenant settings, users, roles, permissions, branches, billing,

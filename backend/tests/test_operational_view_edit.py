@@ -16,9 +16,10 @@ def test_existing_active_business_users_can_view_and_edit_operational_modules():
     assert decide("inventory", "PATCH", "/inventory/products/any", grants)[0]
 
 
-def test_create_delete_approve_and_security_administration_are_not_baseline_access():
+def test_non_checkout_creation_delete_approval_and_administration_are_not_baseline_access():
     grants = effective_permissions([], business_user=True)
-    assert all(name.rsplit(":", 1)[1] in {"read", "update"} for name in grants)
+    assert {name for name in grants if name.endswith(":create")} == {"orders:create", "pos:create"}
+    assert not any(name.endswith((":delete", ":approve")) for name in grants)
     for resource in ["users", "roles", "permissions", "billing", "tenants", "branches", "approvals", "credit"]:
         assert f"{resource}:read" not in grants
         assert f"{resource}:update" not in grants
@@ -41,3 +42,17 @@ def test_policy_covers_the_catalogs_operational_resources():
     from app.modules.tenants.service.role import _PERMISSION_RESOURCES
     administration = {"tenants", "users", "roles", "permissions", "branches", "billing", "approvals", "credit"}
     assert set(_PERMISSION_RESOURCES) - administration == OPERATIONAL_RESOURCES
+
+
+
+def test_checkout_creation_is_allowed_without_opening_other_post_actions():
+    grants = effective_permissions([], business_user=True)
+    checkout = permissions_for_method("POST", grants, [], path="/sales/orders")
+    assert decide("sales", "POST", "/sales/orders", checkout)[0]
+    for path in ["/sales/orders/bulk", "/sales/orders/123/payments", "/sales/returns",
+                 "/sales/orders/123/approve", "/sales/customers"]:
+        held = permissions_for_method("POST", grants, [], path=path)
+        assert not decide("sales", "POST", path, held)[0]
+    for method, path in [("POST", "/sales/orders"), ("DELETE", "/sales/orders/123")]:
+        held = permissions_for_method(method, effective_permissions([], business_user=False), [], path=path)
+        assert not decide("sales", method, path, held)[0]

@@ -1,4 +1,4 @@
-"""Business-wide operational view/edit policy; sensitive actions remain role-based."""
+"""Business operational view/edit and checkout policy; sensitive actions stay role-based."""
 from collections.abc import Iterable
 
 OPERATIONAL_RESOURCES = frozenset({
@@ -15,13 +15,22 @@ OPERATIONAL_VIEW_EDIT = frozenset(
     f"{resource}:{action}" for resource in OPERATIONAL_RESOURCES for action in ("read", "update")
 )
 
+CHECKOUT_CREATION = frozenset({"pos:create", "orders:create"})
+
 
 def effective_permissions(assigned: Iterable[str], *, business_user: bool) -> list[str]:
     """Never broaden platform, inactive or anonymous accounts through the business policy."""
-    return sorted(set(assigned) | (OPERATIONAL_VIEW_EDIT if business_user else frozenset()))
+    return sorted(set(assigned) | ((OPERATIONAL_VIEW_EDIT | CHECKOUT_CREATION) if business_user else frozenset()))
 
 
-def permissions_for_method(method: str, effective: Iterable[str], assigned: Iterable[str]) -> list[str]:
-    # POST module gates accept update as well as create. Do not let baseline update
-    # grants accidentally authorize creating records, payments or approval actions.
-    return list(assigned if method.upper() == "POST" else effective)
+def permissions_for_method(
+    method: str, effective: Iterable[str], assigned: Iterable[str], *, path: str = "",
+) -> list[str]:
+    # A POS charge creates one sale. Other POST actions (imports, refunds,
+    # payments, approvals) still need explicit role grants at the module gate.
+    if method.upper() != "POST":
+        return list(effective)
+    held = set(assigned)
+    if path.rstrip("/") == "/sales/orders":
+        held.update(set(effective) & CHECKOUT_CREATION)
+    return sorted(held)
