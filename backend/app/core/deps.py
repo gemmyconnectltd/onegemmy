@@ -131,6 +131,10 @@ def require_permission(permission_name: str):
     async def _check(user: CurrentUser) -> User:
         if user.is_superuser:
             return user
+        # Standard business roles always pass — only viewer/custom roles are restricted
+        role = (user.role or "").lower()
+        if role in ("admin", "owner", "member"):
+            return user
         if permission_name not in user.permissions_names:
             log.warning("auth.forbidden_no_permission", extra={"_extra_fields": {
                 "user_id": str(user.id),
