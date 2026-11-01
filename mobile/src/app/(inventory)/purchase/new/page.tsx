@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2, Minus, Plus, Search, Truck, X } from "lucide-react";
 
 import { useMobilePos } from "@/components/mobile/MobilePosProvider";
-import { useProducts, useSuppliers, useCreatePurchaseOrder, type ApiProduct } from "@/lib/api/hooks";
+import { useProducts, useSuppliers, useCreatePurchaseOrder, useReceivePurchaseOrder, type ApiProduct } from "@/lib/api/hooks";
 
 interface PurchaseLine {
   product_id: string;
@@ -20,6 +20,9 @@ export default function MobileNewPurchasePage() {
   const productsQ = useProducts(1, 200);
   const suppliersQ = useSuppliers();
   const createPurchase = useCreatePurchaseOrder();
+  const receivePurchase = useReceivePurchaseOrder();
+  const submittedOrder = useRef<{id: string; reference: string} | null>(null);
+  const inFlight = useRef(false);
 
   const [query, setQuery] = useState("");
   const [supplierId, setSupplierId] = useState("");
@@ -58,13 +61,15 @@ export default function MobileNewPurchasePage() {
   const totalQty = lines.reduce((sum, l) => sum + l.qty, 0);
 
   const handleSubmit = async () => {
-    if (lines.length === 0 || saving) return;
+    if (lines.length === 0 || inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     setError(null);
     try {
+      if (!submittedOrder.current) {
       const { data } = await createPurchase.mutateAsync({
         supplier_id: supplierId || null,
-        status: "Received",
+        status: "Draft",
         notes: notes || null,
         items: lines.map((l) => ({
           product_id: l.product_id,
@@ -74,13 +79,21 @@ export default function MobileNewPurchasePage() {
           quantity: l.qty,
         })),
       });
-      setDoneRef(data.reference);
+      submittedOrder.current = {id: data.id, reference: data.reference};
+      }
+      await receivePurchase.mutateAsync(submittedOrder.current.id);
+      setDoneRef(submittedOrder.current.reference);
     } catch (e) {
       setError((e as { detail?: string })?.detail ?? "Failed to record purchase");
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };
+
+  if (error && submittedOrder.current && !doneRef) {
+    return <div className="space-y-4 p-4"><h1 className="text-lg font-semibold">Purchase draft saved</h1><p className="text-sm">{submittedOrder.current.reference} is saved. Stock has not been confirmed yet.</p><p role="alert" className="text-sm text-red-600">{error}</p><button type="button" disabled={saving} className="rounded-xl bg-accent px-4 py-3 text-white" onClick={() => void handleSubmit()}>{saving ? "Receiving…" : "Retry receiving"}</button><Link className="block text-sm text-accent" href="/inventory">Back to inventory</Link></div>;
+  }
 
   if (doneRef) {
     return (

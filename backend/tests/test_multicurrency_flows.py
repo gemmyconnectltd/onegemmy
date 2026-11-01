@@ -427,11 +427,14 @@ async def test_base_currency_expense_is_unchanged(db):
 
 async def test_foreign_purchase_bill_and_supplier_payments(db):
     t, u = await make_tenant(db, "RWF")
+    u.is_superuser = True  # This workflow requires purchasing write permission.
+    await db.flush()
     p = await make_product(db, t, stock=0)
     po = await purchase_service.create_purchase(db, t.id, u.id, PurchaseCreate(
-        status="Received", currency_code="USD", exchange_rate=D(1450),
+        status="Draft", currency_code="USD", exchange_rate=D(1450),
         items=[PurchaseItemCreate(product_id=p.id, product_name="Widget", unit_cost=1000, quantity=1)],
     ))
+    po = await purchase_service.receive_purchase(db, t.id, po.id, u.id)
     assert po.currency_code == "USD" and po.total == 1000 and po.base_total == D(1450000)
     bal = await balances(db, t.id)
     assert net(bal, "1200") == D(1450000) and net(bal, "2000") == D(-1450000)        # Dr Inventory / Cr AP in RWF

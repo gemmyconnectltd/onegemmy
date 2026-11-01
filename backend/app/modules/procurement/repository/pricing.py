@@ -27,3 +27,14 @@ class PurchasePricingRepository(BaseRepository[Product]):
 
     async def supplier(self, tenant_id: uuid.UUID, supplier_id: uuid.UUID) -> bool:
         return await self.db.scalar(select(Supplier.id).where(Supplier.tenant_id == tenant_id, Supplier.id == supplier_id)) is not None
+
+
+    async def expense_accounts(self, tenant_id: uuid.UUID, items):
+        from app.modules.accounting.models.account import Account
+        ids = {i.expense_account_id for i in items if i.expense_account_id}
+        return set(await self.db.scalars(select(Account.id).where(Account.tenant_id == tenant_id,
+            Account.id.in_(ids), Account.is_active.is_(True), Account.type == "Expense"))) if ids else set()
+
+    async def vat_enabled(self, tenant_id: uuid.UUID) -> bool:
+        from app.modules.tenants.models import Tenant
+        return bool(await self.db.scalar(select(Tenant.vat_enabled).where(Tenant.id == tenant_id)))

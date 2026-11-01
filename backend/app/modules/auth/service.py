@@ -78,9 +78,7 @@ def _build_token_claims(user: User) -> dict:
 
 
 def _get_permission_names(user: User) -> list[str]:
-    if user.role_rel and user.role_rel.permissions:
-        return [p.name for p in user.role_rel.permissions]
-    return []
+    return user.permissions_names
 
 
 def _issue_tokens(user: User) -> TokenResponse:

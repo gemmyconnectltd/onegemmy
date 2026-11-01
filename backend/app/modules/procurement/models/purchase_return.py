@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import Date, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -20,6 +21,7 @@ class PurchaseReturn(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "purchase_returns"
 
     reference: Mapped[str] = mapped_column(String(50), nullable=False)
+    client_reference: Mapped[str | None] = mapped_column(String(50), nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Processing")
     return_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -34,7 +36,10 @@ class PurchaseReturn(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("inventory_product_variants.id", ondelete="SET NULL"), nullable=True
     )
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False)
+    currency_code: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    refund_base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     processed_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -44,6 +49,7 @@ class PurchaseReturn(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     __table_args__ = (
         Index("uq_purchase_returns_tenant_ref", "tenant_id", "reference", unique=True),
+        Index("uq_purchase_returns_tenant_client", "tenant_id", "client_reference", unique=True),
         Index("ix_purchase_returns_tenant_id", "tenant_id"),
         Index("ix_purchase_returns_purchase_order_id", "purchase_order_id"),
     )

@@ -17,6 +17,7 @@ from fastapi import Request
 from app.core.deps import CurrentUser
 from app.core.exceptions import ForbiddenError
 from app.core.logging import get_logger
+from app.core.permission_policy import permissions_for_method
 
 log = get_logger("access")
 
@@ -50,6 +51,17 @@ PATH_RESOURCES: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
 
 # Exact permission(s) (any one of) for specific endpoints — evaluated before the coarse module rule.
 EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
+    ("POST", re.compile(r"^/procurement/purchase-orders$"), ("purchase_orders:create",)),
+    ("PATCH", re.compile(r"^/procurement/purchase-orders/[^/]+$"), ("purchase_orders:update",)),
+    ("DELETE", re.compile(r"^/procurement/purchase-orders/[^/]+$"), ("purchase_orders:delete",)),
+    ("POST", re.compile(r"^/procurement/purchase-orders/[^/]+/(receive|receipts|attachments)$"), ("purchase_orders:update",)),
+    ("POST", re.compile(r"^/procurement/purchase-orders/[^/]+/actions/approve$"), ("purchase_orders:approve",)),
+    ("POST", re.compile(r"^/procurement/purchase-orders/[^/]+/(cancel|actions/(submit|send|close))$"), ("purchase_orders:update",)),
+    ("PATCH", re.compile(r"^/procurement/supplier-bills/[^/]+$"), ("accounts_payable:update",)),
+    ("POST", re.compile(r"^/procurement/supplier-bills/[^/]+/payments$"), ("accounts_payable:create",)),
+    ("POST", re.compile(r"^/procurement/purchase-returns/[^/]+/refund$"), ("accounts_payable:create",)),
+    ("POST", re.compile(r"^/procurement/purchase-returns"), ("purchase_orders:update",)),
+    ("DELETE", re.compile(r"^/procurement/purchase-returns"), ("purchase_orders:delete",)),
     ("POST", re.compile(r"^/sales/customers(/bulk)?$"), ("contacts:create",)),
     ("PATCH", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:update",)),
     ("DELETE", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:delete",)),
@@ -113,7 +125,8 @@ def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
                 log.warning("access.denied", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "method": request.method, "path": request.url.path}})
                 raise ForbiddenError(f"You don't have access to this. Ask an administrator for {needed}.")
             return
-        allowed, needed = decide(module, request.method, tenant_path(request.url.path), user.permissions_names)
+        allowed, needed = decide(module, request.method, tenant_path(request.url.path),
+                                 permissions_for_method(request.method, user.permissions_names, getattr(user, "role_permissions_names", user.permissions_names)))
         if not allowed:
             log.warning("access.denied", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "method": request.method, "path": request.url.path}})
             raise ForbiddenError(f"You don't have permission to do this. Ask an administrator for {needed}.")

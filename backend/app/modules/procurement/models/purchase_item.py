@@ -28,6 +28,13 @@ class PurchaseItem(UUIDPKMixin, Base):
     unit_cost: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False, default=1)
     line_total: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    is_service: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    expense_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounting_accounts.id"), nullable=True
+    )
+    tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    stock_factor: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
+    received_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0, server_default="0")
     update_catalog_cost: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     selling_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

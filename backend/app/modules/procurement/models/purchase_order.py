@@ -31,6 +31,13 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurr
     expected_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    order_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    payment_terms_days: Mapped[int | None] = mapped_column(nullable=True)
+    supplier_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    delivery_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    client_reference: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     supplier_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_suppliers.id", ondelete="SET NULL"), nullable=True
     )
@@ -52,6 +59,9 @@ class PurchaseOrder(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurr
     __table_args__ = (
         Index("ix_purchases_tenant_branch_received", "tenant_id", "branch_id", "received_at"),
         Index("uq_purchase_orders_tenant_ref", "tenant_id", "reference", unique=True),
+        Index("uq_purchase_orders_tenant_client", "tenant_id", "client_reference", unique=True),
+        Index("ix_purchases_tenant_order_date", "tenant_id", "order_date"),
+        Index("ix_purchases_tenant_supplier", "tenant_id", "supplier_id"),
         Index("ix_purchase_orders_tenant_id", "tenant_id"),
         Index("ix_purchases_tenant_created", "tenant_id", "created_at"),
         Index("ix_purchases_tenant_branch_created", "tenant_id", "branch_id", "created_at"),

@@ -335,11 +335,11 @@ const PURCHASES = ["procurement", "purchase-orders"] as const;
 export const usePurchaseOrders = (status?: string, page = 1, pageSize = 100, opts?: QueryOpts, filters?: import("./procurement").PurchaseHistoryFilters, scope = "") =>
   useQ([...PURCHASES, scope, status ?? "all", page, pageSize, filters], () => procurementApi.listPurchaseOrders(status, page, pageSize, filters), (r) => r.data, opts);
 
-export const usePurchaseOrder = (id: string | undefined, opts?: QueryOpts) =>
-  useQ([...PURCHASES, id], () => procurementApi.getPurchaseOrder(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const usePurchaseOrder = (id: string | undefined, opts?: QueryOpts, scope = "") =>
+  useQ([...PURCHASES, scope, id], () => procurementApi.getPurchaseOrder(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
-export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [["debts"], [...PURCHASES], [...PRODUCTS], [...VARIANTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
-export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [[...PURCHASES], ["debts"]]);
+export const useCreatePurchaseOrder = mutation((d: PurchaseCreateInput) => procurementApi.createPurchaseOrder(d), [["procurement"], ["debts"], [...PURCHASES], [...PRODUCTS], [...VARIANTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useUpdatePurchaseOrder = mutation(({ id, data }: { id: string; data: object }) => procurementApi.updatePurchaseOrder(id, data), [["procurement"], ["debts"]]);
 export const useReceivePurchaseOrder = mutation((input: string | { id: string; dueDate?: string }) => typeof input === "string" ? procurementApi.receivePurchaseOrder(input) : procurementApi.receivePurchaseOrder(input.id, input.dueDate), [["debts"], [...PURCHASES], [...PRODUCTS], [...VARIANTS], [...VALUATION], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useCancelPurchaseOrder = mutation((id: string) => procurementApi.cancelPurchaseOrder(id), [[...PURCHASES]]);
 export const useDeletePurchaseOrder = mutation((id: string) => procurementApi.deletePurchaseOrder(id), [[...PURCHASES], [...PRODUCTS], [...VALUATION]]);
@@ -356,13 +356,13 @@ export const useDeleteRequisition = mutation((id: string) => procurementApi.dele
 
 const PURCHASE_RETURNS = ["procurement", "purchase-returns"] as const;
 
-export const usePurchaseReturns = (opts?: QueryOpts) =>
-  useQ([...PURCHASE_RETURNS], () => procurementApi.listPurchaseReturns(), (r) => r.data, opts);
+export const usePurchaseReturns = (opts?: QueryOpts, page = 1, search = "", scope = "") =>
+  useQ([...PURCHASE_RETURNS, scope, page, search], () => procurementApi.listPurchaseReturns(page, 25, search), (r) => r.data, opts);
 
-export const useCreatePurchaseReturn = mutation((d: PurchaseReturnCreateInput) => procurementApi.createPurchaseReturn(d), [[...PURCHASE_RETURNS], [...PRODUCTS], [...VALUATION]]);
-export const useRefundPurchaseReturn = mutation((id: string) => procurementApi.refundPurchaseReturn(id), [[...PURCHASE_RETURNS]]);
-export const useReplacePurchaseReturn = mutation((id: string) => procurementApi.replacePurchaseReturn(id), [[...PURCHASE_RETURNS]]);
-export const useDeletePurchaseReturn = mutation((id: string) => procurementApi.deletePurchaseReturn(id), [[...PURCHASE_RETURNS], [...PRODUCTS], [...VALUATION]]);
+export const useCreatePurchaseReturn = mutation((d: PurchaseReturnCreateInput) => procurementApi.createPurchaseReturn(d), [["procurement"], ["accounting"], [...PRODUCTS], [...VARIANTS], [...VALUATION]]);
+export const useRefundPurchaseReturn = mutation(({id, data}: {id: string; data: object}) => procurementApi.refundPurchaseReturn(id, data), [["procurement"], ["inventory"], ["accounting"], ["debts"]]);
+export const useReplacePurchaseReturn = mutation((id: string) => procurementApi.replacePurchaseReturn(id), [["procurement"], ["inventory"], ["accounting"]]);
+export const useDeletePurchaseReturn = mutation((id: string) => procurementApi.deletePurchaseReturn(id), [["procurement"], ["accounting"], [...PRODUCTS], [...VARIANTS], [...VALUATION]]);
 
 // ── Admin ────────────────────────────────────────────────────────────────────
 
@@ -929,3 +929,22 @@ export const useCustomerProfile = (id: string, branch: string | null, tenant?: s
 export const useCustomerRecords = (id: string, section: CustomerSection, page: number, branch: string | null, enabled: boolean, tenant?: string | null) => useQ(["sales", "customers", tenant, "records", id, section, page, branch], () => salesApi.customerRecords(id, section, page), r => r.data, { enabled });
 
 export const useOrder = (id: string | null, opts?: QueryOpts) => useQ(["sales", "orders", "one", id], () => salesApi.getOrder(id!), r => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+
+// Connected purchasing workspace; mutations invalidate accounting and stock sources as well.
+export const usePurchasingOverview = (filters: import("./procurement").PurchaseHistoryFilters, scope: string) => useQ(["procurement", "overview", scope, filters], () => procurementApi.overview(filters), r => r.data);
+export const useGoodsReceipts = (page: number, scope: string, orderId?: string) => useQ(["procurement", "receipts", scope, orderId, page], () => procurementApi.receipts(page, orderId), r => r.data);
+export const usePurchasingBills = (page: number, scope: string, orderId?: string, status?: string, enabled = true) => useQ(["procurement", "bills", scope, orderId, status, page], () => procurementApi.bills(page, orderId, status), r => r.data, {enabled});
+export const usePurchasingBill = (id: string, scope: string) => useQ(["procurement", "bill", scope, id], () => procurementApi.bill(id), r => r.data);
+export const usePurchasingPayments = (id: string, scope: string, page = 1) => useQ(["procurement", "payments", scope, id, page], () => procurementApi.payments(id, page), r => r.data);
+const purchasingKeys: unknown[][] = [["procurement"], ["inventory"], ["debts"], ["accounting"]];
+export const useConfirmGoodsReceipt = mutation(({id, data}: {id: string; data: import("./procurement").ReceiptInput}) => procurementApi.confirmReceipt(id, data), purchasingKeys);
+export const usePurchaseAction = mutation(({id, action}: {id: string; action: string}) => procurementApi.action(id, action), purchasingKeys);
+export const usePayPurchasingBill = mutation(({id, data}: {id: string; data: object}) => procurementApi.payBill(id, data), purchasingKeys);
+
+export const usePurchaseActivity = (id: string, page: number, scope: string) => useQ(["procurement", "activity", scope, id, page], () => procurementApi.activity(id, page), r => r.data);
+
+export const useUpdatePurchasingBill = mutation(({id, data}: {id: string; data: object}) => procurementApi.updateBill(id, data), purchasingKeys);
+
+export const usePurchaseAttachments = (id: string, scope: string) => useQ(["procurement", "attachments", scope, id], () => procurementApi.attachments(id), r => r.data);
+export const useAttachPurchaseFile = mutation(({id, file}: {id: string; file: File}) => procurementApi.attach(id, file), [["procurement"]]);

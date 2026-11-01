@@ -24,6 +24,7 @@ DEFAULT_ACCOUNTS = [
     ("2170", "Social Security / RSSB Payable", "Liabilities", "credit"),
     ("3100", "Retained Earnings", "Equity", "credit"),
     ("1100", "Accounts Receivable",     "Assets",      "debit"),
+    ("1190", "Supplier Returns Pending", "Assets", "debit"),
     ("1200", "Inventory",               "Assets",      "debit"),
     ("2000", "Accounts Payable",        "Liabilities", "credit"),
     ("2100", "VAT Payable",             "Liabilities", "credit"),

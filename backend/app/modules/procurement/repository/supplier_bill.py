@@ -25,20 +25,38 @@ class SupplierBillRepository(BaseRepository[SupplierBill]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[SupplierBill]:
+    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, branch_id=None, order_id=None) -> list[SupplierBill]:
         stmt = select(SupplierBill).options(*_with_relations()).where(SupplierBill.tenant_id == tenant_id)
+        if branch_id:
+            stmt = stmt.join(PurchaseOrder, (PurchaseOrder.id == SupplierBill.purchase_order_id) & (PurchaseOrder.tenant_id == tenant_id)).where(PurchaseOrder.branch_id == branch_id)
+        if order_id:
+            stmt = stmt.where(SupplierBill.purchase_order_id == order_id)
         if status:
             stmt = stmt.where(SupplierBill.status == status)
         stmt = stmt.order_by(SupplierBill.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, branch_id=None, order_id=None) -> int:
         stmt = select(func.count()).select_from(SupplierBill).where(SupplierBill.tenant_id == tenant_id)
+        if branch_id:
+            stmt = stmt.join(PurchaseOrder, (PurchaseOrder.id == SupplierBill.purchase_order_id) & (PurchaseOrder.tenant_id == tenant_id)).where(PurchaseOrder.branch_id == branch_id)
+        if order_id:
+            stmt = stmt.where(SupplierBill.purchase_order_id == order_id)
         if status:
             stmt = stmt.where(SupplierBill.status == status)
         result = await self.db.execute(stmt)
         return result.scalar_one()
+
+    async def duplicate_invoice(self, tenant_id, supplier_id, reference, except_id):
+        return await self.db.scalar(select(SupplierBill.id).where(
+            SupplierBill.tenant_id == tenant_id, SupplierBill.supplier_id == supplier_id,
+            func.lower(func.trim(SupplierBill.supplier_invoice_reference)) == reference.strip().lower(),
+            SupplierBill.id != except_id).limit(1))
+
+    async def base_billed(self, tenant_id: uuid.UUID, order_id: uuid.UUID):
+        return await self.db.scalar(select(func.coalesce(func.sum(SupplierBill.base_amount), 0))
+            .where(SupplierBill.tenant_id == tenant_id, SupplierBill.purchase_order_id == order_id))
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
         from app.modules.accounting.repository.reporting import ReportingRepository
@@ -59,13 +77,21 @@ class SupplierBillRepository(BaseRepository[SupplierBill]):
 class SupplierPaymentRepository(BaseRepository[SupplierPayment]):
     model = SupplierPayment
 
-    async def list_for_bill(self, tenant_id: uuid.UUID, bill_id: uuid.UUID) -> list[SupplierPayment]:
+    async def list_for_bill(self, tenant_id: uuid.UUID, bill_id: uuid.UUID, offset: int = 0, limit: int = 25) -> list[SupplierPayment]:
         result = await self.db.execute(
             select(SupplierPayment)
             .where(SupplierPayment.tenant_id == tenant_id, SupplierPayment.bill_id == bill_id)
-            .order_by(SupplierPayment.paid_at.desc())
+            .order_by(SupplierPayment.paid_at.desc(), SupplierPayment.id).offset(offset).limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_for_bill(self, tenant_id: uuid.UUID, bill_id: uuid.UUID) -> int:
+        return await self.db.scalar(select(func.count()).select_from(SupplierPayment)
+            .where(SupplierPayment.tenant_id == tenant_id, SupplierPayment.bill_id == bill_id)) or 0
+
+    async def base_applied(self, tenant_id: uuid.UUID, bill_id: uuid.UUID):
+        return await self.db.scalar(select(func.coalesce(func.sum(func.coalesce(SupplierPayment.base_applied_amount, SupplierPayment.amount)), 0))
+            .where(SupplierPayment.tenant_id == tenant_id, SupplierPayment.bill_id == bill_id))
 
     async def next_reference(self, tenant_id: uuid.UUID) -> str:
         return f"PAY-{uuid.uuid4().hex[:20].upper()}"

@@ -11,6 +11,8 @@ class SupplierBillRead(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
     reference: str
+    supplier_invoice_reference: str | None = None
+    receipt_id: uuid.UUID | None = None
     purchase_order_id: uuid.UUID
     supplier_id: uuid.UUID | None
     amount: float
@@ -20,6 +22,7 @@ class SupplierBillRead(BaseModel):
     due_date: date | None = None
     po_reference: str | None = None
     supplier_name: str | None = None
+    is_overdue: bool = False
     balance: float = 0
     # `amount`/`amount_paid`/`balance` are in `currency_code` (None = tenant base currency);
     # `base_amount` is the payable the ledger carries, in base currency at the bill's frozen rate.
@@ -64,4 +67,9 @@ class SupplierPaymentRead(BaseModel):
 
 
 class ReceiveTerms(BaseModel):
+    due_date: date | None = None
+
+
+class BillMetadataUpdate(BaseModel):
+    supplier_invoice_reference: str = Field(min_length=1, max_length=100)
     due_date: date | None = None

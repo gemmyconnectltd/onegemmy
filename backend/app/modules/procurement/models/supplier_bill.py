@@ -22,6 +22,7 @@ class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurre
     __tablename__ = "procurement_supplier_bills"
 
     reference: Mapped[str] = mapped_column(String(50), nullable=False)
+    supplier_invoice_reference: Mapped[str | None] = mapped_column(String(100), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
     amount_paid: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     # Base-currency value of `amount` at this bill's frozen exchange_rate — the Accounts Payable
@@ -30,6 +31,10 @@ class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurre
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Unpaid")
     bill_date: Mapped[date] = mapped_column(Date, nullable=False)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    receipt_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("procurement_goods_receipts.id"), nullable=True
+    )
 
     purchase_order_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False
@@ -43,10 +48,12 @@ class SupplierBill(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurre
 
     purchase_order = relationship("PurchaseOrder", lazy="select")
     supplier = relationship("Supplier", foreign_keys=[supplier_id], lazy="select")
-    payments = relationship("SupplierPayment", back_populates="bill", lazy="selectin", cascade="all, delete-orphan")
+    payments = relationship("SupplierPayment", back_populates="bill", lazy="raise", cascade="all, delete-orphan")
 
     __table_args__ = (
+        Index("uq_supplier_invoice_reference", "tenant_id", "supplier_id", "supplier_invoice_reference", unique=True),
         Index("uq_supplier_bills_tenant_ref", "tenant_id", "reference", unique=True),
+        Index("uq_supplier_bills_tenant_receipt", "tenant_id", "receipt_id", unique=True),
         Index("ix_supplier_bills_tenant_id", "tenant_id"),
         Index("ix_supplier_bills_purchase_order_id", "purchase_order_id"),
         Index("ix_supplier_bills_tenant_status", "tenant_id", "status"),

@@ -48,7 +48,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
+    from app.integrations.storage.protected import PublicUploads
+    app.mount("/uploads", PublicUploads(directory=str(UPLOADS_DIR)), name="uploads")
     # Bundled (non-user-uploaded) assets, e.g. per-industry default product images.
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 

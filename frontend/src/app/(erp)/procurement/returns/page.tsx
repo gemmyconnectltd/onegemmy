@@ -1,276 +1,47 @@
 "use client";
-import { TableScroll } from "@/components/ui/TableScroll";
-import { fmtMoney } from "@/lib/config";
-import { useState } from "react";
-import { CheckCircle2, Package, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { useDeferredValue, useRef, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
-import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
-import { Button } from "@/components/ui/Button";
-import { PageLoader } from "@/components/ui/PageLoader";
-import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { fmtDateTime } from "@/lib/date";
-import {
-  usePurchaseReturns, usePurchaseOrders,
-  useCreatePurchaseReturn, useRefundPurchaseReturn, useReplacePurchaseReturn, useDeletePurchaseReturn,
-} from "@/lib/api/hooks";
+import { formatMoney } from "@/lib/money";
+import { fmtDate } from "@/lib/date";
+import { usePurchaseReturns, usePurchaseOrders, useCreatePurchaseReturn, useDeletePurchaseReturn, useRefundPurchaseReturn, useReplacePurchaseReturn } from "@/lib/api/hooks";
 import type { PurchaseReturn } from "@/lib/api";
-
-type Status = "Processing" | "Refunded" | "Replaced";
-const STATUS_STYLES: Record<Status, string> = {
-  Processing: "bg-amber-100 text-amber-700",
-  Refunded: "bg-emerald-100 text-emerald-700",
-  Replaced: "bg-blue-50 text-blue-700",
-};
-const EMPTY_FORM = { purchase_order_id: "", item_index: "", quantity: "1", amount: "", reason: "" };
+import { PurchaseHeader, PurchaseStatus, usePurchasingScope } from "@/components/procurement/PurchaseShared";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Select, Textarea } from "@/components/ui/Form";
+import { Drawer } from "@/components/ui/Drawer";
+import { PageLoader } from "@/components/ui/PageLoader";
+import { TableWrap } from "@/components/ui/Table";
+import { Pagination } from "@/components/ui/Pagination";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FinancialError } from "@/components/accounting/FinancialShared";
+import { scaled } from "@/lib/purchaseAmounts";
 
 export default function PurchaseReturnsPage() {
-  const { currencySymbol, brandColor } = useAppConfig();
-  const fmt = (v: number) => fmtMoney(v, currencySymbol);
-
-  const [search, setSearch] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const { data, isLoading } = usePurchaseReturns();
-  const { data: poData } = usePurchaseOrders("Received", 1, 200, { enabled: showModal });
-  const returns = data?.items ?? [];
-  const receivedOrders = poData?.items ?? [];
-
-  const createReturn = useCreatePurchaseReturn();
-  const refundReturn = useRefundPurchaseReturn();
-  const replaceReturn = useReplacePurchaseReturn();
-  const deleteReturn = useDeletePurchaseReturn();
-  const { confirm, dialog: confirmDialog } = useConfirmDialog();
-
-  const filtered = returns.filter((r) => {
-    const q = search.trim().toLowerCase();
-    return !q || (r.supplier_name ?? "").toLowerCase().includes(q) || r.reference.toLowerCase().includes(q) || r.product_name.toLowerCase().includes(q);
-  });
-
-  const totalRefunded = returns.filter((r) => r.status === "Refunded").reduce((s, r) => s + r.amount, 0);
-  const processingCount = returns.filter((r) => r.status === "Processing").length;
-
-  const selectedPo = receivedOrders.find((p) => p.id === form.purchase_order_id);
-  const selectedItem = selectedPo?.items[Number(form.item_index)];
-
-  const openAdd = () => {
-    setForm(EMPTY_FORM);
-    setFormError(null);
-    setShowModal(true);
-  };
-
-  const pickItem = (poId: string, itemIndex: string) => {
-    const po = receivedOrders.find((p) => p.id === poId);
-    const item = po?.items[Number(itemIndex)];
-    setForm((f) => ({
-      ...f,
-      purchase_order_id: poId,
-      item_index: itemIndex,
-      amount: item ? String(item.unit_cost) : "",
-    }));
-  };
-
-  const submitReturn = async () => {
-    setFormError(null);
-    if (!selectedPo || !selectedItem) {
-      setFormError("Select a purchase order and item.");
-      return;
-    }
-    try {
-      await createReturn.mutateAsync({
-        purchase_order_id: selectedPo.id,
-        product_id: selectedItem.product_id,
-        variant_id: selectedItem.variant_id,
-        product_name: selectedItem.product_name,
-        quantity: Number(form.quantity) || 1,
-        amount: Number(form.amount) || 0,
-        reason: form.reason.trim() || null,
-      });
-      setShowModal(false);
-    } catch (e: unknown) {
-      setFormError((e as { detail?: string })?.detail ?? "Failed to record return");
-    }
-  };
-
-  const handleRefund = (r: PurchaseReturn) => {
-    confirm({
-      title: "Mark as Refunded",
-      message: `Mark return ${r.reference} as refunded (${fmt(r.amount)})?`,
-      confirmLabel: "Mark Refunded",
-      onConfirm: () => refundReturn.mutate(r.id),
-    });
-  };
-
-  const handleReplace = (r: PurchaseReturn) => {
-    confirm({
-      title: "Mark as Replaced",
-      message: `Mark return ${r.reference} as replaced by the supplier?`,
-      confirmLabel: "Mark Replaced",
-      onConfirm: () => replaceReturn.mutate(r.id),
-    });
-  };
-
-  const handleDelete = (r: PurchaseReturn) => {
-    confirm({
-      title: "Delete Return",
-      message: `Delete return ${r.reference}? This restores the returned stock. Cannot be undone.`,
-      confirmLabel: "Delete",
-      danger: true,
-      onConfirm: () => deleteReturn.mutate(r.id),
-    });
-  };
-
-  if (isLoading) return <PageLoader />;
-
-  return (
-    <div className="space-y-5">
-      {confirmDialog}
-      <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Purchase Returns</h1>
-          <p className="text-sm text-muted mt-1">Track items sent back to suppliers and refunds.</p>
-        </div>
-        <Button onClick={openAdd} color={brandColor}>
-          <Plus size={16} /> New Return
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {[
-          { label: "Returns", value: returns.length, color: brandColor },
-          { label: "Refunded", value: fmt(totalRefunded), color: "#059669" },
-          { label: "Processing", value: processingCount, color: "#b45309" },
-        ].map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-            </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={String(s.value)}>{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-2 bg-card border border-border px-3 py-2 w-56">
-        <Search size={14} className="text-muted flex-shrink-0" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search returns..."
-          className="flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
-        />
-      </div>
-
-      <div className="bg-card border border-border overflow-x-auto">
-        <TableScroll><table className="w-full min-w-[640px]">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted">
-              <th className="p-4 font-medium">Return</th>
-              <th className="p-4 font-medium">PO</th>
-              <th className="p-4 font-medium">Supplier</th>
-              <th className="p-4 font-medium">Item</th>
-              <th className="p-4 font-medium text-right">Qty</th>
-              <th className="p-4 font-medium text-right">Amount</th>
-              <th className="p-4 font-medium">Date</th>
-              <th className="p-4 font-medium">Reason</th>
-              <th className="p-4 font-medium">Status</th>
-              <th className="p-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((r) => (
-              <tr key={r.id} className="hover:bg-surface/50">
-                <td className="p-4">
-                  <span className="flex items-center gap-2 text-[13px] font-bold text-foreground">
-                    <RotateCcw size={14} className="text-accent" />{r.reference}
-                  </span>
-                </td>
-                <td className="p-4 text-[13px] text-muted">{r.po_reference ?? "—"}</td>
-                <td className="p-4 text-[13px] text-foreground">{r.supplier_name ?? "—"}</td>
-                <td className="p-4 text-[13px] text-foreground">{r.product_name}</td>
-                <td className="p-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{r.quantity}</td>
-                <td className="p-4 text-right text-[13px] font-bold text-foreground tabular-nums">{fmt(r.amount)}</td>
-                <td className="p-4 text-[13px] text-muted whitespace-nowrap">{fmtDateTime(r.created_at)}</td>
-                <td className="p-4 text-[13px] text-muted">{r.reason ?? "—"}</td>
-                <td className="p-4">
-                  <span className={`inline-flex items-center text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${STATUS_STYLES[r.status as Status] ?? "bg-surface text-muted"}`}>
-                    {r.status}
-                  </span>
-                </td>
-                <td className="p-4">
-                  <div className="flex items-center justify-end gap-1.5">
-                    {r.status === "Processing" && (
-                      <>
-                        <button onClick={() => handleRefund(r)}
-                          className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors">
-                          <CheckCircle2 size={13} /> Refund
-                        </button>
-                        <button onClick={() => handleReplace(r)}
-                          className="flex items-center gap-1 px-2.5 h-8 text-[12px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors">
-                          <Package size={13} /> Replace
-                        </button>
-                        <button onClick={() => handleDelete(r)}
-                          className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold">
-                          <Trash2 size={13} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={10} className="p-10 text-center text-sm text-muted">No returns match.</td></tr>
-            )}
-          </tbody>
-        </table></TableScroll>
-      </div>
-
-      <Drawer
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title="New Purchase Return"
-        description="Send an item from a received order back to its supplier."
-        side="right"
-        footer={
-          <form onSubmit={(e) => { e.preventDefault(); submitReturn(); }}>
-            <FormFooter submitLabel={createReturn.isPending ? "Recording…" : "Record return"} onCancel={() => setShowModal(false)} disabled={createReturn.isPending} />
-          </form>
-        }
-      >
-        <div className="p-5 space-y-4">
-          <Field label="Purchase Order" required>
-            <Select value={form.purchase_order_id} onChange={(e) => setForm((f) => ({ ...f, purchase_order_id: e.target.value, item_index: "" }))}>
-              <option value="">— Select a received order —</option>
-              {receivedOrders.map((p) => <option key={p.id} value={p.id}>{p.reference} — {p.supplier?.name ?? "No supplier"}</option>)}
-            </Select>
-          </Field>
-          {selectedPo && (
-            <Field label="Item" required>
-              <Select value={form.item_index} onChange={(e) => pickItem(form.purchase_order_id, e.target.value)}>
-                <option value="">— Select item —</option>
-                {selectedPo.items.map((it, i) => <option key={it.id} value={i}>{it.product_name} (×{it.quantity})</option>)}
-              </Select>
-            </Field>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Qty">
-              <Input type="number" min="1" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
-            </Field>
-            <Field label={`Refund Amount (${currencySymbol})`}>
-              <Input type="number" min="0" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} className="font-mono" />
-            </Field>
-          </div>
-          <Field label="Reason">
-            <Textarea rows={2} value={form.reason} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} placeholder="e.g. Damaged in transit" />
-          </Field>
-          {formError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
-          )}
-        </div>
-      </Drawer>
-    </div>
-  );
+  const scope = usePurchasingScope(), {hasPermission} = useAuth(), {currency} = useAppConfig();
+  const [page, setPage] = useState(1), [search, setSearch] = useState(""), [open, setOpen] = useState(false);
+  const [orderPage, setOrderPage] = useState(1), [orderSearch, setOrderSearch] = useState(""), [orderStatus, setOrderStatus] = useState("Received");
+  const [orderId, setOrderId] = useState(""), [itemId, setItemId] = useState(""), [quantity, setQuantity] = useState("1"), [reason, setReason] = useState("");
+  const [refunding, setRefunding] = useState<PurchaseReturn | null>(null), [refundAmount, setRefundAmount] = useState(""), [refundMethod, setRefundMethod] = useState("Cash"), [refundRef, setRefundRef] = useState("");
+  const refund = useRefundPurchaseReturn(), replace = useReplacePurchaseReturn();
+  const [error, setError] = useState<unknown>(null); const submitting = useRef(false), reference = useRef("");
+  const query = usePurchaseReturns(undefined, page, useDeferredValue(search), scope);
+  const orders = usePurchaseOrders(orderStatus, orderPage, 25, {enabled: open}, {search: useDeferredValue(orderSearch)}, scope);
+  const create = useCreatePurchaseReturn(), cancel = useDeletePurchaseReturn(), {confirm, dialog} = useConfirmDialog();
+  const order = orders.data?.items.find(value => value.id === orderId), item = order?.items.find(value => value.id === itemId);
+  async function submit(event: React.FormEvent) {
+    event.preventDefault(); if (submitting.current) return; setError(null);
+    if (!order || !item || !reason.trim() || scaled(quantity, 3) === null || scaled(quantity, 3)! <= BigInt(0)) {setError({detail: "Choose a received item, positive quantity and a return reason."}); return;}
+    reference.current ||= crypto.randomUUID(); submitting.current = true;
+    try {await create.mutateAsync({client_reference: reference.current, purchase_order_id: order.id, product_id: item.product_id, variant_id: item.variant_id, product_name: item.product_name, quantity: Number(quantity), reason: reason.trim()}); setOpen(false);} catch (cause) {setError(cause);} finally {submitting.current = false;}
+  }
+  return <div className="space-y-5">{dialog}<PurchaseHeader title="Purchase Returns" description="Return eligible received goods without altering the original order or bill." actions={hasPermission("purchase_orders:update") && <Button onClick={() => {setOpen(true); setOrderId(""); setItemId(""); setQuantity("1"); setReason(""); setError(null); reference.current = "";}}>Create Return</Button>} />
+    <p className="text-sm text-muted">A return moves inventory value to Supplier Returns Pending. Record a cash refund or confirm replacement goods to settle that claim. Original supplier bills remain unchanged; supplier credit-note offsets are reconciled in Accounting.</p>
+    <div className="max-w-sm"><Input aria-label="Search returns" placeholder="Return reference or product…" value={search} onChange={event => {setSearch(event.target.value); setPage(1);}} /></div>
+    <FinancialError error={query.error} />{query.isLoading ? <PageLoader variant="compact" /> : !query.error && <><TableWrap><table className="w-full min-w-[850px] text-left text-sm"><thead><tr>{["Return", "PO", "Supplier", "Item", "Quantity", "Return date", "Reason", "Status", "Actions"].map(label => <th key={label} className="p-4">{label}</th>)}</tr></thead><tbody className="divide-y divide-border">{query.data?.items.map(value => <tr key={value.id}><td className="p-4 font-medium">{value.reference}</td><td className="p-4"><Link className="text-accent hover:underline" href={`/procurement/orders/${value.purchase_order_id}`}>{value.po_reference}</Link></td><td className="p-4">{value.supplier_name}</td><td className="p-4">{value.product_name}</td><td className="p-4 text-right">{value.quantity}</td><td className="p-4">{fmtDate(value.return_date)}</td><td className="max-w-56 p-4 text-xs">{value.reason}</td><td className="p-4"><PurchaseStatus status={value.status} /></td><td className="p-4"><div className="flex flex-wrap gap-2">{value.status === "Processing" && hasPermission("purchase_orders:update") && <Button size="sm" variant="outline" disabled={replace.isPending} onClick={() => confirm({title: "Confirm replacement received?", message: "This restores the returned quantity to stock and settles its pending supplier claim.", confirmLabel: "Confirm replacement", onConfirm: async () => {try {await replace.mutateAsync(value.id);} catch (cause) {setError(cause);}}})}>Replacement</Button>}{value.status === "Processing" && value.base_amount != null && hasPermission("accounts_payable:create") && <Button size="sm" variant="outline" onClick={() => {setRefunding(value); setRefundAmount(value.base_amount || ""); setRefundRef(""); setError(null);}}>Record refund</Button>}{value.status === "Processing" && hasPermission("purchase_orders:delete") && <Button variant="ghost" size="sm" disabled={cancel.isPending} onClick={() => confirm({title: "Cancel return?", message: "Only cancel if these goods have not left your custody. This restores stock and preserves the return history.", confirmLabel: "Cancel & restore stock", danger: true, onConfirm: async () => {try {await cancel.mutateAsync(value.id);} catch (cause) {setError(cause);}}})}>Cancel</Button>}</div></td></tr>)}</tbody></table></TableWrap>{!query.data?.items.length && <p className="py-8 text-center text-sm text-muted">No returns match.</p>}<Pagination page={page} pageSize={25} total={query.data?.total || 0} onPageChange={setPage} itemLabel="returns" /></>}
+    {!open && <FinancialError error={error} />}
+    {refunding && <Drawer open title={`Record refund: ${refunding.reference}`} onClose={() => {if (!refund.isPending) setRefunding(null);}}><form className="space-y-4 p-5" onSubmit={async event => {event.preventDefault(); try {await refund.mutateAsync({id: refunding.id, data: {base_amount: refundAmount, payment_method: refundMethod, reference: refundRef}}); setRefunding(null);} catch (cause) {setError(cause);}}}><p className="text-sm text-muted">Record money already received today. This does not transfer funds. Enter the actual refund in the business base currency; exchange differences on foreign purchases are posted separately.</p><Field label={`Amount received (${currency})`} required><Input required inputMode="decimal" value={refundAmount} onChange={event => setRefundAmount(event.target.value)} /></Field><Field label="Received into"><Select value={refundMethod} onChange={event => setRefundMethod(event.target.value)}>{["Cash", "Bank Transfer", "Mobile Money", "Card"].map(value => <option key={value}>{value}</option>)}</Select></Field><Field label="Refund reference" required><Input required minLength={3} maxLength={50} value={refundRef} onChange={event => setRefundRef(event.target.value)} /></Field><FinancialError error={error} /><Button type="submit" disabled={refund.isPending}>{refund.isPending ? "Recording…" : "Record refund received"}</Button></form></Drawer>}
+    {open && <Drawer open title="Create purchase return" onClose={() => {if (!create.isPending) setOpen(false);}}><form onSubmit={submit} className="space-y-4 p-5"><fieldset disabled={create.isPending} className="space-y-4"><Field label="Find purchase order"><Input value={orderSearch} onChange={event => {setOrderSearch(event.target.value); setOrderPage(1); setOrderId(""); setItemId("");}} placeholder="PO number or supplier…" /></Field><Field label="Receiving status"><Select value={orderStatus} onChange={event => {setOrderStatus(event.target.value); setOrderPage(1); setOrderId(""); setItemId("");}}><option value="Received">Fully received</option><option value="PartiallyReceived">Partially received</option><option value="Closed">Completed</option></Select></Field><Field label="Purchase order" required><Select required value={orderId} onChange={event => {setOrderId(event.target.value); setItemId("");}}><option value="">Choose purchase</option>{orders.data?.items.map(value => <option key={value.id} value={value.id}>{value.reference} · {value.supplier?.name || "Supplier"}</option>)}</Select></Field><Pagination page={orderPage} pageSize={25} total={orders.data?.total || 0} onPageChange={value => {setOrderPage(value); setOrderId(""); setItemId("");}} itemLabel="orders" /><FinancialError error={orders.error} /><Field label="Received item" required><Select required value={itemId} onChange={event => setItemId(event.target.value)}><option value="">Choose item</option>{order?.items.filter(value => !value.is_service && Number(value.received_quantity || 0) > 0).map(value => <option key={value.id} value={value.id}>{value.product_name} · received {value.received_quantity}</option>)}</Select></Field>{item && <p className="text-xs text-muted">Unit cost: {formatMoney(item.unit_cost, order?.currency_code || currency, {showCode: true})}. Eligible quantity is checked against all previous returns by the server.</p>}<Field label="Return quantity" required><Input required inputMode="decimal" value={quantity} onChange={event => setQuantity(event.target.value)} /></Field><Field label="Reason" required><Textarea required minLength={3} maxLength={2000} value={reason} onChange={event => setReason(event.target.value)} placeholder="Damaged, incorrect product, or other reason…" /></Field><FinancialError error={error} /><Button type="submit" disabled={create.isPending}>{create.isPending ? "Recording…" : "Confirm return"}</Button></fieldset></form></Drawer>}
+  </div>;
 }

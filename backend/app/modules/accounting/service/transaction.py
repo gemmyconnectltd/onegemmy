@@ -425,8 +425,10 @@ async def create_purchase_transaction(
     tenant_id: uuid.UUID,
     user_id: uuid.UUID,
     purchase_id: uuid.UUID,
-    total: float,
+    total: float | Decimal,
     reference: str,
+    branch_id: uuid.UUID | None = None,
+    expense_allocations: dict[uuid.UUID, Decimal] | None = None,
 ) -> None:
     """Auto-called when a purchase order is received and its supplier bill is
     raised. Debit Inventory, Credit Accounts Payable — receiving goods creates
@@ -435,8 +437,14 @@ async def create_purchase_transaction(
     settlement of that liability."""
     inv_id = await _get_account_by_code(db, tenant_id, "1200")
     ap_id = await _get_account_by_code(db, tenant_id, "2000")
-    if not inv_id or not ap_id:
-        return  # accounts not seeded yet — skip silently
+    if Decimal(str(total)) == 0:
+        return
+    expenses = expense_allocations or {}
+    inventory_amount = Decimal(str(total)) - sum(expenses.values(), Decimal(0))
+    if inventory_amount < 0:
+        raise ValidationError("Purchase expense allocation exceeds its value")
+    if not ap_id or (inventory_amount > 0 and not inv_id):
+        raise ValidationError("Configure Inventory and Accounts Payable accounts before receiving")
 
     repo = TransactionRepository(db)
     txn_ref = await repo.next_reference(tenant_id)
@@ -449,10 +457,15 @@ async def create_purchase_transaction(
         transaction_date=datetime.now(UTC).date(),
         description=f"Purchase {reference}",
         purchase_id=purchase_id,
+        branch_id=branch_id,
         created_by=user_id,
     )
     txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id, type="debit",  amount=total, description="Inventory"))
+    if inventory_amount:
+        db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id, type="debit", amount=inventory_amount, description="Inventory"))
+    for account_id, amount in expenses.items():
+        if amount:
+            db.add(TransactionLine(transaction_id=txn.id, account_id=account_id, type="debit", amount=amount, description="Purchased service"))
     db.add(TransactionLine(transaction_id=txn.id, account_id=ap_id,  type="credit", amount=total, description="Accounts Payable"))
 
 
@@ -673,3 +686,40 @@ async def backfill_sale_transactions(
 
     await db.commit()
     return count
+
+
+async def create_supplier_return_transaction(db: AsyncSession, tenant_id: uuid.UUID,
+        user_id: uuid.UUID | None, returned, branch_id: uuid.UUID | None, event: str,
+        cash_amount: Decimal | None = None, payment_method: str | None = None) -> None:
+    """A return creates a supplier claim; bills remain immutable until settlement.
+
+    Cash refunds settle the claim. Replacements/cancellations restore Inventory.
+    All postings use the return's carrying value in the business's base currency.
+    """
+    if returned.base_amount is None or Decimal(returned.base_amount) == 0:
+        return
+    claim = await _get_account_by_code(db, tenant_id, "1190")
+    inventory = await _get_account_by_code(db, tenant_id, "1200")
+    amount = Decimal(returned.base_amount)
+    if not claim or not inventory:
+        raise ValidationError("Configure supplier return and inventory accounts before returning goods")
+    repo = TransactionRepository(db)
+    txn = await repo.save(Transaction(tenant_id=tenant_id, currency_code=await _ledger_currency(db, tenant_id),
+        client_reference=f"ret-{returned.id.hex}-{event}", reference=await repo.next_reference(tenant_id),
+        type="supplier_return", status="Posted", transaction_date=datetime.now(UTC).date(),
+        description=f"Supplier return {returned.reference}: {event}", purchase_id=returned.purchase_order_id,
+        branch_id=branch_id, created_by=user_id))
+    if event == "create":
+        debit, credit, debit_amount = claim, inventory, amount
+    elif event == "refund":
+        code, _ = _PAYMENT_METHOD_ACCOUNTS.get((payment_method or "").lower(), ("1000", "Cash"))
+        debit = await _get_account_by_code(db, tenant_id, code)
+        if not debit or cash_amount is None:
+            raise ValidationError("A cash or bank account and refund amount are required")
+        credit, debit_amount = claim, cash_amount
+    else:
+        debit, credit, debit_amount = inventory, claim, amount
+    db.add(TransactionLine(transaction_id=txn.id, account_id=debit, type="debit", amount=debit_amount, description=returned.reference))
+    db.add(TransactionLine(transaction_id=txn.id, account_id=credit, type="credit", amount=amount, description=returned.reference))
+    if event == "refund" and cash_amount != amount:
+        await _add_fx_line(db, tenant_id, txn.id, gain=cash_amount > amount, amount=abs(cash_amount - amount))

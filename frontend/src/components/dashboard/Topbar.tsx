@@ -91,7 +91,7 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
       {!admin && <AskPesaaAI />}
 
       {/* Breadcrumb */}
-      <div className="hidden lg:flex items-center gap-1.5 text-[14px] min-w-0">
+      <div className="hidden lg:flex items-center gap-1.5 pl-1 text-[14px] min-w-0">
         {breadcrumb.map((crumb, i) => (
           <span key={i} className="flex items-center gap-1.5">
             {i > 0 && <span className="text-border">/</span>}

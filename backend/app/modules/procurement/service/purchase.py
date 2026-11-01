@@ -1,5 +1,6 @@
+import hashlib
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +34,8 @@ def _set_base_amounts(purchase: PurchaseOrder, base_currency: str) -> None:
 
 async def list_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, **filters) -> list[PurchaseRead]:
     items = await PurchaseOrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, **filters)
-    return [PurchaseRead.model_validate(i) for i in items]
+    states = await PurchaseOrderRepository(db).financial_states(tenant_id, [i.id for i in items]) if items else {}
+    return [_purchase_read(i, states.get(i.id)) for i in items]
 
 
 async def count_purchases(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, **filters) -> int:
@@ -44,7 +46,8 @@ async def get_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) ->
     obj = await PurchaseOrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Purchase not found")
-    return PurchaseRead.model_validate(obj)
+    state = await PurchaseOrderRepository(db).financial_states(tenant_id, [id])
+    return _purchase_read(obj, state.get(id))
 
 
 async def _resolve_receiving_branch_id(
@@ -79,6 +82,8 @@ async def _require_pricing(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid
 async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: PurchaseOrder, items) -> None:
     """Validate each item resolves to a tenant-owned product/variant and persist snapshots."""
     products, variants = await PurchasePricingRepository(db).catalog(tenant_id, items)
+    accounts = await PurchasePricingRepository(db).expense_accounts(tenant_id, items)
+    vat_enabled = await PurchasePricingRepository(db).vat_enabled(tenant_id)
     for item_data in items:
         variant = None
         product = None
@@ -86,7 +91,9 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
         product_name = item_data.product_name
         sku = item_data.sku
 
-        if not item_data.variant_id and not item_data.product_id:
+        if item_data.is_service and item_data.expense_account_id not in accounts:
+            raise ValidationError("Choose an active expense account in this company for each service")
+        if not item_data.is_service and not item_data.variant_id and not item_data.product_id:
             raise ValidationError(f"Item '{item_data.product_name}' must reference a product or variant")
 
         if item_data.variant_id:
@@ -117,6 +124,10 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
             unit_cost=item_data.unit_cost,
             quantity=item_data.quantity,
             line_total=line_total,
+            is_service=item_data.is_service,
+            expense_account_id=item_data.expense_account_id,
+            tax_rate=Decimal(item_data.tax_rate if vat_enabled else 0),
+            stock_factor=Decimal(str(product.conversion_factor)) if product else None,
             update_catalog_cost=item_data.update_catalog_cost,
             selling_price=item_data.selling_price,
         )
@@ -124,20 +135,30 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
         db.add(item)
 
 
-async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder, due_date: date | None = None) -> None:
+async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, purchase: PurchaseOrder, due_date: date | None = None, quantities: dict | None = None, receipt=None) -> None:
     """Stock in all items, raise the supplier bill, and post the accounting
     entry. Caller commits."""
+    await _require_purchase_actor(db, tenant_id, user_id, "update", purchase.branch_id)
     await _require_pricing(db, tenant_id, user_id, purchase.items)
     products, variants = await PurchasePricingRepository(db).catalog(tenant_id, purchase.items)
+    accounts = await PurchasePricingRepository(db).expense_accounts(tenant_id, purchase.items)
+    if any(item.is_service and item.expense_account_id not in accounts for item in purchase.items):
+        raise ValidationError("A service expense account is no longer active in this company")
     changes = []
     seen = {}
     for item in purchase.items:
+        quantity = quantities.get(item.id, Decimal(0)) if quantities is not None else Decimal(item.quantity) - Decimal(item.received_quantity)
+        if quantity <= 0:
+            continue
+        if item.is_service:
+            item.received_quantity = Decimal(item.received_quantity) + quantity
+            continue
         variant = variants.get(item.variant_id) if item.variant_id else None
         product = products.get(variant.product_id if variant else item.product_id)
         if product is None or (item.variant_id and variant is None):
             raise ValidationError("A purchase product or variant is no longer available")
         target = variant or product
-        factor = Decimal(str(product.conversion_factor))
+        factor = Decimal(item.stock_factor) if item.stock_factor is not None else Decimal(str(product.conversion_factor))
         if factor <= 0:
             raise ValidationError("Product conversion factor must be positive")
         new_cost = (Decimal(str(item.unit_cost)) * document_rate(purchase) / factor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -148,7 +169,8 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
             raise ValidationError("Combine duplicate product lines before changing catalog prices")
         seen[target.id] = instruction
         old_cost, old_price = str(target.cost), str(target.price)
-        target.stock = Decimal(str(target.stock)) + Decimal(str(item.quantity)) * factor
+        target.stock = Decimal(str(target.stock)) + quantity * factor
+        item.received_quantity = Decimal(item.received_quantity) + quantity
         if item.update_catalog_cost:
             target.cost = new_cost
         if item.selling_price is not None:
@@ -160,13 +182,13 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     # Receipt is when the liability and ledger entry are created, so this is where the purchase's
     # currency, rate and base value become final.
     _set_base_amounts(purchase, await get_base_currency(db, tenant_id))
-    purchase.status = "Received"
+    purchase.status = "Received" if all(Decimal(i.received_quantity) == Decimal(i.quantity) for i in purchase.items) else "PartiallyReceived"
     purchase.received_at = datetime.now(UTC)
     # Receiving goods creates a liability to the supplier (a bill), not an
     # assumption that they were paid in cash on the spot — see
     # procurement/service/supplier_bill.py for the Accounts Payable posting
     # and the separate supplier-payment flow that settles it.
-    await create_bill_for_purchase(db, tenant_id, user_id, purchase, due_date)
+    await create_bill_for_purchase(db, tenant_id, user_id, purchase, due_date, receipt=receipt)
 
 
 async def create_purchase(
@@ -177,12 +199,21 @@ async def create_purchase(
     if data.supplier_id and not await PurchasePricingRepository(db).supplier(tenant_id, data.supplier_id):
         raise ValidationError("Supplier not found in this company")
     await ReportingRepository(db).lock_tenant(tenant_id)
+    if data.client_reference:
+        prior = await repo.by_client(tenant_id, data.client_reference)
+        if prior:
+            # Replays must not silently substitute a different purchasing document.
+            if prior.request_fingerprint != hashlib.sha256(data.model_dump_json().encode()).hexdigest():
+                from app.core.exceptions import ConflictError
+                raise ConflictError("Purchase reference was already used with different details")
+            return PurchaseRead.model_validate(prior)
     await _require_pricing(db, tenant_id, user_id, data.items)
     reference = await repo.next_reference(tenant_id)
 
     subtotal = sum(((i.unit_cost * i.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) for i in data.items), Decimal(0))
     total = round(subtotal - Decimal(str(data.discount)) + Decimal(str(data.tax)), 2)
     branch_id = await _resolve_receiving_branch_id(db, tenant_id, active_branch_id, data.branch_id)
+    await _require_purchase_actor(db, tenant_id, user_id, "create", branch_id)
     currency_code, fx_rate, base_ccy = await resolve_document_currency(
         db, tenant_id, data.currency_code, data.exchange_rate,
     )
@@ -200,6 +231,12 @@ async def create_purchase(
         total=total,
         notes=data.notes,
         expected_date=data.expected_date,
+        order_date=data.order_date or datetime.now(UTC).date(),
+        payment_terms_days=data.payment_terms_days,
+        supplier_reference=data.supplier_reference,
+        delivery_instructions=data.delivery_instructions,
+        client_reference=data.client_reference,
+        request_fingerprint=hashlib.sha256(data.model_dump_json().encode()).hexdigest(),
         currency_code=currency_code,
         exchange_rate=fx_rate,
     )
@@ -207,8 +244,8 @@ async def create_purchase(
     purchase = await repo.save(purchase)
     await _build_items(db, tenant_id, purchase, data.items)
 
-    if data.status == "Received":
-        await _apply_receive(db, tenant_id, user_id, purchase)
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="purchase.create",
+                       entity_type="purchase", entity_id=str(purchase.id), summary=f"Created {reference}")
 
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, purchase.id)
@@ -221,13 +258,14 @@ async def receive_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Purchase not found")
-    if obj.status != "Draft":
+    if obj.status not in ("Draft", "Approved", "Sent", "PartiallyReceived"):
         raise ValidationError(f"Cannot receive a purchase with status '{obj.status}'")
 
-    await _apply_receive(db, tenant_id, user_id, obj, due_date)
-    await db.commit()
-    obj = await repo.get_by_id_for_tenant(tenant_id, id)
-    return PurchaseRead.model_validate(obj)
+    from app.modules.procurement.schemas.purchase import ReceiptCreate, ReceiptLineInput
+    return await confirm_receipt(db, tenant_id, id, user_id, ReceiptCreate(
+        client_reference=f"legacy-{id}", due_date=due_date,
+        lines=[ReceiptLineInput(purchase_item_id=i.id, quantity=Decimal(i.quantity) - Decimal(i.received_quantity))
+               for i in obj.items if Decimal(i.quantity) > Decimal(i.received_quantity)]))
 
 
 async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: PurchaseUpdate, user_id: uuid.UUID | None = None) -> PurchaseRead:
@@ -238,6 +276,8 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         raise NotFoundError("Purchase not found")
     if obj.status != "Draft":
         raise ValidationError("Only draft purchases can be edited")
+    if user_id:
+        await _require_purchase_actor(db, tenant_id, user_id, "update", obj.branch_id)
     if data.supplier_id and not await PurchasePricingRepository(db).supplier(tenant_id, data.supplier_id):
         raise ValidationError("Supplier not found in this company")
     update_fields = data.model_dump(exclude_unset=True)
@@ -273,22 +313,30 @@ async def update_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     obj.total = (Decimal(str(obj.subtotal)) - Decimal(str(obj.discount)) + Decimal(str(obj.tax))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     if obj.total < 0 or obj.total > Decimal("999999999999.99"):
         raise ValidationError("Purchase total is outside the supported amount")
+    if obj.order_date and obj.expected_date and obj.expected_date < obj.order_date:
+        raise ValidationError("Expected delivery cannot precede the order date")
     _set_base_amounts(obj, await get_base_currency(db, tenant_id))
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="purchase.update",
+                       entity_type="purchase", entity_id=str(obj.id), summary=f"Edited {obj.reference}")
     await repo.save(obj)
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return PurchaseRead.model_validate(obj)
 
 
-async def cancel_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> PurchaseRead:
+async def cancel_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID | None = None) -> PurchaseRead:
     await ReportingRepository(db).lock_tenant(tenant_id)
     repo = PurchaseOrderRepository(db)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Purchase not found")
-    if obj.status != "Draft":
+    if obj.status not in ("Draft", "PendingApproval", "Approved", "Sent") or any(Decimal(i.received_quantity) > 0 for i in obj.items):
         raise ValidationError(f"Cannot cancel a purchase with status '{obj.status}'")
+    if user_id:
+        await _require_purchase_actor(db, tenant_id, user_id, "update", obj.branch_id)
     obj.status = "Cancelled"
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="purchase.cancel",
+        entity_type="purchase", entity_id=str(id), summary=f"Cancelled {obj.reference}")
     await repo.save(obj)
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
@@ -303,5 +351,128 @@ async def delete_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID)
         raise NotFoundError("Purchase not found")
     if obj.status != "Draft":
         raise ValidationError("Only draft purchases can be deleted")
+    from app.modules.procurement.repository.attachment import PurchaseAttachmentRepository
+    if await PurchaseAttachmentRepository(db).count_order(tenant_id, id):
+        raise ValidationError("Cancel drafts with attachments to preserve their document history")
     await repo.delete(obj)
     await db.commit()
+
+
+async def _confirm_receipt(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
+                          user_id: uuid.UUID, data) -> PurchaseRead:
+    """Serialize receipt validation, stock, bill, journal and audit in one transaction."""
+    from app.core.exceptions import ConflictError
+    from app.modules.procurement.models import GoodsReceipt, GoodsReceiptLine
+    from app.modules.procurement.repository.receipt import ReceiptRepository
+
+    await ReportingRepository(db).lock_tenant(tenant_id)
+    repo = PurchaseOrderRepository(db)
+    purchase = await repo.get_by_id_for_tenant(tenant_id, id)
+    if purchase is None:
+        raise NotFoundError("Purchase not found")
+    await _require_purchase_actor(db, tenant_id, user_id, "update", purchase.branch_id)
+    await _require_pricing(db, tenant_id, user_id, purchase.items)
+    receipts = ReceiptRepository(db)
+    prior = await receipts.by_client(tenant_id, data.client_reference)
+    quantities = {line.purchase_item_id: line.quantity for line in data.lines}
+    if len(quantities) != len(data.lines):
+        raise ValidationError("Combine duplicate receipt lines")
+    if prior:
+        if prior.purchase_order_id != id or prior.request_fingerprint != hashlib.sha256(data.model_dump_json().encode()).hexdigest():
+            raise ConflictError("Receipt reference was already used with different details")
+        return PurchaseRead.model_validate(purchase)
+    if purchase.status not in ("Draft", "Approved", "Sent", "PartiallyReceived"):
+        raise ValidationError("This purchase cannot receive goods in its current state")
+    if purchase.client_reference and purchase.status == "Draft":
+        raise ValidationError("Submit and approve this purchase before receiving goods")
+    items = {i.id: i for i in purchase.items}
+    for item_id, quantity in quantities.items():
+        item = items.get(item_id)
+        if item is None or quantity > Decimal(item.quantity) - Decimal(item.received_quantity):
+            raise ValidationError("Received quantity exceeds the remaining order quantity")
+    complete = all(Decimal(i.received_quantity) + quantities.get(i.id, Decimal(0)) == Decimal(i.quantity) for i in purchase.items)
+    prior_amount = Decimal(await receipts.received_amount(tenant_id, id))
+    if complete:
+        amount = Decimal(purchase.total) - prior_amount
+    else:
+        delivered = sum((Decimal(i.line_total) * (Decimal(i.received_quantity) + quantities.get(i.id, Decimal(0))) / Decimal(i.quantity) for i in purchase.items), Decimal(0))
+        if Decimal(purchase.subtotal) == 0:
+            if Decimal(purchase.total) != 0:
+                raise ValidationError("Zero-value item orders cannot allocate additional charges to partial receipts")
+            amount = Decimal(0)
+        else:
+            amount = (Decimal(purchase.total) * delivered / Decimal(purchase.subtotal)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) - prior_amount
+    if amount < 0:
+        raise ValidationError("Receipt value is inconsistent with prior receipts")
+    receipt = GoodsReceipt(tenant_id=tenant_id, reference=f"GR-{uuid.uuid4().hex[:16].upper()}",
+        client_reference=data.client_reference,
+        request_fingerprint=hashlib.sha256(data.model_dump_json().encode()).hexdigest(), purchase_order_id=id, branch_id=purchase.branch_id,
+        received_by=user_id, amount=amount, lines=[GoodsReceiptLine(purchase_item_id=k, quantity=v) for k, v in quantities.items()])
+    db.add(receipt)
+    await db.flush()
+    due_date = data.due_date
+    if due_date is None and purchase.payment_terms_days is not None:
+        due_date = datetime.now(UTC).date() + timedelta(days=purchase.payment_terms_days)
+    await _apply_receive(db, tenant_id, user_id, purchase, due_date, quantities, receipt)
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="goods_receipt.confirm",
+                       entity_type="purchase", entity_id=str(id), summary=f"Confirmed {receipt.reference}",
+                       changes={"receipt_id": str(receipt.id), "branch_id": str(purchase.branch_id),
+                                "quantities": {str(k): str(v) for k, v in quantities.items()}})
+    await db.flush()
+    return await get_purchase(db, tenant_id, id)
+
+
+async def transition_purchase(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
+                              user_id: uuid.UUID, action: str) -> PurchaseRead:
+    await ReportingRepository(db).lock_tenant(tenant_id)
+    obj = await PurchaseOrderRepository(db).get_by_id_for_tenant(tenant_id, id)
+    if obj is None:
+        raise NotFoundError("Purchase not found")
+    transitions = {"submit": ({"Draft"}, "PendingApproval"),
+                   "approve": ({"PendingApproval"}, "Approved"),
+                   "send": ({"Approved"}, "Sent"), "close": ({"Received"}, "Closed")}
+    await _require_purchase_actor(db, tenant_id, user_id, "approve" if action == "approve" else "update", obj.branch_id)
+    permitted, target = transitions[action]
+    if obj.status == target:
+        return PurchaseRead.model_validate(obj)
+    if obj.status not in permitted:
+        raise ValidationError(f"Cannot {action} a purchase with status {obj.status}")
+    if action == "submit" and not obj.supplier_id:
+        raise ValidationError("Select a supplier before submitting")
+    if action == "close":
+        from app.modules.procurement.repository.workspace import PurchasingWorkspaceRepository
+        if await PurchasingWorkspaceRepository(db).unpaid_for_order(tenant_id, id):
+            raise ValidationError("Settle supplier bills before closing this purchase")
+    obj.status = target
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action=f"purchase.{action}",
+                       entity_type="purchase", entity_id=str(id), summary=f"{obj.reference}: {target}")
+    await db.commit()
+    return await get_purchase(db, tenant_id, id)
+
+
+async def _require_purchase_actor(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID,
+                                  action: str, branch_id: uuid.UUID | None) -> None:
+    from app.core.branches import branch_allowed
+    actor = await PurchasePricingRepository(db).actor(tenant_id, user_id)
+    if actor is None or not actor.is_active or not branch_allowed(actor, branch_id):
+        raise ForbiddenError("Purchase is outside the actor's assigned business or branch")
+    if not actor.is_superuser and f"purchase_orders:{action}" not in actor.permissions_names:
+        raise ForbiddenError(f"Permission required: purchase_orders:{action}")
+
+
+async def confirm_receipt(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
+                          user_id: uuid.UUID, data) -> PurchaseRead:
+    # Failed validation/posting must not leave a replayable receipt or pending stock changes,
+    # even for service callers that catch an AppError and continue using the session.
+    async with db.begin_nested():
+        result = await _confirm_receipt(db, tenant_id, id, user_id, data)
+    await db.commit()
+    return result
+
+
+def _purchase_read(obj: PurchaseOrder, state=None) -> PurchaseRead:
+    read = PurchaseRead.model_validate(obj)
+    count, billed, paid = state or (0, Decimal(0), Decimal(0))
+    read.billing_status = "NotBilled" if count == 0 else "FullyBilled" if billed >= obj.total else "PartiallyBilled"
+    read.payment_status = "Paid" if count and paid >= billed else "PartiallyPaid" if paid > 0 else "Unpaid"
+    return read

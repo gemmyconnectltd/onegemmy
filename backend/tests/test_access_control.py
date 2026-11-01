@@ -97,7 +97,7 @@ async def test_writes_need_a_matching_permission_and_owner_is_not_restricted(db)
         async with await _client(db, creator_token) as c:
             created = await c.post("/api/v1/tenants/sales/customers", json=CUSTOMER)
             assert created.status_code == 201, created.text
-            assert (await c.patch(f"/api/v1/tenants/sales/customers/{created.json()['data']['id']}", json={"name": "Renamed"})).status_code == 403  # create ≠ update
+            assert (await c.patch(f"/api/v1/tenants/sales/customers/{created.json()['data']['id']}", json={"name": "Renamed"})).status_code == 200  # all active business users have baseline operational edit access
         async with await _client(db, owner_token) as c:
             assert (await c.post("/api/v1/tenants/sales/customers", json=CUSTOMER)).status_code == 201
     finally:

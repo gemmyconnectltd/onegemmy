@@ -55,7 +55,14 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     department_rel = relationship("Department", back_populates="users", lazy="select", foreign_keys=[department_id])
 
     @property
-    def permissions_names(self) -> list[str]:
+    def role_permissions_names(self) -> list[str]:
+        """Explicit stored grants, used for actions outside baseline view/edit access."""
         if self.role_rel and self.role_rel.permissions:
             return [p.name for p in self.role_rel.permissions]
         return []
+
+    @property
+    def permissions_names(self) -> list[str]:
+        from app.core.permission_policy import effective_permissions
+        return effective_permissions(self.role_permissions_names,
+            business_user=self.tenant_id is not None and bool(self.is_active))

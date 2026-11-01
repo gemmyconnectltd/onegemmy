@@ -73,11 +73,13 @@ test('deep links activate the correct submenu without highlighting a sibling', (
   assert.equal(nav.isModuleLinkActive('/expenses/new', nav.MODULE_NAV.expenses[0]), true);
   assert.equal(nav.isModuleLinkActive('/sales/orders-unrelated', nav.MODULE_NAV.sales[0]), false);
 });
-test('modules have no overview tab; reports are four read-only sections', () => {
+test('Purchases has its operational overview; other modules keep reports separate', () => {
   for (const [module, links] of Object.entries(nav.MODULE_NAV)) {
-    if (module === 'reports') continue;
+    if (module === 'reports' || module === 'procurement') continue;
     assert.equal(links.some(link => /overview/i.test(String(link.nameKey)) || /overview/i.test(String(link.label ?? ''))), false, module);
   }
+  assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === '/procurement' && link.exact));
+  for (const route of ['/procurement/orders', '/procurement/receipts', '/procurement/bills', '/procurement/returns']) assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === route));
   assert.deepEqual(plain(nav.MODULE_NAV.reports.map(link => link.href)), ['/reports','/reports/sales','/reports/operations','/reports/finance']);
   assert.ok(nav.MODULE_NAV.sales.some(link => link.href === '/sales/deals'));
 });

@@ -163,7 +163,7 @@ export function AskPesaaAI() {
     <>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Ask Pesaa AI" aria-pressed={open}
         className={cn(
-          "relative flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-semibold transition-colors active:scale-[0.98]",
+          "relative flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-semibold transition-colors active:scale-[0.98]",
           open ? "bg-accent text-white" : "bg-accent/10 text-accent hover:bg-accent/15",
         )}>
         <Sparkles size={15} />

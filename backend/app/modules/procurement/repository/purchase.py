@@ -27,23 +27,31 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder]):
         )
         return result.scalar_one_or_none()
 
-    def history_query(self, tenant_id, status=None, search=None, from_date=None, to_date=None, branch_id=None):
+    async def by_client(self, tenant_id: uuid.UUID, reference: str) -> PurchaseOrder | None:
+        return await self.db.scalar(select(PurchaseOrder).options(*_with_relations())
+            .where(PurchaseOrder.tenant_id == tenant_id, PurchaseOrder.client_reference == reference))
+
+    def history_query(self, tenant_id, status=None, search=None, from_date=None, to_date=None, branch_id=None, supplier_id=None, currency_code=None, sort="created", direction="desc"):
         query = select(PurchaseOrder).where(PurchaseOrder.tenant_id == tenant_id)
+        if supplier_id:
+            query = query.where(PurchaseOrder.supplier_id == supplier_id)
+        if currency_code:
+            query = query.where(PurchaseOrder.currency_code == currency_code)
         if status:
             query = query.where(PurchaseOrder.status == status)
         if branch_id:
             query = query.where(PurchaseOrder.branch_id == branch_id)
         if from_date:
-            query = query.where(PurchaseOrder.created_at >= datetime.combine(from_date, time.min, tzinfo=UTC))
+            query = query.where(or_(PurchaseOrder.order_date >= from_date, PurchaseOrder.order_date.is_(None) & (PurchaseOrder.created_at >= datetime.combine(from_date, time.min, tzinfo=UTC))))
         if to_date:
-            query = query.where(PurchaseOrder.created_at < datetime.combine(to_date + timedelta(days=1), time.min, tzinfo=UTC))
+            query = query.where(or_(PurchaseOrder.order_date <= to_date, PurchaseOrder.order_date.is_(None) & (PurchaseOrder.created_at < datetime.combine(to_date + timedelta(days=1), time.min, tzinfo=UTC))))
         if search:
             pattern = "%" + search.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_") + "%"
             query = query.outerjoin(Supplier, (Supplier.id == PurchaseOrder.supplier_id) & (Supplier.tenant_id == tenant_id)).where(or_(PurchaseOrder.reference.ilike(pattern), Supplier.name.ilike(pattern)))
         return query
 
     async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, **filters) -> list[PurchaseOrder]:
-        query = self.history_query(tenant_id, status, **filters).options(*_with_relations()).order_by(PurchaseOrder.created_at.desc(), PurchaseOrder.id.desc()).offset(offset).limit(limit)
+        query = self.history_query(tenant_id, status, **filters).options(*_with_relations()).order_by(({"reference": PurchaseOrder.reference, "total": PurchaseOrder.total, "expected": PurchaseOrder.expected_date}.get(filters.get("sort"), PurchaseOrder.created_at)).asc() if filters.get("direction") == "asc" else ({"reference": PurchaseOrder.reference, "total": PurchaseOrder.total, "expected": PurchaseOrder.expected_date}.get(filters.get("sort"), PurchaseOrder.created_at)).desc(), PurchaseOrder.id.desc()).offset(offset).limit(limit)
         return list((await self.db.execute(query)).scalars())
 
     async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, **filters) -> int:
@@ -64,3 +72,11 @@ class PurchaseOrderRepository(BaseRepository[PurchaseOrder]):
         )
         current_max = result.scalar_one() or 0
         return f"PUR-{str(current_max + 1).zfill(4)}"
+
+    async def financial_states(self, tenant_id: uuid.UUID, ids: list[uuid.UUID]) -> dict:
+        from app.modules.procurement.models.supplier_bill import SupplierBill
+        rows = await self.db.execute(select(SupplierBill.purchase_order_id, func.count(),
+            func.sum(SupplierBill.amount), func.sum(SupplierBill.amount_paid))
+            .where(SupplierBill.tenant_id == tenant_id, SupplierBill.purchase_order_id.in_(ids))
+            .group_by(SupplierBill.purchase_order_id))
+        return {row[0]: (row[1], row[2], row[3]) for row in rows}

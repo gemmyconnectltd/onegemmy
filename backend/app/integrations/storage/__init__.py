@@ -8,6 +8,9 @@ class StorageBackend(ABC):
     async def save(self, subdir: str, filename: str, content: bytes) -> str: ...
 
     @abstractmethod
+    async def read(self, url_path: str) -> bytes: ...
+
+    @abstractmethod
     async def delete(self, url_path: str) -> None: ...
 
 

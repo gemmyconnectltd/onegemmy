@@ -73,10 +73,13 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "analytics",    href: "/customers/analytics", icon: BarChart2 },
   ],
   procurement: [
-    { nameKey: "requests",  href: "/procurement/requests",  icon: ClipboardList },
-    { nameKey: "purchaseHistory", href: "/procurement/orders",    icon: ShoppingBag },
+    { nameKey: "overview", label: "Overview", href: "/procurement", icon: LayoutDashboard, exact: true, requires: "purchase_orders:read" },
+    { nameKey: "purchaseHistory", label: "Purchase Orders", href: "/procurement/orders", icon: ShoppingBag, requires: "purchase_orders:read" },
+    { nameKey: "goodsReceipts", label: "Goods Receipts", href: "/procurement/receipts", icon: Package, requires: "purchase_orders:read" },
+    { nameKey: "supplierBills", label: "Supplier Bills", href: "/procurement/bills", icon: Receipt, requires: "accounts_payable:read" },
+    { nameKey: "returns", href: "/procurement/returns", icon: RotateCcw, requires: "purchase_orders:read" },
+    { nameKey: "requests", href: "/procurement/requests", icon: ClipboardList },
     { nameKey: "suppliers", href: "/procurement/suppliers", icon: Truck },
-    { nameKey: "returns",   href: "/procurement/returns",   icon: RotateCcw },
   ],
   manufacturing: [
     { nameKey: "workOrders", href: "/manufacturing/work-orders", icon: Hammer },

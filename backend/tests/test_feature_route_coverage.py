@@ -43,6 +43,9 @@ async def probe(db, monkeypatch, modules, activation=None, restricted=False):
         owner = User(tenant_id=tenant.id, email=f"{uuid.uuid4().hex}@x.test", full_name="Owner", role="owner", is_superuser=True, hashed_password="x")
     db.add(owner)
     await db.flush()
+    if restricted:
+        await db.refresh(role, ["permissions"])
+        await db.refresh(owner, ["role_rel"])
     monkeypatch.setattr(BillingRepository, "subscription", AsyncMock(return_value=SimpleNamespace(terms={"modules": modules}, plan_id=uuid.uuid4(), status="active")))
 
     async def _db():
@@ -98,10 +101,10 @@ async def test_a_turned_off_module_takes_no_writes_but_stays_readable(db, monkey
 
 
 @pytest.mark.db
-async def test_a_person_whose_role_grants_nothing_can_read_nothing_in_any_module(db, monkeypatch):
-    """Hiding a feature from someone must hold on the server too, not only in the menu."""
+async def test_existing_business_users_can_read_operational_modules_without_explicit_role_grants(db, monkeypatch):
     results = await probe(db, monkeypatch, modules=["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing", "services", "repairs"], restricted=True)
-    reads = [(p, code) for _, m, p, code, _ in results if m == "GET"]
-    assert len(reads) > 100
-    leaks = [(p, code) for p, code in reads if code == 200]
-    assert not leaks, f"readable with no permissions: {leaks[:10]}"
+    inventory = [(p, code, body) for module, method, p, code, body in results
+                 if module == "inventory" and method == "GET"]
+    assert inventory
+    assert not [(p, code) for p, code, body in inventory if code == 403 and "permission" in body.lower()]
+    assert any(code == 200 for _, code, _ in inventory)
