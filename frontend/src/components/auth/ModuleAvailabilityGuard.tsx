@@ -5,18 +5,18 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Lock, PackageX } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { useMyEntitlements } from "@/lib/api/hooks";
+import { useMyEntitlements, useMyProfile } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { firstAllowedHref } from "@/lib/navigation";
 import { accessForPath, featureForPath, unavailableReason } from "@/lib/moduleAvailability";
 
-/** Deep links to a module the business can't use land here instead of an empty or erroring page. The sidebar already hides the
- *  entry; the API refuses the same requests, so this is the explanation, not the security boundary. */
+/** Published menu entries remain visible. Current server grants and entitlements determine page access. */
 export function ModuleAvailabilityGuard({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { hasPermission, hasModuleAccess, isSuperAdmin } = useAuth();
+  const { user, hasPermission, hasModuleAccess, isSuperAdmin } = useAuth();
+  const profile = useMyProfile({enabled: !!user?.tenantId, placeholderData: undefined, staleTime: 0});
   const { data } = useMyEntitlements({ enabled: !isSuperAdmin() });
   const router = useRouter();
   const owner = isSuperAdmin();
@@ -32,6 +32,8 @@ export function ModuleAvailabilityGuard({ children }: { children: ReactNode }) {
         <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-surface text-muted"><Lock size={26} /></span>
         <h1 className="text-lg font-bold text-foreground">You don&apos;t have access to {need.name}</h1>
         <p className="mt-1 text-sm text-muted">{need.ownerOnly ? `${need.name} is for the business owner.` : "Your role doesn't include it. Ask an administrator of your business if you need it."}</p>
+        <Button variant="outline" className="mt-4" disabled={profile.isFetching} onClick={() => void profile.refetch()}>{profile.isFetching ? "Refreshing access…" : "Refresh access"}</Button>
+        {profile.isError && <p role="status" className="mt-2 text-sm text-muted">Unable to retrieve your current permissions. Try refreshing access.</p>}
         <Link href={firstAllowedHref(data?.features, hasModuleAccess, hasPermission, owner)} className="mt-5"><Button variant="outline">Go to my work</Button></Link>
       </div>
     );

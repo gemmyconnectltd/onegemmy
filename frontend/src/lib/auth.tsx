@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useMyProfile } from "./api/hooks";
+import { currentSessionUser } from "./sessionAccess";
 import {
   authApi,
   clearStoredTokens,
@@ -129,7 +131,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 function decodeToken(token: string): (ApiTokenUserInfo & { exp?: number }) | null {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload;
+    return { ...payload, id: payload.id ?? payload.sub };
   } catch {
     return null;
   }
@@ -147,6 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [activeBranchId, setActiveBranchIdState] = useState<string | null>(null);
   const router = useRouter();
+  // A token's role grants are a login-time snapshot. Read current grants on mount,
+  // window focus, and periodically so server repairs/revocations apply to active sessions.
+  const profile = useMyProfile({enabled: !!user?.tenantId, placeholderData: undefined,
+    staleTime: 0, refetchInterval: 60_000, retry: 1});
+  const currentUser = useMemo(() => currentSessionUser(user, profile.data), [user, profile.data]);
+  const checkingAccess = !!user?.tenantId && profile.isPending && !profile.isError;
 
   // Register session expired handler so API client can trigger it
   useEffect(() => {
@@ -280,33 +288,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const hasPermission = useCallback((permission: string): boolean => {
-    if (!user) return false;
-    if (user.isSuperuser) return true;
-    return user.permissions.includes(permission);
-  }, [user]);
+    if (!currentUser) return false;
+    if (currentUser.isSuperuser) return true;
+    return currentUser.permissions.includes(permission);
+  }, [currentUser]);
 
   const hasAnyPermission = useCallback((perms: string[]): boolean => {
     return perms.some((p) => hasPermission(p));
   }, [hasPermission]);
 
   const hasModuleAccess = useCallback((module: string): boolean => {
-    if (!user) return false;
-    if (user.isSuperuser) return true;
+    if (!currentUser) return false;
+    if (currentUser.isSuperuser) return true;
     const key = module.toLowerCase();
-    if (user.disabledModules.includes(key)) return false;
+    if (currentUser.disabledModules.includes(key)) return false;
     const resources = MODULE_RESOURCES[key];
-    if (!resources) return user.permissions.some((p) => p.startsWith(key + ":"));
-    return user.permissions.some((p) => resources.some((r) => p.startsWith(r + ":")));
-  }, [user]);
+    if (!resources) return currentUser.permissions.some((p) => p.startsWith(key + ":"));
+    return currentUser.permissions.some((p) => resources.some((r) => p.startsWith(r + ":")));
+  }, [currentUser]);
 
-  const isSuperAdmin = useCallback((): boolean => user?.role === "superadmin" || (user?.isSuperuser ?? false), [user]);
-  const isAdmin = useCallback((): boolean => user?.role === "admin" || isSuperAdmin(), [user, isSuperAdmin]);
+  const isSuperAdmin = useCallback((): boolean => currentUser?.role === "superadmin" || (currentUser?.isSuperuser ?? false), [currentUser]);
+  const isAdmin = useCallback((): boolean => currentUser?.role === "admin" || isSuperAdmin(), [currentUser, isSuperAdmin]);
 
   const value = useMemo(() => ({
-    user, login, register, logout, isLoading,
+    user: currentUser, login, register, logout, isLoading: isLoading || checkingAccess,
     hasPermission, hasAnyPermission, hasModuleAccess,
     isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId,
-  }), [user, login, register, logout, isLoading, hasPermission, hasAnyPermission, hasModuleAccess, isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId]);
+  }), [currentUser, checkingAccess, login, register, logout, isLoading, hasPermission, hasAnyPermission, hasModuleAccess, isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId]);
 
   return (
     <AuthContext.Provider value={value}>
