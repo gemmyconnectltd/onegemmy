@@ -51,12 +51,7 @@ class TenantRepository(BaseRepository[Tenant]):
         for field, key in [("subscription_plan", "plan"), ("country", "country"), ("industry", "industry"),
                            ("business_type", "businessType"), ("heard_about", "heardAbout"), ("employee_count", "size")]:
             if (value := filters.get(key)) and value != "all":
-                column = getattr(Tenant, field)
-                if key in ("country", "industry"):
-                    normalized = func.lower(func.trim(func.coalesce(column, "")))
-                    conditions.append(normalized == ("" if value == "__unspecified__" else value.strip().lower()))
-                else:
-                    conditions.append(column == value)
+                conditions.append(getattr(Tenant, field) == value)
         if value := filters.get("from"):
             conditions.append(Tenant.created_at >= date.fromisoformat(value))
         if value := filters.get("to"):
@@ -71,17 +66,6 @@ class TenantRepository(BaseRepository[Tenant]):
     async def filter_options(self) -> dict:
         """What the filter menus offer, with how many businesses have each value."""
         async def counted(column):
-            if column.key in ("industry", "country"):
-                normalized = func.lower(func.trim(func.coalesce(column, "")))
-                label = func.min(func.trim(column))
-                rows = (await self.db.execute(
-                    select(normalized, label, func.count(Tenant.id))
-                    .where(Tenant.archived_at.is_(None))
-                    .group_by(normalized)
-                    .order_by(func.count(Tenant.id).desc(), normalized)
-                )).all()
-                return [{"value": label if key else "__unspecified__", "count": int(count)}
-                        for key, label, count in rows]
             rows = (await self.db.execute(select(column, func.count(Tenant.id)).where(Tenant.archived_at.is_(None), column.is_not(None), column != "")
                                           .group_by(column).order_by(func.count(Tenant.id).desc(), column))).all()
             return [{"value": v, "count": int(c)} for v, c in rows]
