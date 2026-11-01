@@ -68,6 +68,23 @@ _ROLE_NAME_ALIASES = {"cashier": "Cashier", "accountant": "Accountant", "invento
                       "branch manager": "Branch Manager", "factory manager": "Factory Manager"}
 
 
+def default_role_permissions(permissions: list[Permission]) -> dict[str, list[Permission]]:
+    """One source for seeding and explicitly restoring built-in role grants."""
+    operational = [p for p in permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+    templates = {
+        "Admin": permissions,
+        "Member": [p for p in operational if p.action in {"create", "read", "update"}],
+        "Viewer": [p for p in operational if p.action == "read"],
+        "Owner/CEO": permissions,
+        "General Manager": [p for p in permissions if p.resource not in {"roles", "permissions", "billing", "tenants"}],
+        "Branch Manager": [p for p in operational if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}],
+        "Factory Manager": [p for p in permissions if p.resource in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "stock", "items", "warehouses"}],
+    }
+    for name, (_, grants) in FOCUSED_ROLES.items():
+        templates[name] = [p for p in permissions if p.action in grants.get(p.resource, ())]
+    return templates
+
+
 async def get_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> RoleRead:
     role = await RoleRepository(db).get_by_id_for_tenant(tenant_id, role_id)
     if role is None:
@@ -149,48 +166,16 @@ async def seed_default_roles(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     all_permissions = await ensure_permissions_seeded(db)
     existing = {r.name: r for r in await RoleRepository(db).template_roles(tenant_id)}
 
-    if "Admin" in existing:
-        pass  # Preserve deliberate grants and revocations.
-    else:
-        db.add(Role(
-            tenant_id=tenant_id, name="Admin", permissions=all_permissions,
-            description="Full access, same as the account owner.",
-        ))
-
-    # Everything operational, including delete and approve — for roles that are meant to run a location (Branch Manager).
-    ops_perms = [p for p in all_permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
-    # The everyday default for a new team member: create, view and edit — but never delete or approve anything.
-    member_perms = [p for p in ops_perms if p.action in {"create", "read", "update"}]
-    if "Member" in existing:
-        pass  # Preserve deliberate grants and revocations.
-    else:
-        db.add(Role(
-            tenant_id=tenant_id, name="Member", permissions=member_perms,
-            description="Day-to-day work: create, view and edit records. Can't delete or approve, or manage users, roles or settings.",
-        ))
-
-    viewer_perms = [p for p in all_permissions if p.action == "read" and p.resource not in _ADMIN_ONLY_RESOURCES]
-    if "Viewer" in existing:
-        pass  # Preserve deliberate grants and revocations.
-    else:
-        db.add(Role(
-            tenant_id=tenant_id, name="Viewer", permissions=viewer_perms,
-            description="Read-only access across modules.",
-        ))
-    templates = {
-        "Owner/CEO": all_permissions,
-        "General Manager": [p for p in all_permissions if p.resource not in {"roles", "permissions", "billing", "tenants"}],
-        "Branch Manager": [p for p in ops_perms if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}],
-        "Factory Manager": [p for p in all_permissions if p.resource in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "stock", "items", "warehouses"}],
+    descriptions = {
+        "Admin": "Full access, same as the account owner.",
+        "Member": "Day-to-day work: create, view and edit records. Can't delete or approve, or manage users, roles or settings.",
+        "Viewer": "Read-only access across modules.",
+        **{name: description for name, (description, _) in FOCUSED_ROLES.items()},
     }
-    for name, permissions in templates.items():
+    for name, permissions in default_role_permissions(all_permissions).items():
         if name not in existing:
             db.add(Role(tenant_id=tenant_id, name=name, permissions=permissions,
-                        description="Configurable business role template; branch assignments are managed separately."))
-    for name, (description, grants) in FOCUSED_ROLES.items():
-        if name not in existing:
-            db.add(Role(tenant_id=tenant_id, name=name, description=description,
-                        permissions=[p for p in all_permissions if p.action in grants.get(p.resource, ())]))
+                        description=descriptions.get(name, "Configurable business role template; branch assignments are managed separately.")))
     await db.flush()
 
 
