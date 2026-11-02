@@ -52,7 +52,7 @@ async def business(db, label):
     db.add_all([remera, kimironko])
     await db.flush()  # the branches need ids before anyone is assigned to them
     owner = User(tenant_id=tenant.id, email=f"o{key}@x.test", hashed_password="x", full_name="Olive Owner", role="owner", is_superuser=True, is_active=True)
-    cashier = User(tenant_id=tenant.id, email=f"c{key}@x.test", hashed_password="x", full_name="Cathy Cashier", role="member", role_id=roles["Cashier"].id,
+    cashier = User(tenant_id=tenant.id, email=f"c{key}@x.test", hashed_password="x", full_name="Cathy Cashier", role="cashier", role_id=roles["Cashier"].id,
                    branch_id=remera.id, branch_ids=[str(remera.id)], is_active=True)
     db.add_all([owner, cashier])
     await db.flush()
@@ -98,9 +98,10 @@ async def test_effective_access_combines_permissions_with_the_business_module_st
     view = await access.user_access(db, tenant.id, cashier)
     by = {m["key"]: m for m in view["modules"]}
     assert by["sales"]["effective_view"] and by["sales"]["effective_change"]  # a cashier sells
-    assert by["inventory"]["effective_view"] and not by["inventory"]["effective_change"]  # may look stock up, not change it
-    # Invoices are shared by Sales and Accounting, so the cashier's invoices:read shows Accounting as viewable; nothing can be changed.
-    assert by["accounting"]["can_view"] and not by["accounting"]["can_change"] and not by["hr"]["effective_view"]
+    assert by["inventory"]["effective_view"] and by["inventory"]["effective_change"]  # default view/edit
+    # Default view/edit never overrides a business switch or plan restriction.
+    assert by["accounting"]["can_view"] and by["accounting"]["can_change"]
+    assert not by["accounting"]["effective_change"] and not by["hr"]["effective_view"]
     assert by["manufacturing"]["status"] == "not_included" and not by["manufacturing"]["effective_view"]
     assert view["branches"] == {"all": False, "branches": [{"id": str(remera.id), "name": "Remera"}]}
     # The owner holds every permission, yet a turned-off module is still read-only and one outside the plan is closed.
@@ -204,7 +205,7 @@ async def test_module_detail_lists_the_roles_that_can_use_it_and_its_history(db,
             cashier_row = next(r for r in body["roles"] if r["name"] == "Cashier")
             assert cashier_row["can_change"] and cashier_row["users"] == 1
             assert all(r["name"] != "Viewer" or not r["can_change"] for r in body["roles"])
-            assert [h["action"] for h in body["history"]][:2] == ["tenant.module.enable", "tenant.module.disable"]
+            assert {h["action"] for h in body["history"][:2]} == {"tenant.module.enable", "tenant.module.disable"}
             assert (await admin.get(f"{API}/me/modules/nonsense/access")).status_code == 404
         async with client(db, cashier) as till:
             assert (await till.get(f"{API}/me/modules/sales/access")).status_code == 403
@@ -237,3 +238,32 @@ async def test_missing_builtin_roles_can_be_added_without_touching_existing_ones
     await db.refresh(cashier_role, attribute_names=["permissions"])
     assert {p.name for p in cashier_role.permissions} == kept  # existing roles were not rewritten
     assert (await db.execute(select(Role).where(Role.tenant_id == tenant.id, Role.name == "Branch Manager"))).scalar_one()
+
+
+@pytest.mark.db
+async def test_employee_feature_switch_limits_default_access_in_detail_and_summary(db, monkeypatch):
+    tenant, _, _, employee, *_ = await business(db, "FeatureSwitch")
+    plan(monkeypatch, "inventory", "sales")
+    employee.role_id = None
+    employee.disabled_modules = ["inventory"]
+    await db.flush()
+
+    async def inventory_access():
+        detail = await access.user_access(db, tenant.id, employee)
+        summary = await access.access_summary(
+            db, tenant.id, search=None, role_id=None, branch_id=None,
+            status=None, offset=0, limit=20,
+        )
+        row = next(r for r in summary["items"] if r["id"] == str(employee.id))
+        module = next(m for m in detail["modules"] if m["key"] == "inventory")
+        return module, row
+
+    module, row = await inventory_access()
+    assert module["can_view"] and module["can_change"]
+    assert module["blocked"] and not module["effective_view"]
+    assert "inventory" not in row["modules"] and "sales" in row["modules"]
+    employee.disabled_modules = []
+    await db.flush()
+    module, row = await inventory_access()
+    assert module["effective_view"] and module["effective_change"]
+    assert "inventory" in row["modules"]

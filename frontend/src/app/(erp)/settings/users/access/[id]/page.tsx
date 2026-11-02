@@ -69,7 +69,7 @@ function Overview({ a }: { a: UserAccess }) {
       <Card title="Account">
         <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm"><dt className="text-muted">Name</dt><dd>{a.user.full_name}</dd><dt className="text-muted">Email</dt><dd className="break-all">{a.user.email}</dd><dt className="text-muted">Role</dt><dd>{a.user.is_owner ? "Owner (has every permission)" : a.user.role ?? "None"}</dd><dt className="text-muted">Branches</dt><dd>{branchLabel(a.branches.all, a.branches.branches)}</dd><dt className="text-muted">Status</dt><dd>{a.user.is_active ? "Active" : "Deactivated"}</dd></dl>
       </Card>
-      <Card title="What they can do now" hint="Their role's permissions, applied to the modules in your plan.">
+      <Card title="What they can do now" hint="Default operational access and role permissions, limited by business and employee feature switches.">
         <p className="text-sm"><strong>{usable.length}</strong> module{usable.length === 1 ? "" : "s"} they can use{usable.length ? `: ${usable.map((m) => m.name).join(", ")}` : ""}.</p>
         <p className="mt-2 text-sm"><strong>{viewOnly.length}</strong> view only{viewOnly.length ? `: ${viewOnly.map((m) => m.name).join(", ")}` : ""}.</p>
         {!a.user.is_active && <p className="mt-3 rounded-lg bg-surface p-3 text-[12px] text-muted">This account is deactivated, so none of this applies until it is activated again.</p>}
@@ -91,8 +91,8 @@ function FeatureAccessTab({ a, canManage }: { a: UserAccess; canManage: boolean 
     finally { setBusy(null); }
   };
   return (
-    <Card title="Feature access" hint="Choose which features this person can open. Switching one off hides it and blocks it on the server, whatever their role allows. Switching it back on returns them to what their role permits.">
-      {a.user.is_owner ? <p className="text-sm text-muted">The business owner always has every feature.</p> : (
+    <Card title="Feature access" hint="Choose which features this person can open. Switching one off blocks it on the server. Switching it on restores default view/edit access and their role permissions. Business restrictions still apply.">
+      {a.user.is_owner ? <p className="text-sm text-muted">The business owner can use every feature allowed for this business. Platform restrictions and business module switches still apply.</p> : (
         <>
           {error && <p role="alert" className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p>}
           {!canManage && <p className="mb-3 text-[12px] text-muted">You can see this but need permission to change it.</p>}
@@ -105,7 +105,7 @@ function FeatureAccessTab({ a, canManage }: { a: UserAccess; canManage: boolean 
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">{m.name}</p>
                     <p className="text-[12px] text-muted">
-                      {closed ? "Not available to your business." : m.blocked ? "Switched off for this person." : byRole ? "Their role gives no access to this yet." : m.can_change ? "Can view and make changes." : "Can view only."}
+                      {closed ? "Not available to your business." : m.blocked ? "Switched off for this person." : byRole ? "No operational access is available for this account." : m.can_change ? "Can view and edit. Additional actions follow their role." : "Can view only."}
                     </p>
                   </div>
                   {closed ? <Pill tone="amber">Unavailable</Pill> : <Toggle checked={!m.blocked} label={`${m.name} for ${a.user.full_name}`} loading={busy === m.key} disabled={!canManage || busy !== null} onChange={(v) => void change(m.key, v)} />}

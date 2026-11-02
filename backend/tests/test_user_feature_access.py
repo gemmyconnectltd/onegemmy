@@ -36,3 +36,15 @@ def test_access_view_marks_the_module_off_even_when_the_role_allows_it():
     rows = {m["key"]: m for m in module_access({"items:read", "items:update", "orders:read"}, False, states, names, {"inventory"})}
     assert rows["inventory"]["blocked"] and not rows["inventory"]["effective_view"] and not rows["inventory"]["effective_change"]
     assert not rows["sales"]["blocked"] and rows["sales"]["effective_view"]
+
+
+async def test_member_cannot_manage_employee_or_business_features_without_a_grant():
+    from app.core.deps import require_permission
+
+    user = person([])
+    user.role = "member"
+    for permission in ("users:update", "roles:update", "tenants:update"):
+        with pytest.raises(ForbiddenError):
+            await require_permission(permission)(user)
+    user.permissions_names = ["users:update"]
+    assert await require_permission("users:update")(user) is user

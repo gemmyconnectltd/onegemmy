@@ -131,9 +131,13 @@ def require_permission(permission_name: str):
     async def _check(user: CurrentUser) -> User:
         if user.is_superuser:
             return user
-        # Standard business roles always pass — only viewer/custom roles are restricted
+        # Business administration requires an owner/admin or an explicit grant.
         role = (user.role or "").lower()
-        if role in ("admin", "owner", "member"):
+        if role in ("admin", "owner"):
+            return user
+        from app.core.permission_policy import OPERATIONAL_RESOURCES
+
+        if role == "member" and permission_name.partition(":")[0] in OPERATIONAL_RESOURCES:
             return user
         if permission_name not in user.permissions_names:
             log.warning("auth.forbidden_no_permission", extra={"_extra_fields": {

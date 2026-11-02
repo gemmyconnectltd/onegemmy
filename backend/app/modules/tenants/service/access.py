@@ -12,6 +12,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permission_policy import effective_permissions
 from app.modules.tenants.models import Branch, FeatureFlag, Permission, Role, User
 from app.modules.tenants.service.feature import ENABLED, NOT_INCLUDED, resolve_modules
 
@@ -118,6 +119,7 @@ async def branch_scope(db: AsyncSession, tenant_id: uuid.UUID, user: User) -> di
 async def user_access(db: AsyncSession, tenant_id: uuid.UUID, user: User) -> dict:
     states, names, catalog = await resolve_modules(db, tenant_id), await _names(db), await permission_catalog(db)
     granted = (await role_permission_names(db, tenant_id)).get(user.role_id, set()) if user.role_id else set()
+    granted = set(effective_permissions(granted, business_user=bool(user.is_active)))
     owner = is_owner(user)
     role = await db.get(Role, user.role_id) if user.role_id else None
     return {
@@ -166,6 +168,7 @@ async def access_summary(db: AsyncSession, tenant_id: uuid.UUID, *, search: str 
         if status == "active" and not u.is_active or status == "inactive" and u.is_active:
             continue
         granted = perms.get(u.role_id, set()) if u.role_id else set()
+        granted = set(effective_permissions(granted, business_user=bool(u.is_active)))
         access = module_access(granted, is_owner(u), states, names, set() if is_owner(u) else set(u.disabled_modules or []))
         rows.append({
             "id": str(u.id), "full_name": u.full_name, "email": u.email, "is_active": u.is_active, "is_owner": is_owner(u),

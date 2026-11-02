@@ -1,4 +1,5 @@
 "use client";
+import { PageLoader } from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -144,10 +145,10 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
       <div>
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold text-foreground">Module Access</h2>
+            <h2 className="text-sm font-bold text-foreground">Business feature access</h2>
             <p className="text-[11px] text-muted mt-0.5">
               What this business&apos;s plan includes, whether Pesaa allows each module, and what the business chose. The switch below is Pesaa&apos;s
-              restriction only; it never changes the business&apos;s own on/off choice. Changes apply immediately.
+              restriction only; it never changes the business&apos;s own on/off choice. Owners manage employee access under Settings → Team &amp; Access → Feature access. Changes apply immediately.
             </p>
           </div>
           <button
@@ -160,9 +161,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
           </button>
         </div>
         {featuresLoading ? (
-          <div className="py-12 flex items-center justify-center">
-            <Loader2 size={20} className="animate-spin text-muted" />
-          </div>
+          <PageLoader variant="compact" />
         ) : (
           <div className="divide-y divide-border">
             {features?.map((f) => (

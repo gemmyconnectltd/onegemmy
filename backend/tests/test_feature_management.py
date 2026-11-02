@@ -132,7 +132,7 @@ async def test_api_guard_blocks_writes_to_a_turned_off_module_but_keeps_history_
 
 async def test_only_someone_with_tenant_update_may_switch_modules():
     check = require_permission("tenants:update")
-    cashier = SimpleNamespace(is_superuser=False, id=uuid.uuid4(), permissions_names={"orders:create"})
+    cashier = SimpleNamespace(role="cashier", is_superuser=False, id=uuid.uuid4(), permissions_names={"orders:create"})
     with pytest.raises(ForbiddenError):
         await check(cashier)
     owner = SimpleNamespace(is_superuser=True, id=uuid.uuid4(), permissions_names=set())
