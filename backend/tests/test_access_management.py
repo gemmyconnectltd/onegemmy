@@ -274,7 +274,7 @@ async def test_platform_can_manage_employee_features_with_tenant_isolation(db, m
     tenant, _, owner, employee, *_ = await business(db, "PlatformAccess")
     other, _, _, foreign, *_ = await business(db, "ForeignAccess")
     monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())
-    plan(monkeypatch, "inventory", "sales")
+    plan(monkeypatch, "inventory", "sales", "accounting")
     platform = User(
         email=f"{uuid.uuid4()}@platform.test", hashed_password="x", full_name="Platform",
         role="superadmin", is_superuser=True, is_active=True,
@@ -287,6 +287,12 @@ async def test_platform_can_manage_employee_features_with_tenant_isolation(db, m
             response = await admin.get(path)
             assert response.status_code == 200, response.text
             assert response.json()["data"]["user"]["id"] == str(employee.id)
+            response = await admin.patch(path + "/expenses", json={"enabled": False})
+            assert response.status_code == 200, response.text
+            finance = {m["key"]: m for m in response.json()["data"]["modules"]}
+            assert finance["expenses"]["blocked"] and not finance["expenses"]["effective_view"]
+            assert finance["debts"]["effective_view"]
+            assert (await admin.patch(path + "/expenses", json={"enabled": True})).status_code == 200
             response = await admin.patch(path + "/inventory", json={"enabled": False})
             assert response.status_code == 200, response.text
             modules = {m["key"]: m for m in response.json()["data"]["modules"]}

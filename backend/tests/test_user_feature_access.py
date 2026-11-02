@@ -48,3 +48,40 @@ async def test_member_cannot_manage_employee_or_business_features_without_a_gran
             await require_permission(permission)(user)
     user.permissions_names = ["users:update"]
     assert await require_permission("users:update")(user) is user
+
+
+@pytest.mark.parametrize("disabled,path", [
+    ("expenses", "/api/v1/tenants/expense-management/search"),
+    ("expenses", "/api/v1/tenants/accounting/expenses"),
+    ("debts", "/api/v1/tenants/debts/receivable/search"),
+])
+async def test_finance_child_switch_is_enforced_on_its_existing_accounting_router(disabled, path):
+    check = require_module_write("accounting")
+    user = person([disabled])
+    user.role = "member"
+    for method in ("GET", "POST", "PATCH"):
+        with pytest.raises(ForbiddenError):
+            await check(request(method, path), user)
+    await check(request("GET", "/api/v1/tenants/accounting/accounts"), user)
+    sibling = "/api/v1/tenants/debts/receivable/search" if disabled == "expenses" else "/api/v1/tenants/expense-management/search"
+    await check(request("POST", sibling), user)
+
+
+def test_finance_rows_are_listed_and_preserve_the_accounting_parent_switch():
+    rows = {m["key"]: m for m in module_access(
+        {"expenses:read", "expenses:update", "accounts_payable:read"},
+        False, {"accounting": "enabled"}, {"accounting": "Accounting"}, {"accounting"},
+    )}
+    assert rows["expenses"]["name"] == "Expenses"
+    assert rows["debts"]["name"] == "Debt Management"
+    for key in ("expenses", "debts"):
+        assert rows[key]["status"] == "enabled"
+        assert not rows[key]["blocked"]  # inherited blocking is not a stored employee choice
+        assert rows[key]["blocked_by"] == "accounting"
+        assert not rows[key]["effective_view"]
+    restored = {m["key"]: m for m in module_access(
+        {"expenses:read", "accounts_payable:read"}, False,
+        {"accounting": "restricted"}, {}, set(),
+    )}
+    assert not restored["expenses"]["effective_view"]
+    assert not restored["debts"]["effective_view"]

@@ -105,10 +105,10 @@ function FeatureAccessTab({ a, canManage }: { a: UserAccess; canManage: boolean 
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">{m.name}</p>
                     <p className="text-[12px] text-muted">
-                      {closed ? "Not available to your business." : m.blocked ? "Switched off for this person." : byRole ? "No operational access is available for this account." : m.can_change ? "Can view and edit. Additional actions follow their role." : "Can view only."}
+                      {m.blocked_by ? "Accounting is switched off for this person. Enable Accounting first." : closed ? "Not available to your business." : m.blocked ? "Switched off for this person." : byRole ? "No operational access is available for this account." : m.can_change ? "Can view and edit. Additional actions follow their role." : "Can view only."}
                     </p>
                   </div>
-                  {closed ? <Pill tone="amber">Unavailable</Pill> : <Toggle checked={!m.blocked} label={`${m.name} for ${a.user.full_name}`} loading={busy === m.key} disabled={!canManage || busy !== null} onChange={(v) => void change(m.key, v)} />}
+                  {closed ? <Pill tone="amber">Unavailable</Pill> : <Toggle checked={!m.blocked} label={`${m.name} for ${a.user.full_name}`} loading={busy === m.key} disabled={!canManage || busy !== null || !!m.blocked_by} onChange={(v) => void change(m.key, v)} />}
                 </li>
               );
             })}

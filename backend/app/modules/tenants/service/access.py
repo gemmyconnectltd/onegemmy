@@ -75,17 +75,21 @@ def matrix(catalog: list[Permission], granted: set[str], everything: bool, state
 
 def module_access(granted: set[str], everything: bool, states: dict[str, str], names: dict[str, str], blocked: frozenset[str] | set[str] = frozenset()) -> list[dict]:
     """Per ERP module: what the permissions allow, and what is effective once the business's module state is applied."""
+    from app.core.access import MODULE_LABELS, MODULE_PARENTS
+
     out = []
     for module, resources in _module_resources().items():
         view = everything or any(f"{r}:read" in granted for r in resources)
         write = everything or any(f"{r}:{a}" in granted for r in resources for a in WRITE_ACTIONS)
-        status = states.get(module, NOT_INCLUDED)
+        parent = MODULE_PARENTS.get(module)
+        blocked_by = parent if parent in blocked else None
+        status = states.get(module, states.get(parent, NOT_INCLUDED))
         out.append({
-            "key": module, "name": names.get(module, module.title()), "status": status,
-            "can_view": view, "can_change": write, "blocked": module in blocked,
+            "key": module, "name": names.get(module, MODULE_LABELS.get(module, module.title())), "status": status,
+            "can_view": view, "can_change": write, "blocked": module in blocked, "blocked_by": blocked_by,
             # A module the business turned off stays readable but takes no new records; one outside the plan or restricted is closed.
-            "effective_view": view and module not in blocked and status in (ENABLED, "available"),
-            "effective_change": write and module not in blocked and status == ENABLED,
+            "effective_view": view and module not in blocked and not blocked_by and status in (ENABLED, "available"),
+            "effective_change": write and module not in blocked and not blocked_by and status == ENABLED,
         })
     return out
 

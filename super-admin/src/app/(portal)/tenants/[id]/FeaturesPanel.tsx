@@ -177,6 +177,7 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
                     </Badge>
                   </div>
                   {f.description && <p className="text-[11px] text-muted mt-0.5">{f.description}</p>}
+                  {f.key === "accounting" && <div className="mt-2 text-sm text-muted"><p>Includes these finance features:</p><ul className="list-inside list-disc"><li>Expenses</li><li>Debt Management</li></ul><p className="mt-1">Manage individual employee switches under User feature access. Accounting must be enabled first.</p></div>}
                   <p className="text-[11px] text-muted mt-0.5">
                     Plan: {f.included ? "included" : "not included"} · Pesaa: {f.restricted ? "restricted" : "allowed"} · Business: {f.business_off ? "turned off" : "on"}
                   </p>

@@ -722,5 +722,5 @@ export const adminApi = {
 export interface EmployeeAccess {
   user: { id: string; full_name: string; email: string; is_owner: boolean; is_active: boolean; role: string | null };
   branches: { all: boolean; branches: { id: string; name: string }[] };
-  modules: { key: string; name: string; status: string; blocked: boolean; effective_view: boolean; effective_change: boolean }[];
+  modules: { key: string; name: string; status: string; blocked: boolean; blocked_by?: string | null; effective_view: boolean; effective_change: boolean }[];
 }

@@ -315,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser.isSuperuser) return true;
     const key = module.toLowerCase();
     if (currentUser.disabledModules.includes(key)) return false;
+    if ((key === "expenses" || key === "debts") && currentUser.disabledModules.includes("accounting")) return false;
     // Admins and owners always see all modules
     const role = currentUser.role?.toLowerCase();
     if (role === "admin" || role === "owner") return true;

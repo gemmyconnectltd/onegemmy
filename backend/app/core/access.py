@@ -27,6 +27,8 @@ MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "inventory": ("items", "warehouses", "stock", "pricing", "returns"),
     "accounting": ("invoices", "chart_of_accounts", "journal_entries", "accounts_payable", "accounts_receivable", "banking", "fixed_assets",
                    "budgeting", "tax", "expenses", "payroll"),
+    "expenses": ("expenses",),
+    "debts": ("accounts_receivable", "accounts_payable"),
     "hr": ("employees", "organization", "recruitment", "attendance", "leave", "payroll", "performance"),
     "procurement": ("vendors", "requisitions", "rfq", "purchase_orders", "goods_receipt", "contracts", "accounts_payable"),
     "crm": ("leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets"),
@@ -34,6 +36,9 @@ MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "services": ("services", "appointments", "queue", "service_commissions"),
     "repairs": ("services", "orders", "items", "stock"),
 }
+
+MODULE_PARENTS = {"expenses": "accounting", "debts": "accounting"}
+MODULE_LABELS = {"expenses": "Expenses", "debts": "Debt Management"}
 
 # Which permission actions allow each HTTP method. POST is broad because many POSTs are actions (pay, receive, post, approve).
 WRITE_ACTIONS: dict[str, frozenset[str]] = {
@@ -117,7 +122,14 @@ def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
     async def _check(request: Request, user: CurrentUser) -> None:
         if user.tenant_id is None or user.is_superuser or request.method == "OPTIONS":
             return
-        if module in (getattr(user, "disabled_modules", None) or []):
+        path = tenant_path(request.url.path)
+        child = module
+        if module == "accounting":
+            if path.rstrip("/") in ("/expense-management", "/accounting/expenses") or path.startswith(("/expense-management/", "/accounting/expenses/")):
+                child = "expenses"
+            elif path.rstrip("/") == "/debts" or path.startswith("/debts/"):
+                child = "debts"
+        if {module, child} & set(getattr(user, "disabled_modules", None) or []):
             log.warning("access.feature_off", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "path": request.url.path}})
             raise ForbiddenError("This feature has been switched off for your account. Ask an administrator of your business.")
         # Standard business roles (admin, owner, member) get full access — only
