@@ -64,7 +64,7 @@ def client(db, user):
         yield db
 
     app.dependency_overrides[get_db] = _db
-    token = create_access_token(str(user.id), {"tenant_id": str(user.tenant_id)})
+    token = create_access_token(str(user.id), {"tenant_id": str(user.tenant_id) if user.tenant_id else None})
     return AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t", headers={"Authorization": f"Bearer {token}"})
 
 
@@ -267,3 +267,47 @@ async def test_employee_feature_switch_limits_default_access_in_detail_and_summa
     module, row = await inventory_access()
     assert module["effective_view"] and module["effective_change"]
     assert "inventory" in row["modules"]
+
+
+@pytest.mark.db
+async def test_platform_can_manage_employee_features_with_tenant_isolation(db, monkeypatch):
+    tenant, _, owner, employee, *_ = await business(db, "PlatformAccess")
+    other, _, _, foreign, *_ = await business(db, "ForeignAccess")
+    monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())
+    plan(monkeypatch, "inventory", "sales")
+    platform = User(
+        email=f"{uuid.uuid4()}@platform.test", hashed_password="x", full_name="Platform",
+        role="superadmin", is_superuser=True, is_active=True,
+    )
+    db.add(platform)
+    await db.flush()
+    path = f"/api/v1/admin/tenants/{tenant.id}/users/{employee.id}/access"
+    try:
+        async with client(db, platform) as admin:
+            response = await admin.get(path)
+            assert response.status_code == 200, response.text
+            assert response.json()["data"]["user"]["id"] == str(employee.id)
+            response = await admin.patch(path + "/inventory", json={"enabled": False})
+            assert response.status_code == 200, response.text
+            modules = {m["key"]: m for m in response.json()["data"]["modules"]}
+            assert modules["inventory"]["blocked"] and not modules["inventory"]["effective_view"]
+            assert modules["sales"]["effective_view"]
+            assert (await admin.patch(path + "/sales", json={"enabled": False})).status_code == 200
+            response = await admin.patch(path + "/inventory", json={"enabled": True})
+            modules = {m["key"]: m for m in response.json()["data"]["modules"]}
+            assert modules["inventory"]["effective_view"] and modules["sales"]["blocked"]
+            tenant.features = {"inventory": False}
+            await db.flush()
+            response = await admin.patch(path + "/inventory", json={"enabled": True})
+            inventory = next(m for m in response.json()["data"]["modules"] if m["key"] == "inventory")
+            assert inventory["status"] == "restricted" and not inventory["effective_view"]
+            assert (await admin.get(f"/api/v1/admin/tenants/{tenant.id}/users/{foreign.id}/access")).status_code == 404
+            assert (await admin.patch(f"/api/v1/admin/tenants/{other.id}/users/{employee.id}/access/inventory", json={"enabled": False})).status_code == 404
+            assert (await admin.patch(path + "/unknown", json={"enabled": False})).status_code == 422
+            owner_path = f"/api/v1/admin/tenants/{tenant.id}/users/{owner.id}/access/inventory"
+            assert (await admin.patch(owner_path, json={"enabled": False})).status_code == 422
+        async with client(db, employee) as ordinary:
+            assert (await ordinary.get(path)).status_code == 403
+            assert (await ordinary.patch(path + "/inventory", json={"enabled": False})).status_code == 403
+    finally:
+        app.dependency_overrides.clear()

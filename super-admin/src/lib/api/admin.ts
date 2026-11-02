@@ -664,6 +664,10 @@ export const adminApi = {
 
   tenantStats: (id: string) =>
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
+  employeeAccess: (tenantId: string, userId: string) =>
+    request<SingleResponse<EmployeeAccess>>(`${B}/tenants/${tenantId}/users/${userId}/access`),
+  setEmployeeFeature: (tenantId: string, userId: string, module: string, enabled: boolean) =>
+    request<SingleResponse<EmployeeAccess>>(`${B}/tenants/${tenantId}/users/${userId}/access/${encodeURIComponent(module)}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   tenantUsers: (id: string, page = 1) =>
     request<PaginatedResponse<AdminUser>>(`${B}/tenants/${id}/users?page=${page}&page_size=50`),
   inviteUser: (tenantId: string, data: { email: string; full_name: string; role: string; password?: string }) =>
@@ -713,3 +717,10 @@ export const adminApi = {
   sendRecoveryLink: (tenantId: string, userId: string) =>
     request<SingleResponse<{ email: string }>>(`${B}/tenants/${tenantId}/users/${userId}/recovery-link`, { method: "POST" }),
 };
+
+
+export interface EmployeeAccess {
+  user: { id: string; full_name: string; email: string; is_owner: boolean; is_active: boolean; role: string | null };
+  branches: { all: boolean; branches: { id: string; name: string }[] };
+  modules: { key: string; name: string; status: string; blocked: boolean; effective_view: boolean; effective_change: boolean }[];
+}

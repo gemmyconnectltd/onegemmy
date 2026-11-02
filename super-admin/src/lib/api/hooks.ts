@@ -266,3 +266,15 @@ export const useRequestTenantExport = mutation(({ id, body }: { id: string; body
 export const useArchiveRequests = (id: string, opts?: QueryOpts) => useQ(["admin", "tenant-ops", "archive", id], () => adminApi.archiveRequests(id), (r) => r.data, opts);
 export const useRequestArchive = mutation(({ id, body }: { id: string; body: Parameters<typeof adminApi.requestArchive>[1] }) => adminApi.requestArchive(id, body), [...OPS, [...TENANTS]]);
 export const useDecideArchive = mutation(({ id, requestId, action, note }: { id: string; requestId: string; action: "approve" | "reject" | "cancel"; note?: string }) => adminApi.decideArchive(id, requestId, action, note), [...OPS, [...TENANTS], [...ADMIN_STATS], [...ADMIN_ANALYTICS]]);
+
+
+export const useEmployeeAccess = (tenantId: string, userId: string) =>
+  useQ(["employee-access", tenantId, userId], () => adminApi.employeeAccess(tenantId, userId), (r) => r.data, { enabled: !!userId });
+
+export function useSetEmployeeFeature() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tenantId, userId, module, enabled }: { tenantId: string; userId: string; module: string; enabled: boolean }) => adminApi.setEmployeeFeature(tenantId, userId, module, enabled),
+    onSuccess: (result, input) => { qc.setQueryData(["employee-access", input.tenantId, input.userId], result); },
+  });
+}

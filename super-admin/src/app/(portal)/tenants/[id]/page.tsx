@@ -29,6 +29,7 @@ import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import Link from "next/link";
 import FeaturesPanel from "./FeaturesPanel";
+import UserFeatureAccess from "./UserFeatureAccess";
 import { Button } from "@/components/ui/Button";
 import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
@@ -49,7 +50,7 @@ function TenantDetailPageInner() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<PanelTab>(() => {
     const t = searchParams.get("tab");
-    return (["overview", "users", "branches", "subscription", "usage", "invoices", "security", "activity", "operations"] as const).find((x) => x === t) ?? "overview";
+    return (["overview", "users", "user-access", "branches", "subscription", "usage", "invoices", "security", "activity", "operations"] as const).find((x) => x === t) ?? "overview";
   });
   const [usersSub, setUsersSub] = useState<"users" | "departments" | "roles">("users");
   const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" | "all" } | null>(null);
@@ -424,7 +425,7 @@ function TenantDetailPageInner() {
   const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: setTab };
   const TABS: { key: PanelTab; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" }, { key: "users", label: "Users", count: users.length }, { key: "branches", label: "Branches", count: branches.length },
-    { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
+    { key: "user-access", label: "User feature access" }, { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
   ];
 
   return (
@@ -464,6 +465,7 @@ function TenantDetailPageInner() {
       <SectionLayout nav={<SecondaryNav label="Tenant sections" title="Manage business" items={TABS.map((t) => ({ key: t.key, label: t.label, count: t.count, active: tab === t.key, onSelect: () => setTab(t.key) }))} />}>
       <div>
         <div className="min-w-0 space-y-6">
+          {tab === "user-access" && <UserFeatureAccess tenantId={id} />}
           {tab === "overview" && <OverviewPanel {...panelProps} controls={controls} />}
           {tab === "subscription" && <><SubscriptionManager tenantId={id} /><FeaturesPanel tenantId={id} /></>}
           {tab === "usage" && <UsagePanel {...panelProps} currencySymbol={tenantCurrencySymbol} />}

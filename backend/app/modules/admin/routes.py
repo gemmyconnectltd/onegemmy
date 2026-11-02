@@ -995,3 +995,27 @@ async def admin_delete_tenant_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db:
     await db.commit()
     invalidate_analytics_cache()
     return success_response(message="User removed")
+
+
+class EmployeeFeatureUpdate(BaseModel):
+    enabled: bool
+
+
+@router.get("/tenants/{tenant_id}/users/{user_id}/access")
+async def admin_employee_access(
+    tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser,
+):
+    from app.modules.admin.user_access import employee_access
+
+    return success_response(data=await employee_access(db, tenant_id, user_id))
+
+
+@router.patch("/tenants/{tenant_id}/users/{user_id}/access/{module}")
+async def admin_employee_feature(
+    tenant_id: uuid.UUID, user_id: uuid.UUID, module: str,
+    data: EmployeeFeatureUpdate, db: DbSession, admin: SuperUser,
+):
+    from app.modules.admin.user_access import set_employee_feature
+
+    result = await set_employee_feature(db, tenant_id, user_id, module, data.enabled, admin)
+    return success_response(data=result, message="Employee feature access updated")

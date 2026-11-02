@@ -9,3 +9,5 @@ The access overview and employee list include the default operational access, ev
 Ordinary Member accounts need an explicit management permission to change users, roles, or business settings. The operational Member bypass does not authorize these management actions. Owner/admin accounts and explicitly authorized delegates can manage them.
 
 No migration or bulk role rewrite is required. Deploy backend, ERP frontend, and super-admin together. Signed-in ERP users refresh their server profile periodically and can use Refresh access on a blocked module page.
+
+Platform administrators can also open **Tenants → business → User feature access → Manage features** to review a paginated employee list, preview effective module access and branch scope, and change employee switches. These audited switches are shared with owner management. They cannot bypass business restrictions, and owners cannot be restricted through employee switches. The preview reports access rather than impersonating the account; all published ERP sidebar entries remain visible.
