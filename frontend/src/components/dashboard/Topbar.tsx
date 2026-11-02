@@ -3,10 +3,13 @@
 import { Bell, Menu, ChevronDown, Search, Loader2, Globe, Store, Moon, Sun, LogOut, Building2, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppConfig } from "@/lib/appConfig";
 import { BranchSwitcher } from "./BranchSwitcher";
+import { Drawer } from "@/components/ui/Drawer";
+import { LogoMark } from "@/components/ui/LogoMark";
+import { NavigationSearch } from "./NavigationSearch";
 import { AskPesaaAI } from "@/components/ai/AskPesaaAI";
 
 interface TopbarProps {
@@ -43,8 +46,14 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
   const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
   const admin = variant === "admin";
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [showLang, setShowLang] = useState(false);
   const [showUser, setShowUser] = useState(false);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setSearchOpen((v) => !v); } if (e.key === "Escape") { setShowLang(false); setShowUser(false); } };
+    document.addEventListener("keydown", key); return () => document.removeEventListener("keydown", key);
+  }, []);
   const router = useRouter();
   const { logout, hasPermission } = useAuth();
   const breadcrumb = getBreadcrumb(pathname);
@@ -63,35 +72,25 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
   const businessName = user?.tenantName;
 
   return (
-    <header className="h-14 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-3 sm:px-4 gap-1 sm:gap-3 sticky top-0 z-30">
+    <>
+    <header className="pesaa-topbar h-14 min-w-0 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-3 sm:px-4 gap-1 sm:gap-3 sticky top-0 z-30">
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
         aria-label="Open navigation"
         aria-expanded={sidebarExpanded}
         aria-controls="mobile-sidebar-nav"
-        className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors lg:hidden"
+        className="w-11 h-11 shrink-0 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors lg:hidden"
       >
         <Menu size={18} />
       </button>
 
-      {/* Which business this portal belongs to */}
-      {businessName && (
-        <Link
-          href="/profile"
-          title={`Signed in to ${businessName} — view your profile`}
-          className="flex items-center gap-1.5 px-2.5 h-8 rounded-lg bg-surface text-foreground border border-border hover:border-foreground/20 transition-colors flex-shrink-0 min-w-0"
-        >
-          <Building2 size={14} className="text-accent flex-shrink-0" />
-          <span className="text-[13px] font-bold truncate max-w-[16vw] sm:max-w-[200px]">{businessName}</span>
-        </Link>
-      )}
-
+      <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white min-[390px]:flex lg:hidden" aria-label="Pesaa"><LogoMark size={18} /></span>
       {!admin && <BranchSwitcher />}
-      {!admin && <AskPesaaAI />}
+      {!admin && <div className="hidden xl:block"><AskPesaaAI /></div>}
 
       {/* Breadcrumb */}
-      <div className="hidden lg:flex items-center gap-1.5 pl-1 text-[14px] min-w-0">
+      <div className="hidden 2xl:flex items-center gap-1.5 pl-1 text-[14px] min-w-0">
         {breadcrumb.map((crumb, i) => (
           <span key={i} className="flex items-center gap-1.5">
             {i > 0 && <span className="text-border">/</span>}
@@ -110,13 +109,14 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
         </div>
       )}
 
-      <div className="flex-1" />
+      <div className="hidden flex-1 lg:block" />
 
       {/* POS */}
       {!admin && (
         <Link
           href="/pos"
-          className={`flex items-center gap-2 px-2 sm:px-3.5 h-8 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
+          aria-label="Open point of sale"
+          className={`hidden lg:flex items-center gap-2 px-2 sm:px-3.5 h-11 text-[13px] font-bold rounded-lg transition-colors flex-shrink-0 ${
             pathname === "/pos"
               ? "bg-accent/10 text-accent ring-1 ring-inset ring-accent/30"
               : "bg-accent text-white hover:bg-accent/90"
@@ -129,35 +129,28 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
 
       {/* Search */}
       {!admin && (
-        <div className="hidden lg:flex items-center gap-2 border border-border bg-surface/60 hover:bg-surface px-3 py-1.5 text-[13px] text-muted hover:border-foreground/20 transition-all cursor-pointer w-56 rounded-lg">
-          <Search size={13} />
-          <span className="text-[13px] flex-1">Search...</span>
-          <span className="text-[10px] bg-card border border-border px-1.5 py-0.5 text-muted/60 font-mono rounded">⌘K</span>
-        </div>
+        <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search pages" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface xl:w-44 xl:justify-start xl:gap-2 xl:border xl:border-border xl:px-3"><Search size={18} /><span className="hidden xl:inline">Search pages</span><kbd className="ml-auto hidden text-xs xl:inline">⌘K</kbd></button>
       )}
 
       {/* Notifications */}
       {!admin && (
-        <button className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors relative" title="Notifications">
-          <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-card" />
-        </button>
+        <button type="button" onClick={() => setNotificationsOpen(true)} aria-label="Notifications" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface"><Bell size={18} /></button>
       )}
 
       {/* Theme toggle */}
       <button
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-        className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
+        className="hidden lg:flex w-11 h-11 shrink-0 items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
       >
         {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
       </button>
 
       {/* Language switcher */}
-      <div className="relative">
+      <div className="relative hidden lg:block">
         <button
           onClick={() => { setShowLang((v) => !v); setShowUser(false); }}
-          className="w-8 h-8 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
+          className="w-11 h-11 shrink-0 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors"
           title="Change language"
         >
           <Globe size={16} />
@@ -186,16 +179,17 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
       <div className="relative">
         <button
           onClick={() => { setShowUser((v) => !v); setShowLang(false); }}
-          className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
+          aria-label="Open account menu" aria-expanded={showUser}
+          className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 lg:pl-2 lg:border-l border-border hover:opacity-80 transition-opacity"
         >
           <div className="w-7 h-7 bg-accent rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
             {user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
           </div>
-          <div className="hidden sm:block text-left">
+          <div className="hidden xl:block text-left">
             <p className="text-[13px] font-semibold text-foreground leading-tight max-w-[100px] truncate">{user?.name}</p>
             <p className="text-[11px] text-muted leading-tight capitalize">{user?.role}</p>
           </div>
-          <ChevronDown size={12} className="text-muted hidden sm:block" />
+          <ChevronDown size={12} className="text-muted hidden xl:block" />
         </button>
         {showUser && (
           <>
@@ -218,6 +212,8 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
               >
                 <UserCircle size={13} /> My Profile
               </Link>
+              <button type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="flex min-h-11 w-full items-center gap-2 px-4 text-sm hover:bg-surface lg:hidden">{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />} {theme === "dark" ? "Light theme" : "Dark theme"}</button>
+              <div className="border-t border-border px-4 py-2 lg:hidden"><label htmlFor="account-language" className="text-xs text-muted">Language</label><select id="account-language" className="pesaa-control mt-1" value={locale} onChange={(e) => { const choice = locales.find((l) => l.code === e.target.value); if (choice) setLocale(choice.code); }}>{locales.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}</select></div>
               {hasPermission("tenants:update") && (
                 <Link
                   href="/settings"
@@ -238,5 +234,8 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
         )}
       </div>
     </header>
+    <NavigationSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
+    <Drawer open={notificationsOpen} onClose={() => setNotificationsOpen(false)} title="Notifications" side="bottom"><div className="space-y-3 p-4"><p className="text-sm text-muted">Follow your support requests and work awaiting a decision.</p><Link href="/support" onClick={() => setNotificationsOpen(false)} className="flex min-h-11 items-center text-sm font-semibold text-accent">View support requests</Link>{hasPermission("approvals:read") && <Link href="/approvals" onClick={() => setNotificationsOpen(false)} className="flex min-h-11 items-center text-sm font-semibold text-accent">View approvals</Link>}</div></Drawer>
+    </>
   );
 }

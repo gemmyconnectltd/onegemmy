@@ -163,7 +163,7 @@ export default function VariantsPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Variants</h1>
           <p className="text-sm text-muted mt-0.5">{variants.length} variants · {variants.filter((v) => v.is_active).length} active</p>
@@ -174,7 +174,7 @@ export default function VariantsPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input type="text" placeholder="Search variants..." value={search} onChange={(e) => setSearch(e.target.value)}

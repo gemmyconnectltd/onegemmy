@@ -78,7 +78,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Appointments</h1>
           <p className="text-sm text-muted mt-0.5">{total} appointment{total === 1 ? "" : "s"} on {new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
@@ -111,7 +111,7 @@ export default function AppointmentsPage() {
         </div>
 
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
-          <TableScroll><table className="w-full min-w-160">
+          <TableScroll mobileLayout="cards"><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 {["Time", "Customer", "Service", "Staff", "Duration", "Status", ""].map((h) => (

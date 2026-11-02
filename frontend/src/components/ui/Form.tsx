@@ -1,7 +1,8 @@
 "use client";
 
-import { cloneElement, isValidElement, useId } from "react";
+import { Children, cloneElement, isValidElement, useId } from "react";
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { Button } from "./Button";
 
 export function Field({
@@ -18,18 +19,23 @@ export function Field({
   children: ReactNode;
 }) {
   const generatedId = useId();
-  const control = isValidElement<{ id?: string; "aria-describedby"?: string }>(children) ? children : null;
+  const content = Children.toArray(children);
+  const controlIndex = content.findIndex((child) => isValidElement(child) && (
+    [Input, Select, Textarea].includes(child.type as typeof Input) ||
+    (typeof child.type === "string" && ["input", "select", "textarea"].includes(child.type)) || content.length === 1
+  ));
+  const control = controlIndex >= 0 ? content[controlIndex] as React.ReactElement<{ id?: string; "aria-describedby"?: string }> : null;
   const controlId = control?.props.id ?? generatedId;
   const hintId = `${controlId}-hint`;
   return (
-    <div className={className}>
+    <div className={`min-w-0 ${className ?? ""}`}>
       {label && (
         <label htmlFor={control ? controlId : undefined} className="block text-[13px] font-medium text-foreground mb-1">
           {label}
           {required && <span className="text-red-500"> *</span>}
         </label>
       )}
-      {control ? cloneElement(control, { id: controlId, "aria-describedby": [control.props["aria-describedby"], hint ? hintId : null].filter(Boolean).join(" ") || undefined }) : children}
+      {control ? content.map((child, index) => index === controlIndex ? cloneElement(control, { id: controlId, "aria-describedby": [control.props["aria-describedby"], hint ? hintId : null].filter(Boolean).join(" ") || undefined }) : child) : children}
       {hint && <p id={hintId} className="text-[11px] text-muted mt-1">{hint}</p>}
     </div>
   );
@@ -69,7 +75,7 @@ export function FormFooter({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Button type="button" variant="secondary" onClick={onCancel} className="flex-1">
+      <Button type="button" variant="secondary" onClick={(e) => { const dialog = e.currentTarget.closest<HTMLElement>('[role="dialog"]'); if (!dialog || (dialog.dataset.workspaceDirty !== "true" && !hasUnsavedChanges(dialog)) || window.confirm("Discard unsaved changes?")) onCancel(); }} className="flex-1">
         {cancelLabel}
       </Button>
       <Button type="submit" variant="primary" color={color} disabled={disabled} className="flex-1">

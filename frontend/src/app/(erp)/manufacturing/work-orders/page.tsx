@@ -158,7 +158,7 @@ export default function WorkOrdersPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Work Orders</h1>
           <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${orders.length} work orders`}</p>
@@ -210,7 +210,7 @@ export default function WorkOrdersPage() {
             <Button color={COLOR} size="sm" onClick={openAdd}><Plus size={13} /> New Work Order</Button>
           </div>
         ) : (
-          <TableScroll><table className="w-full min-w-[640px]">
+          <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 w-10">

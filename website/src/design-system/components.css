@@ -80,3 +80,21 @@
     color: var(--foreground);
   }
 }
+
+/* Explicit mobile record-list mode; dense financial tables retain scroll mode. */
+@media (max-width: 767px) {
+  [data-mobile-layout="cards"] { contain: inline-size; }
+  [data-mobile-layout="cards"] [role="region"] { overflow-x: visible; }
+  [data-mobile-layout="cards"] table { display: block; min-width: 0; }
+  [data-mobile-layout="cards"] thead, [data-mobile-layout="cards"] tbody { display: block; }
+  [data-mobile-layout="cards"] thead tr { display: flex; flex-wrap: wrap; }
+  [data-mobile-layout="cards"] thead th { display: none; }
+  [data-mobile-layout="cards"] thead th:has(input, button, select) { display: block; }
+  [data-mobile-layout="cards"] tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); margin: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 8px; background: var(--card); }
+  [data-mobile-layout="cards"] tbody td { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; width: auto; max-width: none; padding: 8px; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+  [data-mobile-layout="cards"] tbody td:last-child { border-bottom: 0; }
+  [data-mobile-layout="cards"] tbody td::before { content: attr(data-label); font-size: 12px; font-weight: 500; color: var(--muted); flex-shrink: 0; max-width: 40%; }
+  [data-mobile-layout="cards"] tbody td[data-label=""]::before,
+  [data-mobile-layout="cards"] tbody td[colspan]::before { content: none; }
+  [data-mobile-layout="cards"] tbody td > * { min-width: 0; max-width: 100%; }
+}

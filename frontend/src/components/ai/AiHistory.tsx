@@ -26,7 +26,7 @@ export function AiHistory({
       <button type="button" onClick={onBack} className="flex items-center gap-1 px-3 pt-2.5 text-[12.5px] font-medium text-muted hover:text-foreground">
         <ChevronLeft size={15} /> Back to chat
       </button>
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-2 pesaa-responsive-toolbar">
         <div className="relative min-w-0 flex-1">
           <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search conversations" aria-label="Search conversations"

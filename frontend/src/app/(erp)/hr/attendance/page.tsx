@@ -112,7 +112,7 @@ export default function AttendancePage() {
 
       {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: "Present", value: present, color: "#10B981" },
           { label: "Late", value: late, color: "#f59e0b" },

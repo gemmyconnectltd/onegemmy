@@ -52,7 +52,7 @@ export default function WarrantyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Warranty Claims</h1>
           <p className="text-sm text-muted mt-0.5">{claims.length} claims</p>
@@ -103,7 +103,7 @@ export default function WarrantyPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-        <TableScroll><table className="w-full min-w-[640px] text-sm">
+        <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
               <th className="px-4 py-3 font-semibold">Claim</th>

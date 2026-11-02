@@ -443,7 +443,7 @@ export default function SalesOrdersPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Sales History</h1>
           <p className="text-sm text-muted mt-0.5">{total} total sale{total === 1 ? "" : "s"}</p>
@@ -516,7 +516,7 @@ export default function SalesOrdersPage() {
         {loading ? (
           <PageLoader variant="compact" />
         ) : (
-          <TableScroll><table className={`w-full min-w-160 transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
+          <TableScroll className="hidden md:block"><table className={`w-full min-w-160 transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -585,6 +585,7 @@ export default function SalesOrdersPage() {
             </tbody>
           </table></TableScroll>
         )}
+        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
         {!loading && orders.length === 0 && (
           <div className="py-16 text-center">
             <ShoppingCart size={32} className="text-border mx-auto mb-3" />
@@ -637,7 +638,7 @@ export default function SalesOrdersPage() {
             </div>
 
             {/* header row */}
-            <div className="grid grid-cols-12 gap-2 mb-1 px-0.5">
+            <div className="hidden sm:grid sm:grid-cols-12 gap-2 mb-1 px-0.5">
               {["Product", "Price", "Qty", "Disc.", ""].map((h, i) => (
                 <div key={i} className={`text-[11px] font-semibold text-muted ${i === 0 ? "col-span-5" : i === 4 ? "col-span-1" : "col-span-2"}`}>{h}</div>
               ))}
@@ -645,9 +646,9 @@ export default function SalesOrdersPage() {
 
             <div className="space-y-2">
               {items.map((it, idx) => (
-                <div key={it.rowId} className="grid grid-cols-12 gap-2 items-center">
+                <div key={it.rowId} className="grid grid-cols-2 sm:grid-cols-12 gap-3 items-center rounded-xl border border-border p-3 sm:border-0 sm:p-0">
                   {/* product picker */}
-                  <div className="col-span-5">
+                  <div className="col-span-2 sm:col-span-5">
                     <ProductPicker
                       item={it}
                       products={products}
@@ -655,29 +656,29 @@ export default function SalesOrdersPage() {
                     />
                   </div>
                   {/* unit price — auto-filled but editable */}
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <Input
                       type="number" min="0"
-                      value={it.unit_price}
+                      aria-label={`Line ${idx + 1} unit price`} value={it.unit_price}
                       onChange={(e) => updateItem(idx, { unit_price: e.target.value })}
                       placeholder="Price"
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <Input
                       type="number" min="1"
-                      value={it.quantity}
+                      aria-label={`Line ${idx + 1} quantity`} value={it.quantity}
                       onChange={(e) => updateItem(idx, { quantity: e.target.value })}
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <Input
                       type="number" min="0"
-                      value={it.discount}
+                      aria-label={`Line ${idx + 1} discount`} value={it.discount}
                       onChange={(e) => updateItem(idx, { discount: e.target.value })}
                     />
                   </div>
-                  <div className="col-span-2 flex justify-center">
+                  <div className="sm:col-span-1 flex justify-center">
                     {items.length > 1 && (
                       <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
                         aria-label="Remove line"
@@ -688,7 +689,7 @@ export default function SalesOrdersPage() {
                   </div>
                   {/* line total preview */}
                   {it.unit_price && (
-                    <div className="col-span-12 -mt-1 px-0.5">
+                    <div className="col-span-2 sm:col-span-12 -mt-1 px-0.5">
                       <p className="text-[11px] text-muted text-right">
                         Line total: <span className="font-semibold text-foreground">{fmt((Number(it.unit_price) * Number(it.quantity)) - Number(it.discount))}</span>
                         {it.sku && <span className="ml-2 text-muted/60">SKU: {it.sku}</span>}

@@ -135,7 +135,7 @@ export function SuppliersManager() {
   return (
     <div className="space-y-5">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-xl font-bold text-foreground">Suppliers</h1>
           <p className="text-xs text-muted mt-0.5">{total} supplier{total === 1 ? "" : "s"}</p>
@@ -157,7 +157,7 @@ export function SuppliersManager() {
           <p className="text-sm font-semibold text-foreground">New Supplier</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {(["name", "email", "phone", "address"] as const).map((key) => (
-              <input key={key} type="text" placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+              <input key={key} type="text" aria-label={key.charAt(0).toUpperCase() + key.slice(1)} placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
                 value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
                 className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
             ))}
@@ -195,7 +195,7 @@ export function SuppliersManager() {
         )}
         <div className={`divide-y divide-border transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           {suppliers.map((s) => (
-            <div key={s.id} className="px-4 py-4 flex items-start gap-4 hover:bg-surface/40 transition-colors">
+            <div key={s.id} className="px-4 py-4 flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4 hover:bg-surface/40 transition-colors">
               <input
                 type="checkbox"
                 checked={bulk.selected.has(s.id)}
@@ -206,16 +206,16 @@ export function SuppliersManager() {
                 {s.name[0]}
               </div>
               {editingId === s.id ? (
-                <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="basis-full sm:basis-auto flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   {(["name", "email", "phone", "address"] as const).map((key) => (
-                    <input key={key} value={editForm[key]} placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                    <input key={key} value={editForm[key]} aria-label={key.charAt(0).toUpperCase() + key.slice(1)} placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
                       onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
                       className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
                   ))}
                   <input type="number" min="0" max="365" placeholder="Lead time (days)" value={editForm.lead_time}
                     onChange={(e) => setEditForm((p) => ({ ...p, lead_time: e.target.value }))}
                     className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
-                  <div className="col-span-2 lg:col-span-4 flex gap-2">
+                  <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
                     <Button onClick={() => handleEdit(s.id)} disabled={updateSupplier.isPending} size="sm" color={INV_COLOR} className="rounded">
                       <Check size={12} /> Save
                     </Button>
@@ -227,7 +227,7 @@ export function SuppliersManager() {
               ) : (
                 <>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <p className="text-sm font-semibold text-foreground">{s.name}</p>
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 ${s.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
                         {s.is_active ? "active" : "inactive"}

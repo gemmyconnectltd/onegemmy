@@ -157,7 +157,7 @@ export default function ServiceCatalogPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Service Catalog</h1>
           <p className="text-sm text-muted mt-0.5">{total} service{total === 1 ? "" : "s"}</p>
@@ -208,7 +208,7 @@ export default function ServiceCatalogPage() {
         )}
 
         <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
-          <TableScroll><table className="w-full min-w-160">
+          <TableScroll mobileLayout="cards"><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">

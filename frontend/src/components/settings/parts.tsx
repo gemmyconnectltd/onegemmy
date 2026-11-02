@@ -43,8 +43,8 @@ export function NotAvailable({ label, hint }: { label: string; hint?: string }) 
 /** The one Save action of a form: disabled until something changed, with progress and result feedback. */
 export function SaveBar({ dirty, invalid, saving, saved, error, onSave, onReset, label = "Save changes" }: { dirty: boolean; invalid?: boolean; saving: boolean; saved: boolean; error: string | null; onSave: () => void; onReset?: () => void; label?: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3 sm:px-5">
-      <Button type="button" onClick={onSave} disabled={!dirty || invalid || saving} variant="primary">{saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={14} />}{saving ? "Saving…" : label}</Button>
+    <div data-workspace-dirty={dirty && !saved} className="flex flex-wrap items-center gap-3 border-t border-border bg-card px-4 py-3 sm:px-5">
+      <Button type="button" onClick={(e) => { const form = e.currentTarget.closest("form"); if (form) form.requestSubmit(); else onSave(); }} disabled={!dirty || invalid || saving} variant="primary">{saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={14} />}{saving ? "Saving…" : label}</Button>
       {onReset && dirty && !saving && <Button type="button" variant="ghost" onClick={onReset}>Discard</Button>}
       {saved && <span role="status" className="flex items-center gap-1 text-[12px] font-medium text-emerald-600 dark:text-emerald-400"><CheckCircle2 size={13} /> Saved</span>}
       {error && <span role="alert" className="text-[12px] font-medium text-red-600 dark:text-red-400">{error}</span>}

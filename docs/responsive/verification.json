@@ -1,0 +1,2226 @@
+{
+  "scope": "ERP and desktop POS; synthetic API data, empty lists and missing/unavailable-record states, not live business workflows",
+  "source_audit": {
+    "routes": 119,
+    "supporting_source_files": 155,
+    "uncontained_working_tables": 0,
+    "print_document_exception": "POS ReceiptDocument"
+  },
+  "route_smoke": {
+    "checks": 357,
+    "source_routes": 119,
+    "widths": [
+      320,
+      820,
+      1440
+    ],
+    "failures": 0,
+    "fixture_contract_rechecks": 27,
+    "cases": [
+      {
+        "route": "/accounting",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/accounts",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/assets",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/cash-bank",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/expenses",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/income",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/invoices",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/ledger",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/payables",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/payroll",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/receivables",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/reports",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting/tax",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/approvals",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/branches",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/branches/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/crm",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/crm/campaigns",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/crm/contacts",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/crm/emails",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/customers",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/customers/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/customers/analytics",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/customers/loyalty",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/customers/segments",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/dashboard",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/debts",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/debts/payables",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/debts/receivables",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/debts/statements",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/expenses",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/expenses/categories",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/expenses/list",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/expenses/new",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/hr",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/hr/attendance",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/hr/departments",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/hr/leave",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/hr/payroll",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/hr/recruiting",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/batches",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/brands",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/categories",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/products",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/serials",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/suppliers",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/transfers",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/units",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/variants",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/inventory/warranty",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/analytics",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/bom",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/materials",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/work-orders",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/pos",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/bills",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/bills/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111/edit",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111/receive",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/new",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/receipts",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/requests",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/returns",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/procurement/suppliers",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/products",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/profile",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/repairs",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/accounting",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/accounting-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/crm-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/customers",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/daily",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/debts-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/expenses-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/finance",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory-report",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/manufacturing-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/operations",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/procurement-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales-report",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/reports/services-overview",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/sales",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/sales/analytics",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/sales/deals",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/sales/orders",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/sales/returns",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/sales/targets",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/services",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/services/appointments",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/services/calendar",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/services/catalog",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/services/staff-commissions",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/services/walk-ins",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/appearance",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/billing",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/branches",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/branches/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/financial",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/notifications",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/profile",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/security",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/users",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/access",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/access/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/roles",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/roles/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/support",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/support/11111111-1111-4111-8111-111111111111",
+        "viewport": 320,
+        "document_width": 320,
+        "errors": []
+      },
+      {
+        "route": "/accounting",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/accounts",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/assets",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/cash-bank",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/expenses",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/income",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/invoices",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/ledger",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/payables",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/payroll",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/receivables",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/reports",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting/tax",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/approvals",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/branches",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/branches/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/crm",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/crm/campaigns",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/crm/contacts",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/crm/emails",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/customers",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/customers/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/customers/analytics",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/customers/loyalty",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/customers/segments",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/dashboard",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/debts",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/debts/payables",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/debts/receivables",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/debts/statements",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/expenses",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/expenses/categories",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/expenses/list",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/expenses/new",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/hr",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/hr/attendance",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/hr/departments",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/hr/leave",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/hr/payroll",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/hr/recruiting",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/batches",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/brands",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/categories",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/products",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/serials",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/suppliers",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/transfers",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/units",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/variants",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/inventory/warranty",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/analytics",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/bom",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/materials",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/work-orders",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/pos",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/bills",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/bills/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111/edit",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111/receive",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/new",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/receipts",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/requests",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/returns",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/procurement/suppliers",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/products",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/profile",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/repairs",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/accounting",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/accounting-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/crm-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/customers",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/daily",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/debts-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/expenses-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/finance",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory-report",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/manufacturing-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/operations",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/procurement-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales-report",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/reports/services-overview",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/sales",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/sales/analytics",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/sales/deals",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/sales/orders",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/sales/returns",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/sales/targets",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/services",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/services/appointments",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/services/calendar",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/services/catalog",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/services/staff-commissions",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/services/walk-ins",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/appearance",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/billing",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/branches",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/branches/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/financial",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/notifications",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/profile",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/security",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/users",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/access",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/access/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/roles",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/roles/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/support",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/support/11111111-1111-4111-8111-111111111111",
+        "viewport": 820,
+        "document_width": 820,
+        "errors": []
+      },
+      {
+        "route": "/accounting",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/accounts",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/assets",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/cash-bank",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/expenses",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/income",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/invoices",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/ledger",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/payables",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/payroll",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/receivables",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/reports",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/accounting/tax",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/approvals",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/branches",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/branches/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/crm",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/crm/campaigns",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/crm/contacts",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/crm/emails",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/customers",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/customers/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/customers/analytics",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/customers/loyalty",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/customers/segments",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/dashboard",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/debts",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/debts/payables",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/debts/receivables",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/debts/statements",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/expenses",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/expenses/categories",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/expenses/list",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/expenses/new",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/hr",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/hr/attendance",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/hr/departments",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/hr/leave",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/hr/payroll",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/hr/recruiting",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/batches",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/brands",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/categories",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/products",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/serials",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/suppliers",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/transfers",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/units",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/variants",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/inventory/warranty",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/analytics",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/bom",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/materials",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/manufacturing/work-orders",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/pos",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/bills",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/bills/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111/edit",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/11111111-1111-4111-8111-111111111111/receive",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/orders/new",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/receipts",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/requests",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/returns",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/procurement/suppliers",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/products",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/profile",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/repairs",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/accounting",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/accounting-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/crm-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/customers",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/daily",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/debts-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/expenses-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/finance",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/inventory-report",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/manufacturing-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/operations",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/procurement-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/sales-report",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/reports/services-overview",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/sales",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/sales/analytics",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/sales/deals",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/sales/orders",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/sales/returns",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/sales/targets",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/services",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/services/appointments",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/services/calendar",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/services/catalog",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/services/staff-commissions",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/services/walk-ins",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/appearance",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/billing",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/branches",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/branches/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/financial",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/notifications",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/profile",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/security",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/users",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/access",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/access/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/roles",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/settings/users/roles/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/support",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      },
+      {
+        "route": "/support/11111111-1111-4111-8111-111111111111",
+        "viewport": 1440,
+        "document_width": 1440,
+        "errors": []
+      }
+    ]
+  },
+  "representative_viewports": {
+    "checks": 88,
+    "widths": [
+      320,
+      360,
+      375,
+      390,
+      430,
+      768,
+      820,
+      1024,
+      1280,
+      1440,
+      1920
+    ],
+    "routes": [
+      "/inventory/products",
+      "/customers",
+      "/sales/orders",
+      "/procurement/orders",
+      "/hr",
+      "/settings",
+      "/accounting/accounts",
+      "/pos"
+    ],
+    "page_width_overflows": 0,
+    "note": "Initial workflow viewport sweep; final source additionally passed the full route smoke and focused interaction regression."
+  },
+  "interaction_regressions": {
+    "result": "passed",
+    "checks": [
+      "branch switch updates persisted context and refetches products with X-Branch-Id",
+      "unchanged and fixed-branch switching disabled",
+      "dirty drawer close cancellation preserves input",
+      "workspace switch cancellation preserves settings and branch",
+      "internal navigation confirmation preserves unsaved form",
+      "restoring original form values clears dirty state",
+      "page search and Escape restore trigger focus",
+      "dark theme renders phone product view",
+      "820x430 landscape fits",
+      "390x400 edit dialog fits and save action stays visible",
+      "compact menus exclude disabled inventory and owner-only overview/reports for staff",
+      "fixed-scope staff see only authorized branch choices"
+    ]
+  },
+  "automated_checks": {
+    "frontend_node_tests": 47,
+    "design_system_tests": 10,
+    "typescript": "passed",
+    "eslint": "passed with 7 existing unused-variable/import warnings",
+    "design_system_check": "passed",
+    "production_webpack_build": "passed",
+    "diff_check": "passed"
+  },
+  "limitations": [
+    "Headless Chromium only; physical iOS/Android keyboards, Safari/Firefox and assistive technology require device acceptance.",
+    "Empty/unavailable report and missing-record views do not establish populated-chart or every detail workflow coverage.",
+    "No live payments, inventory writes, payroll, or export jobs executed.",
+    "One business per identity in existing backend; cross-business membership is not introduced.",
+    "Notification entry links to existing workflows; no new notification backend/feed.",
+    "No commit, push or production deployment performed for this responsive task."
+  ]
+}

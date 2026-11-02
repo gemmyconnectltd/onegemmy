@@ -188,7 +188,7 @@ export const transfersApi = {
 };
 
 export const branchesApi = {
-  list: () => request<PaginatedResponse<ApiBranch>>(BRANCHES),
+  list: (page = 1) => request<PaginatedResponse<ApiBranch>>(`${BRANCHES}?page=${page}&page_size=20`),
   get: (id: string) => request<SingleResponse<ApiBranch>>(`${BRANCHES}/${id}`),
   stats: (id: string) => request<SingleResponse<ApiBranchStats>>(`${BRANCHES}/${id}/stats`),
   create: (data: object) => request<SingleResponse<ApiBranch>>(BRANCHES, { method: "POST", body: JSON.stringify(data) }),

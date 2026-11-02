@@ -147,7 +147,7 @@ export default function EmployeesPage() {
 
       {notice && <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2.5">{notice}</p>}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: "Total", value: employees.length, icon: Users, color: "#b45309" },
           { label: "Active", value: active, icon: UserCheck, color: "#10B981" },
@@ -192,7 +192,7 @@ export default function EmployeesPage() {
               <BulkActionBar count={bulk.count} label="employee" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
             </div>
           )}
-          <TableScroll><table className="w-full min-w-[640px]">
+          <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">

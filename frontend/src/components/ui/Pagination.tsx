@@ -61,7 +61,7 @@ export function Pagination({
 
   return (
     <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3 border-t border-border ${className ?? ""}`}>
-      <div className="flex items-center gap-3 order-2 sm:order-1">
+      <div className="flex flex-wrap justify-center items-center gap-3 order-2 sm:order-1">
         <p className="text-xs text-muted whitespace-nowrap">
           {total === 0
             ? `No ${itemLabel}`

@@ -111,8 +111,8 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
+        <div className="flex items-center gap-3 pesaa-responsive-toolbar">
           <Package className="h-6 w-6 text-accent" style={{ color: "#16a34a" }} />
           <h1 className="text-2xl font-bold" style={{ color: "#2b2118" }}>
             Products
@@ -156,7 +156,7 @@ export default function ProductsPage() {
         style={{ border: "1px solid #e8e4de" }}
       >
         <div className="overflow-x-auto">
-          <TableScroll><table className="w-full min-w-[640px] text-sm">
+          <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr style={{ backgroundColor: "#f8f8f6" }}>
                 <th

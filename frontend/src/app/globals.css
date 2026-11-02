@@ -236,3 +236,29 @@ input, select, textarea {
 }
 
 /* Official cross-application visual contracts. */
+
+/* Responsive ERP shell: one clearance shared by navigation, content, and floating actions. */
+:root { --erp-nav-clearance: calc(64px + env(safe-area-inset-bottom, 0px)); }
+.pesaa-erp-shell { margin-left: 0; padding-bottom: var(--erp-nav-clearance); }
+.pesaa-bottom-nav { height: var(--erp-nav-clearance); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pesaa-dialog:not(.relative) { max-height: 100dvh; }
+.pesaa-dialog-footer { padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+[data-app-content] { overflow-wrap: anywhere; }
+[data-app-content] :is(.grid, .flex) > * { min-width: 0; }
+.pesaa-dialog :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+@media (min-width: 1024px) {
+  :root { --erp-nav-clearance: 0px; }
+  .pesaa-erp-shell { margin-left: var(--sidebar-width); padding-bottom: 0; }
+}
+@media (max-width: 767px) {
+  [data-app-content] :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  .pesaa-dialog :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  .pesaa-topbar select { font-size: 16px; min-height: 44px; }
+  [data-app-content] button:not([role="switch"]), .pesaa-dialog button:not([role="switch"]) { min-height: 44px; }
+  [data-app-content] button:has(> svg:only-child) { min-width: 44px; }
+  .pesaa-nav-row { min-height: 44px; }
+  .pesaa-responsive-toolbar { flex-wrap: wrap; gap: 12px; }
+  .pesaa-responsive-toolbar > :is(.flex, .inline-flex) { flex-wrap: wrap; }
+  .pesaa-responsive-toolbar > .relative { width: 100%; max-width: none; }
+  .pesaa-dialog form { min-width: 0; }
+}

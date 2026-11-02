@@ -79,7 +79,7 @@ export default function BrandsPage() {
   return (
     <div className="space-y-5">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-xl font-bold text-foreground">Brands</h1>
           <p className="text-xs text-muted mt-0.5">{brands.length} brands</p>
@@ -111,7 +111,7 @@ export default function BrandsPage() {
       )}
 
       <div className="bg-card border border-border">
-        <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input type="text" placeholder="Search brands..." value={search} onChange={(e) => setSearch(e.target.value)}

@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Sidebar, sidebarWidth } from "@/components/dashboard/Sidebar";
 import { ModuleAvailabilityGuard } from "@/components/auth/ModuleAvailabilityGuard";
 import { ActivityTracker } from "@/components/dashboard/ActivityTracker";
 import { SupportFab } from "@/components/dashboard/SupportFab";
+import { UnsavedChangesGuard } from "@/components/dashboard/UnsavedChangesGuard";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { ProductTour, type TourStep } from "@/components/tour/ProductTour";
@@ -91,18 +92,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const setSidebarCollapsed = (v: boolean) => writeStored(COLLAPSED_KEY, v ? "1" : "0");
 
-  const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   useEffect(() => {
     document.title = pageTitleForPath(pathname);
@@ -129,15 +123,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         onCollapsedChange={setSidebarCollapsed}
       />
       <div
-        className="flex min-w-0 flex-col min-h-screen"
+        className="pesaa-erp-shell flex min-w-0 flex-col min-h-screen"
         style={{
-          marginLeft: isMobile ? 0 : sidebarW,
-          paddingBottom: isMobile ? 64 : 0,
-        }}
+          "--sidebar-width": `${sidebarW}px`,
+        } as CSSProperties}
       >
         <Topbar onToggleSidebar={() => setSidebarOpen(value => !value)} sidebarExpanded={sidebarOpen} />
         <main data-app-content className="min-w-0 flex-1 px-4 sm:px-8 py-4 sm:py-6"><ModuleAvailabilityGuard>{children}</ModuleAvailabilityGuard></main>
       </div>
+      <UnsavedChangesGuard />
       <ActivityTracker />
       <SupportFab />
       <ProductTour steps={TOUR_STEPS} storageKey="onegemmy_tour_seen" />

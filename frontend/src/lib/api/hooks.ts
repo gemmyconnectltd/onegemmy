@@ -620,6 +620,9 @@ export const useCreateApproval = mutation((d: NewApproval) => approvalsApi.creat
 export const useMyBranches = (opts?: QueryOpts) =>
   useQ([...BRANCHES_KEY], () => branchesApi.list(), (r) => r.data, opts);
 
+export const useWorkspaceBranches = (page: number, opts?: QueryOpts) =>
+  useQ([...BRANCHES_KEY, "workspace", page], () => branchesApi.list(page), (r) => r.data, { ...opts, placeholderData: undefined });
+
 export const useMyBranch = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...BRANCHES_KEY, id], () => branchesApi.get(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 

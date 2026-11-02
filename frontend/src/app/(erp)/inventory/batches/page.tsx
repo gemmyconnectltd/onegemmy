@@ -92,7 +92,7 @@ export default function BatchesPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Batches & Expiry</h1>
           <p className="text-sm text-muted mt-0.5">{batches.length} batch{batches.length !== 1 ? "es" : ""}</p>

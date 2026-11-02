@@ -21,7 +21,7 @@ export function ModuleLayout({ module, children, renderNav }: ModuleLayoutProps)
 
   return (
     <div
-      className={`-mx-4 sm:-mx-8 -my-6 ${
+      className={`-mx-4 sm:-mx-8 -my-4 sm:-my-6 ${
         isLeft
           ? "flex flex-col lg:flex-row min-h-[calc(100vh-60px)]"
           : "flex flex-col min-h-[calc(100vh-60px)]"
@@ -36,7 +36,7 @@ export function ModuleLayout({ module, children, renderNav }: ModuleLayoutProps)
           onOrientationChange={setNavOrientation}
         />
       )}
-      <div className="flex-1 p-6 min-w-0">{children}</div>
+      <div className="flex-1 p-4 sm:p-6 min-w-0">{children}</div>
     </div>
   );
 }

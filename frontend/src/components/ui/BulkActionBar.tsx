@@ -17,9 +17,9 @@ export function BulkActionBar({ count, label, pluralLabel, onDelete, onClear, de
   if (count === 0) return null;
   const noun = count === 1 ? label : (pluralLabel ?? `${label}s`);
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-accent/5 border border-accent/20">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-accent/5 border border-accent/20">
       <p className="text-sm font-semibold text-foreground">{count} {noun} selected</p>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onClear}

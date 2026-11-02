@@ -155,7 +155,7 @@ export default function PurchaseRequestsPage() {
             </button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-2 bg-card border border-border px-3 py-2 w-56">
+        <div className="ml-auto flex items-center gap-2 bg-card border border-border px-3 py-2 w-56 pesaa-responsive-toolbar">
           <Search size={14} className="text-muted flex-shrink-0" />
           <input
             value={search}

@@ -99,7 +99,7 @@ export default function RepairsPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Repair Jobs</h1>
           <p className="text-sm text-muted mt-0.5">{jobs.length} job{jobs.length !== 1 ? "s" : ""}</p>
@@ -185,7 +185,7 @@ export default function RepairsPage() {
             <BulkActionBar count={bulk.count} label="job" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
-        <TableScroll><table className="w-full min-w-[640px] text-sm">
+        <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
               <th className="px-4 py-3 w-10">

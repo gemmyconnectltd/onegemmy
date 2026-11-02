@@ -164,7 +164,7 @@ export default function TransfersPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Branch Stock Transfers</h1>
           <p className="text-sm text-muted mt-0.5">{transfers.length} transfers</p>

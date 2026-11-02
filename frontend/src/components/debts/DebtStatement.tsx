@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -61,7 +62,7 @@ export function DebtStatementScreen() {
           <div className="flex gap-2"><Button variant="secondary" disabled={busy} onClick={() => void download("xlsx")}><Download size={14} />Excel</Button><Button variant="secondary" disabled={busy} onClick={() => void download("pdf")}><Download size={14} />PDF</Button>{canSend && <Button disabled={send.isPending || !data.party.email} title={data.party.email ? undefined : "This customer has no email address"} onClick={() => void email()}><Mail size={14} />Send statement</Button>}</div></div>
         <DebtSummary currency={data.currency} items={[{ label: "Total billed", value: data.totals.billed }, { label: "Total paid", value: data.totals.paid }, { label: "Written off", value: data.totals.written_off }, { label: "Outstanding", value: data.totals.outstanding, overdue: Number(data.totals.outstanding) > 0 }]} />
         <DebtAging aging={data.aging} currency={data.currency} title="Outstanding by age" />
-        <div className="overflow-x-auto rounded-xl border border-border bg-card"><table className="w-full min-w-[720px] text-left text-[12px]">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card"><TableScroll label="Debt statement"><table className="w-full min-w-[720px] text-left text-[12px]">
           <caption className="sr-only">Statement ledger</caption>
           <thead className="border-b border-border bg-surface text-[10px] uppercase tracking-wide text-muted"><tr>{["Date", "Reference", "Description", "Debit", "Credit", "Balance"].map((heading, i) => <th key={heading} scope="col" className={`px-4 py-3 font-medium ${i >= 3 ? "text-right" : ""}`}>{heading}</th>)}</tr></thead>
           <tbody className="divide-y divide-border">
@@ -69,7 +70,7 @@ export function DebtStatementScreen() {
             {data.rows.map((row, index) => <tr key={`${row.reference}-${index}`}><td className="whitespace-nowrap px-4 py-3">{debtDate(row.date)}</td><td className="px-4 py-3">{row.reference}</td><td className="px-4 py-3 text-muted">{row.description}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{Number(row.debit) ? money(row.debit, data.currency) : "–"}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-accent">{Number(row.credit) ? money(row.credit, data.currency) : "–"}</td><td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">{money(row.balance, data.currency)}</td></tr>)}
             {!data.rows.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">No activity in this period.</td></tr>}
             <tr className="bg-surface/50 font-semibold"><td className="px-4 py-3" colSpan={5}>Closing balance</td><td className="px-4 py-3 text-right tabular-nums">{money(data.closing, data.currency)}</td></tr>
-          </tbody></table></div>
+          </tbody></table></TableScroll></div>
       </>}
   </div>;
 }

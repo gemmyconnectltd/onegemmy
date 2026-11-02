@@ -70,7 +70,7 @@ export default function WalkInsPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Walk-in Queue</h1>
           <p className="text-sm text-muted mt-0.5">{list.length} {STATUS_TABS.find((t) => t.key === tab)?.label.toLowerCase()}</p>

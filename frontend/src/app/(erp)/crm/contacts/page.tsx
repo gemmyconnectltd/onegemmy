@@ -19,12 +19,12 @@ const stageColor: Record<string, string> = {
 export default function ContactsPage() {
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />Add Contact</button>
       </div>
       <div className="bg-card border border-border">
-        <TableScroll><table className="w-full min-w-[640px]">
+        <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px]">
           <thead><tr className="border-b border-border text-left text-xs text-muted">
             <th className="p-4 font-medium">Name</th><th className="p-4 font-medium">Company</th><th className="p-4 font-medium">Email</th><th className="p-4 font-medium">Phone</th><th className="p-4 font-medium">Stage</th>
           </tr></thead>

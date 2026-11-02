@@ -48,7 +48,7 @@ export function Toggle({
       disabled={busy}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative rounded-full outline-none transition-colors duration-200 select-none",
+        "relative rounded-full outline-none transition-colors duration-200 select-none before:absolute before:inset-x-0 before:-inset-y-3 before:content-['']",
         "focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-card",
         checked ? (color ? "" : "bg-accent") : "bg-muted/30 ring-1 ring-inset ring-black/10",
         busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",

@@ -278,7 +278,7 @@ export default function CustomersPage() {
     <div className="space-y-6">
       {confirmDialog}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Customers</h1>
           <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${total} total customer${total === 1 ? "" : "s"}`}</p>
@@ -315,7 +315,7 @@ export default function CustomersPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-64 focus-within:border-foreground/20 transition-colors">
+        <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 w-64 focus-within:border-foreground/20 transition-colors pesaa-responsive-toolbar">
           <Search size={14} className="text-muted flex-shrink-0" />
           <input value={search} onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search name, phone, email..."
@@ -348,7 +348,11 @@ export default function CustomersPage() {
           {bulk.count > 0 && (
             <BulkActionBar count={bulk.count} label="customer" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           )}
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className={`overflow-x-auto transition-opacity ${customersQ.isFetching ? "opacity-60" : ""}`}>
+        <div className="space-y-3 md:hidden" aria-label="Customer cards">
+          <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} />Select this page</label>
+          {customers.map((c) => <article key={c.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><button className="text-left text-sm font-semibold text-accent" onClick={() => setViewing(c)}>{c.name}</button><p className="break-all text-sm text-muted">{c.email || c.phone || "No contact details"}</p><p className="text-xs capitalize text-muted">{c.customer_type} · {c.is_active ? "Active" : "Inactive"}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${c.name}`} checked={bulk.selected.has(c.id)} onChange={() => bulk.toggle(c.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Orders</dt><dd>{(ordersByCustomer[c.id] ?? []).length}</dd></div><div><dt className="text-xs text-muted">Total spent</dt><dd>{fmt(totalSpent(c.id))}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewing(c)}>View</Button><Button variant="outline" onClick={() => openEdit(c)}>Edit</Button><Button variant="destructive" onClick={() => handleDelete(c.id)}>Delete</Button></div></article>)}
+        </div>
+        <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden"><div className={`overflow-x-auto transition-opacity ${customersQ.isFetching ? "opacity-60" : ""}`}>
           <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border text-left">

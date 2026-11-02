@@ -164,7 +164,7 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
           <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"}</p>
@@ -185,7 +185,7 @@ export default function ProductsPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input type="text" placeholder="Search products..." value={search} onChange={(e) => onSearchChange(e.target.value)}
@@ -210,7 +210,24 @@ export default function ProductsPage() {
           </div>
         )}
 
-        <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
+        <div className="md:hidden" aria-label="Product cards">
+          <label className="flex min-h-11 items-center gap-3 border-b border-border px-4 text-sm"><input type="checkbox" aria-label="Select all products" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} disabled={!products.length} />Select this page</label>
+          <div className="grid gap-3 p-3 sm:grid-cols-2">
+            {products.map((p) => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold">{p.name}</h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Selling price</dt><dd className="font-semibold">{fmt(p.price)}</dd></div><div><dt className="text-xs text-muted">Stock</dt><dd className="font-semibold">{variantStock(p)}</dd></div><div><dt className="text-xs text-muted">Cost</dt><dd>{fmt(p.cost)}</dd></div><div><dt className="text-xs text-muted">Margin</dt><dd>{margin(p)}%</dd></div></dl>
+              {hasRowActions && <details className="mt-3 border-t border-border"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-accent">Product actions</summary><div className="flex flex-wrap gap-2">
+                {canEdit && <Button variant="outline" onClick={() => { setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}>Edit</Button>}
+                {(canAskPrice || canAskStock) && <Button variant="outline" onClick={() => setRequestTarget(p)}>Request change</Button>}
+                {canRestock && <Button variant="outline" onClick={() => setRestockTarget(p)}>Restock</Button>}
+                <Button variant="outline" onClick={() => setVariantsTarget(p)}>Variants</Button>
+                {canDelete && <Button variant="destructive" onClick={() => setDeleteTarget(p)}>Delete</Button>}
+              </div></details>}
+            </article>)}
+            {!products.length && <p className="p-4 text-sm text-muted">No products found. Try another search or filter.</p>}
+          </div>
+        </div>
+        <div className={`hidden md:block overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
           <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
@@ -263,7 +280,7 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-5 py-3.5 relative">
                     {hasRowActions && <button onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
-                      className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                      aria-label={`Actions for ${p.name}`} className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100">
                       <MoreVertical size={14} />
                     </button>}
                     {openMenu === p.id && (

@@ -1,4 +1,5 @@
 "use client";
+import { TableScroll } from "@/components/ui/TableScroll";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -59,7 +60,7 @@ export function PermissionMatrix({ groups, onToggle, isOn }: { groups: Permissio
             {g.status && g.status !== "enabled" && <span className="text-[12px] text-muted">Permissions are kept but don&apos;t apply while the module is {g.status === "available" ? "turned off" : "unavailable"}.</span>}
           </header>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] text-left text-sm">
+            <TableScroll label="Permission matrix"><table className="w-full min-w-[480px] text-left text-sm">
               <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className="px-4 py-2 font-semibold">Area</th>{actions.map((a) => <th key={a} scope="col" className="px-3 py-2 text-center font-semibold">{label(a)}</th>)}</tr></thead>
               <tbody className="divide-y divide-border">
                 {g.resources.map((r) => (
@@ -80,7 +81,7 @@ export function PermissionMatrix({ groups, onToggle, isOn }: { groups: Permissio
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></TableScroll>
           </div>
         </section>
       ))}

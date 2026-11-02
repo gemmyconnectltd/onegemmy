@@ -45,7 +45,7 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
   };
 
   return (
-    <form onSubmit={save} noValidate className="min-w-0 space-y-4">
+    <form data-workspace-dirty={dirty} onSubmit={save} noValidate className="min-w-0 space-y-4">
       <div className="grid items-start gap-4 lg:grid-cols-2">
       <SettingsCard title="Business Information" description="Basic details about your business." icon={Building2}>
       <div className="grid gap-4 py-3 sm:grid-cols-2">

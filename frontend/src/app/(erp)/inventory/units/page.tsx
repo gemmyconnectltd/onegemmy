@@ -78,7 +78,7 @@ export default function UnitsPage() {
   return (
     <div className="space-y-5">
       {confirmDialog}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="text-xl font-bold text-foreground">Units of Measure</h1>
           <p className="text-xs text-muted mt-0.5">{units.length} units defined</p>

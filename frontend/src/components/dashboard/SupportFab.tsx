@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Drawer } from "@/components/ui/Drawer";
+import { LifeBuoy, Sparkles } from "lucide-react";
 import { AI_STATE_EVENT, ASK_AI_EVENT, SUPPORT_WHATSAPP_URL } from "@/lib/support";
 
 const FAB = "fab-in group relative flex h-[50px] w-[50px] items-center justify-center rounded-full text-white shadow-lg ring-1 ring-black/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-card active:scale-95 motion-reduce:transition-none motion-reduce:hover:translate-y-0";
-const TIP = "fab-label pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground shadow-md";
+const TIP = "hidden lg:block fab-label pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-semibold text-foreground shadow-md";
 
 function WhatsAppIcon({ size = 24 }: { size?: number }) {
   return (
@@ -16,11 +17,12 @@ function WhatsAppIcon({ size = 24 }: { size?: number }) {
 }
 
 /**
- * Two small floating buttons, stacked bottom-right, each with its name always visible beside it: Pesaa AI (opens the assistant) and WhatsApp Support. They step
+ * Desktop keeps the labeled AI and WhatsApp buttons. Phones use one Help button with both actions in a short sheet. They step
  * aside while the assistant is open. `ai={false}` leaves only WhatsApp where the assistant isn't available
  * (the platform admin console has no business data to ask about).
  */
 export function SupportFab({ ai = true }: { ai?: boolean }) {
+  const [supportOpen, setSupportOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
@@ -31,7 +33,8 @@ export function SupportFab({ ai = true }: { ai?: boolean }) {
 
   if (aiOpen) return null;
   return (
-    <div className="fixed bottom-20 right-4 lg:bottom-6 z-40 flex flex-col items-end gap-3 pb-[env(safe-area-inset-bottom)] sm:right-6">
+    <>
+    <div className="hidden lg:flex fixed bottom-[calc(var(--erp-nav-clearance,0px)+1rem)] right-4 lg:bottom-6 z-40 flex-col items-end gap-3 pb-[env(safe-area-inset-bottom)] sm:right-6">
       {ai && (
         <button type="button" aria-label="Ask Pesaa AI" onClick={() => window.dispatchEvent(new CustomEvent(ASK_AI_EVENT))}
           style={{ animationDelay: "0.2s" }} className={`${FAB} fab-ring bg-accent hover:bg-accent/90 focus-visible:ring-accent`}>
@@ -45,5 +48,8 @@ export function SupportFab({ ai = true }: { ai?: boolean }) {
         <span className={TIP} style={{ animationDelay: "0.7s" }}>Chat with us</span>
       </a>
     </div>
+    <button type="button" onClick={() => setSupportOpen(true)} aria-label="Open help and support" className="fixed bottom-[calc(var(--erp-nav-clearance,0px)+0.75rem)] right-3 z-30 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white shadow-lg lg:hidden"><LifeBuoy size={22} /></button>
+    <Drawer open={supportOpen} onClose={() => setSupportOpen(false)} side="bottom" title="Help & support"><div className="space-y-2 p-4">{ai && <button className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold hover:bg-surface" onClick={() => { setSupportOpen(false); window.dispatchEvent(new CustomEvent(ASK_AI_EVENT)); }}><Sparkles size={20} className="text-accent" />Ask Pesaa AI</button>}<a className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold hover:bg-surface" href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={20} />Chat with us on WhatsApp</a></div></Drawer>
+    </>
   );
 }

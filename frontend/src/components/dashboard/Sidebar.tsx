@@ -6,13 +6,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
-import { useApprovalSummary } from "@/lib/api/hooks";
+import { useApprovalSummary, useMyEntitlements } from "@/lib/api/hooks";
 import { sidebarPrimaryNavigation } from "@/lib/sidebarNavigation";
 import { siteConfig } from "@/lib/config";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { Drawer } from "@/components/ui/Drawer";
 import { LogOut, Menu, PanelLeft, ChevronDown } from "lucide-react";
-import { ADMIN_NAV_ITEMS, isPrimaryActive, type PrimaryNavGroup as NavGroup } from "@/lib/navigation";
+import { ADMIN_NAV_ITEMS, visiblePrimaryNavigation, isPrimaryActive, type PrimaryNavGroup as NavGroup } from "@/lib/navigation";
 
 interface SidebarProps { expanded: boolean; onExpandChange: (value: boolean) => void; collapsed: boolean; onCollapsedChange: (value: boolean) => void; variant?: "app" | "admin"; }
 export const SIDEBAR_W_COLLAPSED = 64;
@@ -25,12 +25,15 @@ const serverSnapshot = () => false;
 export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange, variant = "app" }: SidebarProps) {
   const path = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, hasModuleAccess, hasPermission, isSuperAdmin } = useAuth();
   const { logoUrl } = useAppConfig();
   const admin = variant === "admin";
   const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : sidebarPrimaryNavigation();
-  const allItems = groups.flatMap(group => group.items);
-  const mobileItems = allItems.slice(0, 5);
+  const entitlements = useMyEntitlements({ enabled: !admin });
+  const mobileGroups = admin ? groups : visiblePrimaryNavigation(entitlements.data?.features, hasModuleAccess, hasPermission, isSuperAdmin());
+  const allItems = mobileGroups.flatMap(group => group.items);
+  const primaryHrefs = ["/dashboard", "/sales", "/inventory", "/procurement"];
+  const mobileItems = admin ? allItems.slice(0, 4) : primaryHrefs.flatMap(href => allItems.filter(item => item.href === href));
   const isMobile = useSyncExternalStore(subscribeMobile, mobileSnapshot, serverSnapshot);
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -58,8 +61,8 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
         {accountOpen && <div id="sidebar-account-menu" className="fixed bottom-3 z-[60] w-44 rounded-xl border border-border bg-card p-2 shadow-xl" style={{left: width + 8}}>{!admin && <Link href="/profile" onClick={() => setAccountOpen(false)} className="block rounded-lg px-3 py-2 text-xs hover:bg-surface">My profile</Link>}<button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs hover:bg-surface"><LogOut size={14} />Sign out</button></div>}
       </div>
     </aside>
-    <MobileNavigation open={open} onClose={close} title={brand} groups={groups} path={path} admin={admin} initials={initials} name={user?.name} role={user?.role} signOut={signOut} />
-    <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch border-t border-border bg-card lg:hidden">{mobileItems.map(item => <Link key={item.href} href={item.href} onClick={close} aria-current={isPrimaryActive(path,item) ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 ${isPrimaryActive(path,item) ? "text-accent" : "text-muted"}`}><item.icon size={19} /><span className="max-w-full truncate text-[10px] font-medium">{item.name}</span></Link>)}<button aria-label="Open navigation" aria-expanded={open} aria-controls="mobile-sidebar-nav" onClick={() => setMoreOpen(true)} className="flex flex-1 flex-col items-center justify-center gap-1 text-muted"><Menu size={20} /><span className="text-[10px]">More</span></button></nav>
+    <MobileNavigation open={open} onClose={close} title={brand} groups={mobileGroups} path={path} admin={admin} initials={initials} name={user?.name} role={user?.role} signOut={signOut} />
+    <nav aria-label="Quick navigation" className="pesaa-bottom-nav fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border bg-card lg:hidden">{mobileItems.map(item => <Link key={item.href} href={item.href} onClick={close} aria-current={isPrimaryActive(path,item) ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 ${isPrimaryActive(path,item) ? "text-accent" : "text-muted"}`}><item.icon size={19} /><span className="max-w-full truncate text-[10px] font-medium">{item.href === "/dashboard" ? "Home" : item.name}</span></Link>)}<button aria-label="Open navigation" aria-expanded={open} aria-controls="mobile-sidebar-nav" onClick={() => setMoreOpen(true)} className="flex flex-1 flex-col items-center justify-center gap-1 text-muted"><Menu size={20} /><span className="text-[10px]">More</span></button></nav>
   </>;
 }
 
@@ -101,22 +104,5 @@ function NavigationGroups({groups, path, collapsed = false, onNavigate, admin}: 
 }
 
 function MobileNavigation({open, onClose, title, groups, path, admin, initials, name, role, signOut}: {open: boolean; onClose: () => void; title: string; groups: NavGroup[]; path: string; admin: boolean; initials: string; name?: string; role?: string; signOut: () => void}) {
-  const nav = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    let dialog: HTMLElement | null = null;
-    const frame = requestAnimationFrame(() => {dialog = nav.current?.closest<HTMLElement>('[role="dialog"]') || null; dialog?.setAttribute("aria-label", "Navigation"); dialog?.querySelector<HTMLElement>("button, a[href]")?.focus();});
-    const trap = (event: KeyboardEvent) => {
-      if (event.key !== "Tab" || !dialog) return;
-      const controls = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')].filter(element => element.getClientRects().length > 0);
-      const first = controls[0], last = controls[controls.length - 1];
-      if (!dialog.contains(document.activeElement)) {event.preventDefault(); first?.focus();}
-      else if (event.shiftKey && document.activeElement === first) {event.preventDefault(); last?.focus();}
-      else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first?.focus();}
-    };
-    document.addEventListener("keydown", trap);
-    return () => {cancelAnimationFrame(frame); document.removeEventListener("keydown", trap); if(previous?.isConnected) previous.focus();};
-  }, [open]);
-  return <Drawer open={open} onClose={onClose} side="left" size="sm" title={title} description="Navigation" footer={<div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">{initials}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{name}</span><span className="text-[10px] capitalize text-muted">{role}</span></span><button onClick={signOut} aria-label="Sign out" className="rounded-md p-2 text-muted hover:bg-surface"><LogOut size={16} /></button></div>}><nav ref={nav} id="mobile-sidebar-nav" aria-label="Mobile navigation" className="py-3"><NavigationGroups groups={groups} path={path} onNavigate={onClose} admin={admin} /></nav></Drawer>;
+  return <Drawer open={open} onClose={onClose} side="left" size="sm" title={title} description="Navigation" footer={<div className="flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/10 text-xs font-bold text-accent">{initials}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{name}</span><span className="text-[10px] capitalize text-muted">{role}</span></span><button onClick={signOut} aria-label="Sign out" className="rounded-md p-2 text-muted hover:bg-surface"><LogOut size={16} /></button></div>}><nav id="mobile-sidebar-nav" aria-label="Mobile navigation" className="py-3"><NavigationGroups groups={groups} path={path} onNavigate={onClose} admin={admin} /></nav></Drawer>;
 }

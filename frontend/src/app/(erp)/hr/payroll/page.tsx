@@ -207,7 +207,7 @@ export default function PayrollPage() {
               ))}
             </Select>
           </Field>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Base salary" required>
               <Input type="number" required value={form.base_salary} onChange={(e) => setForm({ ...form, base_salary: e.target.value })} placeholder="0" />
             </Field>
