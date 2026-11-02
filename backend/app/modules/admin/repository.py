@@ -13,3 +13,11 @@ async def tenant_plan_labels(db: AsyncSession) -> dict[str, str]:
         .group_by(Tenant.subscription_plan, BillingPlan.name)
     )).all()
     return dict(rows)
+
+
+async def role_holder_count(db: AsyncSession, tenant_id, role_id) -> int:
+    from app.modules.tenants.models import User
+
+    return (await db.execute(select(func.count()).select_from(User).where(
+        User.tenant_id == tenant_id, User.role_id == role_id,
+    ))).scalar_one()

@@ -664,6 +664,18 @@ export const adminApi = {
 
   tenantStats: (id: string) =>
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
+  teamRolePermissions: (tenantId:string,roleId:string) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/roles/${roleId}/permissions`),
+  saveTeamRolePermissions: (tenantId:string,roleId:string,data:{permission_ids:string[];expected_permission_ids:string[]}) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/roles/${roleId}/permissions`,{method:"PUT",body:JSON.stringify(data)}),
+  teamUsers: (tenantId: string, page: number, search = "", status = "", roleId = "") =>
+    request<PaginatedResponse<TeamUser>>(`${B}/tenants/${tenantId}/team/users${qs({page, page_size:20, search:search || undefined, is_active:status || undefined, role_id:roleId || undefined})}`),
+  teamUser: (tenantId: string, userId: string) => request<SingleResponse<TeamUser>>(`${B}/tenants/${tenantId}/team/users/${userId}`),
+  inviteTeamUser: (tenantId: string, data: TeamInvite) => request<SingleResponse<TeamUser>>(`${B}/tenants/${tenantId}/team/invite`, {method:"POST",body:JSON.stringify(data)}),
+  updateTeamUser: (tenantId: string, userId: string, data: TeamUpdate) => request<SingleResponse<TeamUser>>(`${B}/tenants/${tenantId}/team/users/${userId}`, {method:"PATCH",body:JSON.stringify(data)}),
+  setTeamStatus: (tenantId: string, userId: string, is_active: boolean) => request<SingleResponse<TeamUser>>(`${B}/tenants/${tenantId}/team/users/${userId}/status`, {method:"PATCH",body:JSON.stringify({is_active})}),
+  teamPermissions: (tenantId: string, userId: string) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/users/${userId}/permissions`),
+  saveTeamPermissions: (tenantId: string, userId: string, data: TeamPermissionUpdate) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/users/${userId}/permissions`, {method:"PUT",body:JSON.stringify(data)}),
+  teamActivity: (tenantId: string, userId: string, page: number) => request<PaginatedResponse<{id:string;summary:string;actor_name:string|null;created_at:string|null}>>(`${B}/tenants/${tenantId}/team/users/${userId}/activity?page=${page}&page_size=20`),
+  removeTeamUser: (tenantId: string, userId: string) => request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/team/users/${userId}`, {method:"DELETE"}),
   employeeAccess: (tenantId: string, userId: string) =>
     request<SingleResponse<EmployeeAccess>>(`${B}/tenants/${tenantId}/users/${userId}/access`),
   setEmployeeFeature: (tenantId: string, userId: string, module: string, enabled: boolean) =>
@@ -724,3 +736,17 @@ export interface EmployeeAccess {
   branches: { all: boolean; branches: { id: string; name: string }[] };
   modules: { key: string; name: string; status: string; blocked: boolean; blocked_by?: string | null; effective_view: boolean; effective_change: boolean }[];
 }
+
+
+export interface TeamUser extends AdminUser {
+  role_id:string|null; phone:string|null; branch_ids:string[]|null; branch_id:string|null;
+  department_id:string|null; last_login:string|null; updated_at:string|null;
+}
+export interface TeamInvite {full_name:string;email:string;phone?:string;role_id:string;branch_ids:string[]|null;branch_id:string|null;department_id:string|null}
+export type TeamUpdate = Partial<Omit<TeamInvite,"email">>;
+export interface TeamPermissions {
+  role_id:string|null; role_name:string|null; role_users:number; is_owner:boolean;
+  permission_ids:string[]; baseline:string[];
+  groups:{module:string;name:string;resources:{resource:string;label:string;actions:Record<string,{id:string;name:string;label:string;granted:boolean}>}[]}[];
+}
+export interface TeamPermissionUpdate {permission_ids:string[];expected_role_id:string|null;expected_permission_ids:string[];scope:"user"|"role"}

@@ -57,13 +57,18 @@ async def delete_permission(db: AsyncSession, permission_id: uuid.UUID) -> None:
     await db.commit()
 
 
-async def assign_perm_to_role(db: AsyncSession, role_id: uuid.UUID, permission_ids: list[uuid.UUID], actor: User | None = None) -> None:
+async def assign_perm_to_role(db: AsyncSession, role_id: uuid.UUID, permission_ids: list[uuid.UUID], actor: User | None = None, *, target_tenant_id: uuid.UUID | None = None) -> None:
     ids = list(dict.fromkeys(permission_ids))
     permissions = await PermissionRepository(db).get_by_ids(ids)
     if len(permissions) != len(ids):
         raise NotFoundError("One or more permissions no longer exist; reload the permission catalog")
+    scope = actor.tenant_id if actor else None
+    if target_tenant_id is not None:
+        if actor is None or not (actor.is_superuser and actor.tenant_id is None and actor.role == "superadmin"):
+            raise ForbiddenError("Only a platform administrator may select another business")
+        scope = target_tenant_id
     if actor is not None:
-        role = await RoleRepository(db).get_by_id_for_tenant(actor.tenant_id, role_id)
+        role = await RoleRepository(db).get_by_id_for_tenant(scope, role_id)
         if role is None:
             raise NotFoundError("Role not found")
         if not actor.is_superuser and {permission.name for permission in permissions} - set(actor.permissions_names):
@@ -71,7 +76,7 @@ async def assign_perm_to_role(db: AsyncSession, role_id: uuid.UUID, permission_i
     await PermissionRepository(db).assign_permissions_to_role(role_id, ids)
     if actor is not None:
         from app.modules.audit.service import record_audit
-        await record_audit(db, tenant_id=actor.tenant_id, actor_user_id=actor.id,
+        await record_audit(db, tenant_id=scope, actor_user_id=actor.id,
             actor_name=actor.full_name, action="role.permissions_updated", entity_type="role",
             entity_id=str(role_id), summary="Role permissions updated",
             changes={"permissions": sorted(permission.name for permission in permissions)})

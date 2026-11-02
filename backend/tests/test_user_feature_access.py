@@ -59,6 +59,7 @@ async def test_finance_child_switch_is_enforced_on_its_existing_accounting_route
     check = require_module_write("accounting")
     user = person([disabled])
     user.role = "member"
+    user.permissions_names += ["expenses:read", "expenses:update", "accounts_payable:read", "accounts_payable:update"]
     for method in ("GET", "POST", "PATCH"):
         with pytest.raises(ForbiddenError):
             await check(request(method, path), user)
@@ -91,6 +92,7 @@ async def test_accounting_off_does_not_block_enabled_expenses_or_debts():
     check = require_module_write("accounting")
     user = person(["accounting"])
     user.role = "member"
+    user.permissions_names += ["expenses:read", "expenses:update", "accounts_payable:read", "accounts_payable:update"]
     for method in ("GET", "POST", "PATCH"):
         await check(request(method, "/api/v1/tenants/expense-management/search"), user)
         await check(request(method, "/api/v1/tenants/accounting/expenses"), user)

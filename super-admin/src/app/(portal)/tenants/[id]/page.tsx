@@ -1,14 +1,13 @@
 "use client";
 import { SubscriptionManager, LiveBillingList } from "@/components/billing/LiveBilling";
 import { COUNTRY_NAMES } from "@/lib/countries";
-import { TableScroll } from "@/components/ui/TableScroll";
 import { useState } from "react";
 import { Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, Users, UserPlus, Loader2,
+  ArrowLeft, UserPlus, Loader2,
   CheckCircle, XCircle, Building2, Layers, Shield,
-  Plus, Trash2, X, KeyRound, Copy, Check,
+  Plus, Trash2, X, 
   AlertTriangle, RotateCcw, Eye, Crown, Power,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -16,9 +15,9 @@ import { Toggle } from "@/components/ui/Toggle";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   useTenant, useTenantStats, useTenantUsers, useActivateTenant,
-  useInviteUser, useDeleteUser, useTenantDepartments, useCreateDepartment,
+  useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
-  useTenantBranches, useCreateBranch, useDeleteBranch, useResetUserPassword,
+  useTenantBranches, useCreateBranch, useDeleteBranch,
   useUpdateTenant, useResetTenantData, useTenantLimits, usePlatformAuditLogs,
 } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
@@ -30,6 +29,8 @@ import { useBulkSelection } from "@/lib/useBulkSelection";
 import Link from "next/link";
 import FeaturesPanel from "./FeaturesPanel";
 import UserFeatureAccess from "./UserFeatureAccess";
+import InviteBusinessUser from "./InviteBusinessUser";
+import { RolePermissionManager } from "./EmployeePermissions";
 import { Button } from "@/components/ui/Button";
 import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
@@ -56,17 +57,14 @@ function TenantDetailPageInner() {
   const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" | "all" } | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
+  const [permissionRole,setPermissionRole] = useState<string | null>(null);
   const [showAddRole, setShowAddRole] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
-  const [resetUser, setResetUser] = useState<{ id: string; full_name: string } | null>(null);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [showResetData, setShowResetData] = useState(false);
   const [resetConfirmName, setResetConfirmName] = useState("");
   const [resetResult, setResetResult] = useState<Record<string, number> | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
 
-  const [inviteForm, setInviteForm] = useState({ email: "", full_name: "", role: "member", password: "" });
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
   const [roleForm, setRoleForm] = useState({ name: "", description: "" });
   const [branchForm, setBranchForm] = useState({ name: "", location: "" });
@@ -93,38 +91,18 @@ function TenantDetailPageInner() {
   const activateTenant = useActivateTenant();
   const updateTenant = useUpdateTenant();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
-  const inviteUser = useInviteUser();
-  const deleteUser = useDeleteUser();
   const createDepartment = useCreateDepartment();
   const deleteDepartment = useDeleteDepartment();
   const createRole = useCreateRole();
   const deleteRole = useDeleteRole();
   const createBranch = useCreateBranch();
   const deleteBranch = useDeleteBranch();
-  const resetPassword = useResetUserPassword();
   const resetTenantData = useResetTenantData();
 
-  const removableUserIds = users.filter((u) => !u.is_superuser).map((u) => u.id);
-  const bulkUsers = useBulkSelection(removableUserIds);
   const bulkDepartments = useBulkSelection(departments.map((d) => d.id));
   const bulkRoles = useBulkSelection(roles.map((r) => r.id));
   const bulkBranches = useBulkSelection(branches.map((b) => b.id));
   const [bulkDeleting, setBulkDeleting] = useState(false);
-
-  function confirmBulkDeleteUsers() {
-    confirm({
-      title: "Remove users?",
-      message: `Remove ${bulkUsers.count} selected user${bulkUsers.count === 1 ? "" : "s"} from this tenant? They will lose access immediately.`,
-      confirmLabel: "Remove",
-      danger: true,
-      onConfirm: async () => {
-        setBulkDeleting(true);
-        await Promise.allSettled(Array.from(bulkUsers.selected).map((userId) => deleteUser.mutateAsync({ tenantId: id, userId })));
-        setBulkDeleting(false);
-        bulkUsers.clear();
-      },
-    });
-  }
 
   function confirmBulkDeleteDepartments() {
     confirm({
@@ -222,36 +200,7 @@ function TenantDetailPageInner() {
 
   const openInvite = () => {
     setNotice(null);
-    setTempPassword(null);
-    setCopied(false);
     setShowInvite(true);
-  };
-
-  const handleInvite = (e: React.FormEvent) => {
-    e.preventDefault();
-    inviteUser.mutate({ tenantId: id, data: { ...inviteForm, full_name: inviteForm.full_name.trim(), email: inviteForm.email.trim() } }, {
-      onSuccess: (res) => {
-        setInviteForm({ email: "", full_name: "", role: "member", password: "" });
-        setTempPassword(res.data?.temp_password ?? null);
-        setNotice({ kind: "success", text: "User invited" });
-      },
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to invite user" }),
-    });
-  };
-
-  const handleRemoveUser = (u: { id: string; full_name: string }) => {
-    confirm({
-      title: "Remove user?",
-      message: `Remove ${u.full_name} from this tenant? They will lose access immediately.`,
-      confirmLabel: "Remove",
-      danger: true,
-      onConfirm: () => {
-        deleteUser.mutate({ tenantId: id, userId: u.id }, {
-          onSuccess: () => setNotice({ kind: "success", text: "User removed" }),
-          onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to remove user" }),
-        });
-      },
-    });
   };
 
   const handleCreateDepartment = (e: React.FormEvent) => {
@@ -335,32 +284,6 @@ function TenantDetailPageInner() {
     });
   };
 
-  const handleResetPassword = (u: { id: string; full_name: string }) => {
-    setNotice(null);
-    setTempPassword(null);
-    setCopied(false);
-    setResetUser(u);
-  };
-
-  const confirmResetPassword = () => {
-    if (!resetUser) return;
-    resetPassword.mutate({ tenantId: id, userId: resetUser.id }, {
-      onSuccess: () => { setNotice({ kind: "success", text: `Recovery link emailed to ${resetUser.full_name}. It expires in 30 minutes.` }); setResetUser(null); },
-      onError: (err: unknown) => { setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Could not send the recovery link" }); setResetUser(null); },
-    });
-  };
-
-  const copyPassword = async () => {
-    if (!tempPassword) return;
-    try {
-      await navigator.clipboard.writeText(tempPassword);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      /* clipboard unavailable */
-    }
-  };
-
   const openResetData = () => {
     setResetConfirmName("");
     setResetResult(null);
@@ -424,8 +347,8 @@ function TenantDetailPageInner() {
   );
   const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: setTab };
   const TABS: { key: PanelTab; label: string; count?: number }[] = [
-    { key: "overview", label: "Overview" }, { key: "users", label: "Users", count: users.length }, { key: "branches", label: "Branches", count: branches.length },
-    { key: "user-access", label: "User feature access" }, { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
+    { key: "overview", label: "Overview" }, { key: "users", label: "Users", count: usersData?.total ?? users.length }, { key: "branches", label: "Branches", count: branches.length },
+    { key: "user-access", label: "Team & Access" }, { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
   ];
 
   return (
@@ -485,99 +408,8 @@ function TenantDetailPageInner() {
       {tab === "users" && usersError && (
         <div role="alert" className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400"><AlertTriangle size={15} /> Could not load the users for this business (the server returned an error).</div>
       )}
-      {tab === "users" && usersSub === "users" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="text-sm font-bold text-foreground">Users ({users.length})</h2>
-            <button onClick={openInvite} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
-              <UserPlus size={13} /> Invite
-            </button>
-          </div>
-          {bulkUsers.count > 0 && (
-            <div className="px-5 py-3 border-b border-border">
-              <BulkActionBar count={bulkUsers.count} label="user" onDelete={confirmBulkDeleteUsers} onClear={bulkUsers.clear} deleting={bulkDeleting} />
-            </div>
-          )}
-          <div className="overflow-x-auto">
-            <TableScroll><table className="w-full min-w-[640px]">
-              <thead>
-                <tr className="border-b border-border text-left text-[11px] text-muted uppercase tracking-wider">
-                  <th className="px-5 py-3 w-10">
-                    <input type="checkbox" checked={bulkUsers.allSelected} ref={(el) => { if (el) el.indeterminate = bulkUsers.someSelected; }} onChange={bulkUsers.toggleAll} className="w-4 h-4 rounded" disabled={removableUserIds.length === 0} />
-                  </th>
-                  <th className="px-5 py-3 font-semibold">User</th>
-                  <th className="px-5 py-3 font-semibold">Role</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Joined</th>
-                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-surface/40 transition-colors">
-                    <td className="px-5 py-3.5">
-                      {!u.is_superuser && (
-                        <input type="checkbox" checked={bulkUsers.selected.has(u.id)} onChange={() => bulkUsers.toggle(u.id)} className="w-4 h-4 rounded" />
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="text-sm font-medium text-foreground">{u.full_name} {u.is_superuser && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent/10 text-accent ml-1">SUPERADMIN</span>}</p>
-                      <p className="text-[11px] text-muted">{u.email}</p>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-surface text-muted capitalize">{u.role}</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`flex items-center gap-1 text-[11px] font-semibold w-fit ${u.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                        {u.is_active ? <CheckCircle size={11} /> : <XCircle size={11} />}
-                        {u.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-[12px] text-muted">
-                      {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {!u.is_superuser && (
-                          <Button variant="secondary" size="sm"
-                            onClick={() => handleResetPassword(u)}
-                            disabled={resetPassword.isPending && resetPassword.variables?.userId === u.id}
-                          >
-                            {resetPassword.isPending && resetPassword.variables?.userId === u.id
-                              ? <Loader2 size={13} className="animate-spin" />
-                              : <KeyRound size={13} />} Reset
-                          </Button>
-                        )}
-                        {!u.is_superuser && (
-                          <Button variant="danger" size="sm"
-                            onClick={() => handleRemoveUser(u)}
-                            disabled={deleteUser.isPending && deleteUser.variables?.userId === u.id}
-                          >
-                            {deleteUser.isPending && deleteUser.variables?.userId === u.id
-                              ? <Loader2 size={13} className="animate-spin" />
-                              : <Trash2 size={13} />} Remove
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></TableScroll>
-          </div>
-          {users.length === 0 && (
-            <div className="py-12 text-center">
-              <Users size={28} className="text-muted/30 mx-auto mb-2" />
-              <p className="text-sm text-muted">No users yet</p>
-              <Button variant="primary" onClick={openInvite}>
-                <UserPlus size={13} /> Invite the first user
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+      {tab === "users" && usersSub === "users" && <UserFeatureAccess tenantId={id} onInvite={openInvite} />}
 
-      {/* Departments panel */}
       {tab === "users" && usersSub === "departments" && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -667,6 +499,7 @@ function TenantDetailPageInner() {
                       {r.description && <p className="text-[11px] text-muted mt-0.5 truncate">{r.description}</p>}
                     </div>
                   </div>
+                  <Button variant="outline" size="sm" onClick={() => setPermissionRole(r.id)}>Permissions</Button>
                   <Button variant="danger" size="sm"
                     onClick={() => handleRemoveRole(r)}
                     disabled={deleteRole.isPending && deleteRole.variables?.roleId === r.id}
@@ -772,63 +605,8 @@ function TenantDetailPageInner() {
         <FormFooter submitLabel="Save changes" onCancel={() => setEditForm(null)} disabled={updateTenant.isPending} /></form></Drawer>}
       {/* Change plan drawer */}
       {/* Invite drawer */}
-      <Drawer
-        open={showInvite}
-        onClose={() => { setShowInvite(false); setTempPassword(null); setCopied(false); }}
-        title="Invite User"
-        description={`Add a user to ${tenant.name}`}
-      >
-        {tempPassword === null ? (
-          <form onSubmit={handleInvite} className="space-y-4 p-5">
-            <Field label="Full Name" required>
-              <Input required value={inviteForm.full_name} onChange={(e) => setInviteForm({ ...inviteForm, full_name: e.target.value })} placeholder="John Doe" />
-            </Field>
-            <Field label="Email" required>
-              <Input type="email" required value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="john@example.com" />
-            </Field>
-            <Field label="Role">
-              <Select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}>
-                {["owner", "admin", "member", "viewer"].map((r) => <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
-              </Select>
-            </Field>
-            <Field label="Password (optional)">
-              <Input
-                value={inviteForm.password}
-                onChange={(e) => setInviteForm({ ...inviteForm, password: e.target.value })}
-                placeholder="Leave blank to auto-generate"
-                minLength={8}
-              />
-            </Field>
-            <p className="text-xs text-muted">
-              Set a password here if you&apos;ll share it with the user yourself (min. 8 characters, one number, one uppercase letter). Leave it blank to have a strong one generated automatically — either way it&apos;s emailed to them and shown here once.
-            </p>
-            <FormFooter submitLabel={inviteUser.isPending ? "Inviting…" : "Invite User"} onCancel={() => setShowInvite(false)} disabled={inviteUser.isPending} />
-          </form>
-        ) : (
-          <div className="p-5 space-y-4">
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[13px] px-4 py-3">
-              User invited. Temporary password shown once — copy it now and share it with them securely (it was also emailed to them).
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-surface border border-border rounded-lg px-4 py-3 font-mono text-sm text-foreground break-all">
-                {tempPassword}
-              </code>
-              <Button variant="secondary" size="sm"
-                onClick={copyPassword}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy"}
-              </Button>
-            </div>
-            <div className="flex justify-end pt-2">
-              <Button variant="primary"
-                onClick={() => { setShowInvite(false); setTempPassword(null); setCopied(false); }}
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        )}
-      </Drawer>
+      <Drawer open={!!permissionRole} onClose={() => setPermissionRole(null)} title="Role permissions" size="xl"><div className="p-4">{permissionRole && <RolePermissionManager tenantId={id} roleId={permissionRole}/>}</div></Drawer>
+      <InviteBusinessUser tenantId={id} open={showInvite} onClose={() => setShowInvite(false)} />
 
       {/* Add department drawer */}
       <Drawer open={showAddDept} onClose={() => setShowAddDept(false)} title="Add Department" description={`Create a department in ${tenant.name}`}>
@@ -870,15 +648,7 @@ function TenantDetailPageInner() {
       </Drawer>
 
       {/* Account recovery drawer */}
-      <Drawer open={!!resetUser} onClose={() => setResetUser(null)} title="Send recovery link" description={resetUser ? `Help ${resetUser.full_name} regain access` : ""}>
-        <div className="space-y-4 p-5">
-          <p className="text-sm text-muted">We email {resetUser?.full_name} a link to choose a new password. It expires in 30 minutes. You will never see their password or the link, and the action is recorded in the audit log.</p>
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setResetUser(null)}>Cancel</Button>
-            <Button variant="primary" onClick={confirmResetPassword} disabled={resetPassword.isPending}>{resetPassword.isPending ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />}Email recovery link</Button>
-          </div>
-        </div>
-      </Drawer>
+
 
       {/* Reset business data drawer */}
       <Drawer

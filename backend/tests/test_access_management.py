@@ -327,3 +327,126 @@ async def test_platform_can_manage_employee_features_with_tenant_isolation(db, m
             assert (await ordinary.patch(path + "/inventory", json={"enabled": False})).status_code == 403
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_platform_permissions_are_individual_by_default_and_shared_only_explicitly(db, monkeypatch):
+    tenant, roles, _, employee, *_ = await business(db, "IndividualPermissions")
+    plan(monkeypatch, "inventory", "sales", "accounting")
+    monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())
+    other = User(tenant_id=tenant.id, email=f"{uuid.uuid4()}@example.test", full_name="Other cashier",
+                 hashed_password="x", role="cashier", role_id=roles["Cashier"].id, is_active=True)
+    admin = User(email=f"{uuid.uuid4()}@platform.test", full_name="Platform", hashed_password="x",
+                 role="superadmin", is_superuser=True, is_active=True)
+    db.add_all([other, admin])
+    await db.flush()
+    path = f"/api/v1/admin/tenants/{tenant.id}/team/users/{employee.id}/permissions"
+    other_path = f"/api/v1/admin/tenants/{tenant.id}/team/users/{other.id}/permissions"
+    try:
+        async with client(db, admin) as platform:
+            initial = (await platform.get(path)).json()["data"]
+            create = next(r["actions"]["create"]["id"] for g in initial["groups"] for r in g["resources"] if r["resource"] == "expenses")
+            payload = {"permission_ids": [*initial["permission_ids"], create], "expected_role_id": initial["role_id"],
+                       "expected_permission_ids": initial["permission_ids"], "scope": "user"}
+            response = await platform.put(path, json=payload)
+            assert response.status_code == 200, response.text
+            personal = response.json()["data"]
+            assert personal["role_id"] != initial["role_id"] and create in personal["permission_ids"]
+            unaffected = (await platform.get(other_path)).json()["data"]
+            assert unaffected["role_id"] == initial["role_id"] and create not in unaffected["permission_ids"]
+            assert (await platform.put(path, json=payload)).status_code == 409  # stale role snapshot
+            payload = {"permission_ids": initial["permission_ids"], "expected_role_id": personal["role_id"],
+                       "expected_permission_ids": personal["permission_ids"], "scope": "user"}
+            response = await platform.put(path, json=payload)
+            assert response.status_code == 200, response.text
+            assert response.json()["data"]["role_id"] == personal["role_id"]  # reuse the dedicated role
+            assert create not in response.json()["data"]["permission_ids"]
+            shared = {"permission_ids": [*unaffected["permission_ids"], create], "expected_role_id": unaffected["role_id"],
+                      "expected_permission_ids": unaffected["permission_ids"], "scope": "role"}
+            assert (await platform.put(other_path, json=shared)).status_code == 200
+            assert create in (await platform.get(other_path)).json()["data"]["permission_ids"]
+            assert create not in (await platform.get(path)).json()["data"]["permission_ids"]
+            activity = await platform.get(f"/api/v1/admin/tenants/{tenant.id}/team/users/{employee.id}/activity")
+            assert activity.status_code == 200 and any(i["action"] == "user.permissions_updated" for i in activity.json()["data"]["items"])
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_platform_team_invite_profile_status_and_tenant_boundaries(db, monkeypatch):
+    from app.modules.tenants.models import Department
+
+    tenant, roles, owner, employee, branch, *_ = await business(db, "TeamManagement")
+    foreign_tenant, foreign_roles, _, foreign_user, foreign_branch, *_ = await business(db, "OtherTeam")
+    plan(monkeypatch, "sales", "inventory", "accounting")
+    monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())
+    email = AsyncMock()
+    monkeypatch.setattr("app.modules.tenants.service.user.send_invite_email", email)
+    department = Department(tenant_id=tenant.id, name="Local department")
+    foreign_department = Department(tenant_id=foreign_tenant.id, name="Foreign department")
+    admin = User(email=f"{uuid.uuid4()}@platform.test", full_name="Platform", hashed_password="x",
+                 role="superadmin", is_superuser=True, is_active=True)
+    db.add_all([department, foreign_department, admin])
+    await db.flush()
+    base = f"/api/v1/admin/tenants/{tenant.id}/team"
+    try:
+        async with client(db, admin) as platform:
+            payload = {"email": f"invite-{uuid.uuid4().hex}@example.com", "full_name": "Invited cashier", "role_id": str(roles["Cashier"].id),
+                       "department_id": str(department.id), "branch_id": str(branch.id), "branch_ids": [str(branch.id)]}
+            response = await platform.post(base + "/invite", json=payload)
+            assert response.status_code == 201, response.text
+            invited = response.json()["data"]
+            assert invited["role_id"] == payload["role_id"] and invited["branch_ids"] == payload["branch_ids"]
+            assert "temp_password" not in invited and "hashed_password" not in invited
+            email.assert_awaited_once()
+            details = base + f"/users/{employee.id}"
+            assert (await platform.patch(details, json={"full_name": "Changed name", "department_id": str(department.id)})).status_code == 200
+            assert (await platform.patch(details, json={"department_id": str(foreign_department.id)})).status_code == 404
+            assert (await platform.patch(details, json={"role_id": str(foreign_roles["Cashier"].id)})).status_code in (404, 422)
+            assert (await platform.patch(details, json={"branch_ids": [str(foreign_branch.id)]})).status_code in (403, 422)
+            assert (await platform.get(base + f"/users/{foreign_user.id}")).status_code == 404
+            assert (await platform.get(base + f"/roles/{foreign_roles['Cashier'].id}/permissions")).status_code == 404
+            assert (await platform.patch(details + "/status", json={"is_active": False})).json()["data"]["is_active"] is False
+            assert (await platform.patch(details + "/status", json={"is_active": True})).json()["data"]["is_active"] is True
+            owner_payload = {"permission_ids": [], "expected_role_id": None, "expected_permission_ids": [], "scope": "user"}
+            assert (await platform.put(base + f"/users/{owner.id}/permissions", json=owner_payload)).status_code == 422
+            assert (await platform.patch(base + f"/users/{owner.id}", json={"role_id": str(roles["Cashier"].id)})).status_code == 422
+            assert (await platform.delete(base + f"/users/{owner.id}")).status_code in (409, 422)
+            filtered = await platform.get(base + "/users?search=Invited&is_active=true")
+            assert filtered.status_code == 200 and filtered.json()["data"]["total"] == 1
+        async with client(db, employee) as staff:
+            assert (await staff.get(details)).status_code == 403
+            assert (await staff.post(base + "/invite", json=payload)).status_code == 403
+            assert (await staff.put(details + "/permissions", json=owner_payload)).status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_member_create_permission_is_enforced_and_can_be_granted_individually(db, monkeypatch):
+    tenant, _, _, employee, *_ = await business(db, "MemberCreateGrant")
+    plan(monkeypatch, "accounting", "sales")
+    monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())
+    empty = Role(tenant_id=tenant.id, name="Empty member", permissions=[])
+    db.add(empty)
+    await db.flush()
+    employee.role = "member"
+    employee.role_id = empty.id
+    admin = User(email=f"{uuid.uuid4()}@platform.test", full_name="Platform", hashed_password="x", role="superadmin", is_superuser=True, is_active=True)
+    db.add(admin)
+    await db.flush()
+    path = f"/api/v1/admin/tenants/{tenant.id}/team/users/{employee.id}/permissions"
+    try:
+        async with client(db, employee) as staff:
+            assert (await staff.post(f"{API}/expense-management", json={})).status_code == 403
+        async with client(db, admin) as platform:
+            current = (await platform.get(path)).json()["data"]
+            create = next(r["actions"]["create"]["id"] for g in current["groups"] for r in g["resources"] if r["resource"] == "expenses")
+            response = await platform.put(path, json={"permission_ids": [create], "expected_role_id": str(empty.id), "expected_permission_ids": [], "scope": "user"})
+            assert response.status_code == 200, response.text
+        async with client(db, employee) as staff:
+            profile = (await staff.get(f"{API}/users/me")).json()["data"]
+            assert "expenses:create" in profile["permissions"]
+            assert (await staff.post(f"{API}/expense-management", json={})).status_code == 422  # now authorized; invalid body is checked
+    finally:
+        app.dependency_overrides.clear()

@@ -12,7 +12,7 @@ const AI_KEY = ["ai"] as const;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-type QueryOpts = { enabled?: boolean; refetchInterval?: number; staleTime?: number; retry?: boolean | number };
+type QueryOpts = { placeholderData?: undefined; enabled?: boolean; refetchInterval?: number; staleTime?: number; retry?: boolean | number };
 
 function useQ<TResponse, TSelected, TKey extends unknown[]>(
   key: TKey,
@@ -278,3 +278,21 @@ export function useSetEmployeeFeature() {
     onSuccess: (result, input) => { qc.setQueryData(["employee-access", input.tenantId, input.userId], result); },
   });
 }
+
+
+const TEAM_KEYS = [[...TENANTS], ["employee-access"], ["team"]];
+export const useTeamUsers = (id:string, page:number, search:string, status:string, role:string) => useQ(["team",id,"users",page,search,status,role],()=>adminApi.teamUsers(id,page,search,status,role),r=>r.data,{placeholderData:undefined});
+export const useTeamUser = (id:string, userId:string) => useQ(["team",id,userId,"details"],()=>adminApi.teamUser(id,userId),r=>r.data,{enabled:!!userId,placeholderData:undefined});
+export const useTeamPermissions = (id:string, userId:string) => useQ(["team",id,userId,"permissions"],()=>adminApi.teamPermissions(id,userId),r=>r.data,{enabled:!!userId,placeholderData:undefined});
+export const useTeamActivity = (id:string,userId:string,page:number) => useQ(["team",id,userId,"activity",page],()=>adminApi.teamActivity(id,userId,page),r=>r.data,{enabled:!!userId,placeholderData:undefined});
+export const useTeamOptions = (id:string,kind:"roles"|"branches"|"departments",page:number) => useQ(["team",id,"options",kind,page],async()=>{
+  const result = kind === "roles" ? await adminApi.tenantRoles(id,page) : kind === "branches" ? await adminApi.tenantBranches(id,page) : await adminApi.tenantDepartments(id,page);
+  return {...result,data:{...result.data,items:result.data.items.map(item=>({id:item.id,name:item.name}))}};
+},r=>r.data,{placeholderData:undefined});
+export const useInviteTeamUser = mutation(({tenantId,data}:{tenantId:string;data:Parameters<typeof adminApi.inviteTeamUser>[1]})=>adminApi.inviteTeamUser(tenantId,data),TEAM_KEYS);
+export const useUpdateTeamUser = mutation(({tenantId,userId,data}:{tenantId:string;userId:string;data:Parameters<typeof adminApi.updateTeamUser>[2]})=>adminApi.updateTeamUser(tenantId,userId,data),TEAM_KEYS);
+export const useSetTeamStatus = mutation(({tenantId,userId,active}:{tenantId:string;userId:string;active:boolean})=>adminApi.setTeamStatus(tenantId,userId,active),TEAM_KEYS);
+export const useSaveTeamPermissions = mutation(({tenantId,userId,data}:{tenantId:string;userId:string;data:Parameters<typeof adminApi.saveTeamPermissions>[2]})=>adminApi.saveTeamPermissions(tenantId,userId,data),TEAM_KEYS);
+export const useRemoveTeamUser = mutation(({tenantId,userId}:{tenantId:string;userId:string})=>adminApi.removeTeamUser(tenantId,userId),TEAM_KEYS);
+export const useTeamRolePermissions = (id:string,roleId:string) => useQ(["team",id,"role",roleId,"permissions"],()=>adminApi.teamRolePermissions(id,roleId),r=>r.data,{enabled:!!roleId,placeholderData:undefined});
+export const useSaveTeamRolePermissions = mutation(({tenantId,roleId,data}:{tenantId:string;roleId:string;data:Parameters<typeof adminApi.saveTeamRolePermissions>[2]})=>adminApi.saveTeamRolePermissions(tenantId,roleId,data),TEAM_KEYS);

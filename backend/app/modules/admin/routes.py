@@ -38,6 +38,8 @@ from app.modules.tenants.schemas import (
     TenantCreate,
     TenantLimitsUpdate,
     TenantUpdate,
+    UserCreate,
+    UserUpdate,
 )
 from app.shared.schemas import TrimmedModel
 
@@ -1019,3 +1021,104 @@ async def admin_employee_feature(
 
     result = await set_employee_feature(db, tenant_id, user_id, module, data.enabled, admin)
     return success_response(data=result, message="Employee feature access updated")
+
+
+class EmployeePermissionsUpdate(BaseModel):
+    permission_ids: list[uuid.UUID] = Field(max_length=1000)
+    expected_role_id: uuid.UUID | None
+    expected_permission_ids: list[uuid.UUID] = Field(max_length=1000)
+    scope: Literal["user", "role"] = "user"
+
+
+class EmployeeStatusUpdate(BaseModel):
+    is_active: bool
+
+
+@router.get("/tenants/{tenant_id}/team/users")
+async def admin_team_users(
+    tenant_id: uuid.UUID, db: DbSession, _: SuperUser, page_params: PageQuery,
+    search: str | None = None, role_id: uuid.UUID | None = None, is_active: bool | None = None,
+):
+    users = await service.list_users(db, tenant_id, page_params.offset, page_params.limit, search, is_active, role_id)
+    total = await service.count_users(db, tenant_id, search, is_active, role_id)
+    return paginated_response(items=[u.model_dump() for u in users], total=total,
+                              page=page_params.page, page_size=page_params.page_size)
+
+
+@router.post("/tenants/{tenant_id}/team/invite")
+async def admin_team_invite(tenant_id: uuid.UUID, data: UserCreate, db: DbSession, admin: SuperUser):
+    from app.modules.admin.user_access import invite_employee
+
+    user = await invite_employee(db, tenant_id, data, admin)
+    return success_response(data=user.model_dump(), message="User created; invitation email requested", status_code=201)
+
+
+@router.get("/tenants/{tenant_id}/team/users/{user_id}")
+async def admin_team_user(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser):
+    from app.modules.admin.user_access import employee_details
+
+    return success_response(data=(await employee_details(db, tenant_id, user_id)).model_dump())
+
+
+@router.patch("/tenants/{tenant_id}/team/users/{user_id}")
+async def admin_team_update(tenant_id: uuid.UUID, user_id: uuid.UUID, data: UserUpdate, db: DbSession, admin: SuperUser):
+    from app.modules.admin.user_access import edit_employee
+
+    return success_response(data=(await edit_employee(db, tenant_id, user_id, data, admin)).model_dump())
+
+
+@router.patch("/tenants/{tenant_id}/team/users/{user_id}/status")
+async def admin_team_status(tenant_id: uuid.UUID, user_id: uuid.UUID, data: EmployeeStatusUpdate, db: DbSession, admin: SuperUser):
+    result = await service.set_user_active(db, tenant_id, user_id, data.is_active, actor=admin)
+    return success_response(data=result.model_dump())
+
+
+@router.get("/tenants/{tenant_id}/team/users/{user_id}/permissions")
+async def admin_team_permissions(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser):
+    from app.modules.admin.user_access import employee_permissions
+
+    return success_response(data=await employee_permissions(db, tenant_id, user_id))
+
+
+@router.put("/tenants/{tenant_id}/team/users/{user_id}/permissions")
+async def admin_team_save_permissions(
+    tenant_id: uuid.UUID, user_id: uuid.UUID, data: EmployeePermissionsUpdate, db: DbSession, admin: SuperUser,
+):
+    from app.modules.admin.user_access import save_employee_permissions
+
+    result = await save_employee_permissions(db, tenant_id, user_id, data.permission_ids,
+                                            data.expected_role_id, data.expected_permission_ids, data.scope, admin)
+    return success_response(data=result, message="Permissions updated")
+
+
+@router.get("/tenants/{tenant_id}/team/users/{user_id}/activity")
+async def admin_team_activity(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, _: SuperUser, page_params: PageQuery):
+    items, total = await service.get_user_activity(db, tenant_id, user_id, page_params.offset, page_params.limit)
+    return paginated_response(items=[i.model_dump() for i in items], total=total,
+                              page=page_params.page, page_size=page_params.page_size)
+
+
+@router.delete("/tenants/{tenant_id}/team/users/{user_id}")
+async def admin_team_remove(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSession, admin: SuperUser):
+    await service.delete_user(db, tenant_id, user_id, actor=admin)
+    return success_response(message="User removed")
+
+
+class TeamRolePermissionsUpdate(BaseModel):
+    permission_ids: list[uuid.UUID] = Field(max_length=1000)
+    expected_permission_ids: list[uuid.UUID] = Field(max_length=1000)
+
+
+@router.get("/tenants/{tenant_id}/team/roles/{role_id}/permissions")
+async def admin_team_role_permissions(tenant_id: uuid.UUID, role_id: uuid.UUID, db: DbSession, _: SuperUser):
+    from app.modules.admin.user_access import team_role_permissions
+
+    return success_response(data=await team_role_permissions(db, tenant_id, role_id))
+
+
+@router.put("/tenants/{tenant_id}/team/roles/{role_id}/permissions")
+async def admin_team_role_save(tenant_id: uuid.UUID, role_id: uuid.UUID, data: TeamRolePermissionsUpdate, db: DbSession, admin: SuperUser):
+    from app.modules.admin.user_access import save_team_role_permissions
+
+    result = await save_team_role_permissions(db, tenant_id, role_id, data.permission_ids, data.expected_permission_ids, admin)
+    return success_response(data=result, message="Role permissions updated")

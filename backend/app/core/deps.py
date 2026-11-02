@@ -135,10 +135,6 @@ def require_permission(permission_name: str):
         role = (user.role or "").lower()
         if role in ("admin", "owner"):
             return user
-        from app.core.permission_policy import OPERATIONAL_RESOURCES
-
-        if role == "member" and permission_name.partition(":")[0] in OPERATIONAL_RESOURCES:
-            return user
         if permission_name not in user.permissions_names:
             log.warning("auth.forbidden_no_permission", extra={"_extra_fields": {
                 "user_id": str(user.id),
