@@ -1,5 +1,5 @@
 import type { ModuleLink, ModuleStatus, TenantModule } from "./api/tenants";
-import { PRIMARY_NAV_GROUPS, isPrimaryActive } from "./navigation";
+import { MODULE_NAV, PRIMARY_NAV_GROUPS, isPrimaryActive } from "./navigation";
 
 export type ModuleFilter = "all" | "on" | "off" | "upgrade";
 
@@ -11,6 +11,8 @@ export function navItemForPath(path: string) {
 
 /** The module (feature key and display name) whose availability controls a page, or null for pages every business has. */
 export function featureForPath(path: string): { key: string; name: string } | null {
+  const child = MODULE_NAV.services.find((link) => path === link.href || path.startsWith(link.href + "/"));
+  if (child?.feature) return { key: child.feature, name: child.label || child.nameKey };
   const item = navItemForPath(path);
   if (!item?.feature) return null;
   return { key: item.feature, name: path === "/pos" || path.startsWith("/pos/") ? "Sales & POS" : item.name };

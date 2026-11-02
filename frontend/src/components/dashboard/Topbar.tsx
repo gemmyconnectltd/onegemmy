@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useMyEntitlements } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
 import { BranchSwitcher } from "./BranchSwitcher";
 import { Drawer } from "@/components/ui/Drawer";
@@ -42,7 +43,8 @@ function getBreadcrumb(pathname: string) {
 }
 
 export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: TopbarProps) {
-  const { user } = useAuth();
+  const { user, hasModuleAccess } = useAuth();
+  const { data: entitlements } = useMyEntitlements({ enabled: !!user?.tenantId });
   const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
   const admin = variant === "admin";
@@ -112,7 +114,7 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
       <div className="hidden flex-1 lg:block" />
 
       {/* POS */}
-      {!admin && (
+      {!admin && entitlements?.features.sales === true && hasModuleAccess("sales") && (
         <Link
           href="/pos"
           aria-label="Open point of sale"

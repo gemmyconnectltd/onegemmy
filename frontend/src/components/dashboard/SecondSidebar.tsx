@@ -7,9 +7,9 @@ import { PanelTop, PanelLeft, PanelRight } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useAuth } from "@/lib/auth";
-import { useMediaQuery } from "@/lib/useMediaQuery";
-import { sidebarModuleLinks } from "@/lib/sidebarNavigation";
-import { MODULE_TITLES, visibleModuleLinks, isModuleLinkActive, type ModuleKey } from "@/lib/navigation";
+import { useMyEntitlements } from "@/lib/api/hooks";
+import { sidebarModuleLinks, sidebarPrimaryNavigation } from "@/lib/sidebarNavigation";
+import { MODULE_TITLES, isModuleLinkActive, type ModuleKey } from "@/lib/navigation";
 export type { NavConfigItem } from "@/lib/navigation";
 type Orientation = "top" | "left" | "big";
 
@@ -57,8 +57,9 @@ export function SecondSidebar({
   showToggle = true,
 }: SecondSidebarProps) {
   const pathname = usePathname();
-  const compact = useMediaQuery("(max-width: 1023px)");
-  const { hasPermission } = useAuth();
+  const { user, hasPermission, hasModuleAccess, isSuperAdmin } = useAuth();
+  const { data: entitlements } = useMyEntitlements({ enabled: !!user?.tenantId });
+  const moduleAllowed = sidebarPrimaryNavigation(entitlements?.features, hasModuleAccess, hasPermission, isSuperAdmin()).some((group) => group.items.some((item) => item.module === module));
   const search = useSearchParams();
   // Moving between report sections keeps the chosen period, comparison and branch.
   const carried = module === "reports" ? ["period", "from", "to", "compare", "cfrom", "cto", "branch"].flatMap((k) => (search.get(k) ? [`${k}=${encodeURIComponent(search.get(k) ?? "")}`] : [])).join("&") : "";
@@ -152,7 +153,7 @@ export function SecondSidebar({
           </button>
         );
       })
-    : (module ? (compact ? visibleModuleLinks(module, hasPermission) : sidebarModuleLinks(module)) : []).map((item, index, list) => {
+    : (module ? sidebarModuleLinks(module, hasPermission, moduleAllowed, entitlements?.features) : []).map((item, index, list) => {
         const isActive = isModuleLinkActive(pathname, item);
         const heading = showRail && item.group && item.group !== list[index - 1]?.group
           ? <span key={`group-${item.group}`} className="hidden lg:block px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted">{item.group}</span>

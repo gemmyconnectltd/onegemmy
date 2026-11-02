@@ -19,15 +19,32 @@ const sidebar = load('sidebarNavigation.ts', name => {
   assert.equal(name, './navigation');
   return navigation;
 });
-test('discovery sidebar includes every published entry without role or feature predicates', () => {
-  const expected = navigation.PRIMARY_NAV_GROUPS.flatMap(group => group.items).filter(item => !item.hidden).map(item => item.href);
-  assert.deepEqual(Array.from(sidebar.sidebarPrimaryNavigation().flatMap(group => group.items).map(item => item.href)), Array.from(expected));
-  assert.ok(sidebar.sidebarPrimaryNavigation().flatMap(group => group.items).some(item => item.href === '/sales'));
-  assert.ok(sidebar.sidebarPrimaryNavigation().flatMap(group => group.items).some(item => item.href === '/inventory'));
+
+const enabled = Object.fromEntries(navigation.PRIMARY_NAV_GROUPS.flatMap(g => g.items).filter(i => i.feature).map(i => [i.feature, true]));
+const hrefs = groups => Array.from(groups.flatMap(g => g.items).map(i => i.href));
+test('all menus omit disabled modules, unavailable business features, and unauthorized administration', () => {
+  const groups = sidebar.sidebarPrimaryNavigation({...enabled, manufacturing:false}, m => !['inventory','expenses','debts','accounting'].includes(m), () => false, false);
+  const links=hrefs(groups);
+  for(const href of ['/inventory','/expenses','/debts','/accounting','/manufacturing','/settings/users','/dashboard','/reports']) assert(!links.includes(href),href);
+  assert(links.includes('/sales'));
+  assert(links.includes('/support'));
+  assert(groups.every(g=>g.items.length>0));
 });
-test('secondary menu includes permission-tagged entries while route guards retain restricted landing rules', () => {
-  for (const module of Object.keys(navigation.MODULE_NAV)) {
-    assert.deepEqual(Array.from(sidebar.sidebarModuleLinks(module).map(item => item.href)), Array.from(navigation.MODULE_NAV[module].map(item => item.href)));
-  }
-  assert.equal(navigation.firstAllowedHref(undefined, () => false, () => false, false), '/support');
+test('unknown entitlements never flash business modules into navigation', () => {
+  const links=hrefs(sidebar.sidebarPrimaryNavigation(undefined,()=>true,()=>true,false));
+  assert(!links.includes('/inventory')&&!links.includes('/sales'));
+});
+test('owners still obey disabled business features; secondary menus obey resource grants', () => {
+  assert(!hrefs(sidebar.sidebarPrimaryNavigation({...enabled,inventory:false},()=>true,()=>true,true)).includes('/inventory'));
+  assert.equal(sidebar.sidebarModuleLinks('inventory',()=>true,false).length,0);
+  assert.equal(sidebar.sidebarModuleLinks('procurement',()=>false,true).some(i=>i.requires),false);
+  assert.equal(navigation.firstAllowedHref({...enabled,sales:false},()=>false,()=>false,false),'/support');
+  assert.equal(navigation.firstAllowedHref(enabled,m=>m==='sales',()=>false,false),'/sales');
+});
+
+test('disabled service subfeatures are absent and fallback landing cannot loop through appointments', () => {
+  const features={services:true,appointments:false,queue:false};
+  const links=sidebar.sidebarModuleLinks('services',()=>true,true,features);
+  assert(!links.some(i=>['/services/appointments','/services/calendar','/services/walk-ins'].includes(i.href)));
+  assert.equal(navigation.firstAllowedHref(features,m=>m==='services',()=>true,false),'/services/catalog');
 });

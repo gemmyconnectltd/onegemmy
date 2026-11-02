@@ -1,4 +1,5 @@
 "use client";
+import { FeatureLink } from "@/components/dashboard/FeatureLink";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
@@ -541,7 +542,7 @@ function TargetAndActions({
     { label: "Add Stock", href: "/inventory", icon: Package, color: c.blue },
     {
       label: "Record Expense",
-      href: "/accounting/expenses",
+      href: "/expenses/list",
       icon: DollarSign,
       color: c.expenses,
     },
@@ -553,7 +554,7 @@ function TargetAndActions({
     },
     {
       label: "Customers",
-      href: "/sales/customers",
+      href: "/customers",
       icon: Users,
       color: c.gold,
     },
@@ -605,7 +606,7 @@ function TargetAndActions({
         </div>
         <div className="p-3 grid grid-cols-2 gap-2">
           {actions.map((a) => (
-            <a
+            <FeatureLink
               key={a.label}
               href={a.href}
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-surface transition-colors group"
@@ -620,7 +621,7 @@ function TargetAndActions({
               <span className="text-[12px] font-semibold text-foreground/80 group-hover:text-foreground leading-tight">
                 {a.label}
               </span>
-            </a>
+            </FeatureLink>
           ))}
         </div>
       </div>
@@ -688,12 +689,12 @@ function SidePanel({
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-bold text-foreground">Top Products</h2>
-          <a
+          <FeatureLink
             href="/inventory"
             className="text-[11px] font-bold text-accent hover:underline"
           >
             View all
-          </a>
+          </FeatureLink>
         </div>
         <TopProducts orders={orders} />
       </div>
@@ -701,12 +702,12 @@ function SidePanel({
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">Low Stock</h2>
-            <a
+            <FeatureLink
               href="/inventory"
               className="text-[11px] font-bold text-accent hover:underline"
             >
               Restock
-            </a>
+            </FeatureLink>
           </div>
           <div className="divide-y divide-border">
             {lowStock.map((item) => {
@@ -893,12 +894,12 @@ export default function DashboardPage() {
                 </span>{" "}
                 are at or below their reorder level.
               </p>
-              <a
+              <FeatureLink
                 href="/inventory"
                 className="ml-auto text-[12px] font-semibold text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap"
               >
                 View all <ChevronRight size={11} />
-              </a>
+              </FeatureLink>
             </div>
           )}
 
@@ -919,12 +920,12 @@ export default function DashboardPage() {
                   : `${taxDeadline.daysAway} day${taxDeadline.daysAway === 1 ? "" : "s"}`}
                 ) — applies if you file VAT quarterly.
               </p>
-              <a
+              <FeatureLink
                 href="/accounting"
                 className="ml-auto text-[12px] font-semibold text-accent hover:underline flex items-center gap-0.5 whitespace-nowrap"
               >
                 Accounting <ChevronRight size={11} />
-              </a>
+              </FeatureLink>
             </div>
           )}
 
@@ -952,12 +953,12 @@ export default function DashboardPage() {
                 <h2 className="text-sm font-bold text-foreground">
                   Recent Sales
                 </h2>
-                <a
+                <FeatureLink
                   href="/sales/orders"
                   className="text-[11px] font-bold text-accent hover:underline flex items-center gap-0.5"
                 >
                   View all <ChevronRight size={11} />
-                </a>
+                </FeatureLink>
               </div>
               <div className="overflow-x-auto">
                 {recentOrders.length === 0 ? (

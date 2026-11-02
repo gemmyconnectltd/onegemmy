@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // A token's role grants are a login-time snapshot. Read current grants on mount,
   // window focus, and periodically so server repairs/revocations apply to active sessions.
   const profile = useMyProfile({enabled: !!user?.tenantId, placeholderData: undefined,
-    staleTime: 0, refetchInterval: 60_000, retry: 1});
+    staleTime: 0, refetchInterval: 15_000, refetchOnWindowFocus: true, retry: 1});
   const currentUser = useMemo(() => currentSessionUser(user, profile.data), [user, profile.data]);
   const checkingAccess = !!user?.tenantId && profile.isPending && !profile.isError;
 
@@ -315,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser.isSuperuser) return true;
     const key = module.toLowerCase();
     if (currentUser.disabledModules.includes(key)) return false;
+    if (key === "customers" && currentUser.disabledModules.includes("sales")) return false;
     if ((key === "expenses" || key === "debts") && currentUser.disabledModules.includes("accounting")) return false;
     // Admins and owners always see all modules
     const role = currentUser.role?.toLowerCase();

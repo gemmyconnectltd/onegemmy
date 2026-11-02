@@ -12,7 +12,7 @@ import { siteConfig } from "@/lib/config";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { Drawer } from "@/components/ui/Drawer";
 import { LogOut, Menu, PanelLeft, ChevronDown } from "lucide-react";
-import { ADMIN_NAV_ITEMS, visiblePrimaryNavigation, isPrimaryActive, type PrimaryNavGroup as NavGroup } from "@/lib/navigation";
+import { ADMIN_NAV_ITEMS, isPrimaryActive, type PrimaryNavGroup as NavGroup } from "@/lib/navigation";
 
 interface SidebarProps { expanded: boolean; onExpandChange: (value: boolean) => void; collapsed: boolean; onCollapsedChange: (value: boolean) => void; variant?: "app" | "admin"; }
 export const SIDEBAR_W_COLLAPSED = 64;
@@ -28,9 +28,9 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
   const { user, logout, hasModuleAccess, hasPermission, isSuperAdmin } = useAuth();
   const { logoUrl } = useAppConfig();
   const admin = variant === "admin";
-  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : sidebarPrimaryNavigation();
   const entitlements = useMyEntitlements({ enabled: !admin });
-  const mobileGroups = admin ? groups : visiblePrimaryNavigation(entitlements.data?.features, hasModuleAccess, hasPermission, isSuperAdmin());
+  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : sidebarPrimaryNavigation(entitlements.data?.features, hasModuleAccess, hasPermission, isSuperAdmin());
+  const mobileGroups = groups;
   const allItems = mobileGroups.flatMap(group => group.items);
   const primaryHrefs = ["/dashboard", "/sales", "/inventory", "/procurement"];
   const mobileItems = admin ? allItems.slice(0, 4) : primaryHrefs.flatMap(href => allItems.filter(item => item.href === href));
@@ -54,7 +54,7 @@ export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange
   return <>
     <button type="button" onClick={() => onCollapsedChange(!collapsed)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} className="fixed top-5 z-50 hidden h-5 w-5 items-center justify-center rounded-md border border-border bg-card text-muted shadow-sm transition-[left,color] duration-150 hover:text-accent lg:flex" style={{left: width - 10}}><PanelLeft size={12} /></button>
     <aside aria-label="Application sidebar" className="fixed inset-y-0 left-0 z-40 hidden h-dvh flex-col overflow-hidden border-r border-border bg-card transition-[width] duration-150 lg:flex" style={{width}}>
-      <Link href={admin ? "/admin" : "/dashboard"} title={brand} className={`flex h-[60px] shrink-0 items-center gap-2.5 border-b border-border ${collapsed ? "justify-center" : "px-4"}`}><span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent text-white">{!admin && logoUrl ? <img src={logoUrl} alt={`${brand} logo`} className="h-full w-full object-cover" /> : <LogoMark size={17} />}</span>{!collapsed && <span className="truncate text-sm font-bold">{brand}</span>}</Link>
+      <Link href={admin ? "/admin" : groups[0]?.items[0]?.href || "/support"} title={brand} className={`flex h-[60px] shrink-0 items-center gap-2.5 border-b border-border ${collapsed ? "justify-center" : "px-4"}`}><span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent text-white">{!admin && logoUrl ? <img src={logoUrl} alt={`${brand} logo`} className="h-full w-full object-cover" /> : <LogoMark size={17} />}</span>{!collapsed && <span className="truncate text-sm font-bold">{brand}</span>}</Link>
       <nav aria-label="Main navigation" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2"><NavigationGroups groups={groups} path={path} collapsed={collapsed} admin={admin} /></nav>
       <div ref={account} className="shrink-0 border-t border-border p-2" data-tour={admin ? undefined : "user-menu"}>
         <button aria-label="Open account menu" aria-expanded={accountOpen} aria-controls="sidebar-account-menu" onClick={() => setAccountOpen(value => !value)} className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg p-2 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent ${collapsed ? "justify-center" : ""}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-bold text-accent">{initials}</span>{!collapsed && <><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold">{user?.name}</span><span className="block truncate text-[10px] capitalize text-muted">{user?.role}</span></span><ChevronDown size={12} className="text-muted" /></>}</button>

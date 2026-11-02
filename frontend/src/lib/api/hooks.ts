@@ -50,7 +50,7 @@ import {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-type QueryOpts = { placeholderData?: undefined; enabled?: boolean; refetchInterval?: number; staleTime?: number; retry?: boolean | number };
+type QueryOpts = { placeholderData?: undefined; enabled?: boolean; refetchInterval?: number; refetchOnWindowFocus?: boolean; staleTime?: number; retry?: boolean | number };
 
 function useQ<TResponse, TSelected, TKey extends unknown[]>(
   key: TKey,
@@ -469,7 +469,7 @@ const ENTITLEMENTS = ["tenants", "me", "entitlements"] as const;
 const CURRENT_TENANT = ["tenants", "me", "current"] as const;
 
 export const useMyEntitlements = (opts?: QueryOpts) =>
-  useQ([...ENTITLEMENTS], () => tenantsApi.entitlements(), (r) => r.data, opts);
+  useQ([...ENTITLEMENTS], () => tenantsApi.entitlements(), (r) => r.data, { refetchInterval: 15_000, refetchOnWindowFocus: true, ...opts });
 
 const MODULES = ["tenants", "me", "modules"] as const;
 

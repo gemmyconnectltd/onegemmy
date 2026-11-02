@@ -19,6 +19,7 @@ export interface NavConfigItem {
   group?: string;
   /** Permission the user needs to see this item (e.g. "users:read"). Owners always pass. */
   requires?: string;
+  feature?: string;
 }
 
 
@@ -112,9 +113,9 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "allJobs", href: "/repairs", icon: Hammer, exact: true },
   ],
   services: [
-    { nameKey: "appointments",     href: "/services/appointments",     icon: CalendarDays },
-    { nameKey: "walkIns",          href: "/services/walk-ins",         icon: ListChecks },
-    { nameKey: "calendar",         href: "/services/calendar",         icon: CalendarClock },
+    { nameKey: "appointments",     href: "/services/appointments", feature: "appointments",     icon: CalendarDays },
+    { nameKey: "walkIns",          href: "/services/walk-ins", feature: "queue",         icon: ListChecks },
+    { nameKey: "calendar",         href: "/services/calendar", feature: "appointments",         icon: CalendarClock },
     { nameKey: "catalog",          href: "/services/catalog",          icon: Sparkles },
     { nameKey: "staffCommissions", href: "/services/staff-commissions", icon: UserCheck },
   ],
@@ -216,10 +217,10 @@ export function visiblePrimaryNavigation(
   const visible = (item: PrimaryNavItem) =>
     !item.hidden
     && (!item.ownerOnly || isOwner)
-    && (!item.feature || features?.[item.feature] !== false)
+    && (!item.feature || features?.[item.feature] === true)
     && (!item.module || item.access === "" || canAccess(item.access || item.module))
     && (!item.permission || can(item.permission));
-  return PRIMARY_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(visible) })).filter(group => group.items.length);
+  return PRIMARY_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(visible).map(item => item.module === "services" && features?.appointments !== true ? { ...item, href: visibleModuleLinks("services", can, features)[0]?.href ?? "/services/catalog", activeFor: ["/services"] } : item) })).filter(group => group.items.length);
 }
 
 /** Where someone lands when their usual home page isn't theirs: the first page their role gives them. */
@@ -233,6 +234,6 @@ export function firstAllowedHref(
 }
 
 /** Second-sidebar links the user may see (those with `requires` need that permission). */
-export function visibleModuleLinks(module: ModuleKey, can: (permission: string) => boolean = () => true): NavConfigItem[] {
-  return MODULE_NAV[module].filter(link => !link.requires || can(link.requires));
+export function visibleModuleLinks(module: ModuleKey, can: (permission: string) => boolean = () => true, features?: Record<string, boolean>): NavConfigItem[] {
+  return MODULE_NAV[module].filter(link => (!link.requires || can(link.requires)) && (!link.feature || features?.[link.feature] === true));
 }

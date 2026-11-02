@@ -1,13 +1,15 @@
-import { MODULE_NAV, PRIMARY_NAV_GROUPS, type ModuleKey, type NavConfigItem, type PrimaryNavGroup } from "./navigation";
+import { visibleModuleLinks, visiblePrimaryNavigation, type ModuleKey, type NavConfigItem, type PrimaryNavGroup } from "./navigation";
 
-/** Discovery menus show published entries; page/API guards enforce actual access. */
-export function sidebarPrimaryNavigation(): PrimaryNavGroup[] {
-  return PRIMARY_NAV_GROUPS.map(group => ({
-    ...group,
-    items: group.items.filter(item => !item.hidden),
-  })).filter(group => group.items.length > 0);
+/** Every navigation surface uses current business features and employee access. */
+export function sidebarPrimaryNavigation(
+  features: Record<string, boolean> | undefined,
+  canAccess: (module: string) => boolean,
+  can: (permission: string) => boolean,
+  isOwner: boolean,
+): PrimaryNavGroup[] {
+  return visiblePrimaryNavigation(features, canAccess, can, isOwner);
 }
 
-export function sidebarModuleLinks(module: ModuleKey): NavConfigItem[] {
-  return [...MODULE_NAV[module]];
+export function sidebarModuleLinks(module: ModuleKey, can: (permission: string) => boolean, moduleAllowed: boolean, features?: Record<string, boolean>): NavConfigItem[] {
+  return moduleAllowed ? visibleModuleLinks(module, can, features) : [];
 }

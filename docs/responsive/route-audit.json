@@ -2169,6 +2169,17 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/components/dashboard/FeatureLink.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/components/dashboard/ModuleLayout.tsx",
       "tables": 0,
       "uncontainedTables": 0,
