@@ -37,6 +37,7 @@ MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "repairs": ("services", "orders", "items", "stock"),
 }
 
+# Business entitlements are shared; employee switches are independent.
 MODULE_PARENTS = {"expenses": "accounting", "debts": "accounting"}
 MODULE_LABELS = {"expenses": "Expenses", "debts": "Debt Management"}
 
@@ -129,7 +130,7 @@ def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
                 child = "expenses"
             elif path.rstrip("/") == "/debts" or path.startswith("/debts/"):
                 child = "debts"
-        if {module, child} & set(getattr(user, "disabled_modules", None) or []):
+        if child in (getattr(user, "disabled_modules", None) or []):
             log.warning("access.feature_off", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "path": request.url.path}})
             raise ForbiddenError("This feature has been switched off for your account. Ask an administrator of your business.")
         # Standard business roles (admin, owner, member) get full access — only

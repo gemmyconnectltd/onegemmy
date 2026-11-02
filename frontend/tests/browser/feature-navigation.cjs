@@ -25,10 +25,12 @@ let browser;
  const page=await context.newPage();
  for(const width of [1440,390]){
   await page.setViewportSize({width,height:900});await page.goto(base+'/sales/orders');await page.getByRole('button',{name:'Search pages',exact:true}).waitFor();
-  if(width>=1024){const nav=page.getByRole('navigation',{name:'Main navigation'});await nav.getByRole('link',{name:'Sales',exact:true}).waitFor();for(const name of ['Inventory','Accounting','Expenses','Debt Management','Team & Access','Reports','Overview','Manufacturing'])assert.equal(await nav.getByRole('link',{name,exact:true}).count(),0,name);}
-  else{const quick=page.getByRole('navigation',{name:'Quick navigation'});assert.equal(await quick.getByRole('link',{name:'Inventory',exact:true}).count(),0);await quick.getByRole('button',{name:'Open navigation'}).click();const nav=page.getByRole('navigation',{name:'Mobile navigation'});assert.equal(await nav.getByRole('link',{name:'Team & Access',exact:true}).count(),0);assert.equal(await nav.getByRole('link',{name:'Expenses',exact:true}).count(),0);await page.keyboard.press('Escape');}
+  if(width>=1024){const nav=page.getByRole('navigation',{name:'Main navigation'});await nav.getByRole('link',{name:'Sales',exact:true}).waitFor();for(const name of ['Inventory','Accounting','Team & Access','Reports','Overview','Manufacturing'])assert.equal(await nav.getByRole('link',{name,exact:true}).count(),0,name);}
+  else{const quick=page.getByRole('navigation',{name:'Quick navigation'});assert.equal(await quick.getByRole('link',{name:'Inventory',exact:true}).count(),0);await quick.getByRole('button',{name:'Open navigation'}).click();const nav=page.getByRole('navigation',{name:'Mobile navigation'});assert.equal(await nav.getByRole('link',{name:'Team & Access',exact:true}).count(),0);assert.equal(await nav.getByRole('link',{name:'Expenses',exact:true}).count(),1);await page.keyboard.press('Escape');}
   await page.getByRole('button',{name:'Search pages',exact:true}).click();await page.getByRole('textbox',{name:'Search pages',exact:true}).fill('Inventory');assert.equal(await page.getByRole('navigation',{name:'Search results'}).getByRole('link').count(),0);await page.keyboard.press('Escape');
-  for(const path of ['/settings/users','/inventory/products','/expenses/list']){await page.goto(base+path);await page.waitForURL(url=>url.pathname==='/sales/orders');assert.equal(await page.getByText(/You don't have access|isn't available/).count(),0);}
+  for(const path of ['/settings/users','/inventory/products']){await page.goto(base+path);await page.waitForURL(url=>url.pathname==='/sales/orders');assert.equal(await page.getByText(/You don't have access|isn't available/).count(),0);}
+  await page.goto(base+'/expenses/list');await page.getByRole('heading',{name:'Expenses',exact:true}).waitFor();assert.equal(new URL(page.url()).pathname,'/expenses/list');
+  await page.goto(base+'/debts/receivables');await page.waitForLoadState('networkidle');assert.equal(new URL(page.url()).pathname,'/debts/receivables');
  }
  assert.equal(inventoryRequests,0,'disabled inventory page never mounts');
  user.disabled_modules.push('sales');
@@ -36,5 +38,5 @@ let browser;
  await page.getByRole('navigation',{name:'Quick navigation'}).getByRole('button',{name:'Open navigation'}).click();assert.equal(await page.getByRole('navigation',{name:'Mobile navigation'}).getByRole('link',{name:'Customers',exact:true}).count(),0);await page.keyboard.press('Escape');
  features.sales=false;
  await page.goto(base+'/pos');await page.waitForURL(url=>url.pathname!=='/pos');assert.equal(await page.getByRole('link',{name:'Open point of sale'}).count(),0);
- await browser.close();console.log('Passed: desktop/mobile menu filtering, search, disabled-URL redirects, inherited finance switches, POS hiding, and no disabled inventory page requests.');
+ await browser.close();console.log('Passed: desktop/mobile menu filtering, search, disabled-URL redirects, independent finance switches, POS hiding, and no disabled inventory page requests.');
 })().catch(async e=>{console.error(e);if(browser)await browser.close();process.exitCode=1;});

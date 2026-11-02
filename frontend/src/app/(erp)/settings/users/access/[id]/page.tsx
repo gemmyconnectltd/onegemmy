@@ -91,7 +91,7 @@ function FeatureAccessTab({ a, canManage }: { a: UserAccess; canManage: boolean 
     finally { setBusy(null); }
   };
   return (
-    <Card title="Feature access" hint="Choose which features this person can open. Switching one off blocks it on the server. Switching it on restores default view/edit access and their role permissions. Business restrictions still apply.">
+    <Card title="Feature access" hint="Choose which features this person can open. Switching one off blocks it on the server. Switching it on restores default view/edit access and their role permissions. Accounting, Expenses and Debt Management have independent employee switches. Business restrictions still apply.">
       {a.user.is_owner ? <p className="text-sm text-muted">The business owner can use every feature allowed for this business. Platform restrictions and business module switches still apply.</p> : (
         <>
           {error && <p role="alert" className="mb-3 rounded-lg bg-red-500/10 px-3 py-2 text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p>}
@@ -105,10 +105,10 @@ function FeatureAccessTab({ a, canManage }: { a: UserAccess; canManage: boolean 
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">{m.name}</p>
                     <p className="text-[12px] text-muted">
-                      {m.blocked_by ? "Accounting is switched off for this person. Enable Accounting first." : closed ? "Not available to your business." : m.blocked ? "Switched off for this person." : byRole ? "No operational access is available for this account." : m.can_change ? "Can view and edit. Additional actions follow their role." : "Can view only."}
+                      {closed ? "Not available to your business." : m.blocked ? "Switched off for this person." : byRole ? "No operational access is available for this account." : m.can_change ? "Can view and edit. Additional actions follow their role." : "Can view only."}
                     </p>
                   </div>
-                  {closed ? <Pill tone="amber">Unavailable</Pill> : <Toggle checked={!m.blocked} label={`${m.name} for ${a.user.full_name}`} loading={busy === m.key} disabled={!canManage || busy !== null || !!m.blocked_by} onChange={(v) => void change(m.key, v)} />}
+                  {closed ? <Pill tone="amber">Unavailable</Pill> : <Toggle checked={!m.blocked} label={`${m.name} for ${a.user.full_name}`} loading={busy === m.key} disabled={!canManage || busy !== null} onChange={(v) => void change(m.key, v)} />}
                 </li>
               );
             })}

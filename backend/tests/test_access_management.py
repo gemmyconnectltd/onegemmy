@@ -293,6 +293,16 @@ async def test_platform_can_manage_employee_features_with_tenant_isolation(db, m
             assert finance["expenses"]["blocked"] and not finance["expenses"]["effective_view"]
             assert finance["debts"]["effective_view"]
             assert (await admin.patch(path + "/expenses", json={"enabled": True})).status_code == 200
+            response = await admin.patch(path + "/accounting", json={"enabled": False})
+            assert response.status_code == 200, response.text
+            finance = {m["key"]: m for m in response.json()["data"]["modules"]}
+            assert not finance["accounting"]["effective_view"]
+            assert finance["expenses"]["effective_view"] and finance["debts"]["effective_view"]
+            async with client(db, employee) as staff:
+                for endpoint in ("/expense-management/search", "/debts/receivable/search"):
+                    response = await staff.post(f"{API}{endpoint}", json={})
+                    assert response.status_code == 200, response.text
+                assert (await staff.get(f"{API}/accounting/accounts")).status_code == 403
             response = await admin.patch(path + "/inventory", json={"enabled": False})
             assert response.status_code == 200, response.text
             modules = {m["key"]: m for m in response.json()["data"]["modules"]}

@@ -67,7 +67,7 @@ async def test_finance_child_switch_is_enforced_on_its_existing_accounting_route
     await check(request("POST", sibling), user)
 
 
-def test_finance_rows_are_listed_and_preserve_the_accounting_parent_switch():
+def test_finance_rows_have_independent_employee_switches_but_share_business_entitlement():
     rows = {m["key"]: m for m in module_access(
         {"expenses:read", "expenses:update", "accounts_payable:read"},
         False, {"accounting": "enabled"}, {"accounting": "Accounting"}, {"accounting"},
@@ -77,11 +77,23 @@ def test_finance_rows_are_listed_and_preserve_the_accounting_parent_switch():
     for key in ("expenses", "debts"):
         assert rows[key]["status"] == "enabled"
         assert not rows[key]["blocked"]  # inherited blocking is not a stored employee choice
-        assert rows[key]["blocked_by"] == "accounting"
-        assert not rows[key]["effective_view"]
+        assert rows[key]["blocked_by"] is None
+        assert rows[key]["effective_view"]
     restored = {m["key"]: m for m in module_access(
         {"expenses:read", "accounts_payable:read"}, False,
         {"accounting": "restricted"}, {}, set(),
     )}
     assert not restored["expenses"]["effective_view"]
     assert not restored["debts"]["effective_view"]
+
+
+async def test_accounting_off_does_not_block_enabled_expenses_or_debts():
+    check = require_module_write("accounting")
+    user = person(["accounting"])
+    user.role = "member"
+    for method in ("GET", "POST", "PATCH"):
+        await check(request(method, "/api/v1/tenants/expense-management/search"), user)
+        await check(request(method, "/api/v1/tenants/accounting/expenses"), user)
+        await check(request(method, "/api/v1/tenants/debts/receivable/search"), user)
+        with pytest.raises(ForbiddenError):
+            await check(request(method, "/api/v1/tenants/accounting/accounts"), user)

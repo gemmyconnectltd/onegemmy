@@ -82,14 +82,13 @@ def module_access(granted: set[str], everything: bool, states: dict[str, str], n
         view = everything or any(f"{r}:read" in granted for r in resources)
         write = everything or any(f"{r}:{a}" in granted for r in resources for a in WRITE_ACTIONS)
         parent = MODULE_PARENTS.get(module)
-        blocked_by = parent if parent in blocked else None
         status = states.get(module, states.get(parent, NOT_INCLUDED))
         out.append({
             "key": module, "name": names.get(module, MODULE_LABELS.get(module, module.title())), "status": status,
-            "can_view": view, "can_change": write, "blocked": module in blocked, "blocked_by": blocked_by,
+            "can_view": view, "can_change": write, "blocked": module in blocked, "blocked_by": None,
             # A module the business turned off stays readable but takes no new records; one outside the plan or restricted is closed.
-            "effective_view": view and module not in blocked and not blocked_by and status in (ENABLED, "available"),
-            "effective_change": write and module not in blocked and not blocked_by and status == ENABLED,
+            "effective_view": view and module not in blocked and status in (ENABLED, "available"),
+            "effective_change": write and module not in blocked and status == ENABLED,
         })
     return out
 
