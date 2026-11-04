@@ -99,6 +99,29 @@ async def correct_order(id: uuid.UUID, data: OrderCorrection, db: DbSession, cur
     return success_response(data=obj.model_dump(), message="Sale corrected")
 
 
+class VoidReason(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.post("/sales/orders/{id}/void")
+async def void_order(id: uuid.UUID, data: VoidReason, db: DbSession, current_user: CurrentUser):
+    """Owner/administrator: cancel a completed sale that should not exist. Reverses its entries and payments and restores stock; deletes nothing."""
+    _require_tenant(current_user.tenant_id)
+    _require_owner(current_user)
+    obj = await service.void_order(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.reason)
+    return success_response(data=obj.model_dump(), message="Sale voided")
+
+
+@router.post("/sales/orders/{id}/void-request")
+async def request_void(id: uuid.UUID, data: VoidReason, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
+    """Anyone who can see a sale can ask for it to be voided; an owner or approver decides in Approvals."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.approvals import service as approvals
+    order = await service.get_order(db, current_user.tenant_id, id)
+    request = await approvals.create_request(db, current_user, kind="sale_void", subject_id=id, branch_id=order.branch_id or active_branch_id, reason=data.reason, payload={})
+    return success_response(data=approvals.to_dict(request), message="Request sent to an approver", status_code=201)
+
+
 @router.post("/sales/orders/{id}/archive")
 async def archive_order(id: uuid.UUID, data: ArchiveReason, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)

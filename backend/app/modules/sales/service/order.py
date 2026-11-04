@@ -457,6 +457,70 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
     return _to_order_read(await repo.get_by_id_for_tenant(tenant_id, id))
 
 
+async def void_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, reason: str) -> OrderRead:
+    """Cancel a completed sale that should never have happened (wrong customer, duplicate, test).
+
+    Nothing is deleted: the sale journal is reversed on the sale's own day, every later payment is reversed (money back to the customer),
+    stock goes back on the shelf, the VAT record is voided and the sale becomes Cancelled with who/when/why. Refused for a closed period
+    and for serial-tracked items (use a return)."""
+    from app.modules.accounting.models.tax import TaxCalculation
+    from app.modules.accounting.models.transaction import Transaction
+    from app.modules.accounting.repository import TransactionRepository
+    from app.modules.accounting.service.transaction import (
+        create_payment_reversal_transaction,
+        reverse_journal,
+    )
+
+    reason = (reason or "").strip()
+    if len(reason) < 3:
+        raise ValidationError("A reason is required to void a sale")
+    repo = OrderRepository(db)
+    await repo.lock_financial_writes(tenant_id)
+    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    if obj is None:
+        raise NotFoundError("Order not found")
+    if obj.status == "Cancelled":
+        raise ValidationError("This sale is already cancelled")
+    if obj.status != "Completed":
+        raise ValidationError("Only a completed sale is voided. Open sales can simply be set to Cancelled")
+    day = await _business_day(db, tenant_id, obj.ordered_at)
+    await TransactionRepository(db).assert_period_open(tenant_id, day)
+    items = list(obj.items)
+    for item in items:
+        product = await db.get(Product, item.product_id) if item.product_id else None
+        if product is not None and product.tracks_serials:
+            raise ValidationError(f"'{item.product_name}' is serial-tracked. Record a return for it instead of voiding the sale.")
+    journals = (await db.execute(select(Transaction).where(Transaction.tenant_id == tenant_id, Transaction.order_id == obj.id, Transaction.type == "sale", Transaction.status == "Posted").order_by(Transaction.created_at))).scalars().all()
+    reversed_refs = set((await db.execute(select(Transaction.client_reference).where(Transaction.tenant_id == tenant_id, Transaction.client_reference.like("rev:%")))).scalars().all())
+    live = [j for j in journals if f"rev:{j.id}" not in reversed_refs]
+    # Money taken after the sale (its own journal each) goes back first; the checkout payment sits inside the sale journal and is undone by reversing it.
+    now = datetime.now(UTC)
+    for payment in (await db.execute(select(OrderPayment).where(OrderPayment.order_id == obj.id, OrderPayment.status == "Completed"))).scalars().all():
+        inside_sale_journal = payment.accounting_transaction_id is not None and any(j.id == payment.accounting_transaction_id for j in live)
+        if not inside_sale_journal:
+            base_cash = payment.base_amount if payment.base_amount is not None else payment.amount
+            base_clears = payment.base_applied_amount if payment.base_applied_amount is not None else base_cash
+            await create_payment_reversal_transaction(db, tenant_id, user_id, obj.id, base_cash, payment.reference, payment.payment_method, ar_amount=base_clears)
+        payment.status, payment.reversed_at, payment.reversed_by, payment.reversal_reason = "Reversed", now, user_id, f"Sale voided: {reason}"
+    references = []
+    for journal in live:
+        references.append((await reverse_journal(db, tenant_id, user_id, journal, f"sale voided: {reason}", posting_date=day)).reference)
+    for item in items:
+        target = await db.get(ProductVariant, item.variant_id) if item.variant_id else (await db.get(Product, item.product_id) if item.product_id else None)
+        if target is not None:
+            target.stock = float(target.stock) + float(item.quantity)
+    for record in (await db.execute(select(TaxCalculation).where(TaxCalculation.tenant_id == tenant_id, TaxCalculation.reference_type == "sale", TaxCalculation.reference_id == str(obj.id)))).scalars().all():
+        record.status = "Void"
+    before = {"status": obj.status, "total": float(obj.total), "paid": float(obj.amount_paid or 0)}
+    obj.status = "Cancelled"
+    obj.amount_paid = 0
+    obj.notes = f"{obj.notes + chr(10) if obj.notes else ''}VOIDED: {reason}"
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="order.void", entity_type="order", entity_id=str(obj.id),
+                       summary=f"Voided sale {obj.order_number}: {reason}", changes={"before": before, "after": {"status": "Cancelled"}, "reason": reason, "reversal_journals": references})
+    await db.commit()
+    return _to_order_read(await repo.get_by_id_for_tenant(tenant_id, id))
+
+
 async def archive_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, reason: str, restore: bool = False) -> OrderRead:
     """Hide a sale from the default list (or bring it back). The sale, its payments and its ledger entries are untouched."""
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)

@@ -69,6 +69,7 @@ EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
     ("POST", re.compile(r"^/procurement/purchase-returns/[^/]+/refund$"), ("accounts_payable:create",)),
     ("POST", re.compile(r"^/procurement/purchase-returns"), ("purchase_orders:update",)),
     ("DELETE", re.compile(r"^/procurement/purchase-returns"), ("purchase_orders:delete",)),
+    ("POST", re.compile(r"^/sales/orders/[^/]+/void-request$"), ("orders:update",)),  # asking is open to anyone who can edit sales; deciding is not
     ("POST", re.compile(r"^/sales/customers(/bulk)?$"), ("contacts:create",)),
     ("PATCH", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:update",)),
     ("DELETE", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:delete",)),

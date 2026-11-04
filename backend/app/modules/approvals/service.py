@@ -28,8 +28,8 @@ from app.modules.tenants.models import Role, User
 
 log = get_logger("approvals")
 
-KINDS = ("price_change", "stock_adjustment", "stock_transfer", "debt_over_limit")
-KIND_LABEL = {"price_change": "Price change", "stock_adjustment": "Stock adjustment", "stock_transfer": "Stock transfer", "credit": "Credit sale", "debt_over_limit": "Debt over the limit"}
+KINDS = ("price_change", "stock_adjustment", "stock_transfer", "debt_over_limit", "sale_void")
+KIND_LABEL = {"price_change": "Price change", "stock_adjustment": "Stock adjustment", "stock_transfer": "Stock transfer", "credit": "Credit sale", "debt_over_limit": "Debt over the limit", "sale_void": "Void a sale"}
 GM_ROLE = "General Manager"
 AUTHORITY = "approvals:approve"
 
@@ -78,7 +78,7 @@ async def create_request(db: AsyncSession, user, *, kind: str, subject_id: uuid.
     tenant_id = user.tenant_id
     reason = (reason or "").strip() or None
     title, snapshot = await _describe(db, tenant_id, kind, subject_id, payload)
-    if kind in ("price_change", "stock_adjustment") and (reason is None or len(reason) < 5):
+    if kind in ("price_change", "stock_adjustment", "sale_void") and (reason is None or len(reason) < 5):
         raise ValidationError("Say why: give a short reason of at least 5 characters")
     existing = None if kind == "debt_over_limit" else (await db.execute(select(ApprovalRequest).where(
         ApprovalRequest.tenant_id == tenant_id, ApprovalRequest.kind == kind, ApprovalRequest.subject_id == subject_id, ApprovalRequest.status == "pending",
@@ -107,6 +107,14 @@ async def _describe(db: AsyncSession, tenant_id: uuid.UUID, kind: str, subject_i
         if customer is None or customer.tenant_id != tenant_id:
             raise NotFoundError("Customer not found")
         return f"Debt of {payload.get('amount')} for {customer.name}", {"customer_name": customer.name}
+    if kind == "sale_void":
+        from app.modules.sales.models.order import Order
+        order = await db.get(Order, subject_id) if subject_id else None
+        if order is None or order.tenant_id != tenant_id:
+            raise NotFoundError("Sale not found")
+        if order.status != "Completed":
+            raise ValidationError("Only a completed sale can be voided")
+        return f"Void sale {order.order_number}", {"order_number": order.order_number, "total": _num(order.total)}
     if kind == "stock_transfer":
         transfer = await db.get(StockTransfer, subject_id) if subject_id else None
         if transfer is None or transfer.tenant_id != tenant_id:
@@ -151,11 +159,11 @@ async def decide(db: AsyncSession, user, request_id: uuid.UUID, *, approve: bool
     note = (note or "").strip() or None
     if not approve and not note:
         raise ValidationError("Say why it is rejected, so the requester knows what to change")
+    request.decided_by, request.decided_by_name, request.decided_at, request.decision_note = user.id, user.full_name or user.email, datetime.now(UTC), note
     if approve:
         await _apply(db, request)
         request.applied_at = datetime.now(UTC)
     request.status = "approved" if approve else "rejected"
-    request.decided_by, request.decided_by_name, request.decided_at, request.decision_note = user.id, user.full_name or user.email, datetime.now(UTC), note
     await record_audit(db, tenant_id=user.tenant_id, actor_user_id=user.id, actor_name=request.decided_by_name, action=f"approval.{request.status}",
                        entity_type="approval", entity_id=str(request.id), summary=f"{KIND_LABEL[request.kind]} {request.status}: {request.title}", changes={"note": note, "payload": request.payload})
     await db.commit()
@@ -168,6 +176,10 @@ async def _apply(db: AsyncSession, request: ApprovalRequest) -> None:
     if request.kind == "debt_over_limit":
         from app.modules.accounting.service.debt_actions import insert_manual
         await insert_manual(db, request.tenant_id, request.requested_by, "receivable", uuid.UUID(str(payload["branch_id"])), payload)
+        return
+    if request.kind == "sale_void":
+        from app.modules.sales.service.order import void_order
+        await void_order(db, request.tenant_id, request.subject_id, request.decided_by, request.decided_by_name, request.reason or "Approved void request")
         return
     if request.kind == "stock_transfer":
         return  # approval unlocks the transfer; the people doing it still move it along

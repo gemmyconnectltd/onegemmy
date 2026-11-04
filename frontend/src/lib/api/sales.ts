@@ -191,6 +191,10 @@ export const salesApi = {
   // Orders
   listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange, archived?: boolean) =>
     request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, archived: archived ? "true" : undefined, ...periodParams(period) })}`),
+  voidOrder: (id: string, reason: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/void`, { method: "POST", body: JSON.stringify({ reason }) }),
+  requestVoid: (id: string, reason: string) =>
+    request<SingleResponse<object>>(`${BASE}/orders/${id}/void-request`, { method: "POST", body: JSON.stringify({ reason }) }),
   correctOrder: (id: string, data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/correct`, { method: "POST", body: JSON.stringify(data) }),
   archiveOrder: (id: string, reason: string) =>

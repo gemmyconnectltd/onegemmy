@@ -29,6 +29,7 @@ from app.modules.sales.service.order import (
     reject_order,
     require_backdating_allowed,
     update_order,
+    void_order,
 )
 from app.modules.sales.service.order_payment import (
     list_payments_for_order,
@@ -94,4 +95,5 @@ __all__ = [
     "update_order",
     "update_return",
     "update_target",
+    "void_order",
 ]

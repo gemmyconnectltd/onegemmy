@@ -43,6 +43,8 @@ export default function SalesReturnsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ApiReturn | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  // Quantity coming back for each line of the chosen sale (a new return lists what the customer returns, line by line).
+  const [lines, setLines] = useState<Record<string, string>>({});
 
   const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
   const range = useMemo(() => periodRange(period), [period]);
@@ -97,22 +99,31 @@ export default function SalesReturnsPage() {
     });
   }
 
-  const openAdd = () => { setForm(EMPTY_FORM); setShowAdd(true); };
+  const openAdd = () => { setForm(EMPTY_FORM); setLines({}); setShowAdd(true); };
   const openEdit = (r: ApiReturn) => {
     setEditing(r);
     setForm({ order_id: r.order_id ?? "", customer_id: r.customer_id ?? "", reason: r.reason ?? "", status: r.status, return_date: r.return_date });
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
+  // What can still come back from the chosen sale: sold minus what earlier, not-rejected returns already took.
+  const chosenOrder = orders.find((o) => o.id === form.order_id);
+  const alreadyReturned = (orderItemId: string) => returns.filter((r) => r.status !== "Rejected" && r.id !== editing?.id).flatMap((r) => r.items).filter((i) => i.order_item_id === orderItemId).reduce((n, i) => n + Number(i.quantity), 0);
+  const returnLines = (chosenOrder?.items ?? []).map((item) => ({ item, remaining: Math.max(0, Number(item.quantity) - alreadyReturned(item.id)), unit: Number(item.quantity) ? Number(item.line_total) / Number(item.quantity) : 0 }));
+  const picked = returnLines.filter(({ item }) => Number(lines[item.id]) > 0);
+  const refundTotal = picked.reduce((n, { item, unit }) => n + unit * Number(lines[item.id]), 0);
+  const overReturn = picked.some(({ item, remaining }) => Number(lines[item.id]) > remaining);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editing && picked.length === 0) { setError("Choose the sale and how many of each item are coming back."); return; }
     const payload = {
       order_id: form.order_id || null,
       customer_id: form.customer_id || null,
       reason: form.reason || null,
       status: form.status,
       return_date: form.return_date,
-      items: [],
+      items: picked.map(({ item, unit }) => ({ order_item_id: item.id, product_id: item.product_id, product_name: item.product_name, quantity: Number(lines[item.id]), refund_per_unit: Math.round(unit * 100) / 100 })),
     };
     const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save return");
     const onSuccess = () => { setError(null); closeDrawer(); };
@@ -258,7 +269,7 @@ export default function SalesReturnsPage() {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Order">
-              <Select value={form.order_id} onChange={(e) => setForm({ ...form, order_id: e.target.value })}>
+              <Select value={form.order_id} disabled={!!editing} onChange={(e) => { setForm({ ...form, order_id: e.target.value, customer_id: orders.find((o) => o.id === e.target.value)?.customer_id ?? form.customer_id }); setLines({}); }}>
                 <option value="">— Select order —</option>
                 {orders.map((o) => <option key={o.id} value={o.id}>{o.order_number}</option>)}
               </Select>
@@ -270,6 +281,19 @@ export default function SalesReturnsPage() {
               </Select>
             </Field>
           </div>
+          {!editing && chosenOrder && (
+            <section aria-label="Items coming back" className="space-y-2 rounded-xl border border-border p-3">
+              <h3 className="text-xs font-semibold">What is coming back</h3>
+              {returnLines.map(({ item, remaining, unit }) => (
+                <div key={item.id} className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.product_name}</p><p className="text-[11px] text-muted">{remaining} of {Number(item.quantity)} can still be returned · {fmt(unit)} each</p></div>
+                  <Input type="number" min="0" max={remaining} inputMode="decimal" disabled={remaining === 0} aria-label={`Quantity of ${item.product_name} returned`} className="w-20 text-right tabular-nums" value={lines[item.id] ?? ""} onChange={(e) => setLines({ ...lines, [item.id]: e.target.value })} placeholder="0" />
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-border pt-2 text-sm"><span className="text-muted">Refund</span><span className="font-semibold tabular-nums">{fmt(refundTotal)}</span></div>
+              {overReturn && <p role="alert" className="text-xs text-red-600">A quantity is more than can still be returned from this sale.</p>}
+            </section>
+          )}
           <Field label="Reason">
             <Textarea rows={2} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Defective item, wrong size..." />
           </Field>
@@ -283,7 +307,7 @@ export default function SalesReturnsPage() {
               </Select>
             </Field>
           </div>
-          <FormFooter submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Return"} onCancel={closeDrawer} disabled={!form.return_date || saving} color={SAL} />
+          <FormFooter submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Return"} onCancel={closeDrawer} disabled={!form.return_date || saving || overReturn || (!editing && picked.length === 0)} color={SAL} />
         </form>
       </Drawer>
     </div>

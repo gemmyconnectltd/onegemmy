@@ -21,6 +21,7 @@ function Change({ r }: { r: ApprovalRequest }) {
   const p = r.payload;
   if (r.kind === "price_change") return <span className="inline-flex items-center gap-1.5 font-semibold">{num(p.old_price)} <ArrowRight size={13} aria-hidden /> {num(p.new_price)}</span>;
   if (r.kind === "stock_adjustment") return <span className="inline-flex items-center gap-1.5 font-semibold">{num(p.old_stock)} <ArrowRight size={13} aria-hidden /> {num(p.new_stock)} <span className="font-normal text-muted">({Number(p.difference) > 0 ? "+" : ""}{num(p.difference)})</span></span>;
+  if (r.kind === "sale_void") return <span>Sale <strong>{String(p.order_number ?? "")}</strong> for <strong>{num(p.total)}</strong> would be cancelled and its entries reversed</span>;
   if (r.kind === "debt_over_limit") return <span>Client owes <strong>{num(p.currently_owed)}</strong>, limit <strong>{num(p.limit)}</strong>, new debt <strong>{num(p.amount)}</strong></span>;
   return null;
 }

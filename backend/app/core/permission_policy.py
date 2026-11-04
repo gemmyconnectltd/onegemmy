@@ -34,6 +34,8 @@ def permissions_for_method(
     held = set(assigned)
     if path.rstrip("/") == "/sales/orders":
         held.update(set(effective) & {"pos:create", "orders:create"})
+    elif path.rstrip("/").endswith("/void-request") and path.startswith("/sales/orders/"):
+        held.update(set(effective) & {"orders:update"})
     elif path.rstrip("/") == "/sales/customers":
         held.update(set(effective) & {"contacts:create"})
     return sorted(held)

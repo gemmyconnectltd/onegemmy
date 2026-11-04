@@ -583,3 +583,65 @@ async def test_approving_a_return_with_no_items_and_no_refund_does_not_fail(db, 
             assert approved.status_code == 200, approved.text
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_an_owner_voids_a_paid_sale_and_everything_nets_to_zero(db, monkeypatch):
+    tenant, branch, product, cashier, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            sale = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
+            order_id = uuid.UUID(sale["id"])
+            async with _client(cashier, tenant, branch) as other:
+                assert (await other.post(f"/api/v1/tenants/sales/orders/{sale['id']}/void", json={"reason": "wrong sale"})).status_code == 403
+            assert (await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/void", json={"reason": ""})).status_code == 422
+            done = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/void", json={"reason": "entered twice by mistake"})
+            assert done.status_code == 200, done.text
+            assert done.json()["data"]["status"] == "Cancelled"
+            assert (await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/void", json={"reason": "again"})).status_code == 422
+        await db.refresh(product)
+        assert float(product.stock) == 50  # the 10 units are back
+        net = await _net(db, tenant.id, "1000", "1100", "4000", "2100", "5000", "1200")
+        assert all(abs(v) < 0.005 for v in net.values()), net  # cash, receivables, revenue, VAT, cost and inventory all net to zero
+        journals = await _journals(db, tenant.id, order_id)
+        assert len(journals) == 2 and {t.type for t, _ in journals} == {"sale", "reversal"}
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_cashier_asks_for_a_void_and_an_approver_decides(db, monkeypatch):
+    tenant, branch, product, cashier, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            sale = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
+        async with _client(cashier, tenant, branch) as other:
+            asked = await other.post(f"/api/v1/tenants/sales/orders/{sale['id']}/void-request", json={"reason": "customer cancelled at the till"})
+            assert asked.status_code == 201, asked.text
+            request_id = asked.json()["data"]["id"]
+            assert (await other.post(f"/api/v1/tenants/sales/orders/{sale['id']}/void-request", json={"reason": "customer cancelled again"})).status_code == 409
+        async with _client(owner, tenant, branch) as c:
+            decided = await c.post(f"/api/v1/tenants/approvals/{request_id}/approve", json={})
+            assert decided.status_code == 200, decided.text
+            assert (await c.get(f"/api/v1/tenants/sales/orders/{sale['id']}")).json()["data"]["status"] == "Cancelled"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_return_cannot_take_back_more_than_was_sold(db, monkeypatch):
+    tenant, branch, product, _, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            sale = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
+            line = sale["items"][0]
+
+            def body(quantity):
+                return {"order_id": sale["id"], "status": "Pending", "return_date": datetime.now(UTC).date().isoformat(),
+                        "items": [{"order_item_id": line["id"], "product_id": line["product_id"], "product_name": "Thing", "quantity": quantity, "refund_per_unit": 1000}]}
+            assert (await c.post("/api/v1/tenants/sales/returns", json=body(6))).status_code == 201
+            over = await c.post("/api/v1/tenants/sales/returns", json=body(6))  # 6 + 6 > 10 sold
+            assert over.status_code == 422 and "still be returned" in over.text
+            assert (await c.post("/api/v1/tenants/sales/returns", json=body(4))).status_code == 201
+    finally:
+        app.dependency_overrides.clear()

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.accounting.service.transaction import create_return_transaction
 from app.modules.currency.service import document_currency, document_rate, get_base_currency
 from app.modules.inventory.models.product import Product
@@ -69,7 +69,24 @@ async def get_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> R
     return ReturnRead.model_validate(obj)
 
 
+async def _check_quantities(db: AsyncSession, tenant_id: uuid.UUID, data: ReturnCreate) -> None:
+    """A line cannot come back in larger quantity than was sold, counting what earlier (not rejected) returns already took back."""
+    from sqlalchemy import func, select
+    for item in data.items:
+        if not item.order_item_id:
+            continue
+        sold = await db.get(OrderItem, item.order_item_id)
+        if sold is None or (data.order_id and sold.order_id != data.order_id):
+            raise ValidationError("A returned line does not belong to that sale")
+        already = (await db.execute(
+            select(func.coalesce(func.sum(ReturnItem.quantity), 0)).join(Return, Return.id == ReturnItem.return_id)
+            .where(Return.tenant_id == tenant_id, ReturnItem.order_item_id == item.order_item_id, Return.status != "Rejected"))).scalar_one()
+        if float(already) + float(item.quantity) > float(sold.quantity) + 1e-9:
+            raise ValidationError(f"Only {float(sold.quantity) - float(already):g} of '{sold.product_name}' can still be returned ({float(sold.quantity):g} sold, {float(already):g} already returned)")
+
+
 async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ReturnCreate) -> ReturnRead:
+    await _check_quantities(db, tenant_id, data)
     repo = ReturnRepository(db)
     return_number = await repo.next_return_number(tenant_id)
     refund_amount = sum(item.line_refund for item in data.items)

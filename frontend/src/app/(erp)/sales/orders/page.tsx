@@ -13,15 +13,16 @@ import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
   Eye, Edit2, AlertCircle, ChevronDown, Upload,
-  Archive, ArchiveRestore,
+  Archive, ArchiveRestore, Ban,
 } from "lucide-react";
 import { TableState } from "@/components/ui/TableState";
+import { ReasonDialog } from "@/components/ui/ReasonDialog";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useVoidOrder, useRequestVoid, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
 import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
@@ -347,6 +348,10 @@ export default function SalesOrdersPage() {
   const createOrder = useCreateOrder();
   const updateOrder = useUpdateOrder();
   const correctOrder = useCorrectOrder();
+  const voidOrder = useVoidOrder();
+  const requestVoid = useRequestVoid();
+  const [voiding, setVoiding] = useState<ApiOrder | null>(null);
+  const [voidNotice, setVoidNotice] = useState("");
   const archiveOrder = useArchiveOrder();
   const restoreOrder = useRestoreOrder();
   const bulkCreateOrders = useBulkCreateOrders();
@@ -606,6 +611,7 @@ export default function SalesOrdersPage() {
                           </>
                         )}
                         <button onClick={() => openEdit(o)} aria-label="Edit sale" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
+                        {o.status === "Completed" && !showArchived && <button onClick={() => setVoiding(o)} aria-label={isOwner ? "Void sale" : "Request void"} title={isOwner ? "Void sale" : "Ask for this sale to be voided"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-red-600 hover:bg-red-500/10 transition-colors"><Ban size={13} /></button>}
                         {isOwner && <button onClick={() => (showArchived ? restoreOrder.mutate(o.id) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }) }))} aria-label={showArchived ? "Restore sale" : "Archive sale"} title={showArchived ? "Restore" : "Archive"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors">{showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>}
                       </div>
                     </td>
@@ -615,7 +621,7 @@ export default function SalesOrdersPage() {
             </tbody>
           </table></TableScroll>
         )}
-        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{isOwner && <Button variant="outline" onClick={() => (showArchived ? restoreOrder.mutate(o.id) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
+        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" onClick={() => (showArchived ? restoreOrder.mutate(o.id) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
         {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}
         {!loading && orders.length > 0 && (
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
@@ -631,6 +637,12 @@ export default function SalesOrdersPage() {
       </div>
 
       {/* ── Add / Edit Drawer ── */}
+      <ReasonDialog open={!!voiding} onClose={() => setVoiding(null)} danger
+        title={isOwner ? `Void ${voiding?.order_number ?? "sale"}?` : `Ask to void ${voiding?.order_number ?? "sale"}`}
+        message={isOwner ? "The sale is cancelled: its entries and payments are reversed and the stock goes back. Nothing is deleted, and your reason is kept in the audit trail." : "An owner or approver will decide. If they approve, the sale is cancelled, its entries are reversed and the stock goes back."}
+        confirmLabel={isOwner ? "Void sale" : "Send request"}
+        onConfirm={async (reason) => { if (!voiding) return; if (isOwner) await voidOrder.mutateAsync({ id: voiding.id, reason }); else { await requestVoid.mutateAsync({ id: voiding.id, reason }); setVoidNotice(`Request to void ${voiding.order_number} sent. It appears in Approvals.`); } }} />
+      {voidNotice && <p role="status" className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-foreground px-4 py-2 text-sm text-card shadow-lg" onAnimationEnd={() => setVoidNotice("")}>{voidNotice} <button className="ml-2 underline" onClick={() => setVoidNotice("")}>OK</button></p>}
       <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Sale" : "New Sale"} description={editing ? editing.order_number : "Record a new sale"} size="xl">
         <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-5">
           {editing?.status === "Completed" && (isOwner
