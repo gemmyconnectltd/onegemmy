@@ -16,6 +16,9 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
 import { orderToSale } from "@/lib/orders";
 import { useAuth } from "@/lib/auth";
+import { useCan } from "@/lib/can";
+import { saleAtLabel } from "@/components/pos/SaleDate";
+import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
 import { useProducts, useCustomers, useCreateOrder, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
@@ -74,6 +77,7 @@ export default function POSPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const saleInFlight = useRef(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const can = useCan();
   const { user } = useAuth();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -533,6 +537,17 @@ export default function POSPage() {
 
         {!cartOpen && <aside className="hidden min-w-0 w-[clamp(320px,27vw,400px)] shrink-0 flex-col overflow-hidden border-l border-border bg-card lg:flex">{checkoutPanel}</aside>}
 
+      </div>
+      {/* Phone: who the sale is for and when it happened stay in view here; tap to change them in the cart. */}
+      <div className="flex shrink-0 items-center gap-2 px-3 pt-2 lg:hidden">
+        <button type="button" onClick={() => setCartOpen(true)} aria-label="Customer: change or add" className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-left text-[13px]">
+          <UserRound size={14} className={customerName ? "shrink-0 text-accent" : "shrink-0 text-muted"} aria-hidden />
+          <span className="min-w-0 flex-1 truncate font-medium">{customerName || "Walk-in customer"}</span>
+          <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-accent">{customerName ? "Change" : <><UserPlus size={13} aria-hidden />Add</>}</span>
+        </button>
+        {can("orders", "approve") && <button type="button" onClick={() => setCartOpen(true)} aria-label="Sale date: change" className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium ${saleAt ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300" : "border-border bg-surface"}`}>
+          <CalendarClock size={14} aria-hidden /><span className="max-w-[7.5rem] truncate">{saleAt ? saleAtLabel(saleAt) : "Now"}</span>
+        </button>}
       </div>
       <button onClick={() => setCartOpen(true)} className="m-3 flex min-h-11 shrink-0 items-center justify-between rounded-lg bg-accent px-4 font-semibold text-white lg:hidden">
         <span>Cart · {cart.reduce((sum, item) => sum + item.qty, 0)} items</span><span>{currencySymbol} {fmt(total)}</span>

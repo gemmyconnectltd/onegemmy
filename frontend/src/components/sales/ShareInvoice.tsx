@@ -23,9 +23,10 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
   const [to, setTo] = useState("");
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
+  const [shownLink, setShownLink] = useState("");
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  const close = () => { if (!busy) { setOpen(false); setEmailing(false); setError(""); setNote(""); } };
+  const close = () => { if (!busy) { setOpen(false); setEmailing(false); setError(""); setNote(""); setShownLink(""); } };
   async function link() {
     const { data } = await salesApi.shareInvoice(orderId);
     return data;
@@ -39,16 +40,22 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
 
   const copyLink = () => run("link", async () => {
     const { url } = await link();
-    await navigator.clipboard.writeText(url);
-    setCopied(true); setTimeout(() => setCopied(false), 2500);
-    setNote("Link copied. It opens this invoice for 30 days.");
+    setShownLink(url);  // always shown, so it can be copied by hand if the browser refuses programmatic copying
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2500); setNote("Link copied. It opens this invoice for 30 days."); }
+    catch { setNote("Copy the link below. It opens this invoice for 30 days."); }
   });
   const whatsapp = () => run("whatsapp", async () => {
-    const data = await link();
-    const digits = (customerPhone ?? data.customer_phone ?? "").replace(/\D/g, "");
-    const text = `Hello${customerName ? ` ${customerName}` : ""}, here is invoice ${data.order_number}: ${data.url}`;
-    // A number is used only when it is already in international form; otherwise WhatsApp lets the sender pick the contact.
-    window.open(`https://wa.me/${digits.length >= 11 ? digits : ""}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+    // Open the tab first, inside the click: browsers block a window opened after a network call has finished.
+    const tab = window.open("about:blank", "_blank");
+    try {
+      const data = await link();
+      const digits = (customerPhone ?? data.customer_phone ?? "").replace(/\D/g, "");
+      const text = `Hello${customerName ? ` ${customerName}` : ""}, here is invoice ${data.order_number}: ${data.url}`;
+      // A number is used only when it is already in international form; otherwise WhatsApp lets the sender pick the contact.
+      const target = `https://wa.me/${digits.length >= 11 ? digits : ""}?text=${encodeURIComponent(text)}`;
+      setShownLink(data.url);
+      if (tab) { tab.opener = null; tab.location.href = target; } else { window.location.href = target; }
+    } catch (cause) { tab?.close(); throw cause; }
   });
   const nativeShare = () => run("link", async () => {
     const data = await link();
@@ -77,6 +84,7 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
         <button type="button" className={row} disabled={!!busy} onClick={() => void copyLink()}>{busy === "link" ? <Loader2 size={16} className="animate-spin" /> : copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}{copied ? "Link copied" : "Copy link"}<span className="ml-auto text-xs font-normal text-muted">Valid 30 days</span></button>
         {canNativeShare && <button type="button" className={row} disabled={!!busy} onClick={() => void nativeShare()}><Smartphone size={16} />Share from this device</button>}
         <button type="button" className={row} disabled={!!busy} onClick={() => void pdf()}>{busy === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}Download PDF</button>
+        {shownLink && <input readOnly aria-label="Invoice link" value={shownLink} onFocus={e => e.currentTarget.select()} className="pesaa-control mx-3 mt-2 w-[calc(100%-1.5rem)] text-xs" />}
         {note && <p role="status" className="px-3 pt-2 text-xs text-emerald-700 dark:text-emerald-400">{note}</p>}
         {error && <p role="alert" className="px-3 pt-2 text-xs text-red-600">{error}</p>}
       </div>
