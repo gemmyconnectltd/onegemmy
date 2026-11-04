@@ -221,7 +221,8 @@ export default function POSPage() {
   const discount = cart.reduce((s, i) => s + i.discount, 0);
   const itemsCashReceivedSum = cart.reduce((s, i) => s + (i.cashReceived || 0), 0);
   const gross = subtotal - discount;
-  const vatRate = vatEnabled ? (vat.data?.rate ?? 0) : 0;
+  // The server sends the VAT rate as a percentage (18), the sums below use a fraction (0.18).
+  const vatRate = vatEnabled ? (vat.data?.rate ?? 0) / 100 : 0;
   const taxable = Math.round(gross / (1 + vatRate));
   const tax = gross - taxable;
   const total = gross;

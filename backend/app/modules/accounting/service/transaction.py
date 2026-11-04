@@ -483,6 +483,8 @@ async def create_return_transaction(
                              .where(ReturnItem.return_id == return_id))).all()
     for quantity, unit_cost in rows:
         cost += Decimal(str(quantity)) * Decimal(str(unit_cost or 0))
+    if refund == 0 and cost == 0:
+        return  # a return recorded with no items and no refund moves no money and no stock: there is nothing to post
     await post_journal(
         db, tenant_id, user_id, type="return", description=f"Return {return_number}", return_id=return_id,
         posting_date=ret.return_date if ret is not None else None, branch_id=order.branch_id if order is not None else None,

@@ -579,3 +579,17 @@ async def test_an_owner_corrects_a_completed_sale_by_reversal_and_repost(db, mon
             assert low.status_code == 422 and "already paid" in low.text
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_approving_a_return_with_no_items_and_no_refund_does_not_fail(db, monkeypatch):
+    tenant, branch, product, _, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            sale = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
+            made = await c.post("/api/v1/tenants/sales/returns", json={"order_id": sale["id"], "status": "Pending", "return_date": datetime.now(UTC).date().isoformat(), "items": []})
+            assert made.status_code == 201, made.text
+            approved = await c.patch(f"/api/v1/tenants/sales/returns/{made.json()['data']['id']}", json={"status": "Approved"})
+            assert approved.status_code == 200, approved.text
+    finally:
+        app.dependency_overrides.clear()

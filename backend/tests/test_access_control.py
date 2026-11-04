@@ -87,13 +87,14 @@ async def test_writes_need_a_matching_permission_and_owner_is_not_restricted(db)
         _, owner_token = await _user(db, [], owner=True)
 
         async with await _client(db, none_token) as c:
-            denied = [await c.post("/api/v1/tenants/sales/customers", json=CUSTOMER), await c.post("/api/v1/tenants/hr/employees", json={}),
+            denied = [await c.post("/api/v1/tenants/sales/customers/bulk", json={"items": [CUSTOMER]}), await c.post("/api/v1/tenants/hr/employees", json={}),
                       await c.post("/api/v1/tenants/accounting/expenses", json={}), await c.delete(f"/api/v1/tenants/sales/customers/{uuid.uuid4()}")]
             assert [r.status_code for r in denied] == [403, 403, 403, 403]
             assert "permission" in denied[0].json()["message"].lower()
+            assert (await c.post("/api/v1/tenants/sales/customers", json=CUSTOMER)).status_code == 201  # a till user adds the buyer at checkout
             assert (await c.post("/api/v1/tenants/accounting/tax/calculate/vat", json={})).status_code != 403  # calculators stay open
-        async with await _client(db, reader_token) as c:  # the exact case from the staging audit
-            assert (await c.post("/api/v1/tenants/sales/customers", json=CUSTOMER)).status_code == 403
+        async with await _client(db, reader_token) as c:  # the staging-audit case: reading is not managing; imports stay closed
+            assert (await c.post("/api/v1/tenants/sales/customers/bulk", json={"items": [CUSTOMER]})).status_code == 403
         async with await _client(db, creator_token) as c:
             created = await c.post("/api/v1/tenants/sales/customers", json=CUSTOMER)
             assert created.status_code == 201, created.text

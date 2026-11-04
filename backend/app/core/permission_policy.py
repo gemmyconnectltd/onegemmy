@@ -15,7 +15,8 @@ OPERATIONAL_VIEW_EDIT = frozenset(
     f"{resource}:{action}" for resource in OPERATIONAL_RESOURCES for action in ("read", "update")
 )
 
-CHECKOUT_CREATION = frozenset({"pos:create", "orders:create"})
+# Taking a sale includes adding the buyer: a till user may add one customer (not import many, not edit or delete others).
+CHECKOUT_CREATION = frozenset({"pos:create", "orders:create", "contacts:create"})
 
 
 def effective_permissions(assigned: Iterable[str], *, business_user: bool) -> list[str]:
@@ -32,5 +33,7 @@ def permissions_for_method(
         return list(effective)
     held = set(assigned)
     if path.rstrip("/") == "/sales/orders":
-        held.update(set(effective) & CHECKOUT_CREATION)
+        held.update(set(effective) & {"pos:create", "orders:create"})
+    elif path.rstrip("/") == "/sales/customers":
+        held.update(set(effective) & {"contacts:create"})
     return sorted(held)
