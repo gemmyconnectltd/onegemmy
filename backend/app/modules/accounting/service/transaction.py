@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.branches import branch_allowed
@@ -151,6 +152,7 @@ async def post_transaction(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
     if actor is not None and not branch_allowed(actor, obj.branch_id):
         from app.core.exceptions import ForbiddenError
         raise ForbiddenError("Journal is outside the assigned branch")
+    await repo.assert_period_open(tenant_id, obj.transaction_date)
     obj.status = "Posted"
     await repo.save(obj)
     await record_audit(
@@ -249,6 +251,16 @@ async def _get_account_by_code(db: AsyncSession, tenant_id: uuid.UUID, code: str
     return acc.id
 
 
+async def _posting_account(db: AsyncSession, tenant_id: uuid.UUID, code: str, purpose: str) -> uuid.UUID:
+    """The account a system posting must use. A missing or deactivated account stops the whole business
+    action with a message that says what to fix, instead of finishing the sale/expense with no journal."""
+    account_id = await _get_account_by_code(db, tenant_id, code)
+    account = await AccountRepository(db).get_by_id_for_tenant(tenant_id, account_id) if account_id else None
+    if account is None or not account.is_active:
+        raise ValidationError(f"Account {code} ({purpose}) is missing or inactive. Reactivate it in the Chart of Accounts before posting.")
+    return account.id
+
+
 # Maps an Order.payment_method value to the (code, label) of the asset
 # account that actually received the money. "card" settles to the bank
 # account, same as a bank transfer — Pesaa doesn't model a separate card
@@ -277,7 +289,9 @@ async def create_sale_transaction(
     tax: float = 0.0,
     payment_method: str | None = None,
     amount_paid: float | None = None,
-) -> uuid.UUID | None:
+    posting_date: date | None = None,
+    branch_id: uuid.UUID | None = None,
+) -> uuid.UUID:
     """Auto-called when an order is Completed. Returns the posted
     transaction's id (or None if accounts weren't seeded yet) so the
     checkout's first OrderPayment row can keep a stable pointer to the
@@ -297,19 +311,22 @@ async def create_sale_transaction(
     Revenue must never include the tax collected on the business's behalf.
     Also Debit COGS / Credit Inventory for the cost of goods sold, if any.
     """
-    rev_id = await _get_account_by_code(db, tenant_id, "4000")
-    ar_id = await _get_account_by_code(db, tenant_id, "1100")
-    if not rev_id or not ar_id:
-        return None  # accounts not seeded yet — skip silently
+    # One sale, one journal: a retry (or a second code path) gets the journal that already exists.
+    prior = await db.scalar(select(Transaction.id).where(
+        Transaction.tenant_id == tenant_id, Transaction.order_id == order_id, Transaction.type == "sale", Transaction.status != "Void"))
+    if prior is not None:
+        return prior
+
+    rev_id = await _posting_account(db, tenant_id, "4000", "Sales Revenue")
+    ar_id = await _posting_account(db, tenant_id, "1100", "Accounts Receivable")
 
     paid = 0.0
     method_id = None
     method_label = None
     if payment_method and amount_paid:
         code, method_label = _PAYMENT_METHOD_ACCOUNTS.get(payment_method.lower(), ("1000", "Cash"))
-        method_id = await _get_account_by_code(db, tenant_id, code)
-        if method_id is not None:
-            paid = round(min(float(amount_paid), total), 2)
+        method_id = await _posting_account(db, tenant_id, code, method_label)
+        paid = round(min(float(amount_paid), total), 2)
     credit_remaining = round(total - paid, 2)
 
     net_revenue = round(total - tax, 2)
@@ -322,7 +339,8 @@ async def create_sale_transaction(
         reference=reference,
         type="sale",
         status="Posted",
-        transaction_date=datetime.now(UTC).date(),
+        transaction_date=posting_date or datetime.now(UTC).date(),
+        branch_id=branch_id,
         description=f"Sale {order_number}",
         order_id=order_id,
         created_by=user_id,
@@ -337,16 +355,14 @@ async def create_sale_transaction(
     db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="credit", amount=net_revenue, description="Sales Revenue"))
 
     if tax > 0:
-        vat_id = await _get_account_by_code(db, tenant_id, "2100")
-        if vat_id:
-            db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="credit", amount=round(tax, 2), description="VAT Payable"))
+        vat_id = await _posting_account(db, tenant_id, "2100", "VAT Payable")
+        db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="credit", amount=round(tax, 2), description="VAT Payable"))
 
     if cogs > 0:
-        cogs_id = await _get_account_by_code(db, tenant_id, "5000")
-        inv_id = await _get_account_by_code(db, tenant_id, "1200")
-        if cogs_id and inv_id:
-            db.add(TransactionLine(transaction_id=txn.id, account_id=cogs_id, type="debit",  amount=round(cogs, 2), description="Cost of Goods Sold"))
-            db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id,  type="credit", amount=round(cogs, 2), description="Inventory"))
+        cogs_id = await _posting_account(db, tenant_id, "5000", "Cost of Goods Sold")
+        inv_id = await _posting_account(db, tenant_id, "1200", "Inventory")
+        db.add(TransactionLine(transaction_id=txn.id, account_id=cogs_id, type="debit",  amount=round(cogs, 2), description="Cost of Goods Sold"))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id,  type="credit", amount=round(cogs, 2), description="Inventory"))
 
     return txn.id
 
@@ -365,10 +381,10 @@ async def create_expense_transaction(
 ) -> None:
     """Auto-called when expense is Approved. Debit Expense account, Credit Cash."""
     code, method_label = _PAYMENT_METHOD_ACCOUNTS.get(payment_method.lower(), ("1000", "Cash"))
-    cash_id = await _get_account_by_code(db, tenant_id, code)
-    exp_id = expense_account_id or await _get_account_by_code(db, tenant_id, "5900")
-    if not cash_id or not exp_id:
-        return
+    cash_id = await _posting_account(db, tenant_id, code, method_label)
+    if expense_account_id is None:
+        raise ValidationError("Choose the expense account this expense belongs to before posting it")
+    exp_id = expense_account_id
 
     repo = TransactionRepository(db)
     txn_ref = await repo.next_reference(tenant_id)
@@ -388,6 +404,55 @@ async def create_expense_transaction(
     db.add(TransactionLine(transaction_id=txn.id, account_id=cash_id, type="credit", amount=amount, description=method_label))
 
 
+async def post_journal(
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID | None, *, type: str, description: str,
+    lines: list[tuple[str, str, str, Decimal | float, str]], posting_date: date | None = None,
+    branch_id: uuid.UUID | None = None, order_id: uuid.UUID | None = None, return_id: uuid.UUID | None = None,
+    client_reference: str | None = None,
+) -> Transaction:
+    """The one way operational events (write-offs, returns, stock adjustments, reversals) reach the ledger.
+    `lines` are (account code, purpose, "debit"|"credit", amount, description). Refuses an unbalanced journal or
+    an unusable account, and returns the journal that already exists for the same `client_reference` (retries)."""
+    if client_reference:
+        prior = await db.scalar(select(Transaction).where(Transaction.tenant_id == tenant_id, Transaction.client_reference == client_reference))
+        if prior is not None:
+            return prior
+    amounts = [(code, purpose, kind, to_decimal(amount).quantize(Decimal("0.01")), text) for code, purpose, kind, amount, text in lines]
+    amounts = [row for row in amounts if row[3] != 0]
+    debit = sum((a for _, _, k, a, _ in amounts if k == "debit"), Decimal(0))
+    credit = sum((a for _, _, k, a, _ in amounts if k == "credit"), Decimal(0))
+    if not amounts or debit != credit or any(a < 0 for *_, a, _ in amounts):
+        raise ValidationError(f"The {type} journal does not balance (debits {debit}, credits {credit})")
+    resolved = [(await _posting_account(db, tenant_id, code, purpose), kind, amount, text) for code, purpose, kind, amount, text in amounts]
+    repo = TransactionRepository(db)
+    txn = await repo.save(Transaction(
+        tenant_id=tenant_id, currency_code=await _ledger_currency(db, tenant_id), reference=await repo.next_reference(tenant_id),
+        type=type, status="Posted", transaction_date=posting_date or datetime.now(UTC).date(), branch_id=branch_id,
+        description=description, order_id=order_id, return_id=return_id, created_by=user_id, client_reference=client_reference,
+    ))
+    for account_id, kind, amount, text in resolved:
+        db.add(TransactionLine(transaction_id=txn.id, account_id=account_id, type=kind, amount=amount, description=text))
+    return txn
+
+
+async def reverse_journal(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, original: Transaction, reason: str,
+                          posting_date: date | None = None) -> Transaction:
+    """A reversing journal: the same accounts with debits and credits swapped, linked to the original by reference.
+    The original stays exactly as posted, so the history shows both the mistake and its correction."""
+    lines = (await db.execute(select(TransactionLine, Account).join(Account, Account.id == TransactionLine.account_id)
+                              .where(TransactionLine.transaction_id == original.id))).all()
+    if not lines:
+        raise ValidationError(f"Journal {original.reference} has no lines to reverse")
+    prior = await db.scalar(select(Transaction).where(Transaction.tenant_id == tenant_id, Transaction.client_reference == f"rev:{original.id}"))
+    if prior is not None:
+        raise ConflictError(f"Journal {original.reference} has already been reversed")
+    return await post_journal(
+        db, tenant_id, user_id, type="reversal", description=f"Reversal of {original.reference}: {reason}"[:500],
+        posting_date=posting_date, branch_id=original.branch_id, client_reference=f"rev:{original.id}",
+        lines=[(account.code, account.name, "credit" if line.type == "debit" else "debit", line.amount, f"Reversal: {line.description or account.name}")
+               for line, account in lines])
+
+
 async def create_return_transaction(
     db: AsyncSession,
     tenant_id: uuid.UUID,
@@ -396,28 +461,65 @@ async def create_return_transaction(
     refund_amount: float,
     return_number: str,
 ) -> None:
-    """Auto-called when a return is Approved. Debit Revenue (reversal), Credit AR."""
-    ar_id = await _get_account_by_code(db, tenant_id, "1100")
-    rev_id = await _get_account_by_code(db, tenant_id, "4000")
-    if not ar_id or not rev_id:
-        return
-
-    repo = TransactionRepository(db)
-    reference = await repo.next_reference(tenant_id)
-    txn = Transaction(
-        tenant_id=tenant_id,
-        currency_code=await _ledger_currency(db, tenant_id),
-        reference=reference,
-        type="return",
-        status="Posted",
-        transaction_date=datetime.now(UTC).date(),
-        description=f"Return {return_number}",
-        return_id=return_id,
-        created_by=user_id,
+    """Auto-called when a return is Approved. Reverses what the original sale booked, for the returned share
+    only: Dr Revenue (net) + Dr VAT Payable / Cr Accounts Receivable for the refund, and, because the goods
+    go back on the shelf, Dr Inventory / Cr Cost of Goods Sold at the cost recorded when they were sold."""
+    from app.modules.sales.models.order import Order
+    from app.modules.sales.models.order_item import OrderItem
+    from app.modules.sales.models.return_ import Return
+    from app.modules.sales.models.return_item import ReturnItem
+    ret = await db.get(Return, return_id)
+    order = await db.get(Order, ret.order_id) if ret is not None and ret.order_id else None
+    if order is not None and order.tenant_id != tenant_id:
+        order = None
+    vat_share = Decimal(0)
+    if order is not None and order.base_total and Decimal(str(order.base_total)) > 0:
+        vat_share = Decimal(str(order.base_tax or 0)) / Decimal(str(order.base_total))
+    refund = to_decimal(refund_amount)
+    vat = (refund * vat_share).quantize(Decimal("0.01"))
+    cost = Decimal(0)
+    rows = (await db.execute(select(ReturnItem.quantity, OrderItem.cost_at_sale).join(OrderItem, OrderItem.id == ReturnItem.order_item_id)
+                             .where(ReturnItem.return_id == return_id))).all()
+    for quantity, unit_cost in rows:
+        cost += Decimal(str(quantity)) * Decimal(str(unit_cost or 0))
+    await post_journal(
+        db, tenant_id, user_id, type="return", description=f"Return {return_number}", return_id=return_id,
+        posting_date=ret.return_date if ret is not None else None, branch_id=order.branch_id if order is not None else None,
+        client_reference=f"return:{return_id}",
+        lines=[("4000", "Sales Revenue", "debit", refund - vat, "Revenue Reversal"),
+               ("2100", "VAT Payable", "debit", vat, "VAT Reversal"),
+               ("1100", "Accounts Receivable", "credit", refund, "Accounts Receivable"),
+               ("1200", "Inventory", "debit", cost, "Inventory returned to stock"),
+               ("5000", "Cost of Goods Sold", "credit", cost, "Cost of Goods Sold reversed")],
     )
-    txn = await repo.save(txn)
-    db.add(TransactionLine(transaction_id=txn.id, account_id=rev_id, type="debit",  amount=refund_amount, description="Revenue Reversal"))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=ar_id,  type="credit", amount=refund_amount, description="Accounts Receivable"))
+
+
+async def create_write_off_transaction(
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, kind: str, amount: Decimal, reference: str,
+    adjustment_id: uuid.UUID, branch_id: uuid.UUID | None = None, posting_date: date | None = None,
+) -> Transaction:
+    """A customer debt written off is an expense (Dr Bad Debt Expense / Cr Accounts Receivable); a supplier debt
+    written off is income (Dr Accounts Payable / Cr Other Income)."""
+    lines = ([("5600", "Bad Debt Expense", "debit", amount, "Bad debt written off"), ("1100", "Accounts Receivable", "credit", amount, "Accounts Receivable")]
+             if kind == "receivable" else
+             [("2000", "Accounts Payable", "debit", amount, "Accounts Payable"), ("4910", "Other Income", "credit", amount, "Payable written off")])
+    return await post_journal(db, tenant_id, user_id, type="write_off", description=f"Write-off {reference}", lines=lines,
+                              posting_date=posting_date, branch_id=branch_id, client_reference=f"writeoff:{adjustment_id}")
+
+
+async def create_stock_adjustment_transaction(
+    db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, value: Decimal, description: str, client_reference: str,
+    branch_id: uuid.UUID | None = None,
+) -> Transaction | None:
+    """Stock found (value > 0): Dr Inventory / Cr Inventory Adjustment. Stock lost (value < 0): the reverse."""
+    if value == 0:
+        return None
+    gain = value > 0
+    amount = abs(value)
+    return await post_journal(
+        db, tenant_id, user_id, type="adjustment", description=description, branch_id=branch_id, client_reference=client_reference,
+        lines=[("1200", "Inventory", "debit" if gain else "credit", amount, "Inventory"),
+               ("5800", "Inventory Adjustment", "credit" if gain else "debit", amount, "Inventory adjustment")])
 
 
 async def create_purchase_transaction(

@@ -102,6 +102,10 @@ export interface IncomeStatement {
   operating_income: number;
   other_income: StatementLine[];
   total_other_income: number;
+  other_expense_accounts?: StatementLine[];
+  total_other_expenses?: number;
+  total_sales_revenue?: number;
+  total_service_revenue?: number;
   net_income: number;
   net_margin_pct: number | null;
 }

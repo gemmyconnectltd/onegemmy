@@ -54,6 +54,11 @@ class DebtReasonRequest(BaseModel):
         return self
 
 
+class DebtWriteOffRequest(DebtReasonRequest):
+    """`amount` is in the debt's own currency; leave it out to write off everything still outstanding."""
+    amount: Decimal | None = Field(default=None, gt=0)
+
+
 class ManualDebtRequest(BaseModel):
     party_id: uuid.UUID
     branch_id: uuid.UUID | None = None

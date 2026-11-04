@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.pagination import PageQuery
 from app.core.response import success_response
-from app.modules.accounting.schemas.expense import ExpenseCreate, ExpenseUpdate
+from app.modules.accounting.schemas.expense import ExpenseCreate, ExpenseReversal, ExpenseUpdate
 from app.modules.accounting.schemas.expense_workspace import ExpenseCategoryInput, ExpenseFilters
 from app.modules.accounting.service import expense_workspace as service
 
@@ -73,6 +73,13 @@ async def edit(
     branch: ActiveBranchId,
 ):
     return success_response((await service.edit(db, user, branch, identity, data)).model_dump())
+
+
+@router.post("/{identity}/reverse")
+async def reverse(
+    identity: uuid.UUID, data: ExpenseReversal, db: DbSession, user: CurrentUser, branch: ActiveBranchId
+):
+    return success_response((await service.reverse(db, user, branch, identity, data.reason)).model_dump())
 
 
 @router.post("/{identity}/{action}")

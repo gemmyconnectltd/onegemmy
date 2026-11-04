@@ -4,6 +4,7 @@ import type { AccountingExpense } from "./accounting";
 export interface ExpenseRecord extends AccountingExpense {
   branch_id: string | null; supplier_id: string | null; payment_method: string;
   reference_number: string | null; receipt_name: string | null; receipt_type: string | null;
+  reversal_reason?: string | null; reversed_at?: string | null;
   created_at?: string; updated_at?: string;
 }
 export interface ExpenseFilters { search?: string; category?: string; payment_method?: string; status?: string; from_date?: string; to_date?: string; }
@@ -21,6 +22,7 @@ export const expenseWorkspaceApi = {
   create: (data: ExpenseInput) => request<SingleResponse<ExpenseRecord>>(base, {method: "POST", body: JSON.stringify(data)}),
   edit: (id: string, data: ExpenseInput) => request<SingleResponse<ExpenseRecord>>(`${base}/${id}`, {method: "PATCH", body: JSON.stringify(data)}),
   action: (id: string, action: string) => request<SingleResponse<ExpenseRecord | null>>(`${base}/${id}/${action}`, {method: "POST"}),
+  reverse: (id: string, reason: string) => request<SingleResponse<ExpenseRecord>>(`${base}/${id}/reverse`, {method: "POST", body: JSON.stringify({ reason })}),
   categories: (page: number, search: string) => request<SingleResponse<CategoryPage>>(`${base}/categories${qs({ page, search })}`),
   saveCategory: (data: Omit<ExpenseCategory, "id">, id?: string) => request<SingleResponse<ExpenseCategory>>(`${base}/categories${id ? `/${id}` : ""}`, {method: id ? "PATCH" : "POST", body: JSON.stringify(data)}),
   attach: (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<SingleResponse<{receipt_name: string}>>(`${base}/${id}/receipt`, { method: "PUT", body }); },

@@ -19,6 +19,7 @@ from app.modules.accounting.schemas.debt import (
     DebtPaymentRequest,
     DebtReasonRequest,
     DebtReminderRequest,
+    DebtWriteOffRequest,
     ManualDebtRequest,
     PayableReceiptRequest,
     StatementSendRequest,
@@ -118,9 +119,9 @@ async def edit(kind: DebtKind, document_id: uuid.UUID, data: DebtEditRequest, db
 
 
 @router.post("/{kind}/{document_id}/write-off")
-async def write_off(kind: DebtKind, document_id: uuid.UUID, data: DebtReasonRequest, db: DbSession, current_user: CurrentUser,
+async def write_off(kind: DebtKind, document_id: uuid.UUID, data: DebtWriteOffRequest, db: DbSession, current_user: CurrentUser,
                     branch: ActiveBranchId) -> dict:
-    return success_response(await debt_actions.write_off(db, current_user, kind, document_id, branch, data.reason), message="Debt written off")
+    return success_response(await debt_actions.write_off(db, current_user, kind, document_id, branch, data.reason, data.amount), message="Debt written off")
 
 
 @router.delete("/{kind}/{document_id}")

@@ -16,6 +16,8 @@ class AccountingPreference(TenantScopedMixin, Base):
     __tablename__ = "accounting_preferences"
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True)
     fiscal_start_month: Mapped[int] = mapped_column(Integer, default=1)
+    # Books are closed through this date: nothing may be posted dated on or before it.
+    locked_through: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class FinancialSnapshot(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):

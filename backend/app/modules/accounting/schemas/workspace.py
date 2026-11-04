@@ -77,6 +77,11 @@ class AssetAction(TrimmedModel):
     gain_loss_account_id: uuid.UUID | None = None
 
 
+class PeriodLock(TrimmedModel):
+    locked_through: date | None = None
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class FiscalPreference(TrimmedModel):
     fiscal_start_month: int = Field(ge=1, le=12)
 

@@ -26,7 +26,7 @@ LIMIT = D(500000)
 
 
 async def make_tenant(db, limit=LIMIT):
-    t = Tenant(name=f"T-{uuid.uuid4().hex[:6]}", slug=f"t-{uuid.uuid4().hex[:10]}", currency="RWF", credit_daily_limit=limit)
+    t = Tenant(name=f"T-{uuid.uuid4().hex[:6]}", slug=f"t-{uuid.uuid4().hex[:10]}", currency="RWF", credit_daily_limit=limit, debt_limit_per_client=10**11)
     db.add(t)
     await db.flush()
     u = User(email=f"{uuid.uuid4().hex[:8]}@test.local", hashed_password="x", full_name="Cashier", tenant_id=t.id, role="member")

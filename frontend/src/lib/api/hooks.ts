@@ -858,6 +858,7 @@ export const useFinancialAsset = mutation((data: Record<string, unknown>) => fin
 export const useFinancialAssetAction = mutation(({ id, data }: { id: string; data: Record<string, unknown> }) => financialApi.assetAction(id, data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
 export const useFinancialPayrollPost = mutation(({ id, cashId }: { id: string; cashId: string }) => financialApi.postPayroll(id, cashId), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
 export const useFinancialBillTerms = mutation(({ id, dueDate }: { id: string; dueDate: string | null }) => financialApi.billTerms(id, dueDate), [["debts"], FINANCIAL]);
+export const useFinancialPeriodLockSave = mutation((v: { date: string | null; reason: string }) => financialApi.savePeriodLock(v.date, v.reason), [FINANCIAL]);
 export const useFinancialPreferencesSave = mutation((month: number) => financialApi.savePreferences(month), [FINANCIAL]);
 import { sourceApi } from "./financialWorkspace";
 export const useFinancialInvoice = (id: string | null) => useQ([...ORDERS, "financial-document", id], () => sourceApi.invoice(id!), r => r.data, { enabled: !!id });
@@ -887,7 +888,7 @@ export const useDebtDetail = (kind: DebtKind, id: string | null, page: number, b
 export const useDebtPayment = mutation((v: { kind: DebtKind; id: string; data: DebtPaymentInput }) => debtApi.pay(v.kind, v.id, v.data), [["debts"], ["sales", "orders"], ["sales", "customers"], ["procurement"], ["accounting", "workspace"], ["accounting", "reports"], ["accounting", "transactions"], ["accounting", "receivables"]]);
 const debtKeys: unknown[][] = [["debts"], ["sales", "orders"], ["sales", "customers"], ["procurement"], ["accounting", "workspace"], ["accounting", "reports"], ["accounting", "transactions"], ["accounting", "receivables"]];
 export const useDebtEdit = mutation((v: { kind: DebtKind; id: string; data: DebtEditInput }) => debtApi.edit(v.kind, v.id, v.data), debtKeys);
-export const useDebtWriteOff = mutation((v: { kind: DebtKind; id: string; reason: string }) => debtApi.writeOff(v.kind, v.id, v.reason), debtKeys);
+export const useDebtWriteOff = mutation((v: { kind: DebtKind; id: string; reason: string; amount?: number }) => debtApi.writeOff(v.kind, v.id, v.reason, v.amount), debtKeys);
 export const useDebtVoid = mutation((v: { kind: DebtKind; id: string; reason: string }) => debtApi.void(v.kind, v.id, v.reason), debtKeys);
 export const useCreateManualDebt = mutation((v: { kind: DebtKind; data: ManualDebtInput }) => debtApi.createManual(v.kind, v.data), debtKeys);
 export const useDebtRemind = mutation((v: { ids: string[]; message: string }) => debtApi.remind(v.ids, v.message), [["debts"]]);
@@ -906,6 +907,7 @@ export const useExpenseCategories = (page: number, search: string, scope: string
 const EXPENSE_INVALIDATE = [["expense-workspace"], [...EXPENSES], [...REPORTS], [...TRANSACTIONS], ["accounting", "workspace"]];
 export const useSaveExpense = mutation(({id, data}: { id?: string; data: ExpenseInput }) => id ? expenseWorkspaceApi.edit(id, data) : expenseWorkspaceApi.create(data), EXPENSE_INVALIDATE);
 export const useExpenseAction = mutation(({id, action}: {id: string; action: string}) => expenseWorkspaceApi.action(id, action), EXPENSE_INVALIDATE);
+export const useExpenseReverse = mutation(({id, reason}: {id: string; reason: string}) => expenseWorkspaceApi.reverse(id, reason), EXPENSE_INVALIDATE);
 export const useSaveExpenseCategory = mutation(({id, data}: {id?: string; data: Omit<ExpenseCategory, "id">}) => expenseWorkspaceApi.saveCategory(data, id), EXPENSE_INVALIDATE);
 export const useExpenseReceipt = mutation(({id, file}: {id: string; file: File}) => expenseWorkspaceApi.attach(id, file), EXPENSE_INVALIDATE);
 

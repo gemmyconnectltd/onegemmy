@@ -101,5 +101,11 @@ class ExpenseRead(BaseModel):
     exchange_rate: Decimal | None = None
     base_amount: Decimal | None = None
     account: AccountRead | None = None
+    reversed_at: datetime | None = None
+    reversal_reason: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class ExpenseReversal(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)

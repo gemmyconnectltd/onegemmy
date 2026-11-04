@@ -33,6 +33,29 @@ async def update_preferences(db, user, data):
     return {"fiscal_start_month": row.fiscal_start_month}
 
 
+async def set_period_lock(db, user, locked_through, reason):
+    """Close the books through a date (or reopen by moving it earlier / clearing it). Business-wide administration only, always audited."""
+    tenant_id = allow(user, "tenants", "update")
+    if has_branch_restriction(user):
+        raise ValidationError("Closing periods requires business-wide administration")
+    row = await db.get(AccountingPreference, tenant_id)
+    if row is None:
+        row = AccountingPreference(tenant_id=tenant_id)
+        db.add(row)
+    previous = row.locked_through
+    reopening = previous is not None and (locked_through is None or locked_through < previous)
+    if reopening and len((reason or "").strip()) < 3:
+        raise ValidationError("A reason is required to reopen a closed period")
+    if locked_through is not None and locked_through > datetime.now(UTC).date():
+        raise ValidationError("A period cannot be closed beyond today")
+    row.locked_through = locked_through
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, actor_name=user.full_name, action="accounting.period_lock",
+                       entity_type="tenant", entity_id=str(tenant_id), summary=f"Books closed through {locked_through}" if locked_through else "Closed period cleared",
+                       changes={"before": str(previous) if previous else None, "after": str(locked_through) if locked_through else None, "reason": reason})
+    await db.commit()
+    return {"locked_through": row.locked_through}
+
+
 async def update_bill_terms(db, user, bill_id, data):
     tenant_id = allow(user, "accounts_payable", "update")
     row = await WorkspaceRepository(db).record(SupplierBill, tenant_id, id=bill_id, lock=True)

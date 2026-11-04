@@ -299,6 +299,7 @@ def _income_csv(report: IncomeStatement, tenant: Tenant) -> bytes:
     w.writerow(["Operating Income", "", _fmt_money(report.operating_income)])
     w.writerow([])
     _csv_section_table(w, "Other Income", report.other_income, report.total_other_income)
+    _csv_section_table(w, "Other Expenses", report.other_expense_accounts, report.total_other_expenses)
     w.writerow(["Net Income", "", _fmt_money(report.net_income)])
     w.writerow(["Net Margin", "", _fmt_pct(report.net_margin_pct)])
     return buf.getvalue().encode("utf-8-sig")
@@ -404,6 +405,8 @@ def _income_pdf(report: IncomeStatement, tenant: Tenant, styles: dict) -> bytes:
     flow.append(_statement_lines_table(report.operating_expense_accounts, styles))
     flow.append(Paragraph("Other Income", styles["h2"]))
     flow.append(_statement_lines_table(report.other_income, styles))
+    flow.append(Paragraph("Other Expenses", styles["h2"]))
+    flow.append(_statement_lines_table(report.other_expense_accounts, styles))
     return _finish_pdf(doc, flow, buf, footer)
 
 

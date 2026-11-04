@@ -65,7 +65,17 @@ class TransactionRepository(BaseRepository[Transaction]):
             Transaction.tenant_id == tenant_id, or_(Transaction.client_reference == reference, Transaction.reference == reference)
         ))).scalar_one_or_none()
 
+    async def assert_period_open(self, tenant_id: uuid.UUID, posting_date) -> None:
+        """Refuse a posting dated inside a closed period. Corrections belong in the open period (a reversing journal)."""
+        from app.core.exceptions import ValidationError
+        from app.modules.accounting.models.workspace import AccountingPreference
+        locked = await self.db.scalar(select(AccountingPreference.locked_through).where(AccountingPreference.tenant_id == tenant_id))
+        if locked is not None and posting_date is not None and posting_date <= locked:
+            raise ValidationError(f"The books are closed through {locked:%d %b %Y}. Post this in the open period, or ask an administrator to reopen it.")
+
     async def save(self, obj: Transaction) -> Transaction:
+        if obj.id is None:
+            await self.assert_period_open(obj.tenant_id, obj.transaction_date)
         if obj.branch_id is None:
             from app.modules.procurement.models.purchase_order import PurchaseOrder
             from app.modules.sales.models.order import Order

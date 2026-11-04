@@ -76,7 +76,7 @@ def columns(*fields: tuple[str, str, str]) -> list[dict]:
 
 async def preference(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
     record = await db.get(AccountingPreference, tenant_id)
-    return {"fiscal_start_month": record.fiscal_start_month if record else 1, "inventory_method": "unit_cost", "ledger_currency": (await db.get(Tenant, tenant_id)).currency}
+    return {"fiscal_start_month": record.fiscal_start_month if record else 1, "locked_through": record.locked_through if record else None, "inventory_method": "unit_cost", "ledger_currency": (await db.get(Tenant, tenant_id)).currency}
 
 
 async def generate(db: AsyncSession, user: User, data: ReportRequest,
@@ -126,11 +126,12 @@ async def generate(db: AsyncSession, user: User, data: ReportRequest,
     if kind == "income-statement":
         report = await statements.income_statement(db, tenant_id, start, end, branch_id)
         for label, lines in [("Revenue", report.revenue_accounts), ("Cost of goods sold", report.cogs_accounts),
-                             ("Operating expenses", report.operating_expense_accounts), ("Other income", report.other_income)]:
+                             ("Operating expenses", report.operating_expense_accounts), ("Other income", report.other_income),
+                             ("Other expenses", report.other_expense_accounts)]:
             await section(label, lines)
         metadata["totals"] = {"Revenue": report.total_revenue, "Cost of goods sold": report.total_cogs,
                               "Gross profit": report.gross_profit, "Operating expenses": report.total_operating_expenses,
-                              "Other income": report.total_other_income, "Net profit": report.net_income}
+                              "Other income": report.total_other_income, "Other expenses": report.total_other_expenses, "Net profit": report.net_income}
     elif kind == "balance-sheet":
         report = await statements.balance_sheet(db, tenant_id, as_of, branch_id)
         for label, lines in [("Current assets", report.current_assets.accounts), ("Non-current assets", report.non_current_assets.accounts),

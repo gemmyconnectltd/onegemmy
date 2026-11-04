@@ -15,6 +15,7 @@ from app.modules.accounting.schemas.workspace import (
     DueDateRequest,
     FiscalPreference,
     PayrollPosting,
+    PeriodLock,
     ReconciliationRequest,
     ReportRequest,
     TransferRequest,
@@ -39,6 +40,18 @@ async def preferences(db: DbSession, current_user: CurrentUser):
 async def update_preferences(data: FiscalPreference, db: DbSession, current_user: CurrentUser):
     from app.modules.accounting.service.catalog import update_preferences as update
     return success_response(await update(db, current_user, data))
+
+
+@router.get("/reconciliation")
+async def reconciliation(db: DbSession, current_user: CurrentUser):
+    from app.modules.accounting.service.integrity import reconcile
+    return success_response(await reconcile(db, current_user))
+
+
+@router.put("/period-lock")
+async def period_lock(data: PeriodLock, db: DbSession, current_user: CurrentUser):
+    from app.modules.accounting.service.catalog import set_period_lock
+    return success_response(await set_period_lock(db, current_user, data.locked_through, data.reason))
 
 
 @router.post("/reports")

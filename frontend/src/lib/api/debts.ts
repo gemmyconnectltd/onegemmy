@@ -26,7 +26,7 @@ export const debtApi = {
   detail: (kind: DebtKind, id: string, page: number) => request<SingleResponse<DebtDetail>>(`${base}/${kind}/${encodeURIComponent(id)}?payment_page=${page}`),
   filterBody: (filters: DebtFilters) => ({ search: filters.search, status: filters.status === "all" ? null : filters.status, due_from: filters.due_from || null, due_to: filters.due_to || null }),
   edit: (kind: DebtKind, id: string, data: DebtEditInput) => request<SingleResponse<DebtDetail>>(`${base}/${kind}/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(data) }),
-  writeOff: (kind: DebtKind, id: string, reason: string) => request<SingleResponse<DebtDetail>>(`${base}/${kind}/${encodeURIComponent(id)}/write-off`, { method: "POST", body: JSON.stringify({ reason }) }),
+  writeOff: (kind: DebtKind, id: string, reason: string, amount?: number) => request<SingleResponse<DebtDetail>>(`${base}/${kind}/${encodeURIComponent(id)}/write-off`, { method: "POST", body: JSON.stringify({ reason, ...(amount ? { amount } : {}) }) }),
   void: (kind: DebtKind, id: string, reason: string) => request<SingleResponse<{ id: string }>>(`${base}/${kind}/${encodeURIComponent(id)}`, { method: "DELETE", body: JSON.stringify({ reason }) }),
   createManual: (kind: DebtKind, data: ManualDebtInput) => request<SingleResponse<{ id: string; reference: string }>>(`${base}/${kind}/manual`, { method: "POST", body: JSON.stringify(data) }),
   statement: (kind: DebtKind, partyId: string, from: string, to: string) => request<SingleResponse<DebtStatementData>>(`${base}/${kind}/statement${qs({ party_id: partyId, date_from: from || undefined, date_to: to || undefined })}`),

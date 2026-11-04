@@ -210,6 +210,14 @@ async def act(
     return await handler(db, user.tenant_id, identity, user.id, user.full_name)
 
 
+async def reverse(
+    db: AsyncSession, user: User, active: uuid.UUID | None, identity: uuid.UUID, reason: str
+):
+    await ReportingRepository(db).lock_tenant(allow(user, "expenses", "approve"))
+    await require_record(db, user, active, identity, "update")
+    return await lifecycle.reverse_expense(db, user.tenant_id, identity, user.id, reason, user.full_name)
+
+
 async def categories(db: AsyncSession, user: User, number: int, search: str) -> dict:
     tenant = allow(user, "expenses")
     items, total = await ExpenseWorkspaceRepository(db).categories(tenant, number, search)

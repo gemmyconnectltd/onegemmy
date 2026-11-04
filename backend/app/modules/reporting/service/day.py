@@ -73,10 +73,11 @@ async def day_report(db: AsyncSession, user: User, day: date | None, branch_id: 
     )).all()
     owed = await DailyRepository(db).outstanding_debt(tenant_id, allowed)
 
+    method = func.coalesce(OrderPayment.payment_method, "other")  # one expression object, so SELECT and GROUP BY bind the same parameter
     deposits = (await db.execute(
-        select(func.coalesce(OrderPayment.payment_method, "other"), func.coalesce(func.sum(amount), 0), func.count())
+        select(method, func.coalesce(func.sum(amount), 0), func.count())
         .where(OrderPayment.tenant_id == tenant_id, OrderPayment.status == "Completed", OrderPayment.paid_at >= begin, OrderPayment.paid_at < finish, *scope(OrderPayment.branch_id))
-        .group_by(func.coalesce(OrderPayment.payment_method, "other"))
+        .group_by(method)
     )).all()
 
     received = (await db.execute(

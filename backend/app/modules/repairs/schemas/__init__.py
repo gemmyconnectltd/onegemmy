@@ -1,7 +1,7 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, model_validator
-from datetime import datetime
 
 
 class RepairJobPartCreate(BaseModel):

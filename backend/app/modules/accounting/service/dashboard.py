@@ -35,7 +35,7 @@ async def overview(db, user, active_branch=None):
         trend.append({"month": key, "income": row.get("income", 0), "expenses": row.get("expenses", 0), "cash_change": row.get("cash_change", 0)})
     recent, _ = await repo.recent(tenant_id, branch_id, page_size=8)
     return encoded({"from_date": start, "to_date": today, "currency": prefs["ledger_currency"], "branch_id": branch_id,
-                    "revenue": income.total_revenue + income.total_other_income, "expenses": income.total_cogs + income.total_operating_expenses,
+                    "revenue": income.total_revenue + income.total_other_income, "expenses": income.total_cogs + income.total_operating_expenses + income.total_other_expenses,
                     "net_profit": income.net_income, "cash_balance": cash, "trend": trend, "journals": recent})
 
 

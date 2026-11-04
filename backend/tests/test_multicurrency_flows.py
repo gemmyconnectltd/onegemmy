@@ -56,7 +56,7 @@ async def _isolate_from_platform_rates(db):
 # ── builders ──────────────────────────────────────────────────────────────────
 
 async def make_tenant(db, currency="RWF", country=None):
-    t = Tenant(name=f"T-{uuid.uuid4().hex[:6]}", slug=f"t-{uuid.uuid4().hex[:10]}", currency=currency, country=country)
+    t = Tenant(name=f"T-{uuid.uuid4().hex[:6]}", slug=f"t-{uuid.uuid4().hex[:10]}", currency=currency, country=country, debt_limit_per_client=10**11)
     db.add(t)
     await db.flush()
     u = User(email=f"{uuid.uuid4().hex[:8]}@test.local", hashed_password="x", full_name="Tester", tenant_id=t.id, role="owner")
@@ -336,7 +336,9 @@ async def test_return_reverses_at_the_original_invoice_rate(db):
     assert ret.base_refund_amount == D(290000)                           # 200 × 1450, not × 1600
     bal = await balances(db, t.id)
     net_revenue = D(order.base_total) - D(order.base_tax)
-    assert net(bal, "4000") == -net_revenue + D(290000)                  # revenue reversed in RWF at 1450
+    vat_back = (D(290000) * D(order.base_tax) / D(order.base_total)).quantize(D("0.01"))
+    assert net(bal, "4000") == -net_revenue + D(290000) - vat_back       # revenue reversed in RWF at 1450, net of the VAT share
+    assert net(bal, "2100") == -D(order.base_tax) + vat_back             # and the VAT share of the refund comes back out of VAT payable
     assert net(bal, "1100") == D(1450000) - D(290000)                  # receivable reduced by the same amount
     await assert_ledger_balanced(db, t.id)
 
@@ -408,21 +410,21 @@ async def test_tenant_rate_beats_platform_rate_and_platform_is_the_fallback(db):
 async def test_foreign_currency_expense_keeps_original_and_posts_base_on_approval(db):
     t, u = await make_tenant(db, "RWF")
     exp = await expense_service.create_expense(
-        db, t.id, u.id, ExpenseCreate(title="Intl hosting", amount=500, expense_date=datetime.now(UTC).date(), currency_code="USD", exchange_rate=D(1450)),
+        db, t.id, u.id, ExpenseCreate(title="Intl hosting", amount=500, expense_date=datetime.now(UTC).date(), currency_code="USD", exchange_rate=D(1450), category="Supplies"),
     )
     assert exp.currency_code == "USD" and exp.amount == 500 and exp.base_amount == D(725000)
     await expense_service.approve_expense(db, t.id, exp.id, u.id)
     bal = await balances(db, t.id)
-    assert net(bal, "5900") == D(725000) and net(bal, "1000") == D(-725000)
+    assert net(bal, "5400") == D(725000) and net(bal, "1000") == D(-725000)
     await assert_ledger_balanced(db, t.id)
 
 
 async def test_base_currency_expense_is_unchanged(db):
     t, u = await make_tenant(db, "RWF")
-    exp = await expense_service.create_expense(db, t.id, u.id, ExpenseCreate(title="Rent", amount=50000, expense_date=datetime.now(UTC).date()))
+    exp = await expense_service.create_expense(db, t.id, u.id, ExpenseCreate(title="Rent", amount=50000, expense_date=datetime.now(UTC).date(), category="Rent"))
     assert exp.currency_code == "RWF" and exp.base_amount == D(50000)
     await expense_service.approve_expense(db, t.id, exp.id, u.id)
-    assert net(await balances(db, t.id), "5900") == D(50000)
+    assert net(await balances(db, t.id), "5100") == D(50000)
 
 
 async def test_foreign_purchase_bill_and_supplier_payments(db):

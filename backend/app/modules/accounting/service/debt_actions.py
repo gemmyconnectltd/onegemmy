@@ -67,18 +67,31 @@ async def edit(db: AsyncSession, user: User, kind: DebtKind, document_id: uuid.U
     return await base.detail(db, user, kind, document_id, active, 1)
 
 
-async def write_off(db: AsyncSession, user: User, kind: DebtKind, document_id: uuid.UUID, active, reason: str) -> dict:
-    tenant = allow(user, base.resource(kind), "update")
+async def write_off(db: AsyncSession, user: User, kind: DebtKind, document_id: uuid.UUID, active, reason: str,
+                    amount: Decimal | None = None) -> dict:
+    """Write off all or part of what is still owed. The balance, the ledger (bad debt / other income) and the audit trail
+    move together in one transaction; the tenant lock serialises concurrent attempts so the same money is never written off twice."""
+    from app.modules.accounting.service.transaction import create_write_off_transaction
+    tenant = allow(user, base.resource(kind), "approve")
     await ReportingRepository(db).lock_tenant(tenant)
     row = await _current(db, user, kind, document_id, active)
     outstanding = Decimal(row["outstanding"])
     if outstanding <= 0:
         raise ValidationError("Nothing is outstanding on this debt")
-    db.add(DebtAdjustment(tenant_id=tenant, kind=kind, document_id=document_id, action="write_off", amount=outstanding,
-                          reason=reason, created_by=user.id, actor_name=user.full_name))
+    amount = outstanding if amount is None else Decimal(amount)
+    if amount <= 0 or amount > outstanding:
+        raise ValidationError(f"The write-off must be between 0 and the {outstanding} still outstanding")
+    adjustment = DebtAdjustment(tenant_id=tenant, kind=kind, document_id=document_id, action="write_off", amount=amount,
+                                reason=reason, created_by=user.id, actor_name=user.full_name)
+    db.add(adjustment)
+    await db.flush()
+    rate = Decimal(str(row.get("rate") or 1))
+    journal = await create_write_off_transaction(
+        db, tenant, user.id, kind, (amount * rate).quantize(Decimal("0.01")), row["reference"], adjustment.id,
+        branch_id=active, posting_date=datetime.now(UTC).date())
     await record_audit(db, tenant_id=tenant, actor_user_id=user.id, actor_name=user.full_name, action=f"debt.{kind}.write_off",
                        entity_type=f"debt_{kind}", entity_id=str(document_id), summary=f"Wrote off {row['reference']}",
-                       changes={"amount": str(outstanding), "reason": reason})
+                       changes={"amount": str(amount), "outstanding_before": str(outstanding), "reason": reason, "journal": journal.reference})
     await db.commit()
     return await base.detail(db, user, kind, document_id, active, 1)
 

@@ -27,6 +27,8 @@ STATUS_POSTED = "Posted"
 NON_CURRENT_ASSET_PREFIXES = ("15", "16", "17", "18")
 NON_CURRENT_LIABILITY_PREFIXES = ("22", "23", "24")
 COGS_PREFIX = "50"          # 5000-5099 → Cost of Goods Sold
+SERVICE_REVENUE_PREFIX = "41"  # 4100-4199 → Service Revenue (the rest of 40xx is goods)
+OTHER_EXPENSE_PREFIX = "59"  # 5900-5999 → Other (non-operating) expenses
 OTHER_INCOME_PREFIX = "49"  # 4900-4999 → Other (non-operating) income
 CASH_PREFIX = "10"          # 1000-1099 → Cash & cash equivalents
 
@@ -87,6 +89,7 @@ async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: da
     other_income: list[StatementLine] = []
     cogs_accounts: list[StatementLine] = []
     operating_expense_accounts: list[StatementLine] = []
+    other_expense_accounts: list[StatementLine] = []
 
     for bucket in balances.values():
         acc = bucket["account"]
@@ -101,6 +104,8 @@ async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: da
         elif acc.type == "Expense":
             if acc.code.startswith(COGS_PREFIX):
                 cogs_accounts.append(line)
+            elif acc.code.startswith(OTHER_EXPENSE_PREFIX):
+                other_expense_accounts.append(line)
             else:
                 operating_expense_accounts.append(line)
 
@@ -108,6 +113,7 @@ async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: da
     other_income.sort(key=lambda l: l.code)
     cogs_accounts.sort(key=lambda l: l.code)
     operating_expense_accounts.sort(key=lambda l: l.code)
+    other_expense_accounts.sort(key=lambda l: l.code)
 
     total_revenue = round(sum(l.amount for l in revenue_accounts), 2)
     total_other_income = round(sum(l.amount for l in other_income), 2)
@@ -116,7 +122,9 @@ async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: da
 
     gross_profit = round(total_revenue - total_cogs, 2)
     operating_income = round(gross_profit - total_operating_expenses, 2)
-    net_income = round(operating_income + total_other_income, 2)
+    total_other_expenses = round(sum(l.amount for l in other_expense_accounts), 2)
+    total_service_revenue = round(sum(l.amount for l in revenue_accounts if l.code.startswith(SERVICE_REVENUE_PREFIX)), 2)
+    net_income = round(operating_income + total_other_income - total_other_expenses, 2)
 
     return IncomeStatement(
         from_date=from_date, to_date=to_date,
@@ -130,6 +138,10 @@ async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: da
         operating_income=operating_income,
         other_income=other_income,
         total_other_income=total_other_income,
+        other_expense_accounts=other_expense_accounts,
+        total_other_expenses=total_other_expenses,
+        total_sales_revenue=round(total_revenue - total_service_revenue, 2),
+        total_service_revenue=total_service_revenue,
         net_income=net_income,
         net_margin_pct=round(net_income / total_revenue * 100, 1) if total_revenue else None,
     )

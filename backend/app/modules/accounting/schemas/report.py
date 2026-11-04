@@ -43,6 +43,12 @@ class IncomeStatement(BaseModel):
     operating_income: Decimal
     other_income: list[StatementLine]
     total_other_income: Decimal
+    # Non-operating expenses (FX loss, disposal loss, "Other Expense"); net_income = operating_income + other income - these.
+    other_expense_accounts: list[StatementLine] = []
+    total_other_expenses: Decimal = Decimal(0)
+    # total_revenue split by nature: goods (40xx) vs services (41xx).
+    total_sales_revenue: Decimal = Decimal(0)
+    total_service_revenue: Decimal = Decimal(0)
     net_income: Decimal
     net_margin_pct: float | None
 

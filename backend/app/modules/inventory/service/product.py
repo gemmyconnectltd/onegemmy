@@ -194,6 +194,19 @@ async def delete_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.
     return ProductRead.model_validate(obj)
 
 
+async def post_stock_value_change(
+    db: AsyncSession, tenant_id: uuid.UUID, actor: User | None, name: str, quantity_change: Decimal, unit_cost, reason: str | None,
+) -> None:
+    """A manual stock count or restock changes what the business owns, so the ledger moves with the quantity:
+    stock found debits Inventory, stock lost credits it, against Inventory Adjustment, at the item's cost."""
+    from app.modules.accounting.service.transaction import create_stock_adjustment_transaction
+    value = (quantity_change * Decimal(str(unit_cost or 0))).quantize(Decimal("0.01"))
+    await create_stock_adjustment_transaction(
+        db, tenant_id, actor.id if actor else None, value,
+        f"Stock {'increase' if quantity_change > 0 else 'decrease'}: {name}" + (f" ({reason})" if reason else ""),
+        f"stk:{uuid.uuid4().hex}")
+
+
 async def restock_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: RestockRequest, actor: User | None = None) -> ProductRead:
     await ProductRepository(db).lock_stock(tenant_id, {id}, set())
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
@@ -205,6 +218,7 @@ async def restock_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     else:
         obj.stock = Decimal(str(obj.stock)) + Decimal(str(data.qty))
     obj = await ProductRepository(db).save(obj)
+    await post_stock_value_change(db, tenant_id, actor, obj.name, Decimal(str(obj.stock)) - Decimal(str(before["stock"])), obj.cost, data.reason)
     await record_product_change(db, obj, "product.adjusted" if data.mode == "adjust" else "product.restocked", before, {"stock": obj.stock}, actor, reason=data.reason, notes=data.notes)
     await db.commit()
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)

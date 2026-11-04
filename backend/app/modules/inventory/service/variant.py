@@ -101,7 +101,8 @@ async def restock_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uu
     before = {"stock": obj.stock}
     obj.stock = Decimal(str(qty)) if mode == "adjust" else Decimal(str(obj.stock)) + Decimal(str(qty))
     await repo.save(obj)
-    from app.modules.inventory.service.product import record_product_change
+    from app.modules.inventory.service.product import post_stock_value_change, record_product_change
+    await post_stock_value_change(db, tenant_id, actor, f"{product.name} variant", Decimal(str(obj.stock)) - Decimal(str(before["stock"])), obj.cost or product.cost, reason)
     await record_product_change(db, product, "product.adjusted" if mode == "adjust" else "product.restocked", before, {"stock": obj.stock}, actor, variant_id=str(id), reason=reason, notes=notes)
     await db.commit()
     obj = await repo.get_by_id_for_product(product_id, id)

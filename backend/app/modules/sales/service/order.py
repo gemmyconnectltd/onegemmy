@@ -524,6 +524,7 @@ async def create_order(
         sale_txn_id = await create_sale_transaction(
             db, tenant_id, user_id, order.id, base_total, order_number, cogs=round(cogs_total, 2), tax=base_tax,
             payment_method=data.payment_method, amount_paid=base_paid,
+            posting_date=order.ordered_at.date(), branch_id=resolved_branch_id,
         )
         await _record_vat(db, tenant_id, order.id, base_tax, base_total, vat_rate)
 
@@ -633,6 +634,7 @@ async def _finalize_completed_sale(
     sale_txn_id = await create_sale_transaction(
         db, tenant_id, txn_user_id, obj.id, base_total, obj.order_number, cogs=round(cogs_total, 2), tax=base_tax,
         payment_method=obj.payment_method, amount_paid=base_paid,
+        posting_date=obj.ordered_at.date() if obj.ordered_at else None, branch_id=obj.branch_id,
     )
     await _record_vat(db, tenant_id, obj.id, base_tax, base_total, vat_rate)
 

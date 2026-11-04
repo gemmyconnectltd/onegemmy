@@ -17,6 +17,7 @@ from app.modules.accounting.schemas import (
     ExpenseRead,
     ExpenseUpdate,
 )
+from app.modules.accounting.service.transaction import _get_account_by_code as get_account_id
 from app.modules.accounting.service.transaction import create_expense_transaction
 from app.modules.audit.service import record_audit
 from app.modules.currency.service import document_rate, get_base_currency, resolve_document_currency
@@ -32,6 +33,21 @@ async def _stamp_currency(
     code, rate, base = await resolve_document_currency(db, tenant_id, requested or obj.currency_code, explicit_rate, at=at)
     obj.currency_code, obj.exchange_rate = code, rate
     obj.base_amount = to_base_amount(obj.amount, code, base, rate)
+
+
+# Everyday categories and the chart account they belong to. Anything else must be given an account on purpose,
+# so ordinary running costs never pile up in "Other Expense" by default.
+_CATEGORY_ACCOUNTS = {"rent": "5100", "utilities": "5200", "salaries": "5300", "payroll": "5300", "supplies": "5400"}
+
+
+async def _expense_account(db: AsyncSession, tenant_id: uuid.UUID, obj: Expense) -> uuid.UUID:
+    if obj.account_id:
+        return obj.account_id
+    code = _CATEGORY_ACCOUNTS.get((obj.category or "").strip().lower())
+    account_id = await get_account_id(db, tenant_id, code) if code else None
+    if account_id is None:
+        raise ValidationError(f"Choose an expense account for \"{obj.category}\" expenses before approving {obj.reference}")
+    return account_id
 
 
 async def list_expenses(
@@ -168,6 +184,7 @@ async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         obj.exchange_rate = document_rate(obj)
         obj.base_amount = to_base_amount(obj.amount, obj.currency_code, base_ccy, obj.exchange_rate)
     base_amount = obj.base_amount
+    obj.account_id = await _expense_account(db, tenant_id, obj)
     await repo.save(obj)
 
     # bump budget spent (budgets are in the tenant's base currency)
@@ -197,6 +214,52 @@ async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         entity_id=str(obj.id),
         summary=f"Approved expense {obj.reference}",
         changes={"status": "Approved", "reference": obj.reference, "amount": obj.amount},
+    )
+    await db.commit()
+    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    return ExpenseRead.model_validate(obj)
+
+
+async def reverse_expense(
+    db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, reason: str, user_name: str | None = None,
+) -> ExpenseRead:
+    """Undo an approved expense without touching its original journal: a reversing journal is posted, the expense is
+    marked Reversed with who/when/why, and the budget it consumed is released. To correct an amount, reverse and re-enter."""
+    from sqlalchemy import select
+
+    from app.modules.accounting.models.transaction import Transaction
+    from app.modules.accounting.service.transaction import reverse_journal
+    reason = (reason or "").strip()
+    if len(reason) < 3:
+        raise ValidationError("A reason is required to reverse an approved expense")
+    await db.execute(text("SELECT 1 FROM accounting_expenses WHERE id = :id FOR UPDATE"), {"id": id})
+    repo = ExpenseRepository(db)
+    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    if obj is None:
+        raise NotFoundError("Expense not found")
+    if obj.status != "Approved":
+        raise ValidationError("Only an approved expense can be reversed")
+    original = await db.scalar(select(Transaction).where(
+        Transaction.tenant_id == tenant_id, Transaction.type == "expense", Transaction.description == f"Expense {obj.reference}",
+        Transaction.status == "Posted"))
+    if original is None:
+        raise ValidationError(f"Expense {obj.reference} has no posted journal to reverse")
+    reversal = await reverse_journal(db, tenant_id, user_id, original, reason)
+    obj.status = "Reversed"
+    obj.reversed_at = datetime.now(UTC)
+    obj.reversed_by = user_id
+    obj.reversal_reason = reason
+    obj.reversal_transaction_id = reversal.id
+    if obj.account_id and obj.base_amount is not None:
+        budget = await BudgetRepository(db).get_by_account_period(tenant_id, obj.account_id, obj.expense_date.strftime("%Y-%m"))
+        if budget:
+            await db.execute(update(Budget).where(Budget.id == budget.id).values(spent=Budget.spent - obj.base_amount))
+    await repo.save(obj)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="expense.reverse", entity_type="expense",
+        entity_id=str(obj.id), summary=f"Reversed expense {obj.reference}: {reason}",
+        changes={"before": {"status": "Approved"}, "after": {"status": "Reversed"}, "reason": reason,
+                 "original_journal": original.reference, "reversal_journal": reversal.reference, "amount": str(obj.base_amount or obj.amount)},
     )
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
