@@ -20,7 +20,6 @@ from app.modules.billing import models as billing_models  # noqa: F401
 from app.modules.ai.models import AiAction, AiConversation, AiMessage, AiUsageEvent  # noqa: F401
 from app.modules.approvals.models import ApprovalRequest  # noqa: F401
 from app.modules.audit.models import AuditLog  # noqa: F401
-from app.modules.crm.models import Activity, Campaign, EmailLog  # noqa: F401
 from app.modules.currency.models import Currency, ExchangeRate, PlatformSetting  # noqa: F401
 from app.modules.hr.models import (  # noqa: F401
     Applicant,
@@ -68,6 +67,8 @@ from app.modules.tenants.models import (  # noqa: F401
     Tenant,
     User,
 )
+# CRM last: Activity refers to Customer and Deal by name, and the inventory import above configures every mapper registered so far.
+from app.modules.crm.models import Activity, Campaign, EmailLog  # noqa: F401
 from app.modules.marketing import models as marketing_models  # noqa: F401
 from app.modules.admin import models as admin_models  # noqa: F401
 from app.modules.traffic.models import ErpActivity, WebsiteVisit  # noqa: F401
