@@ -1,5 +1,5 @@
 "use client";
-import { Trash2, X } from "lucide-react";
+import { Archive, ArchiveRestore, Trash2, X } from "lucide-react";
 
 interface Props {
   count: number;
@@ -9,11 +9,13 @@ interface Props {
   onDelete: () => void;
   onClear: () => void;
   deleting?: boolean;
+  /** What the main action does. Records that must never be deleted are archived (and restored) instead. */
+  kind?: "delete" | "archive" | "restore";
 }
 
 /** Sticky-feeling action bar that appears once at least one row is checked.
  *  Shared across list pages so bulk-delete looks and behaves the same everywhere. */
-export function BulkActionBar({ count, label, pluralLabel, onDelete, onClear, deleting }: Props) {
+export function BulkActionBar({ count, label, pluralLabel, onDelete, onClear, deleting, kind = "delete" }: Props) {
   if (count === 0) return null;
   const noun = count === 1 ? label : (pluralLabel ?? `${label}s`);
   return (
@@ -31,9 +33,9 @@ export function BulkActionBar({ count, label, pluralLabel, onDelete, onClear, de
           type="button"
           onClick={onDelete}
           disabled={deleting}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors text-[12px] font-semibold disabled:opacity-50"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-[12px] font-semibold disabled:opacity-50 ${kind === "delete" ? "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" : "bg-accent/10 text-accent hover:bg-accent/20"}`}
         >
-          <Trash2 size={13} /> {deleting ? "Deleting…" : "Delete Selected"}
+          {kind === "delete" ? <Trash2 size={13} /> : kind === "archive" ? <Archive size={13} /> : <ArchiveRestore size={13} />} {deleting ? "Working…" : kind === "delete" ? "Delete Selected" : kind === "archive" ? "Archive Selected" : "Restore Selected"}
         </button>
       </div>
     </div>

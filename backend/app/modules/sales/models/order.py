@@ -31,6 +31,10 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     ordered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     client_order_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Archived sales are hidden from the default Sales History but stay in the books and every report; nothing is deleted.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    archive_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # POS payment capture — how the customer paid, what they handed over in
     # cash, and the change given back. Null for non-POS orders and for any

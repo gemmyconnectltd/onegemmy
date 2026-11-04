@@ -87,6 +87,20 @@ async def submit_contact_form(data: ContactRequest):
     return success_response(message="Message sent successfully")
 
 
+@router.get("/invoices/{token}", dependencies=[Depends(rate_limit("invoice-share", limit=60, window_seconds=3600))])
+async def shared_invoice(token: str, db: DbSession):
+    """Opens a shared invoice PDF. The signed, expiring token IS the authorisation: no login, one invoice only."""
+    from fastapi import Response
+
+    from app.modules.sales.service.invoice_pdf import generate_order_invoice_pdf
+    from app.modules.sales.service.invoice_share import read_share_token
+    ids = read_share_token(token)
+    if ids is None:
+        return HTMLResponse("<!doctype html><meta charset=utf-8><title>Link not valid</title><body style='font-family:system-ui,sans-serif;max-width:420px;margin:15vh auto;padding:0 20px'><h1 style='font-size:22px'>This link isn't valid</h1><p>It may have expired. Ask the sender for a new one.</p></body>", status_code=404)
+    filename, pdf = await generate_order_invoice_pdf(db, ids[0], ids[1])
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{filename}"', "Cache-Control": "private, no-store"})
+
+
 @router.get("/unsubscribe", response_class=HTMLResponse, dependencies=[Depends(rate_limit("unsubscribe", limit=30, window_seconds=3600))])
 async def unsubscribe(token: str, db: DbSession):
     """Target of the unsubscribe link in outgoing marketing email. The signed token IS the authorisation — no login."""

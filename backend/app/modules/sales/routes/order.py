@@ -2,9 +2,10 @@ import uuid
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel, EmailStr, Field
 
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession, require_permission
-from app.core.exceptions import ValidationError
+from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.period import PeriodQuery
 from app.core.response import paginated_response, success_response
@@ -34,11 +35,11 @@ async def vat_rate(db: DbSession, current_user: CurrentUser):
 async def list_orders(
     db: DbSession, current_user: CurrentUser, page_params: PageQuery, active_branch_id: ActiveBranchId, period: PeriodQuery,
     status: str | None = Query(None), search: str | None = Query(None),
-    payment_status: str | None = Query(None),
+    payment_status: str | None = Query(None), archived: bool = Query(False),
 ):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id, period)
-    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id, period)
+    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id, period, archived)
+    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id, period, archived)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Orders retrieved successfully")
 
 
@@ -78,9 +79,56 @@ async def download_order_invoice_pdf(id: uuid.UUID, db: DbSession, current_user:
     )
 
 
+class ArchiveReason(BaseModel):
+    reason: str = Field(default="", max_length=500)
+
+
+def _require_owner(user) -> None:
+    from app.core.deps import may_delete
+    if not may_delete(user):
+        raise ForbiddenError("Only business owners and administrators can do this.")
+
+
+@router.post("/sales/orders/{id}/archive")
+async def archive_order(id: uuid.UUID, data: ArchiveReason, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    _require_owner(current_user)
+    obj = await service.archive_order(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.reason)
+    return success_response(data=obj.model_dump(), message="Sale archived")
+
+
+@router.post("/sales/orders/{id}/restore")
+async def restore_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    _require_owner(current_user)
+    obj = await service.archive_order(db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, "", restore=True)
+    return success_response(data=obj.model_dump(), message="Sale restored")
+
+
+class InvoiceEmail(BaseModel):
+    to: EmailStr | None = None
+    message: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/sales/orders/{id}/invoice/share")
+async def share_order_invoice(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.sales.service.invoice_share import share_link
+    return success_response(data=await share_link(db, current_user.tenant_id, id, current_user), message="Share link created")
+
+
+@router.post("/sales/orders/{id}/invoice/email")
+async def email_order_invoice(id: uuid.UUID, data: InvoiceEmail, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.sales.service.invoice_share import email_invoice
+    return success_response(data=await email_invoice(db, current_user.tenant_id, id, current_user, data.to, data.message), message="Invoice emailed")
+
+
 @router.patch("/sales/orders/{id}")
 async def update_order(id: uuid.UUID, data: OrderUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
+    if data.ordered_at is not None:
+        _require_owner(current_user)
     obj = await service.update_order(
         db, current_user.tenant_id, id, data,
         user_id=current_user.id, user_name=current_user.full_name or current_user.email,

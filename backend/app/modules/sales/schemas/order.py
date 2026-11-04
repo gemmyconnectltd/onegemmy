@@ -89,6 +89,8 @@ class OrderUpdate(BaseModel):
     amount_tendered: float | None = None
     change_due: float | None = None
     due_date: date | None = None
+    # Owners/administrators only: moves the sale (and its sale journal) to another day, inside open periods.
+    ordered_at: datetime | None = None
     # Only while the order is not yet Completed — a completed order's currency and rate are frozen.
     currency_code: str | None = Field(default=None, min_length=3, max_length=3)
     exchange_rate: Decimal | None = Field(default=None, gt=0)
@@ -114,6 +116,8 @@ class OrderRead(BaseModel):
     amount_tendered: float | None = None
     change_due: float | None = None
     ordered_at: datetime | None = None
+    archived_at: datetime | None = None
+    archive_reason: str | None = None
     customer: CustomerRead | None = None
     items: list[OrderItemRead] = []
     created_at: datetime | None = None

@@ -290,17 +290,60 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
 async def list_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50,
     search: str | None = None, payment_status: str | None = None, branch_id: uuid.UUID | None = None,
-    period: DatePeriod | None = None,
+    period: DatePeriod | None = None, archived: bool = False,
 ) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period)
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period, archived)
     return [_to_order_read(i) for i in items]
 
 
 async def count_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None,
-    payment_status: str | None = None, branch_id: uuid.UUID | None = None, period: DatePeriod | None = None,
+    payment_status: str | None = None, branch_id: uuid.UUID | None = None, period: DatePeriod | None = None, archived: bool = False,
 ) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period)
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period, archived)
+
+
+async def _change_sale_date(db: AsyncSession, tenant_id: uuid.UUID, obj: Order, new_at: datetime, user_id: uuid.UUID | None, user_name: str | None) -> None:
+    """Move a sale to another day. The sale journal moves with it (a date correction, not a repricing); both the old and the
+    new day must be in an open period, a future date is refused, and the before/after is audited."""
+    from app.modules.accounting.models.transaction import Transaction
+    from app.modules.accounting.repository import TransactionRepository
+    new_at = new_at if new_at.tzinfo else new_at.replace(tzinfo=UTC)
+    if new_at > datetime.now(UTC) + timedelta(minutes=5):
+        raise ValidationError("A sale cannot be dated in the future")
+    old_at = obj.ordered_at
+    if old_at is not None and new_at == old_at:
+        return
+    old_day, new_day = await _business_day(db, tenant_id, old_at), await _business_day(db, tenant_id, new_at)
+    repo = TransactionRepository(db)
+    await repo.assert_period_open(tenant_id, old_day)
+    await repo.assert_period_open(tenant_id, new_day)
+    obj.ordered_at = new_at
+    journals = (await db.execute(select(Transaction).where(Transaction.tenant_id == tenant_id, Transaction.order_id == obj.id, Transaction.type == "sale"))).scalars().all()
+    for journal in journals:
+        journal.transaction_date = new_day
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="order.change_date", entity_type="order", entity_id=str(obj.id),
+                       summary=f"Moved sale {obj.order_number} from {old_day} to {new_day}",
+                       changes={"before": old_at.isoformat() if old_at else None, "after": new_at.isoformat(), "journals_moved": len(journals)})
+
+
+async def archive_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, reason: str, restore: bool = False) -> OrderRead:
+    """Hide a sale from the default list (or bring it back). The sale, its payments and its ledger entries are untouched."""
+    obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
+    if obj is None:
+        raise NotFoundError("Order not found")
+    if restore == (obj.archived_at is None):
+        raise ValidationError("This sale is not archived" if restore else "This sale is already archived")
+    if not restore and len((reason or "").strip()) < 3:
+        raise ValidationError("A reason is required to archive a sale")
+    obj.archived_at = None if restore else datetime.now(UTC)
+    obj.archived_by = None if restore else user_id
+    obj.archive_reason = None if restore else reason.strip()
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="order.restore" if restore else "order.archive",
+                       entity_type="order", entity_id=str(obj.id), summary=f"{'Restored' if restore else 'Archived'} sale {obj.order_number}",
+                       changes={"reason": reason} if reason else None)
+    await db.commit()
+    return _to_order_read(await OrderRepository(db).get_by_id_for_tenant(tenant_id, id))
 
 
 async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> OrderRead:
@@ -679,12 +722,14 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     if obj is None:
         raise NotFoundError("Order not found")
     if obj.status in ("Completed", STATUS_REJECTED):
-        protected = set(data.model_fields_set) - {"notes", "due_date"}
+        protected = set(data.model_fields_set) - {"notes", "due_date", "ordered_at"}
         if protected:
             raise ValidationError("Posted or rejected sales cannot be repriced or reopened; use a return or a new sale")
     was_completed = obj.status == "Completed"
     before = obj.status
     update_fields = data.model_dump(exclude_unset=True)
+    if data.ordered_at is not None:
+        await _change_sale_date(db, tenant_id, obj, data.ordered_at, user_id, user_name)
     if data.due_date and data.due_date < obj.ordered_at.date():
         raise ValidationError("Invoice due date cannot precede its issue date")
     # Approval is a decision, not an edit: an order held for approval can only leave that state through the
@@ -713,6 +758,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         branch = await BranchRepository(db).get_by_id_for_tenant(tenant_id, update_fields["branch_id"])
         if branch is None:
             raise ValidationError("That branch does not belong to your company")
+    update_fields.pop("ordered_at", None)  # handled above, with its ledger and audit effects
     for field, value in update_fields.items():
         setattr(obj, field, value)
     # Every price is VAT-inclusive — tax is always recomputed from the gross

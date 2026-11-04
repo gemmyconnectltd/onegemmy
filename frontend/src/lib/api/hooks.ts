@@ -180,8 +180,8 @@ export const useCustomers = (page = 1, pageSize = 200, search?: string, customer
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
-export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period)], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period), (r) => r.data, opts);
+export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange, archived = false) =>
+  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period), archived ? "archived" : "live"], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period, archived), (r) => r.data, opts);
 
 export const useOrderPayments = (orderId: string | undefined, opts?: QueryOpts) =>
   useQ([...ORDERS, orderId, "payments"], () => salesApi.listOrderPayments(orderId!), (r) => r.data, { ...opts, enabled: !!orderId && (opts?.enabled ?? true) });
@@ -206,6 +206,8 @@ export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCr
 export const useApproveOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.approveOrder(id, note), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
 export const useRejectOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.rejectOrder(id, note), [[...ORDERS]]);
 export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useArchiveOrder = mutation((v: { id: string; reason: string }) => salesApi.archiveOrder(v.id, v.reason), [[...ORDERS]]);
+export const useRestoreOrder = mutation((id: string) => salesApi.restoreOrder(id), [[...ORDERS]]);
 export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 
 const ORDER_PAYMENT_INVALIDATIONS = [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], ["accounting", "receivables"]];

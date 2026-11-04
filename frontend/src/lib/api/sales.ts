@@ -189,8 +189,12 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/deals/${id}`, { method: "DELETE" }),
 
   // Orders
-  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange) =>
-    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, ...periodParams(period) })}`),
+  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange, archived?: boolean) =>
+    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, archived: archived ? "true" : undefined, ...periodParams(period) })}`),
+  archiveOrder: (id: string, reason: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/archive`, { method: "POST", body: JSON.stringify({ reason }) }),
+  restoreOrder: (id: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/restore`, { method: "POST" }),
   createOrder: (data: object) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateOrders: (items: object[]) =>
@@ -204,6 +208,10 @@ export const salesApi = {
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/orders/${id}`, { method: "DELETE" }),
+  shareInvoice: (id: string) =>
+    request<SingleResponse<{ url: string; expires_at: string; order_number: string; customer_name: string | null; customer_phone: string | null; customer_email: string | null }>>(`${BASE}/orders/${id}/invoice/share`, { method: "POST" }),
+  emailInvoice: (id: string, to: string | null, message: string | null) =>
+    request<SingleResponse<{ sent_to: string }>>(`${BASE}/orders/${id}/invoice/email`, { method: "POST", body: JSON.stringify({ to: to || null, message: message || null }) }),
   downloadInvoicePdf: (id: string, orderNumber: string) =>
     downloadFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
 

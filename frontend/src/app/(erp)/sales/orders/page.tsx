@@ -13,6 +13,7 @@ import { fmtDateTime } from "@/lib/date";
 import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
   Eye, Edit2, AlertCircle, ChevronDown, Upload,
+  Archive, ArchiveRestore,
 } from "lucide-react";
 import { TableState } from "@/components/ui/TableState";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -20,7 +21,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useDeleteOrder, useBulkCreateOrders } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
 import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
@@ -60,7 +61,9 @@ type ItemRow = {
 
 const EMPTY_ITEM: ItemRow = { rowId: "", product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0", variant_attributes: null };
 const newItem = (): ItemRow => ({ ...EMPTY_ITEM, rowId: crypto.randomUUID() });
-const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "" };
+const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "", sale_at: "" };
+/** An ISO moment as the local value a datetime-local input expects. */
+const toLocalInput = (iso: string | null) => { if (!iso) return ""; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 function attrLabel(attrs: Record<string, string> | null | undefined) {
   if (!attrs) return "";
@@ -278,6 +281,9 @@ export default function SalesOrdersPage() {
   const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
+  const { user: authUser } = useAuth();
+  // Owners and administrators run the books: only they archive/restore a sale or move its date. Nobody deletes a sale.
+  const isOwner = !!authUser?.isSuperuser || ["admin", "owner", "owner/ceo"].includes((authUser?.role ?? "").toLowerCase());
   const [statusFilter, setStatusFilter] = useState("All");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
@@ -303,7 +309,8 @@ export default function SalesOrdersPage() {
   const filtersActive = statusFilter !== "All" || paymentStatusFilter !== "All" || period.key !== "all" || search.trim() !== "";
   const clearFilters = () => { setStatusFilter("All"); setPaymentStatusFilter("All"); setPeriod(ALL_TIME); setSearch(""); setPage(1); };
 
-  const ordersQ = useOrders(page, pageSize, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, undefined, range);
+  const showArchived = statusFilter === "Archived";
+  const ordersQ = useOrders(page, pageSize, statusFilter === "All" || showArchived ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, undefined, range, showArchived);
   // Customer/product pickers for the create/edit form need the full lists, not
   // the current table page — kept as their own, separately-paginated fetches.
   const customersQ = useCustomers(1, 200);
@@ -339,7 +346,8 @@ export default function SalesOrdersPage() {
 
   const createOrder = useCreateOrder();
   const updateOrder = useUpdateOrder();
-  const deleteOrder = useDeleteOrder();
+  const archiveOrder = useArchiveOrder();
+  const restoreOrder = useRestoreOrder();
   const bulkCreateOrders = useBulkCreateOrders();
   const saving = createOrder.isPending || updateOrder.isPending;
 
@@ -369,17 +377,21 @@ export default function SalesOrdersPage() {
   });
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  function confirmBulkDelete() {
+  function confirmBulkArchive() {
+    const restoring = showArchived;
     confirm({
-      title: "Delete Sales",
-      message: `Delete ${bulk.count} selected sale${bulk.count === 1 ? "" : "s"}? This cannot be undone.`,
-      confirmLabel: "Delete",
-      danger: true,
+      title: restoring ? "Restore sales" : "Archive sales",
+      message: restoring
+        ? `Restore ${bulk.count} selected sale${bulk.count === 1 ? "" : "s"} to Sales History?`
+        : `Archive ${bulk.count} selected sale${bulk.count === 1 ? "" : "s"}? They leave Sales History but stay in the books and reports, and can be restored from the Archived tab.`,
+      confirmLabel: restoring ? "Restore" : "Archive",
       onConfirm: async () => {
         setBulkDeleting(true);
-        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteOrder.mutateAsync(id)));
+        const results = await Promise.allSettled(Array.from(bulk.selected).map((id) => restoring ? restoreOrder.mutateAsync(id) : archiveOrder.mutateAsync({ id, reason: "Archived from Sales History" })));
         setBulkDeleting(false);
         bulk.clear();
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed) setError(`${failed} sale${failed === 1 ? "" : "s"} could not be ${restoring ? "restored" : "archived"}.`);
       },
     });
   }
@@ -389,7 +401,7 @@ export default function SalesOrdersPage() {
 
   const openEdit = (o: ApiOrder) => {
     setEditing(o);
-    setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "" });
+    setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "", sale_at: toLocalInput(o.ordered_at) });
     setItems(o.items.length
       ? o.items.map((i) => ({ rowId: crypto.randomUUID(), product_id: i.product_id ?? "", variant_id: i.variant_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount), variant_attributes: i.variant_attributes ?? null }))
       : [newItem()]);
@@ -423,9 +435,15 @@ export default function SalesOrdersPage() {
     const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save sale");
     const onSuccess = () => { setError(null); closeDrawer(); };
     if (editing) {
+      // A posted sale is not repriced or reopened (the ledger is built on it): only its notes, and, for an owner, its date, can change.
+      const posted = editing.status === "Completed";
+      const dateChanged = isOwner && !!form.sale_at && form.sale_at !== toLocalInput(editing.ordered_at);
+      const dateField = dateChanged ? { ordered_at: new Date(form.sale_at).toISOString() } : {};
       updateOrder.mutate({
         id: editing.id,
-        data: { customer_id: payload.customer_id, status: payload.status, discount: payload.discount, tax: payload.tax, notes: payload.notes },
+        data: posted
+          ? { notes: payload.notes, ...dateField }
+          : { customer_id: payload.customer_id, status: payload.status, discount: payload.discount, tax: payload.tax, notes: payload.notes, ...dateField },
       }, { onSuccess, onError });
     } else {
       createOrder.mutate(payload, {
@@ -481,7 +499,7 @@ export default function SalesOrdersPage() {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div role="tablist" aria-label="Sale status" className="no-scrollbar flex overflow-x-auto border-b border-border px-2">
-          {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled"].map((s) => (
+          {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled", ...(isOwner ? ["Archived"] : [])].map((s) => (
             <button key={s} role="tab" aria-selected={statusFilter === s} onClick={() => onStatusFilterChange(s)}
               className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-[13px] sm:px-3.5 font-semibold focus-visible:outline-2 focus-visible:outline-accent ${statusFilter === s ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"}`}>{s}</button>
           ))}
@@ -509,7 +527,7 @@ export default function SalesOrdersPage() {
 
         {bulk.count > 0 && (
           <div className="p-4 border-b border-border">
-            <BulkActionBar count={bulk.count} label="sale" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            {isOwner && <BulkActionBar count={bulk.count} label="sale" onDelete={confirmBulkArchive} onClear={bulk.clear} deleting={bulkDeleting} kind={showArchived ? "restore" : "archive"} />}
           </div>
         )}
 
@@ -577,6 +595,7 @@ export default function SalesOrdersPage() {
                           </>
                         )}
                         <button onClick={() => openEdit(o)} aria-label="Edit sale" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
+                        {isOwner && <button onClick={() => (showArchived ? restoreOrder.mutate(o.id) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }) }))} aria-label={showArchived ? "Restore sale" : "Archive sale"} title={showArchived ? "Restore" : "Archive"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors">{showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>}
                       </div>
                     </td>
                   </tr>
@@ -585,7 +604,7 @@ export default function SalesOrdersPage() {
             </tbody>
           </table></TableScroll>
         )}
-        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
+        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{isOwner && <Button variant="outline" onClick={() => (showArchived ? restoreOrder.mutate(o.id) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
         {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}
         {!loading && orders.length > 0 && (
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
@@ -602,7 +621,10 @@ export default function SalesOrdersPage() {
 
       {/* ── Add / Edit Drawer ── */}
       <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Sale" : "New Sale"} description={editing ? editing.order_number : "Record a new sale"} size="xl">
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-5">
+          {editing?.status === "Completed" && <p className="rounded-lg border border-border bg-surface/60 px-3 py-2 text-xs text-muted">This sale is posted to the books, so its items, prices and customer are locked. You can edit the notes{isOwner ? " and the sale date" : ""}. To change what was sold, record a return or a new sale.</p>}
+          {editing && isOwner && <Field label="Sale date" hint="Moves the sale and its sale entry to this day. Closed accounting periods can't be changed."><Input type="datetime-local" max={toLocalInput(new Date().toISOString())} value={form.sale_at} onChange={(e) => setForm({ ...form, sale_at: e.target.value })} /></Field>}
+          <fieldset disabled={editing?.status === "Completed"} className="m-0 min-w-0 space-y-4 border-0 p-0 disabled:opacity-70">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Customer">
               <Select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: e.target.value })}>
@@ -632,67 +654,48 @@ export default function SalesOrdersPage() {
               </button>
             </div>
 
-            {/* header row */}
-            <div className="hidden sm:grid sm:grid-cols-12 gap-2 mb-1 px-0.5">
-              {["Product", "Price", "Qty", "Disc.", ""].map((h, i) => (
-                <div key={i} className={`text-[11px] font-semibold text-muted ${i === 0 ? "col-span-5" : i === 4 ? "col-span-1" : "col-span-2"}`}>{h}</div>
-              ))}
+            {/* column headers (desktop); on a phone each field carries its own label instead */}
+            <div className="hidden gap-2 px-1 pb-1 text-[12px] font-semibold text-muted sm:grid sm:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_5.5rem_6.5rem_2.25rem]">
+              <span>Product</span><span className="text-right">Price</span><span className="text-right">Qty</span><span className="text-right">Disc.</span><span className="text-right">Line total</span><span className="sr-only">Remove</span>
             </div>
 
             <div className="space-y-2">
-              {items.map((it, idx) => (
-                <div key={it.rowId} className="grid grid-cols-2 sm:grid-cols-12 gap-3 items-center rounded-xl border border-border p-3 sm:border-0 sm:p-0">
-                  {/* product picker */}
-                  <div className="col-span-2 sm:col-span-5">
-                    <ProductPicker
-                      item={it}
-                      products={products}
-                      onChange={(patch) => updateItem(idx, patch)}
-                    />
-                  </div>
-                  {/* unit price — auto-filled but editable */}
-                  <div className="sm:col-span-2">
-                    <Input
-                      type="number" min="0"
-                      aria-label={`Line ${idx + 1} unit price`} value={it.unit_price}
-                      onChange={(e) => updateItem(idx, { unit_price: e.target.value })}
-                      placeholder="Price"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Input
-                      type="number" min="1"
-                      aria-label={`Line ${idx + 1} quantity`} value={it.quantity}
-                      onChange={(e) => updateItem(idx, { quantity: e.target.value })}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Input
-                      type="number" min="0"
-                      aria-label={`Line ${idx + 1} discount`} value={it.discount}
-                      onChange={(e) => updateItem(idx, { discount: e.target.value })}
-                    />
-                  </div>
-                  <div className="sm:col-span-1 flex justify-center">
-                    {items.length > 1 && (
-                      <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
-                        aria-label="Remove line"
-                        className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
-                        <XCircle size={13} /> Remove
-                      </button>
-                    )}
-                  </div>
-                  {/* line total preview */}
-                  {it.unit_price && (
-                    <div className="col-span-2 sm:col-span-12 -mt-1 px-0.5">
-                      <p className="text-[11px] text-muted text-right">
-                        Line total: <span className="font-semibold text-foreground">{fmt((Number(it.unit_price) * Number(it.quantity)) - Number(it.discount))}</span>
-                        {it.sku && <span className="ml-2 text-muted/60">SKU: {it.sku}</span>}
-                      </p>
+              {items.map((it, idx) => {
+                const lineTotal = (Number(it.unit_price) || 0) * (Number(it.quantity) || 0) - (Number(it.discount) || 0);
+                return (
+                  <div key={it.rowId} className="rounded-xl border border-border p-3 sm:border-0 sm:p-0">
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_5.5rem_6.5rem_2.25rem] sm:items-center">
+                      <div className="col-span-3 sm:col-span-1">
+                        <ProductPicker item={it} products={products} onChange={(patch) => updateItem(idx, patch)} />
+                        {it.sku && <p className="mt-1 truncate px-1 text-[11px] text-muted">SKU {it.sku}</p>}
+                      </div>
+                      <label className="block text-[11px] font-medium text-muted sm:contents">
+                        <span className="sm:sr-only">Price</span>
+                        <Input type="number" min="0" inputMode="decimal" className="text-right tabular-nums" aria-label={`Line ${idx + 1} unit price`} value={it.unit_price} onChange={(e) => updateItem(idx, { unit_price: e.target.value })} placeholder="Price" />
+                      </label>
+                      <label className="block text-[11px] font-medium text-muted sm:contents">
+                        <span className="sm:sr-only">Qty</span>
+                        <Input type="number" min="1" inputMode="decimal" className="text-right tabular-nums" aria-label={`Line ${idx + 1} quantity`} value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
+                      </label>
+                      <label className="block text-[11px] font-medium text-muted sm:contents">
+                        <span className="sm:sr-only">Discount</span>
+                        <Input type="number" min="0" inputMode="decimal" className="text-right tabular-nums" aria-label={`Line ${idx + 1} discount`} value={it.discount} onChange={(e) => updateItem(idx, { discount: e.target.value })} />
+                      </label>
+                      <div className="col-span-2 flex items-center justify-between gap-2 sm:col-span-1 sm:contents">
+                        <p className="whitespace-nowrap text-right text-sm font-semibold tabular-nums text-foreground sm:px-1"><span className="mr-1 text-[11px] font-normal text-muted sm:hidden">Line total</span>{it.unit_price ? fmt(lineTotal) : "—"}</p>
+                      </div>
+                      <div className="flex justify-end sm:justify-center">
+                        {items.length > 1 && (
+                          <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))} aria-label={`Remove line ${idx + 1}`} title="Remove line"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-accent">
+                            <XCircle size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -725,6 +728,7 @@ export default function SalesOrdersPage() {
             </div>
           </div>
 
+          </fieldset>
           <Field label="Notes">
             <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
           </Field>

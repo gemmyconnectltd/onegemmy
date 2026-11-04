@@ -1,4 +1,5 @@
 "use client";
+import { ShareInvoice } from "@/components/sales/ShareInvoice";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { DocMoney } from "@/components/currency/DocMoney";
@@ -267,6 +268,7 @@ export default function InvoicesPage() {
                       >
                         {downloadingPdfId === o.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                       </button>
+                      <ShareInvoice iconOnly orderId={o.id} orderNumber={o.order_number} customerName={o.customer?.name} customerEmail={o.customer?.email} customerPhone={o.customer?.phone} />
                       <button
                         title="More"
                         aria-label="More actions"
