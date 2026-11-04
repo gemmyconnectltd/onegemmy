@@ -1,0 +1,210 @@
+"use client";
+import { Input } from "@/components/ui/Form";
+import { useAppConfig } from "@/lib/appConfig";
+
+import { useState } from "react";
+import { Layers, Plus, Search, Edit2, Trash2, Package, Check, X, Sparkles } from "lucide-react";
+import { PageLoader } from "@/components/ui/PageLoader";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/lib/api/hooks";
+import { Button } from "@/components/ui/Button";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/useBulkSelection";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import ImportTemplatesModal from "./ImportTemplatesModal";
+
+export type AttributeManagerProps = { embedded?: boolean };
+
+const COLORS = [
+  "bg-violet-100 text-violet-600", "bg-blue-100 text-blue-600",
+  "bg-emerald-100 text-emerald-600", "bg-amber-100 text-amber-600",
+  "bg-pink-100 text-pink-600", "bg-cyan-100 text-cyan-600",
+  "bg-orange-100 text-orange-600", "bg-indigo-100 text-indigo-600",
+];
+function colorFor(name: string) { return COLORS[name.charCodeAt(0) % COLORS.length]; }
+
+export function CategoriesManager({ embedded = false }: AttributeManagerProps) {
+  const { brandColor } = useAppConfig();
+  const INV_COLOR = brandColor;
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [showImport, setShowImport] = useState(false);
+
+  const { data, isLoading } = useCategories();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
+  const categories = data?.items ?? [];
+
+  const filtered = categories.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
+  const bulk = useBulkSelection(filtered.map((c) => c.id));
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  function confirmBulkDelete() {
+    confirm({
+      title: "Delete Categories",
+      message: `Delete ${bulk.count} selected categor${bulk.count === 1 ? "y" : "ies"}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkDeleting(true);
+        await Promise.allSettled(Array.from(bulk.selected).map((id) => deleteCategory.mutateAsync(id)));
+        setBulkDeleting(false);
+        bulk.clear();
+      },
+    });
+  }
+
+  async function handleAdd() {
+    if (!newName.trim() || createCategory.isPending) return;
+    try {
+      await createCategory.mutateAsync({ name: newName.trim(), description: newDesc.trim() || null });
+      setNewName(""); setNewDesc(""); setAdding(false);
+    } catch { /* ignore */ }
+  }
+
+  async function handleEdit(id: string) {
+    if (!editName.trim() || updateCategory.isPending) return;
+    try {
+      await updateCategory.mutateAsync({ id, data: { name: editName.trim(), description: editDesc.trim() || null } });
+      setEditingId(null);
+    } catch { /* ignore */ }
+  }
+
+  function handleDelete(id: string) {
+    confirm({
+      title: "Delete Category",
+      message: "Delete this category? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: () => deleteCategory.mutate(id),
+    });
+  }
+
+  if (isLoading) return <PageLoader />;
+
+  return (
+    <div className="space-y-6">
+      {confirmDialog}
+      <div className="flex items-center justify-between pesaa-responsive-toolbar">
+        <div>
+          {!embedded && <h1 className="pesaa-page-title text-foreground">Categories</h1>}
+          {embedded ? <p className="text-sm text-muted">{categories.length} categor{categories.length === 1 ? "y" : "ies"}</p> : <p className="text-sm text-muted mt-0.5">{categories.length} categories</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)} className="rounded-lg">
+            <Sparkles size={15} /> Import Category Templates
+          </Button>
+          <Button onClick={() => setAdding(!adding)} color={INV_COLOR} className="rounded-lg">
+            <Plus size={15} /> Add Category
+          </Button>
+        </div>
+      </div>
+
+      {adding && (
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <p className="text-sm font-bold text-foreground mb-4">New Category</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="text-xs font-semibold text-muted mb-1.5 block">Name</label>
+              <Input autoFocus type="text" placeholder="e.g. Electronics" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAdd()} className="w-full" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted mb-1.5 block">Description</label>
+              <Input type="text" placeholder="Short description (optional)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} className="w-full" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleAdd} disabled={createCategory.isPending || !newName.trim()} color={INV_COLOR} className="rounded-lg">
+              {createCategory.isPending ? "Saving…" : "Save Category"}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setAdding(false)} className="rounded-lg">Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pesaa-responsive-toolbar">
+        <div className="relative max-w-sm flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <Input type="text" placeholder="Search categories..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search categories" className="w-full pl-9" />
+        </div>
+        {filtered.length > 0 && (
+          <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer flex-shrink-0">
+            <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" />
+            Select all
+          </label>
+        )}
+      </div>
+
+      <BulkActionBar count={bulk.count} label="category" pluralLabel="categories" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((c) => (
+          <div key={c.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-all group ${bulk.selected.has(c.id) ? "border-accent" : "border-border hover:border-foreground/15"}`}>
+            {editingId === c.id ? (
+              <div className="space-y-2">
+                <Input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full" />
+                <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description" className="w-full" />
+                <div className="flex gap-1.5">
+                  <Button size="sm" onClick={() => handleEdit(c.id)} disabled={updateCategory.isPending} color={INV_COLOR} className="rounded-lg">
+                    <Check size={12} /> Save
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setEditingId(null)} className="rounded-lg">
+                    <X size={12} /> Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={bulk.selected.has(c.id)}
+                      onChange={() => bulk.toggle(c.id)}
+                      className="w-4 h-4 rounded flex-shrink-0"
+                    />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorFor(c.name)}`}>
+                      <Layers size={18} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => { setEditingId(c.id); setEditName(c.name); setEditDesc(c.description ?? ""); }}
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-xs font-semibold disabled:opacity-50">
+                      <Edit2 size={13} /> Edit
+                    </button>
+                    <button onClick={() => handleDelete(c.id)}
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-xs font-semibold disabled:opacity-50">
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                </div>
+                <h3 className="text-sm font-bold text-foreground mb-1">{c.name}</h3>
+                <p className="text-xs text-muted leading-relaxed mb-4">{c.description || "No description"}</p>
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <div className="flex items-center gap-1.5 text-xs text-muted">
+                    <Package size={12} />
+                    <span>Category</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="col-span-3 py-16 text-center">
+            <Layers size={36} className="text-border mx-auto mb-3" />
+            <p className="text-sm font-semibold text-muted">No categories found</p>
+          </div>
+        )}
+      </div>
+
+      <ImportTemplatesModal open={showImport} onClose={() => setShowImport(false)} color={INV_COLOR} />
+    </div>
+  );
+}

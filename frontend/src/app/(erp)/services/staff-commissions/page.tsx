@@ -46,7 +46,7 @@ export default function StaffCommissionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Staff & Commissions</h1>
+        <h1 className="pesaa-page-title text-foreground">Staff & Commissions</h1>
         <p className="text-sm text-muted mt-0.5">{employees.length} active staff member{employees.length === 1 ? "" : "s"}</p>
       </div>
 

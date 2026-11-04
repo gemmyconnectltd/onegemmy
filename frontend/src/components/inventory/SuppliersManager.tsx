@@ -1,4 +1,5 @@
 "use client";
+import { Input } from "@/components/ui/Form";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { fetchEvery } from "@/lib/exportTable";
 import { inventoryApi } from "@/lib/api/inventory";
@@ -157,13 +158,9 @@ export function SuppliersManager() {
           <p className="text-sm font-semibold text-foreground">New Supplier</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {(["name", "email", "phone", "address"] as const).map((key) => (
-              <input key={key} type="text" aria-label={key.charAt(0).toUpperCase() + key.slice(1)} placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
+              <Input key={key} type="text" aria-label={key.charAt(0).toUpperCase() + key.slice(1)} placeholder={key.charAt(0).toUpperCase() + key.slice(1)} value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))} />
             ))}
-            <input type="number" min="0" max="365" placeholder="Lead time (days)" value={form.lead_time} title="Days from ordering to delivery — used by Pesaa AI reorder advice"
-              onChange={(e) => setForm((p) => ({ ...p, lead_time: e.target.value }))}
-              className="px-3 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
+            <Input type="number" min="0" max="365" placeholder="Lead time (days)" value={form.lead_time} title="Days from ordering to delivery — used by Pesaa AI reorder advice" onChange={(e) => setForm((p) => ({ ...p, lead_time: e.target.value }))} />
           </div>
           <div className="flex gap-2">
             <Button onClick={handleAdd} disabled={createSupplier.isPending || !form.name.trim()} color={INV_COLOR}>
@@ -178,8 +175,7 @@ export function SuppliersManager() {
         <div className="p-4 border-b border-border space-y-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input type="text" placeholder="Search suppliers..." value={search} onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-border text-sm focus:border-foreground/30 outline-none" />
+            <Input type="text" placeholder="Search suppliers..." value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search suppliers" className="w-full pl-9" />
           </div>
           {suppliers.length > 0 && (
             <label className="flex items-center gap-2 text-xs font-semibold text-muted cursor-pointer">
@@ -208,13 +204,9 @@ export function SuppliersManager() {
               {editingId === s.id ? (
                 <div className="basis-full sm:basis-auto flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   {(["name", "email", "phone", "address"] as const).map((key) => (
-                    <input key={key} value={editForm[key]} aria-label={key.charAt(0).toUpperCase() + key.slice(1)} placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                      onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))}
-                      className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
+                    <Input key={key} value={editForm[key]} aria-label={key.charAt(0).toUpperCase() + key.slice(1)} placeholder={key.charAt(0).toUpperCase() + key.slice(1)} onChange={(e) => setEditForm((p) => ({ ...p, [key]: e.target.value }))} />
                   ))}
-                  <input type="number" min="0" max="365" placeholder="Lead time (days)" value={editForm.lead_time}
-                    onChange={(e) => setEditForm((p) => ({ ...p, lead_time: e.target.value }))}
-                    className="px-2 py-1 border border-border text-sm focus:border-foreground/30 outline-none" />
+                  <Input type="number" min="0" max="365" placeholder="Lead time (days)" value={editForm.lead_time} onChange={(e) => setEditForm((p) => ({ ...p, lead_time: e.target.value }))} />
                   <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
                     <Button onClick={() => handleEdit(s.id)} disabled={updateSupplier.isPending} size="sm" color={INV_COLOR} className="rounded">
                       <Check size={12} /> Save
@@ -229,7 +221,7 @@ export function SuppliersManager() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <p className="text-sm font-semibold text-foreground">{s.name}</p>
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 ${s.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
+                      <span className={`text-xs font-semibold px-1.5 py-0.5 ${s.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
                         {s.is_active ? "active" : "inactive"}
                       </span>
                     </div>
@@ -244,11 +236,11 @@ export function SuppliersManager() {
                     <button onClick={() => {
                       setEditingId(s.id);
                       setEditForm({ name: s.name, email: s.email ?? "", phone: s.phone ?? "", address: s.address ?? "", lead_time: s.lead_time_days?.toString() ?? "" });
-                    }} className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                    }} className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors text-xs font-semibold disabled:opacity-50">
                       <Edit2 size={13} /> Edit
                     </button>
                     <button onClick={() => handleDelete(s.id)}
-                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold disabled:opacity-50">
+                      className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-xs font-semibold disabled:opacity-50">
                       <Trash2 size={13} /> Delete
                     </button>
                   </div>

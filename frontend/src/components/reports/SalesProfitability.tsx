@@ -29,7 +29,7 @@ export function SalesProfitability() {
   return (
     <div className="min-w-0 space-y-5">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">Sales &amp; profitability</h1>
+        <h1 className="pesaa-page-title text-foreground">Sales &amp; profitability</h1>
         <p className="mt-0.5 text-sm text-muted">What sold, to whom, and what it earned. Choose how to group the figures below.</p>
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />

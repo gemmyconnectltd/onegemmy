@@ -39,10 +39,10 @@ export function RequestChangeDrawer({ product, canPrice, canStock, onClose }: { 
               {([["price_change", "Selling price"], ["stock_adjustment", "Stock count"]] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={what === k} onClick={() => { setWhat(k); setValue(""); }} className={`flex-1 rounded-md px-3 py-1.5 ${what === k ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{l}</button>)}
             </div>
           )}
-          <p className="text-[13px] text-muted">{what === "price_change" ? "Current selling price" : "Recorded stock"}: <strong className="text-foreground">{Number(current).toLocaleString()}</strong></p>
+          <p className="text-sm text-muted">{what === "price_change" ? "Current selling price" : "Recorded stock"}: <strong className="text-foreground">{Number(current).toLocaleString()}</strong></p>
           <Field label={what === "price_change" ? "New selling price" : "Counted stock"} required><Input type="number" min="0" step="any" value={value} onChange={(e) => setValue(e.target.value)} autoFocus /></Field>
           <Field label="Why" required hint="At least a few words, so the approver can decide."><Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-          {error && <p role="alert" className="text-[12px] font-medium text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-xs font-medium text-red-600">{error}</p>}
           <div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit" disabled={!valid || create.isPending}>{create.isPending && <Loader2 size={13} className="animate-spin" />} Send request</Button></div>
         </form>
       )}

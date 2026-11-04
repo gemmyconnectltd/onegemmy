@@ -131,7 +131,7 @@ export default function SalesReturnsPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Sales Returns</h1>
+          <h1 className="pesaa-page-title text-foreground">Sales Returns</h1>
           <p className="text-sm text-muted mt-0.5">{returns.length} return requests</p>
         </div>
         <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Return</Button>

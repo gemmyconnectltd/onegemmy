@@ -24,7 +24,7 @@ export function OperationsReport() {
   return (
     <div className="min-w-0 space-y-5">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">Operations</h1>
+        <h1 className="pesaa-page-title text-foreground">Operations</h1>
         <p className="mt-0.5 text-sm text-muted">Stock, purchases and customers. For what each branch did on a day, open the <Link href="/reports/daily" className="font-semibold text-accent hover:underline">daily branch activity</Link> report.</p>
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />

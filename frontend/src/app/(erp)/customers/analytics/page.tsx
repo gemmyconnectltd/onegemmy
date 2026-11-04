@@ -39,7 +39,7 @@ export default function CustomerAnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Customer Analytics</h1>
+        <h1 className="pesaa-page-title text-foreground">Customer Analytics</h1>
         <p className="text-sm text-muted mt-0.5">Trends and insights about your customer base</p>
       </div>
 

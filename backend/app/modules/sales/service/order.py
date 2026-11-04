@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select, update
@@ -71,6 +71,22 @@ async def _exceeds_daily_credit_limit(
     timezone = (await db.execute(select(Tenant.timezone).where(Tenant.id == tenant_id))).scalar_one()
     already = await OrderRepository(db).credit_granted_on(tenant_id, customer_id, on_day, timezone)
     return already + new_credit_base > limit
+
+
+async def _exceeds_total_debt_limit(db: AsyncSession, tenant_id: uuid.UUID, customer_id: uuid.UUID | None, new_credit_base: Decimal) -> bool:
+    """True when this sale would take the client's TOTAL debt (everything they owe now plus this sale) past the business's limit per client.
+    Switched off by the business's approval rule, and absent when no limit is set."""
+    if customer_id is None:
+        return False
+    from app.modules.accounting.service.debt_actions import client_outstanding
+    from app.modules.approvals.service import rule_on
+    from app.modules.tenants.models import Tenant
+    if not await rule_on(db, tenant_id, "debt_over_limit"):
+        return False
+    limit = (await db.execute(select(Tenant.debt_limit_per_client).where(Tenant.id == tenant_id))).scalar_one_or_none()
+    if limit is None:
+        return False
+    return await client_outstanding(db, tenant_id, customer_id) + new_credit_base > limit
 
 
 async def _credit_day(db: AsyncSession, tenant_id: uuid.UUID) -> date:
@@ -304,12 +320,33 @@ async def _resolve_order_branch_id(
     return main.id if main else None
 
 
+async def require_backdating_allowed(db: AsyncSession, user, ordered_at: datetime) -> None:
+    """Recording a sale for an earlier day than today changes past figures, so it needs approval authority on sales (owners, admins and managers hold it; cashiers do not)."""
+    from zoneinfo import ZoneInfo
+
+    from app.core.exceptions import ForbiddenError
+    from app.modules.tenants.models import Tenant
+    if user.is_superuser or "orders:approve" in user.permissions_names:
+        return
+    zone = ZoneInfo((await db.execute(select(Tenant.timezone).where(Tenant.id == user.tenant_id))).scalar_one() or "UTC")
+    when = ordered_at if ordered_at.tzinfo else ordered_at.replace(tzinfo=UTC)
+    if when.astimezone(zone).date() < datetime.now(zone).date():
+        raise ForbiddenError("Recording a sale for an earlier date needs a manager. Ask someone with approval authority on sales.")
+
+
 async def create_order(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate,
     active_branch_id: uuid.UUID | None = None,
     can_approve_credit: bool = False,
+    can_sell_credit: bool = True,
 ) -> OrderRead:
     repo = OrderRepository(db)
+    extra_payments: list = []
+    if data.payments:
+        # A split: the first payment is the sale's checkout payment, the others are recorded against the same sale below.
+        first, *extra_payments = data.payments
+        data = data.model_copy(update={"payment_method": first.method, "amount_paid": first.amount, "amount_tendered": first.tendered,
+                                       "payment_reference": first.reference})
     await repo.lock_financial_writes(tenant_id)
 
     # Idempotency: replaying a client order id (e.g. an offline sale being
@@ -330,6 +367,8 @@ async def create_order(
     effective_at = (data.ordered_at if data.ordered_at and data.ordered_at.tzinfo else (
         data.ordered_at.replace(tzinfo=UTC) if data.ordered_at else datetime.now(UTC)
     ))
+    if data.ordered_at is not None and effective_at > datetime.now(UTC) + timedelta(minutes=5):
+        raise ValidationError("A sale can't be dated in the future. Choose today or an earlier date.")
     if data.due_date and data.due_date < effective_at.date():
         raise ValidationError("Invoice due date cannot precede its issue date")
     currency_code, fx_rate, base_ccy = await resolve_document_currency(
@@ -343,7 +382,21 @@ async def create_order(
     tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
 
     resolved_paid = _resolve_amount_paid(data.amount_paid, data.amount_tendered, total) if data.status == "Completed" else 0.0
-    outstanding = round(total - resolved_paid, 2)
+    if data.payments:
+        if data.status != "Completed":
+            raise ValidationError("Payments can only be taken on a completed sale")
+        for entry in data.payments:
+            if entry.method in ("mobile", "card", "bank") and not (entry.reference or "").strip():
+                name = {"mobile": "mobile money", "card": "card", "bank": "bank transfer"}[entry.method]
+                raise ValidationError(f"Enter the transaction reference for the {name} payment, so it can be matched to the provider's record")
+        entered = round(sum(entry.amount for entry in data.payments), 2)
+        if entered > total + _PAID_EPSILON:
+            raise ValidationError(f"The payments add up to {entered}, more than the sale total of {total}")
+    extras_total = round(sum(entry.amount for entry in extra_payments), 2)
+    outstanding = round(total - resolved_paid - extras_total, 2)
+    if outstanding > _PAID_EPSILON and data.status == "Completed" and not can_sell_credit:
+        from app.core.exceptions import ForbiddenError
+        raise ForbiddenError("Selling on credit needs the credit permission. Take the full payment, or ask a manager.")
     if data.status == "Completed":
         _require_credit_sale_fields(data.customer_id, data.due_date, outstanding)
 
@@ -355,11 +408,14 @@ async def create_order(
     over_limit_by_approver = False
     if data.status == "Completed" and outstanding > _PAID_EPSILON:
         credit_base = _base_value(outstanding, currency_code, base_ccy, fx_rate)
-        if await _exceeds_daily_credit_limit(db, tenant_id, data.customer_id, credit_base, await _credit_day(db, tenant_id)):
+        if await _exceeds_daily_credit_limit(db, tenant_id, data.customer_id, credit_base, await _credit_day(db, tenant_id)) or \
+                await _exceeds_total_debt_limit(db, tenant_id, data.customer_id, credit_base):
             if can_approve_credit:
                 over_limit_by_approver = True
             else:
                 hold_for_approval = True
+    if hold_for_approval and extra_payments:
+        raise ValidationError("This credit sale needs approval and can't be held with several payments. Take it as one payment, or ask a manager to approve the credit.")
     completing = data.status == "Completed" and not hold_for_approval
 
     resolved_branch_id = await _resolve_order_branch_id(db, tenant_id, active_branch_id, data.branch_id)
@@ -384,7 +440,7 @@ async def create_order(
         total=total,
         notes=data.notes,
         client_order_id=data.client_order_id,
-        payment_method=data.payment_method,
+        payment_method="split" if len({e.method for e in (data.payments or [])}) > 1 else data.payment_method,
         amount_tendered=data.amount_tendered,
         change_due=data.change_due,
         due_date=data.due_date,
@@ -487,6 +543,7 @@ async def create_order(
                 branch_id=resolved_branch_id,
                 amount=resolved_paid,
                 payment_method=data.payment_method,
+                reference_number=data.payment_reference,
                 status="Completed",
                 paid_at=order.ordered_at,
                 received_by=user_id,
@@ -495,6 +552,16 @@ async def create_order(
             )
             db.add(payment)
             order.amount_paid = pay_fields["applied_amount"]
+            await db.flush()
+            # The other payments of a split are recorded against this same sale, in this same transaction.
+            if extra_payments:
+                from app.modules.sales.schemas.order_payment import OrderPaymentCreate
+                from app.modules.sales.service.order_payment import record_payment
+                for number, entry in enumerate(extra_payments, start=1):
+                    await record_payment(db, tenant_id, user_id, None, order.id, OrderPaymentCreate(
+                        amount=entry.amount, payment_method=entry.method, reference_number=entry.reference, paid_at=order.ordered_at,
+                        branch_id=resolved_branch_id, client_payment_id=f"{data.client_order_id}:p{number}" if data.client_order_id else None,
+                    ), commit=False)
 
     await record_audit(
         db,

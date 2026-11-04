@@ -5,7 +5,7 @@ import { fmtDateTime } from "@/lib/date";
 import type { Tenant } from "@/lib/api";
 import type { SaleResult } from "./types";
 
-export const paymentLabel = (method: string) => ({ cash: "Cash", mobile: "Mobile Money", card: "Card" })[method] ?? method;
+export const paymentLabel = (method: string) => ({ cash: "Cash", mobile: "Mobile Money", card: "Card", split: "Split payment", bank: "Bank" })[method] ?? method;
 
 /** Single receipt rendering for viewing and isolated printing, using the persisted completed sale. */
 export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled }: {
@@ -27,7 +27,7 @@ export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled 
     <section className="receipt-totals mt-3 border-t border-dashed border-border pt-2">
       {row(vatEnabled ? "Subtotal (VAT inclusive)" : "Subtotal", money(sale.subtotal))}
       {sale.discount > 0 && row("Discount", `−${money(sale.discount)}`)}
-      {vatEnabled && sale.tax > 0 && row("VAT (18%, included)", money(sale.tax))}
+      {vatEnabled && sale.tax > 0 && row("VAT (included)", money(sale.tax))}
       <div className="receipt-grand mt-2 border-t border-border pt-2 text-base font-bold">{row("Total", money(sale.total))}</div>
       {row("Payment", paymentLabel(sale.payment))}{row("Amount paid", money(sale.amountPaid ?? sale.total))}
       {!!sale.balanceDue && sale.balanceDue > 0 ? <>{row("Balance due", money(sale.balanceDue))}{sale.dueDate && row("Due date", sale.dueDate)}</> : row("Change", money(sale.change))}

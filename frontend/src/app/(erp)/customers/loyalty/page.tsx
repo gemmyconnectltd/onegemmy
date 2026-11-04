@@ -47,7 +47,7 @@ export default function LoyaltyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Loyalty Program</h1>
+        <h1 className="pesaa-page-title text-foreground">Loyalty Program</h1>
         <p className="text-sm text-muted mt-0.5">Customer tiers based on total spending</p>
       </div>
 

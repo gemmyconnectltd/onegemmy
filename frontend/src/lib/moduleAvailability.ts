@@ -5,7 +5,7 @@ export type ModuleFilter = "all" | "on" | "off" | "upgrade";
 
 /** The menu entry a page belongs to (POS belongs to Sales), or null for pages with no entry such as the account menu. */
 export function navItemForPath(path: string) {
-  if (path === "/pos" || path.startsWith("/pos/")) return PRIMARY_NAV_GROUPS.flatMap((g) => g.items).find((i) => i.feature === "sales" && i.module === "sales") ?? null;
+  if (path === "/pos" || path.startsWith("/pos/")) return PRIMARY_NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === "/pos") ?? null;
   return PRIMARY_NAV_GROUPS.flatMap((g) => g.items).find((i) => isPrimaryActive(path, i)) ?? null;
 }
 

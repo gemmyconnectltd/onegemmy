@@ -160,7 +160,7 @@ export default function WorkOrdersPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Work Orders</h1>
+          <h1 className="pesaa-page-title text-foreground">Work Orders</h1>
           <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${orders.length} work orders`}</p>
         </div>
         <Button color={COLOR} onClick={openAdd}><Plus size={15} /> New Work Order</Button>

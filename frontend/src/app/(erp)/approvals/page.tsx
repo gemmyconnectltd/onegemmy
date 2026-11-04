@@ -48,7 +48,7 @@ export default function ApprovalsPage() {
   return (
     <div className="min-w-0 space-y-5">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">Approvals</h1>
+        <h1 className="pesaa-page-title text-foreground">Approvals</h1>
         <p className="mt-0.5 text-sm text-muted">{summary?.can_decide ? "Requests from your team that need your decision." : "Requests you have sent and where they stand."}{summary?.credit_awaiting ? ` ${summary.credit_awaiting} credit sale(s) are waiting on the Sales page.` : ""}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

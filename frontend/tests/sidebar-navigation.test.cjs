@@ -27,12 +27,13 @@ test('all menus omit disabled modules, unavailable business features, and unauth
   const links=hrefs(groups);
   for(const href of ['/inventory','/expenses','/debts','/accounting','/manufacturing','/settings/users','/dashboard','/reports']) assert(!links.includes(href),href);
   assert(links.includes('/sales'));
+  assert(links.includes('/pos'));
   assert(links.includes('/support'));
   assert(groups.every(g=>g.items.length>0));
 });
 test('unknown entitlements never flash business modules into navigation', () => {
   const links=hrefs(sidebar.sidebarPrimaryNavigation(undefined,()=>true,()=>true,false));
-  assert(!links.includes('/inventory')&&!links.includes('/sales'));
+  assert(!links.includes('/inventory')&&!links.includes('/sales')&&!links.includes('/pos'));
 });
 test('owners still obey disabled business features; secondary menus obey resource grants', () => {
   assert(!hrefs(sidebar.sidebarPrimaryNavigation({...enabled,inventory:false},()=>true,()=>true,true)).includes('/inventory'));

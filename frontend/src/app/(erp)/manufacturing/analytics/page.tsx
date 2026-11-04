@@ -58,7 +58,7 @@ export default function ManufacturingAnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Manufacturing Analytics</h1>
+        <h1 className="pesaa-page-title text-foreground">Manufacturing Analytics</h1>
         <p className="text-sm text-muted mt-0.5">Output and completion trends from live data</p>
       </div>
 

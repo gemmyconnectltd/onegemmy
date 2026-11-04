@@ -114,7 +114,7 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div className="flex items-center gap-3 pesaa-responsive-toolbar">
           <Package className="h-6 w-6 text-accent" style={{ color: "#16a34a" }} />
-          <h1 className="text-2xl font-bold" style={{ color: "#2b2118" }}>
+          <h1 className="pesaa-page-title text-foreground" style={{ color: "#2b2118" }}>
             Products
           </h1>
         </div>

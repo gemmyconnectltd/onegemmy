@@ -60,7 +60,7 @@ export type HeldOrder = {
   notes: string;
 };
 
-export type PaymentMethod = "cash" | "mobile" | "card";
+export type PaymentMethod = "cash" | "mobile" | "card" | "bank";
 
 export type SaleResult = {
   cashierName?: string;
@@ -69,6 +69,8 @@ export type SaleResult = {
    *  saved order reference) — needed to download the invoice PDF.
    *  Undefined for sales saved before this field existed. */
   backendOrderId?: string;
+  /** The customer on the sale, so the success screen can link to their account. */
+  customerId?: string | null;
   payment: PaymentMethod;
   customerName: string;
   notes: string;

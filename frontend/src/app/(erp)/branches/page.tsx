@@ -69,7 +69,7 @@ export default function BranchesPage() {
   return (
     <div className="min-w-0 space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h1 className="text-[22px] font-bold tracking-tight text-foreground">Branches</h1><p className="mt-0.5 text-sm text-muted">Manage your business locations, teams, and operations.</p></div>
+        <div><h1 className="pesaa-page-title text-foreground">Branches</h1><p className="mt-0.5 text-sm text-muted">Manage your business locations, teams, and operations.</p></div>
         {canCreate && <Button onClick={() => setAdding(true)}><Plus size={15} /> Add Branch</Button>}
       </div>
 

@@ -171,16 +171,28 @@ async def _apply(db: AsyncSession, request: ApprovalRequest) -> None:
         return
     if request.kind == "stock_transfer":
         return  # approval unlocks the transfer; the people doing it still move it along
+    from app.modules.inventory.repository import ProductRepository
+    await ProductRepository(db).lock_stock(request.tenant_id, {request.subject_id}, set())
     product = await db.get(Product, request.subject_id)
     if product is None:
         raise NotFoundError("The product no longer exists")
     variant = await db.get(ProductVariant, uuid.UUID(str(payload["variant_id"]))) if payload.get("variant_id") else None
     if request.kind == "price_change":
         target = variant if variant is not None and hasattr(variant, "price") else product
+        old_values = {"price": target.price}
         target.price = Decimal(str(payload["new_price"]))
+        from app.modules.inventory.service.product import record_product_change
+        await record_product_change(db, product, "product.price", old_values, {"price": target.price},
+            variant_id=str(variant.id) if variant else None, approval_id=str(request.id),
+            actor_id=request.decided_by, actor_name=request.decided_by_name)
     elif request.kind == "stock_adjustment":
         target = variant if variant is not None else product
+        old_values = {"stock": target.stock}
         target.stock = Decimal(str(payload["new_stock"]))
+        from app.modules.inventory.service.product import record_product_change
+        await record_product_change(db, product, "product.adjusted", old_values, {"stock": target.stock},
+            variant_id=str(variant.id) if variant else None, approval_id=str(request.id),
+            actor_id=request.decided_by, actor_name=request.decided_by_name)
     await db.flush()
 
 

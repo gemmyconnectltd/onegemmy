@@ -29,7 +29,7 @@ export function SettingsShell({ children }: { children: ReactNode }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">Business Settings</h1>
+          <h1 className="pesaa-page-title text-foreground">Business Settings</h1>
           <p className="mt-0.5 text-sm text-muted">Manage your business information, financial preferences and system configurations.</p>
         </div>
         {shopUrl && <a href={shopUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-[13px] font-semibold text-foreground hover:border-accent hover:text-accent">View Shop <ExternalLink size={14} /></a>}

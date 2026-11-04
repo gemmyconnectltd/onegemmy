@@ -10,6 +10,7 @@ export interface ApiCustomer {
   phone: string | null;
   address: string | null;
   customer_type: string;
+  tin?: string | null;
   is_active: boolean;
   created_at: string | null;
 }
@@ -163,6 +164,7 @@ export interface CustomerProfile {
 export const salesApi = {
   // Customers
   getOrder: (id: string) => request<SingleResponse<ApiOrder>>(`${BASE}/orders/${encodeURIComponent(id)}`),
+  vatRate: () => request<SingleResponse<{ enabled: boolean; rate: number }>>(`${BASE}/vat-rate`),
   customerProfile: (id: string) => request<SingleResponse<CustomerProfile>>(`${BASE}/customers/${encodeURIComponent(id)}/profile`),
   customerRecords: (id: string, section: CustomerSection, page: number) => request<SingleResponse<CustomerSectionPage>>(`${BASE}/customers/${encodeURIComponent(id)}/records/${section}${qs({ page, page_size: 10 })}`),
   listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string, period?: PeriodRange) =>

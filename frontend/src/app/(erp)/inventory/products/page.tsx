@@ -1,4 +1,8 @@
 "use client";
+import { Input } from "@/components/ui/Form";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { fetchEvery } from "@/lib/exportTable";
 import { inventoryApi } from "@/lib/api/inventory";
@@ -8,19 +12,21 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { Package, Plus, Search, Edit2, Trash2, MoreVertical, PackagePlus, Layers, Upload } from "lucide-react";
+import { AlertTriangle, Package, PackageX, Plus, Search, Layers, Settings2, Upload, Wallet } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { ProductFormDrawer, CSV_HEADERS as PRODUCT_CSV_HEADERS, type ProductFormValues, type ProductBulkRow } from "@/components/inventory/ProductFormDrawer";
 import { RequestChangeDrawer } from "@/components/inventory/RequestChangeDrawer";
+import { useAuth } from "@/lib/auth";
 import { useCan } from "@/lib/can";
 import { RestockDrawer, type RestockValues } from "@/components/inventory/RestockDrawer";
+import { ProductActionsMenu } from "@/components/inventory/ProductActionsMenu";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
 import { type ApiProduct } from "@/lib/api";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage } from "@/lib/api/hooks";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -53,24 +59,39 @@ function toFormValues(p: ApiProduct): ProductFormValues {
   };
 }
 
-export default function ProductsPage() {
+function ProductsContent() {
+  const params = useSearchParams();
   const { brandColor, currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const INV_COLOR = brandColor;
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(params.get("q") || "");
   const debouncedSearch = useDebouncedValue(search);
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">((params.get("status") === "active" || params.get("status") === "inactive") ? params.get("status") as "active" | "inactive" : "all");
+  const [page, setPage] = useState(Math.max(1, Number(params.get("page")) || 1));
+  const [pageSize, setPageSize] = useState([10,20,50,100].includes(Number(params.get("size"))) ? Number(params.get("size")) : 20);
   // A new search/filter can't still be showing page 4 of the old result set —
   // reset it right where the filter changes, not via an effect (which would
   // set state on top of the render that just committed it).
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
   const onStatusFilterChange = (f: "all" | "active" | "inactive") => { setStatusFilter(f); setPage(1); };
-  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const [period, setPeriod] = useState<PeriodValue>(params.get("from") || params.get("to") ? {key:"custom",from:params.get("from")||"",to:params.get("to")||""} : ALL_TIME);
+  const [moreFilters, setMoreFilters] = useState(false);
   const range = periodRange(period);
+  const valuation = useValuationReport(1, "all");
+  const summary = valuation.data?.summary;
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if(search) next.set("q", search);
+    if(statusFilter!=="all") next.set("status",statusFilter);
+    if(page!==1) next.set("page",String(page));
+    if(pageSize!==20) next.set("size",String(pageSize));
+    if(range.from) next.set("from",range.from);
+    if(range.to) next.set("to",range.to);
+    const query = next.toString();
+    window.history.replaceState(null,"",`/inventory/products${query?`?${query}`:""}`);
+  }, [search,statusFilter,page,pageSize,range.from,range.to]);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [stockMode, setStockMode] = useState<"restock" | "adjust">("restock");
   const [showForm, setShowForm] = useState(false);
   const [formMode, setFormMode] = useState<"single" | "bulk">("single");
   const [editing, setEditing] = useState<ApiProduct | null>(null);
@@ -79,7 +100,11 @@ export default function ProductsPage() {
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
   const [requestTarget, setRequestTarget] = useState<ApiProduct | null>(null);
   const can = useCan();
-  const canEdit = can("items", "update"), canDelete = can("items", "delete"), canRestock = can("stock", "create"), canAdd = can("items", "create");
+  const {user} = useAuth();
+  const restricted = user?.branchIds != null || user?.branchId != null;
+  const [statusError, setStatusError] = useState("");
+  const [statusPending, setStatusPending] = useState(false);
+  const canEdit = can("items", "update"), canDelete = can("items", "delete"), canRestock = can("stock", "create") && !restricted, canAdd = can("items", "create");
   const canAskPrice = !canEdit && can("pricing", "create"), canAskStock = !canEdit && can("stock", "create");
   const hasRowActions = canEdit || canDelete || canRestock || canAskPrice || canAskStock || can("items", "read");
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
@@ -121,7 +146,7 @@ export default function ProductsPage() {
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
-      price: v.price, cost: v.cost, stock: v.stock, min_stock: v.minStock,
+      price: v.price, cost: v.cost, ...(!restricted && can("stock","update") ? {stock:v.stock} : {}), min_stock: v.minStock,
     };
     if (editing) {
       await updateProduct.mutateAsync({ id: editing.id, data: payload });
@@ -159,17 +184,44 @@ export default function ProductsPage() {
     setDeleteTarget(null);
   };
 
+  function confirmStatus(p: ApiProduct) {
+    if (statusPending) return;
+    setStatusError("");
+    confirm({title:p.is_active?"Deactivate product":"Activate product", message:p.is_active?`Deactivate ${p.name}? Existing transactions and history will remain available.`:`Activate ${p.name} for new sales?`,confirmLabel:p.is_active?"Deactivate":"Activate",danger:p.is_active,onConfirm:async()=>{
+      setStatusPending(true);
+      try {await updateProduct.mutateAsync({id:p.id,data:{is_active:!p.is_active}});}
+      catch(e) {setStatusError((e as {detail?:string}).detail||"Could not change product status. Try again.");}
+      finally {setStatusPending(false);}
+    }});
+  }
+
+  const productActions = (p: ApiProduct) => (<ProductActionsMenu product={p}
+                      onEdit={() => { setEditing(p); setFormMode("single"); setFormKey(k=>k+1); setShowForm(true); }}
+                      onAdjust={() => { if(p.has_variants) setVariantsTarget(p); else {setStockMode("adjust");setRestockTarget(p);} }}
+                      onRestock={() => { if(p.has_variants) setVariantsTarget(p); else {setStockMode("restock");setRestockTarget(p);} }}
+                      onStatus={() => confirmStatus(p)}
+                      onVariants={() => setVariantsTarget(p)}
+                      onRequest={canAskPrice || canAskStock ? () => setRequestTarget(p) : undefined}
+                      onDelete={canDelete ? () => setDeleteTarget(p) : undefined}
+                    />);
+
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
       {confirmDialog}
+      {statusError && <p role="alert" className="rounded-xl border border-border bg-card p-4 text-sm text-red-600">{statusError}</p>}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Products</h1>
-          <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"}</p>
+          <h1 className="pesaa-page-title">Products</h1>
+          <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"} in your catalog</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/inventory/products/settings">
+            <Button variant="secondary" className="rounded-lg">
+              <Settings2 size={15} /> Manage attributes
+            </Button>
+          </Link>
           <ExportButton build={async () => {
             const items = await fetchEvery((p, s) => inventoryApi.listProducts(p, s, debouncedSearch || undefined, isActive, range), 500);
             // Batch and date columns stay empty: they belong to batches, not to the product itself.
@@ -184,14 +236,34 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {summary && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Catalog value", value: fmt(summary.cost_value), hint: "At cost", href: "/inventory/stock", icon: Wallet },
+            { label: "Low stock", value: String(summary.low_stock_count), hint: "Need reorder", href: "/inventory/stock?status=low", icon: AlertTriangle },
+            { label: "Out of stock", value: String(summary.out_of_stock_count), hint: "Immediate action", href: "/inventory/stock?status=out", icon: PackageX },
+            { label: "Units on hand", value: String(summary.total_units), hint: "Business-wide", href: "/inventory/stock", icon: Package },
+          ].map((card) => (
+            <Link key={card.label} href={card.href} className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-accent/40">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted">{card.label}</p>
+                  <p className="mt-2 text-xl font-semibold tabular-nums">{card.value}</p>
+                  <p className="mt-1 text-xs text-muted">{card.hint}</p>
+                </div>
+                <span className="rounded-lg bg-accent/10 p-2.5 text-accent"><card.icon size={16} /></span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input type="text" placeholder="Search products..." value={search} onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-surface/50" />
+            <Input type="text" placeholder="Search products..." value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search products" className="w-full pl-9" />
           </div>
-          <PeriodFilter value={period} onChange={onPeriodChange} label="Date added" />
           <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
             {(["all", "active", "inactive"] as const).map((f) => (
               <button key={f} onClick={() => onStatusFilterChange(f)}
@@ -201,8 +273,16 @@ export default function ProductsPage() {
               </button>
             ))}
           </div>
+          <Button variant="secondary" size="sm" onClick={() => setMoreFilters((v) => !v)} aria-expanded={moreFilters}>
+            {moreFilters ? "Hide filters" : "More filters"}
+          </Button>
           <span className="text-xs text-muted ml-auto">{total} result{total === 1 ? "" : "s"}</span>
         </div>
+        {moreFilters && (
+          <div className="border-b border-border bg-surface/40 px-5 py-4">
+            <PeriodFilter value={period} onChange={onPeriodChange} label="Date added" />
+          </div>
+        )}
 
         {bulk.count > 0 && (
           <div className="px-5 py-3 border-b border-border">
@@ -214,12 +294,13 @@ export default function ProductsPage() {
           <label className="flex min-h-11 items-center gap-3 border-b border-border px-4 text-sm"><input type="checkbox" aria-label="Select all products" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} disabled={!products.length} />Select this page</label>
           <div className="grid gap-3 p-3 sm:grid-cols-2">
             {products.map((p) => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4">
-              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold">{p.name}</h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
+              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold"><Link className="hover:underline text-accent" href={`/inventory/products/${p.id}`}>{p.name}</Link></h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
+              <div className="mt-3 flex justify-end">{productActions(p)}</div>
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Selling price</dt><dd className="font-semibold">{fmt(p.price)}</dd></div><div><dt className="text-xs text-muted">Stock</dt><dd className="font-semibold">{variantStock(p)}</dd></div><div><dt className="text-xs text-muted">Cost</dt><dd>{fmt(p.cost)}</dd></div><div><dt className="text-xs text-muted">Margin</dt><dd>{margin(p)}%</dd></div></dl>
               {hasRowActions && <details className="mt-3 border-t border-border"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-accent">Product actions</summary><div className="flex flex-wrap gap-2">
                 {canEdit && <Button variant="outline" onClick={() => { setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}>Edit</Button>}
                 {(canAskPrice || canAskStock) && <Button variant="outline" onClick={() => setRequestTarget(p)}>Request change</Button>}
-                {canRestock && <Button variant="outline" onClick={() => setRestockTarget(p)}>Restock</Button>}
+                {canRestock && <Button variant="outline" onClick={() => {setStockMode("restock");setRestockTarget(p);}}>Restock</Button>}
                 <Button variant="outline" onClick={() => setVariantsTarget(p)}>Variants</Button>
                 {canDelete && <Button variant="destructive" onClick={() => setDeleteTarget(p)}>Delete</Button>}
               </div></details>}
@@ -235,7 +316,7 @@ export default function ProductsPage() {
                   <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={products.length === 0} />
                 </th>
                 {["Product", "Category", "Brand", "Cost", "Price", "Margin", "Stock", "Status", ""].map((h, i) => (
-                  <th key={i} className={`px-5 py-3 text-[11px] font-semibold text-muted uppercase tracking-wider ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
+                  <th key={i} className={`p-4 text-xs font-semibold text-muted ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -249,11 +330,11 @@ export default function ProductsPage() {
                     <div className="flex items-center gap-3">
                       <ProductAvatar name={p.name} imageUrl={p.image_url ?? undefined} size={32} className="rounded-lg" />
                       <div>
-                        <p className="text-sm font-semibold text-foreground">{p.name}</p>
-                        <p className="text-[11px] text-muted font-mono">{p.sku}</p>
+                        <Link className="text-sm font-semibold text-foreground hover:underline" href={`/inventory/products/${p.id}`}>{p.name}</Link>
+                        <p className="text-xs text-muted font-mono">{p.sku}</p>
                         {p.has_variants && (p.variants?.length ?? 0) > 0 && (
                           <button onClick={() => setVariantsTarget(p)}
-                            className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold hover:underline" style={{ color: INV_COLOR }}>
+                            className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold hover:underline" style={{ color: INV_COLOR }}>
                             <Layers size={11} /> {p.variants.length} variant{p.variants.length !== 1 ? "s" : ""}
                           </button>
                         )}
@@ -261,7 +342,7 @@ export default function ProductsPage() {
                     </div>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface text-muted">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface text-muted">
                       {p.category?.name ?? "—"}
                     </span>
                   </td>
@@ -273,43 +354,13 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-5 py-3.5 text-right text-sm font-bold text-foreground tabular-nums">{variantStock(p)}</td>
                   <td className="px-5 py-3.5 text-center">
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${p.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
+                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${p.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${p.is_active ? "bg-emerald-500" : "bg-muted"}`} />
                       {p.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="px-5 py-3.5 relative">
-                    {hasRowActions && <button onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
-                      aria-label={`Actions for ${p.name}`} className="w-7 h-7 flex items-center justify-center text-muted hover:text-foreground hover:bg-surface rounded-lg transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100">
-                      <MoreVertical size={14} />
-                    </button>}
-                    {openMenu === p.id && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
-                        <div className="absolute right-4 top-full mt-1 w-36 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
-                          {canEdit && <button onClick={() => { setOpenMenu(null); setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
-                            <Edit2 size={13} className="text-muted" /> Edit
-                          </button>}
-                          {(canAskPrice || canAskStock) && <button onClick={() => { setOpenMenu(null); setRequestTarget(p); }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
-                            <Edit2 size={13} className="text-muted" /> Request a change
-                          </button>}
-                          {canRestock && <button onClick={() => { setOpenMenu(null); setRestockTarget(p); }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
-                            <PackagePlus size={13} style={{ color: INV_COLOR }} /> Restock
-                          </button>}
-                          <button onClick={() => { setOpenMenu(null); setVariantsTarget(p); }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-foreground hover:bg-surface transition-colors">
-                            <Layers size={13} className="text-muted" /> Variants
-                          </button>
-                          {canDelete && <button onClick={() => { setOpenMenu(null); setDeleteTarget(p); }}
-                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                            <Trash2 size={13} /> Delete
-                          </button>}
-                        </div>
-                      </>
-                    )}
+                    {hasRowActions && productActions(p)}
                   </td>
                 </tr>
               ))}
@@ -341,6 +392,8 @@ export default function ProductsPage() {
 
       {requestTarget && <RequestChangeDrawer product={requestTarget} canPrice={can("pricing", "create")} canStock={can("stock", "create")} onClose={() => setRequestTarget(null)} />}
       <RestockDrawer
+        key={`${restockTarget?.id}:${stockMode}`}
+        initialMode={stockMode}
         open={!!restockTarget}
         onClose={() => setRestockTarget(null)}
         productName={restockTarget?.name ?? ""}
@@ -366,10 +419,10 @@ export default function ProductsPage() {
         size="sm"
         footer={
           <div className="flex items-center gap-2">
-            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg text-[13px]">
+            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg text-sm">
               Cancel
             </Button>
-            <Button type="button" variant="danger" onClick={confirmDelete} className="flex-1 rounded-lg text-[13px] font-bold">
+            <Button type="button" variant="danger" onClick={confirmDelete} className="flex-1 rounded-lg text-sm font-bold">
               Delete
             </Button>
           </div>
@@ -384,3 +437,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+export default function ProductsPage() { return <Suspense fallback={<PageLoader variant="page"/>}><ProductsContent/></Suspense>; }

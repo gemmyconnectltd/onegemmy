@@ -39,7 +39,7 @@ export function PerformanceOverview() {
   return (
     <div className="min-w-0 space-y-5">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">Business performance</h1>
+        <h1 className="pesaa-page-title text-foreground">Business performance</h1>
         <p className="mt-0.5 text-sm text-muted">Sales, profit and growth for any period. Pick dates, compare, and open the records behind each number.</p>
       </div>
       <ReportFilterBar filters={filters} update={update} range={range} />

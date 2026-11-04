@@ -21,6 +21,15 @@ def _require_tenant(tenant_id) -> None:
         raise ValidationError("This account has no tenant.")
 
 
+@router.get("/sales/vat-rate")
+async def vat_rate(db: DbSession, current_user: CurrentUser):
+    """The VAT the business really charges, so the till shows what the server will record (never a hard-coded rate)."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.accounting.service.tax import get_effective_vat_rate, is_vat_enabled
+    enabled = await is_vat_enabled(db, current_user.tenant_id)
+    return success_response(data={"enabled": enabled, "rate": float(await get_effective_vat_rate(db, current_user.tenant_id)) if enabled else 0.0}, message="VAT rate retrieved")
+
+
 @router.get("/sales/orders")
 async def list_orders(
     db: DbSession, current_user: CurrentUser, page_params: PageQuery, active_branch_id: ActiveBranchId, period: PeriodQuery,
@@ -37,7 +46,10 @@ async def list_orders(
 async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
     can_approve = current_user.is_superuser or "credit:approve" in current_user.permissions_names
-    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id, can_approve_credit=can_approve)
+    if data.ordered_at is not None:
+        await service.require_backdating_allowed(db, current_user, data.ordered_at)
+    can_sell_credit = current_user.is_superuser or "credit:create" in current_user.permissions_names
+    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id, can_approve_credit=can_approve, can_sell_credit=can_sell_credit)
     return success_response(data=obj.model_dump(), message="Order created successfully", status_code=201)
 
 

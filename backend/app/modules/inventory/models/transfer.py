@@ -60,5 +60,6 @@ class StockTransferItem(UUIDPKMixin, Base):
     transfer = relationship("StockTransfer", back_populates="items")
 
     __table_args__ = (
+        Index('ix_transfer_items_product', 'product_id', 'transfer_id'),
         Index("ix_inventory_transfer_items_transfer_id", "transfer_id"),
     )

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -146,8 +147,8 @@ class ProductUpdate(BaseModel):
 
 
 class RestockRequest(BaseModel):
-    qty: float
-    mode: str = "restock"  # "restock" | "adjust"
+    qty: float = Field(ge=0, allow_inf_nan=False)
+    mode: Literal["restock", "adjust"] = "restock"  # "restock" | "adjust"
     reason: str | None = None
     notes: str | None = None
 

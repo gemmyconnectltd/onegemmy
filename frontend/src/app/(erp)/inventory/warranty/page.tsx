@@ -1,4 +1,5 @@
 "use client";
+import { Input, Select } from "@/components/ui/Form";
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
@@ -54,7 +55,7 @@ export default function WarrantyPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Warranty Claims</h1>
+          <h1 className="pesaa-page-title text-foreground">Warranty Claims</h1>
           <p className="text-sm text-muted mt-0.5">{claims.length} claims</p>
         </div>
         <Button onClick={() => setAdding(!adding)} color="#059669" className="rounded-lg">
@@ -68,16 +69,11 @@ export default function WarrantyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-muted mb-1.5 block">Serial ID</label>
-              <input type="text" placeholder="Serial id of sold item" value={serialId}
-                onChange={(e) => setSerialId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none" />
+              <Input type="text" placeholder="Serial id of sold item" value={serialId} onChange={(e) => setSerialId(e.target.value)} className="w-full" />
             </div>
             <div>
               <label className="text-xs font-semibold text-muted mb-1.5 block">Issue description</label>
-              <input type="text" placeholder="e.g. screen won't turn on" value={issue}
-                onChange={(e) => setIssue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none" />
+              <Input type="text" placeholder="e.g. screen won't turn on" value={issue} onChange={(e) => setIssue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAdd()} className="w-full" />
             </div>
           </div>
           <div className="flex gap-2">
@@ -92,20 +88,18 @@ export default function WarrantyPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative max-w-sm flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="text" placeholder="Search claims…" value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm focus:border-foreground/30 outline-none bg-card" />
+          <Input type="text" placeholder="Search claims…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search claims" className="w-full pl-9" />
         </div>
-        <select value={status} onChange={(e) => setStatus(e.target.value)}
-          className="px-3 py-2.5 border border-border rounded-lg text-sm bg-card outline-none">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
           {NEXT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        </Select>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="text-left text-xs text-muted uppercase tracking-wide border-b border-border">
+            <tr className="text-left text-xs text-muted border-b border-border">
               <th className="px-4 py-3 font-semibold">Claim</th>
               <th className="px-4 py-3 font-semibold">Product / Serial</th>
               <th className="px-4 py-3 font-semibold">Issue</th>
@@ -132,13 +126,10 @@ export default function WarrantyPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   {c.status === "submitted" || c.status === "pending" ? (
-                    <select
-                      value=""
-                      onChange={(e) => e.target.value && handleStatus(c.id, e.target.value)}
-                      className="px-2 py-1.5 border border-border rounded-lg text-xs bg-card outline-none">
+                    <Select value="" onChange={(e) => e.target.value && handleStatus(c.id, e.target.value)}>
                       <option value="">Update…</option>
                       {NEXT_STATUSES.filter((s) => s !== "pending").map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    </Select>
                   ) : (
                     <span className="text-xs text-muted">{c.resolution_notes || "—"}</span>
                   )}

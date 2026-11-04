@@ -147,7 +147,7 @@ export default function BomPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Bill of Materials</h1>
+          <h1 className="pesaa-page-title text-foreground">Bill of Materials</h1>
           <p className="text-sm text-muted mt-0.5">{loading ? "Loading..." : `${boms.length} recipes`}</p>
         </div>
         <Button color={COLOR} onClick={openAdd}><Plus size={15} /> New BOM</Button>

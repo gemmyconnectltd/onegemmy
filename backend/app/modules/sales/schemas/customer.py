@@ -12,6 +12,7 @@ class CustomerCreate(BaseModel):
     phone: str | None = None
     address: str | None = None
     customer_type: str = "individual"
+    tin: str | None = Field(default=None, max_length=50)
     is_active: bool = True
 
 
@@ -47,6 +48,7 @@ class CustomerRead(BaseModel):
     phone: str | None
     address: str | None
     customer_type: str
+    tin: str | None = None
     is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None

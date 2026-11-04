@@ -90,7 +90,7 @@ export default function DepartmentsPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Departments</h1>
+          <h1 className="pesaa-page-title text-foreground">Departments</h1>
           <p className="text-sm text-muted mt-0.5">{departments.length} departments</p>
         </div>
         <div className="flex items-center gap-2">

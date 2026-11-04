@@ -107,7 +107,7 @@ export default function LeavePage() {
       {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Leave Management</h1>
+          <h1 className="pesaa-page-title text-foreground">Leave Management</h1>
           <p className="text-sm text-muted mt-0.5">{pendingCount} request{pendingCount === 1 ? "" : "s"} awaiting review</p>
         </div>
         <button

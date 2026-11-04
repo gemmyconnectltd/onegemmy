@@ -63,7 +63,7 @@ function RoleEditor({ data }: { data: RoleAccess }) {
     <div className="min-w-0 space-y-5">
       <div>
         <Back href="/settings/users/roles">Roles &amp; Permissions</Back>
-        <div className="flex flex-wrap items-center gap-3"><h1 className="text-[22px] font-bold tracking-tight text-foreground">{role.name}</h1><Pill tone={role.built_in ? "slate" : "green"}>{role.built_in ? "Built in" : "Custom"}</Pill></div>
+        <div className="flex flex-wrap items-center gap-3"><h1 className="pesaa-page-title text-foreground">{role.name}</h1><Pill tone={role.built_in ? "slate" : "green"}>{role.built_in ? "Built in" : "Custom"}</Pill></div>
         <p className="mt-0.5 text-sm text-muted">{role.users} {role.users === 1 ? "person holds" : "people hold"} this role · {role.permissions} permissions</p>
       </div>
 

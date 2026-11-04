@@ -19,6 +19,8 @@ const link = (key, status) => ({ key, name: key[0].toUpperCase() + key.slice(1),
 const module_ = (status, needs = [], needed_by = []) => ({ status, needs, needed_by });
 
 test('a page is tied to the module that controls it, including POS and the customer and finance pages', () => {
+  assert.equal(mod.navItemForPath('/pos').name, 'Point of Sale');
+  assert.equal(mod.navItemForPath('/pos/checkout').name, 'Point of Sale');
   assert.deepEqual(plain(mod.featureForPath('/pos')), { key: 'sales', name: 'Sales & POS' });
   assert.equal(mod.featureForPath('/pos/checkout').key, 'sales');
   assert.equal(mod.featureForPath('/inventory/products').key, 'inventory');
@@ -58,7 +60,7 @@ test('dependency conflicts are named before the administrator tries', () => {
 
 test('a page is open only to people whose role gives them its module or permission, read the way the menu reads it', () => {
   assert.deepEqual(plain(mod.accessForPath('/hr/attendance')), { name: 'HR', module: 'hr' });
-  assert.deepEqual(plain(mod.accessForPath('/pos')), { name: 'Sales', module: 'sales' });
+  assert.deepEqual(plain(mod.accessForPath('/pos')), { name: 'Point of Sale', module: 'sales' });
   assert.deepEqual(plain(mod.accessForPath('/settings/users')), { name: 'Team & Access', permission: 'users:read' });
   assert.deepEqual(plain(mod.accessForPath('/settings/billing')), { name: 'Subscription & Billing', permission: 'billing:read' });
   for (const open of ['/support', '/profile', '/settings/profile']) assert.equal(mod.accessForPath(open), null, open);

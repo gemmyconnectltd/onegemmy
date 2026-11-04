@@ -151,15 +151,15 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         type="button"
         onClick={() => (isVariantGroup ? onToggle(product.id) : onAdd(product))}
         disabled={outOfStock}
-        className={`flex min-h-[194px] w-full flex-col text-left group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${isVariantGroup ? "cursor-pointer" : "active:scale-[0.97] transition-transform"}`}
+        className={`flex w-full flex-col text-left group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${isVariantGroup ? "cursor-pointer" : "active:scale-[0.97] transition-transform"}`}
       >
-        <div className="w-full h-24 shrink-0 relative overflow-hidden flex items-center justify-center bg-surface/30">
+        <div className="w-full h-16 shrink-0 relative overflow-hidden flex items-center justify-center bg-surface/30">
           {hasImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageSrc ?? undefined}
               alt={product.name}
-              className="w-full h-full object-contain p-2"
+              className="w-full h-full object-contain p-1.5"
               loading="lazy" decoding="async" onError={() => setFailedImage(imageSrc ?? "")}
             />
           ) : (
@@ -176,12 +176,12 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
                 style={{ backgroundColor: `${accent}0F` }}
               />
               <div
-                className="relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm"
+                className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
                 style={{ backgroundColor: `${accent}1A`, border: `1px solid ${accent}33` }}
               >
                 <IconBadge
                   Icon={getProductIcon(product)}
-                  size={24}
+                  size={20}
                   color={accent}
                   rounded="rounded-2xl"
                 />
@@ -190,32 +190,26 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
           )}
           {outOfStock && (
             <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
-              <span className="text-[10px] font-bold text-white bg-red-500/90 px-2.5 py-1 rounded-full shadow-sm">Out of stock</span>
+              <span className="text-[10px] font-bold text-white bg-red-500/90 px-2 py-0.5 rounded-full shadow-sm">Out of stock</span>
             </div>
           )}
         </div>
 
-        {/* Info */}
-        <div className="p-2.5 flex flex-col gap-1 flex-1 w-full">
-          <p className="text-[12.5px] font-semibold text-foreground leading-tight line-clamp-2 min-h-[2.4em]">{product.name}</p>
-          {isVariantGroup ? (
-            <p className="text-[10px] text-accent font-semibold flex items-center gap-0.5">
-              {product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
-            </p>
-          ) : product.sku ? (
-            <p className="text-[10px] text-muted font-mono truncate">{product.sku}</p>
-          ) : null}
-          <div className="flex items-center justify-between mt-auto pt-1.5">
-            <p className="text-[14px] text-accent font-bold font-mono tracking-tight">
-              {currencySymbol} {fmt(product.price)}
-            </p>
+        {/* Info: compact, three short lines */}
+        <div className="flex w-full flex-1 flex-col gap-0.5 p-2">
+          <p className="line-clamp-2 min-h-[2.2em] text-[12px] font-semibold leading-tight text-foreground">{product.name}</p>
+          <div className="flex items-center justify-between gap-1">
+            <p className="font-mono text-[13px] font-bold tracking-tight text-accent">{currencySymbol} {fmt(product.price)}</p>
             {lowStock && !isVariantGroup && (
-              <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
-                <AlertTriangle size={9} /> {product.stock}
-              </span>
+              <span className="flex flex-shrink-0 items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400"><AlertTriangle size={9} /> {product.stock}</span>
             )}
           </div>
-          <div className="mt-1 flex items-center justify-between gap-1 text-[10px]"><span className="truncate text-muted">{outOfStock ? "Unavailable" : `${availableStock} in stock`}</span><span className="inline-flex shrink-0 items-center gap-1 font-semibold text-accent">{isVariantGroup ? "Choose" : inCartQty > 0 ? "Add more" : "Add"}<Plus size={11} /></span></div>
+          <div className="flex items-center justify-between gap-1 text-[10px]">
+            <span className="truncate text-muted">
+              {isVariantGroup ? <span className="inline-flex items-center gap-0.5 font-semibold text-accent">{product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></span> : <>{product.sku ? `${product.sku} · ` : ""}{outOfStock ? "Unavailable" : `${availableStock} in stock`}</>}
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-accent">{isVariantGroup ? "Choose" : inCartQty > 0 ? "Add more" : "Add"}<Plus size={11} /></span>
+          </div>
         </div>
       </button>
 

@@ -1,5 +1,6 @@
 import itertools
 import uuid
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,7 @@ from app.modules.inventory.schemas import (
     VariantRead,
     VariantUpdate,
 )
+from app.modules.tenants.models import User
 
 
 async def _get_product_or_404(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID):
@@ -66,8 +68,9 @@ async def create_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uui
     return VariantRead.model_validate(obj)
 
 
-async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID, data: VariantUpdate, can_approve: bool = True) -> VariantRead:
-    await _get_product_or_404(db, tenant_id, product_id)
+async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID, data: VariantUpdate, can_approve: bool = True, actor: User | None = None) -> VariantRead:
+    await ProductRepository(db).lock_stock(tenant_id, {product_id}, {id})
+    product = await _get_product_or_404(db, tenant_id, product_id)
     repo = VariantRepository(db)
     obj = await repo.get_by_id_for_product(product_id, id)
     if obj is None:
@@ -77,22 +80,29 @@ async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uui
     guard_direct_change({"price": obj.price, "promo_price": obj.promo_price, "stock": obj.stock}, updates, can_approve,
                         {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"},
                         await exempt_fields(db, tenant_id))
+    before = {field: getattr(obj, field) for field in updates}
     for field, value in updates.items():
         setattr(obj, field, value)
     await repo.save(obj)
+    from app.modules.inventory.service.product import record_product_change
+    await record_product_change(db, product, "product.updated", before, updates, actor, variant_id=str(id))
     await db.commit()
     obj = await repo.get_by_id_for_product(product_id, id)
     return VariantRead.model_validate(obj)
 
 
-async def restock_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID, qty: int, mode: str) -> VariantRead:
-    await _get_product_or_404(db, tenant_id, product_id)
+async def restock_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, id: uuid.UUID, qty: float, mode: str, actor: User | None = None, reason: str | None = None, notes: str | None = None) -> VariantRead:
+    await ProductRepository(db).lock_stock(tenant_id, {product_id}, {id})
+    product = await _get_product_or_404(db, tenant_id, product_id)
     repo = VariantRepository(db)
     obj = await repo.get_by_id_for_product(product_id, id)
     if obj is None:
         raise NotFoundError("Variant not found")
-    obj.stock = qty if mode == "adjust" else obj.stock + qty
+    before = {"stock": obj.stock}
+    obj.stock = Decimal(str(qty)) if mode == "adjust" else Decimal(str(obj.stock)) + Decimal(str(qty))
     await repo.save(obj)
+    from app.modules.inventory.service.product import record_product_change
+    await record_product_change(db, product, "product.adjusted" if mode == "adjust" else "product.restocked", before, {"stock": obj.stock}, actor, variant_id=str(id), reason=reason, notes=notes)
     await db.commit()
     obj = await repo.get_by_id_for_product(product_id, id)
     return VariantRead.model_validate(obj)

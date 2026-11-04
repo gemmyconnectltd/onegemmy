@@ -268,7 +268,7 @@ export default function UsersPage() {
   if (isError) {
     return (
       <div className="space-y-6">
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Team &amp; Access</h1>
+        <h1 className="pesaa-page-title text-foreground">Team &amp; Access</h1>
         <ErrorState message="Could not load your team" onRetry={() => refetch()} />
       </div>
     );
@@ -279,7 +279,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Team &amp; Access</h1>
+          <h1 className="pesaa-page-title text-foreground">Team &amp; Access</h1>
           <p className="text-sm text-muted mt-0.5">
             {total} user{total === 1 ? "" : "s"} · {activeCount} active · {users.length - activeCount} deactivated
             {tenant?.name ? ` · ${tenant.name}` : ""}

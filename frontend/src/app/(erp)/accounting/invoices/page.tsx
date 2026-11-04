@@ -111,7 +111,7 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Invoices</h1>
+          <h1 className="pesaa-page-title text-foreground">Invoices</h1>
           <p className="text-sm text-muted mt-0.5">Manage and track all customer invoices</p>
         </div>
         <div className="flex items-center gap-2">

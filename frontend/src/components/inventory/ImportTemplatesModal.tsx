@@ -1,4 +1,5 @@
 "use client";
+import { Input } from "@/components/ui/Form";
 import { useEffect, useState } from "react";
 import { X, Search, FolderClosed, CheckCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -114,20 +115,14 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
         <div className="flex items-center gap-3 px-6 py-3 border-b border-border flex-shrink-0 flex-wrap">
           <div className="relative w-64">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              placeholder="Search templates or industries..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-border rounded-lg text-[13px] focus:border-foreground/30 outline-none bg-surface"
-            />
+            <Input type="text" placeholder="Search templates or industries..." value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search templates or industries" className="w-full pl-9" />
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto">
             {industries.map((ind) => (
               <button
                 key={ind}
                 onClick={() => setIndustryFilter(ind)}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold whitespace-nowrap border transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${
                   industryFilter === ind ? "text-white border-transparent" : "border-border text-muted hover:text-foreground"
                 }`}
                 style={industryFilter === ind ? { backgroundColor: color } : undefined}
@@ -159,8 +154,8 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
                       }`}
                       style={isActive ? { borderColor: color } : undefined}
                     >
-                      <p className="text-[13px] font-bold text-foreground">{t.name}</p>
-                      <p className="text-[11px] text-muted mt-1 flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-foreground">{t.name}</p>
+                      <p className="text-xs text-muted mt-1 flex items-center gap-1.5">
                         <FolderClosed size={11} /> {count} Categories
                         {picked > 0 && <span className="font-semibold" style={{ color }}>· {picked} selected</span>}
                       </p>
@@ -181,7 +176,7 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
               <>
                 <div className="flex items-start justify-between mb-5">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-md bg-surface text-muted">{active.industry}</span>
+                    <span className="text-xs font-bold px-2 py-1 rounded-md bg-surface text-muted">{active.industry}</span>
                     <h3 className="text-lg font-bold text-foreground mt-2">{active.name}</h3>
                   </div>
                   <Button size="sm" onClick={() => selectAll(active.id, activeAllItems)} className="rounded-lg flex-shrink-0">
@@ -205,7 +200,7 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
                             style={{ accentColor: color }}
                           />
                           <FolderClosed size={14} className="text-muted" />
-                          <span className="text-[13px] font-bold text-foreground uppercase tracking-wide">{g.name}</span>
+                          <span className="text-sm font-bold text-foreground">{g.name}</span>
                         </label>
                         <div className="flex flex-wrap gap-1.5">
                           {g.items.map((item) => {
@@ -218,7 +213,7 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
                                 disabled={alreadyExists}
                                 onClick={() => toggleItem(active.id, item)}
                                 title={alreadyExists ? "Already in your categories" : undefined}
-                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                   isSelected ? "text-white" : "bg-surface text-muted hover:text-foreground"
                                 }`}
                                 style={isSelected ? { backgroundColor: color } : undefined}
@@ -243,8 +238,8 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
               <FolderClosed size={15} className="text-muted" />
             </div>
             <div>
-              <p className="text-[13px] font-bold text-foreground">{allSelectedNames.length} Items Selected</p>
-              <p className="text-[11px] text-muted">Across {groupsWithSelections} category group{groupsWithSelections === 1 ? "" : "s"}</p>
+              <p className="text-sm font-bold text-foreground">{allSelectedNames.length} Items Selected</p>
+              <p className="text-xs text-muted">Across {groupsWithSelections} category group{groupsWithSelections === 1 ? "" : "s"}</p>
             </div>
           </div>
           <div className="flex gap-2">

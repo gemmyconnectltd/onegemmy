@@ -27,7 +27,7 @@ export default function MyProfilePage() {
   if (isError || !profile) {
     return (
       <div className="space-y-6">
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">My Profile</h1>
+        <h1 className="pesaa-page-title text-foreground">My Profile</h1>
         <div className="bg-card border border-border rounded-xl py-12 px-6 text-center space-y-3">
           <p className="text-sm font-semibold text-foreground">Could not load your profile</p>
           <button
@@ -68,7 +68,7 @@ export default function MyProfilePage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">My Profile</h1>
+        <h1 className="pesaa-page-title text-foreground">My Profile</h1>
         <p className="text-sm text-muted mt-0.5">
           The company and account you are signed in with.
         </p>

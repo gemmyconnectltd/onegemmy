@@ -32,5 +32,6 @@ class ReturnItem(UUIDPKMixin, Base):
     product = relationship("Product", foreign_keys=[product_id], lazy="joined")
 
     __table_args__ = (
+        Index('ix_return_items_product', 'product_id', 'return_id'),
         Index("ix_sales_return_items_return_id", "return_id"),
     )

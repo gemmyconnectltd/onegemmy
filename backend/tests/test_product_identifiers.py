@@ -45,8 +45,12 @@ def test_identifier_lengths_are_validated(field, limit, schema):
 @pytest.mark.parametrize("existing_sku", ["RICE-001", None])
 async def test_blank_sku_update_preserves_or_generates(monkeypatch, existing_sku):
     tenant_id, product_id = uuid.uuid4(), uuid.uuid4()
-    product = SimpleNamespace(id=product_id, sku=existing_sku)
+    product = SimpleNamespace(id=product_id, tenant_id=tenant_id, sku=existing_sku, barcode=None, subcategory=None, price=0, promo_price=None, stock=0)
+    from app.modules.approvals import service as approvals
+    monkeypatch.setattr(approvals, "exempt_fields", AsyncMock(return_value=set()))
+    monkeypatch.setattr(service, "record_product_change", AsyncMock())
     repo = SimpleNamespace(
+        lock_stock=AsyncMock(),
         get_by_id_for_tenant=AsyncMock(return_value=product),
         save=AsyncMock(return_value=product),
     )
@@ -67,6 +71,7 @@ async def test_failed_bulk_row_keeps_successful_products(monkeypatch):
     from app.core.exceptions import ValidationError as AppValidationError
 
     saved = []
+    monkeypatch.setattr(service, "record_product_change", AsyncMock())
 
     @asynccontextmanager
     async def savepoint():

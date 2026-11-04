@@ -43,7 +43,7 @@ export default function SegmentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Segments</h1>
+        <h1 className="pesaa-page-title text-foreground">Segments</h1>
         <p className="text-sm text-muted mt-0.5">Group customers by behaviour and value</p>
       </div>
 

@@ -140,7 +140,7 @@ export default function SalesPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Sales Pipeline</h1>
+          <h1 className="pesaa-page-title text-foreground">Sales Pipeline</h1>
           <p className="text-sm text-muted mt-0.5">{deals.length} deals across all stages</p>
         </div>
         <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Deal</Button>

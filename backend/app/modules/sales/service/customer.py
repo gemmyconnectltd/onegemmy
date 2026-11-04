@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,12 @@ async def get_customer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) ->
 
 
 async def create_customer(db: AsyncSession, tenant_id: uuid.UUID, data: CustomerCreate) -> CustomerRead:
+    # The same phone or email is the same person: point at the existing customer instead of creating a second one.
+    for column, value, what in ((Customer.phone, (data.phone or "").strip(), "phone number"), (Customer.email, (data.email or "").strip().lower(), "email")):
+        if value:
+            match = (await db.execute(select(Customer.name).where(Customer.tenant_id == tenant_id, func.lower(column) == value.lower()).limit(1))).scalar_one_or_none()
+            if match is not None:
+                raise ConflictError(f"A customer with this {what} already exists: {match}. Select that customer instead.")
     obj = Customer(tenant_id=tenant_id, **data.model_dump())
     obj = await CustomerRepository(db).save(obj)
     await db.commit()

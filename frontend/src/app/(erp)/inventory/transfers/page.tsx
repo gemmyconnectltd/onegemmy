@@ -1,12 +1,14 @@
 "use client";
+import { Input, Select } from "@/components/ui/Form";
 import { PeriodFilter } from "@/components/ui/PeriodFilter";
 import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2, ArrowLeftRight, AlertCircle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { type ApiStockTransfer } from "@/lib/api";
-import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts } from "@/lib/api/hooks";
+import { type ApiProduct, type ApiStockTransfer } from "@/lib/api";
+import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts, useProduct } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -39,16 +41,16 @@ const newItem = (): ItemRow => ({
   available_stock: 0,
 });
 
-export default function TransfersPage() {
-  const [status, setStatus] = useState<string>("");
+function TransfersContent({initialProduct, create = false, initialStatus = ""}: {initialProduct?: ApiProduct; create?: boolean; initialStatus?: string}) {
+  const [status, setStatus] = useState<string>(initialStatus);
   const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
   const range = periodRange(period);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(create);
   const [search, setSearch] = useState("");
   const [fromBranch, setFromBranch] = useState("");
   const [toBranch, setToBranch] = useState("");
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<ItemRow[]>([newItem()]);
+  const [items, setItems] = useState<ItemRow[]>(() => initialProduct ? [{...newItem(),product_id:initialProduct.id,product_name:initialProduct.name,sku:initialProduct.sku||"",available_stock:Number(initialProduct.stock)}] : [newItem()]);
   const [createError, setCreateError] = useState("");
 
   const { data, isLoading, isError, error: loadError, refetch } = useTransfers(1, 100, status || undefined, undefined, range);
@@ -61,7 +63,7 @@ export default function TransfersPage() {
 
   const transfers = data?.items ?? [];
   const branches = branchesData?.items ?? [];
-  const products = productsData?.items ?? [];
+  const products = initialProduct && !productsData?.items.some(p=>p.id===initialProduct.id) ? [initialProduct,...(productsData?.items??[])] : productsData?.items ?? [];
 
   const filtered = transfers.filter((t) =>
     !search ||
@@ -166,8 +168,8 @@ export default function TransfersPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Branch Stock Transfers</h1>
-          <p className="text-sm text-muted mt-0.5">{transfers.length} transfers</p>
+          <h1 className="pesaa-page-title">Transfers</h1>
+          <p className="text-sm text-muted mt-0.5">{transfers.length} transfer{transfers.length === 1 ? "" : "s"} · stock moves between branches</p>
         </div>
         <Button onClick={() => { setAdding(!adding); setCreateError(""); }} color="#059669" className="rounded-lg">
           <Plus size={15} /> New Transfer
@@ -184,19 +186,17 @@ export default function TransfersPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-muted mb-1.5 block">From branch</label>
-              <select value={fromBranch} onChange={(e) => setFromBranch(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-card outline-none">
+              <Select value={fromBranch} onChange={(e) => setFromBranch(e.target.value)} className="w-full">
                 <option value="">— Any / Main store</option>
                 {branches.map((b) => <option key={b.id} value={b.id}>{b.name}{b.location ? ` · ${b.location}` : ""}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="text-xs font-semibold text-muted mb-1.5 block">To branch</label>
-              <select value={toBranch} onChange={(e) => setToBranch(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-card outline-none">
+              <Select value={toBranch} onChange={(e) => setToBranch(e.target.value)} className="w-full">
                 <option value="">— Any / Main store</option>
                 {(destinations.length ? destinations : branches).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
           {fromBranch === toBranch && (
@@ -211,33 +211,21 @@ export default function TransfersPage() {
               return (
                 <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-start">
                   <div>
-                    <select
-                      value={row.product_id}
-                      onChange={(e) => selectProduct(i, e.target.value)}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-card outline-none"
-                    >
+                    <Select value={row.product_id} onChange={(e) => selectProduct(i, e.target.value)} className="w-full">
                       <option value="">Select product…</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name}{p.sku ? ` (${p.sku})` : ""} — stock: {Number(p.stock)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     {overStock && (
-                      <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                         <AlertCircle size={11} /> Only {row.available_stock} in stock
                       </p>
                     )}
                   </div>
-                  <input
-                    type="number"
-                    min={1}
-                    step="0.01"
-                    placeholder="Qty"
-                    value={row.quantity}
-                    onChange={(e) => updateQty(i, Number(e.target.value) || 0)}
-                    className={`w-24 px-3 py-2 border rounded-lg text-sm outline-none ${overStock ? "border-red-400" : "border-border"}`}
-                  />
+                  <Input type="number" min={1} step="0.01" placeholder="Qty" value={row.quantity} onChange={(e) => updateQty(i, Number(e.target.value) || 0)} className={`w-24 px-3 py-2 border rounded-lg text-sm outline-none ${overStock ? "border-red-400" : "border-border"}`} />
                   <Button size="sm" variant="secondary" onClick={() => setItems((rows) => rows.filter((_, idx) => idx !== i))} className="rounded-lg">−</Button>
                 </div>
               );
@@ -250,8 +238,7 @@ export default function TransfersPage() {
           {/* Notes */}
           <div>
             <label className="text-xs font-semibold text-muted mb-1.5 block">Notes</label>
-            <input type="text" placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm outline-none" />
+            <Input type="text" placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full" />
           </div>
 
           {createError && (
@@ -276,14 +263,12 @@ export default function TransfersPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative max-w-sm flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input type="text" placeholder="Search transfers…" value={search} onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg text-sm outline-none bg-card" />
+          <Input type="text" placeholder="Search transfers…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search transfers" className="w-full pl-9" />
         </div>
-        <select value={status} onChange={(e) => setStatus(e.target.value)}
-          className="px-3 py-2.5 border border-border rounded-lg text-sm bg-card outline-none">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All statuses</option>
           {Object.keys(STATUS_COLORS).map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-        </select>
+        </Select>
         <PeriodFilter value={period} onChange={setPeriod} label="Created" />
       </div>
 
@@ -303,21 +288,19 @@ export default function TransfersPage() {
               </div>
               <div className="flex items-center gap-2">
                 {t.status === "pending" && (
-                  <select value="" onChange={(e) => e.target.value && handleStatus(t.id, e.target.value)}
-                    className="px-2 py-1.5 border border-border rounded-lg text-xs bg-card outline-none">
+                  <Select value="" onChange={(e) => e.target.value && handleStatus(t.id, e.target.value)}>
                     <option value="">Update…</option>
                     {["in_transit", "completed", "cancelled"].map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-                  </select>
+                  </Select>
                 )}
                 {t.status === "in_transit" && (
-                  <select value="" onChange={(e) => e.target.value && handleStatus(t.id, e.target.value)}
-                    className="px-2 py-1.5 border border-border rounded-lg text-xs bg-card outline-none">
+                  <Select value="" onChange={(e) => e.target.value && handleStatus(t.id, e.target.value)}>
                     <option value="">Update…</option>
                     {["completed", "cancelled"].map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-                  </select>
+                  </Select>
                 )}
                 <button onClick={() => handleDelete(t.id)}
-                  className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-[12px] font-semibold">
+                  className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-xs font-semibold">
                   <Trash2 size={14} /> Delete
                 </button>
               </div>
@@ -354,3 +337,15 @@ export default function TransfersPage() {
     </div>
   );
 }
+
+function TransferFromProduct() {
+  const params = useSearchParams();
+  const id = params.get("product") || undefined;
+  const product = useProduct(id);
+  if (id && product.isLoading) return <PageLoader variant="page"/>;
+  if (id && (product.error || !product.data)) return <div role="alert" className="space-y-3"><p>The selected product is unavailable.</p><Button variant="secondary" onClick={()=>void product.refetch()}>Try again</Button></div>;
+  const statusParam = params.get("status") || "";
+  const initialStatus = ["pending", "in_transit", "completed", "cancelled"].includes(statusParam) ? statusParam : "";
+  return <TransfersContent key={`${id||"all"}:${initialStatus}`} initialProduct={product.data} create={params.get("create")==="1"} initialStatus={initialStatus}/>;
+}
+export default function TransfersPage() { return <Suspense fallback={<PageLoader variant="page"/>}><TransferFromProduct/></Suspense>; }

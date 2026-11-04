@@ -25,7 +25,7 @@ export function FinancialSummary() {
   return (
     <div className="min-w-0 space-y-5">
       <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-foreground">Financial reports</h1>
+        <h1 className="pesaa-page-title text-foreground">Financial reports</h1>
         <p className="mt-0.5 text-sm text-muted">Where the money went in the period, and where to find the formal statements.</p>
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />

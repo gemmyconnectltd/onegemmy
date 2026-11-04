@@ -46,4 +46,5 @@ class GoodsReceiptLine(UUIDPKMixin, Base):
         UUID(as_uuid=True), ForeignKey("purchase_items.id"), nullable=False
     )
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
-    __table_args__ = (Index("ix_receipt_lines_receipt", "receipt_id"),)
+    __table_args__ = (
+        Index('ix_receipt_lines_item', 'purchase_item_id', 'receipt_id'),Index("ix_receipt_lines_receipt", "receipt_id"),)

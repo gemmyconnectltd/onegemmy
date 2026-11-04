@@ -133,7 +133,7 @@ export default function EmployeesPage() {
       {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Employees</h1>
+          <h1 className="pesaa-page-title text-foreground">Employees</h1>
           <p className="text-sm text-muted mt-0.5">Manage your team and their information</p>
         </div>
         <button

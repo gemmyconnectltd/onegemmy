@@ -190,7 +190,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             <>
               <ImagePlus size={22} className="text-muted mb-1.5" />
               <p className="text-xs text-muted">Click to upload product image</p>
-              <p className="text-[10px] text-muted/50 mt-0.5">JPEG, PNG or WebP · max 5MB</p>
+              <p className="text-xs text-muted/50 mt-0.5">JPEG, PNG or WebP · max 5MB</p>
             </>
           )}
         </div>

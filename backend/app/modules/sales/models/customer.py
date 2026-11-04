@@ -17,6 +17,7 @@ class Customer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     customer_type: Mapped[str] = mapped_column(String(20), default="individual")
+    tin: Mapped[str | None] = mapped_column(String(50), nullable=True)  # taxpayer number of a business customer, printed on its invoices
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)

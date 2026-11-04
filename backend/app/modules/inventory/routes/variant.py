@@ -53,14 +53,14 @@ async def get_variant(product_id: uuid.UUID, id: uuid.UUID, db: DbSession, curre
 async def update_variant(product_id: uuid.UUID, id: uuid.UUID, data: VariantUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     from app.modules.approvals.service import can_decide
-    obj = await service.update_variant(db, current_user.tenant_id, product_id, id, data, can_approve=can_decide(current_user))
+    obj = await service.update_variant(db, current_user.tenant_id, product_id, id, data, can_approve=can_decide(current_user), actor=current_user)
     return success_response(data=obj.model_dump(), message="Variant updated")
 
 
 @router.post("/inventory/products/{product_id}/variants/{id}/restock")
 async def restock_variant(product_id: uuid.UUID, id: uuid.UUID, data: RestockRequest, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.restock_variant(db, current_user.tenant_id, product_id, id, data.qty, data.mode)
+    obj = await service.restock_variant(db, current_user.tenant_id, product_id, id, data.qty, data.mode, actor=current_user, reason=data.reason, notes=data.notes)
     return success_response(data=obj.model_dump(), message="Variant stock updated")
 
 

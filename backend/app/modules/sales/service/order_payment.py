@@ -52,6 +52,7 @@ async def record_payment(
     user_name: str | None,
     order_id: uuid.UUID,
     data: OrderPaymentCreate,
+    commit: bool = True,
 ) -> OrderRead:
     from app.modules.accounting.repository.reporting import ReportingRepository
     await ReportingRepository(db).lock_tenant(tenant_id)
@@ -159,7 +160,8 @@ async def record_payment(
         summary=f"Recorded payment {reference} of {data.amount} against order {order.order_number}",
         changes={"order_id": str(order.id), "amount": data.amount, "payment_method": data.payment_method},
     )
-    await db.commit()
+    # A sale paid in several methods records them all in the sale's own transaction (commit=False): all or nothing.
+    await (db.commit() if commit else db.flush())
     obj = await order_repo.get_by_id_for_tenant(tenant_id, order.id)
     return _to_order_read(obj)
 

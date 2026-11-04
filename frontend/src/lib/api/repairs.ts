@@ -170,6 +170,7 @@ export const repairsApi = {
 };
 
 export const transfersApi = {
+  get: (id: string) => request<SingleResponse<ApiStockTransfer>>(`${TRANSFERS}/${id}`),
   /** Every active branch by name: a branch-restricted person may send stock to any of them. */
   destinations: () => request<SingleResponse<{ id: string; name: string }[]>>(`${TRANSFERS}/destinations`),
   list: (page = 1, pageSize = 100, status?: string, period?: PeriodRange) => {

@@ -1,6 +1,6 @@
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, Ruler, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
+import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, ScanLine, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
 
 export type ModuleKey =
   | "debts" | "expenses" | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
@@ -89,14 +89,12 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "analytics",  href: "/manufacturing/analytics",   icon: BarChart2 },
   ],
   inventory: [
-    { nameKey: "products",   href: "/inventory/products",   icon: Package, group: "Catalog" },
-    { nameKey: "categories", href: "/inventory/categories", icon: Tag, group: "Catalog" },
-    { nameKey: "brands",     href: "/inventory/brands",     icon: Star, group: "Catalog" },
-    { nameKey: "units",      href: "/inventory/units",      icon: Ruler, group: "Catalog" },
-    { nameKey: "variants",   href: "/inventory/variants",   icon: Layers, group: "Catalog" },
-    { nameKey: "serials",    href: "/inventory/serials",    icon: Star, group: "Stock" },
-    { nameKey: "transfers",  href: "/inventory/transfers",  icon: Truck, group: "Stock" },
-    { nameKey: "batches",    href: "/inventory/batches",    icon: Package, group: "Stock" },
+    { nameKey: "overview",  href: "/inventory",           icon: LayoutDashboard, exact: true },
+    { nameKey: "products",  href: "/inventory/products",   icon: Package,
+      activeFor: ["/inventory/products/settings", "/inventory/categories", "/inventory/brands", "/inventory/units", "/inventory/variants"] },
+    { nameKey: "stock",     href: "/inventory/stock",      icon: Layers,
+      activeFor: ["/inventory/serials", "/inventory/batches", "/inventory/warranty"] },
+    { nameKey: "transfers", href: "/inventory/transfers",  icon: Truck },
   ],
   reports: [
     { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true },
@@ -145,6 +143,7 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   { id: "workspace", label: "Workspace", items: [{ name: "Overview", href: "/dashboard", icon: LayoutDashboard, tour: "dashboard", ownerOnly: true }] },
   { id: "operations", label: "Operations", items: [
     { name: "Sales", href: "/sales", icon: ShoppingCart, feature: "sales", module: "sales" },
+    { name: "Point of Sale", href: "/pos", icon: ScanLine, feature: "sales", module: "sales" },
     { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
     { name: "Inventory", href: "/inventory", icon: Warehouse, feature: "inventory", module: "inventory" },
     { name: "Purchases", href: "/procurement", icon: ShoppingBag, feature: "procurement", module: "procurement" },
@@ -185,7 +184,7 @@ export function isPrimaryActive(path: string, item: Pick<PrimaryNavItem, "href" 
 /** Title, icon and one-line purpose shown at the top of a module's second sidebar. */
 export const MODULE_TITLES: Record<ModuleKey, { title: string; icon: LucideIcon; blurb: string }> = {
   sales: { title: "Sales", icon: ShoppingCart, blurb: "Orders, returns and targets" },
-  inventory: { title: "Inventory", icon: Warehouse, blurb: "Products and stock" },
+  inventory: { title: "Inventory", icon: Warehouse, blurb: "Overview, products, stock and transfers" },
   procurement: { title: "Purchases", icon: ShoppingBag, blurb: "Suppliers and purchase orders" },
   manufacturing: { title: "Manufacturing", icon: Factory, blurb: "Production and materials" },
   services: { title: "Services", icon: CalendarClock, blurb: "Bookings and staff" },

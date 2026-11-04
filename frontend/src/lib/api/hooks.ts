@@ -1,3 +1,4 @@
+import { productHistoryApi, type ProductHistoryFilters } from "./productHistory";
 import { accessApi, type AccessFilters } from "./access";
 import { branchWorkspaceApi, type BranchFilters } from "./branchWorkspace";
 import { companyRolesApi } from "./companyRoles";
@@ -928,6 +929,12 @@ export const useSeedDefaultRoles = mutation((_: void) => accessApi.seedDefaults(
 export const useDeleteCompanyRole = mutation((id: string) => accessApi.deleteRole(id), ROLE_INVALIDATIONS);
 export const useModuleDetail = (key: string | undefined, opts?: QueryOpts) => useQ(["tenants", "me", "modules", "detail", key], () => accessApi.module(key!), (r) => r.data, { ...opts, enabled: !!key && (opts?.enabled ?? true) });
 
+/** The VAT the business really charges (from its tax settings), so the till never assumes a rate. */
+export const useVatRate = () => useQ(["sales", "vat-rate"], () => salesApi.vatRate(), r => r.data, { staleTime: 300000 });
+
+/** What one customer owes right now and their daily credit limit, for the till's credit card. Only fetched when needed. */
+export const useCustomerDebtSnapshot = (id: string | null, enabled: boolean) =>
+  useQ(["sales", "customers", "debt-snapshot", id], () => salesApi.customerProfile(id!), r => r.data, { enabled: !!id && enabled, staleTime: 15000 });
 export const useCustomerProfile = (id: string, branch: string | null, tenant?: string | null) => useQ(["sales", "customers", tenant, "profile", id, branch], () => salesApi.customerProfile(id), r => r.data);
 export const useCustomerRecords = (id: string, section: CustomerSection, page: number, branch: string | null, enabled: boolean, tenant?: string | null) => useQ(["sales", "customers", tenant, "records", id, section, page, branch], () => salesApi.customerRecords(id, section, page), r => r.data, { enabled });
 
@@ -951,3 +958,10 @@ export const useUpdatePurchasingBill = mutation(({id, data}: {id: string; data: 
 
 export const usePurchaseAttachments = (id: string, scope: string) => useQ(["procurement", "attachments", scope, id], () => procurementApi.attachments(id), r => r.data);
 export const useAttachPurchaseFile = mutation(({id, file}: {id: string; file: File}) => procurementApi.attach(id, file), [["procurement"]]);
+
+// Product history shares the product cache prefix so existing edits/restocks invalidate it.
+export const useProductDetails = (id: string) =>
+  useQ([...PRODUCTS, id, "details"], () => productHistoryApi.details(id), r => r.data, {placeholderData: undefined});
+export const useProductHistory = (id: string, page: number, filters: ProductHistoryFilters) =>
+  useQ([...PRODUCTS, id, "history", page, filters], () => productHistoryApi.history(id, page, filters), r => r.data, {placeholderData: undefined});
+export const useStockTransfer = (id: string) => useQ([...TRANSFERS_KEY, "one", id], () => transfersApi.get(id), r=>r.data, {placeholderData: undefined});

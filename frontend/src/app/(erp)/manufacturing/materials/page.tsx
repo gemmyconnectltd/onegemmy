@@ -59,7 +59,7 @@ export default function MaterialsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-[22px] font-bold text-foreground tracking-tight">Materials</h1>
+        <h1 className="pesaa-page-title text-foreground">Materials</h1>
         <p className="text-sm text-muted mt-0.5">
           {loading ? "Loading..." : `${rows.length} components used across your work orders and BOMs`}
         </p>

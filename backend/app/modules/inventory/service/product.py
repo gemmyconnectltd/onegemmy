@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,7 @@ from app.modules.inventory.schemas import (
     RestockRequest,
     VariantListRead,
 )
+from app.modules.tenants.models import User
 from app.modules.tenants.repository import TenantRepository
 
 
@@ -75,7 +77,7 @@ def _product_with_sku(tenant_id: uuid.UUID, payload: dict[str, object]) -> Produ
     return Product(id=product_id, tenant_id=tenant_id, **payload)
 
 
-async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCreate) -> ProductRead:
+async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCreate, actor: User | None = None) -> ProductRead:
     from app.modules.tenants import service
 
     await service.enforce_limit(db, tenant_id, "max_products", await count_products(db, tenant_id), noun="product")
@@ -84,12 +86,13 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
         payload["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
     obj = _product_with_sku(tenant_id, payload)
     obj = await ProductRepository(db).save(obj)
+    await record_product_change(db, obj, "product.created", {}, data.model_dump(), actor)
     await db.commit()
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, obj.id)
     return ProductRead.model_validate(obj)
 
 
-async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: ProductBulkCreate) -> ProductBulkResult:
+async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: ProductBulkCreate, actor: User | None = None) -> ProductBulkResult:
     repo = ProductRepository(db)
     batch_repo = BatchRepository(db)
     default_image = default_product_image(await _tenant_industry(db, tenant_id))
@@ -103,6 +106,7 @@ async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: Pro
                     payload["image_url"] = default_image
                 obj = _product_with_sku(tenant_id, payload)
                 obj = await repo.save(obj)
+                await record_product_change(db, obj, "product.created", {}, payload, actor)
 
                 if item.batch_number:
                     if await batch_repo.get_by_batch_number(tenant_id, item.batch_number):
@@ -127,7 +131,8 @@ async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: Pro
     return ProductBulkResult(created=created, failed=len(errors), errors=errors)
 
 
-async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: ProductUpdate, can_approve: bool = True) -> ProductRead:
+async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: ProductUpdate, can_approve: bool = True, actor: User | None = None) -> ProductRead:
+    await ProductRepository(db).lock_stock(tenant_id, {id}, set())
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
@@ -140,9 +145,11 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
         updates["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
     if "sku" in updates and not updates["sku"]:
         updates["sku"] = obj.sku or f"PRD-{obj.id.hex.upper()}"
+    before = {field: getattr(obj, field) for field in updates}
     for field, value in updates.items():
         setattr(obj, field, value)
     obj = await ProductRepository(db).save(obj)
+    await record_product_change(db, obj, "product.updated", before, updates, actor)
     await db.commit()
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     return ProductRead.model_validate(obj)
@@ -158,40 +165,47 @@ async def delete_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) 
     await db.commit()
 
 
-async def upload_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, filename: str, content: bytes) -> ProductRead:
+async def upload_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, filename: str, content: bytes, actor: User | None = None) -> ProductRead:
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
+    before = {"image_url": obj.image_url}
     if obj.image_url and _is_uploaded_file(obj.image_url):
         await storage.delete(obj.image_url)
     url = await storage.save("products", filename, content)
     obj.image_url = url
     obj = await ProductRepository(db).save(obj)
+    await record_product_change(db, obj, "product.updated", before, {"image_url": obj.image_url}, actor)
     await db.commit()
     return ProductRead.model_validate(obj)
 
 
-async def delete_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> ProductRead:
+async def delete_product_image(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, actor: User | None = None) -> ProductRead:
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
+    before = {"image_url": obj.image_url}
     if obj.image_url and _is_uploaded_file(obj.image_url):
         await storage.delete(obj.image_url)
     obj.image_url = default_product_image(await _tenant_industry(db, tenant_id))
     obj = await ProductRepository(db).save(obj)
+    await record_product_change(db, obj, "product.updated", before, {"image_url": obj.image_url}, actor)
     await db.commit()
     return ProductRead.model_validate(obj)
 
 
-async def restock_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: RestockRequest) -> ProductRead:
+async def restock_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: RestockRequest, actor: User | None = None) -> ProductRead:
+    await ProductRepository(db).lock_stock(tenant_id, {id}, set())
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Product not found")
+    before = {"stock": obj.stock}
     if data.mode == "adjust":
-        obj.stock = data.qty
+        obj.stock = Decimal(str(data.qty))
     else:
-        obj.stock = obj.stock + data.qty
+        obj.stock = Decimal(str(obj.stock)) + Decimal(str(data.qty))
     obj = await ProductRepository(db).save(obj)
+    await record_product_change(db, obj, "product.adjusted" if data.mode == "adjust" else "product.restocked", before, {"stock": obj.stock}, actor, reason=data.reason, notes=data.notes)
     await db.commit()
     obj = await ProductRepository(db).get_by_id_for_tenant(tenant_id, id)
     return ProductRead.model_validate(obj)
@@ -233,3 +247,35 @@ async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID) -> LowStockRe
     lines.sort(key=lambda l: l.name)
     total = await product_repo.count_low_stock(tenant_id) + await variant_repo.count_low_stock_for_tenant(tenant_id)
     return LowStockReport(items=lines[:500], total=total)
+
+
+async def record_product_change(db: AsyncSession, product: Product, action: str,
+                                before: dict[str, object], after: dict[str, object], actor: User | None = None, **metadata: object) -> None:
+    """Append audit values atomically; this function never posts stock."""
+    from fastapi.encoders import jsonable_encoder
+
+    from app.modules.audit.service import record_audit
+    def same(key: str) -> bool:
+        old, new = before.get(key), after[key]
+        if old is not None and new is not None and key in {"price", "cost", "stock", "min_stock", "promo_price", "conversion_factor"}:
+            return Decimal(str(old)) == Decimal(str(new))
+        return old == new
+    changed = {key for key in after if not same(key)}
+    if not changed and action != "product.created":
+        return
+    groups = [("product.price", changed & {"price", "cost", "promo_price"}),
+              (action, changed - {"price", "cost", "promo_price"})]
+    if action == "product.created":
+        groups = [(action, changed)]
+    for event, keys in groups:
+        if not keys and action != "product.created":
+            continue
+        if "stock" in keys and event == "product.updated":
+            event = "product.adjusted"
+        await record_audit(db, tenant_id=product.tenant_id,
+            actor_user_id=getattr(actor, "id", None) or metadata.get("actor_id"),
+            actor_name=getattr(actor, "full_name", None) or metadata.get("actor_name"),
+            action=event, entity_type="product", entity_id=str(product.id),
+            summary=f"{event.replace('product.', '').capitalize()}: {product.name}",
+            changes=jsonable_encoder({"before": {k: before[k] for k in keys if k in before},
+                                      "after": {k: after[k] for k in keys}, **metadata}, custom_encoder={Decimal: str}))

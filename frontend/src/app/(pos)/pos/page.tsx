@@ -4,9 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
-import { TAX_RATE, timeLabel } from "@/components/pos/constants";
+import { timeLabel } from "@/components/pos/constants";
 import { POSHeader } from "@/components/pos/POSHeader";
-import { PaymentPanel } from "@/components/pos/PaymentPanel";
+import { PaymentPanel, type Checkout } from "@/components/pos/PaymentPanel";
+import { ConfirmSaleDialog } from "@/components/pos/ConfirmSaleDialog";
 import { ProductCard } from "@/components/pos/ProductCard";
 import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
@@ -16,7 +17,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { orderToSale } from "@/lib/orders";
 import { useAuth } from "@/lib/auth";
 import { saveSale } from "@/lib/invoices";
-import { useProducts, useCustomers, useCreateOrder, useCurrentTenant } from "@/lib/api/hooks";
+import { useProducts, useCustomers, useCreateOrder, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -44,6 +45,7 @@ function apiToProduct(p: ApiProduct): Product {
 export default function POSPage() {
   usePageTitle("Point of Sale");
   const { currencySymbol, locale, setLocale, locales, theme, setTheme, vatEnabled } = useAppConfig();
+  const vat = useVatRate();
   const { data: tenant } = useCurrentTenant();
 
   // ── inventory ────────────────────────────────────────────────────────────
@@ -90,6 +92,7 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [saleAt, setSaleAt] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
@@ -104,6 +107,7 @@ export default function POSPage() {
   const [completedSale, setCompletedSale] = useState<SaleResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saleError, setSaleError] = useState<string | null>(null);
+  const [review, setReview] = useState<Checkout | null>(null);
 
   // ── keyboard shortcut: / → focus search ─────────────────────────────────
   useEffect(() => {
@@ -190,6 +194,7 @@ export default function POSPage() {
   const clearCart = () => {
     setCart([]);
     setCustomerId(null);
+    setSaleAt(null);
     setCustomerName("");
     setNotes("");
     setCashGiven("");
@@ -212,17 +217,10 @@ export default function POSPage() {
   const discount = cart.reduce((s, i) => s + i.discount, 0);
   const itemsCashReceivedSum = cart.reduce((s, i) => s + (i.cashReceived || 0), 0);
   const gross = subtotal - discount;
-  const taxable = Math.round(gross / (1 + TAX_RATE));
+  const vatRate = vatEnabled ? (vat.data?.rate ?? 0) : 0;
+  const taxable = Math.round(gross / (1 + vatRate));
   const tax = gross - taxable;
   const total = gross;
-  const change = cashGiven ? Math.max(0, Number(cashGiven) - total) : 0;
-  // "Amount Paid Now" — blank means "charge the full amount" (unchanged,
-  // normal cash-sale default); an explicit amount below the total is a
-  // partial or fully-credit (0) sale, not blocked, but it needs a customer
-  // and a due date since it leaves a receivable behind.
-  const amountPaidNow = cashGiven !== "" ? Math.max(0, Number(cashGiven)) : total;
-  const remainingBalance = Math.max(0, total - amountPaidNow);
-  const isCreditSale = remainingBalance > 0;
   const fmt = (v: number) => v.toLocaleString();
 
   // ── hold / resume ────────────────────────────────────────────────────────
@@ -253,13 +251,22 @@ export default function POSPage() {
   const deleteHeld = (id: string) => !saleInFlight.current && setHeldOrders((prev) => prev.filter((h) => h.id !== id));
 
   // ── complete sale ────────────────────────────────────────────────────────
-  const completeSale = async () => {
+  // Simple full payments are charged straight away. Anything with a split, a debt or a past date is reviewed first.
+  const requestCharge = (checkout: Checkout) => {
     if (saleInFlight.current || saving || cart.length === 0) return;
-    if (isCreditSale && !customerId) {
+    if (checkout.kind !== "single" || checkout.outstanding > 0 || saleAt) setReview(checkout);
+    else void completeSale(checkout);
+  };
+
+  const completeSale = async (checkout: Checkout) => {
+    if (saleInFlight.current || saving || cart.length === 0) return;
+    if (checkout.outstanding > 0 && !customerId) {
+      setReview(null);
       setSaleError("A customer is required for a partial or credit sale.");
       return;
     }
-    if (isCreditSale && !dueDate) {
+    if (checkout.outstanding > 0 && !checkout.dueDate) {
+      setReview(null);
       setSaleError("A due date is required for a partial or credit sale.");
       return;
     }
@@ -271,18 +278,17 @@ export default function POSPage() {
       const created = await createOrder.mutateAsync({
         status: "Completed",
         customer_id: customerId,
-        notes: `POS — ${payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
+        ...(saleAt ? { ordered_at: new Date(saleAt).toISOString() } : {}),
+        notes: `POS — ${checkout.kind === "split" ? "split" : checkout.kind === "credit" ? "credit" : payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
         discount: 0,
         tax,
-        payment_method: payment,
-        // "Amount Paid Now" — what's actually applied to the invoice.
-        amount_paid: amountPaidNow,
-        // Cash-drawer bookkeeping only (kept distinct from amount_paid): how
-        // much cash physically changed hands and what change was given —
-        // blank means "received the full amount" for backward compatibility.
-        amount_tendered: cashGiven !== "" ? Number(cashGiven) : total,
-        change_due: change,
-        due_date: isCreditSale ? dueDate : null,
+        // One sale. A split sends one entry per payment; everything else uses the single-payment fields exactly as before.
+        ...(checkout.kind === "split"
+          ? { payments: checkout.payments.map((p) => ({ method: p.method, amount: p.amount, reference: p.reference ?? null })) }
+          : checkout.kind === "credit"
+            ? { payment_method: "cash", amount_paid: 0 }
+            : { payment_method: checkout.payments[0]?.method ?? payment, amount_paid: checkout.paid, amount_tendered: checkout.payments[0]?.tendered ?? checkout.paid, change_due: checkout.change, payment_reference: checkout.payments[0]?.reference ?? null }),
+        due_date: checkout.outstanding > 0 ? checkout.dueDate : null,
         items: cart.map((i) => ({
           product_id: i.product_id ?? null,
           variant_id: i.variant_id ?? null,
@@ -304,7 +310,7 @@ export default function POSPage() {
         return;
       }
 
-      const sale: SaleResult = { ...orderToSale(created.data), cashierName: user?.name };
+      const sale: SaleResult = { ...orderToSale(created.data), cashierName: user?.name, customerId: created.data.customer_id ?? null };
       setCartOpen(false);
       setCompletedSale(sale);
       saveSale(sale);
@@ -330,9 +336,9 @@ export default function POSPage() {
   };
 
   const checkoutPanel = (
-    <fieldset disabled={saving} className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-          {/* Cart — flex-1 so it fills space and scrolls its own items */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+    <fieldset disabled={saving} className="flex h-full min-h-0 min-w-0 flex-1 flex-col [min-inline-size:0]">
+          {/* Cart items: take all the space the header and the checkout footer leave, never less than a usable floor, scrolling on their own */}
+          <div className="min-h-[11rem] flex-1 overflow-hidden">
             <CartPanel
               cart={cart}
               customers={customers}
@@ -342,6 +348,8 @@ export default function POSPage() {
               currencySymbol={currencySymbol}
               fmt={fmt}
               onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
+              saleAt={saleAt}
+              onSaleAtChange={setSaleAt}
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}
@@ -352,9 +360,8 @@ export default function POSPage() {
               onUpdateCashReceived={updateItemCashReceived}
             />
           </div>
-          {/* Payment — never grows, scrolls its own content if needed */}
-          <div className="flex h-[min(360px,52dvh)] shrink-0 flex-col border-t border-border">
-            <div className="flex min-h-0 flex-1 p-3">
+          {/* Checkout footer: natural height; on a short screen it scrolls itself instead of crushing the cart */}
+          <div className="max-h-[58%] shrink-0 overflow-y-auto overscroll-contain border-t border-border bg-card p-3 shadow-[0_-6px_12px_-8px_rgba(0,0,0,0.12)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <PaymentPanel
                 payment={payment}
                 cashGiven={cashGiven}
@@ -362,10 +369,10 @@ export default function POSPage() {
                 discount={discount}
                 tax={tax}
                 total={total}
-                change={change}
-                remainingBalance={remainingBalance}
                 cartCount={cart.length}
                 hasCustomer={!!customerId}
+                customerName={customerName}
+                customerId={customerId}
                 dueDate={dueDate}
                 currencySymbol={currencySymbol}
                 fmt={fmt}
@@ -375,10 +382,12 @@ export default function POSPage() {
                 onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
                 onCashChange={setCashGiven}
                 onDueDateChange={setDueDate}
-                onCharge={completeSale}
+                onCharge={requestCharge}
+                notes={notes}
+                onNotesChange={setNotes}
                 vatEnabled={vatEnabled}
+                vatRate={vatRate}
               />
-            </div>
           </div>
     </fieldset>
   );
@@ -386,6 +395,11 @@ export default function POSPage() {
   // ── render ───────────────────────────────────────────────────────────────
   return (
     <div className="h-dvh min-w-0 flex flex-col overflow-hidden bg-background">
+      {/* Review before confirming anything other than a simple full payment */}
+      {review && (
+        <ConfirmSaleDialog checkout={review} cart={cart} total={total} customerName={customerName} saleAt={saleAt} currencySymbol={currencySymbol} fmt={fmt} saving={saving}
+          onCancel={() => setReview(null)} onConfirm={() => { const c = review; setReview(null); void completeSale(c); }} />
+      )}
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (
@@ -394,7 +408,7 @@ export default function POSPage() {
       </Drawer>
 
       <Drawer open={cartOpen} onClose={() => setCartOpen(false)} side="right" size="md" title="Cart & checkout">
-        <div className="flex h-[calc(100dvh-100px)] min-h-0 flex-col">{cartOpen && checkoutPanel}</div>
+        <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col">{cartOpen && checkoutPanel}</div>
       </Drawer>
       {/* Header */}
       <POSHeader

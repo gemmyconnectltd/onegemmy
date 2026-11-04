@@ -97,7 +97,7 @@ export default function CalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Calendar</h1>
+          <h1 className="pesaa-page-title text-foreground">Calendar</h1>
           <p className="text-sm text-muted mt-0.5">
             {view === "day" ? anchor.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", year: "numeric" }) : `Week of ${rangeStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
           </p>

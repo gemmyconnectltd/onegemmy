@@ -40,7 +40,7 @@ export default function UserAccessPage({ params }: { params: Promise<{ id: strin
       <div>
         <Back href="/settings/users">Team &amp; Access</Back>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground">{a.user.full_name}</h1>
+          <h1 className="pesaa-page-title text-foreground">{a.user.full_name}</h1>
           <Pill tone={a.user.is_active ? "green" : "slate"}>{a.user.is_active ? "Active" : "Deactivated"}</Pill>
           {a.user.is_owner ? <Pill tone="green">Owner</Pill> : a.user.role ? <Pill>{a.user.role}</Pill> : <Pill tone="amber">No role</Pill>}
         </div>

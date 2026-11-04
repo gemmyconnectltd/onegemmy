@@ -1,8 +1,9 @@
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Query, UploadFile
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ValidationError
 from app.core.period import PeriodQuery
 
@@ -52,14 +53,14 @@ async def get_product_by_barcode(code: str, db: DbSession, current_user: Current
 @router.post("/inventory/products")
 async def create_product(data: ProductCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.create_product(db, current_user.tenant_id, data)
+    obj = await service.create_product(db, current_user.tenant_id, data, actor=current_user)
     return success_response(data=obj.model_dump(), message="Product created successfully", status_code=201)
 
 
 @router.post("/inventory/products/bulk")
 async def bulk_create_products(data: ProductBulkCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    result = await service.bulk_create_products(db, current_user.tenant_id, data)
+    result = await service.bulk_create_products(db, current_user.tenant_id, data, actor=current_user)
     return success_response(data=result.model_dump(), message=f"{result.created} products created", status_code=201)
 
 
@@ -74,7 +75,7 @@ async def get_product(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
 async def update_product(id: uuid.UUID, data: ProductUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     from app.modules.approvals.service import can_decide
-    obj = await service.update_product(db, current_user.tenant_id, id, data, can_approve=can_decide(current_user))
+    obj = await service.update_product(db, current_user.tenant_id, id, data, can_approve=can_decide(current_user), actor=current_user)
     return success_response(data=obj.model_dump(), message="Product updated successfully")
 
 
@@ -93,19 +94,49 @@ async def upload_product_image(id: uuid.UUID, db: DbSession, current_user: Curre
     content = await file.read()
     if len(content) > MAX_IMAGE_SIZE:
         raise ValidationError("Image must be under 5MB")
-    obj = await service.upload_product_image(db, current_user.tenant_id, id, file.filename or "image", content)
+    obj = await service.upload_product_image(db, current_user.tenant_id, id, file.filename or "image", content, actor=current_user)
     return success_response(data=obj.model_dump(), message="Image uploaded successfully")
 
 
 @router.delete("/inventory/products/{id}/image")
 async def delete_product_image(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.delete_product_image(db, current_user.tenant_id, id)
+    obj = await service.delete_product_image(db, current_user.tenant_id, id, actor=current_user)
     return success_response(data=obj.model_dump(), message="Image removed successfully")
 
 
 @router.post("/inventory/products/{id}/restock")
 async def restock_product(id: uuid.UUID, data: RestockRequest, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.restock_product(db, current_user.tenant_id, id, data)
+    obj = await service.restock_product(db, current_user.tenant_id, id, data, actor=current_user)
     return success_response(data=obj.model_dump(), message="Stock updated successfully")
+
+
+@router.get("/inventory/products/{id}/details")
+async def product_details(id: uuid.UUID, db: DbSession, current_user: CurrentUser,
+                          branch: ActiveBranchId):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service.history import product_details
+    return success_response(data=await product_details(db, current_user, id, branch))
+
+
+@router.get("/inventory/products/{id}/history")
+async def product_history(id: uuid.UUID, db: DbSession, current_user: CurrentUser,
+                          page: PageQuery, period: PeriodQuery, branch: ActiveBranchId,
+                          category: Literal["all", "movements", "prices", "updates", "transfers", "returns", "purchases"] = "all",
+                          kind: Literal["sale", "purchase", "receipt", "transfer", "adjustment"] | None = None,
+                          search: str | None = Query(None, max_length=120),
+                          actor_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None,
+                          export_csv: bool = False):
+    _require_tenant(current_user.tenant_id)
+    from app.core.branches import branch_allowed
+    from app.core.exceptions import ForbiddenError
+    from app.modules.inventory.service.history import product_history
+    if branch_id and (not branch_allowed(current_user, branch_id) or (branch and branch != branch_id)):
+        raise ForbiddenError("Select this branch in the workspace first")
+    if export_csv:
+        from app.modules.inventory.service.history import history_export
+        return await history_export(db, current_user, id, period, category, kind, search, actor_id, branch_id or branch)
+    data = await product_history(db, current_user, id, period, page.offset, page.limit,
+                                 category, kind, search, actor_id, branch_id or branch)
+    return success_response(data={**data, "page": page.page, "page_size": page.page_size})

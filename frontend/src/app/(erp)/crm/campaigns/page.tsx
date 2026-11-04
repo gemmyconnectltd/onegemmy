@@ -14,7 +14,7 @@ export default function CampaignsPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
-        <h1 className="text-2xl font-bold text-foreground">Campaigns</h1>
+        <h1 className="pesaa-page-title text-foreground">Campaigns</h1>
         <button className="flex items-center gap-2 bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent/90"><Plus size={16} />New Campaign</button>
       </div>
       <div className="bg-card border border-border">

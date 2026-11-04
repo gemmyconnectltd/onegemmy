@@ -56,7 +56,7 @@ export default function BranchWorkspacePage({ params }: { params: Promise<{ id: 
         <Link href="/branches" className="mb-2 inline-block text-[12px] font-semibold text-muted hover:text-foreground">← Branches</Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2"><h1 className="text-[22px] font-bold tracking-tight text-foreground">{b.name}</h1><StatusPill status={b.status} />{b.is_main && <MainBadge />}</div>
+            <div className="flex flex-wrap items-center gap-2"><h1 className="pesaa-page-title text-foreground">{b.name}</h1><StatusPill status={b.status} />{b.is_main && <MainBadge />}</div>
             <p className="mt-0.5 text-sm text-muted">{b.location || "No location set"}{b.phone ? ` · ${b.phone}` : ""}</p>
           </div>
           <div className="flex items-center gap-2">

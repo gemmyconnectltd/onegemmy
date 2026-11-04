@@ -100,7 +100,7 @@ export default function PayrollPage() {
       {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Payroll</h1>
+          <h1 className="pesaa-page-title text-foreground">Payroll</h1>
           <p className="text-sm text-muted mt-0.5">Total net for {period}: <span className="font-bold text-accent">{fmt(totalNet)}</span></p>
         </div>
         <button

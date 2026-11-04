@@ -24,15 +24,16 @@ interface RestockDrawerProps {
   currentStock: number;
   onSubmit: (values: RestockValues) => Promise<void>;
   color?: string;
+  initialMode?: RestockMode;
 }
 
 const RESTOCK_REASONS = ["Purchase from supplier", "Return from customer", "Found in warehouse", "Other"];
 const ADJUST_REASONS  = ["Damaged goods", "Theft / loss", "Miscounted", "Expired", "Other"];
 
-export function RestockDrawer({ open, onClose, productName, currentStock, onSubmit, color }: RestockDrawerProps) {
-  const [mode, setMode]         = useState<RestockMode>("restock");
+export function RestockDrawer({ open, onClose, productName, currentStock, onSubmit, color, initialMode = "restock" }: RestockDrawerProps) {
+  const [mode, setMode]         = useState<RestockMode>(initialMode);
   const [qty, setQty]           = useState("");
-  const [reason, setReason]     = useState(RESTOCK_REASONS[0]);
+  const [reason, setReason]     = useState(initialMode === "adjust" ? ADJUST_REASONS[0] : RESTOCK_REASONS[0]);
   const [notes, setNotes]       = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]       = useState<string | null>(null);
@@ -44,7 +45,7 @@ export function RestockDrawer({ open, onClose, productName, currentStock, onSubm
 
   const reset = () => {
     setQty(""); setNotes(""); setError(null);
-    setMode("restock"); setReason(RESTOCK_REASONS[0]);
+    setMode(initialMode); setReason(initialMode === "adjust" ? ADJUST_REASONS[0] : RESTOCK_REASONS[0]);
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -115,7 +116,7 @@ export function RestockDrawer({ open, onClose, productName, currentStock, onSubm
                 setQty("");
                 setError(null);
               }}
-              className="flex-1 rounded-lg py-2.5 text-[13px]"
+              className="flex-1 rounded-lg py-2.5 text-sm"
             >
               <Icon size={14} /> {label}
             </Button>

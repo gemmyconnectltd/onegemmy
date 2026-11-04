@@ -132,7 +132,7 @@ export default function PurchaseRequestsPage() {
       {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Purchase Requests</h1>
+          <h1 className="pesaa-page-title text-foreground">Purchase Requests</h1>
           <p className="text-sm text-muted mt-1">Requisitions from your team, waiting for approval.</p>
         </div>
         <Button onClick={openAdd} color={brandColor}>

@@ -1,12 +1,21 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.sales.schemas.customer import CustomerRead
 from app.modules.sales.schemas.order_item import OrderItemCreate, OrderItemRead
 from app.modules.sales.schemas.order_payment import OrderPaymentRead
+
+
+class OrderPaymentEntry(BaseModel):
+    """One payment taken at checkout. A sale paid with several methods (a split) sends one entry per method; the sale is still recorded once."""
+    method: Literal["cash", "mobile", "card", "bank"]
+    amount: float = Field(gt=0, allow_inf_nan=False)  # what is applied to this sale
+    reference: str | None = Field(default=None, max_length=100)  # mobile-money / card transaction reference
+    tendered: float | None = Field(default=None, ge=0, allow_inf_nan=False)  # cash handed over, when change is given
 
 
 class OrderCreate(BaseModel):
@@ -27,6 +36,10 @@ class OrderCreate(BaseModel):
     # historical default of "fully paid" so every existing caller (POS,
     # CSV import) keeps behaving exactly as before without sending this.
     amount_paid: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    # Transaction reference of the single checkout payment (mobile money / card).
+    payment_reference: str | None = Field(default=None, max_length=100)
+    # Several payments for one sale (a split, or a part payment taken in more than one method). Replaces payment_method / amount_paid.
+    payments: list[OrderPaymentEntry] | None = Field(default=None, max_length=6)
     due_date: date | None = None
     ordered_at: datetime | None = None
     # Foreign-currency invoicing. Omit both (every existing client) for the tenant's base currency.

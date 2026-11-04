@@ -1,4 +1,5 @@
 "use client";
+import { Input } from "@/components/ui/Form";
 
 import { useState } from "react";
 import { Plus, Trash2, Edit2, PackagePlus, ChevronDown, ChevronUp } from "lucide-react";
@@ -36,17 +37,15 @@ function AttributeEditor({ attrs, onChange }: { attrs: Record<string, string>; o
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
         {entries.map(([k, v]) => (
-          <span key={k} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface border border-border text-foreground">
+          <span key={k} className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-surface border border-border text-foreground">
             {k}: {v}
             <button onClick={() => { const n = { ...attrs }; delete n[k]; onChange(n); }} className="text-muted hover:text-red-500 ml-0.5">×</button>
           </span>
         ))}
       </div>
       <div className="flex gap-2">
-        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="e.g. Color"
-          className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-surface/50 outline-none focus:border-foreground/30" />
-        <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. Red"
-          className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-surface/50 outline-none focus:border-foreground/30" />
+        <Input value={key} onChange={(e) => setKey(e.target.value)} placeholder="e.g. Color" className="flex-1" />
+        <Input value={val} onChange={(e) => setVal(e.target.value)} placeholder="e.g. Red" className="flex-1" />
         <button onClick={add} className="px-3 py-1.5 text-sm font-semibold bg-surface border border-border rounded-lg hover:bg-surface/80">Add</button>
       </div>
     </div>
@@ -72,35 +71,31 @@ function VariantForm({ initial, onSave, onCancel, color }: {
     <div className="space-y-3 p-4 bg-surface/50 rounded-xl border border-border">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">SKU</label>
-          <input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Optional"
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-foreground/30" />
+          <label className="text-xs font-semibold text-muted">SKU</label>
+          <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Optional" className="w-full" />
         </div>
         <div>
-          <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Stock</label>
-          <input type="number" value={form.stock} onChange={(e) => set("stock", +e.target.value)}
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-foreground/30" />
+          <label className="text-xs font-semibold text-muted">Stock</label>
+          <Input type="number" value={form.stock} onChange={(e) => set("stock", +e.target.value)} className="w-full" />
         </div>
         <div>
-          <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Price</label>
-          <input type="number" value={form.price} onChange={(e) => set("price", +e.target.value)}
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-foreground/30" />
+          <label className="text-xs font-semibold text-muted">Price</label>
+          <Input type="number" value={form.price} onChange={(e) => set("price", +e.target.value)} className="w-full" />
         </div>
         <div>
-          <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Cost</label>
-          <input type="number" value={form.cost} onChange={(e) => set("cost", +e.target.value)}
-            className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-foreground/30" />
+          <label className="text-xs font-semibold text-muted">Cost</label>
+          <Input type="number" value={form.cost} onChange={(e) => set("cost", +e.target.value)} className="w-full" />
         </div>
       </div>
       <div>
-        <label className="text-[11px] font-semibold text-muted uppercase tracking-wider">Attributes</label>
+        <label className="text-xs font-semibold text-muted">Attributes</label>
         <div className="mt-1">
           <AttributeEditor attrs={form.attributes} onChange={(a) => set("attributes", a)} />
         </div>
       </div>
       <div className="flex gap-2 pt-1">
-        <Button variant="secondary" onClick={onCancel} className="flex-1 rounded-lg text-[13px]">Cancel</Button>
-        <Button onClick={submit} disabled={saving} style={{ backgroundColor: color }} className="flex-1 rounded-lg text-[13px] text-white">
+        <Button variant="secondary" onClick={onCancel} className="flex-1 rounded-lg text-sm">Cancel</Button>
+        <Button onClick={submit} disabled={saving} style={{ backgroundColor: color }} className="flex-1 rounded-lg text-sm text-white">
           {saving ? "Saving…" : "Save Variant"}
         </Button>
       </div>
@@ -159,7 +154,7 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted">{liveVariants.length} variant{liveVariants.length !== 1 ? "s" : ""}</p>
           {!showForm && !editing && (
-            <Button onClick={() => setShowForm(true)} style={{ backgroundColor: color }} className="rounded-lg text-[13px] text-white">
+            <Button onClick={() => setShowForm(true)} style={{ backgroundColor: color }} className="rounded-lg text-sm text-white">
               <Plus size={13} /> Add Variant
             </Button>
           )}
@@ -175,7 +170,7 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
               <div className="flex items-center gap-3 px-4 py-3 bg-card">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{attrLabel(v)}</p>
-                  <p className="text-[11px] text-muted font-mono">{v.sku ?? "No SKU"} · {fmtMoney(v.price, currencySymbol)} · Stock: {v.stock}</p>
+                  <p className="text-xs text-muted font-mono">{v.sku ?? "No SKU"} · {fmtMoney(v.price, currencySymbol)} · Stock: {v.stock}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => { setEditing(v); setShowForm(false); }}
@@ -215,12 +210,10 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
                       </button>
                     ))}
                   </div>
-                  <input type="number" value={restockQty} onChange={(e) => setRestockQty(+e.target.value)}
-                    placeholder={restockMode === "adjust" ? "Set stock to…" : "Add qty…"}
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-foreground/30" />
+                  <Input type="number" value={restockQty} onChange={(e) => setRestockQty(+e.target.value)} placeholder={restockMode === "adjust" ? "Set stock to…" : "Add qty…"} className="w-full" />
                   <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => setRestocking(null)} className="flex-1 rounded-lg text-[13px]">Cancel</Button>
-                    <Button onClick={handleRestock} style={{ backgroundColor: color }} className="flex-1 rounded-lg text-[13px] text-white">Update Stock</Button>
+                    <Button variant="secondary" onClick={() => setRestocking(null)} className="flex-1 rounded-lg text-sm">Cancel</Button>
+                    <Button onClick={handleRestock} style={{ backgroundColor: color }} className="flex-1 rounded-lg text-sm text-white">Update Stock</Button>
                   </div>
                 </div>
               )}
@@ -243,8 +236,8 @@ export function VariantsDrawer({ open, onClose, productId, productName, variants
             <p className="text-sm font-semibold text-foreground">Delete variant?</p>
             <p className="text-xs text-muted">This cannot be undone.</p>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg text-[13px]">Cancel</Button>
-              <Button variant="danger" onClick={handleDelete} className="flex-1 rounded-lg text-[13px]">Delete</Button>
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg text-sm">Cancel</Button>
+              <Button variant="danger" onClick={handleDelete} className="flex-1 rounded-lg text-sm">Delete</Button>
             </div>
           </div>
         </div>

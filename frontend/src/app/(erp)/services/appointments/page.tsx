@@ -80,7 +80,7 @@ export default function AppointmentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Appointments</h1>
+          <h1 className="pesaa-page-title text-foreground">Appointments</h1>
           <p className="text-sm text-muted mt-0.5">{total} appointment{total === 1 ? "" : "s"} on {new Date(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
         </div>
         <Button onClick={() => setShowForm(true)} color={SVC_COLOR} className="rounded-lg">

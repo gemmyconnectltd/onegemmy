@@ -34,7 +34,7 @@ export default function HelpSupportPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><h1 className="text-[22px] font-bold tracking-tight text-foreground">Help &amp; Support</h1><p className="mt-0.5 text-sm text-muted">Ask the Pesaa team for help and follow your requests.</p></div>
+        <div><h1 className="pesaa-page-title text-foreground">Help &amp; Support</h1><p className="mt-0.5 text-sm text-muted">Ask the Pesaa team for help and follow your requests.</p></div>
         <button type="button" onClick={() => setOpen(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-white hover:bg-accent/90"><Plus size={14} /> New request</button>
       </div>
 

@@ -34,6 +34,7 @@ class AuditLog(UUIDPKMixin, Base):
     )
 
     __table_args__ = (
+        Index('ix_audit_product_history', 'tenant_id', 'entity_type', 'entity_id', 'created_at'),
         Index("ix_audit_logs_tenant_created", "tenant_id", "created_at"),
         Index("ix_audit_logs_tenant_action", "tenant_id", "action"),
         Index("ix_audit_logs_entity", "entity_type", "entity_id"),

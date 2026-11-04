@@ -159,7 +159,7 @@ export default function ServiceCatalogPage() {
       {confirmDialog}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
-          <h1 className="text-[22px] font-bold text-foreground tracking-tight">Service Catalog</h1>
+          <h1 className="pesaa-page-title text-foreground">Service Catalog</h1>
           <p className="text-sm text-muted mt-0.5">{total} service{total === 1 ? "" : "s"}</p>
         </div>
         <div className="flex items-center gap-2">
