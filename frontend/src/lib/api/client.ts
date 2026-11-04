@@ -198,6 +198,24 @@ export async function downloadFile(path: string, fallbackFilename: string): Prom
   _triggerDownload(await res.blob(), _filenameFromDisposition(res, fallbackFilename));
 }
 
+/** Like `downloadFile`, but hands back the file instead of saving it, so it can be shared as an attachment. */
+export async function fetchFile(path: string, fallbackFilename: string): Promise<{ blob: Blob; filename: string }> {
+  const token = getStoredToken();
+  const activeBranchId = getActiveBranchId();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, REQUEST_TIMEOUT_MS);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw { status: res.status, detail: body.detail || body.message || res.statusText };
+  }
+  return { blob: await res.blob(), filename: _filenameFromDisposition(res, fallbackFilename) };
+}
+
+/** Saves a file the browser already holds. */
+export function saveFile(blob: Blob, filename: string): void { _triggerDownload(blob, filename); }
+
 /** Same as `downloadFile`, but POSTs a JSON body — for exports driven by a
  *  filter/options payload too large or structured for a query string. */
 export async function downloadFilePost(path: string, body: object, fallbackFilename: string): Promise<void> {

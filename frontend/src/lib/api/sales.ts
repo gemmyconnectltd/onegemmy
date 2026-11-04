@@ -1,4 +1,4 @@
-import { request, qs, downloadFile } from "./client";
+import { request, qs, downloadFile, fetchFile } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 import { periodParams, type PeriodRange } from "@/lib/period";
 
@@ -210,8 +210,8 @@ export const salesApi = {
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/orders/${id}`, { method: "DELETE" }),
-  shareInvoice: (id: string, kind: "invoice" | "receipt" = "invoice") =>
-    request<SingleResponse<{ kind: string; url: string; expires_at: string; order_number: string; customer_name: string | null; customer_phone: string | null; customer_email: string | null }>>(`${BASE}/orders/${id}/invoice/share?kind=${kind}`, { method: "POST" }),
+  invoiceFile: (id: string, orderNumber: string) =>
+    fetchFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
   emailInvoice: (id: string, to: string | null, message: string | null, kind: "invoice" | "receipt" = "invoice") =>
     request<SingleResponse<{ sent_to: string }>>(`${BASE}/orders/${id}/invoice/email`, { method: "POST", body: JSON.stringify({ kind, to: to || null, message: message || null }) }),
   downloadInvoicePdf: (id: string, orderNumber: string) =>

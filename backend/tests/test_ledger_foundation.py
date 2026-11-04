@@ -438,7 +438,7 @@ async def test_every_delete_endpoint_refuses_a_normal_user_who_holds_every_grant
 
 
 @pytest.mark.db
-async def test_an_invoice_can_be_shared_by_link_and_by_email(db, monkeypatch):
+async def test_an_invoice_is_shared_as_an_emailed_pdf_with_no_public_link(db, monkeypatch):
 
     from app.modules.sales.service import invoice_share
     sent = []
@@ -452,24 +452,14 @@ async def test_an_invoice_can_be_shared_by_link_and_by_email(db, monkeypatch):
     try:
         async with _client(owner, tenant, branch) as c:
             sale = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
-            link = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/share")
-            assert link.status_code == 200, link.text
-            url = link.json()["data"]["url"]
-            token = url.rsplit("/", 1)[1]
+            assert (await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/share")).status_code in (404, 405)  # no public links exist
             no_email = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/email", json={})
             assert no_email.status_code == 422  # a walk-in has no email on file
             emailed = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/email", json={"to": "buyer@example.com", "message": "Thanks!"})
             assert emailed.status_code == 200, emailed.text
             receipt = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/email", json={"kind": "receipt", "to": "buyer@example.com"})
             assert receipt.status_code == 200 and sent[-1][1].startswith("Receipt ")
-            assert (await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/share?kind=receipt")).json()["data"]["kind"] == "receipt"
         assert sent[0][0] == "buyer@example.com" and sent[0][2][0][1] == "application/pdf" and sent[0][2][0][2].startswith(b"%PDF")
-        async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t") as anonymous:  # no login
-            opened = await anonymous.get(f"/api/v1/global/invoices/{token}")
-            assert opened.status_code == 200 and opened.content.startswith(b"%PDF")
-            assert (await anonymous.get(f"/api/v1/global/invoices/{token}x")).status_code == 404  # tampered
-            expired, _ = invoice_share.make_share_token(tenant.id, uuid.UUID(sale["id"]), days=-1)
-            assert (await anonymous.get(f"/api/v1/global/invoices/{expired}")).status_code == 404
     finally:
         app.dependency_overrides.clear()
 

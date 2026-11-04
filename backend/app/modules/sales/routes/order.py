@@ -121,13 +121,6 @@ class InvoiceEmail(BaseModel):
     message: str | None = Field(default=None, max_length=1000)
 
 
-@router.post("/sales/orders/{id}/invoice/share")
-async def share_order_invoice(id: uuid.UUID, db: DbSession, current_user: CurrentUser, kind: Literal["invoice", "receipt"] = Query("invoice")):
-    _require_tenant(current_user.tenant_id)
-    from app.modules.sales.service.invoice_share import share_link
-    return success_response(data=await share_link(db, current_user.tenant_id, id, current_user, kind), message="Share link created")
-
-
 @router.post("/sales/orders/{id}/invoice/email")
 async def email_order_invoice(id: uuid.UUID, data: InvoiceEmail, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
