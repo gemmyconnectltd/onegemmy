@@ -9,7 +9,7 @@ import { IconBadge, getProductIcon, productAccent } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
 import type { CartItem } from "./types";
 import type { ApiCustomer } from "@/lib/api";
-import { useCreateCustomer } from "@/lib/api/hooks";
+import { useCreateCustomer, useCustomerDebtSnapshot } from "@/lib/api/hooks";
 import { useCan } from "@/lib/can";
 import { SaleDate } from "./SaleDate";
 
@@ -50,6 +50,7 @@ export function CartPanel({
   const can = useCan();
   const createCustomer = useCreateCustomer();
   const [adding, setAdding] = useState(false);
+  const owes = Number(useCustomerDebtSnapshot(customerId, true).data?.summary.outstanding ?? 0);
   const [notesOpen, setNotesOpen] = useState(false);
   const [newCust, setNewCust] = useState({ type: "individual", name: "", phone: "", email: "", tin: "" });
   const [custError, setCustError] = useState<string | null>(null);
@@ -113,11 +114,11 @@ export function CartPanel({
         <div ref={custRef} className="relative">
           <div className="flex items-stretch gap-2">
             <button type="button" aria-haspopup="listbox" aria-expanded={custOpen} onClick={() => { setAdding(false); setCustOpen((v) => !v); }}
-              className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border bg-surface px-3 text-left transition-colors hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-accent">
+              className="flex h-10 lg:h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border bg-surface px-3 text-left transition-colors hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-accent">
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${customerName ? "bg-accent/15 text-accent" : "bg-card text-muted"}`}><UserRound size={14} aria-hidden /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[10px] font-semibold uppercase leading-none tracking-wider text-muted">Customer</span>
-                <span className={`mt-0.5 block truncate text-[13px] font-semibold leading-tight ${customerName ? "text-foreground" : "text-foreground/80"}`}>{customerName || "Walk-in customer"}</span>
+                <span className={`mt-0.5 block truncate text-[13px] font-semibold leading-tight ${customerName ? "text-foreground" : "text-foreground/80"}`}>{customerName || "Walk-in customer"}{owes > 0 && <span className="ml-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">Owes {currencySymbol} {fmt(owes)}</span>}</span>
               </span>
               <ChevronDown size={14} className="shrink-0 text-muted" aria-hidden />
             </button>
@@ -212,7 +213,7 @@ export function CartPanel({
                   <div className="min-w-0 flex-1">
                     {/* Line 1: what it is and what it comes to */}
                     <div className="flex items-baseline justify-between gap-2">
-                      <p className="min-w-0 truncate text-[12.5px] font-semibold leading-tight text-foreground" title={item.name}>{item.name}</p>
+                      <p className="min-w-0 line-clamp-2 break-words text-[12.5px] font-semibold leading-tight text-foreground" title={item.name}>{item.name}</p>
                       <span className="shrink-0 font-mono text-[12.5px] font-bold tabular-nums text-foreground">{currencySymbol} {fmt(lineTotal)}</span>
                     </div>
                     {/* Line 2: unit price, the stepper and remove */}

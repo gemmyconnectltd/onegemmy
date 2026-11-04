@@ -14,7 +14,7 @@ import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
   Eye, Edit2, AlertCircle, ChevronDown, Upload,
 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
+import { TableState } from "@/components/ui/TableState";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -483,16 +483,16 @@ export default function SalesOrdersPage() {
         <div role="tablist" aria-label="Sale status" className="no-scrollbar flex overflow-x-auto border-b border-border px-2">
           {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled"].map((s) => (
             <button key={s} role="tab" aria-selected={statusFilter === s} onClick={() => onStatusFilterChange(s)}
-              className={`whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-accent ${statusFilter === s ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"}`}>{s}</button>
+              className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-[13px] sm:px-3.5 font-semibold focus-visible:outline-2 focus-visible:outline-accent ${statusFilter === s ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"}`}>{s}</button>
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+          <div className="relative w-full sm:w-auto sm:min-w-[200px] sm:flex-1 sm:max-w-xs">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
             <Input className="pl-9" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search reference or customer" aria-label="Search sales" />
           </div>
-          <PeriodFilter value={period} onChange={onPeriodChange} label="Sale date" />
-          <Select aria-label="Payment status" value={paymentStatusFilter} onChange={(e) => onPaymentStatusFilterChange(e.target.value)} className="w-auto">
+          <PeriodFilter value={period} onChange={onPeriodChange} label="Sale date" className="min-w-0 flex-1 sm:flex-none" />
+          <Select aria-label="Payment status" value={paymentStatusFilter} onChange={(e) => onPaymentStatusFilterChange(e.target.value)} className="min-w-0 flex-1 sm:w-auto sm:flex-none">
             <option value="All">All payments</option>
             <option value="Paid">Paid</option>
             <option value="PartiallyPaid">Partially paid</option>
@@ -514,23 +514,23 @@ export default function SalesOrdersPage() {
         )}
 
         {loading ? (
-          <PageLoader variant="compact" />
+          <TableState loading />
         ) : (
-          <TableScroll className="hidden md:block"><table className={`w-full min-w-160 transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
+          <TableScroll className="hidden md:block"><table className={`w-full min-w-[64rem] transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
                   <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={orders.length === 0} />
                 </th>
-                <th className="p-4 font-semibold">Sale Reference</th>
-                <th className="p-4 font-semibold">Customer</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Sale Reference</th>
+                <th className="p-4 font-semibold min-w-36">Customer</th>
                 <th className="p-4 font-semibold">Items</th>
                 <th className="p-4 font-semibold">Date</th>
                 <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold text-right">VAT (18%)</th>
+                <th className="p-4 font-semibold text-right whitespace-nowrap">VAT</th>
                 <th className="p-4 font-semibold text-right">Total</th>
                 <th className="p-4 font-semibold text-right">Balance</th>
-                <th className="p-4 font-semibold">Due Date</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Due Date</th>
                 <th className="p-4 font-semibold">Payment</th>
                 <th className="p-4" />
               </tr>
@@ -543,18 +543,18 @@ export default function SalesOrdersPage() {
                     <td className="p-4">
                       <input type="checkbox" checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} className="w-4 h-4 rounded" />
                     </td>
-                    <td className="p-4 text-sm font-mono font-bold" style={{ color: SAL }}>{o.order_number}</td>
-                    <td className="p-4 text-sm font-medium text-foreground">{o.customer?.name ?? <span className="italic text-muted">Walk-in</span>}</td>
-                    <td className="p-4 text-sm text-muted">{o.items.length} item{o.items.length !== 1 ? "s" : ""}</td>
+                    <td className="p-4 text-sm font-mono font-bold whitespace-nowrap" style={{ color: SAL }}>{o.order_number}</td>
+                    <td className="p-4 text-sm font-medium text-foreground min-w-36">{o.customer?.name ?? <span className="italic text-muted">Walk-in</span>}</td>
+                    <td className="p-4 text-sm text-muted whitespace-nowrap">{o.items.length} item{o.items.length !== 1 ? "s" : ""}</td>
                     <td className="p-4 text-sm text-muted whitespace-nowrap">{fmtDateTime(o.ordered_at)}</td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[o.status] ?? "bg-slate-100 text-slate-600"}`}>
+                      <span className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[o.status] ?? "bg-slate-100 text-slate-600"}`}>
                         <Icon size={11} /> {o.status}
                       </span>
                     </td>
-                    <td className="p-4 text-right text-sm tabular-nums" style={{ color: "#6366f1" }}>{fmt(o.tax)}</td>
-                    <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums">{fmt(o.total)}</td>
-                    <td className="p-4 text-right text-sm tabular-nums">
+                    <td className="p-4 text-right text-sm tabular-nums whitespace-nowrap" style={{ color: "#6366f1" }}>{fmt(o.tax)}</td>
+                    <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums whitespace-nowrap">{fmt(o.total)}</td>
+                    <td className="p-4 text-right text-sm tabular-nums whitespace-nowrap">
                       {o.status === "Completed" ? (
                         <span className={o.outstanding_balance > 0 ? "font-semibold text-amber-600" : "text-muted"}>{fmt(o.outstanding_balance)}</span>
                       ) : <span className="text-muted">—</span>}
@@ -586,12 +586,7 @@ export default function SalesOrdersPage() {
           </table></TableScroll>
         )}
         {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
-        {!loading && orders.length === 0 && (
-          <div className="py-16 text-center">
-            <ShoppingCart size={32} className="text-border mx-auto mb-3" />
-            <p className="text-sm font-semibold text-muted">No sales found</p>
-          </div>
-        )}
+        {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}
         {!loading && orders.length > 0 && (
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
         )}

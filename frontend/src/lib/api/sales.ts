@@ -216,8 +216,8 @@ export const salesApi = {
     request<SingleResponse<ApiOrder>>(`${BASE}/payments/${paymentId}/reverse`, { method: "POST", body: JSON.stringify({ reason }) }),
 
   // Returns
-  listReturns: (page = 1, pageSize = 100, status?: string) =>
-    request<PaginatedResponse<ApiReturn>>(`${BASE}/returns?page=${page}&page_size=${pageSize}${status ? `&status=${status}` : ""}`),
+  listReturns: (page = 1, pageSize = 100, status?: string, period?: PeriodRange) =>
+    request<PaginatedResponse<ApiReturn>>(`${BASE}/returns${qs({ page, page_size: pageSize, status, ...periodParams(period) })}`),
   createReturn: (data: object) =>
     request<SingleResponse<ApiReturn>>(`${BASE}/returns`, { method: "POST", body: JSON.stringify(data) }),
   updateReturn: (id: string, data: object) =>

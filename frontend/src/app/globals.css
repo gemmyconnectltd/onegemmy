@@ -253,11 +253,11 @@ input, select, textarea {
 @media (max-width: 767px) {
   [data-app-content] :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
   .pesaa-dialog :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea),
-  .pesaa-topbar select { font-size: 16px; min-height: 44px; }
-  [data-app-content] button:not([role="switch"]), .pesaa-dialog button:not([role="switch"]) { min-height: 44px; }
-  [data-app-content] button:has(> svg:only-child) { min-width: 44px; }
+  .pesaa-topbar select { font-size: 16px; min-height: 40px; }
+  [data-app-content] button:not([role="switch"]), .pesaa-dialog button:not([role="switch"]) { min-height: 32px; }
+  [data-app-content] button:has(> svg:only-child) { min-width: 32px; }
   .pesaa-nav-row { min-height: 44px; }
-  .pesaa-responsive-toolbar { flex-wrap: wrap; gap: 12px; }
+  .pesaa-responsive-toolbar { flex-wrap: wrap; gap: 8px; }
   .pesaa-responsive-toolbar > :is(.flex, .inline-flex) { flex-wrap: wrap; }
   .pesaa-responsive-toolbar > .relative { width: 100%; max-width: none; }
   .pesaa-dialog form { min-width: 0; }

@@ -81,7 +81,8 @@ function toggleGroup(id: string) {
 function NavigationGroups({groups, path, collapsed = false, onNavigate, admin}: {groups: NavGroup[]; path: string; collapsed?: boolean; expandSidebar?: () => void; onNavigate?: () => void; admin: boolean}) {
   const folded = new Set<string>(JSON.parse(useSyncExternalStore(subscribeCollapsed, readCollapsed, () => "[]")));
   const pendingApprovals = useApprovalSummary({ enabled: !admin }).data?.pending ?? 0;
-  const rowClass = `pesaa-nav-row relative flex h-10 w-full items-center gap-3 px-4 text-left text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${collapsed ? "justify-center px-0" : ""}`;
+  const mobile = !!onNavigate;  // the phone drawer: a 44px touch target with a little more air than the desktop rail
+  const rowClass = `pesaa-nav-row relative flex ${mobile ? "h-11 px-5 text-[14px]" : "h-10 px-4 text-[13px]"} w-full items-center gap-3 text-left font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${collapsed ? "justify-center px-0" : ""}`;
   return <>{groups.map((group, index) => {
     const id = group.id ?? "root", foldable = !!group.id && !!group.label && group.items.length > 1 && !collapsed;
     const hasActive = group.items.some(item => isPrimaryActive(path, item));
@@ -90,8 +91,8 @@ function NavigationGroups({groups, path, collapsed = false, onNavigate, admin}: 
     const items = isFolded ? group.items.filter(item => isPrimaryActive(path, item)) : group.items;
     return <section key={id} aria-label={group.label || (admin ? "Administration" : "Dashboard")} className={index ? (collapsed ? "mt-2 border-t border-border/60 pt-2" : "mt-1") : ""}>
       {group.label && !collapsed && (foldable
-        ? <h2><button type="button" aria-expanded={!isFolded} aria-controls={listId} onClick={() => toggleGroup(id)} className="flex w-full items-center justify-between px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">{group.label}<ChevronDown size={12} aria-hidden className={`transition-transform duration-150 ${isFolded ? "-rotate-90" : ""}`} />{isFolded && hasActive && <span className="sr-only"> (collapsed, contains the current page)</span>}</button></h2>
-        : <h2 className="px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted">{group.label}</h2>)}
+        ? <h2><button type="button" aria-expanded={!isFolded} aria-controls={listId} onClick={() => toggleGroup(id)} className={`flex w-full items-center justify-between ${mobile ? "px-5 pb-1 pt-4" : "px-4 pb-1 pt-3"} text-[10.5px] font-semibold uppercase tracking-wider text-muted hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent`}>{group.label}<ChevronDown size={12} aria-hidden className={`transition-transform duration-150 ${isFolded ? "-rotate-90" : ""}`} />{isFolded && hasActive && <span className="sr-only"> (collapsed, contains the current page)</span>}</button></h2>
+        : <h2 className={`${mobile ? "px-5 pb-1 pt-4" : "px-4 pb-1 pt-3"} text-[10.5px] font-semibold uppercase tracking-wider text-muted`}>{group.label}</h2>)}
       <div id={listId}>{items.map(item => {
         const selected = isPrimaryActive(path, item);
         const tour = admin ? undefined : `nav-${item.tour ?? item.name.toLowerCase()}`;

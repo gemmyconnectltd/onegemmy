@@ -39,8 +39,8 @@ export function PaymentStatusBadge({ paymentStatus, isOverdue }: { paymentStatus
   const cfg = PAYMENT_STATUS_CONFIG[paymentStatus] ?? PAYMENT_STATUS_CONFIG.Unpaid;
   const Icon = cfg.icon;
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text}`}>
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text}`}>
         <Icon size={11} /> {cfg.label}
       </span>
       {isOverdue && (

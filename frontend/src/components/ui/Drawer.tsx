@@ -86,7 +86,7 @@ export function Drawer({ open, onClose, title, description, side = "right", size
     ? `relative w-full ${CENTER_WIDTHS[size]} max-h-[calc(100dvh-2rem)] animate-drawer-center`
     : sheet
       ? "fixed inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2"
-      : `fixed inset-y-0 w-full ${SIDE_WIDTHS[size]} ${side === "left" ? "left-0 animate-drawer-left" : "right-0 animate-drawer-right"}`;
+      : `fixed inset-y-0 ${side === "left" ? "w-[86vw] max-w-xs" : "w-full"} ${SIDE_WIDTHS[size]} ${side === "left" ? "left-0 animate-drawer-left" : "right-0 animate-drawer-right"}`;
   return <DrawerDepth.Provider value={depth + 1}>{createPortal(
     <div style={{ zIndex: 100 + depth * 20 }} className={`fixed inset-0 ${centered ? "flex items-center justify-center p-4" : ""}`} data-overlay-root>
       <div className="absolute inset-0 bg-black/40 animate-drawer-fade" onClick={dismiss} aria-hidden="true" />

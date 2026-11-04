@@ -148,6 +148,8 @@ async def update_tenant(
 
 @router.delete("/{tenant_id}")
 async def delete_tenant(tenant_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    from app.core.deps import require_permission
+    await require_permission("tenants:delete")(current_user)
     _require_own_tenant(current_user, tenant_id)
     await service.delete_tenant(db, tenant_id)
     return success_response(message="Company deleted successfully")

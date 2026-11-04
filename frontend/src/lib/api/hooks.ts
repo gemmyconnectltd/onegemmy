@@ -186,8 +186,8 @@ export const useOrders = (page = 1, pageSize = 100, status?: string, search?: st
 export const useOrderPayments = (orderId: string | undefined, opts?: QueryOpts) =>
   useQ([...ORDERS, orderId, "payments"], () => salesApi.listOrderPayments(orderId!), (r) => r.data, { ...opts, enabled: !!orderId && (opts?.enabled ?? true) });
 
-export const useReturns = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts) =>
-  useQ([...RETURNS, page, pageSize, status ?? "all"], () => salesApi.listReturns(page, pageSize, status), (r) => r.data, opts);
+export const useReturns = (page = 1, pageSize = 100, status?: string, opts?: QueryOpts, period?: PeriodRange) =>
+  useQ([...RETURNS, page, pageSize, status ?? "all", periodKey(period)], () => salesApi.listReturns(page, pageSize, status, period), (r) => r.data, opts);
 
 export const useTargets = (page = 1, pageSize = 100, period?: string, opts?: QueryOpts) =>
   useQ([...TARGETS, page, pageSize, period ?? "all"], () => salesApi.listTargets(page, pageSize, period), (r) => r.data, opts);

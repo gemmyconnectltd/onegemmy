@@ -89,6 +89,21 @@ async def _exceeds_total_debt_limit(db: AsyncSession, tenant_id: uuid.UUID, cust
     return await client_outstanding(db, tenant_id, customer_id) + new_credit_base > limit
 
 
+async def _business_day(db: AsyncSession, tenant_id: uuid.UUID, moment: datetime | None) -> date | None:
+    """The calendar day a moment belongs to in the business's own time zone, which is the date the books use."""
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    from app.modules.tenants.models import Tenant
+    if moment is None:
+        return None
+    name = (await db.execute(select(Tenant.timezone).where(Tenant.id == tenant_id))).scalar_one_or_none() or "UTC"
+    try:
+        zone = ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = UTC
+    return (moment if moment.tzinfo else moment.replace(tzinfo=UTC)).astimezone(zone).date()
+
+
 async def _credit_day(db: AsyncSession, tenant_id: uuid.UUID) -> date:
     from zoneinfo import ZoneInfo
 
@@ -524,7 +539,7 @@ async def create_order(
         sale_txn_id = await create_sale_transaction(
             db, tenant_id, user_id, order.id, base_total, order_number, cogs=round(cogs_total, 2), tax=base_tax,
             payment_method=data.payment_method, amount_paid=base_paid,
-            posting_date=order.ordered_at.date(), branch_id=resolved_branch_id,
+            posting_date=await _business_day(db, tenant_id, order.ordered_at), branch_id=resolved_branch_id,
         )
         await _record_vat(db, tenant_id, order.id, base_tax, base_total, vat_rate)
 
@@ -634,7 +649,7 @@ async def _finalize_completed_sale(
     sale_txn_id = await create_sale_transaction(
         db, tenant_id, txn_user_id, obj.id, base_total, obj.order_number, cogs=round(cogs_total, 2), tax=base_tax,
         payment_method=obj.payment_method, amount_paid=base_paid,
-        posting_date=obj.ordered_at.date() if obj.ordered_at else None, branch_id=obj.branch_id,
+        posting_date=await _business_day(db, tenant_id, obj.ordered_at), branch_id=obj.branch_id,
     )
     await _record_vat(db, tenant_id, obj.id, base_tax, base_total, vat_rate)
 

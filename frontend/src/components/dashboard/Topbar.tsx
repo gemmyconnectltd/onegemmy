@@ -75,19 +75,19 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
 
   return (
     <>
-    <header className="pesaa-topbar h-14 min-w-0 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-3 sm:px-4 gap-1 sm:gap-3 sticky top-0 z-30">
+    <header className="pesaa-topbar h-12 sm:h-14 min-w-0 bg-card/95 backdrop-blur-sm border-b border-border flex items-center px-3 sm:px-4 gap-1 sm:gap-3 sticky top-0 z-30">
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
         aria-label="Open navigation"
         aria-expanded={sidebarExpanded}
         aria-controls="mobile-sidebar-nav"
-        className="w-11 h-11 shrink-0 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors lg:hidden"
+        className="w-9 h-9 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center text-foreground/50 hover:text-foreground hover:bg-surface rounded-lg transition-colors lg:hidden"
       >
         <Menu size={18} />
       </button>
 
-      <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white min-[390px]:flex lg:hidden" aria-label="Pesaa"><LogoMark size={18} /></span>
+      <span className="hidden h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white min-[390px]:flex lg:hidden" aria-label="Pesaa"><LogoMark size={18} /></span>
       {!admin && <BranchSwitcher />}
       {!admin && <div className="hidden xl:block"><AskPesaaAI /></div>}
 
@@ -131,12 +131,12 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
 
       {/* Search */}
       {!admin && (
-        <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search pages" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface xl:w-44 xl:justify-start xl:gap-2 xl:border xl:border-border xl:px-3"><Search size={18} /><span className="hidden xl:inline">Search pages</span><kbd className="ml-auto hidden text-xs xl:inline">⌘K</kbd></button>
+        <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search pages" className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface xl:w-44 xl:justify-start xl:gap-2 xl:border xl:border-border xl:px-3"><Search size={18} /><span className="hidden xl:inline">Search pages</span><kbd className="ml-auto hidden text-xs xl:inline">⌘K</kbd></button>
       )}
 
       {/* Notifications */}
       {!admin && (
-        <button type="button" onClick={() => setNotificationsOpen(true)} aria-label="Notifications" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface"><Bell size={18} /></button>
+        <button type="button" onClick={() => setNotificationsOpen(true)} aria-label="Notifications" className="flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface"><Bell size={18} /></button>
       )}
 
       {/* Theme toggle */}
@@ -182,9 +182,9 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
         <button
           onClick={() => { setShowUser((v) => !v); setShowLang(false); }}
           aria-label="Open account menu" aria-expanded={showUser}
-          className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 lg:pl-2 lg:border-l border-border hover:opacity-80 transition-opacity"
+          className="flex h-9 min-w-9 sm:h-11 sm:min-w-11 shrink-0 items-center justify-center gap-2 lg:pl-2 lg:border-l border-border hover:opacity-80 transition-opacity"
         >
-          <div className="w-7 h-7 bg-accent rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+          <div className="w-6 h-6 sm:w-7 sm:h-7 bg-accent rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
             {user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
           </div>
           <div className="hidden xl:block text-left">

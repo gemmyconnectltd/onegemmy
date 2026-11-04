@@ -26,18 +26,22 @@ class ReturnRepository(BaseRepository[Return]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50) -> list[Return]:
+    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, period=None) -> list[Return]:
         stmt = select(Return).options(*_with_relations()).where(Return.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(Return.status == status)
+        if period is not None:
+            stmt = period.apply(stmt, Return.return_date)
         stmt = stmt.order_by(Return.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, period=None) -> int:
         stmt = select(func.count()).select_from(Return).where(Return.tenant_id == tenant_id)
         if status:
             stmt = stmt.where(Return.status == status)
+        if period is not None:
+            stmt = period.apply(stmt, Return.return_date)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

@@ -14,7 +14,7 @@ from collections.abc import Awaitable, Callable, Iterable
 
 from fastapi import Request
 
-from app.core.deps import CurrentUser
+from app.core.deps import CurrentUser, may_delete
 from app.core.exceptions import ForbiddenError
 from app.core.logging import get_logger
 from app.core.permission_policy import permissions_for_method
@@ -133,6 +133,9 @@ def require_module_write(module: str) -> Callable[..., Awaitable[None]]:
         if child in (getattr(user, "disabled_modules", None) or []):
             log.warning("access.feature_off", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "path": request.url.path}})
             raise ForbiddenError("This feature has been switched off for your account. Ask an administrator of your business.")
+        if request.method == "DELETE" and not may_delete(user):
+            log.warning("access.delete_denied", extra={"_extra_fields": {"user_id": str(user.id), "module": module, "path": request.url.path}})
+            raise ForbiddenError("Deleting is limited to business owners and administrators. Ask one of them to remove this.")
         # Administrators retain full access; member and job roles follow their grants.
         role = (user.role or "").lower()
         if role in ("admin", "owner"):

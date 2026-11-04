@@ -13,4 +13,6 @@ How operational events reach the general ledger. All postings go through `accoun
 - **Audit log** – database trigger rejects edits to audit rows (clearing the actor when a user is deleted is allowed).
 - **Reconciliation** – `GET /accounting/reconciliation` is read-only and lists sales/expenses/returns/write-offs without journals and wrongly dated sale journals. It repairs nothing.
 
-Known limits: dates use UTC; income statement sections still key off account-code prefixes (41xx service revenue, 49xx other income, 59xx other expenses); returns do not yet post the cash/bank refund leg; warehouse transfers and purchase journals keep today's date.
+Sale posting dates use the business's own time zone (a 23:30 UTC sale in Kigali posts on the next local day). Sales Returns can be filtered by date period and exported to Excel.
+
+Known limits: income statement sections still key off account-code prefixes (41xx service revenue, 49xx other income, 59xx other expenses); returns do not yet post the cash/bank refund leg; warehouse transfers and purchase journals keep today's date.

@@ -203,7 +203,7 @@ export function PaymentPanel({
   );
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2 lg:gap-2.5">
       {/* Totals: one muted line of detail, then the total */}
       <div>
         <p className="flex flex-wrap justify-between gap-x-3 text-[11px] font-mono text-muted">
@@ -211,9 +211,9 @@ export function PaymentPanel({
           {discount > 0 && <span className="font-semibold text-emerald-600 dark:text-emerald-400">Discount -{currencySymbol} {fmt(discount)}</span>}
           {vatEnabled && <span>VAT{vatRate ? ` ${Math.round(vatRate * 1000) / 10}%` : ""} {currencySymbol} {fmt(tax)}</span>}
         </p>
-        <div className="mt-1 flex items-center justify-between rounded-xl bg-accent/10 px-3 py-2">
+        <div className="mt-1 flex items-center justify-between rounded-xl bg-accent/10 px-3 py-1.5 lg:py-2">
           <span className="text-[12px] font-bold uppercase tracking-wider text-foreground">Total</span>
-          <span className="font-mono text-[24px] font-extrabold leading-tight tabular-nums tracking-tight text-accent">{currencySymbol} {fmt(total)}</span>
+          <span className="font-mono text-[20px] lg:text-[24px] font-extrabold leading-tight tabular-nums tracking-tight text-accent">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
 
@@ -223,7 +223,7 @@ export function PaymentPanel({
           const locked = k !== "full" && !canCredit;
           return (
             <button key={k} type="button" aria-pressed={arr === k} disabled={locked} title={locked ? "You don't have permission to sell on credit" : undefined} onClick={() => chooseArr(k)}
-              className={`h-9 rounded-[10px] px-1 text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${arr === k ? (k === "full" ? "bg-card text-accent shadow-sm" : "bg-card text-amber-700 shadow-sm dark:text-amber-300") : "text-muted hover:text-foreground"}`}>{l}</button>
+              className={`h-8 lg:h-9 rounded-[10px] px-1 text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${arr === k ? (k === "full" ? "bg-card text-accent shadow-sm" : "bg-card text-amber-700 shadow-sm dark:text-amber-300") : "text-muted hover:text-foreground"}`}>{l}</button>
           );
         })}
       </div>
@@ -233,7 +233,7 @@ export function PaymentPanel({
         <div role="group" aria-label="Payment method" className="grid grid-cols-4 gap-1">
           {([["cash", "Cash", Banknote], ["mobile", "Mobile", Smartphone], ["card", "Card", CreditCard], ["split", "Split", SplitSquareHorizontal]] as const).map(([k, l, Icon]) => (
             <button key={k} type="button" aria-pressed={method === k} onClick={() => chooseMethod(k)}
-              className={`flex h-10 items-center justify-center gap-1.5 rounded-xl border px-1 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${method === k ? "border-accent bg-accent text-white shadow-sm" : "border-border bg-card text-foreground/75 hover:border-accent/50 hover:bg-surface"}`}>
+              className={`flex h-9 lg:h-10 items-center justify-center gap-1.5 rounded-xl border px-1 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${method === k ? "border-accent bg-accent text-white shadow-sm" : "border-border bg-card text-foreground/75 hover:border-accent/50 hover:bg-surface"}`}>
               <Icon size={14} strokeWidth={2.2} aria-hidden /><span className="truncate">{l}</span>
             </button>
           ))}
@@ -250,7 +250,7 @@ export function PaymentPanel({
                 <div className="relative min-w-0 flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-mono text-muted">{currencySymbol}</span>
                   <input id="pos-paid-now" type="number" inputMode="decimal" min={0} max={total} value={cashGiven} onChange={(e) => onCashChange(limitSingle(e.target.value))} placeholder={`${tab === "cash" ? "Received" : "Paid"} ${fmt(total)}`}
-                    className={`w-full rounded-xl border-2 bg-card py-2.5 pl-10 pr-3 font-mono text-[15px] font-bold tabular-nums outline-none transition-colors ${debt ? "border-amber-400 focus:border-amber-500" : "border-border focus:border-accent"}`} />
+                    className={`w-full rounded-xl border-2 bg-card py-1.5 lg:py-2.5 pl-10 pr-3 font-mono text-[15px] font-bold tabular-nums outline-none transition-colors ${debt ? "border-amber-400 focus:border-amber-500" : "border-border focus:border-accent"}`} />
                 </div>
                 
                 {tab === "cash" && cashGiven === "" && <span className="shrink-0 text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">Paid in full</span>}
@@ -297,12 +297,15 @@ export function PaymentPanel({
         </div>
       )}
 
+      {/* The error and the action stay pinned to the bottom of the scrolling checkout, so Charge is never scrolled out of reach. */}
+      <div className="sticky -bottom-3 z-10 -mx-1 space-y-2 bg-card px-1 pb-3 pt-2">
       {saleError && (
         <div className="flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] font-medium text-red-600"><AlertCircle size={12} className="mt-0.5 flex-shrink-0" /><span>{saleError}</span></div>
       )}
-      <Button disabled={blocked} onClick={submit} className="min-h-12 w-full gap-2 rounded-xl text-[15px] font-bold" aria-busy={saving}>
+      <Button disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving}>
         {saving ? "Saving sale…" : <>{label}{cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(amountShown)}</span>}</>}
       </Button>
+      </div>
 
       <Drawer open={dialog === "split"} onClose={() => setDialog(null)} side="center" size="md" title="Split payment">
         <div className="space-y-3 p-4">{splitEditor}<Button className="w-full" onClick={() => setDialog(null)}>Done</Button></div>

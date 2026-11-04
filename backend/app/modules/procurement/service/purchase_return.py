@@ -152,7 +152,7 @@ async def mark_refunded(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
         entity_type="purchase", entity_id=str(obj.purchase_order_id), summary=f"Recorded supplier refund {obj.reference}",
         changes={"reference": data.reference, "method": data.payment_method, "base_amount": str(data.base_amount)})
     await db.commit()
-    return _to_read(obj)
+    return _to_read(await PurchaseReturnRepository(db).get_by_id_for_tenant(tenant_id, id))  # reloaded: commit expires the row, and its relations must be loaded
 
 
 async def mark_replaced(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id=None) -> PurchaseReturnRead:
@@ -186,8 +186,7 @@ async def _restore_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, action="purchase_return.restore",
         entity_type="purchase", entity_id=str(obj.purchase_order_id), summary=f"{target_status} return {obj.reference}")
     await db.commit()
-
-    return _to_read(obj)
+    return _to_read(await repo.get_by_id_for_tenant(tenant_id, id))
 
 
 async def delete_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id=None) -> None:

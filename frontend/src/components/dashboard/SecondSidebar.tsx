@@ -91,7 +91,7 @@ export function SecondSidebar({
 
   const navClassName = showRail
     ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-52 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
-    : `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-14 z-10 ${isBig ? "h-12 px-3 gap-1" : "px-3"}`;
+    : `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-12 sm:top-14 z-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${isBig ? "h-10 gap-0.5 px-1.5 sm:h-12 sm:gap-1 sm:px-3" : "px-1.5 sm:px-3"}`;
 
   const railHeader = showRail && (showToggle || label || meta) && (
     <div className="hidden lg:flex items-center gap-2.5 min-h-[60px] px-4 py-3 flex-shrink-0 border-b border-border">
@@ -116,7 +116,7 @@ export function SecondSidebar({
 
   const linkClassName = (isActive: boolean) => {
     if (isTabBar) {
-      return `relative flex items-center gap-2 -mb-px ${isBig ? "px-3.5 py-2.5" : "px-3.5 py-3"} text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 transition-colors ${
+      return `relative flex items-center gap-1.5 sm:gap-2 -mb-px ${isBig ? "px-2.5 py-2 sm:px-3.5 sm:py-2.5" : "px-2.5 py-2.5 sm:px-3.5 sm:py-3"} text-[12px] sm:text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 transition-colors ${
         isActive
           ? "text-accent border-accent"
           : "text-muted border-transparent hover:text-foreground hover:border-border"
@@ -142,7 +142,7 @@ export function SecondSidebar({
             <item.icon
               size={isTabBar ? 16 : 18}
               strokeWidth={isActive ? 2.2 : 1.8}
-              className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
+              className={"flex-shrink-0" + (isTabBar ? " h-3.5 w-3.5 sm:h-4 sm:w-4" : "") + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
             />
             <span>{item.label}</span>
             {typeof item.count === "number" && (
@@ -170,7 +170,7 @@ export function SecondSidebar({
               <item.icon
                 size={isTabBar ? 16 : 18}
                 strokeWidth={isActive ? 2.2 : 1.8}
-                className={"flex-shrink-0" + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
+                className={"flex-shrink-0" + (isTabBar ? " h-3.5 w-3.5 sm:h-4 sm:w-4" : "") + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
               />
               <span>{item.label ?? t(item.nameKey)}</span>
             </Link>
@@ -187,7 +187,7 @@ export function SecondSidebar({
       onClick={toggle}
       title={toggleLabel}
       aria-label={toggleLabel}
-      className="flex items-center justify-center w-9 h-9 flex-shrink-0 text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
+      className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0 text-foreground/40 hover:text-foreground hover:bg-surface transition-colors"
     >
       <ToggleIcon size={15} strokeWidth={1.8} />
     </button>
@@ -205,7 +205,7 @@ export function SecondSidebar({
               <div className="hidden sm:block w-px h-5 bg-border mx-1.5 flex-shrink-0" />
             </>
           )}
-          <div className="flex items-center gap-1.5 overflow-x-auto flex-shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-1.5 overflow-x-auto flex-shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {items}
           </div>
           <div className="ml-auto flex items-center flex-shrink-0">{toggleButton}</div>

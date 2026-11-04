@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { formatMoney } from "@/lib/money";
 import { fmtDate, fmtDateTime } from "@/lib/date";
-import { usePurchaseOrder, usePurchaseAction, useCancelPurchaseOrder, usePurchaseActivity, usePurchaseAttachments } from "@/lib/api/hooks";
+import { useMyBranch, usePurchaseOrder, usePurchaseAction, useCancelPurchaseOrder, usePurchaseActivity, usePurchaseAttachments } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { TableWrap } from "@/components/ui/Table";
@@ -21,6 +21,8 @@ export function PurchaseDetails({id}: {id: string}) {
   const query = usePurchaseOrder(id, undefined, scope), action = usePurchaseAction(), cancel = useCancelPurchaseOrder();
   const {hasPermission} = useAuth(), {currency} = useAppConfig();
   const [activityPage, setActivityPage] = useState(1);
+  const branchId = query.data?.branch_id ?? undefined;
+  const branch = useMyBranch(branchId, { enabled: !!branchId });
   const attachments = usePurchaseAttachments(id, scope);
   const activity = usePurchaseActivity(id, activityPage, scope);
   const [error, setError] = useState<unknown>(null); const [downloading, setDownloading] = useState(false); const {confirm, dialog} = useConfirmDialog();
@@ -43,12 +45,19 @@ export function PurchaseDetails({id}: {id: string}) {
     <section className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-4">
       <div><p className="text-xs text-muted">Order status</p><div className="mt-1"><PurchaseStatus status={order.status} /></div></div>
       <div><p className="text-xs text-muted">Billing</p><div className="mt-1"><PurchaseStatus status={order.billing_status || "NotBilled"} /></div></div><div><p className="text-xs text-muted">Receiving</p><p className="mt-1 text-sm font-medium">{receivingStatus(order)}</p></div>
-      {[["Order date", fmtDate(order.order_date || order.created_at)], ["Expected delivery", fmtDate(order.expected_date)], ["Branch", order.branch_id || "Main branch"], ["Purchase commitment", money(order.total)], ["Supplier reference", order.supplier_reference || "—"], ["Payment terms", order.payment_terms_days == null ? "Not specified" : `Net ${order.payment_terms_days}`]].map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 break-words text-sm font-medium">{value}</p></div>)}
+      {[["Order date", fmtDate(order.order_date || order.created_at)], ["Expected delivery", fmtDate(order.expected_date)], ["Branch", branch.data?.name || (order.branch_id ? "Loading…" : "Main branch")], ["Purchase commitment", money(order.total)], ["Supplier reference", order.supplier_reference || "—"], ["Payment terms", order.payment_terms_days == null ? "Not specified" : `Net ${order.payment_terms_days}`]].map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 break-words text-sm font-medium">{value}</p></div>)}
     </section>
     <section className="space-y-3"><h2 className="pesaa-card-title">Ordered items</h2><TableWrap><table className="w-full min-w-[800px] text-left text-sm"><thead><tr>{["Product", "SKU", "Ordered", "Received", "Remaining", "Unit cost", "Line total"].map(label => <th key={label} className="p-4">{label}</th>)}</tr></thead><tbody className="divide-y divide-border">{order.items.map(item => {
       const received = Number(item.received_quantity ?? (order.status === "Received" ? item.quantity : 0));
       return <tr key={item.id}><td className="p-4">{item.product_name}{item.variant_attributes && <span className="block text-xs text-muted">{Object.values(item.variant_attributes).join(" / ")}</span>}</td><td className="p-4 text-muted">{item.sku || "—"}</td><td className="p-4">{item.quantity}</td><td className="p-4">{received}</td><td className="p-4">{item.quantity - received}</td><td className="p-4 text-right tabular-nums">{money(item.unit_cost)}</td><td className="p-4 text-right font-semibold tabular-nums">{money(item.line_total)}</td></tr>;
-    })}</tbody></table></TableWrap><p className="text-xs text-muted">Unit costs are inclusive. Inventory changes only for confirmed receipts; branch attribution does not create a separate warehouse balance.</p></section>
+    })}</tbody></table></TableWrap><p className="text-xs text-muted">Unit costs are inclusive. Inventory changes only for confirmed receipts; branch attribution does not create a separate warehouse balance.</p>
+      <dl className="ml-auto w-full max-w-sm space-y-1.5 rounded-xl border border-border bg-card p-4 text-sm">
+        <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd className="tabular-nums">{money(order.subtotal)}</dd></div>
+        {Number(order.discount) > 0 && <div className="flex justify-between"><dt className="text-muted">Discount</dt><dd className="tabular-nums">-{money(Number(order.discount))}</dd></div>}
+        {order.included_vat != null && <div className="flex justify-between"><dt className="text-muted">VAT included</dt><dd className="tabular-nums">{money(Number(order.included_vat))}</dd></div>}
+        <div className="flex justify-between border-t border-border pt-1.5 font-semibold"><dt>Total</dt><dd className="tabular-nums">{money(order.total)}</dd></div>
+        {order.base_total != null && order.currency_code && order.currency_code !== currency && <div className="flex justify-between text-xs text-muted"><dt>In {currency} at {Number(order.exchange_rate ?? 1)}</dt><dd className="tabular-nums">{formatMoney(Number(order.base_total), currency, {showCode: true})}</dd></div>}
+      </dl></section>
     {(order.notes || order.delivery_instructions) && <section className="space-y-2 rounded-xl border border-border bg-card p-4"><h2 className="pesaa-card-title">Notes and delivery</h2><p className="whitespace-pre-wrap text-sm">{order.notes}</p><p className="whitespace-pre-wrap text-sm text-muted">{order.delivery_instructions}</p></section>}
     <section className="space-y-3"><h2 className="pesaa-card-title">Attachments</h2><FinancialError error={attachments.error} />{attachments.isLoading ? <PageLoader variant="compact" /> : <ul className="flex flex-wrap gap-2">{attachments.data?.map(file => <li key={file.id}><Button variant="outline" size="sm" onClick={async () => {try {await procurementApi.downloadAttachment(id, file.id);} catch (cause) {setError(cause);}}}>{file.name} · {Math.ceil(file.size / 1024)} KB</Button></li>)}</ul>}{!attachments.isLoading && !attachments.data?.length && <p className="text-sm text-muted">No attachments.</p>}</section>
     <ReceiptList orderId={id} /><BillList orderId={id} />

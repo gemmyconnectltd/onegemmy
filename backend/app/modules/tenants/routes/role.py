@@ -95,6 +95,8 @@ async def update_role(role_id: uuid.UUID, data: RoleUpdate, db: DbSession, curre
 
 @router.delete("/roles/{role_id}")
 async def delete_role(role_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    from app.core.deps import require_permission
+    await require_permission("roles:delete")(current_user)
     await service.delete_role(db, current_user.tenant_id, role_id)
     return success_response(message="Role deleted successfully")
 

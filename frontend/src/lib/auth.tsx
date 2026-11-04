@@ -290,6 +290,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((permission: string): boolean => {
     if (!currentUser) return false;
     if (currentUser.isSuperuser) return true;
+    // Removing records is for owners and administrators only; nobody else is offered a Delete action, whatever else they are granted.
+    if (permission.endsWith(":delete") && !["admin", "owner", "owner/ceo"].includes(currentUser.role?.toLowerCase() ?? "")) return false;
     // Current server grants take precedence over a legacy role-name fallback.
     if (currentUser.permissions.includes(permission)) return true;
     // Admins and owners get full access always

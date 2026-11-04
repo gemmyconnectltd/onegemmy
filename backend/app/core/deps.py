@@ -127,10 +127,20 @@ async def get_active_branch_id(
 ActiveBranchId = Annotated[uuid.UUID | None, Depends(get_active_branch_id)]
 
 
+# Removing records is reserved for the people who run the business. Everyone else can create and edit, and asks an administrator to remove.
+DELETE_ROLES = frozenset({"admin", "owner", "owner/ceo"})
+
+
+def may_delete(user: User) -> bool:
+    return bool(user.is_superuser) or (user.role or "").lower() in DELETE_ROLES
+
+
 def require_permission(permission_name: str):
     async def _check(user: CurrentUser) -> User:
         if user.is_superuser:
             return user
+        if permission_name.endswith(":delete") and not may_delete(user):
+            raise ForbiddenError("Deleting is limited to business owners and administrators. Ask one of them to remove this.")
         # Business administration requires an owner/admin or an explicit grant.
         role = (user.role or "").lower()
         if role in ("admin", "owner"):

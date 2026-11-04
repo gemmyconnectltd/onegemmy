@@ -79,3 +79,10 @@ test('artifact validation rejects missing and edited app copies', async () => {
     assert.throws(() => syncDesignSystem({check:true,projectRoot}), /website.*missing or stale/);
   } finally { rmSync(projectRoot, {recursive:true,force:true}); }
 });
+
+test('table cells keep references and amounts on one line and break only between words', () => {
+  const css = readFileSync(new URL('../design-system/components.css', import.meta.url), 'utf8');
+  assert.match(css, /\[data-table-container\] :is\(th, td\) \{ overflow-wrap: normal; word-break: normal; \}/);
+  assert.match(css, /td:is\(\.text-right, \.font-mono/);
+  assert.match(css, /\[data-table-container\] th \{[^}]*white-space: nowrap/);
+});

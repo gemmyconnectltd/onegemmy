@@ -5,7 +5,12 @@ import { returnBaseRefund } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { RotateCcw, CheckCircle2, Clock, XCircle, Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { PeriodFilter } from "@/components/ui/PeriodFilter";
+import { fetchEvery } from "@/lib/exportTable";
+import { salesApi } from "@/lib/api";
+import { ALL_TIME, periodLabel, periodRange, type PeriodValue } from "@/lib/period";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
@@ -39,7 +44,9 @@ export default function SalesReturnsPage() {
   const [editing, setEditing] = useState<ApiReturn | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const returnsQ = useReturns(1, 200);
+  const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
+  const range = useMemo(() => periodRange(period), [period]);
+  const returnsQ = useReturns(1, 200, undefined, undefined, range);
   const customersQ = useCustomers(1, 200);
   const ordersQ = useOrders(1, 200);
   const loading = returnsQ.isLoading || customersQ.isLoading || ordersQ.isLoading;
@@ -132,9 +139,17 @@ export default function SalesReturnsPage() {
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title text-foreground">Sales Returns</h1>
-          <p className="text-sm text-muted mt-0.5">{returns.length} return requests</p>
+          <p className="text-sm text-muted mt-0.5">{returns.length} return request{returns.length === 1 ? "" : "s"}{period.key !== "all" && <> · {periodLabel(period)}</>}</p>
         </div>
-        <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Return</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodFilter value={period} onChange={setPeriod} label="Return date" />
+          <ExportButton build={async () => {
+            const all = await fetchEvery((p, s) => salesApi.listReturns(p, s, undefined, range), 200);
+            return { filename: "sales-returns", headers: ["Return", "Date", "Customer", "Status", "Reason", "Refund", "Currency"],
+              rows: all.map((r) => [r.return_number, r.return_date, r.customer?.name ?? "", r.status, r.reason ?? "", r.refund_amount, r.currency_code ?? ""]) };
+          }} />
+          <Button color={SAL} onClick={openAdd}><Plus size={15} /> New Return</Button>
+        </div>
       </div>
 
       {error && (

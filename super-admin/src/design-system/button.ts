@@ -19,10 +19,10 @@ export const buttonOptions = {
       },
       size: {
         default:
-          "h-10 gap-2 px-4 text-sm font-medium",
+          "h-9 sm:h-10 gap-2 px-3 sm:px-4 text-[13px] sm:text-sm font-medium",
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-2 px-3 text-sm font-medium",
-        lg: "h-11 gap-2 px-4 text-sm font-medium",
+        sm: "h-7 sm:h-8 gap-1.5 sm:gap-2 px-2.5 sm:px-3 text-[13px] sm:text-sm font-medium",
+        lg: "h-10 sm:h-11 gap-2 px-4 text-sm font-medium",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",

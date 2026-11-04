@@ -3,8 +3,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from app.core.database import get_db
 from app.main import app
 from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.transaction import Transaction
@@ -294,3 +296,142 @@ async def test_reconciliation_reports_gaps_without_changing_anything(db, monkeyp
     assert report["summary"]["high_risk"] >= 2
     after = (await db.execute(select(Transaction).where(Transaction.tenant_id == tenant.id))).scalars().all()
     assert len(before) == len(after)
+
+
+@pytest.mark.db
+async def test_sales_returns_can_be_filtered_by_date_period(db, monkeypatch):
+    from datetime import timedelta
+    tenant, branch, product, _, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            sale = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
+            line = sale["items"][0]
+            made = await c.post("/api/v1/tenants/sales/returns", json={
+                "order_id": sale["id"], "status": "Approved", "return_date": datetime.now(UTC).date().isoformat(),
+                "items": [{"order_item_id": line["id"], "product_id": line["product_id"], "product_name": "Thing", "quantity": 1, "refund_per_unit": 1000, "line_refund": 1000}]})
+            assert made.status_code == 201, made.text
+            today = datetime.now(UTC).date()
+            inside = await c.get(f"/api/v1/tenants/sales/returns?from_date={today}&to_date={today}")
+            outside = await c.get(f"/api/v1/tenants/sales/returns?to_date={today - timedelta(days=3)}")
+            assert inside.json()["data"]["total"] == 1 and outside.json()["data"]["total"] == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_late_evening_sale_posts_on_the_businesss_own_day(db, monkeypatch):
+    from datetime import timedelta
+    tenant, branch, product, _, owner = await _till(db, monkeypatch)
+    tenant.timezone = "Africa/Kigali"  # UTC+2
+    await db.flush()
+    sold_at = (datetime.now(UTC) - timedelta(days=2)).replace(hour=23, minute=30, second=0, microsecond=0)  # 01:30 the next day in Kigali
+    try:
+        async with _client(owner, tenant, branch) as c:
+            made = await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000, ordered_at=sold_at.isoformat()))
+            assert made.status_code == 201, made.text
+            order_id = uuid.UUID(made.json()["data"]["id"])
+        journals = await _journals(db, tenant.id, order_id)
+        assert {txn.transaction_date for txn, _ in journals} == {(sold_at + timedelta(hours=2)).date()}
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_checkout_refuses_more_than_the_stock_and_leaves_no_trace(db, monkeypatch):
+    tenant, branch, product, _, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            body = _sale(product, payment_method="cash", amount_paid=60000)
+            body["items"][0]["quantity"] = 60  # only 50 on the shelf
+            refused = await c.post("/api/v1/tenants/sales/orders", json=body)
+        assert refused.status_code in (409, 422), refused.text
+        journals = (await db.execute(select(Transaction).where(Transaction.tenant_id == tenant.id, Transaction.type == "sale"))).scalars().all()
+        assert journals == []
+        await db.refresh(product)
+        assert float(product.stock) == 50
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_partial_payment_books_the_cash_received_and_the_rest_as_receivable_once(db, monkeypatch):
+    from app.modules.sales.models.customer import Customer
+    tenant, branch, product, _, owner = await _till(db, monkeypatch)
+    buyer = Customer(tenant_id=tenant.id, name="Part Payer")
+    db.add(buyer)
+    await db.flush()
+    body = _sale(product, customer_id=str(buyer.id), due_date="2099-01-01", payment_method="mobile", amount_paid=4000, payment_reference="MP-77")
+    try:
+        async with _client(owner, tenant, branch) as c:
+            first = await c.post("/api/v1/tenants/sales/orders", json=body)
+            retry = await c.post("/api/v1/tenants/sales/orders", json=body)  # a double-tapped Charge
+        assert first.status_code == 201, first.text
+        assert retry.status_code == 201 and retry.json()["data"]["id"] == first.json()["data"]["id"]
+        assert first.json()["data"]["outstanding_balance"] == 6000
+        order_id = uuid.UUID(first.json()["data"]["id"])
+        journals = await _journals(db, tenant.id, order_id)
+        assert len([j for j in journals if j[0].type == "sale"]) == 1
+        debits = {code: amount for _, lines in journals for code, kind, amount in lines if kind == "debit" and code in {"1020", "1100"}}
+        assert debits == {"1020": 4000.0, "1100": 6000.0}
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_normal_user_cannot_delete_even_with_a_delete_grant(db, monkeypatch):
+    from app.modules.tenants.models import Permission, Role
+    tenant, branch, product, cashier, owner = await _till(db, monkeypatch)
+    role = await db.get(Role, cashier.role_id)
+    grants = (await db.execute(select(Permission).where(Permission.resource.in_(["items", "orders"]), Permission.action == "delete"))).scalars().all()
+    if grants:
+        role.permissions = list(grants)
+        await db.flush()
+    try:
+        async with _client(cashier, tenant, branch) as c:
+            refused = await c.delete(f"/api/v1/tenants/inventory/products/{product.id}")
+            assert refused.status_code == 403 and "owners and administrators" in refused.text, refused.text
+        async with _client(owner, tenant, branch) as c:
+            allowed = await c.delete(f"/api/v1/tenants/inventory/products/{product.id}")
+            assert allowed.status_code in (200, 204), allowed.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_every_delete_endpoint_refuses_a_normal_user_who_holds_every_grant(db):
+    import re
+
+    from app.core.security import create_access_token
+    from app.modules.tenants.models import Permission, Role, Tenant, User
+    n = uuid.uuid4().hex[:8]
+    tenant = Tenant(name=f"Del {n}", slug=f"del-{n}", is_active=True, subscription_status="active")
+    db.add(tenant)
+    await db.flush()
+    role = Role(tenant_id=tenant.id, name="Everything", description="every grant")
+    role.permissions = list((await db.execute(select(Permission))).scalars().all())
+    db.add(role)
+    await db.flush()
+    user = User(email=f"del{n}@x.test", hashed_password="x", full_name="Normal", role="member", tenant_id=tenant.id, role_id=role.id, is_active=True, is_superuser=False)
+    db.add(user)
+    await db.flush()
+    token = create_access_token(str(user.id), {"tenant_id": str(tenant.id)})
+
+    async def _db():
+        yield db
+
+    app.dependency_overrides[get_db] = _db
+    skip = re.compile(r"^/api/v1/(auth/|global/|public/|billing/|admin/|support/|activity|health)")
+    leaks = []
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t", headers={"Authorization": f"Bearer {token}"}) as c:
+            for path, item in app.openapi()["paths"].items():
+                if "delete" not in item or skip.match(path) or path.startswith("/api/v1/ai/conversations/"):  # a person clearing their own chat
+                    continue
+                url = re.sub(r"\{[^}]+\}", lambda _m: str(uuid.uuid4()), path)
+                async with db.begin_nested():
+                    res = await c.request("DELETE", url, json={})
+                if res.status_code != 403:
+                    leaks.append(f"{path} → {res.status_code}")
+    finally:
+        app.dependency_overrides.clear()
+    assert not leaks, f"Delete endpoints a normal user can reach: {leaks}"
