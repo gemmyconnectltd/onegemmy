@@ -22,6 +22,8 @@ class Return(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMix
     base_refund_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Pending")
     return_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # credit_note: the value stays as credit on the customer's account. cash / bank / mobile: it is also paid out from that account.
+    refund_method: Mapped[str] = mapped_column(String(20), nullable=False, default="credit_note", server_default="credit_note")
 
     order_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_orders.id", ondelete="SET NULL"), nullable=True

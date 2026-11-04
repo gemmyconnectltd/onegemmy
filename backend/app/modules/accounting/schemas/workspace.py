@@ -34,7 +34,12 @@ class TransferRequest(TrimmedModel):
     amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     transaction_date: date
     branch_id: uuid.UUID | None = None
-    description: str = Field(default="Cash transfer", max_length=500)
+    description: str = Field(min_length=3, max_length=500)  # the reason for the transfer
+
+
+class CashAccountCreate(TrimmedModel):
+    name: str = Field(min_length=2, max_length=100)
+    kind: Literal["cash", "bank", "mobile"]
 
 
 class ReconciliationRequest(TrimmedModel):

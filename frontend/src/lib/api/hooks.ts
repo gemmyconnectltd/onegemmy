@@ -898,6 +898,7 @@ export const useFinancialReport = (id: string | null, page = 1) => useQ([...FINA
 export const useFinancialJournal = (id: string | null) => useQ([...FINANCIAL, "journal", id], () => financialApi.journal(id!), r => r.data, { enabled: !!id });
 export const useGenerateFinancialReport = mutation((data: ReportInput) => financialApi.generate(data), []);
 export const useImportFinancialAccounts = mutation((items: AccountInput[]) => financialApi.importAccounts(items), [[...ACCOUNTS], FINANCIAL]);
+export const useCreateCashAccount = mutation((data: { name: string; kind: "cash" | "bank" | "mobile" }) => financialApi.createCashAccount(data), [FINANCIAL, [...ACCOUNTS]]);
 export const useFinancialTransfer = mutation((data: Record<string, unknown>) => financialApi.transfer(data), [FINANCIAL, [...REPORTS], [...TRANSACTIONS]]);
 export const useFinancialReconcile = mutation((data: Record<string, unknown>) => financialApi.reconcile(data), [FINANCIAL]);
 export const useFinancialAsset = mutation((data: Record<string, unknown>) => financialApi.registerAsset(data), [FINANCIAL]);

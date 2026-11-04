@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, Globe, History, Moon, Sun, TrendingUp } from "lucide-react";
+import { ArrowLeft, ChevronDown, Globe, History, Moon, RotateCcw, Sun, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 import { HeldSalesDrawer } from "./HeldSalesDrawer";
@@ -60,6 +60,10 @@ export function POSHeader({
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Returns: take back one or two items from an earlier sale */}
+          <Link href="/sales/returns" aria-label="Sales returns" className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[12px] font-semibold text-foreground transition-colors hover:bg-surface">
+            <RotateCcw size={14} /><span className="hidden sm:inline">Returns</span>
+          </Link>
           {/* Held orders */}
           <button
             onClick={onToggleHeld}

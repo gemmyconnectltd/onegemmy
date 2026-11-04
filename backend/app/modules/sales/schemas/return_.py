@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,6 +15,7 @@ class ReturnCreate(BaseModel):
     reason: str | None = None
     status: str = "Pending"
     return_date: date
+    refund_method: Literal["credit_note", "cash", "bank", "mobile"] = "credit_note"
     items: list[ReturnItemCreate] = []
 
 
@@ -23,6 +25,7 @@ class ReturnUpdate(BaseModel):
     reason: str | None = None
     status: str | None = None
     return_date: date | None = None
+    refund_method: Literal["credit_note", "cash", "bank", "mobile"] | None = None
     processed_by: uuid.UUID | None = None
 
 
@@ -36,6 +39,7 @@ class ReturnRead(BaseModel):
     customer_id: uuid.UUID | None
     reason: str | None
     refund_amount: float
+    refund_method: str = "credit_note"
     # Same currency and frozen rate as the order being returned (never today's rate).
     currency_code: str | None = None
     exchange_rate: Decimal | None = None

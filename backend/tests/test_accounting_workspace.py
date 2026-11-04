@@ -163,7 +163,7 @@ async def test_asset_depreciation_disposal_and_transfer_retry(db, finance):
     await asset_action(db, owner, uuid.UUID(asset["id"]), AssetAction(action="dispose", as_of=date(2026, 2, 15), proceeds=Decimal(100), cash_account_id=a["1000"], gain_loss_account_id=a["5960"]))
     sheet = await statements.balance_sheet(db, tenant.id, date(2026, 2, 15))
     assert sheet.in_balance
-    data = TransferRequest(reference="RETRY1", from_account_id=a["1000"], to_account_id=a["1010"], amount=Decimal(5), transaction_date=date(2026, 2, 15))
+    data = TransferRequest(reference="RETRY1", from_account_id=a["1000"], to_account_id=a["1010"], amount=Decimal(5), transaction_date=date(2026, 2, 15), description="Move till cash to the bank")
     assert await transfer(db, owner, data) == await transfer(db, owner, data)
 
 

@@ -98,6 +98,7 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
         customer_id=data.customer_id,
         reason=data.reason,
         refund_amount=refund_amount,
+        refund_method=data.refund_method,
         status=data.status,
         return_date=data.return_date,
         processed_by=user_id if data.status != "Pending" else None,

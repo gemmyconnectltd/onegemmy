@@ -39,8 +39,32 @@ async def overview(db, user, active_branch=None):
                     "net_profit": income.net_income, "cash_balance": cash, "trend": trend, "journals": recent})
 
 
+async def _transfers(db, tenant_id, branch_id, page, page_size):
+    """Every account-to-account transfer: from, to, amount, date, reason and who made it."""
+    from sqlalchemy import func, select
+
+    from app.modules.accounting.models.account import Account
+    from app.modules.accounting.models.transaction import Transaction
+    from app.modules.accounting.models.transaction_line import TransactionLine
+    from app.modules.tenants.models import User as Person
+    where = [Transaction.tenant_id == tenant_id, Transaction.type == "cash_transfer", Transaction.status == "Posted"]
+    if branch_id:
+        where.append(Transaction.branch_id == branch_id)
+    total = (await db.execute(select(func.count()).select_from(Transaction).where(*where))).scalar_one()
+    txns = (await db.execute(select(Transaction, Person.full_name).outerjoin(Person, Person.id == Transaction.created_by).where(*where)
+                             .order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc()).offset((page - 1) * page_size).limit(min(page_size, 100)))).all()
+    rows = []
+    for txn, person in txns:
+        legs = (await db.execute(select(TransactionLine.type, TransactionLine.amount, Account.name).join(Account, Account.id == TransactionLine.account_id).where(TransactionLine.transaction_id == txn.id))).all()
+        source = next((n for t, _, n in legs if t == "credit"), "")
+        target = next((n for t, _, n in legs if t == "debit"), "")
+        amount = next((a for t, a, _ in legs if t == "debit"), Decimal(0))
+        rows.append({"id": txn.id, "reference": txn.reference, "date": txn.transaction_date, "from": source, "to": target, "amount": amount, "reason": txn.description, "by": person or "—"})
+    return rows, total
+
+
 async def domain(db, user, view, page=1, page_size=25, period=None, active_branch=None):
-    resources = {"cash": "banking", "assets": "fixed_assets", "reconciliations": "banking", "payroll": "payroll", "tax": "tax", "tax-payments": "tax", "pending": "journal_entries"}
+    resources = {"cash": "banking", "assets": "fixed_assets", "reconciliations": "banking", "transfers": "banking", "payroll": "payroll", "tax": "tax", "tax-payments": "tax", "pending": "journal_entries"}
     tenant_id = allow(user, resources[view])
     branch_id = await resolve_branch(db, user, None, active_branch)
     if branch_id and view in {"payroll", "tax", "tax-payments"}:
@@ -59,6 +83,9 @@ async def domain(db, user, view, page=1, page_size=25, period=None, active_branc
         def held(prefix: str) -> Decimal:
             return sum((v["balance"] for v in liquid if v["account"].code.startswith(prefix)), Decimal(0))
         totals = {"Cash": held("100"), "Bank": held("101"), "Mobile money": held("102"), "Total": sum((v["balance"] for v in liquid), Decimal(0))}
+    elif view == "transfers":
+        rows, total = await _transfers(db, tenant_id, branch_id, page, page_size)
+        totals = {}
     elif view == "pending":
         rows, total = await repo.recent(tenant_id, branch_id, "Draft", page, page_size)
         totals = {}

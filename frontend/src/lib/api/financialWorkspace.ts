@@ -15,7 +15,7 @@ export interface FinancialReport {
   notes: string[]; reconciliation?: { balanced: boolean; difference: Money; label: string };
 }
 export interface DomainPage { negative_accounts?: FinancialRow[]; negative_count?: number; items: FinancialRow[]; total: number; page: number; page_size: number; totals: Record<string, Money> }
-export type DomainKind = "cash" | "reconciliations" | "assets" | "payroll" | "tax" | "tax-payments" | "pending";
+export type DomainKind = "cash" | "reconciliations" | "transfers" | "assets" | "payroll" | "tax" | "tax-payments" | "pending";
 export interface FinancialOverview { from_date: string; to_date: string; currency: string; revenue: Money; expenses: Money; net_profit: Money; cash_balance: Money; trend: { month: string; income: Money; expenses: Money; cash_change: Money }[]; journals: FinancialRow[] }
 export interface AccountPage { items: AccountingAccount[]; total: number; page: number; page_size: number }
 export interface AccountInput { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null; is_active?: boolean }
@@ -37,6 +37,7 @@ export const financialApi = {
   accounts: (page = 1, search = "", type?: string, active?: boolean, cashOnly = false) => request<SingleResponse<AccountPage>>(`${base}/accounts${query({ page, page_size: 25, search, type, active, cash_only: cashOnly || undefined })}`),
   importAccounts: (items: AccountInput[]) => post<{ created: number }>("/accounts/import", { items }),
   exportAccounts: () => post<FinancialReport>("/accounts/export", {}),
+  createCashAccount: (data: { name: string; kind: "cash" | "bank" | "mobile" }) => post<{ id: string; code: string; name: string }>("/cash-accounts", data),
   transfer: (data: Record<string, unknown>) => post<{ id: string; reference: string }>("/transfers", data),
   reconcile: (data: Record<string, unknown>) => post<{ id: string; ledger_balance: Money; difference: Money }>("/reconciliations", data),
   registerAsset: (data: Record<string, unknown>) => post<{ id: string }>("/assets", data),

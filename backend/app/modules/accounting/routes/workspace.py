@@ -12,6 +12,7 @@ from app.core.response import success_response
 from app.modules.accounting.schemas.workspace import (
     AssetAction,
     AssetRequest,
+    CashAccountCreate,
     DueDateRequest,
     FiscalPreference,
     PayrollPosting,
@@ -71,9 +72,14 @@ async def report_export(snapshot_id: uuid.UUID, db: DbSession, current_user: Cur
 
 
 @router.get("/records/{view}")
-async def records(view: Literal["cash", "reconciliations", "assets", "payroll", "tax", "tax-payments", "pending"], db: DbSession,
+async def records(view: Literal["cash", "reconciliations", "transfers", "assets", "payroll", "tax", "tax-payments", "pending"], db: DbSession,
                   current_user: CurrentUser, branch_id: ActiveBranchId, page: PageQuery, period: str | None = Query(None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")):
     return success_response(await dashboard.domain(db, current_user, view, page.page, min(page.page_size, 100), period, branch_id))
+
+
+@router.post("/cash-accounts", status_code=201)
+async def create_cash_account(data: CashAccountCreate, db: DbSession, current_user: CurrentUser):
+    return success_response(await operations.create_cash_account(db, current_user, data), status_code=201)
 
 
 @router.post("/transfers")

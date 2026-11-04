@@ -30,7 +30,7 @@ const STATUS_ICON: Record<string, React.ElementType> = {
   Approved: CheckCircle2, Pending: Clock, Rejected: XCircle,
 };
 
-const EMPTY_FORM = { order_id: "", customer_id: "", reason: "", status: "Pending", return_date: new Date().toISOString().slice(0, 10) };
+const EMPTY_FORM = { order_id: "", customer_id: "", reason: "", status: "Pending", refund_method: "credit_note", return_date: new Date().toISOString().slice(0, 10) };
 
 export default function SalesReturnsPage() {
   const { currencySymbol, brandColor } = useAppConfig();
@@ -102,7 +102,7 @@ export default function SalesReturnsPage() {
   const openAdd = () => { setForm(EMPTY_FORM); setLines({}); setShowAdd(true); };
   const openEdit = (r: ApiReturn) => {
     setEditing(r);
-    setForm({ order_id: r.order_id ?? "", customer_id: r.customer_id ?? "", reason: r.reason ?? "", status: r.status, return_date: r.return_date });
+    setForm({ order_id: r.order_id ?? "", customer_id: r.customer_id ?? "", reason: r.reason ?? "", status: r.status, refund_method: r.refund_method ?? "credit_note", return_date: r.return_date });
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
 
@@ -122,13 +122,14 @@ export default function SalesReturnsPage() {
       customer_id: form.customer_id || null,
       reason: form.reason || null,
       status: form.status,
+      refund_method: form.refund_method,
       return_date: form.return_date,
       items: picked.map(({ item, unit }) => ({ order_item_id: item.id, product_id: item.product_id, product_name: item.product_name, quantity: Number(lines[item.id]), refund_per_unit: Math.round(unit * 100) / 100 })),
     };
     const onError = (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to save return");
     const onSuccess = () => { setError(null); closeDrawer(); };
     if (editing) {
-      updateReturn.mutate({ id: editing.id, data: { order_id: payload.order_id, customer_id: payload.customer_id, reason: payload.reason, status: payload.status, return_date: payload.return_date } }, { onSuccess, onError });
+      updateReturn.mutate({ id: editing.id, data: { order_id: payload.order_id, customer_id: payload.customer_id, reason: payload.reason, status: payload.status, refund_method: payload.refund_method, return_date: payload.return_date } }, { onSuccess, onError });
     } else {
       createReturn.mutate(payload, { onSuccess, onError });
     }
@@ -300,6 +301,14 @@ export default function SalesReturnsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Return Date" required>
               <Input type="date" value={form.return_date} onChange={(e) => setForm({ ...form, return_date: e.target.value })} />
+            </Field>
+            <Field label="Refund or credit note">
+              <Select value={form.refund_method} onChange={(e) => setForm({ ...form, refund_method: e.target.value })}>
+                <option value="credit_note">Credit note (stays on the customer&apos;s account)</option>
+                <option value="cash">Refund in cash</option>
+                <option value="bank">Refund to bank</option>
+                <option value="mobile">Refund to mobile money</option>
+              </Select>
             </Field>
             <Field label="Status">
               <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>

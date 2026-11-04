@@ -80,6 +80,28 @@ async def transfer(db, user: User, data: TransferRequest, active_branch=None):
     return {"id": str(txn.id), "reference": txn.reference}
 
 
+async def create_cash_account(db, user: User, data) -> dict:
+    """Open another cash, bank or mobile-money account. Codes run 1000-1009 (cash), 1010-1019 (bank), 1020-1029 (mobile money)."""
+    from sqlalchemy import select
+
+    from app.modules.accounting.models.account import Account
+    tenant_id = allow(user, "chart_of_accounts", "create")
+    await ReportingRepository(db).lock_tenant(tenant_id)
+    base = {"cash": 1000, "bank": 1010, "mobile": 1020}[data.kind]
+    existing = (await db.execute(select(Account.code, Account.name).where(Account.tenant_id == tenant_id, Account.code.like("10%")))).all()
+    if any(name.strip().lower() == data.name.strip().lower() for _, name in existing):
+        raise ConflictError("An account with that name already exists")
+    used = {int(code) for code, _ in existing if code.isdigit()}
+    code = next((str(n) for n in range(base, base + 10) if n not in used), None)
+    if code is None:
+        raise ValidationError(f"You already have the maximum of 10 {data.kind} accounts")
+    account_row = await AccountRepository(db).save(Account(tenant_id=tenant_id, code=code, name=data.name.strip(), type="Assets", normal_balance="debit"))
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, actor_name=user.full_name, action="account.create", entity_type="account", entity_id=str(account_row.id),
+                       summary=f"Opened {data.kind} account {code} {account_row.name}")
+    await db.commit()
+    return {"id": str(account_row.id), "code": code, "name": account_row.name}
+
+
 async def reconcile(db, user: User, data: ReconciliationRequest, active_branch=None):
     tenant_id = allow(user, "banking", "approve")
     branch_id = await resolve_branch(db, user, data.branch_id, active_branch)

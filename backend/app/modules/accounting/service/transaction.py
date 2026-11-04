@@ -495,6 +495,14 @@ async def create_return_transaction(
                ("1200", "Inventory", "debit", cost, "Inventory returned to stock"),
                ("5000", "Cost of Goods Sold", "credit", cost, "Cost of Goods Sold reversed")],
     )
+    method = getattr(ret, "refund_method", "credit_note")
+    if method in {"cash", "bank", "mobile"} and refund > 0:
+        # Paying the customer back: the credit just created on their account is settled from the chosen till or account.
+        code, label = {"cash": ("1000", "Cash"), "bank": ("1010", "Bank"), "mobile": ("1020", "Mobile Money")}[method]
+        await post_journal(
+            db, tenant_id, user_id, type="refund", description=f"Refund {return_number} ({label})", return_id=return_id,
+            posting_date=ret.return_date, branch_id=order.branch_id if order is not None else None, client_reference=f"refund:{return_id}",
+            lines=[("1100", "Accounts Receivable", "debit", refund, "Customer credit paid out"), (code, label, "credit", refund, f"Refund paid from {label}")])
 
 
 async def create_write_off_transaction(

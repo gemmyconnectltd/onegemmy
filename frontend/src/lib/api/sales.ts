@@ -128,6 +128,7 @@ export interface ApiReturn {
   customer_id: string | null;
   reason: string | null;
   refund_amount: number;
+  refund_method?: string;
   currency_code?: string | null;
   exchange_rate?: number | null;
   base_refund_amount?: number | null;

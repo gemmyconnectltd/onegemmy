@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, FileText, Minus, Pause, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
 
@@ -9,7 +10,7 @@ import { IconBadge, getProductIcon, productAccent } from "./icons";
 import { resolveUploadUrl } from "@/lib/api/client";
 import type { CartItem } from "./types";
 import type { ApiCustomer } from "@/lib/api";
-import { useCreateCustomer, useCustomerDebtSnapshot } from "@/lib/api/hooks";
+import { useCreateCustomer, useUpdateCustomer, useCustomerDebtSnapshot } from "@/lib/api/hooks";
 import { useCan } from "@/lib/can";
 import { SaleDate } from "./SaleDate";
 
@@ -52,7 +53,9 @@ export function CartPanel({
   const [adding, setAdding] = useState(false);
   const owes = Number(useCustomerDebtSnapshot(customerId, true).data?.summary.outstanding ?? 0);
   const [notesOpen, setNotesOpen] = useState(false);
-  const [newCust, setNewCust] = useState({ type: "individual", name: "", phone: "", email: "", tin: "" });
+  const [newCust, setNewCust] = useState({ type: "individual", name: "", phone: "", email: "", address: "", tin: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const updateCustomer = useUpdateCustomer();
   const [custError, setCustError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,18 +80,30 @@ export function CartPanel({
     setCustOpen(false);
     setCustQ("");
     setAdding(false);
+    setEditingId(null);
   };
 
   // The same phone or email is the same person: offer them instead of creating a second record.
   const phoneKey = newCust.phone.replace(/\s+/g, ""), emailKey = newCust.email.trim().toLowerCase();
-  const duplicate = adding ? customers.find((c) => (phoneKey && (c.phone ?? "").replace(/\s+/g, "") === phoneKey) || (emailKey && (c.email ?? "").toLowerCase() === emailKey)) : undefined;
-  const startAdding = () => { setNewCust({ type: "individual", name: custQ.trim(), phone: "", email: "", tin: "" }); setCustError(null); setAdding(true); setCustOpen(false); };
+  const duplicate = adding && !editingId ? customers.find((c) => (phoneKey && (c.phone ?? "").replace(/\s+/g, "") === phoneKey) || (emailKey && (c.email ?? "").toLowerCase() === emailKey)) : undefined;
+  const startAdding = () => { setNewCust({ type: "individual", name: custQ.trim(), phone: "", email: "", address: "", tin: "" }); setCustError(null); setAdding(true); setCustOpen(false); };
+  const startEditing = () => {
+    const current = customers.find((c) => c.id === customerId);
+    if (!current) return;
+    setNewCust({ type: current.customer_type === "business" ? "business" : "individual", name: current.name, phone: current.phone ?? "", email: current.email ?? "", address: current.address ?? "", tin: current.tin ?? "" });
+    setEditingId(current.id); setCustError(null); setAdding(true); setCustOpen(false);
+  };
   const saveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     setCustError(null);
     try {
+      if (editingId) {
+        await updateCustomer.mutateAsync({ id: editingId, data: { name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, address: newCust.address.trim() || null, customer_type: newCust.type, ...(newCust.tin.trim() ? { tin: newCust.tin.trim() } : {}) } });
+        pickCustomer(editingId, newCust.name.trim());
+        return;
+      }
       if (duplicate) { pickCustomer(duplicate.id, duplicate.name); return; }
-      const res = await createCustomer.mutateAsync({ name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, customer_type: newCust.type, tin: newCust.tin.trim(), is_active: true });
+      const res = await createCustomer.mutateAsync({ name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, customer_type: newCust.type, address: newCust.address.trim() || null, tin: newCust.tin.trim(), is_active: true });
       pickCustomer(res.data.id, res.data.name);
     } catch (err) {
       setCustError((err as { detail?: string })?.detail ?? "The customer could not be saved. Try again.");
@@ -122,7 +137,8 @@ export function CartPanel({
               </span>
               <ChevronDown size={14} className="shrink-0 text-muted" aria-hidden />
             </button>
-            {can("contacts", "create") && <button type="button" onClick={() => { setNewCust({ type: "individual", name: "", phone: "", email: "", tin: "" }); setCustError(null); setAdding(true); setCustOpen(false); }} className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-accent"><Plus size={15} aria-hidden />New</button>}
+            {can("contacts", "create") && <button type="button" onClick={() => { setEditingId(null); setNewCust({ type: "individual", name: "", phone: "", email: "", address: "", tin: "" }); setCustError(null); setAdding(true); setCustOpen(false); }} className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-accent"><Plus size={15} aria-hidden />New</button>}
+            {customerId && can("contacts", "update") && <button type="button" onClick={startEditing} aria-label="Edit this customer" title="Edit this customer" className="flex h-10 lg:h-11 w-10 lg:w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface text-muted transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"><Pencil size={15} aria-hidden /></button>}
           </div>
           {custOpen && !adding && (
             <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
@@ -243,20 +259,21 @@ export function CartPanel({
       </div>
 
 
-      <Drawer open={adding} onClose={() => { if (!createCustomer.isPending) setAdding(false); }} side="center" size="md" title="New customer" description="Saved to Customers and selected for this sale. Your cart stays as it is.">
+      <Drawer open={adding} onClose={() => { if (!createCustomer.isPending && !updateCustomer.isPending) { setAdding(false); setEditingId(null); } }} side="center" size="md" title={editingId ? "Edit customer" : "New customer"} description={editingId ? "Changes are saved to Customers. Your cart stays as it is." : "Saved to Customers and selected for this sale. Your cart stays as it is."}>
         <form onSubmit={saveCustomer} className="space-y-3 p-5">
                   <div role="group" aria-label="Customer type" className="grid grid-cols-2 gap-1 rounded-lg border border-border p-1 text-[12px] font-semibold">
                     {([["individual", "Individual"], ["business", "Business"]] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={newCust.type === k} onClick={() => setNewCust({ ...newCust, type: k })} className={`rounded-md py-1.5 ${newCust.type === k ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{l}</button>)}
                   </div>
                   <input autoFocus required value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} placeholder={newCust.type === "business" ? "Business name" : "Name"} aria-label="Customer name" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   <input type="tel" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} placeholder="Phone" aria-label="Customer phone" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
+                  <input value={newCust.address} onChange={(e) => setNewCust({ ...newCust, address: e.target.value })} placeholder="Address (optional)" aria-label="Customer address" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   <input type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} placeholder="Email (optional)" aria-label="Customer email" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  <input required value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (required)" : "TIN (required)"} aria-label="TIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
+                  <input required={!editingId} value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (required)" : "TIN (required)"} aria-label="TIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   {duplicate && <p role="status" className="rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11.5px] font-medium text-amber-800 dark:text-amber-300">{duplicate.name} already has this {phoneKey && (duplicate.phone ?? "").replace(/\s+/g, "") === phoneKey ? "phone number" : "email"}. Saving will select them instead of creating a duplicate.</p>}
                   {custError && <p role="alert" className="text-[11px] font-medium text-red-600">{custError}</p>}
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setAdding(false)} className="flex-1 rounded-lg border border-border px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-surface">Cancel</button>
-                    <button type="submit" disabled={!newCust.name.trim() || newCust.tin.trim().length < 3 || createCustomer.isPending} className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-accent/90 disabled:opacity-50">{createCustomer.isPending ? "Saving…" : duplicate ? "Use existing" : "Save & select"}</button>
+                    <button type="button" onClick={() => { setAdding(false); setEditingId(null); }} className="flex-1 rounded-lg border border-border px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-surface">Cancel</button>
+                    <button type="submit" disabled={!newCust.name.trim() || (!editingId && newCust.tin.trim().length < 3) || createCustomer.isPending || updateCustomer.isPending} className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-accent/90 disabled:opacity-50">{createCustomer.isPending || updateCustomer.isPending ? "Saving…" : editingId ? "Save changes" : duplicate ? "Use existing" : "Save & select"}</button>
                   </div>
                 </form>
       </Drawer>

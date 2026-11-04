@@ -645,3 +645,65 @@ async def test_a_return_cannot_take_back_more_than_was_sold(db, monkeypatch):
             assert (await c.post("/api/v1/tenants/sales/returns", json=body(4))).status_code == 201
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_cash_and_bank_accounts_can_be_opened_and_transfers_need_a_reason_and_are_listed(db, monkeypatch):
+    tenant, branch, _product, _, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            opened = [await c.post("/api/v1/tenants/accounting/workspace/cash-accounts", json={"name": name, "kind": kind}) for name, kind in
+                      [("Front till", "cash"), ("Equity Bank", "bank"), ("MTN MoMo", "mobile")]]
+            assert [r.status_code for r in opened] == [201, 201, 201], [r.text for r in opened]
+            codes = {r.json()["data"]["name"]: r.json()["data"]["code"] for r in opened}
+            assert codes["Front till"] == "1001" and codes["Equity Bank"] == "1011" and codes["MTN MoMo"] == "1021"  # 1000/1010/1020 already exist
+            assert (await c.post("/api/v1/tenants/accounting/workspace/cash-accounts", json={"name": "equity bank", "kind": "bank"})).status_code == 409
+            ids = {r.json()["data"]["name"]: r.json()["data"]["id"] for r in opened}
+            body = {"reference": "TRF-0001", "from_account_id": ids["Front till"], "to_account_id": ids["Equity Bank"], "amount": 500, "transaction_date": datetime.now(UTC).date().isoformat()}
+            assert (await c.post("/api/v1/tenants/accounting/workspace/transfers", json=body)).status_code == 422  # no reason given
+            made = await c.post("/api/v1/tenants/accounting/workspace/transfers", json={**body, "description": "Banked the day's takings"})
+            assert made.status_code == 201, made.text
+            listed = await c.get("/api/v1/tenants/accounting/workspace/records/transfers")
+            assert listed.status_code == 200, listed.text
+            row = listed.json()["data"]["items"][0]
+            assert (row["from"], row["to"], float(row["amount"]), row["reason"], row["by"]) == ("Front till", "Equity Bank", 500.0, "Banked the day's takings", owner.full_name)
+            balances = (await c.get("/api/v1/tenants/accounting/workspace/records/cash")).json()["data"]
+            assert {"Cash", "Bank", "Mobile money", "Total"} <= set(balances["totals"])
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_twelve_product_sale_can_have_two_products_returned_for_a_cash_refund_or_a_credit_note(db, monkeypatch):
+    from app.modules.inventory.models.product import Product
+    tenant, branch, _product, _, owner = await _till(db, monkeypatch)
+    products = [Product(tenant_id=tenant.id, name=f"Item {n}", price=1000 + n, cost=500, stock=20) for n in range(12)]
+    db.add_all(products)
+    await db.flush()
+    total = sum(1000 + n for n in range(12))
+    try:
+        async with _client(owner, tenant, branch) as c:
+            made = await c.post("/api/v1/tenants/sales/orders", json={"status": "Completed", "client_order_id": uuid.uuid4().hex, "payment_method": "cash", "amount_paid": total,
+                "items": [{"product_id": str(p.id), "product_name": p.name, "unit_price": float(p.price), "quantity": 1} for p in products]})
+            assert made.status_code == 201, made.text
+            sale = made.json()["data"]
+            assert len(sale["items"]) == 12 and sale["total"] == total
+            cash_before = (await _net(db, tenant.id, "1000"))["1000"]
+            two = sale["items"][:2]
+            refund = sum(i["unit_price"] for i in two)
+            lines = [{"order_item_id": i["id"], "product_id": i["product_id"], "product_name": i["product_name"], "quantity": 1, "refund_per_unit": i["unit_price"]} for i in two]
+            cash = await c.post("/api/v1/tenants/sales/returns", json={"order_id": sale["id"], "status": "Approved", "refund_method": "cash",
+                                                                         "return_date": datetime.now(UTC).date().isoformat(), "items": lines})
+            assert cash.status_code == 201, cash.text
+            assert cash.json()["data"]["refund_method"] == "cash"
+            assert (await _net(db, tenant.id, "1000"))["1000"] == cash_before - refund  # the cash left the till
+            # the other ten stay sold: those two lines are used up, the rest can still come back later
+            again = await c.post("/api/v1/tenants/sales/returns", json={"order_id": sale["id"], "status": "Pending", "return_date": datetime.now(UTC).date().isoformat(), "items": lines})
+            assert again.status_code == 422
+            credit = await c.post("/api/v1/tenants/sales/returns", json={"order_id": sale["id"], "status": "Approved", "refund_method": "credit_note",
+                "return_date": datetime.now(UTC).date().isoformat(), "items": [{**{k: sale["items"][2][k2] for k, k2 in [("order_item_id", "id"), ("product_id", "product_id"), ("product_name", "product_name")]}, "quantity": 1, "refund_per_unit": sale["items"][2]["unit_price"]}]})
+            assert credit.status_code == 201, credit.text
+            assert (await _net(db, tenant.id, "1000"))["1000"] == cash_before - refund  # a credit note pays nothing out; the value stays as credit on the account
+            assert (await _net(db, tenant.id, "1100"))["1100"] == -sale["items"][2]["unit_price"]
+    finally:
+        app.dependency_overrides.clear()
