@@ -223,6 +223,28 @@ async def send_recovery_link(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSes
     return success_response(data={"email": user.email}, message="Recovery link emailed to the user")
 
 
+class SetPasswordRequest(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+    require_change: bool = True
+
+
+@router.post("/tenants/{tenant_id}/users/{user_id}/set-password")
+async def set_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, data: SetPasswordRequest, db: DbSession, admin: SuperUser):
+    """Give any user in any business a password you choose (a default for them to sign in with). By default they must choose their own
+    at the next sign-in. The password itself is never written to the audit log or returned."""
+    from app.core.security import hash_password, validate_password_strength
+    tenant = await get_tenant(db, tenant_id)
+    user = await db.get(User, user_id)
+    if user is None or user.tenant_id != tenant_id:
+        raise NotFoundError("User not found in this business")
+    validate_password_strength(data.password)
+    user.hashed_password = hash_password(data.password)
+    user.must_change_password = data.require_change
+    await audit(db, admin, tenant, "user.set_password", f"Set a default password for '{user.email}'", {"user_id": str(user.id), "must_change": data.require_change})
+    await db.commit()
+    return success_response(data={"email": user.email, "must_change_password": data.require_change}, message="Password set")
+
+
 # ── Data export ───────────────────────────────────────────────────────────────
 
 CATEGORIES = {

@@ -1,6 +1,7 @@
 import { request } from "./client";
 
 export interface ApiTokenUserInfo {
+  must_change_password?: boolean;
   id: string;
   email: string;
   full_name: string;

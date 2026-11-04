@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Form";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useTeamUser, useUpdateTeamUser, useSetTeamStatus, useRemoveTeamUser, useResetUserPassword, useTeamActivity } from "@/lib/api/hooks";
+import { useTeamUser, useUpdateTeamUser, useSetTeamStatus, useRemoveTeamUser, useResetUserPassword, useSetUserPassword, useTeamActivity } from "@/lib/api/hooks";
 import type { TeamUser } from "@/lib/api/admin";
 import EmployeePermissions from "./EmployeePermissions";
 import EmployeeFeatureSwitches from "./EmployeeFeatureSwitches";
@@ -24,8 +24,8 @@ export default function TeamUserEditor({tenantId,userId,onClose}:{tenantId:strin
 }
 function ProfileForm({tenantId,user,onClose}:{tenantId:string;user:TeamUser;onClose:()=>void}) {
   const [name,setName]=useState(user.full_name),[phone,setPhone]=useState(user.phone||""),[role,setRole]=useState(user.role_id||""),[dept,setDept]=useState(user.department_id||"");const [branches,setBranches]=useState<string[]|null>(user.branch_ids??(user.branch_id?[user.branch_id]:null));
-  const update=useUpdateTeamUser(),status=useSetTeamStatus(),remove=useRemoveTeamUser(),recover=useResetUserPassword();const {confirm,dialog}=useConfirmDialog();
-  const busy=update.isPending||status.isPending||remove.isPending||recover.isPending;
+  const update=useUpdateTeamUser(),status=useSetTeamStatus(),remove=useRemoveTeamUser(),recover=useResetUserPassword(),setPassword=useSetUserPassword();const {confirm,dialog}=useConfirmDialog();const [pw,setPw]=useState("");const [mustChange,setMustChange]=useState(true);
+  const busy=update.isPending||status.isPending||remove.isPending||recover.isPending||setPassword.isPending;
   const dirty=name!==user.full_name||phone!==(user.phone||"")||role!==(user.role_id||"")||dept!==(user.department_id||"")||JSON.stringify(branches)!==JSON.stringify(user.branch_ids??(user.branch_id?[user.branch_id]:null));
   return <div className="space-y-4">{dialog}<form className="space-y-4" onSubmit={e=>{e.preventDefault();update.mutate({tenantId,userId:user.id,data:{full_name:name.trim(),phone:phone.trim(),...(user.is_superuser?{}:{role_id:role||undefined}),department_id:dept||null,branch_ids:branches,branch_id:branches?.[0]||null}});}}>
     <Field label="Full name" required><Input required maxLength={255} value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Phone"><Input type="tel" maxLength={50} value={phone} onChange={e=>setPhone(e.target.value)}/></Field>
@@ -34,7 +34,13 @@ function ProfileForm({tenantId,user,onClose}:{tenantId:string;user:TeamUser;onCl
     {update.isError&&<p role="alert" className="text-sm text-red-600">{update.error.message}</p>}<Button type="submit" disabled={!dirty||busy||!name.trim()}>{update.isPending?"Saving…":"Save user"}</Button>
   </form><section className="space-y-3 border-t border-border pt-4"><h3 className="pesaa-card-title">Account actions</h3><p className="text-xs text-muted">Last sign-in: {user.last_login?new Date(user.last_login).toLocaleString():"Never"}</p><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy||!user.is_active} onClick={()=>confirm({title:"Send recovery link?",message:`Email a time-limited recovery link to ${user.email}.`,confirmLabel:"Send link",onConfirm:()=>recover.mutate({tenantId,userId:user.id})})}>Send recovery link</Button>
     {!user.is_superuser&&<><Button variant="outline" disabled={busy} onClick={()=>confirm({title:user.is_active?"Deactivate user?":"Reactivate user?",message:user.is_active?"They will lose access immediately. Their records and audit history remain.":"Restore sign-in access with their existing role and feature settings.",danger:user.is_active,onConfirm:()=>status.mutate({tenantId,userId:user.id,active:!user.is_active})})}>{user.is_active?"Deactivate":"Reactivate"}</Button><Button variant="destructive" disabled={busy} onClick={()=>confirm({title:"Remove user?",message:"Remove this account from the business. Deactivate instead if you may restore access later.",danger:true,confirmLabel:"Remove user",onConfirm:()=>remove.mutate({tenantId,userId:user.id},{onSuccess:onClose})})}>Remove user</Button></>}
-    </div>{recover.isSuccess&&<p role="status" className="text-sm text-accent">Recovery link emailed.</p>}{(status.error||remove.error||recover.error)&&<p role="alert" className="text-sm text-red-600">{(status.error||remove.error||recover.error)?.message}</p>}</section></div>;
+    </div><form className="space-y-2 rounded-lg border border-border p-3" onSubmit={e=>{e.preventDefault();confirm({title:"Set this password?",message:`${user.email} will be able to sign in with the password you typed.${mustChange?" They must choose their own at the next sign-in.":""}`,confirmLabel:"Set password",onConfirm:()=>setPassword.mutate({tenantId,userId:user.id,password:pw,requireChange:mustChange},{onSuccess:()=>setPw("")})});}}>
+      <h4 className="text-xs font-semibold">Set a default password</h4><p className="text-xs text-muted">At least 8 characters with a number and an uppercase letter. Tell the user the password yourself; it is not emailed or shown again.</p>
+      <Field label="Default password"><Input type="text" autoComplete="off" minLength={8} maxLength={128} value={pw} onChange={e=>setPw(e.target.value)} placeholder="e.g. Welcome2026"/></Field>
+      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={mustChange} onChange={e=>setMustChange(e.target.checked)}/>They must choose their own password at the next sign-in</label>
+      <Button type="submit" variant="outline" disabled={busy||pw.length<8}>{setPassword.isPending?"Setting…":"Set password"}</Button>
+      {setPassword.isSuccess&&<p role="status" className="text-sm text-accent">Password set.</p>}{setPassword.isError&&<p role="alert" className="text-sm text-red-600">{setPassword.error.message}</p>}
+    </form>{recover.isSuccess&&<p role="status" className="text-sm text-accent">Recovery link emailed.</p>}{(status.error||remove.error||recover.error)&&<p role="alert" className="text-sm text-red-600">{(status.error||remove.error||recover.error)?.message}</p>}</section></div>;
 }
 function UserActivity({tenantId,userId}:{tenantId:string;userId:string}) {
   const [page,setPage]=useState(1);const q=useTeamActivity(tenantId,userId,page);

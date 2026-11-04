@@ -5,11 +5,14 @@ import { useState } from "react";
 import { Lock, Eye, EyeOff, Check, Loader2, AlertCircle } from "lucide-react";
 import { Field, Input } from "@/components/ui/Form";
 import { authApi } from "@/lib/api/auth";
+import { useAuth } from "@/lib/auth";
 import { NotAvailable, SettingsCard } from "@/components/settings/parts";
 
 export default function SecurityPage() {
   const { brandColor } = useAppConfig();
   const C = brandColor;
+  const { user } = useAuth();
+  const forced = !!user?.mustChangePassword;
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -32,6 +35,7 @@ export default function SecurityPage() {
       setForm({ current: "", newPass: "", confirm: "" });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      if (forced) window.location.assign("/dashboard");  // reload so the session no longer carries the "must change" flag
     } catch (err) {
       const status = (err as { status?: number })?.status;
       const detail = (err as { detail?: string })?.detail;
@@ -51,6 +55,7 @@ export default function SecurityPage() {
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
       {/* Change password */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        {forced && <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">An administrator gave you a default password. Enter it as the current password and choose your own to continue.</p>}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${C}15` }}>
             <Lock size={15} style={{ color: C }} />

@@ -18,6 +18,7 @@ import { orderToSale } from "@/lib/orders";
 import { useAuth } from "@/lib/auth";
 import { useCan } from "@/lib/can";
 import { saleAtLabel } from "@/components/pos/SaleDate";
+import { SALE_DATE_FOR_EVERYONE } from "@/components/pos/constants";
 import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
 import { useProducts, useCustomers, useCreateOrder, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
@@ -546,7 +547,7 @@ export default function POSPage() {
           <span className="min-w-0 flex-1 truncate font-medium">{customerName || "Walk-in customer"}</span>
           <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-accent">{customerName ? "Change" : <><UserPlus size={13} aria-hidden />Add</>}</span>
         </button>
-        {can("orders", "approve") && <button type="button" onClick={() => setCartOpen(true)} aria-label="Sale date: change" className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium ${saleAt ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300" : "border-border bg-surface"}`}>
+        {(SALE_DATE_FOR_EVERYONE || can("orders", "approve")) && <button type="button" onClick={() => setCartOpen(true)} aria-label="Sale date: change" className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium ${saleAt ? "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300" : "border-border bg-surface"}`}>
           <CalendarClock size={14} aria-hidden /><span className="max-w-[7.5rem] truncate">{saleAt ? saleAtLabel(saleAt) : "Now"}</span>
         </button>}
       </div>

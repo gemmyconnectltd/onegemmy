@@ -377,6 +377,7 @@ async def change_password(db: AsyncSession, user: User, data: ChangePasswordRequ
         raise UnauthorizedError("Current password is incorrect")
     validate_password_strength(data.new_password)
     user.hashed_password = hash_password(data.new_password)
+    user.must_change_password = False
     await UserRepository(db).save(user)
     await db.commit()
     log.info("users.change_password.success", extra={"_extra_fields": {"user_id": str(user.id)}})

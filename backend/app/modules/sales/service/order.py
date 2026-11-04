@@ -572,13 +572,17 @@ async def _resolve_order_branch_id(
     return main.id if main else None
 
 
+# For now every till user may record a sale for an earlier day. Set False to require approval authority on sales again.
+BACKDATING_OPEN_TO_ALL = True
+
+
 async def require_backdating_allowed(db: AsyncSession, user, ordered_at: datetime) -> None:
     """Recording a sale for an earlier day than today changes past figures, so it needs approval authority on sales (owners, admins and managers hold it; cashiers do not)."""
     from zoneinfo import ZoneInfo
 
     from app.core.exceptions import ForbiddenError
     from app.modules.tenants.models import Tenant
-    if user.is_superuser or "orders:approve" in user.permissions_names:
+    if BACKDATING_OPEN_TO_ALL or user.is_superuser or "orders:approve" in user.permissions_names:
         return
     zone = ZoneInfo((await db.execute(select(Tenant.timezone).where(Tenant.id == user.tenant_id))).scalar_one() or "UTC")
     when = ordered_at if ordered_at.tzinfo else ordered_at.replace(tzinfo=UTC)

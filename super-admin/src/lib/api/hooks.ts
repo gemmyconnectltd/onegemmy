@@ -193,6 +193,7 @@ export const useUpdateFeature = mutation(({ key, data }: { key: string; data: Pa
 export const useSetTenantFeatures = mutation(({ tenantId, features }: { tenantId: string; features: Record<string, boolean> }) => adminApi.setTenantFeatures(tenantId, { features }), [[...TENANTS]]);
 export const useResetTenantFeatures = mutation((tenantId: string) => adminApi.resetTenantFeatures(tenantId), [[...TENANTS]]);
 export const useSetTenantLimits = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.setTenantLimits>[1] }) => adminApi.setTenantLimits(tenantId, data), [[...TENANTS]]);
+export const useSetUserPassword = mutation(({ tenantId, userId, password, requireChange }: { tenantId: string; userId: string; password: string; requireChange: boolean }) => adminApi.setUserPassword(tenantId, userId, password, requireChange), [[...TENANTS]]);
 export const useResetUserPassword = mutation(({ tenantId, userId }: { tenantId: string; userId: string }) => adminApi.sendRecoveryLink(tenantId, userId), [[...TENANTS]]);
 
 // ── Platform currency ───────────────────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ class ExpenseFilters(BaseModel):
     search: str = Field(default="", max_length=100)
     category: str | None = Field(default=None, max_length=50)
     payment_method: Literal["Cash", "Bank Transfer", "Mobile Money", "Card"] | None = None
-    status: Literal["Pending", "Approved", "Rejected"] | None = None
+    status: Literal["Pending", "Approved", "Rejected", "Reversed"] | None = None
     from_date: date | None = None
     to_date: date | None = None
 

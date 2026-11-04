@@ -106,6 +106,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (!isLoading && !user) router.replace("/login");
   }, [isLoading, user, router]);
 
+  // A default password is only for the first sign-in: send the person to choose their own.
+  useEffect(() => {
+    if (user?.mustChangePassword && !pathname.startsWith("/settings/security")) router.replace("/settings/security?must_change=1");
+  }, [user?.mustChangePassword, pathname, router]);
+
   const sidebarW = sidebarWidth(sidebarCollapsed);
 
   if (isLoading || !user) return (

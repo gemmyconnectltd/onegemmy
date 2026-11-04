@@ -21,6 +21,8 @@ class ExpenseCreate(BaseModel):
     client_reference: str | None = Field(default=None, min_length=3, max_length=50)
     account_id: uuid.UUID | None = None
     order_id: uuid.UUID | None = None
+    on_credit: bool = False  # booked now, paid later
+    allow_duplicate: bool = False  # confirm an expense that looks like one already recorded
     # Foreign-currency expense (e.g. an international supplier invoice). Omit for the tenant's base
     # currency. `exchange_rate` = units of base currency per 1 `currency_code`; omit to use the rate in
     # force on `expense_date`.
@@ -103,8 +105,45 @@ class ExpenseRead(BaseModel):
     account: AccountRead | None = None
     reversed_at: datetime | None = None
     reversal_reason: str | None = None
+    on_credit: bool = False
+    paid_at: datetime | None = None
+    refunded_amount: Decimal = Decimal(0)
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class ExpenseReclassify(BaseModel):
+    account_id: uuid.UUID
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class ExpensePayment(BaseModel):
+    payment_method: Literal["Cash", "Bank Transfer", "Mobile Money", "Card"] = "Cash"
+    paid_on: date | None = None
+
+
+class ExpenseRefund(BaseModel):
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    method: Literal["Cash", "Bank Transfer", "Mobile Money", "Card"] = "Cash"
+    reason: str = Field(min_length=3, max_length=500)
+    received_on: date | None = None
+
+
+class ExpenseSettings(BaseModel):
+    auto_approve_below: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+
+
+class RecurringExpenseInput(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    amount: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    category: str = Field(min_length=1, max_length=50)
+    frequency: Literal["weekly", "monthly"]
+    next_date: date
+    account_id: uuid.UUID | None = None
+    supplier_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
+    payment_method: Literal["Cash", "Bank Transfer", "Mobile Money", "Card"] = "Cash"
+    on_credit: bool = False
 
 
 class ExpenseReversal(BaseModel):

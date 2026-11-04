@@ -2,7 +2,7 @@
 import { useDeferredValue, useRef, useState } from "react";
 import Link from "next/link";
 import { FileText, Save } from "lucide-react";
-import { useExpenseCategories, useExpenseDetail, useExpenseReceipt, useSaveExpense, useSuppliers } from "@/lib/api/hooks";
+import { useCreateRecurringExpense, useExpenseCategories, useExpenseDetail, useExpenseReceipt, useSaveExpense, useSuppliers } from "@/lib/api/hooks";
 import type { ExpenseRecord } from "@/lib/api/expenseWorkspace";
 import { useAuth } from "@/lib/auth";
 import { Input, Select, Textarea } from "@/components/ui/Form";
@@ -29,6 +29,10 @@ function ExpenseForm({ initial, onClose, onSaved, onBusy }: { initial?: ExpenseR
   const [supplierSearch, setSupplierSearch] = useState("");
   const suppliers = useSuppliers(1, 25, useDeferredValue(supplierSearch), {enabled: hasPermission("vendors:read")});
   const [file, setFile] = useState<File | null>(null);
+  const [onCredit, setOnCredit] = useState(!!initial?.on_credit);
+  const [repeat, setRepeat] = useState<"none" | "weekly" | "monthly">("none");
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
+  const createRecurring = useCreateRecurringExpense();
   const [error, setError] = useState<unknown>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const retryKey = useRef<string | null>(null), submitting = useRef(false);
@@ -46,8 +50,13 @@ function ExpenseForm({ initial, onClose, onSaved, onBusy }: { initial?: ExpenseR
       let id = savedId;
       if (!id) {
         retryKey.current ||= crypto.randomUUID();
-        const result = await save.mutateAsync({id: initial?.id, data: {...form, title: form.title.trim(), notes: form.notes.trim() || null, supplier_id: form.supplier_id || null, reference_number: form.reference_number.trim() || null, ...(initial ? {} : {client_reference: retryKey.current})}});
+        const result = await save.mutateAsync({id: initial?.id, data: {...form, title: form.title.trim(), notes: form.notes.trim() || null, supplier_id: form.supplier_id || null, reference_number: form.reference_number.trim() || null, ...(initial ? {} : {client_reference: retryKey.current, on_credit: onCredit, allow_duplicate: allowDuplicate})}});
         id = result.data.id; setSavedId(id);
+        if (!initial && repeat !== "none") {
+          const next = new Date(`${form.expense_date}T00:00:00`);
+          if (repeat === "weekly") next.setDate(next.getDate() + 7); else next.setMonth(next.getMonth() + 1);
+          await createRecurring.mutateAsync({ title: form.title.trim(), amount: form.amount, category: form.category, frequency: repeat, next_date: `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`, payment_method: form.payment_method, supplier_id: form.supplier_id || null, on_credit: onCredit });
+        }
       }
       if (file) await attach.mutateAsync({id, file});
       onSaved(id);
@@ -61,7 +70,9 @@ function ExpenseForm({ initial, onClose, onSaved, onBusy }: { initial?: ExpenseR
       <div className="grid gap-4 sm:grid-cols-2"><div><label className="block text-xs font-medium">Category<Input aria-label="Search category" placeholder="Find category…" value={categorySearch} onChange={e => setCategorySearch(e.target.value)} disabled={frozen} /><Select aria-label="Expense category" required value={form.category} onChange={e => set("category", e.target.value)} disabled={frozen}><option value="">Select category</option>{form.category && !categoryQuery.data?.items.some(category => category.name === form.category) && <option>{form.category}</option>}{categoryQuery.data?.items.filter(category => category.is_active || category.name === form.category).map(category => <option key={category.id}>{category.name}</option>)}</Select></label>{categoryQuery.isLoading && <PageLoader variant="compact" />}<FinancialError error={categoryQuery.error} /><Link href="/expenses/categories" target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[11px] text-accent">Manage expense categories</Link></div><label className="block text-xs font-medium">Payment method<Select aria-label="Expense payment method" value={form.payment_method} onChange={e => set("payment_method", e.target.value)} disabled={frozen}>{EXPENSE_METHODS.map(method => <option key={method}>{method}</option>)}</Select></label></div>
       <div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-medium">Reference number (optional)<Input aria-label="Expense reference number" maxLength={100} value={form.reference_number} onChange={e => set("reference_number", e.target.value)} placeholder="Receipt or payment reference" disabled={frozen} /></label><div>{hasPermission("vendors:read") ? <label className="block text-xs font-medium">Supplier (optional)<Input aria-label="Search supplier" placeholder="Find supplier…" value={supplierSearch} onChange={e => setSupplierSearch(e.target.value)} disabled={frozen} /><Select aria-label="Expense supplier" value={form.supplier_id} onChange={e => set("supplier_id", e.target.value)} disabled={frozen}><option value="">No supplier</option>{form.supplier_id && !suppliers.data?.items.some(supplier => supplier.id === form.supplier_id) && <option value={form.supplier_id}>Selected supplier</option>}{suppliers.data?.items.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</Select></label> : <p className="text-[11px] text-muted">Supplier selection requires supplier viewing permission.</p>}<FinancialError error={suppliers.error} /></div></div>
       <label className="block text-xs font-medium">Notes (optional)<Textarea aria-label="Expense notes" rows={3} value={form.notes} onChange={e => set("notes", e.target.value)} disabled={frozen} /></label>
-      <FinancialError error={error} />{savedId && error != null && <p className="text-xs text-muted">The expense is saved. Retry Save Expense to attach the receipt; this will not create another expense.</p>}
+      {!initial && <div className="grid gap-4 sm:grid-cols-2"><label className="flex items-start gap-2 text-xs font-medium"><input type="checkbox" className="mt-0.5" checked={onCredit} onChange={e => setOnCredit(e.target.checked)} disabled={frozen} /><span>Pay later<span className="block font-normal text-muted">Book it now as unpaid (owed to the supplier) and record the payment when you pay.</span></span></label>
+        <label className="block text-xs font-medium">Repeat<Select aria-label="Repeat this expense" value={repeat} onChange={e => setRepeat(e.target.value as "none" | "weekly" | "monthly")} disabled={frozen}><option value="none">Does not repeat</option><option value="weekly">Every week</option><option value="monthly">Every month</option></Select></label></div>}
+      <FinancialError error={error} />{(error as { detail?: string } | null)?.detail?.startsWith("Possible duplicate") && !allowDuplicate && <Button type="button" variant="outline" onClick={() => { setAllowDuplicate(true); setError(null); }}>This is a different expense. Allow it, then save again</Button>}{savedId && error != null && <p className="text-xs text-muted">The expense is saved. Retry Save Expense to attach the receipt; this will not create another expense.</p>}
 
     </section>
     <aside className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5"><div className="flex items-center gap-2"><FileText size={17} className="text-accent" /><h2 className="text-sm font-semibold">Receipt & summary</h2></div><label className="block text-xs font-medium">Receipt attachment (optional)<Input aria-label="Receipt attachment" type="file" accept="application/pdf,image/png,image/jpeg" disabled={busy || !can("update")} onChange={e => {setFile(e.target.files?.[0] || null); setError(null);}} /></label><p className="text-[11px] leading-relaxed text-muted">PDF, PNG or JPEG · up to 5 MB. Receipts are private to authorized expense users.</p>{!can("update") && <p className="text-[11px] text-muted">Expense update permission is required to attach a receipt.</p>}{(file || initial?.receipt_name) && <p className="break-words rounded-lg bg-surface p-3 text-xs">{file?.name || initial?.receipt_name}</p>}<dl className="space-y-3 border-t border-border pt-4 text-xs"><div className="flex justify-between gap-3"><dt className="text-muted">Category</dt><dd>{form.category || "—"}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Payment</dt><dd>{form.payment_method}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Amount</dt><dd className="font-bold tabular-nums">{money(Number(form.amount) || 0, initial?.currency_code || undefined)}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted">Status</dt><dd>Pending approval</dd></div></dl></aside>

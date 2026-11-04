@@ -71,7 +71,7 @@ async def get_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> 
 async def create_expense(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ExpenseCreate, user_name: str | None = None) -> ExpenseRead:
     repo = ExpenseRepository(db)
     reference = await repo.next_reference(tenant_id)
-    fields = data.model_dump(exclude={"currency_code", "exchange_rate"})
+    fields = data.model_dump(exclude={"currency_code", "exchange_rate", "allow_duplicate"})
     obj = Expense(
         tenant_id=tenant_id,
         reference=reference,
@@ -117,7 +117,7 @@ async def bulk_create_expenses(
                 tenant_id=tenant_id,
                 reference=reference,
                 created_by=user_id,
-                **item.model_dump(exclude={"currency_code", "exchange_rate"}),
+                **item.model_dump(exclude={"currency_code", "exchange_rate", "allow_duplicate"}),
             )
             await _stamp_currency(db, tenant_id, obj, item.currency_code, item.exchange_rate)
             obj = await repo.save(obj)
@@ -201,7 +201,7 @@ async def approve_expense(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     # auto-create journal entry
     await create_expense_transaction(
         db, tenant_id, user_id, obj.id, float(base_amount), obj.reference, obj.account_id,
-        payment_method=obj.payment_method, payment_date=obj.expense_date, branch_id=obj.branch_id,
+        payment_method=obj.payment_method, payment_date=obj.expense_date, branch_id=obj.branch_id, on_credit=obj.on_credit,
     )
 
     await record_audit(

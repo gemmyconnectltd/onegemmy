@@ -379,9 +379,12 @@ async def create_expense_transaction(
     payment_method: str = "Cash",
     payment_date: date | None = None,
     branch_id: uuid.UUID | None = None,
+    on_credit: bool = False,
 ) -> None:
-    """Auto-called when expense is Approved. Debit Expense account, Credit Cash."""
+    """Auto-called when expense is Approved. Debit Expense account, Credit Cash (or Accounts Payable when it is paid later)."""
     code, method_label = _PAYMENT_METHOD_ACCOUNTS.get(payment_method.lower(), ("1000", "Cash"))
+    if on_credit:
+        code, method_label = "2000", "Accounts Payable"
     cash_id = await _posting_account(db, tenant_id, code, method_label)
     if expense_account_id is None:
         raise ValidationError("Choose the expense account this expense belongs to before posting it")

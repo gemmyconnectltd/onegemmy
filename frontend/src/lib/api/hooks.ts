@@ -954,6 +954,15 @@ export const useExpenseCategories = (page: number, search: string, scope: string
 const EXPENSE_INVALIDATE = [["expense-workspace"], [...EXPENSES], [...REPORTS], [...TRANSACTIONS], ["accounting", "workspace"]];
 export const useSaveExpense = mutation(({id, data}: { id?: string; data: ExpenseInput }) => id ? expenseWorkspaceApi.edit(id, data) : expenseWorkspaceApi.create(data), EXPENSE_INVALIDATE);
 export const useExpenseAction = mutation(({id, action}: {id: string; action: string}) => expenseWorkspaceApi.action(id, action), EXPENSE_INVALIDATE);
+export const useExpenseReclassify = mutation(({id, account_id, reason}: {id: string; account_id: string; reason: string}) => expenseWorkspaceApi.reclassify(id, account_id, reason), EXPENSE_INVALIDATE);
+export const useExpensePay = mutation(({id, method}: {id: string; method: string}) => expenseWorkspaceApi.pay(id, method), EXPENSE_INVALIDATE);
+export const useExpenseRefund = mutation(({id, ...data}: {id: string; amount: string; method: string; reason: string}) => expenseWorkspaceApi.refund(id, data), EXPENSE_INVALIDATE);
+export const useExpenseSettings = () => useQ(["expense-workspace", "settings"], () => expenseWorkspaceApi.settings(), r => r.data);
+export const useSaveExpenseSettings = mutation((limit: string | null) => expenseWorkspaceApi.saveSettings(limit), [["expense-workspace"]]);
+export const useRecurringExpenses = () => useQ(["expense-workspace", "recurring"], () => expenseWorkspaceApi.recurring(), r => r.data);
+export const useCreateRecurringExpense = mutation((data: object) => expenseWorkspaceApi.createRecurring(data), [["expense-workspace"]]);
+export const useToggleRecurringExpense = mutation((id: string) => expenseWorkspaceApi.toggleRecurring(id), [["expense-workspace"]]);
+export const useRunRecurringExpenses = mutation(() => expenseWorkspaceApi.runRecurring(), EXPENSE_INVALIDATE);
 export const useExpenseReverse = mutation(({id, reason}: {id: string; reason: string}) => expenseWorkspaceApi.reverse(id, reason), EXPENSE_INVALIDATE);
 export const useSaveExpenseCategory = mutation(({id, data}: {id?: string; data: Omit<ExpenseCategory, "id">}) => expenseWorkspaceApi.saveCategory(data, id), EXPENSE_INVALIDATE);
 export const useExpenseReceipt = mutation(({id, file}: {id: string; file: File}) => expenseWorkspaceApi.attach(id, file), EXPENSE_INVALIDATE);

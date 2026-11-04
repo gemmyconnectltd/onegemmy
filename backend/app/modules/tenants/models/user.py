@@ -37,6 +37,8 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set when a platform administrator gave this person a default password: they must choose their own at the next sign-in.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # Stamped on every successful login so the users screen can show "last
     # seen" without scanning the audit trail.
     last_login: Mapped[object | None] = mapped_column(DateTime(timezone=True), nullable=True)

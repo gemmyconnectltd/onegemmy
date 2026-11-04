@@ -752,6 +752,8 @@ export const adminApi = {
     request<SingleResponse<TenantLimits>>(`${B}/tenants/${tenantId}/limits`),
   setTenantLimits: (tenantId: string, data: TenantLimits) =>
     request<SingleResponse<TenantLimits>>(`${B}/tenants/${tenantId}/limits`, { method: "PATCH", body: JSON.stringify(data) }),
+  setUserPassword: (tenantId: string, userId: string, password: string, requireChange: boolean) =>
+    request<SingleResponse<{ email: string; must_change_password: boolean }>>(`${B}/tenants/${tenantId}/users/${userId}/set-password`, { method: "POST", body: JSON.stringify({ password, require_change: requireChange }) }),
   sendRecoveryLink: (tenantId: string, userId: string) =>
     request<SingleResponse<{ email: string }>>(`${B}/tenants/${tenantId}/users/${userId}/recovery-link`, { method: "POST" }),
 };

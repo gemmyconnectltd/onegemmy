@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { useExpenseDetail, useExpenseReverse } from "@/lib/api/hooks";
-import { Textarea } from "@/components/ui/Form";
+import { useExpenseDetail, useExpensePay, useExpenseReclassify, useExpenseRefund, useExpenseReverse } from "@/lib/api/hooks";
+import { AccountPicker } from "@/components/accounting/FinancialShared";
+import { Input, Select, Textarea } from "@/components/ui/Form";
 import { expenseWorkspaceApi } from "@/lib/api/expenseWorkspace";
 import { Drawer } from "@/components/ui/Drawer";
 import { PageLoader } from "@/components/ui/PageLoader";
@@ -18,6 +19,16 @@ export function ExpenseDetails({ id, onClose, onEdit, onAction, busy }: { id: st
   const [downloading, setDownloading] = useState(false);
   const record = query.data?.record;
   const reverse = useExpenseReverse();
+  const reclassify = useExpenseReclassify(), pay = useExpensePay(), refund = useExpenseRefund();
+  const [panel, setPanel] = useState<null | "reclassify" | "refund" | "pay">(null);
+  const [fields, setFields] = useState({ account: "", reason: "", amount: "", method: "Cash" });
+  const [panelError, setPanelError] = useState<unknown>(null);
+  const runPanel = async () => { setPanelError(null); try {
+    if (panel === "reclassify") await reclassify.mutateAsync({ id, account_id: fields.account, reason: fields.reason.trim() });
+    else if (panel === "refund") await refund.mutateAsync({ id, amount: fields.amount, method: fields.method, reason: fields.reason.trim() });
+    else if (panel === "pay") await pay.mutateAsync({ id, method: fields.method });
+    setPanel(null); setFields({ account: "", reason: "", amount: "", method: "Cash" });
+  } catch (cause) { setPanelError(cause); } };
   const [reversing, setReversing] = useState(false);
   const [reason, setReason] = useState("");
   const [reverseError, setReverseError] = useState<unknown>(null);
@@ -28,6 +39,23 @@ export function ExpenseDetails({ id, onClose, onEdit, onAction, busy }: { id: st
       {record.notes && <div><h3 className="text-xs font-semibold">Notes</h3><p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted">{record.notes}</p></div>}
       <div><h3 className="mb-2 text-xs font-semibold">Receipt</h3>{record.receipt_name ? <Button variant="outline" disabled={downloading} onClick={async () => { setDownloading(true); setDownloadError(null); try { await expenseWorkspaceApi.receipt(record.id, record.receipt_name!); } catch (error) { setDownloadError(error); } finally { setDownloading(false); } }}><Download size={14} />{downloading ? "Downloading…" : record.receipt_name}</Button> : <p className="text-xs text-muted">No receipt attached.</p>}<FinancialError error={downloadError} /></div>
       <section className="border-t border-border pt-4"><h3 className="mb-3 text-xs font-semibold">Activity history</h3><ul className="space-y-4">{query.data?.history.map((event, index) => <li key={`${event.date}:${index}`} className="border-l-2 border-accent/20 pl-3"><p className="text-xs">{event.summary}</p><p className="mt-1 text-[11px] text-muted">{event.actor || "System"} · {new Date(event.date).toLocaleString()}</p></li>)}</ul>{!query.data?.history.length && <p className="text-xs text-muted">No recorded activity.</p>}{(query.data?.history_total ?? 0) > 20 && <FinancialPagination page={page} size={20} total={query.data!.history_total} onPage={setPage} />}</section>
+      {record.on_credit && record.status === "Approved" && <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">{record.paid_at ? `Paid on ${new Date(record.paid_at).toLocaleDateString()}` : "Booked as unpaid: it is owed to the supplier until you record the payment."}</p>}
+      {Number(record.refunded_amount ?? 0) > 0 && <p className="rounded-lg bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">Refunded by the supplier: {money(Number(record.refunded_amount), record.currency_code || undefined)}</p>}
+      {record.status === "Approved" && can("approve") && <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+        {record.on_credit && !record.paid_at && <Button variant="outline" onClick={() => setPanel("pay")}>Record payment</Button>}
+        <Button variant="outline" onClick={() => setPanel("reclassify")}>Change category / account</Button>
+        <Button variant="outline" onClick={() => setPanel("refund")}>Record supplier refund</Button>
+      </div>}
+      {panel && <section className="space-y-3 rounded-xl border border-border p-4">
+        <h3 className="text-xs font-semibold">{panel === "reclassify" ? "Move this expense to another account" : panel === "refund" ? "Record a supplier refund or credit note" : "Record the payment"}</h3>
+        <p className="text-xs text-muted">{panel === "reclassify" ? "An adjusting entry moves the amount. The original entry stays." : panel === "refund" ? "The money received is booked against this expense." : "Choose where the money is paid from."}</p>
+        {panel === "reclassify" && <label className="block text-xs font-medium">New expense account<AccountPicker label="New expense account" type="Expense" optional={false} required value={fields.account} onChange={value => setFields({ ...fields, account: value })} /></label>}
+        {panel === "refund" && <label className="block text-xs font-medium">Amount refunded<Input aria-label="Refund amount" type="number" min="0" step="0.01" value={fields.amount} onChange={e => setFields({ ...fields, amount: e.target.value })} /></label>}
+        {panel !== "reclassify" && <label className="block text-xs font-medium">{panel === "pay" ? "Paid from" : "Received into"}<Select aria-label="Method" value={fields.method} onChange={e => setFields({ ...fields, method: e.target.value })}><option>Cash</option><option>Bank Transfer</option><option>Mobile Money</option></Select></label>}
+        {panel !== "pay" && <label className="block text-xs font-medium">Reason (required)<Textarea aria-label="Reason" rows={2} maxLength={500} value={fields.reason} onChange={e => setFields({ ...fields, reason: e.target.value })} /></label>}
+        <FinancialError error={panelError} />
+        <div className="flex gap-2"><Button variant="outline" onClick={() => { setPanel(null); setPanelError(null); }}>Cancel</Button><Button disabled={reclassify.isPending || pay.isPending || refund.isPending || (panel === "reclassify" && (!fields.account || fields.reason.trim().length < 3)) || (panel === "refund" && (!fields.amount || fields.reason.trim().length < 3))} onClick={() => void runPanel()}>Save</Button></div>
+      </section>}
       {record.status === "Approved" && can("approve") && (reversing
         ? <section className="space-y-3 border-t border-border pt-4"><h3 className="text-xs font-semibold">Reverse this expense</h3>
           <p className="text-xs leading-relaxed text-muted">The original entry stays in the books. A reversing entry is added dated today, and the reason is recorded in the audit trail. To correct an amount, reverse it and record the expense again.</p>

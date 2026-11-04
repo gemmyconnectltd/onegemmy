@@ -49,6 +49,11 @@ class Expense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMi
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Booked now, paid later: the credit goes to Accounts Payable until "paid" is recorded.
+    on_credit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Money the supplier gave back after the expense was approved (a refund or credit note), in base currency.
+    refunded_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0, server_default="0")
     reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     reversed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reversal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -80,3 +85,21 @@ class ExpenseCategory(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     __table_args__ = (Index("uq_expense_categories_tenant_name", "tenant_id", "name", unique=True),)
+
+
+class RecurringExpense(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
+    """A template that creates a pending expense each week or month (rent, subscriptions)."""
+    __tablename__ = "accounting_recurring_expenses"
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("accounting_accounts.id", ondelete="SET NULL"), nullable=True)
+    supplier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("inventory_suppliers.id", ondelete="SET NULL"), nullable=True)
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True)
+    payment_method: Mapped[str] = mapped_column(String(20), nullable=False, default="Cash", server_default="Cash")
+    on_credit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    frequency: Mapped[str] = mapped_column(String(10), nullable=False)  # weekly | monthly
+    next_date: Mapped[date] = mapped_column(Date, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

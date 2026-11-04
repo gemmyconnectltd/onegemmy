@@ -36,6 +36,8 @@ export interface User {
   branchName: string | null;
   /** ERP modules an administrator switched off for this person (never set for the owner). */
   disabledModules: string[];
+  /** Set when an administrator gave this person a default password: they must choose their own first. */
+  mustChangePassword: boolean;
   permissions: string[];
 }
 
@@ -123,6 +125,7 @@ function mapUser(u: ApiTokenUserInfo): User {
     branchId: u.branch_ids && u.branch_ids.length > 1 ? null : u.branch_id ?? u.branch_ids?.[0] ?? null,
     branchName: u.branch_name,
     disabledModules: u.disabled_modules ?? [],
+    mustChangePassword: u.must_change_password ?? false,
     permissions: u.permissions ?? [],
   };
 }

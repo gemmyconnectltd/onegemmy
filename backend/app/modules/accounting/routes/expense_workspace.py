@@ -6,7 +6,16 @@ from fastapi.responses import FileResponse
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.pagination import PageQuery
 from app.core.response import success_response
-from app.modules.accounting.schemas.expense import ExpenseCreate, ExpenseReversal, ExpenseUpdate
+from app.modules.accounting.schemas.expense import (
+    ExpenseCreate,
+    ExpensePayment,
+    ExpenseReclassify,
+    ExpenseRefund,
+    ExpenseReversal,
+    ExpenseSettings,
+    ExpenseUpdate,
+    RecurringExpenseInput,
+)
 from app.modules.accounting.schemas.expense_workspace import ExpenseCategoryInput, ExpenseFilters
 from app.modules.accounting.service import expense_workspace as service
 
@@ -25,6 +34,36 @@ async def search(
 @router.post("/overview")
 async def overview(data: ExpenseFilters, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
     return success_response(await service.page(db, user, branch, data, 1, 5, True))
+
+
+@router.get("/settings")
+async def settings_get(db: DbSession, user: CurrentUser):
+    return success_response(await service.get_settings(db, user))
+
+
+@router.patch("/settings")
+async def settings_save(data: ExpenseSettings, db: DbSession, user: CurrentUser):
+    return success_response(await service.save_settings(db, user, data.auto_approve_below))
+
+
+@router.get("/recurring")
+async def recurring_list(db: DbSession, user: CurrentUser):
+    return success_response(await service.recurring_list(db, user))
+
+
+@router.post("/recurring", status_code=201)
+async def recurring_create(data: RecurringExpenseInput, db: DbSession, user: CurrentUser):
+    return success_response(await service.recurring_create(db, user, data), status_code=201)
+
+
+@router.post("/recurring/run")
+async def recurring_run(db: DbSession, user: CurrentUser):
+    return success_response(await service.recurring_run(db, user))
+
+
+@router.post("/recurring/{identity}/toggle")
+async def recurring_toggle(identity: uuid.UUID, db: DbSession, user: CurrentUser):
+    return success_response(await service.recurring_toggle(db, user, identity))
 
 
 @router.get("/categories")
@@ -73,6 +112,21 @@ async def edit(
     branch: ActiveBranchId,
 ):
     return success_response((await service.edit(db, user, branch, identity, data)).model_dump())
+
+
+@router.post("/{identity}/reclassify")
+async def reclassify(identity: uuid.UUID, data: ExpenseReclassify, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
+    return success_response((await service.reclassify(db, user, branch, identity, data.account_id, data.reason)).model_dump())
+
+
+@router.post("/{identity}/pay")
+async def pay(identity: uuid.UUID, data: ExpensePayment, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
+    return success_response((await service.pay(db, user, branch, identity, data.payment_method, data.paid_on)).model_dump())
+
+
+@router.post("/{identity}/refund")
+async def refund(identity: uuid.UUID, data: ExpenseRefund, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
+    return success_response((await service.refund(db, user, branch, identity, data)).model_dump())
 
 
 @router.post("/{identity}/reverse")

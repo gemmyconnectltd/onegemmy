@@ -68,6 +68,7 @@ class TokenUserInfo(BaseModel):
     branch_id: uuid.UUID | None = None
     branch_name: str | None = None
     disabled_modules: list[str] = []
+    must_change_password: bool = False
     permissions: list[str]
 
 

@@ -17,3 +17,6 @@ export function generateOrderId() {
 export function timeLabel() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+
+/** For now every till user can set the sale date. Set false to limit it to people with approval authority on sales again. */
+export const SALE_DATE_FOR_EVERYONE = true;

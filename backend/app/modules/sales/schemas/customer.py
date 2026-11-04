@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class CustomerCreate(BaseModel):
@@ -17,16 +18,16 @@ class CustomerCreate(BaseModel):
 
 
 class CustomerCreateStrict(CustomerCreate):
-    """A customer entered by hand (not imported) must carry a TIN, individual or business: receipts and invoices cite it."""
-    tin: str = Field(min_length=3, max_length=50)
+    """A customer entered on the Customers page must carry a TIN, individual or business: receipts and invoices cite it.
+    The till (`source="pos"`) may add a buyer without one so a sale is never held up; the TIN can be added later."""
+    source: Literal["customers", "pos"] = "customers"
 
-    @field_validator("tin")
-    @classmethod
-    def tin_is_filled(cls, value: str) -> str:
-        value = value.strip()
-        if len(value) < 3:
+    @model_validator(mode="after")
+    def tin_is_filled(self):
+        self.tin = (self.tin or "").strip() or None
+        if self.source != "pos" and (self.tin is None or len(self.tin) < 3):
             raise ValueError("Enter the customer's TIN")
-        return value
+        return self
 
 
 class CustomerBulkCreate(BaseModel):

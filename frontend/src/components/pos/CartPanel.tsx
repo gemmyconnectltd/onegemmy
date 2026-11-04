@@ -13,6 +13,7 @@ import type { ApiCustomer } from "@/lib/api";
 import { useCreateCustomer, useUpdateCustomer, useCustomerDebtSnapshot } from "@/lib/api/hooks";
 import { useCan } from "@/lib/can";
 import { SaleDate } from "./SaleDate";
+import { SALE_DATE_FOR_EVERYONE } from "./constants";
 
 interface CartPanelProps {
   cart: CartItem[];
@@ -103,7 +104,7 @@ export function CartPanel({
         return;
       }
       if (duplicate) { pickCustomer(duplicate.id, duplicate.name); return; }
-      const res = await createCustomer.mutateAsync({ name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, customer_type: newCust.type, address: newCust.address.trim() || null, tin: newCust.tin.trim(), is_active: true });
+      const res = await createCustomer.mutateAsync({ name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, customer_type: newCust.type, address: newCust.address.trim() || null, tin: newCust.tin.trim() || null, source: "pos", is_active: true });
       pickCustomer(res.data.id, res.data.name);
     } catch (err) {
       setCustError((err as { detail?: string })?.detail ?? "The customer could not be saved. Try again.");
@@ -191,7 +192,7 @@ export function CartPanel({
           )}
         </div>
         <div className="flex items-stretch gap-2">
-          {can("orders", "approve") && <div className="min-w-0 flex-1"><SaleDate value={saleAt} onChange={onSaleAtChange} /></div>}
+          {(SALE_DATE_FOR_EVERYONE || can("orders", "approve")) && <div className="min-w-0 flex-1"><SaleDate value={saleAt} onChange={onSaleAtChange} /></div>}
           <button type="button" aria-expanded={notesOpen || !!notes} onClick={() => setNotesOpen((v) => !v)} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-semibold transition-colors ${notes ? "border-accent/40 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:border-accent/50 hover:text-foreground"} ${can("orders", "approve") ? "" : "flex-1 justify-start"}`}><FileText size={13} aria-hidden />{notes ? "Note added" : "Add note"}</button>
         </div>
         {(notesOpen || !!notes) && (
@@ -268,12 +269,12 @@ export function CartPanel({
                   <input type="tel" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} placeholder="Phone" aria-label="Customer phone" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   <input value={newCust.address} onChange={(e) => setNewCust({ ...newCust, address: e.target.value })} placeholder="Address (optional)" aria-label="Customer address" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   <input type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} placeholder="Email (optional)" aria-label="Customer email" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  <input required={!editingId} value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (required)" : "TIN (required)"} aria-label="TIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
+                  <input value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (optional)" : "TIN (optional)"} aria-label="TIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   {duplicate && <p role="status" className="rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11.5px] font-medium text-amber-800 dark:text-amber-300">{duplicate.name} already has this {phoneKey && (duplicate.phone ?? "").replace(/\s+/g, "") === phoneKey ? "phone number" : "email"}. Saving will select them instead of creating a duplicate.</p>}
                   {custError && <p role="alert" className="text-[11px] font-medium text-red-600">{custError}</p>}
                   <div className="flex gap-2">
                     <button type="button" onClick={() => { setAdding(false); setEditingId(null); }} className="flex-1 rounded-lg border border-border px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-surface">Cancel</button>
-                    <button type="submit" disabled={!newCust.name.trim() || (!editingId && newCust.tin.trim().length < 3) || createCustomer.isPending || updateCustomer.isPending} className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-accent/90 disabled:opacity-50">{createCustomer.isPending || updateCustomer.isPending ? "Saving…" : editingId ? "Save changes" : duplicate ? "Use existing" : "Save & select"}</button>
+                    <button type="submit" disabled={!newCust.name.trim() || createCustomer.isPending || updateCustomer.isPending} className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-accent/90 disabled:opacity-50">{createCustomer.isPending || updateCustomer.isPending ? "Saving…" : editingId ? "Save changes" : duplicate ? "Use existing" : "Save & select"}</button>
                   </div>
                 </form>
       </Drawer>

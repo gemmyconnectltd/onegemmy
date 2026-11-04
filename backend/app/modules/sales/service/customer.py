@@ -43,7 +43,7 @@ async def create_customer(db: AsyncSession, tenant_id: uuid.UUID, data: Customer
             match = (await db.execute(select(Customer.name).where(Customer.tenant_id == tenant_id, func.lower(column) == value.lower()).limit(1))).scalar_one_or_none()
             if match is not None:
                 raise ConflictError(f"A customer with this {what} already exists: {match}. Select that customer instead.")
-    obj = Customer(tenant_id=tenant_id, **data.model_dump())
+    obj = Customer(tenant_id=tenant_id, **data.model_dump(exclude={"source"}))
     obj = await CustomerRepository(db).save(obj)
     await db.commit()
     obj = await CustomerRepository(db).get_by_id_for_tenant(tenant_id, obj.id)

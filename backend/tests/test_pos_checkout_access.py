@@ -97,7 +97,7 @@ async def test_a_past_sale_needs_a_manager_and_a_future_date_is_refused(db, monk
 
     now = datetime.now(UTC)
     try:
-        for user, expect_past in ((cashier, 403), (owner, 201)):
+        for user, expect_past in ((cashier, 201), (owner, 201)):  # backdating is open to every till user for now
             token = create_access_token(str(user.id), {"tenant_id": str(tenant.id)})
             async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
                                    headers={"Authorization": f"Bearer {token}", "X-Branch-Id": str(branch.id)}) as client:

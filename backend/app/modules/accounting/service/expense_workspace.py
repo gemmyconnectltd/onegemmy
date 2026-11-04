@@ -2,6 +2,7 @@
 
 import asyncio
 import uuid
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from app.modules.accounting.repository.reporting import ReportingRepository
 from app.modules.accounting.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
 from app.modules.accounting.schemas.expense_workspace import ExpenseCategoryInput, ExpenseFilters
 from app.modules.accounting.service import expense as lifecycle
+from app.modules.accounting.service import expense_cases as cases
 from app.modules.accounting.service.workspace import allow, encoded, resolve_branch
 from app.modules.audit.service import record_audit
 from app.modules.currency.service import get_base_currency
@@ -108,7 +110,7 @@ async def validate_links(db: AsyncSession, tenant: uuid.UUID, data: dict) -> Non
         record = await repo.linked_record(tenant, field, identity)
         if record is None:
             raise ValidationError(f"Invalid {field.replace('_id', '')}")
-        if field == "account_id" and (record.type != "Expenses" or not record.is_active):
+        if field == "account_id" and (record.type not in ("Expense", "Expenses") or not record.is_active):
             raise ValidationError("Choose an active expense account")
 
 
@@ -153,9 +155,22 @@ async def create(
             return ExpenseRead.model_validate(prior)
     await validate_links(db, tenant, data.model_dump())
     await ensure_category(db, tenant, data.category)
-    return await lifecycle.create_expense(
+    if not data.allow_duplicate:
+        similar = await cases.find_duplicate(db, tenant, data)
+        if similar is not None:
+            raise ConflictError(f"Possible duplicate: {similar.reference} ({similar.title}) has the same amount and date. Record it anyway if it is a different expense.")
+    created = await lifecycle.create_expense(
         db, tenant, user.id, data.model_copy(update={"branch_id": branch}), user.full_name
     )
+    # Small expenses can be approved on the spot (a limit the owner sets); anything that cannot be posted yet just stays pending.
+    limit = await cases.auto_approve_limit(db, tenant)
+    base = created.base_amount if created.base_amount is not None else created.amount
+    if limit is not None and Decimal(str(base)) <= limit:
+        try:
+            return await lifecycle.approve_expense(db, tenant, created.id, user.id, user.full_name)
+        except ValidationError:
+            await db.rollback()
+    return created
 
 
 async def edit(
@@ -331,3 +346,67 @@ async def receipt(db: AsyncSession, user: User, active: uuid.UUID | None, identi
     if not await asyncio.to_thread(path.is_file):
         raise NotFoundError("Receipt file is unavailable")
     return path, obj.receipt_name, obj.receipt_type
+
+
+async def _reloaded(db: AsyncSession, user: User, identity: uuid.UUID) -> ExpenseRead:
+    from app.modules.accounting.repository import ExpenseRepository
+    return ExpenseRead.model_validate(await ExpenseRepository(db).get_by_id_for_tenant(user.tenant_id, identity))
+
+
+async def reclassify(db: AsyncSession, user: User, active: uuid.UUID | None, identity: uuid.UUID, account_id: uuid.UUID, reason: str):
+    await ReportingRepository(db).lock_tenant(allow(user, "expenses", "approve"))
+    await require_record(db, user, active, identity, "update")
+    await validate_links(db, user.tenant_id, {"account_id": account_id})
+    await cases.reclassify(db, user, identity, account_id, reason)
+    return await _reloaded(db, user, identity)
+
+
+async def pay(db: AsyncSession, user: User, active: uuid.UUID | None, identity: uuid.UUID, method: str, paid_on):
+    await ReportingRepository(db).lock_tenant(allow(user, "expenses", "approve"))
+    await require_record(db, user, active, identity, "update")
+    await cases.pay(db, user, identity, method, paid_on)
+    return await _reloaded(db, user, identity)
+
+
+async def refund(db: AsyncSession, user: User, active: uuid.UUID | None, identity: uuid.UUID, data):
+    await ReportingRepository(db).lock_tenant(allow(user, "expenses", "approve"))
+    await require_record(db, user, active, identity, "update")
+    await cases.refund(db, user, identity, data.amount, data.method, data.reason, data.received_on)
+    return await _reloaded(db, user, identity)
+
+
+async def get_settings(db: AsyncSession, user: User) -> dict:
+    tenant = allow(user, "expenses")
+    limit = await cases.auto_approve_limit(db, tenant)
+    return {"auto_approve_below": str(limit) if limit is not None else None}
+
+
+async def save_settings(db: AsyncSession, user: User, value) -> dict:
+    allow(user, "expenses", "approve")
+    if not user.is_superuser and (user.role or "").lower() not in ("admin", "owner", "owner/ceo"):
+        raise ValidationError("Only owners and administrators set the automatic approval limit")
+    return await cases.set_auto_approve_limit(db, user, value)
+
+
+async def recurring_list(db: AsyncSession, user: User) -> list[dict]:
+    tenant = allow(user, "expenses")
+    return [encoded({c.name: getattr(r, c.name) for c in r.__table__.columns}) for r in await cases.list_recurring(db, tenant)]
+
+
+async def recurring_create(db: AsyncSession, user: User, data) -> dict:
+    allow(user, "expenses", "create")
+    await ensure_category(db, user.tenant_id, data.category)
+    await validate_links(db, user.tenant_id, data.model_dump())
+    row = await cases.create_recurring(db, user, data.model_dump())
+    return encoded({c.name: getattr(row, c.name) for c in row.__table__.columns})
+
+
+async def recurring_toggle(db: AsyncSession, user: User, identity: uuid.UUID) -> dict:
+    allow(user, "expenses", "update")
+    row = await cases.toggle_recurring(db, user, identity)
+    return {"id": str(row.id), "is_active": row.is_active}
+
+
+async def recurring_run(db: AsyncSession, user: User) -> dict:
+    allow(user, "expenses", "create")
+    return await cases.run_due(db, user)

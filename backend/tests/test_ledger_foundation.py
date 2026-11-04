@@ -526,6 +526,8 @@ async def test_a_new_customer_needs_a_tin_whether_individual_or_business(db, mon
                 assert blank.status_code == 422
             ok = await c.post("/api/v1/tenants/sales/customers", json={"name": "Has TIN", "customer_type": "individual", "tin": "100200300"})
             assert ok.status_code == 201 and ok.json()["data"]["tin"] == "100200300"
+            at_the_till = await c.post("/api/v1/tenants/sales/customers", json={"name": "Walk-up buyer", "customer_type": "individual", "source": "pos"})
+            assert at_the_till.status_code == 201 and at_the_till.json()["data"]["tin"] is None  # the till is never held up by a missing TIN
             cleared = await c.patch(f"/api/v1/tenants/sales/customers/{ok.json()['data']['id']}", json={"tin": ""})
             assert cleared.status_code == 422
     finally:
@@ -705,5 +707,94 @@ async def test_a_twelve_product_sale_can_have_two_products_returned_for_a_cash_r
             assert credit.status_code == 201, credit.text
             assert (await _net(db, tenant.id, "1000"))["1000"] == cash_before - refund  # a credit note pays nothing out; the value stays as credit on the account
             assert (await _net(db, tenant.id, "1100"))["1100"] == -sale["items"][2]["unit_price"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_expense_cases_reclassify_pay_later_refund_duplicates_limit_and_recurring(db, monkeypatch):
+    from datetime import timedelta
+    tenant, branch, _product, cashier, owner = await _till(db, monkeypatch)
+    base = "/api/v1/tenants/expense-management"
+    today = datetime.now(UTC).date()
+    try:
+        async with _client(owner, tenant, branch) as c:
+            accounts = {a.code: str(a.id) for a in (await db.execute(select(Account).where(Account.tenant_id == tenant.id))).scalars().all()}
+
+            def body(**extra):
+                return {"title": "Office rent", "amount": 5000, "expense_date": today.isoformat(), "category": "Rent", "payment_method": "Cash", **extra}
+            first = await c.post(base, json=body())
+            assert first.status_code == 201, first.text
+            # a possible duplicate is flagged, and can be confirmed
+            dup = await c.post(base, json=body())
+            assert dup.status_code == 409 and "Possible duplicate" in dup.text
+            assert (await c.post(base, json=body(allow_duplicate=True, client_reference="second-one"))).status_code == 201
+            expense_id = first.json()["data"]["id"]
+            assert (await c.post(f"{base}/{expense_id}/approve")).status_code == 200
+            assert (await _net(db, tenant.id, "5100"))["5100"] == 5000.0
+            # wrong category: moved by an adjusting entry; the original posting stays
+            moved = await c.post(f"{base}/{expense_id}/reclassify", json={"account_id": accounts["5200"], "reason": "this was the electricity bill"})
+            assert moved.status_code == 200, moved.text
+            assert await _net(db, tenant.id, "5100", "5200") == {"5100": 0.0, "5200": 5000.0}
+            # the supplier gives part of it back
+            back = await c.post(f"{base}/{expense_id}/refund", json={"amount": 1200, "method": "Cash", "reason": "billing error credited"})
+            assert back.status_code == 200 and float(back.json()["data"]["refunded_amount"]) == 1200
+            assert (await _net(db, tenant.id, "5200"))["5200"] == 3800.0
+            assert (await c.post(f"{base}/{expense_id}/refund", json={"amount": 9999, "method": "Cash", "reason": "too much"})).status_code == 422
+            # booked now, paid later: Accounts Payable until it is paid
+            later = await c.post(base, json=body(title="Generator repair", amount=800, category="Supplies", on_credit=True))
+            later_id = later.json()["data"]["id"]
+            assert (await c.post(f"{base}/{later_id}/approve")).status_code == 200
+            assert (await _net(db, tenant.id, "2000"))["2000"] == -800.0
+            assert (await c.post(f"{base}/{later_id}/pay", json={"payment_method": "Bank Transfer"})).status_code == 200
+            assert await _net(db, tenant.id, "2000", "1010") == {"2000": 0.0, "1010": -800.0}
+            assert (await c.post(f"{base}/{later_id}/pay", json={"payment_method": "Cash"})).status_code == 409
+            # small expenses are approved on the spot once the owner sets a limit
+            assert (await c.patch(f"{base}/settings", json={"auto_approve_below": 1000})).status_code == 200
+            small = await c.post(base, json=body(title="Tea and sugar", amount=300, category="Supplies"))
+            assert small.status_code == 201 and small.json()["data"]["status"] == "Approved"
+            big = await c.post(base, json=body(title="New shelves", amount=4000, category="Supplies"))
+            assert big.json()["data"]["status"] == "Pending"
+            # recurring: due ones are created once, and running again adds nothing
+            template = await c.post(f"{base}/recurring", json={"title": "Shop rent", "amount": 700, "category": "Rent", "frequency": "monthly", "next_date": (today - timedelta(days=40)).isoformat()})
+            assert template.status_code == 201, template.text
+            ran = await c.post(f"{base}/recurring/run")
+            assert ran.status_code == 200 and ran.json()["data"]["created"] >= 1
+            assert (await c.post(f"{base}/recurring/run")).json()["data"]["created"] == 0
+        async with _client(cashier, tenant, branch) as other:
+            assert (await other.patch(f"{base}/settings", json={"auto_approve_below": 99999})).status_code in (403, 422)
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_platform_admin_sets_a_default_password_and_the_user_must_change_it(db, monkeypatch):
+    from app.core.security import hash_password
+    from app.modules.tenants.models import User
+    tenant, branch, _product, cashier, _owner = await _till(db, monkeypatch)
+    platform = User(email=f"platform{uuid.uuid4().hex[:6]}@example.test", hashed_password=hash_password("Whatever1"), full_name="Platform", role="superadmin", is_active=True, is_superuser=True)
+    cashier.email = f"cashier{uuid.uuid4().hex[:6]}@example.com"
+    db.add(platform)
+    await db.flush()
+    try:
+        from app.core.security import create_access_token
+        platform_token = create_access_token(str(platform.id), {})
+        async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t", headers={"Authorization": f"Bearer {platform_token}"}) as admin:
+            weak = await admin.post(f"/api/v1/admin/tenants/{tenant.id}/users/{cashier.id}/set-password", json={"password": "weak"})
+            assert weak.status_code == 422
+            done = await admin.post(f"/api/v1/admin/tenants/{tenant.id}/users/{cashier.id}/set-password", json={"password": "Welcome2026"})
+            assert done.status_code == 200, done.text
+            assert "Welcome2026" not in done.text  # never echoed back
+        async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t") as anonymous:
+            login = await anonymous.post("/api/v1/auth/login", json={"email": cashier.email, "password": "Welcome2026", "tenant_slug": tenant.slug})
+            assert login.status_code == 200, login.text
+            assert login.json()["data"]["user"]["must_change_password"] is True
+            token = login.json()["data"]["access_token"]
+            changed = await anonymous.post("/api/v1/tenants/users/change-password", json={"current_password": "Welcome2026", "new_password": "BrandNew2026"}, headers={"Authorization": f"Bearer {token}"})
+            assert changed.status_code == 200, changed.text
+            again = await anonymous.post("/api/v1/auth/login", json={"email": cashier.email, "password": "BrandNew2026", "tenant_slug": tenant.slug})
+            assert again.json()["data"]["user"]["must_change_password"] is False
+        async with _client(cashier, tenant, branch) as ordinary:
+            assert (await ordinary.post(f"/api/v1/admin/tenants/{tenant.id}/users/{cashier.id}/set-password", json={"password": "Welcome2026"})).status_code == 403
     finally:
         app.dependency_overrides.clear()

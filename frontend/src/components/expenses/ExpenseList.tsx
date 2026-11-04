@@ -18,6 +18,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
+import { ExpenseRules } from "./ExpenseRules";
 import { EXPENSE_METHODS, ExpenseDenied, ExpenseHeader, useExpenseContext } from "./ExpenseShared";
 import { useRouter } from "next/navigation";
 import { ExpenseEditor } from "./ExpenseEditor";
@@ -65,7 +66,7 @@ function List() {
     if (operation === "delete" || operation === "approve") confirm({ title: operation === "delete" ? "Delete expense?" : "Approve expense?", message: operation === "delete" ? "This removes the unapproved expense. This cannot be undone." : "This posts the expense and pays it from its recorded payment account. Review the amount, receipt and available balance first.", confirmLabel: operation === "delete" ? "Delete" : "Approve Expense", danger: operation === "delete", onConfirm: perform });
     else perform();
   }
-  return <div className="space-y-5">{dialog}<ExpenseHeader title="Expenses" description="Record, review and approve business expenses." record onRecord={() => {setSelected(null); setEditor("new");}} />
+  return <div className="space-y-5">{dialog}<ExpenseHeader title="Expenses" description="Record, review and approve business expenses." record onRecord={() => {setSelected(null); setEditor("new");}} /><ExpenseRules />
     {can("update") && <CashBalanceWarning />}
     <FinancialError error={error} />
     {!can("read") ? <ExpenseDenied /> : <section className="overflow-hidden rounded-xl border border-border bg-card">
