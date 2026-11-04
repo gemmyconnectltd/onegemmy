@@ -65,7 +65,7 @@ function parseCustomerRow(raw: Record<string, string>): { data: CustomerImportRo
 const TYPE_OPTS = ["individual", "business", "vip", "wholesale"];
 
 const EMPTY_FORM = {
-  name: "", email: "", phone: "", address: "",
+  name: "", email: "", phone: "", address: "", tin: "",
   customer_type: "individual", is_active: true, credit_daily_limit: "",
 };
 type FormState = typeof EMPTY_FORM;
@@ -200,7 +200,7 @@ export default function CustomersPage() {
   const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setShowAdd(true); };
   const openEdit = (c: ApiCustomer) => {
     setEditing(c);
-    setForm({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", address: c.address ?? "", customer_type: c.customer_type, is_active: c.is_active, credit_daily_limit: c.credit_daily_limit == null ? "" : String(c.credit_daily_limit) });
+    setForm({ name: c.name, email: c.email ?? "", phone: c.phone ?? "", address: c.address ?? "", tin: c.tin ?? "", customer_type: c.customer_type, is_active: c.is_active, credit_daily_limit: c.credit_daily_limit == null ? "" : String(c.credit_daily_limit) });
     setFormError(null);
   };
   const closeDrawer = () => { setShowAdd(false); setEditing(null); };
@@ -209,11 +209,14 @@ export default function CustomersPage() {
     e.preventDefault();
     setFormError(null);
     if (!form.name.trim()) return;
+    // Every new customer, individual or business, needs a TIN (older customers without one can be saved until it is added).
+    if (!form.tin.trim() && (!editing || editing.tin)) { setFormError("Enter the customer's TIN. It appears on their receipts and invoices."); return; }
     const payload = {
       name: form.name.trim(),
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       address: form.address.trim() || null,
+      ...(form.tin.trim() ? { tin: form.tin.trim() } : {}),
       ...(hasPermission("credit:approve") ? { credit_daily_limit: form.credit_daily_limit.trim() === "" ? null : form.credit_daily_limit } : {}),
       customer_type: form.customer_type,
       is_active: form.is_active,
@@ -598,6 +601,7 @@ export default function CustomersPage() {
               placeholder="e.g. Jean Pierre" />
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="TIN" required hint="Tax identification number, for individuals and businesses"><Input value={form.tin} maxLength={50} inputMode="numeric" onChange={(e) => setForm({ ...form, tin: e.target.value })} placeholder="e.g. 100200300" /></Field>
             <Field label="Phone">
               <Input type="tel" value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}

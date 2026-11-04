@@ -8,7 +8,7 @@ from app.core.pagination import PageQuery
 from app.core.period import PeriodQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
-from app.modules.sales.schemas import CustomerBulkCreate, CustomerCreate, CustomerUpdate
+from app.modules.sales.schemas import CustomerBulkCreate, CustomerCreateStrict, CustomerUpdate
 from app.modules.sales.service import customer_profile
 
 router = APIRouter(tags=["Sales - Customers"])
@@ -28,7 +28,7 @@ async def list_customers(db: DbSession, current_user: CurrentUser, page_params: 
 
 
 @router.post("/sales/customers")
-async def create_customer(data: CustomerCreate, db: DbSession, current_user: CurrentUser):
+async def create_customer(data: CustomerCreateStrict, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     if data.credit_daily_limit is not None and not current_user.is_superuser and "credit:approve" not in current_user.permissions_names:
         raise ForbiddenError("Permission required: credit:approve")

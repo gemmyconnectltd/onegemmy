@@ -75,7 +75,7 @@ async def _client(db, token):
     return AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t", headers={"Authorization": f"Bearer {token}"})
 
 
-CUSTOMER = {"name": "Test Customer", "customer_type": "individual"}
+CUSTOMER = {"name": "Test Customer", "customer_type": "individual", "tin": "100200300"}
 
 
 @pytest.mark.db

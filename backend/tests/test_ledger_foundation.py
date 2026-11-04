@@ -519,3 +519,21 @@ async def test_only_an_owner_can_change_a_sales_date_and_its_journal_moves_with_
             assert locked.status_code == 422 and "closed" in locked.text.lower()  # the sale now sits in a closed period
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_new_customer_needs_a_tin_whether_individual_or_business(db, monkeypatch):
+    tenant, branch, _product, _, owner = await _till(db, monkeypatch)
+    try:
+        async with _client(owner, tenant, branch) as c:
+            for kind in ("individual", "business"):
+                missing = await c.post("/api/v1/tenants/sales/customers", json={"name": f"No TIN {kind}", "customer_type": kind})
+                assert missing.status_code == 422 and "tin" in missing.text.lower()
+                blank = await c.post("/api/v1/tenants/sales/customers", json={"name": f"Blank {kind}", "customer_type": kind, "tin": "  "})
+                assert blank.status_code == 422
+            ok = await c.post("/api/v1/tenants/sales/customers", json={"name": "Has TIN", "customer_type": "individual", "tin": "100200300"})
+            assert ok.status_code == 201 and ok.json()["data"]["tin"] == "100200300"
+            cleared = await c.patch(f"/api/v1/tenants/sales/customers/{ok.json()['data']['id']}", json={"tin": ""})
+            assert cleared.status_code == 422
+    finally:
+        app.dependency_overrides.clear()

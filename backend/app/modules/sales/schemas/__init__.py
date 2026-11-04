@@ -2,6 +2,7 @@ from app.modules.sales.schemas.customer import (
     CustomerBulkCreate,
     CustomerBulkResult,
     CustomerCreate,
+    CustomerCreateStrict,
     CustomerRead,
     CustomerUpdate,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "CustomerBulkCreate",
     "CustomerBulkResult",
     "CustomerCreate",
+    "CustomerCreateStrict",
     "CustomerRead",
     "CustomerUpdate",
     "DealCreate",

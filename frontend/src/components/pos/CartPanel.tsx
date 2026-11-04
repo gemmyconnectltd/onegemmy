@@ -88,7 +88,7 @@ export function CartPanel({
     setCustError(null);
     try {
       if (duplicate) { pickCustomer(duplicate.id, duplicate.name); return; }
-      const res = await createCustomer.mutateAsync({ name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, customer_type: newCust.type, tin: newCust.type === "business" ? newCust.tin.trim() || null : null, is_active: true });
+      const res = await createCustomer.mutateAsync({ name: newCust.name.trim(), phone: newCust.phone.trim() || null, email: newCust.email.trim() || null, customer_type: newCust.type, tin: newCust.tin.trim(), is_active: true });
       pickCustomer(res.data.id, res.data.name);
     } catch (err) {
       setCustError((err as { detail?: string })?.detail ?? "The customer could not be saved. Try again.");
@@ -251,12 +251,12 @@ export function CartPanel({
                   <input autoFocus required value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} placeholder={newCust.type === "business" ? "Business name" : "Name"} aria-label="Customer name" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   <input type="tel" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} placeholder="Phone" aria-label="Customer phone" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   <input type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} placeholder="Email (optional)" aria-label="Customer email" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  {newCust.type === "business" && <input value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder="Business TIN (optional)" aria-label="Business TIN" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />}
+                  <input required value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (required)" : "TIN (required)"} aria-label="TIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
                   {duplicate && <p role="status" className="rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11.5px] font-medium text-amber-800 dark:text-amber-300">{duplicate.name} already has this {phoneKey && (duplicate.phone ?? "").replace(/\s+/g, "") === phoneKey ? "phone number" : "email"}. Saving will select them instead of creating a duplicate.</p>}
                   {custError && <p role="alert" className="text-[11px] font-medium text-red-600">{custError}</p>}
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setAdding(false)} className="flex-1 rounded-lg border border-border px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-surface">Cancel</button>
-                    <button type="submit" disabled={!newCust.name.trim() || createCustomer.isPending} className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-accent/90 disabled:opacity-50">{createCustomer.isPending ? "Saving…" : duplicate ? "Use existing" : "Save & select"}</button>
+                    <button type="submit" disabled={!newCust.name.trim() || newCust.tin.trim().length < 3 || createCustomer.isPending} className="flex-1 rounded-lg bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:bg-accent/90 disabled:opacity-50">{createCustomer.isPending ? "Saving…" : duplicate ? "Use existing" : "Save & select"}</button>
                   </div>
                 </form>
       </Drawer>
