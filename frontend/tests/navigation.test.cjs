@@ -12,7 +12,7 @@ const plain = value => JSON.parse(JSON.stringify(value));
 
 test('keeps every existing module and groups them by what people do', () => {
   const expected = [
-    ['Overview'], ['Sales','Point of Sale','Services','Inventory','Purchases','Manufacturing'], ['Customers'],
+    ['Overview'], ['Sales','Point of Sale','Services','Inventory','Purchases','Manufacturing'], ['Customers','CRM'],
     ['Expenses','Debt Management','Accounting'], ['HR'], ['Reports'],
     ['Team & Access','Approvals','Branches','Subscription & Billing','Business Settings','Help & Support'],
   ];
@@ -25,7 +25,7 @@ test('keeps every existing module and groups them by what people do', () => {
 const enabledFeatures = Object.fromEntries(nav.PRIMARY_NAV_GROUPS.flatMap(g => g.items).filter(i => i.feature).map(i => [i.feature,true]));
 test('reuses feature, module and permission gates and never returns an empty group', () => {
   const names = groups => groups.flatMap(group => group.items.map(item => item.name));
-  assert.equal(names(nav.visiblePrimaryNavigation(enabledFeatures, () => true, () => true)).length, 18);
+  assert.equal(names(nav.visiblePrimaryNavigation(enabledFeatures, () => true, () => true)).length, 19);
   assert.equal(names(nav.visiblePrimaryNavigation(enabledFeatures, () => true, () => true)).includes('Subscription & Billing'), false);
   const denied = nav.visiblePrimaryNavigation(undefined, () => false, () => false);
   assert.deepEqual(plain(names(denied)), ['Overview','Reports','Help & Support']);

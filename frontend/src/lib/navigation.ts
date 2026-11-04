@@ -1,6 +1,6 @@
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, ScanLine, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
+import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Handshake, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, ScanLine, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
 
 export type ModuleKey =
   | "debts" | "expenses" | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
@@ -63,9 +63,11 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "recruiting",  href: "/hr/recruiting",   icon: UserPlus },
   ],
   crm: [
-    { nameKey: "contacts",   href: "/crm/contacts",  icon: UserCheck },
-    { nameKey: "campaigns",  href: "/crm/campaigns", icon: Megaphone },
-    { nameKey: "emails",     href: "/crm/emails",    icon: Mail },
+    { nameKey: "contacts", label: "Contacts", href: "/crm/contacts", icon: UserCheck, requires: "contacts:read" },
+    { nameKey: "opportunities", label: "Opportunities", href: "/crm/opportunities", icon: Handshake, requires: "opportunities:read" },
+    { nameKey: "activities", label: "Activities", href: "/crm/activities", icon: CalendarClock, requires: "activities:read" },
+    { nameKey: "campaigns", label: "Campaigns", href: "/crm/campaigns", icon: Megaphone, requires: "campaigns:read" },
+    { nameKey: "emails", label: "Emails", href: "/crm/emails", icon: Mail, requires: "campaigns:read" },
   ],
   customers: [
     { nameKey: "allCustomers", href: "/customers",           icon: Users, exact: true },
@@ -151,6 +153,7 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   ] },
   { id: "relationships", label: "Relationships", items: [
     { name: "Customers", href: "/customers", icon: Users, feature: "sales", module: "customers" },
+    { name: "CRM", href: "/crm", icon: Megaphone, feature: "crm", module: "crm" },
   ] },
   { id: "finance", label: "Finance", items: [
     { name: "Expenses", href: "/expenses", icon: Receipt, feature: "accounting", module: "expenses" },

@@ -4,7 +4,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData, type UseMutationOptions } from "@tanstack/react-query";
 import { adminApi, currencyApi, aiApi } from "@/lib/api";
 import type {
-  AdminUserFilters, EngagementCategory, EngagementQuery, UsagePeriod,
+  AdminUserFilters, EngagementCategory, EngagementQuery, TenantRecordFilters, TenantRecordSection, UsagePeriod,
 } from "@/lib/api";
 
 const CURRENCY_KEY = ["currency"] as const;
@@ -143,6 +143,14 @@ export const useTenant = (id: string | undefined, opts?: QueryOpts) =>
 
 export const useTenantStats = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "stats"], () => adminApi.tenantStats(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
+export const useTenantRecords = (id: string | undefined, section: TenantRecordSection, page = 1, filters: TenantRecordFilters = {}, opts?: QueryOpts) =>
+  useQ(
+    [...TENANTS, id, "records", section, page, filters],
+    () => adminApi.tenantRecords(id!, section, page, filters),
+    (r) => r.data,
+    { ...opts, enabled: !!id && (opts?.enabled ?? true) },
+  );
 
 export const useTenantUsers = (id: string | undefined, page = 1, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "users", page], () => adminApi.tenantUsers(id!, page), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });

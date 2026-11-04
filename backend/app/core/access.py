@@ -72,6 +72,21 @@ EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
     ("POST", re.compile(r"^/sales/customers(/bulk)?$"), ("contacts:create",)),
     ("PATCH", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:update",)),
     ("DELETE", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:delete",)),
+    ("POST", re.compile(r"^/crm/contacts$"), ("contacts:create",)),
+    ("PATCH", re.compile(r"^/crm/contacts/[^/]+$"), ("contacts:update",)),
+    ("DELETE", re.compile(r"^/crm/contacts/[^/]+$"), ("contacts:delete",)),
+    ("POST", re.compile(r"^/crm/opportunities$"), ("opportunities:create",)),
+    ("PATCH", re.compile(r"^/crm/opportunities/[^/]+$"), ("opportunities:update",)),
+    ("DELETE", re.compile(r"^/crm/opportunities/[^/]+$"), ("opportunities:delete",)),
+    ("POST", re.compile(r"^/crm/activities$"), ("activities:create",)),
+    ("PATCH", re.compile(r"^/crm/activities/[^/]+$"), ("activities:update",)),
+    ("DELETE", re.compile(r"^/crm/activities/[^/]+$"), ("activities:delete",)),
+    ("POST", re.compile(r"^/crm/campaigns$"), ("campaigns:create",)),
+    ("PATCH", re.compile(r"^/crm/campaigns/[^/]+$"), ("campaigns:update",)),
+    ("DELETE", re.compile(r"^/crm/campaigns/[^/]+$"), ("campaigns:delete",)),
+    ("POST", re.compile(r"^/crm/emails$"), ("campaigns:create",)),
+    ("PATCH", re.compile(r"^/crm/emails/[^/]+$"), ("campaigns:update",)),
+    ("DELETE", re.compile(r"^/crm/emails/[^/]+$"), ("campaigns:delete",)),
 ]
 
 # Lookups other modules' screens legitimately read (staff pickers, customer pickers, VAT rates at the till). A read of these paths is

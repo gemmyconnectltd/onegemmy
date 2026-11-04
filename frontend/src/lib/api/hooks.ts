@@ -22,7 +22,7 @@ import {
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import {
-  inventoryApi, salesApi, accountingApi, hrApi, departmentsApi, adminApi, procurementApi,
+  inventoryApi, salesApi, crmApi, accountingApi, hrApi, departmentsApi, adminApi, procurementApi,
   repairsApi, batchesApi, serialsApi, transfersApi, branchesApi, warrantyApi, manufacturingApi,
   tenantsApi, currencyApi, aiApi,
   usersApi,
@@ -47,6 +47,7 @@ import {
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
   type RepairJob, type InventoryBatch,
   type ApiUser, type ApiAuditLog, type UserCreatePayload, type UserUpdatePayload, type UserListFilters,
+  type CrmActivityFilters,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -200,6 +201,46 @@ export const useDeleteCustomer = mutation((id: string) => salesApi.deleteCustome
 export const useCreateDeal = mutation((d: object) => salesApi.createDeal(d), [[...DEALS]]);
 export const useUpdateDeal = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateDeal(id, data), [[...DEALS]]);
 export const useDeleteDeal = mutation((id: string) => salesApi.deleteDeal(id), [[...DEALS]]);
+
+// ── CRM ─────────────────────────────────────────────────────────────────────
+
+const CRM = ["crm"] as const;
+
+export const useCrmContacts = (page = 1, pageSize = 25, search?: string, customerType?: string, opts?: QueryOpts) =>
+  useQ([...CRM, "contacts", page, pageSize, search ?? "", customerType ?? "all"], () => crmApi.listContacts(page, pageSize, search, customerType), r => r.data, opts);
+
+export const useCrmContact = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...CRM, "contacts", "detail", id], () => crmApi.getContact(id!), r => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true), placeholderData: undefined });
+
+export const useCrmOpportunities = (page = 1, pageSize = 25, stage?: string, search?: string, opts?: QueryOpts) =>
+  useQ([...CRM, "opportunities", page, pageSize, stage ?? "all", search ?? ""], () => crmApi.listOpportunities(page, pageSize, stage, search), r => r.data, opts);
+
+export const useCrmActivities = (page = 1, pageSize = 25, filters: CrmActivityFilters = {}, opts?: QueryOpts) =>
+  useQ([...CRM, "activities", page, pageSize, filters], () => crmApi.listActivities(page, pageSize, filters), r => r.data, opts);
+
+export const useCrmCampaigns = (page = 1, pageSize = 25, search?: string, status?: string, opts?: QueryOpts) =>
+  useQ([...CRM, "campaigns", page, pageSize, search ?? "", status ?? "all"], () => crmApi.listCampaigns(page, pageSize, search, status), r => r.data, opts);
+
+export const useCrmEmails = (page = 1, pageSize = 25, search?: string, status?: string, opts?: QueryOpts) =>
+  useQ([...CRM, "emails", page, pageSize, search ?? "", status ?? "all"], () => crmApi.listEmails(page, pageSize, search, status), r => r.data, opts);
+
+const CRM_CONTACTS = [...CRM, "contacts"];
+const CRM_OPPORTUNITIES = [...CRM, "opportunities"];
+export const useCreateCrmContact = mutation((data: object) => crmApi.createContact(data), [CRM_CONTACTS, [...CUSTOMERS]]);
+export const useUpdateCrmContact = mutation(({ id, data }: { id: string; data: object }) => crmApi.updateContact(id, data), [CRM_CONTACTS, [...CUSTOMERS]]);
+export const useDeleteCrmContact = mutation((id: string) => crmApi.deleteContact(id), [CRM_CONTACTS, [...CUSTOMERS]]);
+export const useCreateCrmOpportunity = mutation((data: object) => crmApi.createOpportunity(data), [CRM_OPPORTUNITIES, [...DEALS]]);
+export const useUpdateCrmOpportunity = mutation(({ id, data }: { id: string; data: object }) => crmApi.updateOpportunity(id, data), [CRM_OPPORTUNITIES, [...DEALS]]);
+export const useDeleteCrmOpportunity = mutation((id: string) => crmApi.deleteOpportunity(id), [CRM_OPPORTUNITIES, [...DEALS]]);
+export const useCreateCrmActivity = mutation((data: object) => crmApi.createActivity(data), [[...CRM]]);
+export const useUpdateCrmActivity = mutation(({ id, data }: { id: string; data: object }) => crmApi.updateActivity(id, data), [[...CRM]]);
+export const useDeleteCrmActivity = mutation((id: string) => crmApi.deleteActivity(id), [[...CRM]]);
+export const useCreateCrmCampaign = mutation((data: object) => crmApi.createCampaign(data), [[...CRM]]);
+export const useUpdateCrmCampaign = mutation(({ id, data }: { id: string; data: object }) => crmApi.updateCampaign(id, data), [[...CRM]]);
+export const useDeleteCrmCampaign = mutation((id: string) => crmApi.deleteCampaign(id), [[...CRM]]);
+export const useCreateCrmEmailLog = mutation((data: object) => crmApi.createEmail(data), [[...CRM]]);
+export const useUpdateCrmEmailLog = mutation(({ id, data }: { id: string; data: object }) => crmApi.updateEmail(id, data), [[...CRM]]);
+export const useDeleteCrmEmailLog = mutation((id: string) => crmApi.deleteEmail(id), [[...CRM]]);
 
 export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [["debts"], [...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCreateOrders(items), [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);

@@ -1,6 +1,6 @@
 """Admin workflows use real repositories in an always rolled-back transaction."""
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -10,10 +10,13 @@ from sqlalchemy import select
 
 from app.core.deps import get_current_active_superuser
 from app.core.exceptions import ForbiddenError
+from app.core.pagination import PageParams
 from app.modules.admin import analytics
 from app.modules.admin.export import COLUMN_DEFS
 from app.modules.admin.routes import AdminTenantCreate, InviteUserPayload, _tenant_usage_map
+from app.modules.admin.tenant_records import list_tenant_records
 from app.modules.auth.schemas import RegisterRequest
+from app.modules.sales.models.customer import Customer
 from app.modules.tenants.models import Tenant, TenantSlugAlias, User
 from app.modules.tenants.repository import TenantRepository
 from app.modules.tenants.schemas import TenantCreate, TenantUpdate, UserCreate
@@ -103,6 +106,29 @@ async def test_admin_create_edit_archive_owner_and_role_filters(db, monkeypatch)
             data = created.json()["data"]
             tenant_id = data["id"]
             assert data["name"] == f"Business {key}" and data["slug"] == f"qa-{key}"
+            customer = Customer(tenant_id=uuid.UUID(tenant_id), name="Workspace customer")
+            db.add(customer)
+            await db.flush()
+            records = await client.get(
+                f"/api/v1/admin/tenants/{tenant_id}/records?section=customers&page_size=25"
+            )
+            assert records.status_code == 200
+            assert records.json()["data"]["total"] == 1
+            assert records.json()["data"]["items"][0]["title"] == "Workspace customer"
+            filtered_records = await client.get(
+                f"/api/v1/admin/tenants/{tenant_id}/records?section=customers"
+                "&status=Active&date_from=2000-01-01&date_to=2100-01-01"
+            )
+            assert filtered_records.status_code == 200
+            assert filtered_records.json()["data"]["total"] == 1
+            invalid_range = await client.get(
+                f"/api/v1/admin/tenants/{tenant_id}/records?section=customers"
+                "&date_from=2026-11-05&date_to=2026-11-04"
+            )
+            assert invalid_range.status_code == 422
+            assert (await client.get(
+                f"/api/v1/admin/tenants/{tenant_id}/records?section=unknown"
+            )).status_code == 422
             owner = (await db.execute(select(User).where(User.tenant_id == uuid.UUID(tenant_id)))).scalar_one()
             assert owner.role == "owner" and owner.role_id is not None and owner.is_superuser
             assert len(sent) == 1 and sent[0]["to"] == f"{key}@example.com"
@@ -221,3 +247,80 @@ async def test_server_pagination_filters_and_custom_plan_labels(db):
     rows, count = await repo.admin_page(0, 1, {"q": key, "status": "cancelled"})
     assert count == 10 and len(rows) == 1
     assert (await tenant_plan_labels(db))[str(plan.id)] == "Custom QA Plan"
+
+
+@pytest.mark.db
+async def test_admin_tenant_record_queries_are_scoped_and_searchable(db):
+    from app.modules.inventory.models.product import Product
+    from app.modules.sales.models.order import Order
+    from app.modules.sales.models.order_payment import OrderPayment
+
+    selected = Tenant(name="Selected Business", slug=uuid.uuid4().hex)
+    other = Tenant(name="Other Business", slug=uuid.uuid4().hex)
+    db.add_all([selected, other])
+    await db.flush()
+    visible = Customer(name="Selected Customer", tenant_id=selected.id)
+    hidden = Customer(name="Other Customer", tenant_id=other.id)
+    db.add_all([visible, hidden])
+    await db.flush()
+    now = datetime.now(UTC)
+    order = Order(
+        tenant_id=selected.id, order_number=uuid.uuid4().hex, status="Completed",
+        total=Decimal("100.00"), amount_paid=Decimal("30.00"),
+        currency_code="USD", ordered_at=datetime(2026, 11, 3, 23, 30, tzinfo=UTC),
+        customer_id=visible.id,
+    )
+    earlier_order = Order(
+        tenant_id=selected.id, order_number=uuid.uuid4().hex, status="Draft",
+        total=Decimal("10.00"), amount_paid=Decimal("10.00"),
+        currency_code="USD", ordered_at=datetime(2026, 11, 2, 23, 30, tzinfo=UTC),
+    )
+    product = Product(
+        tenant_id=selected.id, name="Selected product", price=Decimal("12.50"), stock=3,
+    )
+    db.add_all([order, earlier_order, product])
+    await db.flush()
+    db.add(OrderPayment(
+        tenant_id=selected.id, order_id=order.id, customer_id=visible.id,
+        reference=uuid.uuid4().hex, amount=Decimal("30.00"), status="Completed",
+        paid_at=now, currency_code="USD",
+    ))
+    await db.flush()
+
+    items, total = await list_tenant_records(
+        db, selected.id, selected.currency, "customers",
+        PageParams(page=1, page_size=25), "Selected",
+    )
+
+    assert total == 1
+    assert [row["id"] for row in items] == [str(visible.id)]
+    assert items[0]["title"] == "Selected Customer"
+    for section in ("purchases", "expenses", "accounting", "approvals", "activity"):
+        records, count = await list_tenant_records(
+            db, selected.id, selected.currency, section,
+            PageParams(page=1, page_size=25), None,
+        )
+        assert records == [] and count == 0
+
+    sales, sales_count = await list_tenant_records(
+        db, selected.id, selected.currency, "sales", PageParams(page=1, page_size=25), None,
+    )
+    filtered_sales, filtered_sales_count = await list_tenant_records(
+        db, selected.id, selected.currency, "sales", PageParams(page=1, page_size=25), None,
+        status="Completed", date_from=date(2026, 11, 3), date_to=date(2026, 11, 3),
+    )
+    products, products_count = await list_tenant_records(
+        db, selected.id, selected.currency, "inventory", PageParams(page=1, page_size=25), None,
+    )
+    payments, payments_count = await list_tenant_records(
+        db, selected.id, selected.currency, "payments", PageParams(page=1, page_size=25), None,
+    )
+    debts, debts_count = await list_tenant_records(
+        db, selected.id, selected.currency, "debts", PageParams(page=1, page_size=25), None,
+    )
+    assert sales_count == 2 and products_count == payments_count == debts_count == 1
+    assert filtered_sales_count == 1 and filtered_sales[0]["id"] == str(order.id)
+    assert sales[0]["counterparty"] == "Selected Customer" and sales[0]["currency"] == "USD"
+    assert products[0]["title"] == "Selected product" and products[0]["currency"] == selected.currency
+    assert payments[0]["amount"] == Decimal("30.00") and payments[0]["currency"] == "USD"
+    assert debts[0]["amount"] == Decimal("70.00") and debts[0]["currency"] == "USD"

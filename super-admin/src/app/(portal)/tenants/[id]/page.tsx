@@ -18,7 +18,7 @@ import {
   useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
   useTenantBranches, useCreateBranch, useDeleteBranch,
-  useUpdateTenant, useResetTenantData, useTenantLimits, usePlatformAuditLogs,
+  useUpdateTenant, useResetTenantData, useTenantLimits, useTenantRecords,
 } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
 import { useAppConfig } from "@/lib/appConfig";
@@ -37,8 +37,9 @@ import { ActionMenu } from "@/components/tenants/ActionMenu";
 import { ContactBadge } from "@/components/tenants/ContactBadge";
 import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
 import { OperationsPanel } from "./TenantOperations";
-import { ActivityPanel, OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
+import { OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
 import { resolveUploadUrl } from "@/lib/api/client";
+import { TenantRecords } from "./TenantRecords";
 
 
 function TenantDetailPageInner() {
@@ -51,7 +52,7 @@ function TenantDetailPageInner() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<PanelTab>(() => {
     const t = searchParams.get("tab");
-    return (["overview", "users", "user-access", "branches", "subscription", "usage", "invoices", "security", "activity", "operations"] as const).find((x) => x === t) ?? "overview";
+    return (["overview", "records", "users", "user-access", "branches", "subscription", "usage", "invoices", "security", "activity", "operations"] as const).find((x) => x === t) ?? "overview";
   });
   const [usersSub, setUsersSub] = useState<"users" | "departments" | "roles">("users");
   const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" | "all" } | null>(null);
@@ -76,8 +77,8 @@ function TenantDetailPageInner() {
   const { data: rolesData, isError: rolesError } = useTenantRoles(id);
   const { data: branchesData, isError: branchesError } = useTenantBranches(id);
   const { data: limits } = useTenantLimits(id);
-  const audit = usePlatformAuditLogs(1, 100);
-  const tenantEvents = (audit.data?.items ?? []).filter((e) => e.tenant_id === id || e.entity_id === id);
+  const audit = useTenantRecords(id, "activity");
+  const tenantEvents = audit.data?.items ?? [];
 
   const users = usersData?.items ?? [];
   const departments = departmentsData?.items ?? [];
@@ -347,7 +348,7 @@ function TenantDetailPageInner() {
   );
   const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: setTab };
   const TABS: { key: PanelTab; label: string; count?: number }[] = [
-    { key: "overview", label: "Overview" }, { key: "users", label: "Users", count: usersData?.total ?? users.length }, { key: "branches", label: "Branches", count: branches.length },
+    { key: "overview", label: "Overview" }, { key: "records", label: "Business records" }, { key: "users", label: "Users", count: usersData?.total ?? users.length }, { key: "branches", label: "Branches", count: branches.length },
     { key: "user-access", label: "Team & Access" }, { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
   ];
 
@@ -390,12 +391,13 @@ function TenantDetailPageInner() {
         <div className="min-w-0 space-y-6">
           {tab === "user-access" && <UserFeatureAccess tenantId={id} />}
           {tab === "overview" && <OverviewPanel {...panelProps} controls={controls} />}
+          {tab === "records" && <TenantRecords tenantId={id} currency={tenant.currency} />}
           {tab === "subscription" && <><SubscriptionManager tenantId={id} /><FeaturesPanel tenantId={id} /></>}
           {tab === "usage" && <UsagePanel {...panelProps} currencySymbol={tenantCurrencySymbol} />}
           {tab === "invoices" && <LiveBillingList kind="invoices" tenantId={id} />}
           {tab === "security" && <SecurityPanel tenant={tenant} usersCount={users.length} inactiveUsers={users.filter((u) => !u.is_active).length} events={tenantEvents} eventsLoading={audit.isLoading} />}
           {tab === "operations" && <OperationsPanel tenant={tenant} users={users} />}
-          {tab === "activity" && <ActivityPanel events={tenantEvents} loading={audit.isLoading} error={audit.isError} scanned={audit.data?.items.length ?? 0} />}
+          {tab === "activity" && <TenantRecords tenantId={id} currency={tenant.currency} initialSection="activity" />}
           {tab === "users" && (
             <div role="group" aria-label="User management" className="flex gap-1 rounded-lg border border-border bg-surface p-1 text-[12.5px] font-semibold sm:w-fit">
               {([["users", "Users", users.length], ["departments", "Departments", departments.length], ["roles", "Roles", roles.length]] as const).map(([k, label, n]) => (

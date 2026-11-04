@@ -15,18 +15,34 @@ class CampaignRepository(BaseRepository[Campaign]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50) -> list[Campaign]:
+    async def list_for_tenant(
+        self,
+        tenant_id: uuid.UUID,
+        offset: int = 0,
+        limit: int = 50,
+        search: str | None = None,
+        status: str | None = None,
+    ) -> list[Campaign]:
+        stmt = select(Campaign).where(Campaign.tenant_id == tenant_id)
+        if search:
+            stmt = stmt.where(Campaign.name.ilike(f"%{search.strip()}%"))
+        if status:
+            stmt = stmt.where(Campaign.status == status)
         result = await self.db.execute(
-            select(Campaign)
-            .where(Campaign.tenant_id == tenant_id)
+            stmt
             .order_by(Campaign.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
-        result = await self.db.execute(
-            select(func.count()).select_from(Campaign).where(Campaign.tenant_id == tenant_id)
-        )
+    async def count_for_tenant(
+        self, tenant_id: uuid.UUID, search: str | None = None, status: str | None = None
+    ) -> int:
+        stmt = select(func.count()).select_from(Campaign).where(Campaign.tenant_id == tenant_id)
+        if search:
+            stmt = stmt.where(Campaign.name.ilike(f"%{search.strip()}%"))
+        if status:
+            stmt = stmt.where(Campaign.status == status)
+        result = await self.db.execute(stmt)
         return result.scalar_one()

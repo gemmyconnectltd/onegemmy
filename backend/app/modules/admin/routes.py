@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from typing import Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +23,7 @@ from app.modules.admin.analytics import (
 )
 from app.modules.admin.export import build_users_export, resolve_columns
 from app.modules.admin.repository import tenant_plan_labels
+from app.modules.admin.tenant_records import TenantRecordSection, list_tenant_records
 from app.modules.admin.usage import FEATURE_MODULES, tier_case
 from app.modules.audit.service import record_audit
 from app.modules.inventory.models.product import Product
@@ -785,6 +786,34 @@ async def admin_tenant_stats(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
         "users": users, "orders": orders, "completed_orders": completed,
         "revenue": float(revenue), "products": products,
     }, message="Tenant stats retrieved")
+
+
+@router.get("/tenants/{tenant_id}/records")
+async def admin_tenant_records(
+    tenant_id: uuid.UUID,
+    section: TenantRecordSection,
+    db: DbSession,
+    _: SuperUser,
+    page_params: PageQuery,
+    q: str | None = Query(None, max_length=100),
+    status: str | None = Query(None, max_length=50),
+    date_from: date | None = None,
+    date_to: date | None = None,
+):
+    """Read-only, paginated business records for the selected tenant."""
+    if date_from and date_to and date_from > date_to:
+        raise ValidationError("Start date must be on or before end date")
+    tenant = await service.get_by_id(db, tenant_id)
+    items, total = await list_tenant_records(
+        db, tenant_id, tenant.currency, section, page_params, q, status, date_from, date_to,
+    )
+    return paginated_response(
+        items=items,
+        total=total,
+        page=page_params.page,
+        page_size=page_params.page_size,
+        message=f"Tenant {section} records retrieved",
+    )
 
 
 @router.get("/tenants/{tenant_id}/users")

@@ -1,9 +1,10 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.repository import BaseRepository
+from app.modules.sales.models.customer import Customer
 from app.modules.sales.models.deal import Deal
 
 
@@ -21,17 +22,28 @@ class DealRepository(BaseRepository[Deal]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, stage: str | None = None, offset: int = 0, limit: int = 50) -> list[Deal]:
+    async def list_for_tenant(
+        self, tenant_id: uuid.UUID, stage: str | None = None, offset: int = 0,
+        limit: int = 50, search: str | None = None,
+    ) -> list[Deal]:
         stmt = select(Deal).options(*_with_relations()).where(Deal.tenant_id == tenant_id)
         if stage:
             stmt = stmt.where(Deal.stage == stage)
+        if search:
+            term = f"%{search.strip()}%"
+            stmt = stmt.where(or_(Deal.name.ilike(term), Deal.customer.has(Customer.name.ilike(term))))
         stmt = stmt.order_by(Deal.created_at.desc()).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, stage: str | None = None) -> int:
+    async def count_for_tenant(
+        self, tenant_id: uuid.UUID, stage: str | None = None, search: str | None = None
+    ) -> int:
         stmt = select(func.count()).select_from(Deal).where(Deal.tenant_id == tenant_id)
         if stage:
             stmt = stmt.where(Deal.stage == stage)
+        if search:
+            term = f"%{search.strip()}%"
+            stmt = stmt.where(or_(Deal.name.ilike(term), Deal.customer.has(Customer.name.ilike(term))))
         result = await self.db.execute(stmt)
         return result.scalar_one()

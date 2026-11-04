@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.core.deps import CurrentUser, DbSession
 from app.core.exceptions import ValidationError
@@ -18,10 +18,18 @@ def _require_tenant(tenant_id) -> None:
 
 
 @router.get("/crm/campaigns")
-async def list_campaigns(db: DbSession, current_user: CurrentUser, page_params: PageQuery):
+async def list_campaigns(
+    db: DbSession,
+    current_user: CurrentUser,
+    page_params: PageQuery,
+    search: str | None = Query(None, max_length=100),
+    status: str | None = Query(None, max_length=20),
+):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_campaigns(db, current_user.tenant_id, page_params.offset, page_params.limit)
-    total = await service.count_campaigns(db, current_user.tenant_id)
+    items = await service.list_campaigns(
+        db, current_user.tenant_id, page_params.offset, page_params.limit, search, status
+    )
+    total = await service.count_campaigns(db, current_user.tenant_id, search, status)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Campaigns retrieved successfully")
 
 

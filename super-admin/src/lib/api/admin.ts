@@ -62,6 +62,30 @@ export interface AdminTenantStats {
   products: number;
 }
 
+export type TenantRecordSection =
+  | "sales" | "customers" | "inventory" | "purchases" | "payments" | "debts"
+  | "expenses" | "accounting" | "approvals" | "activity";
+
+export interface AdminTenantRecord {
+  id: string;
+  section: string;
+  reference: string | null;
+  title: string | null;
+  status: string | null;
+  recorded_at: string | null;
+  counterparty: string | null;
+  amount: number | string | null;
+  currency: string | null;
+  detail: string | null;
+}
+
+export interface TenantRecordFilters {
+  q?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
 export interface AdminPlatformStats {
   /** Tenant sales volume converted to `reporting_currency` — not PESAA's own revenue. */
   reporting_currency?: string;
@@ -664,6 +688,8 @@ export const adminApi = {
 
   tenantStats: (id: string) =>
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
+  tenantRecords: (id: string, section: TenantRecordSection, page = 1, filters: TenantRecordFilters = {}) =>
+    request<PaginatedResponse<AdminTenantRecord>>(`${B}/tenants/${id}/records${qs({ section, page, page_size: 25, ...filters })}`),
   teamRolePermissions: (tenantId:string,roleId:string) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/roles/${roleId}/permissions`),
   saveTeamRolePermissions: (tenantId:string,roleId:string,data:{permission_ids:string[];expected_permission_ids:string[]}) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/roles/${roleId}/permissions`,{method:"PUT",body:JSON.stringify(data)}),
   teamUsers: (tenantId: string, page: number, search = "", status = "", roleId = "") =>

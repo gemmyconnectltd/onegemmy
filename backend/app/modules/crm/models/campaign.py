@@ -19,7 +19,9 @@ class Campaign(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     sent_count: Mapped[int] = mapped_column(Integer, default=0)
     opened_count: Mapped[int] = mapped_column(Integer, default=0)
 
-    emails = relationship("EmailLog", back_populates="campaign", lazy="selectin", cascade="all, delete-orphan")
+    emails = relationship(
+        "EmailLog", back_populates="campaign", lazy="selectin", passive_deletes="all"
+    )
 
     __table_args__ = (
         Index("ix_crm_campaigns_tenant_status", "tenant_id", "status"),

@@ -2,16 +2,16 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Activity, Building2, CalendarClock, Crown, Info, ShieldCheck, Users } from "lucide-react";
+import { Building2, CalendarClock, Crown, Info, ShieldCheck, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtRelative } from "@/lib/date";
-import { type AdminAuditLog, type AdminBranch, type AdminTenant, type AdminTenantStats, type TenantLimits } from "@/lib/api/admin";
+import { type AdminTenantRecord, type AdminBranch, type AdminTenant, type AdminTenantStats, type TenantLimits } from "@/lib/api/admin";
 import { useBillingOverview, useUsageTenant } from "@/lib/api/hooks";
 import { billingDate, billingMoney } from "@/components/billing/BillingShared";
 import { TenantStatusBadge } from "@/components/tenants/StatusBadge";
 
-export type PanelTab = "user-access" | "overview" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations";
+export type PanelTab = "user-access" | "overview" | "records" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = { sole: "Sole Proprietorship", partnership: "Partnership", llc: "Limited Liability (LLC)", unregistered: "Not Registered" };
 
@@ -153,8 +153,8 @@ export function InvoicesPanel({ tenant }: { tenant: AdminTenant }) {
 
 const SECURITY_ACTION = /login|logout|password|session|role|permission|suspend|activate|invite|delete.*user|mfa|2fa/i;
 
-export function SecurityPanel({ tenant, usersCount, inactiveUsers, events, eventsLoading }: { tenant: AdminTenant; usersCount: number; inactiveUsers: number; events: AdminAuditLog[]; eventsLoading: boolean }) {
-  const sec = events.filter((e) => SECURITY_ACTION.test(`${e.action} ${e.summary}`)).slice(0, 15);
+export function SecurityPanel({ tenant, usersCount, inactiveUsers, events, eventsLoading }: { tenant: AdminTenant; usersCount: number; inactiveUsers: number; events: AdminTenantRecord[]; eventsLoading: boolean }) {
+  const sec = events.filter((e) => SECURITY_ACTION.test(`${e.reference} ${e.title}`)).slice(0, 15);
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
@@ -162,31 +162,19 @@ export function SecurityPanel({ tenant, usersCount, inactiveUsers, events, event
         <Card title="Sessions & MFA"><Unavailable title="Not available from the admin API">Active sessions, device lists, login history and MFA status aren&apos;t exposed to platform admins yet, so none are shown (and there is no session-revoke button). Suspending the business signs everyone out.</Unavailable></Card>
       </div>
       <Card title="Recent security-related events">
-        {eventsLoading ? <p className="text-[12.5px] text-muted">Loading…</p> : sec.length === 0 ? <p className="text-[12.5px] text-muted">No security-related events recorded in the latest platform activity.</p> : <EventList events={sec} />}
+        {eventsLoading ? <p className="text-[12.5px] text-muted">Loading…</p> : sec.length === 0 ? <p className="text-[12.5px] text-muted">No security-related events in the latest audit records for this business.</p> : <EventList events={sec} />}
       </Card>
     </div>
   );
 }
 
-function EventList({ events }: { events: AdminAuditLog[] }) {
+function EventList({ events }: { events: AdminTenantRecord[] }) {
   return (
     <TableScroll label="Events"><table className="w-full min-w-[560px] text-left text-[13px]">
       <thead><tr className="border-b border-border text-[11px] uppercase tracking-wider text-muted"><th scope="col" className="py-2 pr-3 font-semibold">Event</th><th scope="col" className="px-3 py-2 font-semibold">Actor</th><th scope="col" className="px-3 py-2 font-semibold">Type</th><th scope="col" className="px-3 py-2 font-semibold">When</th></tr></thead>
       <tbody className="divide-y divide-border">{events.map((e) => (
-        <tr key={e.id}><td className="py-2 pr-3">{e.summary}<span className="block font-mono text-[10.5px] text-muted">{e.action}</span></td><td className="px-3 py-2">{e.actor_name ?? "System"}</td><td className="px-3 py-2 capitalize">{e.entity_type}</td><td className="px-3 py-2 text-[12px] text-muted" title={e.created_at ?? ""}>{fmtRelative(e.created_at)}</td></tr>
+        <tr key={e.id}><td className="py-2 pr-3">{e.title}<span className="block font-mono text-[10.5px] text-muted">{e.reference}</span></td><td className="px-3 py-2">{e.counterparty ?? "System"}</td><td className="px-3 py-2 capitalize">{e.status}</td><td className="px-3 py-2 text-[12px] text-muted" title={e.recorded_at ?? ""}>{fmtRelative(e.recorded_at)}</td></tr>
       ))}</tbody>
     </table></TableScroll>
   );
 }
-
-export function ActivityPanel({ events, loading, error, scanned }: { events: AdminAuditLog[]; loading: boolean; error: boolean; scanned: number }) {
-  return (
-    <Card title="Activity">
-      {loading ? <p className="text-[12.5px] text-muted">Loading…</p> : error ? <p role="alert" className="text-[12.5px] text-red-600">Couldn&apos;t load the audit trail.</p> : events.length === 0 ? (
-        <div className="flex flex-col items-center gap-1 py-8 text-center"><Activity size={26} className="text-muted/40" /><p className="text-sm font-semibold">No recorded events</p><p className="max-w-sm text-[12px] text-muted">None of the latest {scanned} platform audit events belong to this business.</p></div>
-      ) : (<><EventList events={events} /><p className="mt-3 text-[11px] text-muted">Showing this business&apos;s events from the latest {scanned} platform audit entries (the audit API can&apos;t filter by tenant yet).</p></>)}
-    </Card>
-  );
-}
-
-

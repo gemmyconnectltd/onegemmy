@@ -82,6 +82,7 @@ const MODULE_RESOURCES: Record<string, string[]> = {
   procurement: ["vendors", "requisitions", "rfq", "purchase_orders", "goods_receipt", "contracts"],
   hr: ["employees", "organization", "recruitment", "attendance", "leave", "payroll", "performance"],
   customers: ["leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets"],
+  crm: ["leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets"],
   manufacturing: ["bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing"],
   services: ["services", "appointments", "queue"],
 };

@@ -15,20 +15,38 @@ class EmailLogRepository(BaseRepository[EmailLog]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50) -> list[EmailLog]:
+    async def list_for_tenant(
+        self,
+        tenant_id: uuid.UUID,
+        offset: int = 0,
+        limit: int = 50,
+        search: str | None = None,
+        status: str | None = None,
+    ) -> list[EmailLog]:
+        stmt = select(EmailLog).where(EmailLog.tenant_id == tenant_id)
+        if search:
+            term = f"%{search.strip()}%"
+            stmt = stmt.where(EmailLog.subject.ilike(term) | EmailLog.recipient.ilike(term))
+        if status:
+            stmt = stmt.where(EmailLog.status == status)
         result = await self.db.execute(
-            select(EmailLog)
-            .where(EmailLog.tenant_id == tenant_id)
+            stmt
             .order_by(EmailLog.created_at.desc())
             .offset(offset)
             .limit(limit)
         )
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID) -> int:
-        result = await self.db.execute(
-            select(func.count()).select_from(EmailLog).where(EmailLog.tenant_id == tenant_id)
-        )
+    async def count_for_tenant(
+        self, tenant_id: uuid.UUID, search: str | None = None, status: str | None = None
+    ) -> int:
+        stmt = select(func.count()).select_from(EmailLog).where(EmailLog.tenant_id == tenant_id)
+        if search:
+            term = f"%{search.strip()}%"
+            stmt = stmt.where(EmailLog.subject.ilike(term) | EmailLog.recipient.ilike(term))
+        if status:
+            stmt = stmt.where(EmailLog.status == status)
+        result = await self.db.execute(stmt)
         return result.scalar_one()
 
     async def list_by_campaign_for_tenant(

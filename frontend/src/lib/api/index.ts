@@ -25,6 +25,8 @@ export { inventoryApi } from "./inventory";
 // Sales
 export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiOrderPayment, ApiReturnItem, ApiReturn, ApiTarget } from "./sales";
 export { salesApi } from "./sales";
+export type { ApiCrmActivity, ApiCrmContact, ApiCrmOpportunity, ApiCampaign, ApiEmailLog, CrmActivityFilters } from "./crm";
+export { crmApi } from "./crm";
 
 // Accounting
 export type {

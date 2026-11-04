@@ -38,14 +38,22 @@ const COLUMNS: Record<CustomerSection, { label: string; cell: (row: Row, money: 
 };
 const TITLES: Record<CustomerSection, string> = { orders: "Sales", payments: "Payments", returns: "Returns", debts: "Debts" };
 
-export function CustomerProfileScreen({ id }: { id: string }) {
+export function CustomerProfileScreen({
+  id,
+  backHref = "/customers",
+  backLabel = "Customers",
+}: {
+  id: string;
+  backHref?: string;
+  backLabel?: string;
+}) {
   const { user, activeBranchId } = useAuth();
   const { currency } = useAppConfig();
   const query = useCustomerProfile(id, activeBranchId, user?.tenantId);
   const money = (value: unknown, code?: unknown) => formatMoney(Number(value ?? 0), String(code ?? query.data?.currency ?? currency), { showCode: true });
   const [tab, setTab] = useState<CustomerSection>("orders");
   if (query.isLoading) return <PageLoader variant="page" />;
-  if (query.error || !query.data) return <div className="space-y-3"><FinancialError error={query.error} /><Link href="/customers" className="text-xs font-semibold text-accent">Back to customers</Link></div>;
+  if (query.error || !query.data) return <div className="space-y-3"><FinancialError error={query.error} /><Link href={backHref} className="text-xs font-semibold text-accent">Back to {backLabel.toLowerCase()}</Link></div>;
   const { customer, summary, sections, deals } = query.data;
   const visible = (Object.keys(sections) as CustomerSection[]).filter(key => sections[key]);
   const active = visible.includes(tab) ? tab : visible[0];
@@ -60,7 +68,7 @@ export function CustomerProfileScreen({ id }: { id: string }) {
   ].filter(Boolean) as { label: string; value: string; warn?: boolean; danger?: boolean }[];
   return <div className="space-y-5">
     <header className="flex flex-wrap items-start justify-between gap-4"><div>
-      <Link href="/customers" className="mb-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted hover:text-foreground"><ArrowLeft size={12} />Customers</Link>
+      <Link href={backHref} className="mb-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted hover:text-foreground"><ArrowLeft size={12} />{backLabel}</Link>
       <h1 className="pesaa-page-title">{query.data.name}</h1>
       {customer && <p className="mt-1 text-[12px] text-muted">{customer.customer_type === "business" ? "Business" : "Individual"} · {customer.is_active ? "Active" : "Inactive"} · Customer since {date(customer.created_at)}</p>}
     </div><div className="flex items-center gap-2"><div className="w-40"><BranchFilter /></div>{sections.debts && <Link href={`/debts/statements?kind=receivable&party=${id}`}><Button variant="secondary">Account statement</Button></Link>}</div></header>
