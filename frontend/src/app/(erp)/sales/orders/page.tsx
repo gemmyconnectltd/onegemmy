@@ -654,44 +654,35 @@ export default function SalesOrdersPage() {
               </button>
             </div>
 
-            {/* column headers (desktop); on a phone each field carries its own label instead */}
-            <div className="hidden gap-2 px-1 pb-1 text-[12px] font-semibold text-muted sm:grid sm:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_5.5rem_6.5rem_2.25rem]">
-              <span>Product</span><span className="text-right">Price</span><span className="text-right">Qty</span><span className="text-right">Disc.</span><span className="text-right">Line total</span><span className="sr-only">Remove</span>
-            </div>
-
+            {/* The drawer is a fixed 480px column, so every line is a compact card at any screen size: product on top, then its numbers. */}
             <div className="space-y-2">
               {items.map((it, idx) => {
                 const lineTotal = (Number(it.unit_price) || 0) * (Number(it.quantity) || 0) - (Number(it.discount) || 0);
                 return (
-                  <div key={it.rowId} className="rounded-xl border border-border p-3 sm:border-0 sm:p-0">
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-[minmax(0,1fr)_6.5rem_4.5rem_5.5rem_6.5rem_2.25rem] sm:items-center">
-                      <div className="col-span-3 sm:col-span-1">
-                        <ProductPicker item={it} products={products} onChange={(patch) => updateItem(idx, patch)} />
-                        {it.sku && <p className="mt-1 truncate px-1 text-[11px] text-muted">SKU {it.sku}</p>}
-                      </div>
-                      <label className="block text-[11px] font-medium text-muted sm:contents">
-                        <span className="sm:sr-only">Price</span>
-                        <Input type="number" min="0" inputMode="decimal" className="text-right tabular-nums" aria-label={`Line ${idx + 1} unit price`} value={it.unit_price} onChange={(e) => updateItem(idx, { unit_price: e.target.value })} placeholder="Price" />
+                  <div key={it.rowId} className="space-y-2 rounded-xl border border-border p-3">
+                    <div>
+                      <ProductPicker item={it} products={products} onChange={(patch) => updateItem(idx, patch)} />
+                      {it.sku && <p className="mt-1 truncate px-1 text-[11px] text-muted">SKU {it.sku}</p>}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="block text-[11px] font-medium text-muted">Price
+                        <Input type="number" min="0" inputMode="decimal" className="mt-1 text-right tabular-nums" aria-label={`Line ${idx + 1} unit price`} value={it.unit_price} onChange={(e) => updateItem(idx, { unit_price: e.target.value })} placeholder="Price" />
                       </label>
-                      <label className="block text-[11px] font-medium text-muted sm:contents">
-                        <span className="sm:sr-only">Qty</span>
-                        <Input type="number" min="1" inputMode="decimal" className="text-right tabular-nums" aria-label={`Line ${idx + 1} quantity`} value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
+                      <label className="block text-[11px] font-medium text-muted">Qty
+                        <Input type="number" min="1" inputMode="decimal" className="mt-1 text-right tabular-nums" aria-label={`Line ${idx + 1} quantity`} value={it.quantity} onChange={(e) => updateItem(idx, { quantity: e.target.value })} />
                       </label>
-                      <label className="block text-[11px] font-medium text-muted sm:contents">
-                        <span className="sm:sr-only">Discount</span>
-                        <Input type="number" min="0" inputMode="decimal" className="text-right tabular-nums" aria-label={`Line ${idx + 1} discount`} value={it.discount} onChange={(e) => updateItem(idx, { discount: e.target.value })} />
+                      <label className="block text-[11px] font-medium text-muted">Discount
+                        <Input type="number" min="0" inputMode="decimal" className="mt-1 text-right tabular-nums" aria-label={`Line ${idx + 1} discount`} value={it.discount} onChange={(e) => updateItem(idx, { discount: e.target.value })} />
                       </label>
-                      <div className="col-span-2 flex items-center justify-between gap-2 sm:col-span-1 sm:contents">
-                        <p className="whitespace-nowrap text-right text-sm font-semibold tabular-nums text-foreground sm:px-1"><span className="mr-1 text-[11px] font-normal text-muted sm:hidden">Line total</span>{it.unit_price ? fmt(lineTotal) : "—"}</p>
-                      </div>
-                      <div className="flex justify-end sm:justify-center">
-                        {items.length > 1 && (
-                          <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))} aria-label={`Remove line ${idx + 1}`} title="Remove line"
-                            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-accent">
-                            <XCircle size={16} />
-                          </button>
-                        )}
-                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+                      <p className="text-sm tabular-nums text-foreground"><span className="mr-2 text-[11px] text-muted">Line total</span><span className="font-semibold">{it.unit_price ? fmt(lineTotal) : "—"}</span></p>
+                      {items.length > 1 && (
+                        <button type="button" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))} aria-label={`Remove line ${idx + 1}`} title="Remove line"
+                          className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 focus-visible:outline-2 focus-visible:outline-accent">
+                          <XCircle size={15} /> Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
