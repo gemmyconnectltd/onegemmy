@@ -291,6 +291,7 @@ async def create_sale_transaction(
     amount_paid: float | None = None,
     posting_date: date | None = None,
     branch_id: uuid.UUID | None = None,
+    allow_repost: bool = False,
 ) -> uuid.UUID:
     """Auto-called when an order is Completed. Returns the posted
     transaction's id (or None if accounts weren't seeded yet) so the
@@ -312,7 +313,7 @@ async def create_sale_transaction(
     Also Debit COGS / Credit Inventory for the cost of goods sold, if any.
     """
     # One sale, one journal: a retry (or a second code path) gets the journal that already exists.
-    prior = await db.scalar(select(Transaction.id).where(
+    prior = None if allow_repost else await db.scalar(select(Transaction.id).where(
         Transaction.tenant_id == tenant_id, Transaction.order_id == order_id, Transaction.type == "sale", Transaction.status != "Void"))
     if prior is not None:
         return prior
@@ -448,7 +449,7 @@ async def reverse_journal(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.
         raise ConflictError(f"Journal {original.reference} has already been reversed")
     return await post_journal(
         db, tenant_id, user_id, type="reversal", description=f"Reversal of {original.reference}: {reason}"[:500],
-        posting_date=posting_date, branch_id=original.branch_id, client_reference=f"rev:{original.id}",
+        posting_date=posting_date, branch_id=original.branch_id, order_id=original.order_id, return_id=original.return_id, client_reference=f"rev:{original.id}",
         lines=[(account.code, account.name, "credit" if line.type == "debit" else "debit", line.amount, f"Reversal: {line.description or account.name}")
                for line, account in lines])
 

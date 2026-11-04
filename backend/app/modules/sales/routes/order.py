@@ -12,7 +12,7 @@ from app.core.period import PeriodQuery
 from app.core.response import paginated_response, success_response
 from app.modules.sales import service
 from app.modules.sales.routes.access import order_access
-from app.modules.sales.schemas import OrderBulkCreate, OrderCreate, OrderUpdate
+from app.modules.sales.schemas import OrderBulkCreate, OrderCorrection, OrderCreate, OrderUpdate
 from app.modules.sales.schemas.order import OrderDecision
 
 router = APIRouter(tags=["Sales - Orders"], dependencies=[Depends(order_access)])
@@ -88,6 +88,15 @@ def _require_owner(user) -> None:
     from app.core.deps import may_delete
     if not may_delete(user):
         raise ForbiddenError("Only business owners and administrators can do this.")
+
+
+@router.post("/sales/orders/{id}/correct")
+async def correct_order(id: uuid.UUID, data: OrderCorrection, db: DbSession, current_user: CurrentUser):
+    """Owner/administrator correction of a completed sale: reverses the old books entry and posts a new one. Never edits in place."""
+    _require_tenant(current_user.tenant_id)
+    _require_owner(current_user)
+    obj = await service.correct_order(db, current_user.tenant_id, id, data, current_user.id, current_user.full_name or current_user.email)
+    return success_response(data=obj.model_dump(), message="Sale corrected")
 
 
 @router.post("/sales/orders/{id}/archive")

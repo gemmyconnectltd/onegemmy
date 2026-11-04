@@ -206,6 +206,7 @@ export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCr
 export const useApproveOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.approveOrder(id, note), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
 export const useRejectOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.rejectOrder(id, note), [[...ORDERS]]);
 export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
+export const useCorrectOrder = mutation((v: { id: string; data: object }) => salesApi.correctOrder(v.id, v.data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
 export const useArchiveOrder = mutation((v: { id: string; reason: string }) => salesApi.archiveOrder(v.id, v.reason), [[...ORDERS]]);
 export const useRestoreOrder = mutation((id: string) => salesApi.restoreOrder(id), [[...ORDERS]]);
 export const useDeleteOrder = mutation((id: string) => salesApi.deleteOrder(id), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);

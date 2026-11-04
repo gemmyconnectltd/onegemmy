@@ -327,6 +327,136 @@ async def _change_sale_date(db: AsyncSession, tenant_id: uuid.UUID, obj: Order, 
                        changes={"before": old_at.isoformat() if old_at else None, "after": new_at.isoformat(), "journals_moved": len(journals)})
 
 
+async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data, user_id: uuid.UUID, user_name: str | None) -> OrderRead:
+    """An owner's correction of a COMPLETED sale (wrong item, price, quantity, customer or discount).
+
+    Nothing posted is edited. The old sale journal is reversed, the old lines' stock goes back, the new lines are applied (stock out, cost
+    snapshot), and a fresh sale journal is posted on the same day, so the ledger shows both the mistake and the correction. Refused when
+    the sale's day is in a closed period, when the new total is less than what has already been paid (reverse a payment first), for
+    serial-tracked items (use a return), or when a customer would go over their debt limit."""
+    from app.modules.accounting.models.account import Account
+    from app.modules.accounting.models.tax import TaxCalculation
+    from app.modules.accounting.models.transaction import Transaction
+    from app.modules.accounting.models.transaction_line import TransactionLine
+    from app.modules.accounting.repository import TransactionRepository
+    from app.modules.accounting.service.transaction import reverse_journal
+
+    repo = OrderRepository(db)
+    await repo.lock_financial_writes(tenant_id)
+    obj = await repo.get_by_id_for_tenant(tenant_id, id)
+    if obj is None:
+        raise NotFoundError("Order not found")
+    if obj.status != "Completed":
+        raise ValidationError("Only a completed sale is corrected this way; open sales are edited normally")
+    if obj.archived_at is not None:
+        raise ValidationError("Restore this archived sale before correcting it")
+    reason = data.reason.strip()
+    day = await _business_day(db, tenant_id, obj.ordered_at)
+    await TransactionRepository(db).assert_period_open(tenant_id, day)
+    if data.customer_id and await CustomerRepository(db).get_by_id_for_tenant(tenant_id, data.customer_id) is None:
+        raise ValidationError("Choose a customer belonging to this business")
+
+    # Work out the new figures first, before anything is touched.
+    subtotal = round(sum(item.line_total for item in data.items), 2)
+    gross = round(subtotal - data.discount, 2)
+    if gross < 0:
+        raise ValidationError("The sale discount cannot exceed the subtotal")
+    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+    paid = round(float(obj.amount_paid or 0), 2)
+    if total + _PAID_EPSILON < paid:
+        raise ValidationError(f"The corrected total ({total}) is less than the {paid} already paid. Reverse a payment first, or record a return.")
+    old_total = float(obj.total)
+    increase = round(total - max(old_total, paid), 2)
+    customer_id = data.customer_id if data.customer_id is not None else obj.customer_id
+    if increase > _PAID_EPSILON and customer_id:
+        base_ccy = await get_base_currency(db, tenant_id)
+        if await _exceeds_total_debt_limit(db, tenant_id, customer_id, _base_value(increase, obj.currency_code or base_ccy, base_ccy, obj.exchange_rate or Decimal(1))):
+            raise ValidationError("This correction takes the customer over the debt limit. Use the approval flow for the extra credit.")
+
+    # The journal being replaced, and how its payment side was split (so the money already counted stays where it was).
+    journals = (await db.execute(select(Transaction).where(Transaction.tenant_id == tenant_id, Transaction.order_id == obj.id, Transaction.type == "sale", Transaction.status == "Posted").order_by(Transaction.created_at))).scalars().all()
+    reversed_refs = set((await db.execute(select(Transaction.client_reference).where(Transaction.tenant_id == tenant_id, Transaction.client_reference.like("rev:%")))).scalars().all())
+    live = [j for j in journals if f"rev:{j.id}" not in reversed_refs]
+    if not live:
+        raise ValidationError("This sale has no posted journal to correct. Run the reconciliation report for it.")
+    original = live[-1]
+    lines = (await db.execute(select(TransactionLine, Account).join(Account, Account.id == TransactionLine.account_id).where(TransactionLine.transaction_id == original.id))).all()
+    method_lines = [(account.code, float(line.amount)) for line, account in lines if line.type == "debit" and account.code in {"1000", "1010", "1020"}]
+    method_code, paid_in_journal = (method_lines[0] if method_lines else (None, 0.0))
+    method = {"1000": "cash", "1010": "bank", "1020": "mobile"}.get(method_code)
+
+    # Old lines out: stock back (serial-tracked items are not corrected this way).
+    old_items = list(obj.items)
+    for old in old_items:
+        product = await db.get(Product, old.product_id) if old.product_id else None
+        if product is not None and product.tracks_serials:
+            raise ValidationError(f"'{old.product_name}' is serial-tracked. Record a return for it instead of correcting the sale.")
+        target = await db.get(ProductVariant, old.variant_id) if old.variant_id else product
+        if target is not None:
+            target.stock = float(target.stock) + float(old.quantity)
+    # New lines in: validate, take stock out, snapshot cost.
+    await ProductRepository(db).lock_stock(tenant_id, {i.product_id for i in data.items if i.product_id}, {i.variant_id for i in data.items if i.variant_id})
+    new_rows: list[OrderItem] = []
+    cogs_total = 0.0
+    for item_data in data.items:
+        variant = product = None
+        name, sku, attributes = item_data.product_name, item_data.sku, item_data.variant_attributes
+        if item_data.variant_id:
+            variant = await db.get(ProductVariant, item_data.variant_id)
+            product = await db.get(Product, variant.product_id) if variant else None
+            if variant is None or product is None or product.tenant_id != tenant_id:
+                raise ValidationError("A line refers to a variant that is not in this business")
+            name, sku, attributes = product.name, variant.sku or product.sku, variant.attributes
+        elif item_data.product_id:
+            product = await db.get(Product, item_data.product_id)
+            if product is None or product.tenant_id != tenant_id:
+                raise ValidationError("A line refers to a product that is not in this business")
+            if product.has_variants:
+                raise ValidationError(f"Product '{product.name}' has variants. Pick a specific variant.")
+        else:
+            raise ValidationError(f"Item '{item_data.product_name}' must reference a product or variant")
+        if product is not None and product.tracks_serials:
+            raise ValidationError(f"'{product.name}' is serial-tracked. Record a new sale for it instead.")
+        row = OrderItem(order_id=obj.id, product_id=variant.product_id if variant else item_data.product_id, variant_id=variant.id if variant else None,
+                        product_name=name, sku=sku, variant_attributes=attributes, unit_price=item_data.unit_price, quantity=item_data.quantity,
+                        discount=item_data.discount, line_total=item_data.line_total)
+        cogs_total += _complete_sale_item(row, name, item_data.quantity, variant, product)
+        new_rows.append(row)
+
+    before = {"total": old_total, "subtotal": float(obj.subtotal), "discount": float(obj.discount), "customer_id": str(obj.customer_id) if obj.customer_id else None,
+              "lines": [{"name": i.product_name, "qty": float(i.quantity), "price": float(i.unit_price)} for i in old_items]}
+    reversal = await reverse_journal(db, tenant_id, user_id, original, f"sale corrected: {reason}", posting_date=day)
+    for old in old_items:
+        await db.delete(old)
+    await db.flush()
+    for row in new_rows:
+        db.add(row)
+    obj.subtotal, obj.discount, obj.tax, obj.total = subtotal, data.discount, tax, total
+    obj.customer_id = customer_id
+    if data.notes is not None:
+        obj.notes = data.notes
+    base_ccy = await get_base_currency(db, tenant_id)
+    _set_base_amounts(obj, base_ccy)
+    await db.flush()
+    new_txn_id = await create_sale_transaction(
+        db, tenant_id, user_id, obj.id, float(obj.base_total), obj.order_number, cogs=round(cogs_total, 2), tax=float(obj.base_tax),
+        payment_method=method, amount_paid=paid_in_journal, posting_date=day, branch_id=obj.branch_id, allow_repost=True)
+    for payment in (await db.execute(select(OrderPayment).where(OrderPayment.order_id == obj.id, OrderPayment.accounting_transaction_id == original.id))).scalars().all():
+        payment.accounting_transaction_id = new_txn_id
+    tax_rows = (await db.execute(select(TaxCalculation).where(TaxCalculation.tenant_id == tenant_id, TaxCalculation.reference_type == "sale", TaxCalculation.reference_id == str(obj.id)))).scalars().all()
+    for record in tax_rows:
+        record.tax_amount, record.taxable_amount, record.tax_rate = round(float(obj.base_tax), 2), round(float(obj.base_total) - float(obj.base_tax), 2), vat_rate
+    if not tax_rows:
+        await _record_vat(db, tenant_id, obj.id, float(obj.base_tax), float(obj.base_total), vat_rate)
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="order.correct", entity_type="order", entity_id=str(obj.id),
+                       summary=f"Corrected sale {obj.order_number}: {reason}",
+                       changes={"before": before, "after": {"total": total, "subtotal": subtotal, "discount": data.discount, "customer_id": str(customer_id) if customer_id else None,
+                                                            "lines": [{"name": r.product_name, "qty": float(r.quantity), "price": float(r.unit_price)} for r in new_rows]},
+                                "reason": reason, "reversal_journal": reversal.reference, "original_journal": original.reference})
+    await db.commit()
+    return _to_order_read(await repo.get_by_id_for_tenant(tenant_id, id))
+
+
 async def archive_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, reason: str, restore: bool = False) -> OrderRead:
     """Hide a sale from the default list (or bring it back). The sale, its payments and its ledger entries are untouched."""
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)

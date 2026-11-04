@@ -540,3 +540,42 @@ async def test_a_new_customer_needs_a_tin_whether_individual_or_business(db, mon
             assert cleared.status_code == 422
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_an_owner_corrects_a_completed_sale_by_reversal_and_repost(db, monkeypatch):
+    from app.modules.accounting.models.account import Account  # noqa: F401
+    from app.modules.sales.models.customer import Customer
+    tenant, branch, product, cashier, owner = await _till(db, monkeypatch)
+    buyer = Customer(tenant_id=tenant.id, name="Corrected Buyer", tin="123456")
+    db.add(buyer)
+    await db.flush()
+    try:
+        async with _client(owner, tenant, branch) as c:
+            made = await c.post("/api/v1/tenants/sales/orders", json=_sale(product, customer_id=str(buyer.id), due_date="2099-01-01", payment_method="cash", amount_paid=0))
+            assert made.status_code == 201, made.text
+            sale = made.json()["data"]  # 10 x 1,000 on credit; stock 50 -> 40
+            order_id = uuid.UUID(sale["id"])
+            line = {"product_id": str(product.id), "product_name": "Thing", "unit_price": 1000, "quantity": 8}
+            correction = {"items": [line], "discount": 0, "reason": "customer took 8, not 10"}
+            async with _client(cashier, tenant, branch) as other:
+                assert (await other.post(f"/api/v1/tenants/sales/orders/{sale['id']}/correct", json=correction)).status_code == 403
+            assert (await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/correct", json={**correction, "reason": ""})).status_code == 422
+            fixed = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/correct", json=correction)
+            assert fixed.status_code == 200, fixed.text
+            body = fixed.json()["data"]
+            assert body["total"] == 8000 and body["outstanding_balance"] == 8000 and len(body["items"]) == 1
+        await db.refresh(product)
+        assert float(product.stock) == 42  # two units went back on the shelf
+        journals = await _journals(db, tenant.id, order_id)
+        assert len(journals) == 3  # the original, its reversal, and the corrected sale: nothing edited or deleted
+        assert (await _net(db, tenant.id, "1100"))["1100"] == 8000.0  # receivables carry only the corrected amount
+        for _txn, lines in journals:
+            assert round(sum(a for _, k, a in lines if k == "debit"), 2) == round(sum(a for _, k, a in lines if k == "credit"), 2)
+        # a correction that would drop the total below what is already paid is refused
+        async with _client(owner, tenant, branch) as c:
+            paid = (await c.post("/api/v1/tenants/sales/orders", json=_sale(product, payment_method="cash", amount_paid=10000))).json()["data"]
+            low = await c.post(f"/api/v1/tenants/sales/orders/{paid['id']}/correct", json={"items": [{**line, "quantity": 5}], "reason": "wrong quantity"})
+            assert low.status_code == 422 and "already paid" in low.text
+    finally:
+        app.dependency_overrides.clear()

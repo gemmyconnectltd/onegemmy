@@ -96,6 +96,15 @@ class OrderUpdate(BaseModel):
     exchange_rate: Decimal | None = Field(default=None, gt=0)
 
 
+class OrderCorrection(BaseModel):
+    """An owner's correction of a completed sale: the full set of lines it should have had, and why."""
+    items: list[OrderItemCreate] = Field(min_length=1, max_length=200)
+    discount: float = Field(default=0, ge=0, allow_inf_nan=False)
+    customer_id: uuid.UUID | None = None
+    notes: str | None = None
+    reason: str = Field(min_length=3, max_length=500)
+
+
 class OrderRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

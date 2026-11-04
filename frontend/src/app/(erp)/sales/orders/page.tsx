@@ -21,7 +21,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
+import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
 import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
@@ -61,7 +61,7 @@ type ItemRow = {
 
 const EMPTY_ITEM: ItemRow = { rowId: "", product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0", variant_attributes: null };
 const newItem = (): ItemRow => ({ ...EMPTY_ITEM, rowId: crypto.randomUUID() });
-const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "", sale_at: "" };
+const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "", sale_at: "", reason: "" };
 /** An ISO moment as the local value a datetime-local input expects. */
 const toLocalInput = (iso: string | null) => { if (!iso) return ""; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
@@ -346,10 +346,11 @@ export default function SalesOrdersPage() {
 
   const createOrder = useCreateOrder();
   const updateOrder = useUpdateOrder();
+  const correctOrder = useCorrectOrder();
   const archiveOrder = useArchiveOrder();
   const restoreOrder = useRestoreOrder();
   const bulkCreateOrders = useBulkCreateOrders();
-  const saving = createOrder.isPending || updateOrder.isPending;
+  const saving = createOrder.isPending || updateOrder.isPending || correctOrder.isPending;
 
   const stats = [
     { label: "Total Sales", value: String(totalOrdersQ.data?.total ?? 0),    icon: ShoppingCart, color: SAL },
@@ -401,7 +402,7 @@ export default function SalesOrdersPage() {
 
   const openEdit = (o: ApiOrder) => {
     setEditing(o);
-    setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "", sale_at: toLocalInput(o.ordered_at) });
+    setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "", sale_at: toLocalInput(o.ordered_at), reason: "" });
     setItems(o.items.length
       ? o.items.map((i) => ({ rowId: crypto.randomUUID(), product_id: i.product_id ?? "", variant_id: i.variant_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount), variant_attributes: i.variant_attributes ?? null }))
       : [newItem()]);
@@ -439,6 +440,16 @@ export default function SalesOrdersPage() {
       const posted = editing.status === "Completed";
       const dateChanged = isOwner && !!form.sale_at && form.sale_at !== toLocalInput(editing.ordered_at);
       const dateField = dateChanged ? { ordered_at: new Date(form.sale_at).toISOString() } : {};
+      if (posted && isOwner) {
+        // An owner can correct what was sold: the old books entry is reversed and a corrected one posted (never edited in place).
+        if (form.reason.trim().length < 3) { setError("Say why you are correcting this sale. It is kept in the audit trail."); return; }
+        const correction = { items: payload.items.map((line) => ({ product_id: line.product_id, variant_id: line.variant_id, product_name: line.product_name, sku: line.sku, variant_attributes: line.variant_attributes, unit_price: line.unit_price, quantity: line.quantity, discount: line.discount })), discount: payload.discount, customer_id: payload.customer_id, notes: payload.notes, reason: form.reason.trim() };
+        correctOrder.mutate({ id: editing.id, data: correction }, {
+          onError,
+          onSuccess: () => { if (dateChanged) updateOrder.mutate({ id: editing.id, data: dateField }, { onSuccess, onError }); else onSuccess(); },
+        });
+        return;
+      }
       updateOrder.mutate({
         id: editing.id,
         data: posted
@@ -622,9 +633,11 @@ export default function SalesOrdersPage() {
       {/* ── Add / Edit Drawer ── */}
       <Drawer open={showAdd || !!editing} onClose={closeDrawer} title={editing ? "Edit Sale" : "New Sale"} description={editing ? editing.order_number : "Record a new sale"} size="xl">
         <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-5">
-          {editing?.status === "Completed" && <p className="rounded-lg border border-border bg-surface/60 px-3 py-2 text-xs text-muted">This sale is posted to the books, so its items, prices and customer are locked. You can edit the notes{isOwner ? " and the sale date" : ""}. To change what was sold, record a return or a new sale.</p>}
+          {editing?.status === "Completed" && (isOwner
+            ? <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">You are correcting a posted sale. The old entry in the books is reversed and a corrected one is posted, stock is adjusted, and your reason is kept in the audit trail. The new total cannot be less than what is already paid.</p>
+            : <p className="rounded-lg border border-border bg-surface/60 px-3 py-2 text-xs text-muted">This sale is posted to the books, so its items, prices and customer are locked. You can edit the notes. To change what was sold, ask the owner, or record a return or a new sale.</p>)}
           {editing && isOwner && <Field label="Sale date" hint="Moves the sale and its sale entry to this day. Closed accounting periods can't be changed."><Input type="datetime-local" max={toLocalInput(new Date().toISOString())} value={form.sale_at} onChange={(e) => setForm({ ...form, sale_at: e.target.value })} /></Field>}
-          <fieldset disabled={editing?.status === "Completed"} className="m-0 min-w-0 space-y-4 border-0 p-0 disabled:opacity-70">
+          <fieldset disabled={editing?.status === "Completed" && !isOwner} className="m-0 min-w-0 space-y-4 border-0 p-0 disabled:opacity-70">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Customer">
               <Select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: e.target.value })}>
@@ -720,6 +733,7 @@ export default function SalesOrdersPage() {
           </div>
 
           </fieldset>
+          {editing?.status === "Completed" && isOwner && <Field label="Reason for the correction" required><Input value={form.reason} maxLength={500} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="e.g. Customer took 8 units, not 10" /></Field>}
           <Field label="Notes">
             <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
           </Field>
