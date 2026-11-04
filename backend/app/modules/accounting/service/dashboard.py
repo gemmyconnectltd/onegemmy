@@ -54,7 +54,11 @@ async def domain(db, user, view, page=1, page_size=25, period=None, active_branc
                  "kind": "Mobile Money" if a.code.startswith("102") else "Bank" if a.code.startswith("101") else "Cash",
                  "balance": balances.get(a.id, {}).get("balance", Decimal(0))} for a in accounts]
         negatives = [{"id": v["account"].id, "name": v["account"].name, "balance": v["balance"]} for v in balances.values() if v["account"].type == "Assets" and v["account"].code.startswith("10") and v["balance"] < 0]
-        totals = {"Cash & bank": sum((v["balance"] for v in balances.values() if v["account"].type == "Assets" and v["account"].code.startswith("10")), Decimal(0))}
+        liquid = [v for v in balances.values() if v["account"].type == "Assets" and v["account"].code.startswith("10")]
+        # Each kind of money is its own number, then the combined figure: cash in the till is not the bank balance.
+        def held(prefix: str) -> Decimal:
+            return sum((v["balance"] for v in liquid if v["account"].code.startswith(prefix)), Decimal(0))
+        totals = {"Cash": held("100"), "Bank": held("101"), "Mobile money": held("102"), "Total": sum((v["balance"] for v in liquid), Decimal(0))}
     elif view == "pending":
         rows, total = await repo.recent(tenant_id, branch_id, "Draft", page, page_size)
         totals = {}
