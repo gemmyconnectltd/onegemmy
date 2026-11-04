@@ -66,7 +66,7 @@ export function SaleDocumentDrawer({ order, onClose, initialLayout = "invoice", 
         </div>
         <div className="flex flex-wrap gap-2">
           {extraActions}
-          <ShareInvoice orderId={order.id} orderNumber={order.order_number} customerName={order.customer?.name} customerEmail={order.customer?.email} customerPhone={order.customer?.phone} />
+          <ShareInvoice document={layout} orderId={order.id} orderNumber={order.order_number} customerName={order.customer?.name} customerEmail={order.customer?.email} customerPhone={order.customer?.phone} />
           <Button variant="secondary" disabled={!!busy} onClick={() => void pdf()}>{busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}PDF</Button>
           <Button variant="secondary" onClick={() => void copy()}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Copy"}</Button>
           <Button disabled={!!busy} onClick={() => void print()}>{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Print</Button>

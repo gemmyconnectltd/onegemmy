@@ -460,6 +460,9 @@ async def test_an_invoice_can_be_shared_by_link_and_by_email(db, monkeypatch):
             assert no_email.status_code == 422  # a walk-in has no email on file
             emailed = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/email", json={"to": "buyer@example.com", "message": "Thanks!"})
             assert emailed.status_code == 200, emailed.text
+            receipt = await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/email", json={"kind": "receipt", "to": "buyer@example.com"})
+            assert receipt.status_code == 200 and sent[-1][1].startswith("Receipt ")
+            assert (await c.post(f"/api/v1/tenants/sales/orders/{sale['id']}/invoice/share?kind=receipt")).json()["data"]["kind"] == "receipt"
         assert sent[0][0] == "buyer@example.com" and sent[0][2][0][1] == "application/pdf" and sent[0][2][0][2].startswith(b"%PDF")
         async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t") as anonymous:  # no login
             opened = await anonymous.get(f"/api/v1/global/invoices/{token}")

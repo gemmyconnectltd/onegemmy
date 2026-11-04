@@ -1,4 +1,5 @@
 "use client";
+import { ShareInvoice } from "@/components/sales/ShareInvoice";
 import { Check, Copy, Download, Eye, Loader2, Printer } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -41,6 +42,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
     {error && <p role="alert" className="mb-3 text-xs text-red-600">{error}</p>}
     {!!sale.balanceDue && sale.balanceDue > 0 && sale.customerId && <Link href={`/customers/${sale.customerId}`} className="mb-2 block"><Button variant="outline" className="w-full">View {sale.customerName || "customer"}&apos;s debt</Button></Link>}
     <Button onClick={onNewSale} className="w-full">New Sale</Button>
+    {sale.backendOrderId && <div className="mt-2"><ShareInvoice document="receipt" label="Share receipt" orderId={sale.backendOrderId} orderNumber={sale.orderId} customerName={sale.customerName} /></div>}
     <div className="mt-2 grid grid-cols-2 gap-2"><Button variant="secondary" disabled={!!busy} onClick={handlePrint}>{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Print Receipt</Button><Button variant="secondary" disabled={!!busy || !sale.backendOrderId} onClick={handlePdf}>{busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}Download PDF</Button></div>
     <div className="mt-2 flex justify-between gap-2"><Button size="sm" variant="ghost" onClick={() => setView(value => !value)}><Eye size={14} />{view ? "Hide Receipt" : "View Receipt"}</Button>{sale.backendOrderId && <Button size="sm" variant="ghost" onClick={() => setInvoice(true)}><Eye size={14} />Invoice</Button>}<Button size="sm" variant="ghost" onClick={handleCopy}><Copy size={14} />{copied ? "Copied" : "Copy"}</Button>{onClose && <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}</div>
   {invoice && sale.backendOrderId && <SaleDocumentById orderId={sale.backendOrderId} onClose={() => setInvoice(false)} />}</div>;

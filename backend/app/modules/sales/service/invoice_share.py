@@ -34,32 +34,32 @@ def read_share_token(token: str) -> tuple[uuid.UUID, uuid.UUID] | None:
         return None
 
 
-async def share_link(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, user) -> dict:
+async def share_link(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, user, kind: str = "invoice") -> dict:
     order = await get_order(db, tenant_id, order_id)  # also proves the invoice belongs to this business
     token, expires = make_share_token(tenant_id, order_id)
     url = f"{settings.API_PUBLIC_URL.rstrip('/')}/api/v1/global/invoices/{token}"
     await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, actor_name=user.full_name, action="invoice.share_link",
-                       entity_type="order", entity_id=str(order_id), summary=f"Created a share link for {order.order_number}", changes={"expires": expires.isoformat()})
+                       entity_type="order", entity_id=str(order_id), summary=f"Created a share link for {kind} {order.order_number}", changes={"expires": expires.isoformat()})
     await db.commit()
     customer = order.customer
-    return {"url": url, "expires_at": expires.isoformat(), "order_number": order.order_number, "customer_name": customer.name if customer else None,
+    return {"kind": kind, "url": url, "expires_at": expires.isoformat(), "order_number": order.order_number, "customer_name": customer.name if customer else None,
             "customer_phone": customer.phone if customer else None, "customer_email": customer.email if customer else None}
 
 
-async def email_invoice(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, user, to: str | None, message: str | None) -> dict:
+async def email_invoice(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, user, to: str | None, message: str | None, kind: str = "invoice") -> dict:
     order = await get_order(db, tenant_id, order_id)
     recipient = (to or (order.customer.email if order.customer else None) or "").strip()
     if not recipient:
-        raise ValidationError("Enter the email address to send this invoice to; the customer has none on file")
+        raise ValidationError(f"Enter the email address to send this {kind} to; the customer has none on file")
     tenant = await _load_tenant(db, tenant_id)
     filename, pdf = await generate_order_invoice_pdf(db, tenant_id, order_id)
     note = f"<p>{html.escape(message)}</p>" if message else ""
     greeting = f"Dear {html.escape(order.customer.name)}," if order.customer else "Hello,"
-    body = f"<p>{greeting}</p><p>Please find invoice {html.escape(order.order_number)} from {html.escape(tenant.name)} attached.</p>{note}<p>Thank you.</p>"
-    sent = await send_email_message(recipient, f"Invoice {order.order_number} from {tenant.name}", body, attachments=[(filename, "application/pdf", pdf)])
+    body = f"<p>{greeting}</p><p>Please find your {kind} {html.escape(order.order_number)} from {html.escape(tenant.name)} attached.</p>{note}<p>Thank you.</p>"
+    sent = await send_email_message(recipient, f"{kind.title()} {order.order_number} from {tenant.name}", body, attachments=[(filename, "application/pdf", pdf)])
     if not sent:
         raise ValidationError("The email could not be sent. Check the address and try again, or share a link instead.")
     await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, actor_name=user.full_name, action="invoice.email", entity_type="order",
-                       entity_id=str(order_id), summary=f"Emailed {order.order_number} to {recipient}", changes={"to": recipient})
+                       entity_id=str(order_id), summary=f"Emailed {kind} {order.order_number} to {recipient}", changes={"to": recipient, "kind": kind})
     await db.commit()
     return {"sent_to": recipient}
