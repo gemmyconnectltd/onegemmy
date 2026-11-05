@@ -202,6 +202,7 @@ async def test_nobody_approves_their_own_request_and_changed_or_stale_plans_are_
     other = await platform_admin(db, "Other", ["data:approve", "data:view"])
     try:
         async with as_admin(both) as c:
+            assert (await c.put(f"{DM}/settings", json={"require_second_approver": True})).status_code == 200
             plan = await run(c, tenant, "customers", "delete", selection(spare.id))
             await c.post(f"{DM}/operations/{plan['id']}/submit", json={"reason": "This customer was created by mistake"})
             assert (await c.post(f"{DM}/operations/{plan['id']}/decision", json={"approve": True})).status_code == 403  # separation of duties
@@ -473,5 +474,132 @@ async def test_filter_options_are_this_businesss_own_values(db, monkeypatch):
             assert str(owner.id) in {o["id"] for o in options["salesperson_id"]} and str(sold_to.id) in {o["id"] for o in options["customer_id"]}
             other_users = {str(u) for u in (await db.execute(select(User.id).where(User.tenant_id == other_tenant.id))).scalars()}
             assert not other_users & {o["id"] for o in options["created_by"]}
+    finally:
+        app.dependency_overrides.clear()
+
+
+async def _pending(c, tenant, customer, reason="This customer was created by mistake"):
+    plan = await run(c, tenant, "customers", "delete", selection(customer.id))
+    submitted = await c.post(f"{DM}/operations/{plan['id']}/submit", json={"reason": reason})
+    assert submitted.status_code == 200 and submitted.json()["data"]["status"] == "PendingApproval"
+    return plan
+
+
+def _confirm(tenant_name, plan):
+    return {"business_name": tenant_name, "reference": plan["reference"]}
+
+
+@pytest.mark.db
+async def test_the_requester_may_approve_their_own_operation_unless_a_second_approver_is_required(db, monkeypatch):
+    tenant, owner, sold_to, spare, *_ = await world(db, monkeypatch)
+    third = Customer(tenant_id=tenant.id, name="Third Spare")
+    db.add(third)
+    await db.flush()
+    solo = await platform_admin(db, "Solo", list(ALL))
+    viewer = await platform_admin(db, "Viewer", ["data:view"])
+    try:
+        async with as_admin(viewer) as c:
+            assert (await c.put(f"{DM}/settings", json={"require_second_approver": True})).status_code == 403  # changing it needs the approval permission
+        async with as_admin(solo) as c:
+            assert (await c.get(f"{DM}/settings")).json()["data"]["require_second_approver"] is False  # off until someone switches it on
+            assert (await c.get(f"{DM}/me")).json()["data"]["require_second_approver"] is False
+            plan = await _pending(c, tenant, spare)
+            approved = await c.post(f"{DM}/operations/{plan['id']}/decision", json={"approve": True})
+            assert approved.status_code == 200
+            data = approved.json()["data"]
+            assert data["status"] == "Approved" and data["self_approved"] is True and data["decided_by"] == "Solo" and data["requested_by"] == "Solo"
+            assert (await c.post(f"{DM}/operations/{plan['id']}/decision", json={"approve": False, "note": "no"})).status_code == 409  # already decided
+
+            # switched on: the same request can no longer be approved by its requester
+            assert (await c.put(f"{DM}/settings", json={"require_second_approver": True})).status_code == 200
+            assert (await c.get(f"{DM}/settings")).json()["data"]["require_second_approver"] is True
+            blocked = await _pending(c, tenant, third)
+            assert (await c.post(f"{DM}/operations/{blocked['id']}/decision", json={"approve": True})).status_code == 403
+            refused = await c.post(f"{DM}/operations/{blocked['id']}/approve-and-run", json={"confirm": _confirm("Kigali Traders", blocked)})
+            assert refused.status_code == 403
+            row = await db.get(DataOperation, uuid.UUID(blocked["id"]), populate_existing=True)
+            assert row.status == "PendingApproval" and row.self_approved is False
+        audit = (await db.execute(text("select changes from audit_logs where action = 'data_management.second_approver_setting' and actor_user_id = :u order by created_at"), {"u": solo.id})).scalars().all()
+        assert [a["after"] for a in audit] == [True]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_approve_and_run_needs_the_reason_and_the_typed_confirmation_then_records_a_self_approval(db, monkeypatch):
+    tenant, owner, sold_to, spare, *_ = await world(db, monkeypatch)
+    solo = await platform_admin(db, "Solo", list(ALL))
+    try:
+        async with as_admin(solo) as c:
+            plan = await run(c, tenant, "customers", "delete", selection(spare.id))
+            url = f"{DM}/operations/{plan['id']}/approve-and-run"
+            assert (await c.post(url, json={"reason": "Too short", "confirm": _confirm("Kigali Traders", plan)})).status_code == 422  # reason is at least 10 characters
+            assert (await c.post(url, json={"reason": "This customer was created by mistake", "confirm": {"business_name": "Kigali", "reference": plan["reference"]}})).status_code == 422
+            assert (await c.post(url, json={"reason": "This customer was created by mistake"})).status_code == 422  # nothing typed
+            assert (await db.get(DataOperation, uuid.UUID(plan["id"]), populate_existing=True)).status == "Prepared"
+            assert await db.get(Customer, spare.id) is not None
+            done = await c.post(url, json={"reason": "This customer was created by mistake", "confirm": _confirm("Kigali Traders", plan)})
+            assert done.status_code == 200, done.text
+            data = done.json()["data"]
+            assert data["status"] == "Completed" and data["affected"] == 1
+            assert data["self_approved"] is True and data["decided_by"] == "Solo" and data["executed_by"] == "Solo" and data["reason"] == "This customer was created by mistake"
+            assert await db.get(Customer, spare.id) is None
+            listed = (await c.get(f"{DM}/operations", params={"tenant_id": str(tenant.id)})).json()["data"]["items"]
+            assert next(o for o in listed if o["id"] == plan["id"])["self_approved"] is True
+        trail = (await db.execute(text("select changes from audit_logs where entity_id = :i and action = 'data_operation.approved'"), {"i": plan["id"]})).scalars().all()
+        assert trail and trail[0]["self_approved"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_approve_and_run_checks_eligibility_again_so_a_record_that_became_used_is_not_removed(db, monkeypatch):
+    tenant, owner, sold_to, spare, product, unsold, paid, draft = await world(db, monkeypatch)
+    solo = await platform_admin(db, "Solo", list(ALL))
+    try:
+        async with as_admin(solo) as c:
+            plan = await run(c, tenant, "customers", "delete", selection(spare.id))
+            assert plan["summary"]["eligible"] == 1
+            await db.execute(text("update sales_orders set customer_id = :c where id = :o"), {"c": spare.id, "o": draft["id"]})  # a sale now uses this customer
+            await db.flush()
+            done = await c.post(f"{DM}/operations/{plan['id']}/approve-and-run", json={"reason": "This customer was created by mistake", "confirm": _confirm("Kigali Traders", plan)})
+            assert done.status_code == 200, done.text
+            data = done.json()["data"]
+            assert data["status"] == "Failed" and data["result"]["counts"]["blocked"] == 1 and data["affected"] == 0
+            assert await db.get(Customer, spare.id) is not None
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_bulk_approve_and_run_needs_one_typed_confirmation_and_respects_the_second_approver_setting(db, monkeypatch):
+    tenant, owner, sold_to, spare, *_ = await world(db, monkeypatch)
+    extra = Customer(tenant_id=tenant.id, name="Second Spare")
+    db.add(extra)
+    await db.flush()
+    solo = await platform_admin(db, "Solo", list(ALL))
+    spare_id, extra_id = spare.id, extra.id  # a failed step rolls the session back and expires loaded objects
+    try:
+        async with as_admin(solo) as c:
+            one, two = await _pending(c, tenant, spare), await _pending(c, tenant, extra, "Created by mistake as well")
+            url = f"{DM}/operations/approve-and-run-batch"
+            ids = [one["id"], two["id"]]
+            assert (await c.post(url, json={"ids": ids, "phrase": "RUN 3"})).status_code == 422
+            assert (await c.post(url, json={"ids": ids, "phrase": ""})).status_code == 422
+            assert await db.get(Customer, spare_id) is not None
+
+            await c.put(f"{DM}/settings", json={"require_second_approver": True})
+            held = (await c.post(url, json={"ids": ids, "phrase": "run 2"})).json()["data"]["results"]
+            assert [r["status"] for r in held] == ["NotRun", "NotRun"] and all("another administrator" in r["error"] for r in held)
+            assert await db.get(Customer, spare_id) is not None and await db.get(Customer, extra_id) is not None
+
+            await c.put(f"{DM}/settings", json={"require_second_approver": False})
+            done = (await c.post(url, json={"ids": ids, "phrase": "run 2"})).json()["data"]["results"]
+            assert [r["status"] for r in done] == ["Completed", "Completed"] and [r["affected"] for r in done] == [1, 1]
+            assert await db.get(Customer, spare_id) is None and await db.get(Customer, extra_id) is None
+            again = await c.post(url, json={"ids": ids, "phrase": "RUN 2"})
+            assert again.status_code == 409  # only operations still waiting for approval can be chosen
+            for oid in ids:
+                assert (await db.get(DataOperation, uuid.UUID(oid), populate_existing=True)).self_approved is True
     finally:
         app.dependency_overrides.clear()

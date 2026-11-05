@@ -54,6 +54,20 @@ class Execute(BaseModel):
     confirm: dict[str, str] | None = None
 
 
+class ApproveAndRun(Execute):
+    reason: str = Field(default="", max_length=1000)
+    attest_test_data: bool = False
+
+
+class ApproveAndRunBatch(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=plans.BATCH_MAX)
+    phrase: str = Field(max_length=20)
+
+
+class PlatformDataSettings(BaseModel):
+    require_second_approver: bool
+
+
 class SaveFilter(BaseModel):
     module: str
     name: str = Field(min_length=1, max_length=100)
@@ -79,8 +93,23 @@ def _require_data_approval(admin: SuperUser) -> None:
 
 
 @router.get("/me")
-async def my_permissions(admin: SuperUser):
-    return success_response(data={"id": str(admin.id), "permissions": perms.granted(admin), "labels": perms.LABELS, "all": list(perms.ALL)}, message="Permissions retrieved")
+async def my_permissions(admin: SuperUser, db: DbSession):
+    return success_response(data={"id": str(admin.id), "permissions": perms.granted(admin), "labels": perms.LABELS, "all": list(perms.ALL),
+                                  "require_second_approver": await plans.second_approver_required(db)}, message="Permissions retrieved")
+
+
+@router.get("/settings")
+async def data_settings(admin: SuperUser, db: DbSession):
+    if not perms.granted(admin):
+        raise ForbiddenError("Data Management permission required")
+    return success_response(data={"require_second_approver": await plans.second_approver_required(db)}, message="Settings retrieved")
+
+
+@router.put("/settings")
+async def update_data_settings(body: PlatformDataSettings, admin: SuperUser, db: DbSession):
+    """Whether the administrator who requested an operation may also approve it. Changing it needs the approval permission and is audited."""
+    perms.require(admin, perms.APPROVE)
+    return success_response(data={"require_second_approver": await plans.set_second_approver_required(db, admin, body.require_second_approver)}, message="Settings saved")
 
 
 @router.get("/meta")
@@ -326,6 +355,19 @@ async def decision(op_id: uuid.UUID, body: Decision, admin: SuperUser, db: DbSes
 async def execute(op_id: uuid.UUID, body: Execute, admin: SuperUser, db: DbSession):
     """Stage B: re-check everything and run. Running an operation that already ran returns its result and does nothing more."""
     return success_response(data=await plans.execute(db, admin, op_id, body.idempotency_key, body.confirm), message="Operation finished")
+
+
+@router.post("/operations/approve-and-run-batch")
+async def approve_and_run_batch(body: ApproveAndRunBatch, admin: SuperUser, db: DbSession):
+    results = await plans.approve_and_run_batch(db, admin, body.ids, body.phrase)
+    return success_response(data={"results": results}, message="Batch finished")
+
+
+@router.post("/operations/{op_id}/approve-and-run")
+async def approve_and_run(op_id: uuid.UUID, body: ApproveAndRun, admin: SuperUser, db: DbSession):
+    """Submit, approve and run in one step for the requester, while the platform allows self-approval. Everything is checked again before it runs."""
+    return success_response(data=await plans.approve_and_run(db, admin, op_id, reason=body.reason, attest_test_data=body.attest_test_data, idempotency_key=body.idempotency_key, confirm=body.confirm),
+                            message="Operation finished")
 
 
 @router.post("/operations/{op_id}/cancel")

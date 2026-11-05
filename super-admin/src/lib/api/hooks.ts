@@ -337,6 +337,11 @@ export const useDmRejectRequest = mutation((v: { id: string; note: string }) => 
 export const useDmSubmit = mutation((v: { id: string; reason: string; attest?: boolean }) => dmApi.submit(v.id, v.reason, v.attest), [[...DM]]);
 export const useDmDecide = mutation((v: { id: string; approve: boolean; note?: string }) => dmApi.decide(v.id, v.approve, v.note), [[...DM]]);
 export const useDmExecute = mutation((v: { id: string; key: string; confirm?: { business_name: string; reference: string } }) => dmApi.execute(v.id, v.key, v.confirm), [[...DM]]);
+export const useDmApproveAndRun = mutation((v: { id: string; reason?: string; attest?: boolean; key: string; confirm: { business_name: string; reference: string } }) =>
+  dmApi.approveAndRun(v.id, { reason: v.reason, attest_test_data: v.attest, idempotency_key: v.key, confirm: v.confirm }), [[...DM]]);
+export const useDmApproveAndRunBatch = mutation((v: { ids: string[]; phrase: string }) => dmApi.approveAndRunBatch(v.ids, v.phrase), [[...DM]]);
+export const useDmSettings = () => useQ([...DM, "settings"], () => dmApi.settings(), (r) => r.data);
+export const useDmSaveSettings = mutation((v: boolean) => dmApi.saveSettings(v), [[...DM]]);
 export const useDmCancel = mutation((id: string) => dmApi.cancel(id), [[...DM]]);
 export const useDmSaveFilter = mutation((v: { module: string; name: string; tenant_id?: string; filters: DmFilters }) => dmApi.saveFilter(v), [[...DM, "saved"]]);
 export const useDmDeleteFilter = mutation((id: string) => dmApi.deleteFilter(id), [[...DM, "saved"]]);

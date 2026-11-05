@@ -2,13 +2,14 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bell, Coins, Plug, Settings2, ShieldCheck, Sparkles } from "lucide-react";
+import { Bell, Coins, Database, Plug, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { siteConfig } from "@/lib/config";
 import { useAdminStats } from "@/lib/api/hooks";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { PlatformCurrencySettings } from "@/components/admin/PlatformCurrencySettings";
 import { AiSettings } from "@/components/admin/AiSettings";
+import { DataManagementSettings } from "@/components/admin/DataManagementSettings";
 import { NotAvailable, SettingRow } from "@/components/admin/settingsParts";
 import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
 
@@ -17,6 +18,7 @@ const SECTIONS = [
   { key: "currency", label: "Currency & Rates", icon: Coins, desc: "How cross-tenant money is compared." },
   { key: "ai", label: "Pesaa AI", icon: Sparkles, desc: "Availability and request limits." },
   { key: "security", label: "Security", icon: ShieldCheck, desc: "Applies to Pesaa platform administrators, not to each business's own policies." },
+  { key: "data", label: "Data Management", icon: Database, desc: "Who may approve Super Admin data operations." },
   { key: "notifications", label: "Notifications", icon: Bell, desc: "Email alerts for platform events." },
   { key: "api", label: "API & Integrations", icon: Plug, desc: "Connection details for the Pesaa API." },
 ] as const;
@@ -45,6 +47,7 @@ function SettingsInner() {
   const setDirtyFor = useCallback((k: string) => (d: boolean) => setDirty((p) => (p[k] === d ? p : { ...p, [k]: d })), []);
   const dirtyCurrency = setDirtyFor("currency");
   const dirtyAi = setDirtyFor("ai");
+  const dirtyData = setDirtyFor("data");
   const anyDirty = Object.values(dirty).some(Boolean);
 
   // Leaving the page (reload, close tab) with unsaved edits asks first. Switching sections keeps them — every
@@ -65,7 +68,7 @@ function SettingsInner() {
         <p className="mt-0.5 text-sm text-muted">Platform-wide configuration. Signed in as {user?.name ?? "—"}{user?.email ? ` (${user.email})` : ""}.</p>
       </div>
 
-      <SectionLayout nav={<SecondaryNav label="Settings sections" title="Settings" items={SECTIONS.map((x) => ({ key: x.key, label: x.label, icon: x.icon, dot: x.key === "currency" ? dirty.currency : x.key === "ai" ? dirty.ai : false, active: x.key === active, onSelect: () => go(x.key) }))} />}>
+      <SectionLayout nav={<SecondaryNav label="Settings sections" title="Settings" items={SECTIONS.map((x) => ({ key: x.key, label: x.label, icon: x.icon, dot: x.key === "currency" ? dirty.currency : x.key === "ai" ? dirty.ai : x.key === "data" ? dirty.data : false, active: x.key === active, onSelect: () => go(x.key) }))} />}>
         <div className="min-w-0 flex-1">
           <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
             <div className="mb-2 border-b border-border pb-4"><h2 className="text-base font-bold text-foreground">{meta.label}</h2><p className="mt-0.5 text-[12.5px] text-muted">{meta.desc}</p></div>
@@ -79,6 +82,7 @@ function SettingsInner() {
             </section>
             <section hidden={active !== "currency"}><PlatformCurrencySettings onDirtyChange={dirtyCurrency} /></section>
             <section hidden={active !== "ai"}><AiSettings onDirtyChange={dirtyAi} /></section>
+            <section hidden={active !== "data"}><DataManagementSettings onDirtyChange={dirtyData} /></section>
             <section hidden={active !== "security"}>
               <NotAvailable label="Require 2FA for platform administrators" />
               <NotAvailable label="Session timeout" />

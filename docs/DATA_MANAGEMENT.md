@@ -65,7 +65,13 @@ No journal, payment or stock movement is edited, deleted or re-posted.
 1. **Prepare** (`data:preview`): the exact records are fixed, eligibility and blockers worked out, plan stored with an expiry (60 minutes).
 2. **Submit** (`data:request`): a reason (10+ characters). Delete, Clean test data and Close period always need a second administrator; Archive
    needs one above 50 records; voiding a sale needs one.
-3. **Approve** (`data:approve`): a different administrator, for that exact plan (a fingerprint of the records, their versions and settings).
+3. **Approve** (`data:approve`): for that exact plan (a fingerprint of the records, their versions and settings). By default the administrator who
+   requested it may approve it too (**Approve & run**, which needs `data:approve` and `data:execute`). Switch on *Require a second administrator to
+   approve* in Settings → Data Management (platform setting `dataOps.requireSecondApprover`, default off, audited) and a different administrator must
+   approve, as before. A self-approval is recorded (`self_approved`, shown as a "Self-approved" badge in Operation history and written to the audit log).
+   Approve & run asks for the reason, the business name and the operation reference, then submits, approves and runs in one step; the run re-checks
+   everything as usual. In Operation history, operations waiting for approval can be approved and run in bulk after typing `RUN <count>` once.
+   Closing a business permanently (archive request, then deletion) is a separate flow and always needs a second administrator.
 4. **Run** (`data:execute`): re-checks permission, business, eligibility, record versions, plan fingerprint and expiry; destructive operations also
    need the business name and the operation reference typed. Records are handled one at a time through their own services, each with its own
    outcome. A record changed since the preview is skipped. Running a finished operation again returns its result and does nothing.

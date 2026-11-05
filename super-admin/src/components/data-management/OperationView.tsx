@@ -13,6 +13,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { thClass } from "@/components/ui/DataTable";
 import { cn } from "@/lib/utils";
 import { errorText, StatusBadge } from "./common";
+import { ApproveRunDialog } from "./ApproveRunDialog";
 
 const DESTRUCTIVE = ["delete", "clean_test"];
 const when = (v: string | null | undefined) => (v ? new Date(v).toLocaleString() : "—");
@@ -35,7 +36,7 @@ export function OperationView({ id }: { id: string }) {
             <h1 className="pesaa-page-title">{OP_LABEL[op.operation]}</h1>
             <p className="mt-0.5 text-sm text-muted capitalize">{op.module.replace("_", " ")} · {op.selected.toLocaleString()} selected</p></div>
         </div>
-        <StatusBadge status={op.status} />
+        <div className="flex flex-shrink-0 items-center gap-2">{op.self_approved && <Badge tone="violet">Self-approved</Badge>}<StatusBadge status={op.status} /></div>
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-4">
@@ -43,7 +44,7 @@ export function OperationView({ id }: { id: string }) {
           {["Completed", "PartiallyCompleted", "Failed"].includes(op.status) && <Results op={op} />}
         </div>
         <div className="min-w-0 space-y-4 xl:self-start">
-          <Actions op={op} meId={me?.id} perms={me?.permissions ?? []} />
+          <Actions op={op} meId={me?.id} perms={me?.permissions ?? []} requireSecond={me?.require_second_approver ?? true} />
           <Timeline op={op} />
         </div>
       </div>
@@ -134,7 +135,7 @@ function CloseImpact({ op }: { op: DmOperationRecord }) {
   );
 }
 
-function Actions({ op, meId, perms }: { op: DmOperationRecord; meId?: string; perms: string[] }) {
+function Actions({ op, meId, perms, requireSecond }: { op: DmOperationRecord; meId?: string; perms: string[]; requireSecond: boolean }) {
   const submit = useDmSubmit(), decide = useDmDecide(), execute = useDmExecute(), cancel = useDmCancel();
   const [reason, setReason] = useState("");
   const [attest, setAttest] = useState(false);
@@ -143,8 +144,11 @@ function Actions({ op, meId, perms }: { op: DmOperationRecord; meId?: string; pe
   const [reference, setReference] = useState("");
   const [key] = useState(() => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())));
   const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState(false);
   const mine = op.requested_by_id === meId;
   const has = (p: string) => perms.includes(p);
+  // The requester may approve and run their own operation unless the platform requires a second approver.
+  const selfApprove = mine && op.approval_required && !requireSecond && has("data:approve") && has("data:execute");
   const run = async (fn: () => Promise<unknown>) => { setError(null); try { await fn(); } catch (e) { setError(errorText(e)); } };
   const typed = business.trim().toLowerCase() === op.tenant_name.trim().toLowerCase() && reference.trim().toUpperCase() === op.reference;
   const needsTyping = [...DESTRUCTIVE, "reset"].includes(op.operation);
@@ -155,8 +159,15 @@ function Actions({ op, meId, perms }: { op: DmOperationRecord; meId?: string; pe
     <Card title="Next step">
       {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12.5px] text-red-700 dark:text-red-400">{error}</p>}
       {expired && <Notice tone="amber">This plan has expired. Go back and preview again, so it reflects the data as it is now.</Notice>}
+      {dialog && <ApproveRunDialog op={op} onClose={() => setDialog(false)} />}
       {!expired && op.status === "Prepared" && (mine ? (
-        has("data:request") ? (
+        selfApprove && has("data:request") ? (
+          <div className="space-y-3">
+            <p className="text-[12.5px] text-muted">You can approve and run this yourself. You will be asked for the reason, and to type the business name, before anything runs.</p>
+            <Button className="w-full" disabled={op.summary.eligible < 1} onClick={() => setDialog(true)}>Approve &amp; run</Button>
+            {op.summary.eligible < 1 && <p className="text-[12px] text-red-600">Nothing is eligible, so there is nothing to run.</p>}
+          </div>
+        ) : has("data:request") ? (
           <div className="space-y-3">
             <Field label="Why is this needed?" required hint="At least 10 characters. It is kept in the business's audit trail."><Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
             {op.operation === "clean_test" && <label className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px]"><input type="checkbox" className="mt-0.5" checked={attest} onChange={(e) => setAttest(e.target.checked)} /><span>I have reviewed these records and they are test data, not real business history.</span></label>}
@@ -169,7 +180,8 @@ function Actions({ op, meId, perms }: { op: DmOperationRecord; meId?: string; pe
       ) : <p className="text-sm text-muted">Only the administrator who prepared this plan can continue it.</p>)}
 
       {!expired && op.status === "PendingApproval" && (
-        mine ? <p className="flex items-start gap-2 text-sm"><Clock size={15} className="mt-0.5 flex-shrink-0 text-amber-600" /> Waiting for another administrator to approve. You cannot approve your own request.</p>
+        selfApprove ? <div className="space-y-3"><p className="text-sm">You asked to {OP_LABEL[op.operation].toLowerCase()} ({op.summary.eligible.toLocaleString()} eligible). Reason: <em>{op.reason}</em></p><Button className="w-full" onClick={() => setDialog(true)}>Approve &amp; run</Button></div>
+        : mine ? <p className="flex items-start gap-2 text-sm"><Clock size={15} className="mt-0.5 flex-shrink-0 text-amber-600" /> Waiting for another administrator to approve. You cannot approve your own request.</p>
           : has("data:approve") ? (
             <div className="space-y-3"><p className="text-sm">{op.requested_by} asks to {OP_LABEL[op.operation].toLowerCase()} ({op.summary.eligible.toLocaleString()} eligible). Reason: <em>{op.reason}</em></p>
               <Field label="Note" hint="Required when rejecting."><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
@@ -203,7 +215,7 @@ function Actions({ op, meId, perms }: { op: DmOperationRecord; meId?: string; pe
 }
 
 function Timeline({ op }: { op: DmOperationRecord }) {
-  const rows: [string, string][] = [["Prepared", `${op.requested_by ?? "—"} · ${when(op.created_at)}`], ["Submitted", when(op.submitted_at)], ["Decision", op.decided_by ? `${op.decided_by} · ${when(op.decided_at)}${op.decision_note ? ` · ${op.decision_note}` : ""}` : op.approval_required ? "—" : "Not required"],
+  const rows: [string, string][] = [["Prepared", `${op.requested_by ?? "—"} · ${when(op.created_at)}`], ["Submitted", when(op.submitted_at)], ["Decision", op.decided_by ? `${op.decided_by}${op.self_approved ? " (self-approved)" : ""} · ${when(op.decided_at)}${op.decision_note ? ` · ${op.decision_note}` : ""}` : op.approval_required ? "—" : "Not required"],
     ["Run by", op.executed_by ? `${op.executed_by} · ${when(op.started_at)}` : "—"], ["Finished", when(op.finished_at)], ["Plan valid until", when(op.expires_at)]];
   return <Card title="History of this operation"><dl className="space-y-2 text-[12.5px]">{rows.map(([k, v]) => <div key={k}><dt className="text-muted">{k}</dt><dd className="font-medium">{v}</dd></div>)}</dl></Card>;
 }

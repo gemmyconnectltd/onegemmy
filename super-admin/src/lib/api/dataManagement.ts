@@ -34,11 +34,12 @@ export interface DmAnalysis {
 }
 export interface DmOperationRecord {
   id: string; reference: string; tenant_id: string; tenant_name: string; module: string; operation: DmOperation; status: DmStatus; reason: string | null; approval_required: boolean;
-  requested_by: string | null; requested_by_id: string | null; decided_by: string | null; decision_note: string | null; decided_at: string | null; executed_by: string | null;
+  requested_by: string | null; requested_by_id: string | null; decided_by: string | null; self_approved: boolean; decision_note: string | null; decided_at: string | null; executed_by: string | null;
   created_at: string; submitted_at: string | null; started_at: string | null; finished_at: string | null; expires_at: string; selected: number; affected: number;
   summary: DmAnalysis["summary"]; restrictions: string[]; payload: Record<string, unknown>; result: Record<string, unknown> & { counts?: Record<string, number>; total?: number; error?: string; locked_through?: string; opening_position?: Record<string, unknown> };
   filters?: DmFilters; selection?: Record<string, unknown>; analysis?: DmAnalysis; plan_hash?: string; replayed?: boolean;
 }
+export interface DmBatchRun { id: string; reference: string; status: string; affected: number; error: string | null }
 export interface DmItem { record_id: string; label: string; outcome: "affected" | "blocked" | "failed" | "skipped"; message: string | null; snapshot: Record<string, unknown> | null; at: string }
 export interface DmRecovery {
   backups: unknown[]; backup_system: { configured: boolean; message: string }; exports: { id: string; created_at: string; format: string; categories: string[]; expires_at: string; note: string }[];
@@ -63,7 +64,9 @@ export interface DmBatchResult { request_id: string; module: string; operation?:
 const B = "/admin/data-management";
 
 export const dmApi = {
-  me: () => request<SingleResponse<{ id: string; permissions: string[]; labels: Record<string, string>; all: string[] }>>(`${B}/me`),
+  me: () => request<SingleResponse<{ id: string; permissions: string[]; labels: Record<string, string>; all: string[]; require_second_approver: boolean }>>(`${B}/me`),
+  settings: () => request<SingleResponse<{ require_second_approver: boolean }>>(`${B}/settings`),
+  saveSettings: (require_second_approver: boolean) => request<SingleResponse<{ require_second_approver: boolean }>>(`${B}/settings`, { method: "PUT", body: JSON.stringify({ require_second_approver }) }),
   businesses: (page = 1, search?: string) => request<PaginatedResponse<DmBusiness>>(`${B}/businesses${qs({ page, page_size: 20, search })}`),
   business: (id: string) => request<SingleResponse<DmBusiness>>(`${B}/businesses/${id}`),
   modules: (tenantId: string) => request<SingleResponse<DmModuleCount[]>>(`${B}/businesses/${tenantId}/modules`),
@@ -80,6 +83,10 @@ export const dmApi = {
   decide: (id: string, approve: boolean, note?: string) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/decision`, { method: "POST", body: JSON.stringify({ approve, note: note ?? null }) }),
   execute: (id: string, idempotency_key: string, confirm?: { business_name: string; reference: string }) =>
     request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/execute`, { method: "POST", body: JSON.stringify({ idempotency_key, confirm: confirm ?? null }) }),
+  approveAndRun: (id: string, body: { reason?: string; attest_test_data?: boolean; idempotency_key: string; confirm: { business_name: string; reference: string } }) =>
+    request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/approve-and-run`, { method: "POST", body: JSON.stringify(body) }),
+  approveAndRunBatch: (ids: string[], phrase: string) =>
+    request<SingleResponse<{ results: DmBatchRun[] }>>(`${B}/operations/approve-and-run-batch`, { method: "POST", body: JSON.stringify({ ids, phrase }) }),
   cancel: (id: string) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/cancel`, { method: "POST" }),
   history: (page = 1, f: DmHistoryFilters = {}) => request<PaginatedResponse<DmOperationRecord>>(`${B}/operations${qs({ page, page_size: 25, ...f, include_drafts: f.include_drafts ? "true" : undefined })}`),
   requests: (page = 1, tenant_id?: string) => request<PaginatedResponse<DmBusinessRequest>>(`${B}/requests${qs({ page, page_size: 20, tenant_id })}`),

@@ -13,7 +13,13 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.core.exceptions import (
+    AppError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
 from app.modules.admin.data_management import opening
 from app.modules.admin.data_management import permissions as perms
 from app.modules.admin.data_management.explorer import (
@@ -26,6 +32,7 @@ from app.modules.admin.data_management.explorer import (
 from app.modules.admin.data_management.models import DataOperation, DataOperationItem
 from app.modules.admin.data_management.operations import Assessment, assess, rows_for, run_one
 from app.modules.audit.service import record_audit
+from app.modules.currency.models import PlatformSetting
 from app.modules.tenants.models import User
 
 PLAN_TTL = timedelta(minutes=60)       # a preview that is not submitted goes stale
@@ -43,6 +50,29 @@ RESTRICTIONS = {
     "correct": ["Applied through the module's own workflow. The change and its reason are written to the business's audit trail."],
     "reset": ["The books are locked through the closing date. Nothing is deleted or re-posted. The business can reopen the period with a reason."],
 }
+
+
+SECOND_APPROVER_KEY = "dataOps.requireSecondApprover"
+BATCH_MAX = 25
+
+
+async def second_approver_required(db: AsyncSession) -> bool:
+    """Platform setting, off unless an administrator switched it on: may the person who requested an operation also approve it?"""
+    row = await db.get(PlatformSetting, SECOND_APPROVER_KEY)
+    return bool(row.value.get("enabled")) if row is not None and isinstance(row.value, dict) else False
+
+
+async def set_second_approver_required(db: AsyncSession, admin: User, enabled: bool) -> bool:
+    row = await db.get(PlatformSetting, SECOND_APPROVER_KEY)
+    before = bool(row.value.get("enabled")) if row is not None and isinstance(row.value, dict) else False
+    if row is None:
+        db.add(PlatformSetting(key=SECOND_APPROVER_KEY, value={"enabled": enabled}, updated_by=admin.id))
+    else:
+        row.value, row.updated_by = {"enabled": enabled}, admin.id
+    await record_audit(db, tenant_id=None, actor_user_id=admin.id, actor_name=f"{_name(admin)} (platform)", action="data_management.second_approver_setting", entity_type="platform_setting",
+                       entity_id=SECOND_APPROVER_KEY, summary=f"Second approver for data operations {'required' if enabled else 'not required'}", changes={"before": before, "after": enabled})
+    await db.commit()
+    return enabled
 
 
 def _hash(plan: dict) -> str:
@@ -69,7 +99,7 @@ def dump(op: DataOperation, *, full: bool = False) -> dict:
     out = {
         "id": str(op.id), "reference": op.reference, "tenant_id": str(op.tenant_id), "tenant_name": op.tenant_name, "module": op.module, "operation": op.operation, "status": op.status,
         "reason": op.reason, "approval_required": op.approval_required, "requested_by": op.requested_by_name, "requested_by_id": str(op.requested_by) if op.requested_by else None,
-        "decided_by": op.decided_by_name, "decision_note": op.decision_note, "decided_at": op.decided_at, "executed_by": op.executed_by_name, "created_at": op.created_at,
+        "decided_by": op.decided_by_name, "self_approved": op.self_approved, "decision_note": op.decision_note, "decided_at": op.decided_at, "executed_by": op.executed_by_name, "created_at": op.created_at,
         "submitted_at": op.submitted_at, "started_at": op.started_at, "finished_at": op.finished_at, "expires_at": op.expires_at, "selected": op.analysis.get("summary", {}).get("selected", len(op.record_ids)), "affected": op.affected_count,
         "summary": op.analysis.get("summary", {}), "restrictions": op.analysis.get("restrictions", []), "payload": op.payload, "result": op.result,
     }
@@ -94,10 +124,10 @@ async def _get(db: AsyncSession, op_id: uuid.UUID, lock: bool = False) -> DataOp
     return op
 
 
-async def _event(db: AsyncSession, op: DataOperation, admin: User | None, action: str, note: str | None = None) -> None:
+async def _event(db: AsyncSession, op: DataOperation, admin: User | None, action: str, note: str | None = None, extra: dict | None = None) -> None:
     """Every state change is also written to the append-only audit log, on the business's own trail and attributed to the platform administrator."""
     await record_audit(db, tenant_id=op.tenant_id, actor_user_id=admin.id if admin else None, actor_name=f"{_name(admin)} (platform)" if admin else "system", action=f"data_operation.{action}",
-                       entity_type="data_operation", entity_id=str(op.id), summary=f"{op.reference}: {op.operation.replace('_', ' ')} {op.module} {action}", changes={"status": op.status, "note": note})
+                       entity_type="data_operation", entity_id=str(op.id), summary=f"{op.reference}: {op.operation.replace('_', ' ')} {op.module} {action}", changes={"status": op.status, "note": note, **(extra or {})})
 
 
 async def prepare(
@@ -204,7 +234,10 @@ async def decide(db: AsyncSession, admin: User, op_id: uuid.UUID, approve: bool,
     op = await _get(db, op_id, lock=True)
     if op.status != "PendingApproval":
         raise ConflictError(f"This request is {op.status}, not waiting for a decision")
-    if op.requested_by == admin.id:
+    self_decision = op.requested_by == admin.id
+    if self_decision and not approve:
+        raise ForbiddenError("You cannot reject your own request: cancel it instead")
+    if self_decision and await second_approver_required(db):
         raise ForbiddenError("You cannot decide your own request: another administrator must")
     now = datetime.now(UTC)
     if op.expires_at <= now:
@@ -216,10 +249,11 @@ async def decide(db: AsyncSession, admin: User, op_id: uuid.UUID, approve: bool,
     if not approve and len((note or "").strip()) < 3:
         raise ValidationError("Say why you are rejecting it")
     op.status = "Approved" if approve else "Rejected"
+    op.self_approved = bool(approve and self_decision)
     op.decided_by, op.decided_by_name, op.decided_at, op.decision_note = admin.id, _name(admin), now, (note or "").strip() or None
     if approve:
         op.expires_at = now + EXECUTE_WINDOW
-    await _event(db, op, admin, "approved" if approve else "rejected", op.decision_note)
+    await _event(db, op, admin, "approved" if approve else "rejected", op.decision_note, {"self_approved": op.self_approved} if approve else None)
     await db.commit()
     return dump(op, full=True)
 
@@ -241,7 +275,7 @@ def _confirmed(op: DataOperation, confirm: dict | None) -> bool:
     return (c.get("business_name", "").strip().casefold() == op.tenant_name.strip().casefold() and c.get("reference", "").strip().upper() == op.reference)
 
 
-async def execute(db: AsyncSession, admin: User, op_id: uuid.UUID, idempotency_key: str | None, confirm: dict | None) -> dict:
+async def execute(db: AsyncSession, admin: User, op_id: uuid.UUID, idempotency_key: str | None, confirm: dict | None, *, confirmed: bool = False) -> dict:
     perms.require(admin, perms.EXECUTE)
     op = await _get(db, op_id, lock=True)
     if op.status in ("Completed", "PartiallyCompleted", "Failed"):
@@ -258,7 +292,7 @@ async def execute(db: AsyncSession, admin: User, op_id: uuid.UUID, idempotency_k
         raise ConflictError("This plan has expired. Prepare it again.")
     if op.plan_hash != plan_fingerprint(op):
         raise ConflictError("This plan no longer matches what was approved. Prepare and submit it again.")
-    if op.operation in (*DESTRUCTIVE, "reset") and not _confirmed(op, confirm):
+    if op.operation in (*DESTRUCTIVE, "reset") and not confirmed and not _confirmed(op, confirm):
         raise ValidationError("Type the business name and the operation reference exactly to confirm")
     tenant = await tenant_of(db, op.tenant_id)
     op.status, op.started_at, op.executed_by, op.executed_by_name, op.idempotency_key = "Executing", now, admin.id, _name(admin), (idempotency_key or "")[:64] or None
@@ -316,6 +350,56 @@ async def execute(db: AsyncSession, admin: User, op_id: uuid.UUID, idempotency_k
     await _event(db, op, admin, op.status.lower(), f"{counts['affected']} of {len(ids)} records")
     await db.commit()
     return dump(op, full=True)
+
+
+async def approve_and_run(db: AsyncSession, admin: User, op_id: uuid.UUID, *, reason: str, attest_test_data: bool, idempotency_key: str | None, confirm: dict | None, batch_confirmed: bool = False) -> dict:
+    """Submit (if still a preview), approve and run in one step. Every check of the separate steps still applies, and the plan is assessed again from scratch before it runs.
+    The administrator who requested it may approve it only while the platform does not require a second approver."""
+    perms.require(admin, perms.APPROVE)
+    perms.require(admin, perms.EXECUTE)
+    op = await _get(db, op_id)
+    if op.status not in ("Prepared", "PendingApproval", "Approved"):
+        raise ConflictError(f"This operation is {op.status}: it cannot be approved and run")
+    mine = op.requested_by == admin.id
+    if op.status == "Prepared" and not mine:
+        raise ForbiddenError("Only the administrator who prepared this plan can approve and run it")
+    if op.status != "Approved" and op.approval_required and mine and await second_approver_required(db):
+        raise ForbiddenError("This platform requires another administrator to approve. Use Request approval.")
+    if not batch_confirmed and not _confirmed(op, confirm):
+        raise ValidationError("Type the business name and the operation reference exactly to confirm")
+    if op.status == "Prepared":
+        await submit(db, admin, op_id, reason, attest_test_data)
+        op = await _get(db, op_id)
+    if op.status == "PendingApproval":
+        await decide(db, admin, op_id, True, None)
+    return await execute(db, admin, op_id, idempotency_key, confirm, confirmed=True)
+
+
+async def approve_and_run_batch(db: AsyncSession, admin: User, ids: list[uuid.UUID], phrase: str) -> list[dict]:
+    """Approve and run several operations that are waiting for approval, after one typed confirmation for the whole batch. Each runs on its own: one failing does not stop the rest."""
+    perms.require(admin, perms.APPROVE)
+    perms.require(admin, perms.EXECUTE)
+    ids = list(dict.fromkeys(ids))
+    if not 1 <= len(ids) <= BATCH_MAX:
+        raise ValidationError(f"Choose between 1 and {BATCH_MAX} operations")
+    if (phrase or "").strip().upper() != f"RUN {len(ids)}":
+        raise ValidationError(f"Type RUN {len(ids)} to confirm")
+    for oid in ids:
+        op = await _get(db, oid)
+        if op.status != "PendingApproval":
+            raise ConflictError(f"{op.reference} is {op.status}, not waiting for approval")
+    admin_id = admin.id
+    results: list[dict] = []
+    for oid in ids:
+        reference = (await _get(db, oid)).reference
+        try:
+            done = await approve_and_run(db, admin, oid, reason="", attest_test_data=False, idempotency_key=secrets.token_hex(16), confirm=None, batch_confirmed=True)
+            results.append({"id": str(oid), "reference": reference, "status": done["status"], "affected": done["affected"], "error": None})
+        except AppError as exc:
+            await db.rollback()
+            admin = await db.get(User, admin_id, populate_existing=True)
+            results.append({"id": str(oid), "reference": reference, "status": "NotRun", "affected": 0, "error": exc.detail})
+    return results
 
 
 async def get(db: AsyncSession, op_id: uuid.UUID) -> dict:

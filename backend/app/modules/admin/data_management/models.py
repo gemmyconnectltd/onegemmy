@@ -44,6 +44,8 @@ class DataOperation(UUIDPKMixin, TimestampMixin, Base):
     decided_by_name: Mapped[str | None] = mapped_column(String(255))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decision_note: Mapped[str | None] = mapped_column(String(500))
+    # True when the administrator who requested the operation also approved it (allowed only while the platform does not require a second approver).
+    self_approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     executed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     executed_by_name: Mapped[str | None] = mapped_column(String(255))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
