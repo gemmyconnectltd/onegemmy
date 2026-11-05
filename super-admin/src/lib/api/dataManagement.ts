@@ -46,6 +46,19 @@ export interface DmRecovery {
 }
 export interface DmSavedFilter { id: string; module: string; name: string; tenant_id: string | null; filters: DmFilters }
 export interface DmHistoryFilters { tenant_id?: string; module?: string; operation?: string; status?: string; from_date?: string; to_date?: string; include_drafts?: boolean }
+export interface DmBusinessRequest {
+  id: string;
+  tenant_id: string;
+  tenant_name: string;
+  module: string;
+  filters: { date_type: string; preset: string; from: string; to: string };
+  reason: string;
+  requested_by: string | null;
+  created_at: string;
+  /** Requests asked for together (one date range, several modules) share this id. */
+  batch_id: string | null;
+}
+export interface DmBatchResult { request_id: string; module: string; operation?: { id: string; reference: string; summary: { selected: number; eligible: number; blocked: number } }; empty?: boolean; message?: string; error?: string }
 
 const B = "/admin/data-management";
 
@@ -69,6 +82,11 @@ export const dmApi = {
     request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/execute`, { method: "POST", body: JSON.stringify({ idempotency_key, confirm: confirm ?? null }) }),
   cancel: (id: string) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/cancel`, { method: "POST" }),
   history: (page = 1, f: DmHistoryFilters = {}) => request<PaginatedResponse<DmOperationRecord>>(`${B}/operations${qs({ page, page_size: 25, ...f, include_drafts: f.include_drafts ? "true" : undefined })}`),
+  requests: (page = 1, tenant_id?: string) => request<PaginatedResponse<DmBusinessRequest>>(`${B}/requests${qs({ page, page_size: 20, tenant_id })}`),
+  prepareRequest: (id: string) => request<SingleResponse<{ request_id: string; operation: DmOperationRecord }>>(`${B}/requests/${id}/prepare`, { method: "POST" }),
+  prepareBatch: (batchId: string) => request<SingleResponse<{ batch_id: string; results: DmBatchResult[] }>>(`${B}/requests/batch/${batchId}/prepare`, { method: "POST" }),
+  rejectBatch: (batchId: string, note: string) => request<SingleResponse<{ batch_id: string; declined: number }>>(`${B}/requests/batch/${batchId}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
+  rejectRequest: (id: string, note: string) => request<SingleResponse<{ id: string; status: string }>>(`${B}/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
   recovery: (tenantId: string) => request<SingleResponse<DmRecovery>>(`${B}/businesses/${tenantId}/recovery`),
   savedFilters: (module?: string) => request<SingleResponse<DmSavedFilter[]>>(`${B}/saved-filters${qs({ module })}`),
   saveFilter: (body: { module: string; name: string; tenant_id?: string; filters: DmFilters }) => request<SingleResponse<{ id: string }>>(`${B}/saved-filters`, { method: "POST", body: JSON.stringify(body) }),

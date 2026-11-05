@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, ExternalLink, Palette, Settings, ShieldCheck, Wallet } from "lucide-react";
+import { Bell, Database, ExternalLink, Palette, Settings, ShieldCheck, Wallet } from "lucide-react";
 import { useCurrentTenant } from "@/lib/api/hooks";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -13,6 +13,7 @@ export const SETTINGS_TABS = [
   { icon: ShieldCheck, label: "Security", href: "/settings/security" },
   { icon: Bell, label: "Notifications", href: "/settings/notifications" },
   { icon: Palette, label: "Appearance", href: "/settings/appearance" },
+  { icon: Database, label: "Data Management", href: "/settings/data-management" },
 ] as const;
 
 /**

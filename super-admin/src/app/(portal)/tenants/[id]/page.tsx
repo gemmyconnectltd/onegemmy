@@ -8,7 +8,7 @@ import {
   ArrowLeft, UserPlus, Loader2,
   CheckCircle, XCircle, Building2, Layers, Shield,
   Plus, Trash2, X, 
-  AlertTriangle, RotateCcw, Eye, Crown, Power,
+  AlertTriangle, Crown, Power,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { Toggle } from "@/components/ui/Toggle";
@@ -18,7 +18,7 @@ import {
   useTenantDepartments, useCreateDepartment,
   useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
   useTenantBranches, useCreateBranch, useDeleteBranch,
-  useUpdateTenant, useResetTenantData, useTenantLimits, useTenantRecords,
+  useUpdateTenant, useTenantLimits, useTenantRecords,
 } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
 import { useAppConfig } from "@/lib/appConfig";
@@ -41,6 +41,27 @@ import { OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./Tenan
 import { resolveUploadUrl } from "@/lib/api/client";
 import { TenantRecords } from "./TenantRecords";
 
+const PANEL_TABS: readonly PanelTab[] = [
+  "overview", "records", "users", "user-access", "branches", "subscription",
+  "usage", "invoices", "modules", "approvals", "activity", "security", "operations",
+];
+
+type BusinessProfileDraft = {
+  name: string;
+  slug: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
+  website: string;
+  business_type: string;
+  industry: string;
+  business_category: string;
+  employee_count: string;
+  business_location: string;
+  heard_about: string;
+  preferred_contact: "email" | "phone" | "whatsapp" | "all";
+};
 
 function TenantDetailPageInner() {
   const { id } = useParams<{ id: string }>();
@@ -50,21 +71,19 @@ function TenantDetailPageInner() {
   const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<PanelTab>(() => {
-    const t = searchParams.get("tab");
-    return (["overview", "records", "users", "user-access", "branches", "subscription", "usage", "invoices", "security", "activity", "operations"] as const).find((x) => x === t) ?? "overview";
-  });
+  const tab = PANEL_TABS.find((key) => key === searchParams.get("tab")) ?? "overview";
+  const selectTab = (next: PanelTab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", next);
+    router.replace(`/tenants/${encodeURIComponent(id)}?${params.toString()}`, { scroll: false });
+  };
   const [usersSub, setUsersSub] = useState<"users" | "departments" | "roles">("users");
-  const [editForm, setEditForm] = useState<{ name: string; slug: string; phone: string; city: string; country: string; preferred_contact: "email" | "phone" | "whatsapp" | "all" } | null>(null);
+  const [editForm, setEditForm] = useState<BusinessProfileDraft | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
   const [permissionRole,setPermissionRole] = useState<string | null>(null);
   const [showAddRole, setShowAddRole] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
-  const [showResetData, setShowResetData] = useState(false);
-  const [resetConfirmName, setResetConfirmName] = useState("");
-  const [resetResult, setResetResult] = useState<Record<string, number> | null>(null);
-  const [resetError, setResetError] = useState<string | null>(null);
 
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
   const [roleForm, setRoleForm] = useState({ name: "", description: "" });
@@ -98,7 +117,6 @@ function TenantDetailPageInner() {
   const deleteRole = useDeleteRole();
   const createBranch = useCreateBranch();
   const deleteBranch = useDeleteBranch();
-  const resetTenantData = useResetTenantData();
 
   const bulkDepartments = useBulkSelection(departments.map((d) => d.id));
   const bulkRoles = useBulkSelection(roles.map((r) => r.id));
@@ -153,7 +171,7 @@ function TenantDetailPageInner() {
   // Suspending needs a reason and a typed confirmation (Operations tab); reactivating does not.
   const toggleStatus = () => {
     if (!tenant) return;
-    if (tenant.is_active) { setTab("operations"); return; }
+    if (tenant.is_active) { selectTab("operations"); return; }
     setActing(true);
     setNotice(null);
     activateTenant.mutate({ id }, {
@@ -285,30 +303,6 @@ function TenantDetailPageInner() {
     });
   };
 
-  const openResetData = () => {
-    setResetConfirmName("");
-    setResetResult(null);
-    setResetError(null);
-    setShowResetData(true);
-  };
-
-  const closeResetData = () => {
-    setShowResetData(false);
-    setResetConfirmName("");
-    setResetResult(null);
-    setResetError(null);
-  };
-
-  const handleResetData = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tenant || resetConfirmName.trim() !== tenant.name) return;
-    setResetError(null);
-    resetTenantData.mutate({ id, confirmName: resetConfirmName.trim() }, {
-      onSuccess: (res) => setResetResult(res.data?.deleted ?? {}),
-      onError: (err: unknown) => setResetError((err as { detail?: string })?.detail ?? "Failed to reset business data"),
-    });
-  };
-
   if (loading) return <PageLoader />;
 
   if (coreError || !tenant) return (
@@ -326,6 +320,23 @@ function TenantDetailPageInner() {
   // admin (or one with no tenant, defaulting to RWF) views a business on a
   // different currency, same as the currency picker just above it does.
   const tenantCurrencySymbol = currencies.find((cur) => cur.code === tenant.currency)?.symbol ?? tenant.currency;
+
+  const openEditProfile = () => setEditForm({
+    name: tenant.name.trim(),
+    slug: tenant.slug,
+    phone: tenant.phone ?? "",
+    address: tenant.address ?? "",
+    city: tenant.city ?? "",
+    country: tenant.country ?? "",
+    website: tenant.website ?? "",
+    business_type: tenant.business_type ?? "",
+    industry: tenant.industry ?? "",
+    business_category: tenant.business_category ?? "",
+    employee_count: tenant.employee_count ?? "",
+    business_location: tenant.business_location ?? "",
+    heard_about: tenant.heard_about ?? "",
+    preferred_contact: tenant.preferred_contact ?? "email",
+  });
 
   const controls = (
     <div className="flex flex-wrap items-center gap-3">
@@ -346,10 +357,21 @@ function TenantDetailPageInner() {
       </div>
     </div>
   );
-  const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: setTab };
-  const TABS: { key: PanelTab; label: string; count?: number }[] = [
-    { key: "overview", label: "Overview" }, { key: "records", label: "Business records" }, { key: "users", label: "Users", count: usersData?.total ?? users.length }, { key: "branches", label: "Branches", count: branches.length },
-    { key: "user-access", label: "Team & Access" }, { key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }, { key: "security", label: "Security" }, { key: "activity", label: "Activity" }, { key: "operations", label: "Actions" },
+  const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: selectTab };
+  const TABS: { key: PanelTab; label: string; group: string; count?: number }[] = [
+    { key: "overview", label: "Overview & profile", group: "Business" },
+    { key: "records", label: "Business records", group: "Business" },
+    { key: "users", label: "Users, departments & roles", group: "Business", count: usersData?.total ?? users.length },
+    { key: "user-access", label: "Team access", group: "Business" },
+    { key: "branches", label: "Branches", group: "Business", count: branches.length },
+    { key: "subscription", label: "Subscription", group: "Plan & billing" },
+    { key: "usage", label: "Usage", group: "Plan & billing" },
+    { key: "invoices", label: "Invoices", group: "Plan & billing" },
+    { key: "modules", label: "Modules & features", group: "Plan & billing" },
+    { key: "approvals", label: "Approvals", group: "Governance" },
+    { key: "activity", label: "Activity & audit", group: "Governance" },
+    { key: "security", label: "Security", group: "Governance" },
+    { key: "operations", label: "Business actions", group: "Governance" },
   ];
 
   return (
@@ -367,13 +389,11 @@ function TenantDetailPageInner() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" disabled title="Secure, time-limited, audited impersonation isn't available yet — nothing is faked here."><Eye size={14} /> View as Tenant</Button>
-          <Button variant="outline" onClick={() => setTab("subscription")}><Crown size={14} /> Change Plan</Button>
+          <Button variant="outline" onClick={() => selectTab("subscription")}><Crown size={14} /> Change Plan</Button>
           <Button variant="primary" type="button" onClick={openInvite}><UserPlus size={14} /> Invite User</Button>
           <ActionMenu label="More actions" items={[
-                      { label: "Edit business", icon: <Building2 size={14} />, onSelect: () => setEditForm({ name: tenant.name.trim(), slug: tenant.slug, phone: tenant.phone ?? "", city: tenant.city ?? "", country: tenant.country ?? "", preferred_contact: tenant.preferred_contact ?? "email" }) },
+                      { label: "Edit business profile", icon: <Building2 size={14} />, onSelect: openEditProfile },
             { label: tenant.is_active ? "Suspend business…" : "Activate business", disabled: !!tenant.archived_at, icon: <Power size={14} />, danger: tenant.is_active, onSelect: toggleStatus },
-            { label: "Reset business data", icon: <RotateCcw size={14} />, danger: true, onSelect: openResetData },
           ]} />
         </div>
       </div>
@@ -386,15 +406,17 @@ function TenantDetailPageInner() {
       )}
 
       {/* Tabs */}
-      <SectionLayout nav={<SecondaryNav label="Tenant sections" title="Manage business" items={[...TABS.map((t) => ({ key: t.key, label: t.label, count: t.count, active: tab === t.key, onSelect: () => setTab(t.key) })), { key: "data-management", label: "Data Management", href: `/tenants/${id}/data`, active: false }]} />}>
+      <SectionLayout nav={<SecondaryNav label="Tenant sections" title="Manage business" subtitle={tenant.name} items={[...TABS.map((t) => ({ key: t.key, label: t.label, group: t.group, count: t.count, active: tab === t.key, onSelect: () => selectTab(t.key) })), { key: "data-management", label: "Data Management", group: "Governance", href: `/tenants/${id}/data`, active: false }]} />}>
       <div>
         <div className="min-w-0 space-y-6">
           {tab === "user-access" && <UserFeatureAccess tenantId={id} />}
-          {tab === "overview" && <OverviewPanel {...panelProps} controls={controls} />}
+          {tab === "overview" && <OverviewPanel {...panelProps} controls={controls} onEditProfile={openEditProfile} />}
           {tab === "records" && <TenantRecords tenantId={id} currency={tenant.currency} />}
-          {tab === "subscription" && <><SubscriptionManager tenantId={id} /><FeaturesPanel tenantId={id} /></>}
+          {tab === "subscription" && <SubscriptionManager tenantId={id} />}
+          {tab === "modules" && <FeaturesPanel tenantId={id} />}
           {tab === "usage" && <UsagePanel {...panelProps} currencySymbol={tenantCurrencySymbol} />}
           {tab === "invoices" && <LiveBillingList kind="invoices" tenantId={id} />}
+          {tab === "approvals" && <TenantRecords tenantId={id} currency={tenant.currency} initialSection="approvals" />}
           {tab === "security" && <SecurityPanel tenant={tenant} usersCount={users.length} inactiveUsers={users.filter((u) => !u.is_active).length} events={tenantEvents} eventsLoading={audit.isLoading} />}
           {tab === "operations" && <OperationsPanel tenant={tenant} users={users} />}
           {tab === "activity" && <TenantRecords tenantId={id} currency={tenant.currency} initialSection="activity" />}
@@ -574,37 +596,101 @@ function TenantDetailPageInner() {
       </div>
 
       {tab === "overview" && (
-      <div className="bg-card border border-red-500/30 rounded-xl p-5">
+      <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 flex items-center justify-center rounded-xl bg-red-500/10">
-            <AlertTriangle size={15} className="text-red-600 dark:text-red-400" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-surface">
+            <AlertTriangle size={15} className="text-muted" />
           </div>
-          <h2 className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</h2>
+          <h2 className="text-sm font-bold text-foreground">Business lifecycle</h2>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-4 py-3"><div><p className="text-sm font-semibold">Archive business</p><p className="text-xs text-muted">Needs a reason, the typed business name and a second administrator&apos;s approval. Records are always retained.</p></div><Button variant="outline" onClick={() => setTab("operations")}>Go to Actions</Button></div>
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-red-500/20">
-          <div className="max-w-xl">
-            <p className="text-sm font-semibold text-foreground">Reset Business Data</p>
-            <p className="text-[12px] text-muted mt-0.5">
-              Permanently deletes {tenant.name}&apos;s products, sales, customers, suppliers, expenses, invoices &amp; accounting entries, deals, purchase orders, manufacturing/repair jobs, and inventory &amp; stock — for a business clearing out mistakes made while still testing the platform. The tenant account, user logins, roles, departments, branches, and settings (currency, VAT, branding) are kept, so it reopens clean without redoing setup. This cannot be undone.
-            </p>
-          </div>
-          <button
-            onClick={openResetData}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-sm font-semibold transition-colors shrink-0"
-          >
-            <RotateCcw size={14} /> Reset Business Data
-          </button>
-        </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 py-3"><div><p className="text-sm font-semibold">Archive business</p><p className="text-xs text-muted">Needs a reason, the typed business name and a second administrator&apos;s approval. Records are always retained.</p></div><Button variant="outline" onClick={() => selectTab("operations")}>Go to actions</Button></div>
       </div>
       )}
       </SectionLayout>
 
-      {editForm && <Drawer open onClose={() => setEditForm(null)} title="Edit business"><form className="space-y-4 p-5" onSubmit={e => { e.preventDefault(); updateTenant.mutate({ id, data: { ...editForm, name: editForm.name.trim(), slug: editForm.slug.trim(), phone: editForm.phone.trim(), city: editForm.city.trim(), country: editForm.country.trim() } }, { onSuccess: () => setEditForm(null), onError: () => setNotice({ kind: "error", text: "Could not save business details" }) }); }}>
-        {(["name", "slug", "phone", "city"] as const).map(k => <Field key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} required={k === "name" || k === "slug"}><Input required={k === "name" || k === "slug"} value={editForm[k]} onChange={e => setEditForm({ ...editForm, [k]: e.target.value })} /></Field>)}
-        <Field label="Country"><Select value={editForm.country} onChange={e => setEditForm({ ...editForm, country: e.target.value })}><option value="">Not specified</option>{COUNTRY_NAMES.map(c => <option key={c}>{c}</option>)}</Select></Field>
-        <Field label="Contact preference"><Select value={editForm.preferred_contact} onChange={e => setEditForm({ ...editForm, preferred_contact: e.target.value as typeof editForm.preferred_contact })}><option value="whatsapp">WhatsApp</option><option value="phone">Phone call</option><option value="email">Email</option><option value="all">All</option></Select></Field>
-        <FormFooter submitLabel="Save changes" onCancel={() => setEditForm(null)} disabled={updateTenant.isPending} /></form></Drawer>}
+      {editForm && <Drawer open onClose={() => setEditForm(null)} title="Edit business profile" description={`Update registration and contact details for ${tenant.name}`}>
+        <form className="space-y-5 p-5" onSubmit={e => {
+          e.preventDefault();
+          updateTenant.mutate({
+            id,
+            data: {
+              name: editForm.name.trim(),
+              slug: editForm.slug.trim(),
+              phone: editForm.phone.trim() || null,
+              address: editForm.address.trim() || null,
+              city: editForm.city.trim() || null,
+              country: editForm.country.trim() || null,
+              website: editForm.website.trim() || null,
+              business_type: editForm.business_type || null,
+              industry: editForm.industry.trim() || null,
+              business_category: editForm.business_category.trim() || null,
+              employee_count: editForm.employee_count.trim() || null,
+              business_location: editForm.business_location.trim() || null,
+              heard_about: editForm.heard_about.trim() || null,
+              preferred_contact: editForm.preferred_contact,
+            },
+          }, {
+            onSuccess: () => setEditForm(null),
+            onError: () => setNotice({ kind: "error", text: "Could not save business profile" }),
+          });
+        }}>
+          <div className="space-y-3">
+            <h2 className="pesaa-card-title">Business details</h2>
+            {([
+              ["name", "Business name", true],
+              ["slug", "Business URL slug", true],
+              ["phone", "Business phone", false],
+              ["address", "Address", false],
+              ["city", "City", false],
+              ["website", "Website", false],
+            ] as const).map(([key, label, required]) => (
+              <Field key={key} label={label} required={required}>
+                <Input required={required} value={editForm[key]} onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })} />
+              </Field>
+            ))}
+            <Field label="Country">
+              <Select value={editForm.country} onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}>
+                <option value="">Not specified</option>
+                {COUNTRY_NAMES.map((country) => <option key={country} value={country}>{country}</option>)}
+              </Select>
+            </Field>
+            <Field label="Preferred contact">
+              <Select value={editForm.preferred_contact} onChange={(e) => {
+                const value = e.target.value;
+                if (value === "email" || value === "phone" || value === "whatsapp" || value === "all") {
+                  setEditForm({ ...editForm, preferred_contact: value });
+                }
+              }}>
+                <option value="email">Email</option><option value="phone">Phone call</option><option value="whatsapp">WhatsApp</option><option value="all">All</option>
+              </Select>
+            </Field>
+          </div>
+          <div className="space-y-3">
+            <h2 className="pesaa-card-title">Registration details</h2>
+            <Field label="Business type">
+              <Select value={editForm.business_type} onChange={(e) => setEditForm({ ...editForm, business_type: e.target.value })}>
+                <option value="">Not specified</option>
+                <option value="sole">Sole proprietorship</option>
+                <option value="partnership">Partnership</option>
+                <option value="llc">Limited liability company</option>
+                <option value="unregistered">Not registered</option>
+              </Select>
+            </Field>
+            {([
+              ["industry", "Industry"],
+              ["business_category", "Business category"],
+              ["employee_count", "Employee range"],
+              ["business_location", "Business location"],
+              ["heard_about", "How they heard about us"],
+            ] as const).map(([key, label]) => (
+              <Field key={key} label={label}>
+                <Input value={editForm[key]} onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })} />
+              </Field>
+            ))}
+          </div>
+          <FormFooter submitLabel="Save profile" onCancel={() => setEditForm(null)} disabled={updateTenant.isPending} />
+        </form>
+      </Drawer>}
       {/* Change plan drawer */}
       {/* Invite drawer */}
       <Drawer open={!!permissionRole} onClose={() => setPermissionRole(null)} title="Role permissions" size="xl"><div className="p-4">{permissionRole && <RolePermissionManager tenantId={id} roleId={permissionRole}/>}</div></Drawer>
@@ -652,77 +738,6 @@ function TenantDetailPageInner() {
       {/* Account recovery drawer */}
 
 
-      {/* Reset business data drawer */}
-      <Drawer
-        open={showResetData}
-        onClose={closeResetData}
-        side="center"
-        size="sm"
-        title={resetResult ? "Business Data Reset" : "Reset Business Data"}
-        description={resetResult ? undefined : `Wipe ${tenant.name}'s transactional data`}
-      >
-        {resetResult ? (
-          <div className="p-5 space-y-4">
-            <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[13px] px-4 py-3">
-              <CheckCircle size={14} className="shrink-0" /> Business data reset for {tenant.name}.
-            </div>
-            {Object.keys(resetResult).length > 0 ? (
-              <dl className="divide-y divide-border border border-border rounded-lg overflow-hidden">
-                {Object.entries(resetResult).map(([label, count]) => (
-                  <div key={label} className="flex items-center justify-between px-4 py-2 text-sm">
-                    <dt className="text-muted">{label}</dt>
-                    <dd className="font-semibold text-foreground">{count.toLocaleString()}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="text-sm text-muted">There was no data to delete.</p>
-            )}
-            <div className="flex justify-end pt-2">
-              <Button variant="primary"
-                onClick={closeResetData}
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleResetData} className="p-5 space-y-4">
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 text-[13px] px-4 py-3 space-y-1.5">
-              <p className="font-semibold">This cannot be undone.</p>
-              <p>Wipes: products, orders/sales, customers, suppliers, expenses, invoices &amp; accounting entries, deals, purchase orders, manufacturing/repair jobs, and inventory &amp; stock.</p>
-              <p>Kept: the tenant account, user logins, roles, departments, branches, and settings (currency, VAT, branding).</p>
-            </div>
-            <Field label={`Type "${tenant.name}" to confirm`} required>
-              <Input
-                required
-                autoFocus
-                value={resetConfirmName}
-                onChange={(e) => setResetConfirmName(e.target.value)}
-                placeholder={tenant.name}
-              />
-            </Field>
-            {resetError && <p className="text-xs text-red-600 dark:text-red-400">{resetError}</p>}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={closeResetData}
-                className="px-4 py-2 rounded-lg text-[13px] font-semibold text-muted hover:text-foreground transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={resetTenantData.isPending || resetConfirmName.trim() !== tenant.name}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[13px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {resetTenantData.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
-                Reset Business Data
-              </button>
-            </div>
-          </form>
-        )}
-      </Drawer>
     </div>
   );
 }

@@ -373,7 +373,8 @@ async def test_history_is_complete_filterable_and_cannot_be_rewritten(db, monkey
             listed = (await c.get(f"{DM}/operations", params={"tenant_id": str(tenant.id)})).json()["data"]
             assert [o["reference"] for o in listed["items"]] == [plan["reference"]]
             assert len((await c.get(f"{DM}/operations", params={"tenant_id": str(tenant.id), "include_drafts": "true"})).json()["data"]["items"]) == 2
-            assert (await c.get(f"{DM}/operations", params={"module": "sales"})).json()["data"]["items"] == [] and (await c.get(f"{DM}/operations", params={"operation": "archive", "status": "Completed"})).json()["data"]["total"] == 1
+            assert (await c.get(f"{DM}/operations", params={"module": "sales", "tenant_id": str(tenant.id)})).json()["data"]["items"] == []
+            assert (await c.get(f"{DM}/operations", params={"operation": "archive", "status": "Completed", "tenant_id": str(tenant.id)})).json()["data"]["total"] == 1
             detail = (await c.get(f"{DM}/operations/{plan['id']}")).json()["data"]
             assert detail["filters"] == {} and detail["selection"]["mode"] == "ids" and detail["decided_by"] is None and detail["executed_by"] == "Both"
             # the business's own audit trail shows the platform administrator's action

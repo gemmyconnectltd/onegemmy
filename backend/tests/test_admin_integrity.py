@@ -13,7 +13,11 @@ from app.core.exceptions import ForbiddenError
 from app.core.pagination import PageParams
 from app.modules.admin import analytics
 from app.modules.admin.export import COLUMN_DEFS
-from app.modules.admin.routes import AdminTenantCreate, InviteUserPayload, _tenant_usage_map
+from app.modules.admin.routes import (
+    AdminTenantCreate,
+    InviteUserPayload,
+    _tenant_usage_map,
+)
 from app.modules.admin.tenant_records import list_tenant_records
 from app.modules.auth.schemas import RegisterRequest
 from app.modules.sales.models.customer import Customer
@@ -36,6 +40,39 @@ def test_text_is_trimmed_before_validation_and_credentials_are_preserved():
         TenantCreate(name="   ")
     with pytest.raises(PydanticValidationError):
         InviteUserPayload(email="x@example.com", full_name="X", role="superadmin")
+
+
+async def test_tenant_wide_data_reset_is_retired():
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    async def _admin():
+        return SimpleNamespace(
+            id=uuid.uuid4(),
+            role="superadmin",
+            tenant_id=None,
+            is_superuser=True,
+            full_name="Admin",
+            email="admin@example.com",
+        )
+
+    previous = app.dependency_overrides.get(get_current_active_superuser)
+    app.dependency_overrides[get_current_active_superuser] = _admin
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                f"/api/v1/admin/tenants/{uuid.uuid4()}/reset-data",
+                json={"confirm_name": "A business"},
+            )
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_active_superuser, None)
+        else:
+            app.dependency_overrides[get_current_active_superuser] = previous
+
+    assert response.status_code == 410
+    assert "Data Management" in response.text
 
 
 async def test_owner_cannot_access_platform_even_with_superuser_flag():

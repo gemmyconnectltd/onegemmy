@@ -100,7 +100,17 @@ async def _event(db: AsyncSession, op: DataOperation, admin: User | None, action
                        entity_type="data_operation", entity_id=str(op.id), summary=f"{op.reference}: {op.operation.replace('_', ' ')} {op.module} {action}", changes={"status": op.status, "note": note})
 
 
-async def prepare(db: AsyncSession, admin: User, tenant_id: uuid.UUID, module: str, operation: str, selection: dict | None, payload: dict | None) -> dict:
+async def prepare(
+    db: AsyncSession,
+    admin: User,
+    tenant_id: uuid.UUID,
+    module: str,
+    operation: str,
+    selection: dict | None,
+    payload: dict | None,
+    *,
+    commit: bool = True,
+) -> dict:
     perms.require(admin, perms.PREVIEW)
     tenant = await tenant_of(db, tenant_id)
     payload = dict(payload or {})
@@ -150,7 +160,10 @@ async def prepare(db: AsyncSession, admin: User, tenant_id: uuid.UUID, module: s
         requested_by=admin.id, requested_by_name=_name(admin), expires_at=now + PLAN_TTL)
     op.plan_hash = plan_fingerprint(op)
     db.add(op)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     return dump(op, full=True)
 
 

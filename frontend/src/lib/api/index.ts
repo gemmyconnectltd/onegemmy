@@ -103,6 +103,8 @@ export { adminApi } from "./admin";
 // Tenants (current company: profile, entitlements)
 export type { TenantEntitlements, Tenant, TenantUpdateInput, TenantModules, TenantModule, ModuleStatus, ModuleLink } from "./tenants";
 export { tenantsApi } from "./tenants";
+export type { DataRemovalModule, DataRemovalRequest } from "./dataManagementRequests";
+export { dataManagementRequestsApi } from "./dataManagementRequests";
 
 // Users & roles (tenant-scoped company access)
 export type {

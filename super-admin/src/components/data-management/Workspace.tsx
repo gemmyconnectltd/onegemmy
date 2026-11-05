@@ -2,17 +2,19 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { History, LifeBuoy } from "lucide-react";
+import { ArrowLeft, Database, History, LifeBuoy, ListChecks } from "lucide-react";
 import type { DmFilters, DmOperation } from "@/lib/api";
-import { useDmBusiness, useDmMe, useDmModuleInfo, useDmModules, useDmFilterOptions, useDmPrepare } from "@/lib/api/hooks";
+import { useDmBusiness, useDmHistory, useDmMe, useDmModuleInfo, useDmModules, useDmFilterOptions, useDmPrepare } from "@/lib/api/hooks";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState, Notice } from "@/components/ui/EmptyState";
 import { PageLoader } from "@/components/ui/PageLoader";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { cn } from "@/lib/utils";
-import { errorText } from "./common";
+import { errorText, StatusBadge } from "./common";
 import { NONE, RecordExplorer, selectedCount, toSelection, type Sel } from "./RecordExplorer";
 import { OperationPanel } from "./OperationPanel";
+import { BusinessRequestQueue } from "./BusinessRequestQueue";
 
 /** One workspace for one business: its header, the modules with their real record counts, the records, and the operation panel.
  *  The same component serves Data Management and Businesses → Data Management, so there is only one feature. */
@@ -38,6 +40,7 @@ export function Workspace({ tenantId }: { tenantId: string }) {
   const groups = useMemo(() => { const g = new Map<string, NonNullable<typeof moduleList>>(); (moduleList ?? []).forEach((m) => g.set(m.group, [...(g.get(m.group) ?? []), m])); return [...g.entries()]; }, [moduleList]);
   const perms = me.data?.permissions ?? [];
   const count = selectedCount(sel, total);
+  const recentOperations = useDmHistory(1, { tenant_id: tenantId }, { enabled: perms.includes("data:history") });
 
   if (me.isLoading || business.isLoading) return <PageLoader />;
   if (!perms.includes("data:view")) return <EmptyState title="You do not have access to Data Management" description="Ask a platform administrator to give you the View business records permission." />;
@@ -59,7 +62,11 @@ export function Workspace({ tenantId }: { tenantId: string }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {b.logo_url ? <img src={b.logo_url.startsWith("http") ? b.logo_url : `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://localhost:8000"}${b.logo_url}`} alt="" className="h-11 w-11 rounded-lg border border-border object-cover" />
             : <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent/10 text-base font-bold text-accent" aria-hidden>{b.name.slice(0, 2).toUpperCase()}</span>}
-          <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Data Management</p>
+          <div className="min-w-0">
+            <Link href={`/tenants/${encodeURIComponent(tenantId)}?tab=overview`} className="mb-1 inline-flex items-center gap-1 text-[12px] font-semibold text-accent hover:underline">
+              <ArrowLeft size={13} /> Business workspace
+            </Link>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Data Management</p>
             <h1 className="truncate text-lg font-bold">{b.name}</h1>
             <p className="flex flex-wrap items-center gap-2 text-[12px] text-muted"><Badge tone={b.status === "Active" ? "green" : "red"} dot>{b.status}</Badge><span>{b.slug}</span><span className="font-mono">{b.id.slice(0, 8)}</span><span>{b.timezone}</span></p></div>
         </div>
@@ -68,6 +75,14 @@ export function Workspace({ tenantId }: { tenantId: string }) {
           <Link href={`/data-management/recovery?tenant=${tenantId}`}><Button variant="outline" size="sm"><LifeBuoy size={14} /> Backups &amp; recovery</Button></Link>
         </div>
       </header>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-card p-3.5"><p className="flex items-center gap-2 text-[12px] font-medium text-muted"><Database size={15} />Business modules</p><p className="mt-1 text-xl font-semibold tabular-nums">{moduleList?.length ?? 0}</p></div>
+        <div className="rounded-xl border border-border bg-card p-3.5"><p className="flex items-center gap-2 text-[12px] font-medium text-muted"><ListChecks size={15} />Records across modules</p><p className="mt-1 text-xl font-semibold tabular-nums">{(moduleList ?? []).reduce((sum, module) => sum + module.count, 0).toLocaleString()}</p></div>
+        <div className="rounded-xl border border-border bg-card p-3.5"><p className="text-[12px] font-medium text-muted">Selected in {info.data?.label ?? "current module"}</p><p className="mt-1 text-xl font-semibold tabular-nums">{count.toLocaleString()}</p></div>
+      </div>
+
+      {(perms.includes("data:preview") || perms.includes("data:approve")) && <BusinessRequestQueue tenantId={tenantId} canPreview={perms.includes("data:preview")} canReject={perms.includes("data:approve")} />}
 
       {info.data && (perms.includes("data:preview")
         ? <OperationPanel info={info.data} sel={sel} count={count} filters={filters} tenantId={tenantId} salespeople={options?.salesperson_id ?? options?.created_by ?? []} busy={prepare.isPending} error={error} onPrepare={onPrepare} />
@@ -78,7 +93,7 @@ export function Workspace({ tenantId }: { tenantId: string }) {
           <nav aria-label="Modules" className="min-w-0 @4xl:self-start">
             <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-1 @4xl:hidden">
               {(modules.data ?? []).map((m) => <button key={m.key} type="button" aria-current={m.key === moduleKey ? "page" : undefined} onClick={() => chooseModule(m.key)}
-                className={cn("flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold", m.key === moduleKey ? "border-accent bg-accent/10 text-accent" : "border-border bg-card")}>{m.label}<span className="text-[11px] text-muted">{m.count.toLocaleString()}</span></button>)}
+                className={cn("flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold", m.key === moduleKey ? "border-primary bg-primary text-white" : "border-border bg-card")}>{m.label}<span className={cn("text-[11px]", m.key === moduleKey ? "text-white/80" : "text-muted")}>{m.count.toLocaleString()}</span></button>)}
             </div>
             <div className="hidden overflow-hidden rounded-xl border border-border bg-card @4xl:block">
               {modules.isLoading && <PageLoader />}
@@ -87,8 +102,9 @@ export function Workspace({ tenantId }: { tenantId: string }) {
                   {items.length > 1 && <p className="px-3 pb-0.5 pt-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted">{group}</p>}
                   {items.map((m) => (
                     <button key={m.key} type="button" aria-current={m.key === moduleKey ? "page" : undefined} onClick={() => chooseModule(m.key)}
-                      className={cn("pesaa-nav-row flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] font-semibold", m.key === moduleKey && "bg-accent/10 text-accent")}>
-                      <span className="min-w-0 truncate">{m.label}</span><span className="flex-shrink-0 text-[11.5px] tabular-nums text-muted">{m.count.toLocaleString()}</span>
+                      data-active={m.key === moduleKey || undefined}
+                      className="pesaa-nav-row flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] font-semibold">
+                      <span className="min-w-0 truncate">{m.label}</span><span className={cn("flex-shrink-0 text-[11.5px] tabular-nums", m.key === moduleKey ? "text-white/80" : "text-muted")}>{m.count.toLocaleString()}</span>
                     </button>))}
                 </div>))}
             </div>
@@ -102,6 +118,24 @@ export function Workspace({ tenantId }: { tenantId: string }) {
 
         </div>
       </div>
+
+      {perms.includes("data:history") && <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><h2 className="pesaa-card-title">Recent operations</h2><p className="mt-0.5 text-[12px] text-muted">A short view of the auditable work on this business.</p></div>
+          <Link href={`/data-management/operations?tenant=${tenantId}`}><Button variant="outline" size="sm"><History size={14} /> Full history</Button></Link>
+        </div>
+        {recentOperations.isLoading && <PageLoader variant="compact" />}
+        {recentOperations.error && <ErrorState message={errorText(recentOperations.error)} onRetry={() => void recentOperations.refetch()} />}
+        {recentOperations.data?.items.length === 0 && <p className="py-4 text-center text-sm text-muted">No operations recorded for this business.</p>}
+        {recentOperations.data && recentOperations.data.items.length > 0 && <div className="overflow-hidden rounded-lg border border-border"><TableScroll label="Recent operations"><table className="w-full min-w-[600px] text-left text-[13px]">
+          <thead className="border-b border-border bg-surface/60 text-[11px] font-semibold text-muted"><tr><th scope="col" className="px-3 py-2.5">Reference</th><th scope="col" className="px-3 py-2.5">Module</th><th scope="col" className="px-3 py-2.5">Action</th><th scope="col" className="px-3 py-2.5">Date</th><th scope="col" className="px-3 py-2.5">Selected</th><th scope="col" className="px-3 py-2.5">Status</th></tr></thead>
+          <tbody className="divide-y divide-border">{recentOperations.data.items.slice(0, 5).map((operation) => <tr key={operation.id} className="hover:bg-surface/50">
+            <td className="px-3 py-2.5 font-mono"><Link className="font-semibold text-accent hover:underline" href={`/data-management/operations/${operation.id}`}>{operation.reference}</Link></td>
+            <td className="px-3 py-2.5 capitalize">{operation.module.replaceAll("_", " ")}</td><td className="px-3 py-2.5 capitalize">{operation.operation.replaceAll("_", " ")}</td>
+            <td className="whitespace-nowrap px-3 py-2.5"><time dateTime={operation.created_at}>{operation.created_at.slice(0, 10)}</time></td><td className="px-3 py-2.5 tabular-nums">{operation.selected.toLocaleString()}</td><td className="px-3 py-2.5"><StatusBadge status={operation.status} /></td>
+          </tr>)}</tbody>
+        </table></TableScroll></div>}
+      </section>}
     </div>
   );
 }

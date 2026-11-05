@@ -74,6 +74,31 @@ class DataOperationItem(UUIDPKMixin, Base):
     __table_args__ = (Index("ix_data_operation_items_operation", "operation_id", "outcome"),)
 
 
+class DataManagementRequest(UUIDPKMixin, TimestampMixin, Base):
+    """A business owner's date-bounded request for platform review; it never authorizes deletion."""
+
+    __tablename__ = "data_management_requests"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False)
+    module: Mapped[str] = mapped_column(String(30), nullable=False)
+    filters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="Submitted")
+    requested_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    requested_by_name: Mapped[str | None] = mapped_column(String(255))
+    operation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("data_operations.id", ondelete="SET NULL"))
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
+    review_note: Mapped[str | None] = mapped_column(Text)
+    # Requests asked for together (one date range, several modules) share a batch id so they can be reviewed together.
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+    __table_args__ = (
+        Index("ix_data_management_requests_batch", "batch_id"),
+        Index("ix_data_management_requests_tenant_created", "tenant_id", "created_at"),
+        Index("ix_data_management_requests_status_created", "status", "created_at"),
+    )
+
+
 class DataSavedFilter(UUIDPKMixin, TimestampMixin, Base):
     """A reusable set of filters. Saving one authorises nothing: every operation still gets a fresh preview."""
     __tablename__ = "data_saved_filters"

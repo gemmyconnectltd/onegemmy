@@ -22,7 +22,11 @@ async def inventory_access(request: Request, user: CurrentUser) -> None:
     resource = "stock" if stock_operation else "items"
     await require_permission(f"{resource}:{action}")(user)
     if request.method in ("POST", "PATCH", "PUT") and "application/json" in request.headers.get("content-type", ""):
-        data = await request.json()
+        # The app marks every request as JSON, including actions that carry no body (switch on, activate, deactivate): an empty body is not an error.
+        try:
+            data = await request.json()
+        except ValueError:
+            data = None
         rows = data.get("items", []) if isinstance(data, dict) else []
         rows = rows if isinstance(rows, list) else []
         if isinstance(data, dict) and ("stock" in data or any(isinstance(row, dict) and "stock" in row for row in rows)):

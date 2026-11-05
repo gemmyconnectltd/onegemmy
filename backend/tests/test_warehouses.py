@@ -164,3 +164,22 @@ async def test_warehouses_belong_to_one_business(db, monkeypatch):
             assert (await c.get(f"{INV}/warehouses")).json()["data"]["enabled"] is False
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_actions_with_no_body_work_when_the_app_marks_them_as_json(db, monkeypatch):
+    """The real app sends Content-Type: application/json on every request, even ones with nothing in the body."""
+    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    product = (await db.execute(select(Product).where(Product.tenant_id == tenant.id))).scalars().first()
+    json_header = {"Content-Type": "application/json"}
+    try:
+        async with client(owner) as c:
+            setup = await c.post(f"{INV}/warehouses/setup", headers=json_header)
+            assert setup.status_code == 201, setup.text
+            depot = (await c.post(f"{INV}/warehouses", json={"name": "Depot"})).json()["data"]
+            for action in ("deactivate", "activate", "make-default"):
+                r = await c.post(f"{INV}/warehouses/{depot['id']}/{action}", headers=json_header)
+                assert r.status_code == 200, (action, r.text)
+            assert product is not None
+    finally:
+        app.dependency_overrides.clear()

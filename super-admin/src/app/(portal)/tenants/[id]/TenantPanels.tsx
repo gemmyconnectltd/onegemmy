@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Building2, CalendarClock, Crown, Info, ShieldCheck, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtRelative } from "@/lib/date";
 import { type AdminTenantRecord, type AdminBranch, type AdminTenant, type AdminTenantStats, type TenantLimits } from "@/lib/api/admin";
@@ -11,7 +12,7 @@ import { useBillingOverview, useUsageTenant } from "@/lib/api/hooks";
 import { billingDate, billingMoney } from "@/components/billing/BillingShared";
 import { TenantStatusBadge } from "@/components/tenants/StatusBadge";
 
-export type PanelTab = "user-access" | "overview" | "records" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations";
+export type PanelTab = "user-access" | "overview" | "records" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations" | "modules" | "approvals";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = { sole: "Sole Proprietorship", partnership: "Partnership", llc: "Limited Liability (LLC)", unregistered: "Not Registered" };
 
@@ -49,14 +50,15 @@ const limit = (l: TenantLimits | undefined, k: keyof TenantLimits) => (l ? l[k] 
 
 interface Common { tenant: AdminTenant; stats?: AdminTenantStats; limits?: TenantLimits; branches: AdminBranch[]; usersCount: number; go: (t: PanelTab) => void }
 
-export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go, controls }: Common & { controls: ReactNode }) {
+export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go, controls, onEditProfile }: Common & { controls: ReactNode; onEditProfile: () => void }) {
   const billing = useBillingOverview(tenant.id);
   const subscription = billing.data?.subscription;
   const planLabel = billing.data?.plan_name ?? (/^[a-f0-9-]{36}$/i.test(tenant.subscription_plan) ? "Managed plan" : tenant.subscription_plan);
   const profile: [string, ReactNode][] = ([
-    ["Business name", tenant.name], ["Country", tenant.country], ["City", tenant.city], ["Industry", tenant.industry], ["Business type", BUSINESS_TYPE_LABELS[tenant.business_type ?? ""] ?? tenant.business_type],
-    ["Phone", tenant.phone], ["Prefers to be contacted by", ({ email: "Email", phone: "Phone call", whatsapp: "WhatsApp", all: "All (WhatsApp, phone call and email)" } as Record<string, string>)[tenant.preferred_contact ?? ""] ?? null], ["Address", tenant.address], ["Website", tenant.website && <a key="w" href={tenant.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">{tenant.website}</a>],
-    ["Employees", tenant.employee_count], ["Heard about us", tenant.heard_about], ["Registered", tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : null],
+    ["Business name", tenant.name], ["Country", tenant.country], ["City", tenant.city], ["Address", tenant.address], ["Website", tenant.website && <a key="w" href={tenant.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">{tenant.website}</a>],
+    ["Industry", tenant.industry], ["Business category", tenant.business_category], ["Business type", BUSINESS_TYPE_LABELS[tenant.business_type ?? ""] ?? tenant.business_type],
+    ["Phone", tenant.phone], ["Prefers to be contacted by", ({ email: "Email", phone: "Phone call", whatsapp: "WhatsApp", all: "All (WhatsApp, phone call and email)" } as Record<string, string>)[tenant.preferred_contact ?? ""] ?? null],
+    ["Business location", tenant.business_location], ["Employees", tenant.employee_count], ["Heard about us", tenant.heard_about], ["Registered", tenant.created_at ? new Date(tenant.created_at).toLocaleDateString() : null],
   ] as [string, ReactNode][]).filter(([, v]) => v);
   const mx = limit(limits, "max_users");
   const mb = limit(limits, "max_branches");
@@ -74,7 +76,7 @@ export function OverviewPanel({ tenant, stats, limits, branches, usersCount, go,
         {metric("Subscription", tenant.subscription_status, ShieldCheck)}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Business profile"><dl>{profile.map(([k, v]) => <Row key={k} k={k} v={v} />)}</dl></Card>
+        <Card title="Business profile" action={<Button variant="outline" size="sm" onClick={onEditProfile}>Edit profile</Button>}><dl>{profile.map(([k, v]) => <Row key={k} k={k} v={v} />)}</dl></Card>
         <Card title="Subscription summary" action={<TabLink tab="subscription" go={go}>Manage →</TabLink>}>
           <dl><Row k="Plan" v={<span className="capitalize">{planLabel}</span>} /><Row k="Status" v={<span className="capitalize">{tenant.subscription_status}</span>} /><Row k="Currency" v={tenant.currency} /><Row k="Billing cycle / price / renewal" v={<span className="font-normal text-muted">{subscription ? `${subscription.cycle} · ${billingMoney(subscription.recurring, subscription.currency)} · ${billingDate(subscription.period_end)} UTC` : "See Subscription tab"}</span>} /></dl>
         </Card>

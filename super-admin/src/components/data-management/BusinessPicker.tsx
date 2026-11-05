@@ -8,23 +8,29 @@ import { SearchBox, Pagination } from "@/components/ui/DataTable";
 import { EmptyState, ErrorState } from "@/components/ui/EmptyState";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { errorText } from "./common";
+import { BusinessRequestQueue } from "./BusinessRequestQueue";
 
 /** The global entry point: no business's records are shown until one is chosen here. */
 export function BusinessPicker() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const me = useDmMe();
-  const q = useDmBusinesses(page, search);
+  const permissions = me.data?.permissions ?? [];
+  const q = useDmBusinesses(page, search, { enabled: permissions.includes("data:view") });
+  const canReviewRequests = permissions.includes("data:preview") || permissions.includes("data:approve");
+  if (me.isLoading) return <PageLoader />;
+  if (me.error) return <ErrorState message={errorText(me.error)} onRetry={() => void me.refetch()} />;
   // No Data Management permission is given automatically. Say so, and say how, instead of showing an error.
   if (me.data && !me.data.permissions.includes("data:view")) {
     return (
       <div className="space-y-4">
         <div><h1 className="pesaa-page-title">Data Management</h1></div>
-        <EmptyState title="Your account has no Data Management permissions yet" description="Permissions are never given automatically. An administrator with access to the server grants them one by one, which is also written to the audit log." />
+        {canReviewRequests && <BusinessRequestQueue canPreview={permissions.includes("data:preview")} canReject={permissions.includes("data:approve")} />}
+        <EmptyState title="Business record access is not granted" description="This account cannot open business records. If you only review owner requests, use the queue above; request data:view only if record access is also needed." />
         <div className="space-y-2 rounded-xl border border-border bg-card p-4 text-[13px]">
-          <p className="font-semibold">To give this account access, run on the server:</p>
-          <code className="block overflow-x-auto whitespace-pre rounded-lg bg-surface px-3 py-2 text-[12px]">{`python -m scripts.grant_data_permissions --email <your email> --grant all`}</code>
-          <p className="text-muted">Use <strong>view, preview, request, history</strong> for someone who prepares work, and <strong>view, approve, history</strong> for the second person who approves it. Then reload this page.</p>
+          <p className="font-semibold">To add only the View business records permission, run on the server:</p>
+          <code className="block overflow-x-auto whitespace-pre rounded-lg bg-surface px-3 py-2 text-[12px]">{`python -m scripts.grant_data_permissions --email <admin email> --grant view`}</code>
+          <p className="text-muted">Permissions are granted individually and written to the audit log. Then reload this page.</p>
         </div>
       </div>
     );
@@ -32,6 +38,7 @@ export function BusinessPicker() {
   return (
     <div className="space-y-4">
       <div><h1 className="pesaa-page-title">Data Management</h1><p className="mt-0.5 text-sm text-muted">Choose a business. Its records, filters and operations open next. Nothing is shown or changed until you do.</p></div>
+      {canReviewRequests && <BusinessRequestQueue canPreview={permissions.includes("data:preview")} canReject={permissions.includes("data:approve")} />}
       <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search businesses" />
       {q.isLoading && <PageLoader />}
       {q.error && <ErrorState message={errorText(q.error)} onRetry={() => void q.refetch()} />}

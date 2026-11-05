@@ -5,6 +5,9 @@ from app.modules.reporting.routes.performance import router as performance_route
 from app.modules.tenants.routes.access import router as access_router
 from app.modules.tenants.routes.branch import router as branch_router
 from app.modules.tenants.routes.currency import router as currency_router
+from app.modules.tenants.routes.data_management_requests import (
+    router as data_management_requests_router,
+)
 from app.modules.tenants.routes.department import router as department_router
 from app.modules.tenants.routes.permission import router as permission_router
 from app.modules.tenants.routes.public import router as public_router
@@ -19,6 +22,7 @@ tenants_router.include_router(daily_router)
 tenants_router.include_router(performance_router)
 tenants_router.include_router(branch_router)
 tenants_router.include_router(department_router)
+tenants_router.include_router(data_management_requests_router)
 tenants_router.include_router(access_router)
 tenants_router.include_router(role_router)
 # Static paths (/users, ...) must be registered before tenant_router, whose "/{tenant_id}" would otherwise

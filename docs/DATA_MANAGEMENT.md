@@ -1,6 +1,6 @@
 # Super Admin Data Management
 
-Where: **Data Management** in the Super Admin sidebar (pick a business first), or **Businesses → a business → Data Management** (same screen,
+Where: **Data Management** in the Super Admin sidebar (review owner requests globally or pick a business), or **Businesses → a business → Data Management** (same screen,
 already pointed at that business). Code: `backend/app/modules/admin/data_management/`, `super-admin/src/components/data-management/`.
 
 ## Who may do what
@@ -21,7 +21,15 @@ Platform permissions are separate and **nobody has any until someone grants them
 | `data:history` | read operation history and per-record results |
 | `data:recovery` | open Backups & Recovery |
 
-A business user, even a business owner, can never reach any of it: the routes need a platform administrator (`role=superadmin`, no business).
+A business user cannot enter this platform console: its routes need a platform administrator (`role=superadmin`, no business). Business owners can submit and track a separate, tenant-scoped data review request as described below; that does not grant platform access or deletion rights.
+
+## Business-owner review requests
+
+An owner (`owner` or `owner/ceo`) can open **ERP → Settings → Data Management** to request a review for one supported module and a required date range. The form requires a reason of at least 10 characters. Requests are tenant-scoped and recorded in the business audit trail; owners can see their own business's request history and review status.
+
+This is a request only. It never deletes records or creates permission to do so. The platform request queue is visible to an administrator with either `data:preview` or `data:approve`. An administrator with `data:preview` prepares the exact eligibility preview; an administrator with `data:approve` may decline a still-pending request with a reason. A prepared deletion then follows the regular operation workflow below, including a different administrator's approval and the normal execution safeguards. Financial, stock and history dependencies remain protected.
+
+Only modules that support safe deletion and date filtering are offered. The owner-facing routes are `/api/v1/tenants/data-management-requests` (create and list) and `/api/v1/tenants/data-management-requests/modules` (supported module/date options); platform review routes are under `/api/v1/admin/data-management/requests`.
 
 ## What each module supports
 
@@ -72,9 +80,8 @@ deleted, both enforced in the database) and each state change is also written to
 **There is no backup system in this platform**, so deletions cannot be undone. The Backups & Recovery page says so and shows only what exists:
 data exports (not restore points) and a list of past removals. Each removed record's key fields are kept in the operation history as a reference.
 
-## Known hazard: the older "reset business data" button
+## Retired: the older "reset business data" endpoint
 
-`POST /admin/tenants/{id}/reset-data` (Super Admin → Business → Actions) predates this feature. It deletes whole tables for a business,
-including accounting transactions, with only the business name typed as protection, and any platform administrator can use it. It does not use
-Data Management's permissions, dependency checks, approval or history. It was left untouched; retiring it or putting it behind these
-permissions is recommended.
+`POST /admin/tenants/{id}/reset-data` predates this feature and deleted whole tables for a business, including accounting transactions, with
+only the business name typed as protection. The endpoint now returns `410 Gone`, and its UI action has been removed. Use Data Management to
+prepare a bounded operation; its dependency checks, permissions, approval requirements and audit history remain in force.

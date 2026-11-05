@@ -49,6 +49,7 @@ import {
   type ApiUser, type ApiAuditLog, type UserCreatePayload, type UserUpdatePayload, type UserListFilters,
   type CrmActivityFilters, type QuotationInput,
   warehousesApi, type WarehouseInput, type MovementFilters,
+  dataManagementRequestsApi,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -562,6 +563,17 @@ export const useUpdateMyTenant = mutation(
 export const useUploadMyTenantLogo = mutation(
   ({ id, file }: { id: string; file: File }) => tenantsApi.uploadLogo(id, file),
   [[...CURRENT_TENANT]],
+);
+
+// ── Owner data removal requests ──────────────────────────────────────────────
+const DATA_REMOVAL_REQUESTS = ["tenants", "data-removal-requests"] as const;
+export const useDataRemovalModules = (opts?: QueryOpts) =>
+  useQ([...DATA_REMOVAL_REQUESTS, "modules"], () => dataManagementRequestsApi.modules(), (r) => r.data, opts);
+export const useDataRemovalRequests = (page = 1, opts?: QueryOpts) =>
+  useQ([...DATA_REMOVAL_REQUESTS, page], () => dataManagementRequestsApi.list(page), (r) => r.data, opts);
+export const useCreateDataRemovalRequest = mutation(
+  (data: Parameters<typeof dataManagementRequestsApi.create>[0]) => dataManagementRequestsApi.create(data),
+  [[...DATA_REMOVAL_REQUESTS]],
 );
 
 // ── Currency ────────────────────────────────────────────────────────────────────────────────────

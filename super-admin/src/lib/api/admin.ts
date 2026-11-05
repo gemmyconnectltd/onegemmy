@@ -680,12 +680,6 @@ export const adminApi = {
     request<SingleResponse<unknown>>(`${B}/tenants/${id}/deletion-requests`, { method: "POST", body: JSON.stringify(body) }),
   decideArchive: (id: string, requestId: string, action: "approve" | "reject" | "cancel", note = "") =>
     request<SingleResponse<unknown>>(`${B}/tenants/${id}/deletion-requests/${requestId}/${action}`, { method: "POST", body: JSON.stringify({ note }) }),
-  resetTenantData: (id: string, confirmName: string) =>
-    request<SingleResponse<{ deleted: Record<string, number> }>>(`${B}/tenants/${id}/reset-data`, {
-      method: "POST",
-      body: JSON.stringify({ confirm_name: confirmName }),
-    }),
-
   tenantStats: (id: string) =>
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
   tenantRecords: (id: string, section: TenantRecordSection, page = 1, filters: TenantRecordFilters = {}) =>
