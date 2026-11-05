@@ -35,7 +35,8 @@ interface ParsedRow<T> {
 export interface CsvImportDrawerProps<T> {
   open: boolean;
   onClose: () => void;
-  onSubmit: (items: T[]) => Promise<void> | void;
+  /** `file` is the spreadsheet that was chosen, for imports that also need something only the file holds (pictures pasted into its rows). */
+  onSubmit: (items: T[], file?: File) => Promise<void> | void;
   title: string;
   /** Singular noun for the submit label, e.g. "customer" -> "Import 3 customers". */
   itemNoun: string;
@@ -91,6 +92,7 @@ export function CsvImportDrawer<T>({
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<ParsedRow<T>[] | null>(null);
   const [fileName, setFileName] = useState("");
+  const [chosenFile, setChosenFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -100,6 +102,7 @@ export function CsvImportDrawer<T>({
 
   const handleFile = (file: File) => {
     setFileName(file.name);
+    setChosenFile(file);
     const isCsv = /\.csv$/i.test(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -134,7 +137,7 @@ export function CsvImportDrawer<T>({
     if (!validRows.length || submitting) return;
     setSubmitting(true);
     try {
-      await onSubmit(validRows.map((r) => r.data));
+      await onSubmit(validRows.map((r) => r.data), chosenFile ?? undefined);
       onClose();
     } finally {
       setSubmitting(false);

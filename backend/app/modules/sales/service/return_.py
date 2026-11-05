@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.stock_context import set_reason
 from app.modules.accounting.service.transaction import create_return_transaction
 from app.modules.currency.service import document_currency, document_rate, get_base_currency
 from app.modules.inventory.models.product import Product
@@ -36,6 +37,7 @@ async def _stamp_return_currency(db: AsyncSession, tenant_id: uuid.UUID, ret: Re
 
 async def _restock(db: AsyncSession, product_id: uuid.UUID | None, variant_id: uuid.UUID | None, quantity: float) -> None:
     """Puts a returned quantity back into sellable stock."""
+    set_reason("customer_return", reference_type="return")
     if variant_id:
         variant = await db.get(ProductVariant, variant_id)
         if variant is not None:

@@ -14,7 +14,6 @@ from reportlab.pdfbase.pdfmetrics import registerFontFamily
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     HRFlowable,
-    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -23,7 +22,6 @@ from reportlab.platypus import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.currency import format_money
 from app.core.logging import get_logger
 from app.modules.sales.schemas.order import OrderRead
@@ -126,26 +124,9 @@ def _styles(accent: colors.Color) -> dict:
     }
 
 
-def _logo_flowable(tenant: Tenant) -> Image | None:
-    if not tenant.logo_url or not tenant.logo_url.startswith("/uploads/"):
-        return None
-    rel = tenant.logo_url[len("/uploads/"):]
-    path = Path(settings.UPLOAD_DIR).resolve() / rel
-    if not path.is_file():
-        return None
-    try:
-        img = Image(str(path))
-        ratio = img.imageWidth / img.imageHeight
-    except (OSError, ValueError, TypeError):
-        log.warning("sales.invoice_pdf.logo.skip", extra={"_extra_fields": {"path": str(path)}})
-        return None
-    if ratio >= 1:
-        img.drawWidth = 20 * mm
-        img.drawHeight = 20 * mm / ratio
-    else:
-        img.drawHeight = 20 * mm
-        img.drawWidth = 20 * mm * ratio
-    return img
+def _logo_flowable(tenant: Tenant):
+    from app.core.brand_pdf import logo_flowable
+    return logo_flowable(tenant, 34, 20)
 
 
 def _status_chip(label: str, color: colors.Color, styles: dict) -> Table:
@@ -174,7 +155,7 @@ def _qty(q: float) -> str:
     return f"{q:g}"
 
 
-def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
+def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_label: str = "Due") -> bytes:
     accent = colors.HexColor(tenant.brand_color) if tenant.brand_color else colors.HexColor("#2563eb")
     base_currency = tenant.currency or "USD"
     # The invoice is shown in its OWN currency; an order from before multi-currency has none and is in
@@ -184,7 +165,7 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=16 * mm,
-        title=f"Invoice {order.order_number} — {tenant.name or 'Company'}",
+        title=f"{label} {order.order_number} — {tenant.name or 'Company'}",
         author=tenant.name or "onegemmy",
     )
     flow: list = []
@@ -209,7 +190,7 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
         left_cell = logo_and_name
 
     right_paras = [
-        Paragraph("INVOICE", styles["invoice_label"]),
+        Paragraph(label.upper(), styles["invoice_label"]),
         Paragraph(esc(order.order_number), styles["invoice_number"]),
         Spacer(1, 2 * mm),
         _status_chip(order.status, STATUS_COLORS.get(order.status, MUTED), styles),
@@ -258,7 +239,7 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
     if order.payment_method:
         meta_lines.append(Paragraph(f"Paid via {esc(order.payment_method)}", styles["body_muted"]))
     if order.due_date and order.outstanding_balance > 0:
-        meta_lines.append(Paragraph(f"Due {order.due_date.strftime('%d %b %Y')}", styles["body_muted"]))
+        meta_lines.append(Paragraph(f"{due_label} {order.due_date.strftime('%d %b %Y')}", styles["body_muted"]))
 
     bill_cell = Table([[p] for p in bill_lines], colWidths=[CONTENT_W * 0.55])
     meta_cell = Table([[p] for p in meta_lines], colWidths=[CONTENT_W * 0.45])
@@ -365,7 +346,7 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
 
     # ── QR + footer — a compact, honest order reference (no fabricated
     # tax-authority signature/SDC data; see generate_order_invoice_pdf docstring)
-    qr_data = f"{tenant.name or ''}\nInvoice {order.order_number}\n{order.ordered_at.strftime('%Y-%m-%d %H:%M') if order.ordered_at else ''}\nTotal {_fmt_money(order.total, currency)}"
+    qr_data = f"{tenant.name or ''}\n{label} {order.order_number}\n{order.ordered_at.strftime('%Y-%m-%d %H:%M') if order.ordered_at else ''}\nTotal {_fmt_money(order.total, currency)}"
     qr = _qr_drawing(qr_data, 22)
     qr_cell = Table([[qr], [Paragraph("Order Reference", styles["footer_muted"])]], colWidths=[22 * mm])
     qr_cell.setStyle(TableStyle([
@@ -394,6 +375,8 @@ def _build_pdf(order: OrderRead, tenant: Tenant) -> bytes:
 
     def _page_footer(canvas, doc_):
         canvas.saveState()
+        from app.core.brand_pdf import draw_brand_band
+        draw_brand_band(canvas, PAGE_W, A4[1], accent)
         canvas.setFont(FONT, 7)
         canvas.setFillColor(MUTED)
         canvas.drawRightString(PAGE_W - MARGIN, 10 * mm, f"Page {doc_.page}")

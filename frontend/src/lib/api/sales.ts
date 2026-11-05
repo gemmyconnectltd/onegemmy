@@ -15,6 +15,38 @@ export interface ApiCustomer {
   created_at: string | null;
 }
 
+export interface QuotationItem { id: string; product_id: string | null; variant_id: string | null; product_name: string; sku: string | null; unit_price: number; quantity: number; discount: number; line_total: number }
+export type QuotationStatus = "Draft" | "Sent" | "Accepted" | "Rejected" | "Expired";
+export interface ApiQuotation {
+  id: string; quote_number: string; status: QuotationStatus;
+  customer_id: string | null; customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; tin?: string | null } | null;
+  salesperson_id: string | null; salesperson_name: string | null; branch_id: string | null; created_by: string | null;
+  issue_date: string; expiry_date: string | null; subtotal: number; discount: number; tax: number; total: number;
+  notes: string | null; terms: string | null; sent_at: string | null; decided_at: string | null; decision_reason: string | null;
+  converted_order_id: string | null; converted_order_number: string | null; items: QuotationItem[]; created_at: string | null;
+}
+export interface QuotationInput {
+  customer_id?: string | null; salesperson_id?: string | null; issue_date?: string | null; expiry_date?: string | null; discount?: number; notes?: string | null; terms?: string | null;
+  items: { product_id?: string | null; variant_id?: string | null; product_name: string; sku?: string | null; unit_price: number; quantity: number; discount?: number }[];
+}
+export interface QuotationActivity { action: string; summary: string; by: string | null; at: string | null; details: Record<string, unknown> | null }
+export interface TeamMember { id: string; name: string }
+export interface SalespersonRow {
+  salesperson_id: string | null; salesperson: string; orders: number; sales: number; returns: number; net_sales: number; collected: number; outstanding: number;
+  awaiting_approval: { orders: number; value: number };
+}
+export interface SalespersonOrder {
+  id: string; order_number: string; date: string; customer: string | null; salesperson_id: string | null; salesperson: string | null; approval_status: string;
+  gross: number; discount: number; total: number; returns: number; collected: number; outstanding: number; items: { name: string; quantity: number }[];
+}
+export interface SalespersonTarget { id: string; name: string; salesperson_id: string; unit: string; period: string; target: number; actual: number; progress: number | null }
+export interface SalespersonReport {
+  from_date: string; to_date: string; currency: string; definitions: Record<string, string>; people: SalespersonRow[];
+  totals: { orders: number; sales: number; returns: number; net_sales: number; collected: number; outstanding: number };
+  targets: SalespersonTarget[]; orders?: SalespersonOrder[];
+}
+export interface SalespersonFilters { from_date?: string; to_date?: string; salesperson_id?: string; customer_id?: string; product_id?: string; category_id?: string; payment_status?: string }
+
 export interface ApiDeal {
   id: string;
   name: string;
@@ -78,6 +110,14 @@ export interface ApiOrder {
   deal_id: string | null;
   branch_id: string | null;
   created_by: string | null;
+  /** Who is credited with the sale (may differ from who entered it). */
+  salesperson_id?: string | null;
+  salesperson_name?: string | null;
+  /** Why a held sale waits: the customer's credit limit, or the business approving every sale first. */
+  held_reason?: "credit" | "policy" | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  approval_note?: string | null;
   status: string;
   subtotal: number;
   discount: number;
@@ -190,8 +230,8 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/deals/${id}`, { method: "DELETE" }),
 
   // Orders
-  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange, archived?: boolean) =>
-    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, archived: archived ? "true" : undefined, ...periodParams(period) })}`),
+  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange, archived?: boolean, salespersonId?: string) =>
+    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, archived: archived ? "true" : undefined, salesperson_id: salespersonId, ...periodParams(period) })}`),
   voidOrder: (id: string, reason: string) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/void`, { method: "POST", body: JSON.stringify({ reason }) }),
   requestVoid: (id: string, reason: string) =>
@@ -221,6 +261,21 @@ export const salesApi = {
     request<SingleResponse<{ sent_to: string }>>(`${BASE}/orders/${id}/invoice/email`, { method: "POST", body: JSON.stringify({ kind, to: to || null, message: message || null }) }),
   downloadInvoicePdf: (id: string, orderNumber: string) =>
     downloadFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
+
+  // Salespeople, quotations
+  team: () => request<SingleResponse<TeamMember[]>>(`${BASE}/team`),
+  changeSalesperson: (id: string, salesperson_id: string, reason: string) =>
+    request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/salesperson`, { method: "PATCH", body: JSON.stringify({ salesperson_id, reason }) }),
+  listQuotations: (page = 1, pageSize = 25, f: { status?: string; search?: string; salesperson_id?: string } = {}) =>
+    request<PaginatedResponse<ApiQuotation>>(`${BASE}/quotations${qs({ page, page_size: pageSize, ...f })}`),
+  getQuotation: (id: string) => request<SingleResponse<ApiQuotation>>(`${BASE}/quotations/${id}`),
+  quotationActivity: (id: string) => request<SingleResponse<QuotationActivity[]>>(`${BASE}/quotations/${id}/activity`),
+  createQuotation: (data: QuotationInput) => request<SingleResponse<ApiQuotation>>(`${BASE}/quotations`, { method: "POST", body: JSON.stringify(data) }),
+  updateQuotation: (id: string, data: Partial<QuotationInput>) => request<SingleResponse<ApiQuotation>>(`${BASE}/quotations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  quotationAction: (id: string, action: "send" | "accept" | "convert") => request<SingleResponse<ApiQuotation>>(`${BASE}/quotations/${id}/${action}`, { method: "POST" }),
+  rejectQuotation: (id: string, reason: string) => request<SingleResponse<ApiQuotation>>(`${BASE}/quotations/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+  quotationFile: (id: string, number: string) => fetchFile(`${BASE}/quotations/${id}/quotation.pdf`, `quotation-${number}.pdf`),
+  downloadQuotationPdf: (id: string, number: string) => downloadFile(`${BASE}/quotations/${id}/quotation.pdf`, `quotation-${number}.pdf`),
 
   // Order payments (credit sales / partial payments)
   listOrderPayments: (orderId: string) =>

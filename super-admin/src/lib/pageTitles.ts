@@ -5,6 +5,10 @@ export const APP_NAME = siteConfig.name;
 const TITLES: Record<string, string> = {
   "/": "Platform Overview",
   "/tenants": "Tenants",
+  "/data-management": "Data Management",
+  "/data-management/operations": "Operation History",
+  "/data-management/close": "Close a Period",
+  "/data-management/recovery": "Backups & Recovery",
   "/users": "Users",
   "/support": "Support Inbox",
   "/support/tickets": "Support Tickets",

@@ -10,7 +10,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useTargets, useCreateTarget, useUpdateTarget, useDeleteTarget } from "@/lib/api/hooks";
+import { useSalespeopleReport, useTargets, useCreateTarget, useUpdateTarget, useDeleteTarget } from "@/lib/api/hooks";
 import type { ApiTarget } from "@/lib/api";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -150,7 +150,13 @@ export default function SalesTargetsPage() {
   const [periodFilter, setPeriodFilter] = useState("All");
 
   const { data, isLoading: loading, error: loadError } = useTargets(1, 200);
-  const targets = useMemo(() => data?.items ?? [], [data]);
+  // A target assigned to a person is measured against what that person actually sold this month, not a number typed in by hand.
+  const thisMonth = useMemo(() => { const n = new Date(); const pad = (v: number) => String(v).padStart(2, "0"); return { from: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01`, to: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}` }; }, []);
+  const live = useSalespeopleReport(thisMonth, {}).data;
+  const targets = useMemo(() => (data?.items ?? []).map((t) => {
+    const actual = t.assigned_to ? live?.targets.find((x) => x.salesperson_id === t.assigned_to && x.name === t.name && x.period === t.period) : undefined;
+    return actual ? { ...t, achieved_value: actual.actual } : t;
+  }), [data, live]);
 
   const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load targets" : null;
   if (loadErrorMessage !== shownLoadError) {

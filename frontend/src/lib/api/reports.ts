@@ -1,4 +1,5 @@
 import { request, qs } from "./client";
+import type { SalespersonFilters, SalespersonReport } from "./sales";
 import type { SingleResponse } from "./types";
 
 export type CompareMode = "none" | "previous" | "year" | "custom";
@@ -44,6 +45,7 @@ interface Scope { from?: string; to?: string; branch?: string }
 const scope = (q: Scope) => ({ from_date: q.from, to_date: q.to, branch_id: q.branch });
 
 export const reportsApi = {
+  salespeople: (q: Scope, f: SalespersonFilters = {}) => request<SingleResponse<SalespersonReport>>(`/tenants/reports/salespeople${qs({ ...scope(q), ...f })}`),
   salesBreakdown: (q: Scope, dimension: SalesDimension) => request<SingleResponse<SalesBreakdown>>(`/tenants/reports/sales-breakdown${qs({ ...scope(q), dimension })}`),
   operations: (q: Scope) => request<SingleResponse<OperationsReport>>(`/tenants/reports/operations${qs(scope(q))}`),
   financial: (q: Scope) => request<SingleResponse<FinancialReport>>(`/tenants/reports/financial${qs(scope(q))}`),

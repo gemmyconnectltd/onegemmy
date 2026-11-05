@@ -73,7 +73,7 @@ async def sales_breakdown(db: AsyncSession, user: User, start: date | None, end:
         base = base.outerjoin(Customer, Customer.id == Order.customer_id)
         key = label = func.coalesce(Customer.name, "Walk-in customers")
     elif dimension == "employee":
-        base = base.outerjoin(User, User.id == Order.created_by)
+        base = base.outerjoin(User, User.id == func.coalesce(Order.salesperson_id, Order.created_by))
         key = label = func.coalesce(User.full_name, "Not recorded")
     elif dimension == "payment":
         key = label = func.coalesce(Order.payment_method, "Not recorded")

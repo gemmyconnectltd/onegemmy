@@ -11,7 +11,9 @@ from app.modules.sales.repository import OrderPaymentRepository, OrderRepository
 async def order_access(request: Request, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
     action = {"GET": "read", "POST": "create", "PATCH": "update", "DELETE": "delete"}[request.method]
     if request.url.path.endswith(("/approve", "/reject")):
-        await require_permission("credit:approve")(user)
+        # which of the two is needed depends on why the sale is held; the service decides once it has loaded the sale
+        if not (user.is_superuser or {"credit:approve", "orders:approve"} & set(user.permissions_names)):
+            await require_permission("credit:approve")(user)
     else:
         await require_permission(f"orders:{action}")(user)
     id = request.path_params.get("id")

@@ -33,12 +33,17 @@ from app.modules.inventory.models import (  # noqa: F401
     Category,
     InventoryBatch,
     Product,
+    ProductImage,
     ProductSerial,
     ProductVariant,
+    StockCount,
+    StockCountLine,
+    StockMovement,
     StockTransfer,
     StockTransferItem,
     Supplier,
     Unit,
+    Warehouse,
     WarrantyClaim,
 )
 from app.modules.manufacturing.models import (  # noqa: F401
@@ -55,6 +60,8 @@ from app.modules.sales.models import (  # noqa: F401
     Order,
     OrderItem,
     OrderPayment,
+    Quotation,
+    QuotationItem,
     Return,
     ReturnItem,
     Target,
@@ -71,6 +78,7 @@ from app.modules.tenants.models import (  # noqa: F401
 from app.modules.crm.models import Activity, Campaign, EmailLog  # noqa: F401
 from app.modules.marketing import models as marketing_models  # noqa: F401
 from app.modules.admin import models as admin_models  # noqa: F401
+from app.modules.admin.data_management import models as data_management_models  # noqa: F401
 from app.modules.traffic.models import ErpActivity, WebsiteVisit  # noqa: F401
 from app.modules.support.models import (  # noqa: F401
     SupportChannel,

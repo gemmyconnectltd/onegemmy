@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import to_base_amount
 from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.core.stock_context import set_reason
 from app.modules.accounting.repository.reporting import ReportingRepository
 from app.modules.audit.service import record_audit
 from app.modules.currency.service import document_rate, get_base_currency, resolve_document_currency
@@ -169,6 +170,7 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
             raise ValidationError("Combine duplicate product lines before changing catalog prices")
         seen[target.id] = instruction
         old_cost, old_price = str(target.cost), str(target.price)
+        set_reason("receipt", reference_type="purchase", reference_id=getattr(item, "purchase_order_id", None))
         target.stock = Decimal(str(target.stock)) + quantity * factor
         item.received_quantity = Decimal(item.received_quantity) + quantity
         if item.update_catalog_cost:

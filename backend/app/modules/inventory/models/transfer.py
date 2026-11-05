@@ -22,6 +22,10 @@ class StockTransfer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     to_branch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"), nullable=True
     )
+    # Optional: a transfer between warehouses moves quantity in the stock ledger (out of the source on dispatch, into the destination on receipt).
+    from_warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("inventory_warehouses.id", ondelete="SET NULL"), nullable=True)
+    to_warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("inventory_warehouses.id", ondelete="SET NULL"), nullable=True)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
@@ -31,6 +35,8 @@ class StockTransfer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     from_branch = relationship("Branch", foreign_keys=[from_branch_id], lazy="joined")
     to_branch = relationship("Branch", foreign_keys=[to_branch_id], lazy="joined")
+    from_warehouse = relationship("Warehouse", foreign_keys=[from_warehouse_id], lazy="joined")
+    to_warehouse = relationship("Warehouse", foreign_keys=[to_warehouse_id], lazy="joined")
     items = relationship("StockTransferItem", back_populates="transfer", lazy="selectin",
                          cascade="all, delete-orphan")
 

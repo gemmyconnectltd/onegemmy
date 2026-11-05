@@ -21,7 +21,7 @@ import { saleAtLabel } from "@/components/pos/SaleDate";
 import { SALE_DATE_FOR_EVERYONE } from "@/components/pos/constants";
 import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
-import { useProducts, useCustomers, useCreateOrder, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
+import { useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -98,6 +98,8 @@ export default function POSPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [saleAt, setSaleAt] = useState<string | null>(null);
+  const team = useSalesTeam();
+  const [salespersonId, setSalespersonId] = useState("");
   const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
@@ -285,6 +287,7 @@ export default function POSPage() {
         status: "Completed",
         customer_id: customerId,
         ...(saleAt ? { ordered_at: new Date(saleAt).toISOString() } : {}),
+        ...(salespersonId ? { salesperson_id: salespersonId } : {}),
         notes: `POS — ${checkout.kind === "split" ? "split" : checkout.kind === "credit" ? "credit" : payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
         discount: 0,
         tax,
@@ -312,7 +315,9 @@ export default function POSPage() {
       // so no receipt — tell the cashier clearly and let them carry on.
       if (created.data.status === "Awaiting Approval") {
         clearCart();
-        setSaleError(`Credit above the daily limit for this customer. Order ${created.data.order_number} was sent for approval — no stock or money has been recorded yet.`);
+        setSaleError(created.data.held_reason === "policy"
+          ? `Order ${created.data.order_number} was sent for approval. No stock or money has been recorded: take payment once it is approved.`
+          : `Credit above the daily limit for this customer. Order ${created.data.order_number} was sent for approval — no stock or money has been recorded yet.`);
         return;
       }
 
@@ -356,6 +361,9 @@ export default function POSPage() {
               onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
               saleAt={saleAt}
               onSaleAtChange={setSaleAt}
+              team={team.data ?? []}
+              salespersonId={salespersonId}
+              onSalespersonChange={setSalespersonId}
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}

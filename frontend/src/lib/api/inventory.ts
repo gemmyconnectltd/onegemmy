@@ -1,6 +1,13 @@
 import { request, getStoredToken, API_BASE, qs } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 import { periodParams, type PeriodRange } from "@/lib/period";
+export interface PictureImportResult {
+  matched: number; skipped: number; pictures: { file: string; product: string; sku: string | null; count?: number }[]; problems: { file: string; reason: string }[];
+  /** "excel" when the pictures came from pictures pasted into a spreadsheet. */
+  source?: "excel"; total_pictures?: number; extra_pictures?: number;
+}
+export interface ProductGallery { main: string | null; gallery: { id: string; url: string; position: number }[] }
+
 export interface ApiVariant {
   id: string;
   product_id: string;
@@ -142,6 +149,27 @@ export const inventoryApi = {
       body: form,
     }).then((r) => r.json()) as Promise<SingleResponse<ApiProduct>>;
   },
+
+  /** A ZIP of pictures named after each product's SKU or barcode. */
+  importProductPictures: (file: File) => {
+    const token = getStoredToken();
+    const form = new FormData();
+    form.append("file", file);
+    return fetch(`${API_BASE}${BASE}/products/import-pictures`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form })
+      .then(async (r) => { const body = await r.json(); if (!r.ok) throw body; return body; }) as Promise<SingleResponse<PictureImportResult>>;
+  },
+
+  // Product gallery: extra pictures beside the main one
+  productGallery: (id: string) => request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images`),
+  addGalleryImage: (id: string, file: File) => {
+    const token = getStoredToken();
+    const form = new FormData();
+    form.append("file", file);
+    return fetch(`${API_BASE}${BASE}/products/${id}/images`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form })
+      .then(async (r) => { const body = await r.json(); if (!r.ok) throw body; return body; }) as Promise<SingleResponse<ProductGallery>>;
+  },
+  removeGalleryImage: (id: string, imageId: string) => request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images/${imageId}`, { method: "DELETE" }),
+  makeMainImage: (id: string, imageId: string) => request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images/${imageId}/make-main`, { method: "POST" }),
 
   // Variants
   listAllVariants: (page = 1, pageSize = 200) =>

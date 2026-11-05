@@ -11,6 +11,7 @@ import { useApprovalSummary, useApprovals, useCancelApproval, useDecideApproval,
 import { useAuth } from "@/lib/auth";
 import { fmtDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
+import { PendingSales } from "@/components/sales/PendingSales";
 
 const TABS: { key: ApprovalStatus | "all"; label: string }[] = [{ key: "pending", label: "Waiting" }, { key: "approved", label: "Approved" }, { key: "rejected", label: "Rejected" }, { key: "all", label: "All" }];
 const TONE: Record<ApprovalStatus, string> = { pending: "bg-amber-500/10 text-amber-700 dark:text-amber-400", approved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", rejected: "bg-red-500/10 text-red-700 dark:text-red-400", cancelled: "bg-surface text-muted border border-border" };
@@ -52,6 +53,7 @@ export default function ApprovalsPage() {
         <h1 className="pesaa-page-title text-foreground">Approvals</h1>
         <p className="mt-0.5 text-sm text-muted">{summary?.can_decide ? "Requests from your team that need your decision." : "Requests you have sent and where they stand."}{summary?.credit_awaiting ? ` ${summary.credit_awaiting} credit sale(s) are waiting on the Sales page.` : ""}</p>
       </div>
+      <PendingSales />
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Request status" className="flex gap-1 rounded-lg border border-border bg-card p-1">
           {TABS.map((t) => <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => { setTab(t.key); setPage(1); }} className={cn("rounded-md px-3 py-1.5 text-[13px] font-semibold focus-visible:outline-2 focus-visible:outline-accent", tab === t.key ? "bg-accent text-white" : "text-muted hover:text-foreground")}>{t.label}{t.key === "pending" && summary?.pending ? ` (${summary.pending})` : ""}</button>)}

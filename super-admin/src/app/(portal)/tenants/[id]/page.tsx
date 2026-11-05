@@ -386,7 +386,7 @@ function TenantDetailPageInner() {
       )}
 
       {/* Tabs */}
-      <SectionLayout nav={<SecondaryNav label="Tenant sections" title="Manage business" items={TABS.map((t) => ({ key: t.key, label: t.label, count: t.count, active: tab === t.key, onSelect: () => setTab(t.key) }))} />}>
+      <SectionLayout nav={<SecondaryNav label="Tenant sections" title="Manage business" items={[...TABS.map((t) => ({ key: t.key, label: t.label, count: t.count, active: tab === t.key, onSelect: () => setTab(t.key) })), { key: "data-management", label: "Data Management", href: `/tenants/${id}/data`, active: false }]} />}>
       <div>
         <div className="min-w-0 space-y-6">
           {tab === "user-access" && <UserFeatureAccess tenantId={id} />}

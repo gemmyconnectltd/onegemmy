@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.stock_context import set_reason
 from app.integrations.storage import storage
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.repository import ProductRepository, VariantRepository
@@ -99,6 +100,7 @@ async def restock_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uu
     if obj is None:
         raise NotFoundError("Variant not found")
     before = {"stock": obj.stock}
+    set_reason("adjustment" if mode == "adjust" else "receipt", reference_type="variant", reference_id=obj.id)
     obj.stock = Decimal(str(qty)) if mode == "adjust" else Decimal(str(obj.stock)) + Decimal(str(qty))
     await repo.save(obj)
     from app.modules.inventory.service.product import post_stock_value_change, record_product_change

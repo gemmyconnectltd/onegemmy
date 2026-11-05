@@ -19,11 +19,11 @@ export type { ApiTokenUserInfo, ApiTokenResponse, ApiRegisterRequest } from "./a
 export { authApi } from "./auth";
 
 // Inventory
-export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCategoryTemplate, ApiCategoryTemplateGroup, ApiCategoryTemplates, ApiCategoryImportResult, ApiBrand, ApiUnit, ApiUnitSuggestion, ApiUnitSuggestions, ApiUnitImportResult, ApiSupplier, InventoryValuationReport } from "./inventory";
+export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCategoryTemplate, ApiCategoryTemplateGroup, ApiCategoryTemplates, ApiCategoryImportResult, ApiBrand, ApiUnit, ApiUnitSuggestion, ApiUnitSuggestions, ApiUnitImportResult, ApiSupplier, InventoryValuationReport, ProductGallery, PictureImportResult } from "./inventory";
 export { inventoryApi } from "./inventory";
 
 // Sales
-export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiOrderPayment, ApiReturnItem, ApiReturn, ApiTarget } from "./sales";
+export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiOrderPayment, ApiReturnItem, ApiReturn, ApiTarget, ApiQuotation, QuotationInput, QuotationItem, QuotationStatus, QuotationActivity, TeamMember, SalespersonReport, SalespersonRow, SalespersonOrder, SalespersonTarget, SalespersonFilters } from "./sales";
 export { salesApi } from "./sales";
 export type { ApiCrmActivity, ApiCrmContact, ApiCrmOpportunity, ApiCampaign, ApiEmailLog, CrmActivityFilters } from "./crm";
 export { crmApi } from "./crm";
@@ -112,3 +112,6 @@ export { usersApi } from "./users";
 
 export type { AccessModule, AccessRow, AccessSummary, AccessFilters, UserAccess, RoleAccess, RoleSummary, PermissionGroup, PermissionResource, PermissionCell, BranchScope, ModuleDetail } from "./access";
 export type { BranchRow, BranchSummary, BranchFilters, BranchSales, BranchEvent } from "./branchWorkspace";
+
+export { warehousesApi, MOVEMENT_LABEL } from "./warehouses";
+export type { Warehouse, WarehouseList, WarehouseInput, StockRow, StockMovementRow, StockCountRead, StockCountLineRead, MovementFilters } from "./warehouses";

@@ -62,6 +62,7 @@ class TenantUpdate(TimezoneModel):
     email: EmailStr | None = None
     tin: str | None = Field(default=None, max_length=50)
     address: str | None = Field(default=None, max_length=500)
+    quotation_terms: str | None = Field(default=None, max_length=3000)
     city: str | None = Field(default=None, max_length=100)
     country: str | None = Field(default=None, max_length=100)
     subscription_plan: str | None = None
@@ -105,6 +106,7 @@ class TenantRead(BaseModel):
     email: str | None = None
     tin: str | None = None
     address: str | None
+    quotation_terms: str | None = None
     city: str | None
     country: str | None
     subscription_plan: str

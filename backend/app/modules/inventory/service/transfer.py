@@ -20,6 +20,8 @@ async def _transfer_to_read(obj: StockTransfer) -> StockTransferRead:
     read = StockTransferRead.model_validate(obj)
     read.from_branch_name = obj.from_branch.name if obj.from_branch else None
     read.to_branch_name = obj.to_branch.name if obj.to_branch else None
+    read.from_warehouse_name = obj.from_warehouse.name if obj.from_warehouse else None
+    read.to_warehouse_name = obj.to_warehouse.name if obj.to_warehouse else None
     return read
 
 
@@ -45,8 +47,11 @@ async def get_transfer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) ->
 async def create_transfer(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: StockTransferCreate
 ) -> StockTransferRead:
+    by_warehouse = bool(data.from_warehouse_id or data.to_warehouse_id)
+    if by_warehouse:
+        await _check_warehouses(db, tenant_id, data)
     # No branch means the main store, so "main store to main store" is the same place just like a branch to itself.
-    if data.from_branch_id == data.to_branch_id:
+    elif data.from_branch_id == data.to_branch_id:
         raise ValidationError("Source and destination must be different places")
     if not data.items:
         raise ValidationError("A transfer needs at least one item")
@@ -56,6 +61,8 @@ async def create_transfer(
         transfer_number=await repo.next_transfer_number(tenant_id),
         from_branch_id=data.from_branch_id,
         to_branch_id=data.to_branch_id,
+        from_warehouse_id=data.from_warehouse_id,
+        to_warehouse_id=data.to_warehouse_id,
         status="pending",
         notes=data.notes,
         created_by=user_id,
@@ -76,6 +83,35 @@ async def create_transfer(
 
     await db.commit()
     return await _transfer_to_read(await repo.get_by_id_for_tenant(tenant_id, transfer.id))
+
+
+async def _check_warehouses(db: AsyncSession, tenant_id: uuid.UUID, data: StockTransferCreate) -> None:
+    from app.modules.inventory.models.warehouse import Warehouse
+    if not (data.from_warehouse_id and data.to_warehouse_id):
+        raise ValidationError("Choose both the warehouse the stock leaves and the one it goes to")
+    if data.from_warehouse_id == data.to_warehouse_id:
+        raise ValidationError("Source and destination must be different warehouses")
+    for wid in (data.from_warehouse_id, data.to_warehouse_id):
+        w = await db.get(Warehouse, wid)
+        if w is None or w.tenant_id != tenant_id or not w.is_active:
+            raise ValidationError("Choose active warehouses of this business")
+
+
+async def _ledger(db: AsyncSession, tenant_id: uuid.UUID, obj: StockTransfer, user_id: uuid.UUID | None, *, dispatch: bool, receive: bool, undo: bool = False) -> None:
+    """Moves a warehouse transfer's quantities in the stock ledger. The business total never changes; in between, the stock is on the way."""
+    from app.modules.inventory.service.stock_ledger import move_between
+    items = [(i.product_id, i.variant_id, i.product_name, i.quantity) for i in obj.items if i.product_id]
+    if undo:  # cancelled in transit: the stock goes back where it came from
+        await move_between(db, tenant_id, items, source=None, destination=obj.from_warehouse_id, reference_type="transfer", reference_id=obj.id,
+                           reference_number=f"{obj.transfer_number} (cancelled)", user_id=user_id)
+        return
+    if dispatch:
+        await move_between(db, tenant_id, items, source=obj.from_warehouse_id, destination=None, reference_type="transfer", reference_id=obj.id,
+                           reference_number=obj.transfer_number, user_id=user_id)
+        obj.dispatched_at = datetime.now(UTC)
+    if receive:
+        await move_between(db, tenant_id, items, source=None, destination=obj.to_warehouse_id, reference_type="transfer", reference_id=obj.id,
+                           reference_number=obj.transfer_number, user_id=user_id)
 
 
 async def _validate_transfer_item(db: AsyncSession, tenant_id: uuid.UUID, product_id, variant_id) -> None:
@@ -103,6 +139,16 @@ async def update_transfer(
     if data.status is not None:
         if data.status not in ("pending", "in_transit", "completed", "cancelled"):
             raise ValidationError("Invalid transfer status")
+        by_warehouse = bool(obj.from_warehouse_id and obj.to_warehouse_id)
+        if by_warehouse and data.status != obj.status:
+            if data.status == "in_transit" and obj.status == "pending":
+                await _ledger(db, tenant_id, obj, user_id, dispatch=True, receive=False)
+            elif data.status == "completed":
+                await _ledger(db, tenant_id, obj, user_id, dispatch=obj.status == "pending", receive=True)
+            elif data.status == "cancelled" and obj.status == "in_transit":
+                await _ledger(db, tenant_id, obj, user_id, dispatch=False, receive=False, undo=True)
+            elif data.status == "pending":
+                raise ValidationError("A transfer cannot go back to pending once it has moved")
         if data.status == "completed" and obj.status != "completed":
             await _apply_stock_movement(db, tenant_id, obj)
         obj.status = data.status

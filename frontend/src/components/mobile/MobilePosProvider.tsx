@@ -182,7 +182,7 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
     setSaleError(null);
     const changeAmt = cash ? Math.max(0, Number(cash) - total) : 0;
     try {
-      await createOrder.mutateAsync({
+      const created = await createOrder.mutateAsync({
         status: "Completed",
         customer_id: customerId,
         notes: `POS — ${pay}${notes ? ` — ${notes}` : ""}`,
@@ -203,6 +203,12 @@ export function MobilePosProvider({ children }: { children: ReactNode }) {
           line_total: i.price * i.qty - i.discount,
         })),
       });
+      // The business may approve every sale before it is paid: nothing was sold or recorded yet, so there is no receipt.
+      if (created.data.status === "Awaiting Approval") {
+        clearCart();
+        setSaleError(`Order ${created.data.order_number} was sent for approval. No stock or money has been recorded yet.`);
+        return;
+      }
       const sale: SaleResult = {
         orderId: generateOrderId(),
         payment: pay,

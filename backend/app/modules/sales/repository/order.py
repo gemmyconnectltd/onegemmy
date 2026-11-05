@@ -17,6 +17,7 @@ from app.modules.sales.models.order_payment import OrderPayment
 def _with_relations():
     return [
         selectinload(Order.customer),
+        selectinload(Order.salesperson),
         selectinload(Order.items).selectinload(OrderItem.product),
         selectinload(Order.payments).selectinload(OrderPayment.receiver),
     ]
@@ -64,11 +65,14 @@ class OrderRepository(BaseRepository[Order]):
         branch_id: uuid.UUID | None = None,
         period: DatePeriod | None = None,
         archived: bool = False,
+        salesperson_id: uuid.UUID | None = None,
     ) -> list[Order]:
         stmt = select(Order).options(*_with_relations()).where(Order.tenant_id == tenant_id)
         stmt = stmt.where(Order.archived_at.is_not(None) if archived else Order.archived_at.is_(None))
         if branch_id is not None:
             stmt = stmt.where(Order.branch_id == branch_id)
+        if salesperson_id is not None:
+            stmt = stmt.where(Order.salesperson_id == salesperson_id)
         if status:
             stmt = stmt.where(Order.status == status)
         if search:
@@ -92,11 +96,14 @@ class OrderRepository(BaseRepository[Order]):
         branch_id: uuid.UUID | None = None,
         period: DatePeriod | None = None,
         archived: bool = False,
+        salesperson_id: uuid.UUID | None = None,
     ) -> int:
         stmt = select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)
         stmt = stmt.where(Order.archived_at.is_not(None) if archived else Order.archived_at.is_(None))
         if branch_id is not None:
             stmt = stmt.where(Order.branch_id == branch_id)
+        if salesperson_id is not None:
+            stmt = stmt.where(Order.salesperson_id == salesperson_id)
         if status:
             stmt = stmt.where(Order.status == status)
         if search:

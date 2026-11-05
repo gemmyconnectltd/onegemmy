@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2, ArrowLeftRight, AlertCircle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiProduct, type ApiStockTransfer } from "@/lib/api";
-import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts, useProduct } from "@/lib/api/hooks";
+import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts, useProduct, useWarehouses } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -49,12 +49,18 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
   const [search, setSearch] = useState("");
   const [fromBranch, setFromBranch] = useState("");
   const [toBranch, setToBranch] = useState("");
+  const [fromWarehouse, setFromWarehouse] = useState("");
+  const [toWarehouse, setToWarehouse] = useState("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<ItemRow[]>(() => initialProduct ? [{...newItem(),product_id:initialProduct.id,product_name:initialProduct.name,sku:initialProduct.sku||"",available_stock:Number(initialProduct.stock)}] : [newItem()]);
   const [createError, setCreateError] = useState("");
 
   const { data, isLoading, isError, error: loadError, refetch } = useTransfers(1, 100, status || undefined, undefined, range);
   const destinations = useTransferDestinations().data ?? [];
+  // A business that has switched warehouses on moves stock between warehouses; otherwise transfers stay between branches, as before.
+  const warehouseList = useWarehouses().data;
+  const byWarehouse = !!warehouseList?.enabled;
+  const activeWarehouses = (warehouseList?.items ?? []).filter((w) => w.is_active);
   const { data: branchesData } = useMyBranches();
   const { data: productsData } = useProducts(1, 500);
   const createTransfer = useCreateTransfer();
@@ -98,15 +104,14 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
   async function handleAdd() {
     setCreateError("");
     if (validItems.length === 0 || createTransfer.isPending) return;
-    if (fromBranch === toBranch) return;
+    if (byWarehouse ? !fromWarehouse || !toWarehouse || fromWarehouse === toWarehouse : fromBranch === toBranch) return;
     if (stockErrors.length > 0) {
       setCreateError("Some items exceed available stock.");
       return;
     }
     try {
       await createTransfer.mutateAsync({
-        from_branch_id: fromBranch || null,
-        to_branch_id: toBranch || null,
+        ...(byWarehouse ? { from_warehouse_id: fromWarehouse, to_warehouse_id: toWarehouse } : { from_branch_id: fromBranch || null, to_branch_id: toBranch || null }),
         notes: notes.trim() || null,
         items: validItems.map((r) => ({
           product_id: r.product_id,
@@ -117,7 +122,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
         })),
       });
       setAdding(false);
-      setFromBranch(""); setToBranch(""); setNotes("");
+      setFromBranch(""); setToBranch(""); setFromWarehouse(""); setToWarehouse(""); setNotes("");
       setItems([newItem()]);
     } catch (err) {
       setCreateError((err as { detail?: string })?.detail ?? "Failed to create transfer");
@@ -169,7 +174,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title">Transfers</h1>
-          <p className="text-sm text-muted mt-0.5">{transfers.length} transfer{transfers.length === 1 ? "" : "s"} · stock moves between branches</p>
+          <p className="text-sm text-muted mt-0.5">{transfers.length} transfer{transfers.length === 1 ? "" : "s"} · stock moves between {byWarehouse ? "warehouses" : "branches"}</p>
         </div>
         <Button onClick={() => { setAdding(!adding); setCreateError(""); }} color="#059669" className="rounded-lg">
           <Plus size={15} /> New Transfer
@@ -182,7 +187,23 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
             <ArrowLeftRight size={14} /> Create Transfer
           </p>
 
-          {/* Branches */}
+          {byWarehouse ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted mb-1.5 block">From warehouse</label>
+                  <Select value={fromWarehouse} onChange={(e) => setFromWarehouse(e.target.value)} className="w-full"><option value="">Choose…</option>{activeWarehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted mb-1.5 block">To warehouse</label>
+                  <Select value={toWarehouse} onChange={(e) => setToWarehouse(e.target.value)} className="w-full"><option value="">Choose…</option>{activeWarehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select>
+                </div>
+              </div>
+              {fromWarehouse && fromWarehouse === toWarehouse && <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Source and destination must be different.</p>}
+              <p className="text-xs text-muted">Stock leaves the first warehouse when you dispatch, and enters the second only when it is received.</p>
+            </>
+          ) : (
+            <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-muted mb-1.5 block">From branch</label>
@@ -201,6 +222,9 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
           </div>
           {fromBranch === toBranch && (
             <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Source and destination must be different.</p>
+          )}
+
+            </>
           )}
 
           {/* Items */}
@@ -287,18 +311,9 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {t.status === "pending" && (
-                  <Select value="" onChange={(e) => e.target.value && handleStatus(t.id, e.target.value)}>
-                    <option value="">Update…</option>
-                    {["in_transit", "completed", "cancelled"].map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-                  </Select>
-                )}
-                {t.status === "in_transit" && (
-                  <Select value="" onChange={(e) => e.target.value && handleStatus(t.id, e.target.value)}>
-                    <option value="">Update…</option>
-                    {["completed", "cancelled"].map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
-                  </Select>
-                )}
+                {t.status === "pending" && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "in_transit")}>Dispatch</Button>}
+                {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "completed")}>{t.status === "pending" ? "Dispatch and receive" : "Mark received"}</Button>}
+                {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => confirm({ title: `Cancel ${t.transfer_number}?`, message: t.status === "in_transit" && t.from_warehouse_id ? "The stock on its way goes back to the source warehouse." : "Nothing will be moved.", confirmLabel: "Cancel transfer", danger: true, onConfirm: () => void handleStatus(t.id, "cancelled") })}>Cancel</Button>}
                 <button onClick={() => handleDelete(t.id)}
                   className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-xs font-semibold">
                   <Trash2 size={14} /> Delete
@@ -306,9 +321,9 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
               </div>
             </div>
             <div className="flex items-center gap-2 text-sm mb-3">
-              <span className="font-semibold text-foreground">{t.from_branch_name ?? "Main store"}</span>
+              <span className="font-semibold text-foreground">{t.from_warehouse_name ?? t.from_branch_name ?? "Main store"}</span>
               <ArrowLeftRight size={14} className="text-muted" />
-              <span className="font-semibold text-foreground">{t.to_branch_name ?? "Main store"}</span>
+              <span className="font-semibold text-foreground">{t.to_warehouse_name ?? t.to_branch_name ?? "Main store"}</span>
               <span className="text-xs text-muted ml-auto">{t.created_at ? new Date(t.created_at).toLocaleDateString() : ""}</span>
             </div>
             <div className="flex flex-wrap gap-2">

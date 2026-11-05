@@ -40,3 +40,15 @@ async def financial_report(db: DbSession, current_user: CurrentUser, from_date: 
                            branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
     from app.modules.reporting.service.breakdowns import financial
     return success_response(data=await financial(db, current_user, from_date, to_date, branch_id or active), message="Financial report retrieved")
+
+
+@router.get("/reports/salespeople")
+async def salespeople_report(db: DbSession, current_user: CurrentUser, from_date: date | None = None, to_date: date | None = None,
+                             branch_id: uuid.UUID | None = None, salesperson_id: uuid.UUID | None = None, customer_id: uuid.UUID | None = None,
+                             product_id: uuid.UUID | None = None, category_id: uuid.UUID | None = None, payment_status: str | None = None,
+                             active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+    """Sales per salesperson with the orders behind every figure. Without team access you only see yourself."""
+    from app.modules.reporting.service.salespeople import salespeople_report as run
+    data = await run(db, current_user, from_date, to_date, branch_id or active, salesperson_id=salesperson_id, customer_id=customer_id,
+                     product_id=product_id, category_id=category_id, payment_status=payment_status)
+    return success_response(data=data, message="Salesperson report retrieved")

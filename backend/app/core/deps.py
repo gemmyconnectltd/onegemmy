@@ -5,6 +5,7 @@ from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import stock_context
 from app.core.database import get_db
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.logging import get_logger
@@ -51,6 +52,7 @@ async def get_current_user(
         from app.modules.billing.access import enforce_write
         await enforce_write(db, user.tenant_id, request.url.path, request.method)
 
+    stock_context.current_user_id.set(user.id)
     log.debug("auth.user_authenticated", extra={"_extra_fields": {
         "user_id": user_id,
         "tenant_id": tenant_id,
@@ -83,6 +85,12 @@ async def get_active_branch_id(
     db: DbSession,
     x_branch_id: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None,
 ) -> uuid.UUID | None:
+    branch = await _resolve_active_branch_id(current_user, db, x_branch_id)
+    stock_context.current_branch_id.set(branch)  # the stock ledger takes stock from the warehouse of the branch the request acts on
+    return branch
+
+
+async def _resolve_active_branch_id(current_user: User, db: AsyncSession, x_branch_id: uuid.UUID | None) -> uuid.UUID | None:
     """Resolves which branch the current request acts on.
 
     A user tied to a single branch (the common case — a cashier, a branch

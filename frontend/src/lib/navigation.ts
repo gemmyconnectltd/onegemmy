@@ -49,8 +49,10 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
   sales: [
     { nameKey: "salesHistory", href: "/sales/orders",    icon: FileText },
     { nameKey: "deals", label: "Deals", href: "/sales/deals", icon: ClipboardList },
+    { nameKey: "quotations", label: "Quotations", href: "/sales/quotations", icon: ClipboardList },
     { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw },
     { nameKey: "targets",   href: "/sales/targets",   icon: Target },
+    { nameKey: "teamPerformance", label: "Team performance", href: "/reports/salespeople", icon: Users },
   ],
   accounting: ACCOUNTING_NAV.map(item => ({ ...item, nameKey: item.label, label: item.label })),
   debts: DEBT_NAV.map(item => ({ ...item, nameKey: item.label, label: item.label })),
@@ -97,6 +99,10 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "stock",     href: "/inventory/stock",      icon: Layers,
       activeFor: ["/inventory/serials", "/inventory/batches", "/inventory/warranty"] },
     { nameKey: "transfers", href: "/inventory/transfers",  icon: Truck },
+    { nameKey: "warehouses", label: "Warehouses", href: "/inventory/warehouses", icon: Warehouse },
+    { nameKey: "stockByWarehouse", label: "Stock by warehouse", href: "/inventory/stock-by-warehouse", icon: Layers },
+    { nameKey: "stockMovements", label: "Stock movements", href: "/inventory/movements", icon: ArrowLeftRight },
+    { nameKey: "stockCounts", label: "Stock counts", href: "/inventory/counts", icon: ClipboardCheck },
   ],
   reports: [
     { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true },

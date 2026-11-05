@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Index, Numeric, String, false
+from sqlalchemy import Boolean, DateTime, Index, Numeric, String, Text, false
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,8 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     email: Mapped[str | None] = mapped_column(String(255))  # the business's own contact email, printed on receipts and invoices
     tin: Mapped[str | None] = mapped_column(String(50))  # taxpayer identification number, printed on receipts and invoices
     address: Mapped[str | None] = mapped_column(String(500))
+    # Bank details and standing notes printed at the foot of every quotation (the business's own wording); copied onto each new quotation.
+    quotation_terms: Mapped[str | None] = mapped_column(Text)
     city: Mapped[str | None] = mapped_column(String(100))
     country: Mapped[str | None] = mapped_column(String(100))
 

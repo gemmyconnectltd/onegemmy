@@ -103,6 +103,15 @@ class ProductBulkLine(ProductCreate):
     expiry_date: date | None = None
     manufactured_date: date | None = None
 
+    @field_validator("image_url")
+    @classmethod
+    def _safe_image_link(cls, value: str | None) -> str | None:
+        """A picture link in an import must be a web link (https) or one of our own paths: never javascript:, data: or a file path."""
+        value = (value or "").strip() or None
+        if value is not None and not (value.lower().startswith("https://") or value.startswith(("/uploads/", "/static/"))):
+            raise ValueError("The picture link must start with https://")
+        return value
+
 
 class ProductBulkCreate(BaseModel):
     items: list[ProductBulkLine]

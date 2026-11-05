@@ -67,6 +67,8 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
     )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     approval_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Why the sale is waiting: "credit" (over the customer's limit) or "policy" (the business approves every sale first).
+    held_reason: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_customers.id", ondelete="SET NULL"), nullable=True
@@ -81,7 +83,12 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
+    # The person responsible for the sale. Distinct from created_by (who keyed it in), approved_by and the payment's received_by.
+    salesperson_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     customer = relationship("Customer", back_populates="orders", lazy="select")
+    salesperson = relationship("User", foreign_keys=[salesperson_id], lazy="select")
     deal = relationship("Deal", back_populates="orders", lazy="select")
     branch = relationship("Branch", foreign_keys=[branch_id], lazy="select")
     creator = relationship("User", foreign_keys=[created_by], lazy="select")
@@ -94,6 +101,7 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
 
     __table_args__ = (
         Index("ix_orders_tenant_customer_credit", "tenant_id", "customer_id", "credit_granted_at"),
+        Index("ix_orders_tenant_salesperson_ordered", "tenant_id", "salesperson_id", "ordered_at"),
         Index("ix_orders_tenant_branch_ordered", "tenant_id", "branch_id", "ordered_at"),
         Index("uq_sales_orders_tenant_number", "tenant_id", "order_number", unique=True),
         Index("uq_sales_orders_tenant_client", "tenant_id", "client_order_id", unique=True),

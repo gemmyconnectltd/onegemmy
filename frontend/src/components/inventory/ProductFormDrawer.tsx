@@ -29,7 +29,7 @@ export interface ProductFormValues {
 const FALLBACK_CATEGORIES = ["Accessories", "Cables", "Audio", "Chargers", "Storage", "Networking"];
 const FALLBACK_UNITS = ["Piece", "Box", "Kilogram", "Gram", "Litre", "Metre", "Pack"];
 
-export const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate", "barcode", "subcategory"];
+export const CSV_HEADERS = ["name", "sku", "category", "brand", "unit", "cost", "price", "stock", "minStock", "batchNumber", "expiryDate", "manufacturedDate", "barcode", "subcategory", "imageUrl"];
 
 /** A bulk-import row is a product plus optional batch/lot info — pharmacy,
  *  cosmetics, and anyone else tracking expiry can carry it in the same
@@ -38,6 +38,8 @@ export interface ProductBulkRow extends ProductFormValues {
   batchNumber: string;
   expiryDate: string;
   manufacturedDate: string;
+  /** A picture link (https://...) from the spreadsheet. Pictures can also be added in bulk from a ZIP named after the SKUs. */
+  imageUrl: string;
 }
 
 interface ProductFormDrawerProps {
@@ -46,7 +48,7 @@ interface ProductFormDrawerProps {
   onClose: () => void;
   initial?: ProductFormValues | null;
   onSubmit: (values: ProductFormValues, imageFile?: File) => Promise<void>;
-  onBulkSubmit?: (values: ProductBulkRow[]) => void;
+  onBulkSubmit?: (values: ProductBulkRow[], file?: File) => void | Promise<void>;
   color?: string;
 }
 
@@ -279,6 +281,7 @@ function parseProductRow(row: Record<string, string>): { data: ProductBulkRow; e
   if (row.minstock === undefined || isNaN(Number(row.minstock))) errors.push("invalid minStock");
   if (row.expirydate && isNaN(new Date(row.expirydate).getTime())) errors.push("invalid expiryDate");
   if (row.manufactureddate && isNaN(new Date(row.manufactureddate).getTime())) errors.push("invalid manufacturedDate");
+  if (row.imageurl?.trim() && !/^https:\/\//i.test(row.imageurl.trim())) errors.push("picture link must start with https://");
   // normalise minstock → minStock for parseForm()
   const normalised = row.minstock !== undefined ? { ...row, minStock: row.minstock } : row;
   return {
@@ -287,24 +290,25 @@ function parseProductRow(row: Record<string, string>): { data: ProductBulkRow; e
       batchNumber: row.batchnumber?.trim() ?? "",
       expiryDate: row.expirydate?.trim() ?? "",
       manufacturedDate: row.manufactureddate?.trim() ?? "",
+      imageUrl: row.imageurl?.trim() ?? "",
     },
     errors,
   };
 }
 
-function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductBulkRow[]) => void; color?: string }) {
+function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductBulkRow[], file?: File) => void | Promise<void>; color?: string }) {
   return (
     <CsvImportDrawer<ProductBulkRow>
       open
       onClose={onClose}
-      onSubmit={async (items) => onBulkSubmit(items)}
+      onSubmit={async (items, file) => onBulkSubmit(items, file)}
       title="Import Products"
       itemNoun="product"
       templateFilename="products_template.xlsx"
       templateHeaders={CSV_HEADERS}
       templateSampleRows={[
-        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10", "", "", "", "", ""],
-        ["Amoxicillin 500mg", "AMX-500", "Antibiotics", "GSK", "Box", "8000", "12000", "60", "10", "LOT-2026-04", "2026-04-01", "2025-10-01", "", ""],
+        ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10", "", "", "", "", "", "https://example.com/pictures/pc-001.jpg"],
+        ["Amoxicillin 500mg", "AMX-500", "Antibiotics", "GSK", "Box", "8000", "12000", "60", "10", "LOT-2026-04", "2026-04-01", "2025-10-01", "", "", ""],
       ]}
       previewColumns={[
         { key: "name", label: "Name", required: true },
@@ -321,6 +325,7 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
         { key: "batchnumber", label: "Batch #" },
         { key: "expirydate", label: "Expiry" },
         { key: "manufactureddate", label: "Manufactured" },
+        { key: "imageurl", label: "Picture link" },
       ]}
       parseRow={parseProductRow}
       color={color}

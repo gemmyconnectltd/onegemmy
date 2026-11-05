@@ -16,6 +16,9 @@ class TransferItemCreate(BaseModel):
 class StockTransferCreate(BaseModel):
     from_branch_id: uuid.UUID | None = None
     to_branch_id: uuid.UUID | None = None
+    # Name both to move stock between warehouses: it leaves the source when dispatched and enters the destination when received.
+    from_warehouse_id: uuid.UUID | None = None
+    to_warehouse_id: uuid.UUID | None = None
     notes: str | None = None
     items: list[TransferItemCreate] = []
 
@@ -46,6 +49,11 @@ class StockTransferRead(BaseModel):
     transfer_number: str
     from_branch_id: uuid.UUID | None
     to_branch_id: uuid.UUID | None
+    from_warehouse_id: uuid.UUID | None = None
+    to_warehouse_id: uuid.UUID | None = None
+    from_warehouse_name: str | None = None
+    to_warehouse_name: str | None = None
+    dispatched_at: datetime | None = None
     status: str
     notes: str | None
     created_by: uuid.UUID | None

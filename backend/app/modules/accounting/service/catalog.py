@@ -38,6 +38,11 @@ async def set_period_lock(db, user, locked_through, reason):
     tenant_id = allow(user, "tenants", "update")
     if has_branch_restriction(user):
         raise ValidationError("Closing periods requires business-wide administration")
+    return await apply_period_lock(db, tenant_id, user, locked_through, reason)
+
+
+async def apply_period_lock(db, tenant_id, actor, locked_through, reason, actor_label=None):
+    """The rule for closing or reopening a period, shared by the business's own screen and the platform's Data Management so both behave identically."""
     row = await db.get(AccountingPreference, tenant_id)
     if row is None:
         row = AccountingPreference(tenant_id=tenant_id)
@@ -49,7 +54,7 @@ async def set_period_lock(db, user, locked_through, reason):
     if locked_through is not None and locked_through > datetime.now(UTC).date():
         raise ValidationError("A period cannot be closed beyond today")
     row.locked_through = locked_through
-    await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, actor_name=user.full_name, action="accounting.period_lock",
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=actor.id, actor_name=actor_label or actor.full_name, action="accounting.period_lock",
                        entity_type="tenant", entity_id=str(tenant_id), summary=f"Books closed through {locked_through}" if locked_through else "Closed period cleared",
                        changes={"before": str(previous) if previous else None, "after": str(locked_through) if locked_through else None, "reason": reason})
     await db.commit()

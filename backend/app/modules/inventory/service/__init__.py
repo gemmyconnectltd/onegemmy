@@ -164,3 +164,9 @@ __all__ = [
     "upload_product_image",
     "upload_variant_image",
 ]
+
+from app.modules.inventory.service.stock_ledger import (
+    install as _install_stock_ledger,
+)
+
+_install_stock_ledger()

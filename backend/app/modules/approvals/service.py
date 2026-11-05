@@ -19,6 +19,7 @@ from app.core.exceptions import (
     ValidationError,
 )
 from app.core.logging import get_logger
+from app.core.stock_context import set_reason
 from app.modules.approvals.models import ApprovalRequest
 from app.modules.audit.service import record_audit
 from app.modules.inventory.models.product import Product
@@ -200,6 +201,7 @@ async def _apply(db: AsyncSession, request: ApprovalRequest) -> None:
     elif request.kind == "stock_adjustment":
         target = variant if variant is not None else product
         old_values = {"stock": target.stock}
+        set_reason("adjustment", reference_type="approval", reference_id=request.id, note="Approved stock adjustment")
         target.stock = Decimal(str(payload["new_stock"]))
         from app.modules.inventory.service.product import record_product_change
         await record_product_change(db, product, "product.adjusted", old_values, {"stock": target.stock},

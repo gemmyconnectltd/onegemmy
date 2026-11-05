@@ -15,15 +15,17 @@ import {
   Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
   Eye, Edit2, AlertCircle, ChevronDown, Upload,
   Archive, ArchiveRestore, Ban,
+  UserCog,
 } from "lucide-react";
 import { TableState } from "@/components/ui/TableState";
 import { ReasonDialog } from "@/components/ui/ReasonDialog";
+import { ChangeSalespersonDialog } from "@/components/sales/ChangeSalespersonDialog";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useVoidOrder, useRequestVoid, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
+import { useOrders, useSalesTeam, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useVoidOrder, useRequestVoid, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
 import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
 import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
@@ -63,7 +65,7 @@ type ItemRow = {
 
 const EMPTY_ITEM: ItemRow = { rowId: "", product_id: "", variant_id: "", product_name: "", sku: "", unit_price: "", quantity: "1", discount: "0", variant_attributes: null };
 const newItem = (): ItemRow => ({ ...EMPTY_ITEM, rowId: crypto.randomUUID() });
-const EMPTY_FORM = { customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "", sale_at: "", reason: "" };
+const EMPTY_FORM = { salesperson_id: "", customer_id: "", status: "Pending", discount: "0", tax: "0", notes: "", sale_at: "", reason: "" };
 /** An ISO moment as the local value a datetime-local input expects. */
 const toLocalInput = (iso: string | null) => { if (!iso) return ""; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
@@ -287,6 +289,7 @@ export default function SalesOrdersPage() {
   // Owners and administrators run the books: only they archive/restore a sale or move its date. Nobody deletes a sale.
   const isOwner = !!authUser?.isSuperuser || ["admin", "owner", "owner/ceo"].includes((authUser?.role ?? "").toLowerCase());
   const [statusFilter, setStatusFilter] = useState("All");
+  const [sellerFilter, setSellerFilter] = useState("");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -308,11 +311,11 @@ export default function SalesOrdersPage() {
   // Opened from a report number: show the sales behind it for the same dates.
   useEffect(() => { const linked = periodFromQuery(window.location.search); if (linked) queueMicrotask(() => setPeriod(linked)); }, []);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
-  const filtersActive = statusFilter !== "All" || paymentStatusFilter !== "All" || period.key !== "all" || search.trim() !== "";
-  const clearFilters = () => { setStatusFilter("All"); setPaymentStatusFilter("All"); setPeriod(ALL_TIME); setSearch(""); setPage(1); };
+  const filtersActive = statusFilter !== "All" || sellerFilter !== "" || paymentStatusFilter !== "All" || period.key !== "all" || search.trim() !== "";
+  const clearFilters = () => { setStatusFilter("All"); setSellerFilter(""); setPaymentStatusFilter("All"); setPeriod(ALL_TIME); setSearch(""); setPage(1); };
 
   const showArchived = statusFilter === "Archived";
-  const ordersQ = useOrders(page, pageSize, statusFilter === "All" || showArchived ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, undefined, range, showArchived);
+  const ordersQ = useOrders(page, pageSize, statusFilter === "All" || showArchived ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, undefined, range, showArchived, sellerFilter || undefined);
   // Customer/product pickers for the create/edit form need the full lists, not
   // the current table page — kept as their own, separately-paginated fetches.
   const customersQ = useCustomers(1, 200);
@@ -370,18 +373,24 @@ export default function SalesOrdersPage() {
   // Credit sales held over the daily limit wait here for someone with credit:approve (GM/CEO).
   const { hasPermission } = useAuth();
   const canApproveCredit = hasPermission("credit:approve");
+  const canApproveSale = hasPermission("orders:approve");
+  // A sale held by the business's approve-every-sale rule needs sale approval; one held for credit needs credit approval.
+  const canDecide = (o: ApiOrder) => (o.held_reason === "policy" ? canApproveSale : canApproveCredit);
+  const team = useSalesTeam();
+  const [rejectingSale, setRejectingSale] = useState<ApiOrder | null>(null);
+  const [reassigning, setReassigning] = useState<ApiOrder | null>(null);
   const approveOrder = useApproveOrder();
   const rejectOrder = useRejectOrder();
   const decideBusy = approveOrder.isPending || rejectOrder.isPending;
-  const decideCredit = (o: ApiOrder, action: "approve" | "reject") => confirm({
-    title: action === "approve" ? "Approve this credit sale?" : "Reject this credit sale?",
-    message: action === "approve"
-      ? `${o.order_number} for ${o.customer?.name ?? "this customer"} will be completed: stock goes out and ${fmt(o.total)} is booked, with the unpaid balance as customer debt.`
-      : `${o.order_number} will be declined. Nothing was posted for it, so no stock or accounts change.`,
-    confirmLabel: action === "approve" ? "Approve" : "Reject",
-    danger: action === "reject",
-    onConfirm: () => (action === "approve" ? approveOrder : rejectOrder).mutate({ id: o.id }),
-  });
+  const decideCredit = (o: ApiOrder, action: "approve" | "reject") => {
+    if (action === "reject") { setRejectingSale(o); return; }
+    confirm({
+      title: o.held_reason === "policy" ? "Approve this sale?" : "Approve this credit sale?",
+      message: `${o.order_number} for ${o.customer?.name ?? "this customer"} will be completed: stock goes out and ${fmt(o.total)} is booked${o.held_reason === "policy" ? "." : ", with the unpaid balance as customer debt."}`,
+      confirmLabel: "Approve",
+      onConfirm: () => approveOrder.mutate({ id: o.id }),
+    });
+  };
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function confirmBulkArchive() {
@@ -408,7 +417,7 @@ export default function SalesOrdersPage() {
 
   const openEdit = (o: ApiOrder) => {
     setEditing(o);
-    setForm({ customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "", sale_at: toLocalInput(o.ordered_at), reason: "" });
+    setForm({ salesperson_id: o.salesperson_id ?? "", customer_id: o.customer_id ?? "", status: o.status, discount: String(o.discount), tax: String(o.tax), notes: o.notes ?? "", sale_at: toLocalInput(o.ordered_at), reason: "" });
     setItems(o.items.length
       ? o.items.map((i) => ({ rowId: crypto.randomUUID(), product_id: i.product_id ?? "", variant_id: i.variant_id ?? "", product_name: i.product_name, sku: i.sku ?? "", unit_price: String(i.unit_price), quantity: String(i.quantity), discount: String(i.discount), variant_attributes: i.variant_attributes ?? null }))
       : [newItem()]);
@@ -422,6 +431,7 @@ export default function SalesOrdersPage() {
     e.preventDefault();
     const validItems = items.filter((i) => i.product_name && i.unit_price);
     const payload = {
+      ...(!editing && form.salesperson_id ? { salesperson_id: form.salesperson_id } : {}),
       customer_id: form.customer_id || null,
       status: form.status,
       discount: Number(form.discount),
@@ -485,7 +495,7 @@ export default function SalesOrdersPage() {
         </div>
         <div className="flex items-center gap-2">
           <ExportButton build={async () => {
-            const sales = await fetchEvery((p, s) => salesApi.listOrders(p, s, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, range), 500);
+            const sales = await fetchEvery((p, s) => salesApi.listOrders(p, s, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, range, false, sellerFilter || undefined), 500);
             // One row per item, the same layout the Import template uses, so the file can be imported back.
             const rows = sales.flatMap((o) => (o.items.length ? o.items : [null]).map((i) => [o.order_number, o.customer?.name ?? "", o.ordered_at ?? "", o.status, o.payment_method ?? "", o.notes ?? "", i?.sku ?? "", i?.quantity ?? "", i?.unit_price ?? ""]));
             return { filename: "sales", headers: ORDER_CSV_HEADERS, rows };
@@ -519,6 +529,11 @@ export default function SalesOrdersPage() {
             <Input className="pl-9" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search reference or customer" aria-label="Search sales" />
           </div>
           <PeriodFilter value={period} onChange={onPeriodChange} label="Sale date" className="min-w-0 flex-1 sm:flex-none" />
+          {(team.data?.length ?? 0) > 1 && (
+            <Select aria-label="Salesperson" value={sellerFilter} onChange={(e) => { setSellerFilter(e.target.value); setPage(1); }} className="min-w-0 flex-1 sm:w-auto sm:flex-none">
+              <option value="">All salespeople</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </Select>
+          )}
           <Select aria-label="Payment status" value={paymentStatusFilter} onChange={(e) => onPaymentStatusFilterChange(e.target.value)} className="min-w-0 flex-1 sm:w-auto sm:flex-none">
             <option value="All">All payments</option>
             <option value="Paid">Paid</option>
@@ -551,6 +566,7 @@ export default function SalesOrdersPage() {
                 </th>
                 <th className="p-4 font-semibold whitespace-nowrap">Sale Reference</th>
                 <th className="p-4 font-semibold min-w-36">Customer</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Salesperson</th>
                 <th className="p-4 font-semibold">Items</th>
                 <th className="p-4 font-semibold">Date</th>
                 <th className="p-4 font-semibold">Status</th>
@@ -572,6 +588,7 @@ export default function SalesOrdersPage() {
                     </td>
                     <td className="p-4 text-sm font-mono font-bold whitespace-nowrap" style={{ color: SAL }}>{o.order_number}</td>
                     <td className="p-4 text-sm font-medium text-foreground min-w-36">{o.customer?.name ?? <span className="italic text-muted">Walk-in</span>}</td>
+                    <td className="p-4 text-sm whitespace-nowrap">{o.salesperson_name ?? <span className="text-muted">—</span>}</td>
                     <td className="p-4 text-sm text-muted whitespace-nowrap">{o.items.length} item{o.items.length !== 1 ? "s" : ""}</td>
                     <td className="p-4 text-sm text-muted whitespace-nowrap">{fmtDateTime(o.ordered_at)}</td>
                     <td className="p-4">
@@ -597,13 +614,14 @@ export default function SalesOrdersPage() {
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => setViewingId(o.id)} aria-label="View sale" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
-                        {o.status === "Awaiting Approval" && canApproveCredit && (
+                        {o.status === "Awaiting Approval" && canDecide(o) && (
                           <>
-                            <button onClick={() => decideCredit(o, "approve")} disabled={decideBusy} aria-label="Approve credit sale" title="Approve credit" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50">Approve</button>
-                            <button onClick={() => decideCredit(o, "reject")} disabled={decideBusy} aria-label="Reject credit sale" title="Reject credit" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 disabled:opacity-50">Reject</button>
+                            <button onClick={() => decideCredit(o, "approve")} disabled={decideBusy} aria-label="Approve sale" title="Approve" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50">Approve</button>
+                            <button onClick={() => decideCredit(o, "reject")} disabled={decideBusy} aria-label="Reject sale" title="Reject" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 disabled:opacity-50">Reject</button>
                           </>
                         )}
                         <button onClick={() => openEdit(o)} aria-label="Edit sale" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
+                        {canApproveSale && !showArchived && <button onClick={() => setReassigning(o)} aria-label="Change salesperson" title="Change salesperson" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><UserCog size={13} /></button>}
                         {o.status === "Completed" && !showArchived && <button onClick={() => setVoiding(o)} aria-label={isOwner ? "Void sale" : "Request void"} title={isOwner ? "Void sale" : "Ask for this sale to be voided"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-red-600 hover:bg-red-500/10 transition-colors"><Ban size={13} /></button>}
                         {isOwner && <button onClick={() => (showArchived ? restoreOrder.mutate(o.id) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }) }))} aria-label={showArchived ? "Restore sale" : "Archive sale"} title={showArchived ? "Restore" : "Archive"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors">{showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>}
                       </div>
@@ -614,7 +632,7 @@ export default function SalesOrdersPage() {
             </tbody>
           </table></TableScroll>
         )}
-        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" onClick={() => (showArchived ? restoreOrder.mutate(o.id) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canApproveCredit && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
+        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items{o.salesperson_name ? ` · ${o.salesperson_name}` : ""}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" onClick={() => (showArchived ? restoreOrder.mutate(o.id) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canDecide(o) && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
         {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}
         {!loading && orders.length > 0 && (
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
@@ -630,6 +648,10 @@ export default function SalesOrdersPage() {
       </div>
 
       {/* ── Add / Edit Drawer ── */}
+      <ReasonDialog open={!!rejectingSale} onClose={() => setRejectingSale(null)} danger title={`Reject ${rejectingSale?.order_number ?? "sale"}?`}
+        message="The sale will be declined. Nothing was posted for it, so no stock or accounts change. The reason is kept with the sale." confirmLabel="Reject sale"
+        onConfirm={async (reason) => { if (rejectingSale) await rejectOrder.mutateAsync({ id: rejectingSale.id, note: reason }); }} />
+      {reassigning && <ChangeSalespersonDialog order={reassigning} onClose={() => setReassigning(null)} />}
       <ReasonDialog open={!!voiding} onClose={() => setVoiding(null)} danger
         title={isOwner ? `Void ${voiding?.order_number ?? "sale"}?` : `Ask to void ${voiding?.order_number ?? "sale"}`}
         message={isOwner ? "The sale is cancelled: its entries and payments are reversed and the stock goes back. Nothing is deleted, and your reason is kept in the audit trail." : "An owner or approver will decide. If they approve, the sale is cancelled, its entries are reversed and the stock goes back."}
@@ -650,6 +672,13 @@ export default function SalesOrdersPage() {
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </Field>
+            {!editing && (team.data?.length ?? 0) > 1 && (
+              <Field label="Salesperson" hint="Who is credited with this sale. Leave as Me if you made it.">
+                <Select value={form.salesperson_id} onChange={(e) => setForm({ ...form, salesperson_id: e.target.value })}>
+                  <option value="">Me</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </Select>
+              </Field>
+            )}
             <Field label="Status">
               <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                 <option>Pending</option><option>Completed</option><option>Cancelled</option>

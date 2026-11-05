@@ -12,7 +12,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
-import { AlertTriangle, Package, PackageX, Plus, Search, Layers, Settings2, Upload, Wallet } from "lucide-react";
+import { AlertTriangle, ImagePlus, Package, PackageX, Plus, Search, Layers, Settings2, Upload, Wallet } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
@@ -25,7 +25,8 @@ import { RestockDrawer, type RestockValues } from "@/components/inventory/Restoc
 import { ProductActionsMenu } from "@/components/inventory/ProductActionsMenu";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
-import { type ApiProduct } from "@/lib/api";
+import { type ApiProduct, type PictureImportResult } from "@/lib/api";
+import { ImportPicturesDrawer } from "@/components/inventory/ImportPicturesDrawer";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -96,6 +97,8 @@ function ProductsContent() {
   const [formMode, setFormMode] = useState<"single" | "bulk">("single");
   const [editing, setEditing] = useState<ApiProduct | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [picturesOpen, setPicturesOpen] = useState(false);
+  const [pictureResult, setPictureResult] = useState<PictureImportResult | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null);
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
   const [requestTarget, setRequestTarget] = useState<ApiProduct | null>(null);
@@ -158,7 +161,7 @@ function ProductsContent() {
     }
   };
 
-  const handleBulkSubmit = async (items: ProductBulkRow[]) => {
+  const handleBulkSubmit = async (items: ProductBulkRow[], file?: File) => {
     await bulkCreateProducts.mutateAsync(items.map((v) => ({
       name: v.name, sku: v.sku || null,
       barcode: v.barcode || null, subcategory: v.subcategory || null,
@@ -169,7 +172,14 @@ function ProductsContent() {
       batch_number: v.batchNumber || null,
       expiry_date: v.expiryDate || null,
       manufactured_date: v.manufacturedDate || null,
+      image_url: v.imageUrl || null,
     })));
+    // Pictures pasted into the Excel sheet travel in the file itself, so the same file is read again for them now that the products exist.
+    // A sheet without pictures is normal, and a problem with the pictures must never undo the products that were just created.
+    if (file && /\.xlsx$/i.test(file.name)) {
+      try { setPictureResult((await inventoryApi.importProductPictures(file)).data); }
+      catch (e) { if (!/No pictures were found/i.test((e as { message?: string; detail?: string })?.message ?? (e as { detail?: string })?.detail ?? "")) setPictureResult({ matched: 0, skipped: 1, pictures: [], problems: [{ file: "Pictures", reason: (e as { message?: string })?.message ?? "The pictures in the sheet could not be read" }] }); }
+    }
   };
 
   const handleRestock = async (v: RestockValues) => {
@@ -225,11 +235,12 @@ function ProductsContent() {
           <ExportButton build={async () => {
             const items = await fetchEvery((p, s) => inventoryApi.listProducts(p, s, debouncedSearch || undefined, isActive, range), 500);
             // Batch and date columns stay empty: they belong to batches, not to the product itself.
-            return { filename: "products", headers: PRODUCT_CSV_HEADERS, rows: items.map((x) => [x.name, x.sku, x.category?.name, x.brand?.name, x.unit?.name, x.cost, x.price, x.stock, x.min_stock, "", "", "", x.barcode, x.subcategory]) };
+            return { filename: "products", headers: PRODUCT_CSV_HEADERS, rows: items.map((x) => [x.name, x.sku, x.category?.name, x.brand?.name, x.unit?.name, x.cost, x.price, x.stock, x.min_stock, "", "", "", x.barcode, x.subcategory, x.image_url && /^(https:\/\/|\/uploads\/)/.test(x.image_url) ? x.image_url : ""]) };
           }} />
           {canAdd && <Button variant="secondary" onClick={() => { setEditing(null); setFormMode("bulk"); setFormKey((k) => k + 1); setShowForm(true); }} className="rounded-lg">
             <Upload size={15} /> Import
           </Button>}
+          {canAdd && <Button variant="secondary" onClick={() => setPicturesOpen(true)} className="rounded-lg"><ImagePlus size={15} /> Import pictures</Button>}
           {canAdd && <Button onClick={() => { setEditing(null); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }} color={INV_COLOR} className="rounded-lg">
             <Plus size={15} /> Add Product
           </Button>}
@@ -379,6 +390,8 @@ function ProductsContent() {
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="products" color={INV_COLOR} />
       </div>
 
+      {picturesOpen && <ImportPicturesDrawer onClose={() => setPicturesOpen(false)} />}
+      {pictureResult && <ImportPicturesDrawer initialResult={pictureResult} onClose={() => setPictureResult(null)} />}
       <ProductFormDrawer
         key={formKey}
         open={showForm}

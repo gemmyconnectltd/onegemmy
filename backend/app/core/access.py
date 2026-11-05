@@ -58,6 +58,8 @@ PATH_RESOURCES: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
 # Exact permission(s) (any one of) for specific endpoints — evaluated before the coarse module rule.
 EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
     ("POST", re.compile(r"^/sales/orders$"), ("orders:create", "pos:create")),
+    ("POST", re.compile(r"^/sales/quotations$"), ("orders:create",)),
+    ("POST", re.compile(r"^/sales/quotations/[^/]+/(send|accept|reject|convert)$"), ("orders:update",)),
     ("POST", re.compile(r"^/procurement/purchase-orders$"), ("purchase_orders:create",)),
     ("PATCH", re.compile(r"^/procurement/purchase-orders/[^/]+$"), ("purchase_orders:update",)),
     ("DELETE", re.compile(r"^/procurement/purchase-orders/[^/]+$"), ("purchase_orders:delete",)),

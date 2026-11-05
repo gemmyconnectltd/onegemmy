@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.period import DatePeriod
+from app.core.stock_context import set_reason
 from app.integrations.storage import storage
 from app.modules.inventory.data.product_defaults import default_product_image
 from app.modules.inventory.models.batch import InventoryBatch
@@ -213,6 +214,7 @@ async def restock_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
     if obj is None:
         raise NotFoundError("Product not found")
     before = {"stock": obj.stock}
+    set_reason("adjustment" if data.mode == "adjust" else "receipt", reference_type="product", reference_id=obj.id)
     if data.mode == "adjust":
         obj.stock = Decimal(str(data.qty))
     else:

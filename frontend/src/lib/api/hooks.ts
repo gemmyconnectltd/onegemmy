@@ -47,7 +47,8 @@ import {
   type Requisition, type RequisitionCreateInput, type PurchaseReturn, type PurchaseReturnCreateInput,
   type RepairJob, type InventoryBatch,
   type ApiUser, type ApiAuditLog, type UserCreatePayload, type UserUpdatePayload, type UserListFilters,
-  type CrmActivityFilters,
+  type CrmActivityFilters, type QuotationInput,
+  warehousesApi, type WarehouseInput, type MovementFilters,
 } from "@/lib/api";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -141,6 +142,12 @@ export const useBulkCreateProducts = mutation((items: object[]) => inventoryApi.
 export const useUpdateProduct = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateProduct(id, data), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
 export const useDeleteProduct = mutation((id: string) => inventoryApi.deleteProduct(id), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"]]);
 export const useRestockProduct = mutation(({ id, data }: { id: string; data: { qty: number; mode: string; reason?: string; notes?: string } }) => inventoryApi.restockProduct(id, data), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
+export const useProductGallery = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...PRODUCTS, id, "gallery"], () => inventoryApi.productGallery(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useImportProductPictures = mutation((file: File) => inventoryApi.importProductPictures(file), [[...PRODUCTS]]);
+export const useAddGalleryImage = mutation(({ id, file }: { id: string; file: File }) => inventoryApi.addGalleryImage(id, file), [[...PRODUCTS]]);
+export const useRemoveGalleryImage = mutation(({ id, imageId }: { id: string; imageId: string }) => inventoryApi.removeGalleryImage(id, imageId), [[...PRODUCTS]]);
+export const useMakeMainImage = mutation(({ id, imageId }: { id: string; imageId: string }) => inventoryApi.makeMainImage(id, imageId), [[...PRODUCTS]]);
 export const useUploadProductImage = mutation(({ id, file }: { id: string; file: File }) => inventoryApi.uploadProductImage(id, file), [[...PRODUCTS]]);
 
 export const useCreateVariant = mutation(({ productId, data }: { productId: string; data: object }) => inventoryApi.createVariant(productId, data), [[...PRODUCTS], [...VARIANTS], [...VALUATION]]);
@@ -181,8 +188,8 @@ export const useCustomers = (page = 1, pageSize = 200, search?: string, customer
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
-export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange, archived = false) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period), archived ? "archived" : "live"], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period, archived), (r) => r.data, opts);
+export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange, archived = false, salespersonId?: string) =>
+  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period), archived ? "archived" : "live", salespersonId ?? ""], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period, archived, salespersonId), (r) => r.data, opts);
 
 export const useOrderPayments = (orderId: string | undefined, opts?: QueryOpts) =>
   useQ([...ORDERS, orderId, "payments"], () => salesApi.listOrderPayments(orderId!), (r) => r.data, { ...opts, enabled: !!orderId && (opts?.enabled ?? true) });
@@ -246,6 +253,21 @@ export const useCreateOrder = mutation((d: object) => salesApi.createOrder(d), [
 export const useBulkCreateOrders = mutation((items: object[]) => salesApi.bulkCreateOrders(items), [[...ORDERS], [...CUSTOMERS], ["accounting", "transactions"], ["accounting", "reports"], [...PRODUCTS], [...VALUATION]]);
 export const useApproveOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.approveOrder(id, note), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
 export const useRejectOrder = mutation(({ id, note }: { id: string; note?: string }) => salesApi.rejectOrder(id, note), [[...ORDERS]]);
+export const useSalesTeam = (opts?: QueryOpts) => useQ(["sales", "team"], () => salesApi.team(), (r) => r.data, { staleTime: 5 * 60_000, ...opts });
+export const useChangeSalesperson = mutation((v: { id: string; salespersonId: string; reason: string }) => salesApi.changeSalesperson(v.id, v.salespersonId, v.reason), [[...ORDERS], ["reports"]]);
+
+const QUOTATIONS = ["sales", "quotations"] as const;
+export const useQuotations = (page = 1, f: { status?: string; search?: string; salesperson_id?: string } = {}, opts?: QueryOpts) =>
+  useQ([...QUOTATIONS, page, f.status ?? "all", f.search ?? "", f.salesperson_id ?? ""], () => salesApi.listQuotations(page, 25, f), (r) => r.data, { placeholderData: undefined, ...opts });
+export const useQuotation = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...QUOTATIONS, id], () => salesApi.getQuotation(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useQuotationActivity = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...QUOTATIONS, id, "activity"], () => salesApi.quotationActivity(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useCreateQuotation = mutation((data: QuotationInput) => salesApi.createQuotation(data), [[...QUOTATIONS]]);
+export const useUpdateQuotation = mutation((v: { id: string; data: Partial<QuotationInput> }) => salesApi.updateQuotation(v.id, v.data), [[...QUOTATIONS]]);
+export const useQuotationAction = mutation((v: { id: string; action: "send" | "accept" | "convert" }) => salesApi.quotationAction(v.id, v.action), [[...QUOTATIONS], [...ORDERS]]);
+export const useRejectQuotation = mutation((v: { id: string; reason: string }) => salesApi.rejectQuotation(v.id, v.reason), [[...QUOTATIONS]]);
+
 export const useUpdateOrder = mutation(({ id, data }: { id: string; data: object }) => salesApi.updateOrder(id, data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"]]);
 export const useCorrectOrder = mutation((v: { id: string; data: object }) => salesApi.correctOrder(v.id, v.data), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
 export const useVoidOrder = mutation((v: { id: string; reason: string }) => salesApi.voidOrder(v.id, v.reason), [[...ORDERS], ["accounting", "transactions"], ["accounting", "reports"], ["inventory"]]);
@@ -649,6 +671,9 @@ export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: Q
 export const usePerformance = (q: PerformanceQuery, opts?: QueryOpts) =>
   useQ(["reports", "performance", q.from ?? "", q.to ?? "", q.branch ?? "", q.compare, q.compareFrom ?? "", q.compareTo ?? ""], () => reportsApi.performance(q), (r) => r.data, opts);
 
+export const useSalespeopleReport = (q: { from?: string; to?: string; branch?: string }, f: SalespersonFilters = {}) =>
+  useQ(["reports", "salespeople", q.from ?? "", q.to ?? "", q.branch ?? "", f], () => reportsApi.salespeople(q, f), (r) => r.data);
+
 export const useSalesBreakdown = (q: { from?: string; to?: string; branch?: string }, dimension: SalesDimension) =>
   useQ(["reports", "sales", dimension, q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.salesBreakdown(q, dimension), (r) => r.data);
 export const useOperationsReport = (q: { from?: string; to?: string; branch?: string }) =>
@@ -928,6 +953,7 @@ import type { DebtEditInput, DebtFilters, DebtKind, ManualDebtInput } from "@/li
 import type { DebtPaymentInput } from "@/lib/debts";
 import { periodKey, type PeriodRange } from "@/lib/period";
 import { reportsApi, type PerformanceQuery, type SalesDimension } from "./reports";
+import type { SalespersonFilters } from "./sales";
 import { approvalsApi, type ApprovalStatus, type NewApproval } from "./approvals";
 export const useDebtOverview = (branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, "overview", branch], debtApi.overview, r => r.data, { enabled });
 export const useDebtRecords = (kind: DebtKind, filters: DebtFilters, branch: string | null, enabled = true, tenant?: string | null) => useQ(["debts", tenant, kind, filters, branch], () => debtApi.list(kind, filters), r => r.data, { enabled });
@@ -1023,3 +1049,20 @@ export const useProductDetails = (id: string) =>
 export const useProductHistory = (id: string, page: number, filters: ProductHistoryFilters) =>
   useQ([...PRODUCTS, id, "history", page, filters], () => productHistoryApi.history(id, page, filters), r => r.data, {placeholderData: undefined});
 export const useStockTransfer = (id: string) => useQ([...TRANSFERS_KEY, "one", id], () => transfersApi.get(id), r=>r.data, {placeholderData: undefined});
+
+
+// ── Warehouses, stock by warehouse, movements and counts ─────────────────────
+const WAREHOUSES = ["inventory", "warehouses"] as const;
+const STOCKLEDGER = [["inventory", "warehouses"], ["inventory", "stock-by-warehouse"], ["inventory", "movements"], ["inventory", "counts"], ["inventory", "transfers"], ["inventory", "products"]];
+export const useWarehouses = (opts?: QueryOpts) => useQ([...WAREHOUSES], () => warehousesApi.list(), (r) => r.data, opts);
+export const useStockByWarehouse = (page = 1, f: { warehouse_id?: string; search?: string; status?: string } = {}) =>
+  useQ(["inventory", "stock-by-warehouse", page, f], () => warehousesApi.stock(page, f), (r) => r.data);
+export const useStockMovements = (page = 1, f: MovementFilters = {}) => useQ(["inventory", "movements", page, f], () => warehousesApi.movements(page, f), (r) => r.data);
+export const useStockCounts = (page = 1, status?: string) => useQ(["inventory", "counts", page, status ?? "all"], () => warehousesApi.counts(page, status), (r) => r.data);
+export const useSetupWarehouses = mutation(() => warehousesApi.setup(), STOCKLEDGER);
+export const useCreateWarehouse = mutation((data: WarehouseInput) => warehousesApi.create(data), STOCKLEDGER);
+export const useUpdateWarehouse = mutation((v: { id: string; data: Partial<WarehouseInput> }) => warehousesApi.update(v.id, v.data), STOCKLEDGER);
+export const useWarehouseAction = mutation((v: { id: string; action: "activate" | "deactivate" | "make-default" }) => warehousesApi.action(v.id, v.action), STOCKLEDGER);
+export const useReceiveStock = mutation((v: { id: string; data: Parameters<typeof warehousesApi.receive>[1] }) => warehousesApi.receive(v.id, v.data), [...STOCKLEDGER, ["inventory"]]);
+export const useSubmitCount = mutation((data: Parameters<typeof warehousesApi.submitCount>[0]) => warehousesApi.submitCount(data), [...STOCKLEDGER, ["inventory"]]);
+export const useDecideCount = mutation((v: { id: string; approve: boolean; note?: string }) => warehousesApi.decideCount(v.id, v.approve, v.note), [...STOCKLEDGER, ["inventory"]]);

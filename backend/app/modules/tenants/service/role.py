@@ -130,6 +130,10 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
         "orders": _CRUD, "pos": ("read",), "invoices": _CRUD, "returns": ("read",), "pricing": ("read",), "items": ("read",), "stock": ("read",),
         "contacts": _CRUD, "leads": _CRUD, "opportunities": _CRUD, "activities": _CRUD,
     }),
+    "Sales Approver": ("Reviews and approves or rejects sales before they are paid, and corrects who is credited with a sale. Cannot enter sales, change prices or see finance.", {
+        "orders": ("read", "update", "approve"), "invoices": ("read",), "returns": ("read",), "pricing": ("read",), "items": ("read",), "stock": ("read",),
+        "contacts": ("read",),
+    }),
     "Sales Operations Officer": ("Follows sales orders through fulfilment and customer follow-up. No pricing or approvals.", {
         "orders": _CRUD, "invoices": ("create", "read", "update"), "returns": ("create", "read"), "contacts": ("read", "update"), "items": ("read",), "stock": ("read",), "activities": _CRUD,
     }),
@@ -231,7 +235,7 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
 # Where each role sits in the role pickers (Team & Access). Departments are for organising; they grant nothing.
 ROLE_DEPARTMENTS: dict[str, str] = {
     **dict.fromkeys(["Admin", "Owner/CEO", "General Manager", "Branch Manager", "Member", "Viewer", "Operations Manager"], "Administration"),
-    **dict.fromkeys(["Cashier", "Cashier Supervisor", "Store Manager", "Sales Manager", "Sales Supervisor", "Sales Representative", "Sales Operations Officer"], "Sales & Retail"),
+    **dict.fromkeys(["Cashier", "Cashier Supervisor", "Store Manager", "Sales Manager", "Sales Supervisor", "Sales Approver", "Sales Representative", "Sales Operations Officer"], "Sales & Retail"),
     **dict.fromkeys(["Inventory Officer", "Inventory Manager", "Warehouse Manager", "Warehouse Keeper", "Stock Controller", "Stock Counter", "Delivery / Dispatch Officer"], "Inventory & Warehouse"),
     **dict.fromkeys(["Accountant", "Finance Manager", "Financial Controller", "Accounts Receivable Officer", "Accounts Payable Officer", "Expense Officer", "Credit Controller", "Treasury Officer", "Tax Officer"], "Finance & Accounting"),
     **dict.fromkeys(["Purchasing Officer", "Purchasing Manager", "Procurement Assistant"], "Purchasing"),

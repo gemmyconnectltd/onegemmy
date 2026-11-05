@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Megaphone, Mail, Send, FileText, Workflow, LineChart, Newspaper, Gauge, MousePointerClick, Share2, LayoutGrid, Puzzle, Smartphone, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
+import { BarChart3, Database, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Megaphone, Mail, Send, FileText, Workflow, LineChart, Newspaper, Gauge, MousePointerClick, Share2, LayoutGrid, Puzzle, Smartphone, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
 
 export interface NavItem { name: string; href: string; icon: LucideIcon }
 export interface NavGroup { id: string; label: string; items: NavItem[] }
@@ -13,6 +13,7 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: "business", label: "Business", items: [
     { name: "Tenants", href: "/tenants", icon: Building2 },
     { name: "Features", href: "/features", icon: Puzzle },
+    { name: "Data Management", href: "/data-management", icon: Database },
   ] },
   { id: "revenue", label: "Revenue", items: [
     // One entry for the whole billing area; its pages are the second sidebar on every billing page.

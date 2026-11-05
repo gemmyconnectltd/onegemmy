@@ -6,3 +6,4 @@ export * from "./ai";
 export * from "./currency";
 export * from "./support";
 export * from "./marketing";
+export * from "./dataManagement";

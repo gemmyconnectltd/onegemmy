@@ -71,6 +71,10 @@ test('second sidebar has a title for every module and groups long lists', () => 
     '/inventory/products',
     '/inventory/stock',
     '/inventory/transfers',
+    '/inventory/warehouses',
+    '/inventory/stock-by-warehouse',
+    '/inventory/movements',
+    '/inventory/counts',
   ]);
   assert.ok(nav.MODULE_NAV.inventory[0].exact);
   assert.deepEqual(plain(nav.MODULE_NAV.inventory.filter(link => link.group).map(link => link.group)), []);

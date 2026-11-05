@@ -32,6 +32,9 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     # ERP modules switched off for this person on top of their role (None/[] = follow the role). Never applies to the owner.
     disabled_modules: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
+    # Platform administrators only: which Data Management actions this person may take (data:view, data:preview, ...). Empty means none.
+    platform_permissions: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True
     )

@@ -13,7 +13,7 @@ from app.core.response import paginated_response, success_response
 from app.modules.sales import service
 from app.modules.sales.routes.access import order_access
 from app.modules.sales.schemas import OrderBulkCreate, OrderCorrection, OrderCreate, OrderUpdate
-from app.modules.sales.schemas.order import OrderDecision
+from app.modules.sales.schemas.order import OrderDecision, SalespersonChange
 
 router = APIRouter(tags=["Sales - Orders"], dependencies=[Depends(order_access)])
 
@@ -32,15 +32,30 @@ async def vat_rate(db: DbSession, current_user: CurrentUser):
     return success_response(data={"enabled": enabled, "rate": float(await get_effective_vat_rate(db, current_user.tenant_id)) if enabled else 0.0}, message="VAT rate retrieved")
 
 
+@router.get("/sales/team")
+async def sales_team(db: DbSession, current_user: CurrentUser):
+    """Active people who can be named as the salesperson on a sale (names only: it needs no access to user administration)."""
+    _require_tenant(current_user.tenant_id)
+    from sqlalchemy import select
+
+    from app.modules.tenants.models import User
+    own = await service.own_sales_scope(db, current_user)
+    stmt = select(User.id, User.full_name).where(User.tenant_id == current_user.tenant_id, User.is_active.is_(True)).order_by(User.full_name)
+    if own is not None:
+        stmt = stmt.where(User.id == own)
+    return success_response(data=[{"id": r.id, "name": r.full_name} for r in (await db.execute(stmt)).all()], message="Sales team retrieved")
+
+
 @router.get("/sales/orders")
 async def list_orders(
     db: DbSession, current_user: CurrentUser, page_params: PageQuery, active_branch_id: ActiveBranchId, period: PeriodQuery,
     status: str | None = Query(None), search: str | None = Query(None),
-    payment_status: str | None = Query(None), archived: bool = Query(False),
+    payment_status: str | None = Query(None), archived: bool = Query(False), salesperson_id: uuid.UUID | None = Query(None),
 ):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id, period, archived)
-    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id, period, archived)
+    salesperson_id = await service.own_sales_scope(db, current_user) or salesperson_id
+    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id, period, archived, salesperson_id)
+    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id, period, archived, salesperson_id)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Orders retrieved successfully")
 
 
@@ -51,7 +66,8 @@ async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUs
     if data.ordered_at is not None:
         await service.require_backdating_allowed(db, current_user, data.ordered_at)
     can_sell_credit = current_user.is_superuser or "credit:create" in current_user.permissions_names
-    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id, can_approve_credit=can_approve, can_sell_credit=can_sell_credit)
+    obj = await service.create_order(db, current_user.tenant_id, current_user.id, data, active_branch_id, can_approve_credit=can_approve, can_sell_credit=can_sell_credit,
+                                     can_approve_sale=current_user.is_superuser or "orders:approve" in current_user.permissions_names)
     return success_response(data=obj.model_dump(), message="Order created successfully", status_code=201)
 
 
@@ -66,7 +82,18 @@ async def bulk_create_orders(data: OrderBulkCreate, db: DbSession, current_user:
 async def get_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     obj = await service.get_order(db, current_user.tenant_id, id)
+    own = await service.own_sales_scope(db, current_user)
+    if own is not None and own not in (obj.salesperson_id, obj.created_by):
+        raise ForbiddenError("You can only open your own sales")
     return success_response(data=obj.model_dump(), message="Order retrieved successfully")
+
+
+@router.patch("/sales/orders/{id}/salesperson", dependencies=[Depends(require_permission("orders:approve"))])
+async def change_salesperson(id: uuid.UUID, data: SalespersonChange, db: DbSession, current_user: CurrentUser):
+    """Re-credit a sale to another salesperson. Needs approval authority on sales; the reason is audited."""
+    _require_tenant(current_user.tenant_id)
+    obj = await service.change_salesperson(db, current_user.tenant_id, id, data.salesperson_id, data.reason, current_user.id, current_user.full_name)
+    return success_response(data=obj.model_dump(), message="Salesperson updated")
 
 
 @router.get("/sales/orders/{id}/invoice.pdf")
@@ -159,26 +186,32 @@ async def update_order(id: uuid.UUID, data: OrderUpdate, db: DbSession, current_
     obj = await service.update_order(
         db, current_user.tenant_id, id, data,
         user_id=current_user.id, user_name=current_user.full_name or current_user.email,
+        can_approve_sale=current_user.is_superuser or "orders:approve" in current_user.permissions_names,
     )
     return success_response(data=obj.model_dump(), message="Order updated successfully")
 
 
-@router.post("/sales/orders/{id}/approve", dependencies=[Depends(require_permission("credit:approve"))])
+def _deciders(user) -> dict:
+    return {"can_approve_sale": user.is_superuser or "orders:approve" in user.permissions_names,
+            "can_approve_credit": user.is_superuser or "credit:approve" in user.permissions_names}
+
+
+@router.post("/sales/orders/{id}/approve")
 async def approve_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser, data: OrderDecision | None = None):
     _require_tenant(current_user.tenant_id)
     obj = await service.approve_order(
-        db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.note if data else None,
+        db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.note if data else None, **_deciders(current_user),
     )
-    return success_response(data=obj.model_dump(), message="Credit sale approved")
+    return success_response(data=obj.model_dump(), message="Sale approved")
 
 
-@router.post("/sales/orders/{id}/reject", dependencies=[Depends(require_permission("credit:approve"))])
+@router.post("/sales/orders/{id}/reject")
 async def reject_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser, data: OrderDecision | None = None):
     _require_tenant(current_user.tenant_id)
     obj = await service.reject_order(
-        db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.note if data else None,
+        db, current_user.tenant_id, id, current_user.id, current_user.full_name or current_user.email, data.note if data else None, **_deciders(current_user),
     )
-    return success_response(data=obj.model_dump(), message="Credit sale rejected")
+    return success_response(data=obj.model_dump(), message="Sale rejected")
 
 
 @router.delete("/sales/orders/{id}")

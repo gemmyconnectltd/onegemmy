@@ -4,6 +4,7 @@ from app.core.access import require_module_write
 from app.core.deps import require_feature
 from app.modules.accounting.routes import accounting_router
 from app.modules.admin.analytics import router as admin_analytics_router
+from app.modules.admin.data_management.routes import router as admin_data_management_router
 from app.modules.admin.features import router as admin_features_router
 from app.modules.admin.lifecycle import router as admin_lifecycle_router
 from app.modules.admin.routes import router as admin_router
@@ -46,6 +47,7 @@ api_router.include_router(admin_analytics_router)
 api_router.include_router(admin_usage_router)
 api_router.include_router(admin_lifecycle_router)
 api_router.include_router(admin_features_router)
+api_router.include_router(admin_data_management_router)
 api_router.include_router(traffic_admin_router)
 api_router.include_router(traffic_public_router)
 api_router.include_router(traffic_activity_router)

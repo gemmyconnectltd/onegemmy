@@ -1,9 +1,9 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
-from app.core.deps import ActiveBranchId, CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
 from app.core.period import PeriodQuery
 
@@ -57,6 +57,16 @@ async def create_product(data: ProductCreate, db: DbSession, current_user: Curre
     return success_response(data=obj.model_dump(), message="Product created successfully", status_code=201)
 
 
+@router.post("/inventory/products/import-pictures", dependencies=[Depends(require_permission("items:create"))])
+async def import_product_pictures(db: DbSession, current_user: CurrentUser, file: UploadFile = File(...)):
+    """A ZIP of pictures named after each product's SKU or barcode. Pictures that match are attached; the rest are listed with the reason."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service.product_image_import import MAX_ZIP_BYTES, import_pictures
+    content = await file.read(MAX_ZIP_BYTES + 1)
+    result = await import_pictures(db, current_user.tenant_id, content, actor=current_user)
+    return success_response(data=result, message=f"{result['matched']} pictures attached")
+
+
 @router.post("/inventory/products/bulk")
 async def bulk_create_products(data: ProductBulkCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
@@ -103,6 +113,44 @@ async def delete_product_image(id: uuid.UUID, db: DbSession, current_user: Curre
     _require_tenant(current_user.tenant_id)
     obj = await service.delete_product_image(db, current_user.tenant_id, id, actor=current_user)
     return success_response(data=obj.model_dump(), message="Image removed successfully")
+
+
+async def _read_image(file: UploadFile) -> bytes:
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise ValidationError("Only JPEG, PNG, and WebP images are allowed")
+    content = await file.read()
+    if len(content) > MAX_IMAGE_SIZE:
+        raise ValidationError("Image must be under 5MB")
+    return content
+
+
+@router.get("/inventory/products/{id}/images")
+async def product_gallery(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service import product_gallery as gallery
+    return success_response(data=await gallery.gallery(db, current_user.tenant_id, id), message="Pictures retrieved")
+
+
+@router.post("/inventory/products/{id}/images")
+async def add_product_image(id: uuid.UUID, db: DbSession, current_user: CurrentUser, file: UploadFile = File(...)):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service import product_gallery as gallery
+    content = await _read_image(file)
+    return success_response(data=await gallery.add_image(db, current_user.tenant_id, id, file.filename or "image", content), message="Picture added", status_code=201)
+
+
+@router.delete("/inventory/products/{id}/images/{image_id}")
+async def remove_product_image(id: uuid.UUID, image_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service import product_gallery as gallery
+    return success_response(data=await gallery.remove_image(db, current_user.tenant_id, id, image_id), message="Picture removed")
+
+
+@router.post("/inventory/products/{id}/images/{image_id}/make-main")
+async def make_main_product_image(id: uuid.UUID, image_id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service import product_gallery as gallery
+    return success_response(data=await gallery.make_main(db, current_user.tenant_id, id, image_id), message="Main picture changed")
 
 
 @router.post("/inventory/products/{id}/restock")

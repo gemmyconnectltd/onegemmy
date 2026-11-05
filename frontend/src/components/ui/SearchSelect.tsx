@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,12 +19,19 @@ export function SearchSelect({ label, value, selectedLabel, query, onQueryChange
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const field = useRef<HTMLInputElement>(null);
-  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ top: number; left: number; width: number; z: number } | null>(null);
 
   // The list is positioned from the field itself (fixed), so a scrolling table or card never clips it.
   useEffect(() => {
     if (!open) return;
-    const place = () => { const r = field.current?.getBoundingClientRect(); if (r) setBox({ top: r.bottom + 4, left: r.left, width: r.width }); };
+    const place = () => {
+      const r = field.current?.getBoundingClientRect();
+      // Sit above whatever overlay the field is in (a drawer, or a drawer opened from a drawer), never behind it.
+      const overlay = field.current?.closest("[data-overlay-root]");
+      const z = (overlay ? Number.parseInt(getComputedStyle(overlay).zIndex, 10) || 0 : 0) + 10;
+      if (r) setBox({ top: r.bottom + 4, left: r.left, width: r.width, z: Math.max(z, 60) });
+    };
     place();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
@@ -32,7 +40,7 @@ export function SearchSelect({ label, value, selectedLabel, query, onQueryChange
 
   useEffect(() => {
     if (!open) return;
-    const outside = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
+    const outside = (e: MouseEvent) => { const t = e.target as Node; if (!root.current?.contains(t) && !list.current?.contains(t)) setOpen(false); };
     document.addEventListener("mousedown", outside);
     return () => document.removeEventListener("mousedown", outside);
   }, [open]);
@@ -54,8 +62,10 @@ export function SearchSelect({ label, value, selectedLabel, query, onQueryChange
         className="pesaa-control pr-9" value={shown} placeholder={placeholder} autoComplete="off"
         onFocus={() => setOpen(true)} onChange={(e) => { onQueryChange(e.target.value); setOpen(true); setActive(0); }} onKeyDown={onKey} />
       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">{loading ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}</span>
-      {open && box && (
-        <div style={{ top: box.top, left: box.left, width: box.width }} className="fixed z-[60] max-h-64 overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-xl">
+      {/* Drawn on the page itself, not inside the field: a drawer keeps a CSS transform from its slide-in animation, and that makes
+          "fixed" inside it mean "relative to the drawer", which pushed this list off the screen. */}
+      {open && box && createPortal(
+        <div ref={list} style={{ top: box.top, left: box.left, width: box.width, zIndex: box.z }} className="fixed max-h-64 overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-xl">
           <ul id={`${id}-list`} role="listbox" aria-label={label}>
             {items.map((item, index) => (
               <li key={item.id} id={`${id}-${item.id}`} role="option" aria-selected={item.id === value}
@@ -68,7 +78,8 @@ export function SearchSelect({ label, value, selectedLabel, query, onQueryChange
           </ul>
           {!loading && items.length === 0 && <p className="px-3 py-3 text-sm text-muted">{emptyText}</p>}
           {footer && <div className="border-t border-border px-3 py-2 text-xs">{footer}</div>}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

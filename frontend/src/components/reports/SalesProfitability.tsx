@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const DIMENSIONS: { key: SalesDimension; label: string; column: string }[] = [
   { key: "product", label: "Products", column: "Product" }, { key: "category", label: "Categories", column: "Category" },
   { key: "customer", label: "Customers", column: "Customer" }, { key: "branch", label: "Branches", column: "Branch" },
-  { key: "employee", label: "Employees", column: "Employee" }, { key: "payment", label: "Payment methods", column: "Payment method" },
+  { key: "employee", label: "Salespeople", column: "Salesperson" }, { key: "payment", label: "Payment methods", column: "Payment method" },
 ];
 
 export function SalesProfitability() {

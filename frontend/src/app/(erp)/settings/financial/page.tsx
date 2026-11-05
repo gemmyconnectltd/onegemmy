@@ -69,7 +69,7 @@ function ApprovalRulesCard({ tenant, canEdit, symbol }: { tenant: Tenant; canEdi
   const save = async () => {
     setError(null);
     try {
-      await updateTenant.mutateAsync({ id: tenant.id, data: { debt_limit_per_client: limit.trim() === "" ? null : Number(limit), approval_rules: Object.fromEntries(APPROVAL_KINDS.map((k) => [k.key, on(k.key)])) } });
+      await updateTenant.mutateAsync({ id: tenant.id, data: { debt_limit_per_client: limit.trim() === "" ? null : Number(limit), approval_rules: { ...(tenant.approval_rules ?? {}), ...Object.fromEntries(APPROVAL_KINDS.map((k) => [k.key, on(k.key)])) } } });
       setSaved(true);
     } catch (err) { setError((err as { detail?: string })?.detail ?? "Couldn't save the approval rules."); }
   };
@@ -86,6 +86,58 @@ function ApprovalRulesCard({ tenant, canEdit, symbol }: { tenant: Tenant; canEdi
         </SettingRow>
       ))}
       {canEdit && <div className="-mx-4 sm:-mx-5"><SaveBar dirty={dirty} invalid={invalid} saving={updateTenant.isPending} saved={saved} error={error} onSave={() => void save()} onReset={() => { setLimit(startLimit); setRules(tenant.approval_rules ?? {}); setSaved(false); }} /></div>}
+    </SettingsCard>
+  );
+}
+
+const SALES_POLICIES = [
+  { key: "sale_approval", label: "Approve every sale before it is paid", hint: "A sale made by someone without sale approval rights waits in Sales History as \"Awaiting Approval\". Nothing is paid, taken from stock or booked until an approver approves it. Off: sales complete at once, as now." },
+  { key: "sale_no_self_approval", label: "Approvers cannot approve their own sales", hint: "With the rule above on, even an approver's own sale waits for a different approver." },
+  { key: "own_sales_only", label: "Salespeople see only their own sales", hint: "People without sale approval rights see only the sales and quotations they are the salesperson on. Owners and approvers still see everything." },
+] as const;
+
+function SalesPoliciesCard({ tenant, canEdit }: { tenant: Tenant; canEdit: boolean }) {
+  const update = useUpdateMyTenant();
+  const saved = tenant.approval_rules ?? {};
+  const [rules, setRules] = useState<Record<string, boolean>>(saved);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const dirty = SALES_POLICIES.some((p) => (rules[p.key] === true) !== (saved[p.key] === true));
+  const save = async () => {
+    setError(null);
+    try { await update.mutateAsync({ id: tenant.id, data: { approval_rules: { ...saved, ...Object.fromEntries(SALES_POLICIES.map((p) => [p.key, rules[p.key] === true])) } } }); setDone(true); }
+    catch (err) { setError((err as { detail?: string })?.detail ?? "Couldn't save the sales policies."); }
+  };
+  return (
+    <SettingsCard title="Sales policies" description="How your sales team works. All are off until you switch them on, and other businesses are not affected.">
+      {SALES_POLICIES.map((p) => (
+        <SettingRow key={p.key} label={p.label} hint={p.hint}>
+          <Toggle checked={rules[p.key] === true} label={p.label} disabled={!canEdit} onChange={(v) => { setRules({ ...rules, [p.key]: v }); setDone(false); }} />
+        </SettingRow>
+      ))}
+      {canEdit && <div className="-mx-4 sm:-mx-5"><SaveBar dirty={dirty} invalid={false} saving={update.isPending} saved={done} error={error} onSave={() => void save()} onReset={() => { setRules(saved); setDone(false); }} /></div>}
+    </SettingsCard>
+  );
+}
+
+function QuotationTermsCard({ tenant, canEdit }: { tenant: Tenant; canEdit: boolean }) {
+  const update = useUpdateMyTenant();
+  const start = tenant.quotation_terms ?? "";
+  const [value, setValue] = useState(start);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    try { await update.mutateAsync({ id: tenant.id, data: { quotation_terms: value.trim() || null } }); setDone(true); }
+    catch (err) { setError((err as { detail?: string })?.detail ?? "Couldn't save the quotation terms."); }
+  };
+  return (
+    <SettingsCard title="Quotation terms" description="Printed at the foot of every quotation, for example your bank details and how long an offer is valid. Each new quotation starts from this text.">
+      <SettingRow label="Bank details and notes" hint="One line per bank account or note. Staff can still edit the text on an individual quotation.">
+        <textarea aria-label="Quotation terms" rows={6} maxLength={3000} disabled={!canEdit} value={value} onChange={(e) => { setValue(e.target.value); setDone(false); }}
+          className="w-full min-w-0 rounded-lg border border-border bg-card px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-accent sm:w-96" placeholder={"Bank: CRDB, Account name: ..., Account no: ...\nQuotation is valid for 7 days only if stock is available."} />
+      </SettingRow>
+      {canEdit && <div className="-mx-4 sm:-mx-5"><SaveBar dirty={value !== start} invalid={false} saving={update.isPending} saved={done} error={error} onSave={() => void save()} onReset={() => { setValue(start); setDone(false); }} /></div>}
     </SettingsCard>
   );
 }
@@ -129,6 +181,8 @@ export default function FinancialSettingsPage() {
       {tenant && <TimezoneCard key={tenant.timezone} tenant={tenant} canEdit={hasPermission("tenants:update")} />}
       {tenant && <CreditLimitCard key={String(tenant.credit_daily_limit ?? "")} tenant={tenant} canEdit={hasPermission("credit:approve")} symbol={currencySymbol} />}
       {tenant && <ApprovalRulesCard key={`${tenant.debt_limit_per_client ?? ""}${JSON.stringify(tenant.approval_rules ?? {})}`} tenant={tenant} canEdit={hasPermission("approvals:approve")} symbol={currencySymbol} />}
+      {tenant && <SalesPoliciesCard key={JSON.stringify(tenant.approval_rules ?? {})} tenant={tenant} canEdit={hasPermission("approvals:approve")} />}
+      {tenant && <QuotationTermsCard key={tenant.quotation_terms ?? ""} tenant={tenant} canEdit={hasPermission("tenants:update")} />}
       <SettingsCard title="VAT Settings" description="Configure Value Added Tax settings." icon={ReceiptText}>
         <SettingRow label={vatEnabled ? "VAT enabled" : "VAT disabled"} hint={vatEnabled ? "18% tax is applied to sales and shown on receipts." : "No tax is applied to sales or shown on receipts."}>
           <Toggle checked={vatEnabled} onChange={toggleVat} loading={updateTenant.isPending} disabled={!tenant} label={vatEnabled ? "Disable VAT" : "Enable VAT"} />

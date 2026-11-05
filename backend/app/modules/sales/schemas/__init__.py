@@ -15,6 +15,7 @@ from app.modules.sales.schemas.order import (
     OrderCreate,
     OrderRead,
     OrderUpdate,
+    SalespersonChange,
 )
 from app.modules.sales.schemas.order_item import OrderItemCreate, OrderItemRead
 from app.modules.sales.schemas.order_payment import (
@@ -53,6 +54,7 @@ __all__ = [
     "ReturnItemRead",
     "ReturnRead",
     "ReturnUpdate",
+    "SalespersonChange",
     "TargetCreate",
     "TargetRead",
     "TargetUpdate",

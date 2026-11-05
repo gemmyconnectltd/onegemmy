@@ -48,6 +48,8 @@ export interface Tenant {
   email?: string | null;
   tin?: string | null;
   address: string | null;
+  /** Bank details and standing notes printed at the foot of every quotation. */
+  quotation_terms?: string | null;
   city: string | null;
   country: string | null;
   subscription_plan: string;
@@ -90,6 +92,7 @@ export interface TenantUpdateInput {
   email?: string | null;
   tin?: string | null;
   address?: string | null;
+  quotation_terms?: string | null;
   city?: string | null;
   country?: string | null;
   business_type?: string | null;

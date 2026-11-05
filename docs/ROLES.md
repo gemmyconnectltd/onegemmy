@@ -10,7 +10,7 @@ Reused (no duplicate created): **Procurement Manager** = Purchasing Manager, **S
 | Department | Roles |
 |---|---|
 | Administration | Admin, Owner/CEO, General Manager, Branch Manager, Operations Manager, Member, Viewer |
-| Sales & Retail | Cashier, Cashier Supervisor, Store Manager, Sales Manager, Sales Supervisor, Sales Representative, Sales Operations Officer |
+| Sales & Retail | Cashier, Cashier Supervisor, Store Manager, Sales Manager, Sales Supervisor, Sales Approver, Sales Representative, Sales Operations Officer |
 | Inventory & Warehouse | Inventory Officer, Inventory Manager, Warehouse Manager, Warehouse Keeper, Stock Controller, Stock Counter, Delivery / Dispatch Officer |
 | Finance & Accounting | Accountant, Finance Manager, Financial Controller, Accounts Receivable Officer, Accounts Payable Officer, Expense Officer, Credit Controller, Treasury Officer, Tax Officer |
 | Purchasing | Purchasing Officer, Purchasing Manager, Procurement Assistant |

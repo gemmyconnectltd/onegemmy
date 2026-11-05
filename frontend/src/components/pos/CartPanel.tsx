@@ -27,6 +27,10 @@ interface CartPanelProps {
   onCustomerChange: (id: string, name: string) => void;
   saleAt: string | null;
   onSaleAtChange: (value: string | null) => void;
+  /** The people a sale can be credited to. With one person there is nothing to choose, so the picker is hidden. */
+  team?: { id: string; name: string }[];
+  salespersonId?: string;
+  onSalespersonChange?: (id: string) => void;
   onNotesChange: (v: string) => void;
   onUpdateQty: (id: string, delta: number) => void;
   onUpdateDiscount: (id: string, discount: number) => void;
@@ -40,7 +44,7 @@ interface CartPanelProps {
 
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
-  onCustomerChange, saleAt, onSaleAtChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
+  onCustomerChange, saleAt, onSaleAtChange, team = [], salespersonId = "", onSalespersonChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
   showCashReceived, onUpdateCashReceived,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
@@ -192,6 +196,14 @@ export function CartPanel({
             </div>
           )}
         </div>
+        {team.length > 1 && onSalespersonChange && (
+          <label className="flex h-9 items-center gap-2 rounded-xl border border-border bg-surface pl-3 pr-1.5 text-[12.5px] font-semibold">
+            <span className="shrink-0 text-muted">Salesperson</span>
+            <select aria-label="Salesperson" value={salespersonId} onChange={(e) => onSalespersonChange(e.target.value)} className="min-w-0 flex-1 truncate bg-transparent py-1 text-foreground focus-visible:outline-2 focus-visible:outline-accent">
+              <option value="">Me</option>{team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </label>
+        )}
         <div className="flex items-stretch gap-2">
           {(SALE_DATE_FOR_EVERYONE || can("orders", "approve")) && <div className="min-w-0 flex-1"><SaleDate value={saleAt} onChange={onSaleAtChange} /></div>}
           <button type="button" aria-expanded={notesOpen || !!notes} onClick={() => setNotesOpen((v) => !v)} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-[12.5px] font-semibold transition-colors ${notes ? "border-accent/40 bg-accent/10 text-accent" : "border-border bg-surface text-muted hover:border-accent/50 hover:text-foreground"} ${can("orders", "approve") ? "" : "flex-1 justify-start"}`}><FileText size={13} aria-hidden />{notes ? "Note added" : "Add note"}</button>

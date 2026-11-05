@@ -15,7 +15,6 @@ from reportlab.pdfbase.pdfmetrics import registerFontFamily
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     HRFlowable,
-    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -24,7 +23,6 @@ from reportlab.platypus import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.currency import CURRENCIES, format_money
 from app.core.logging import get_logger
 from app.modules.inventory.service.valuation import inventory_valuation
@@ -173,26 +171,9 @@ def _styles() -> dict:
     }
 
 
-def _logo_flowable(tenant: Tenant) -> Image | None:
-    if not tenant.logo_url or not tenant.logo_url.startswith("/uploads/"):
-        return None
-    rel = tenant.logo_url[len("/uploads/"):]
-    path = Path(settings.UPLOAD_DIR).resolve() / rel
-    if not path.is_file():
-        return None
-    try:
-        img = Image(str(path))
-        ratio = img.imageWidth / img.imageHeight
-    except (OSError, ValueError, TypeError):
-        log.warning("inventory.export.logo.skip", extra={"_extra_fields": {"path": str(path)}})
-        return None
-    if ratio >= 1:
-        img.drawWidth = 34 * mm
-        img.drawHeight = 34 * mm / ratio
-    else:
-        img.drawHeight = 18 * mm
-        img.drawWidth = 18 * mm * ratio
-    return img
+def _logo_flowable(tenant: Tenant):
+    from app.core.brand_pdf import logo_flowable
+    return logo_flowable(tenant, 34, 18)
 
 
 def _kpi_table(report, styles: dict) -> Table:
@@ -345,6 +326,8 @@ def _build_pdf(report, tenant: Tenant, styles: dict) -> bytes:
 
     def _footer(canvas, doc_):
         canvas.saveState()
+        from app.core.brand_pdf import brand_color, draw_brand_band
+        draw_brand_band(canvas, PAGE_W, A4[1], brand_color(tenant))
         canvas.setStrokeColor(BORDER)
         canvas.setLineWidth(0.5)
         canvas.line(MARGIN, 14 * mm, PAGE_W - MARGIN, 14 * mm)

@@ -2,7 +2,8 @@
 // these hooks (no hand-rolled useEffect + fetch), keyed per resource so mutations invalidate only what they touch.
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData, type UseMutationOptions } from "@tanstack/react-query";
-import { adminApi, currencyApi, aiApi } from "@/lib/api";
+import { adminApi, currencyApi, aiApi, dmApi } from "@/lib/api";
+import type { DmFilters, DmHistoryFilters, DmOperation, DmSelection } from "@/lib/api";
 import type {
   AdminUserFilters, EngagementCategory, EngagementQuery, TenantRecordFilters, TenantRecordSection, UsagePeriod,
 } from "@/lib/api";
@@ -305,3 +306,33 @@ export const useSaveTeamPermissions = mutation(({tenantId,userId,data}:{tenantId
 export const useRemoveTeamUser = mutation(({tenantId,userId}:{tenantId:string;userId:string})=>adminApi.removeTeamUser(tenantId,userId),TEAM_KEYS);
 export const useTeamRolePermissions = (id:string,roleId:string) => useQ(["team",id,"role",roleId,"permissions"],()=>adminApi.teamRolePermissions(id,roleId),r=>r.data,{enabled:!!roleId,placeholderData:undefined});
 export const useSaveTeamRolePermissions = mutation(({tenantId,roleId,data}:{tenantId:string;roleId:string;data:Parameters<typeof adminApi.saveTeamRolePermissions>[2]})=>adminApi.saveTeamRolePermissions(tenantId,roleId,data),TEAM_KEYS);
+
+
+// ── Data Management ──────────────────────────────────────────────────────────
+const DM = ["data-management"] as const;
+export const useDmMe = () => useQ([...DM, "me"], () => dmApi.me(), (r) => r.data, { staleTime: 60_000 });
+export const useDmBusinesses = (page: number, search: string) => useQ([...DM, "businesses", page, search], () => dmApi.businesses(page, search), (r) => r.data);
+export const useDmBusiness = (id: string | undefined) => useQ([...DM, "business", id], () => dmApi.business(id!), (r) => r.data, { enabled: !!id });
+export const useDmModules = (tenantId: string | undefined) => useQ([...DM, "modules", tenantId], () => dmApi.modules(tenantId!), (r) => r.data, { enabled: !!tenantId });
+export const useDmModuleInfo = (module: string | undefined) => useQ([...DM, "module", module], () => dmApi.moduleInfo(module!), (r) => r.data, { enabled: !!module, staleTime: 5 * 60_000 });
+export const useDmFilterOptions = (tenantId: string | undefined, module: string | undefined) => useQ([...DM, "options", tenantId, module], () => dmApi.filterOptions(tenantId!, module!), (r) => r.data, { enabled: !!tenantId && !!module, staleTime: 60_000 });
+export const useDmRecords = (tenantId: string | undefined, module: string | undefined, body: { filters: DmFilters; page: number; page_size: number; sort?: string; descending: boolean }) =>
+  useQ([...DM, "records", tenantId, module, body], () => dmApi.records(tenantId!, module!, body), (r) => r.data, { enabled: !!tenantId && !!module });
+export const useDmRecord = (tenantId: string | undefined, module: string | undefined, id: string | undefined) => useQ([...DM, "record", tenantId, module, id], () => dmApi.record(tenantId!, module!, id!), (r) => r.data, { enabled: !!tenantId && !!module && !!id });
+// While an operation runs, look at it again every two seconds; otherwise leave it alone.
+export const useDmOperation = (id: string | undefined) => useQuery({
+  queryKey: [...DM, "operation", id], queryFn: () => dmApi.operation(id!), select: (r) => r.data, enabled: !!id,
+  refetchInterval: (query) => (query.state.data?.data.status === "Executing" ? 2000 : false),
+});
+export const useDmItems = (id: string | undefined, page: number, outcome?: string) => useQ([...DM, "items", id, page, outcome ?? ""], () => dmApi.items(id!, page, outcome), (r) => r.data, { enabled: !!id });
+export const useDmHistory = (page: number, f: DmHistoryFilters) => useQ([...DM, "history", page, f], () => dmApi.history(page, f), (r) => r.data);
+export const useDmRecovery = (tenantId: string | undefined) => useQ([...DM, "recovery", tenantId], () => dmApi.recovery(tenantId!), (r) => r.data, { enabled: !!tenantId });
+export const useDmSavedFilters = (module?: string) => useQ([...DM, "saved", module ?? ""], () => dmApi.savedFilters(module), (r) => r.data);
+export const useDmPrepare = mutation((v: { tenantId: string; module: string; operation: DmOperation; selection?: DmSelection | null; payload?: Record<string, unknown> }) =>
+  dmApi.prepare(v.tenantId, { module: v.module, operation: v.operation, selection: v.selection, payload: v.payload }), [[...DM, "history"]]);
+export const useDmSubmit = mutation((v: { id: string; reason: string; attest?: boolean }) => dmApi.submit(v.id, v.reason, v.attest), [[...DM]]);
+export const useDmDecide = mutation((v: { id: string; approve: boolean; note?: string }) => dmApi.decide(v.id, v.approve, v.note), [[...DM]]);
+export const useDmExecute = mutation((v: { id: string; key: string; confirm?: { business_name: string; reference: string } }) => dmApi.execute(v.id, v.key, v.confirm), [[...DM]]);
+export const useDmCancel = mutation((id: string) => dmApi.cancel(id), [[...DM]]);
+export const useDmSaveFilter = mutation((v: { module: string; name: string; tenant_id?: string; filters: DmFilters }) => dmApi.saveFilter(v), [[...DM, "saved"]]);
+export const useDmDeleteFilter = mutation((id: string) => dmApi.deleteFilter(id), [[...DM, "saved"]]);

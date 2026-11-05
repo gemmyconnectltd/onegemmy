@@ -20,6 +20,8 @@ class OrderPaymentEntry(BaseModel):
 
 class OrderCreate(BaseModel):
     customer_id: uuid.UUID | None = None
+    # Who is responsible for the sale. Omit it and the person entering the sale is the salesperson.
+    salesperson_id: uuid.UUID | None = None
     deal_id: uuid.UUID | None = None
     branch_id: uuid.UUID | None = None
     status: str = "Pending"
@@ -115,6 +117,8 @@ class OrderRead(BaseModel):
     deal_id: uuid.UUID | None
     branch_id: uuid.UUID | None
     created_by: uuid.UUID | None
+    salesperson_id: uuid.UUID | None = None
+    salesperson_name: str | None = None
     status: str
     subtotal: float
     discount: float
@@ -156,9 +160,15 @@ class OrderRead(BaseModel):
     approved_by: uuid.UUID | None = None
     approved_at: datetime | None = None
     approval_note: str | None = None
+    held_reason: str | None = None
     payment_status: str = "Unpaid"  # Unpaid | PartiallyPaid | Paid
     is_overdue: bool = False
     payments: list[OrderPaymentRead] = []
+
+
+class SalespersonChange(BaseModel):
+    salesperson_id: uuid.UUID
+    reason: str = Field(min_length=3, max_length=500)
 
 
 class OrderDecision(BaseModel):

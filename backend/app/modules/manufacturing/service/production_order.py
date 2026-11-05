@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.core.stock_context import set_reason
 from app.modules.inventory.models.product import Product
 from app.modules.manufacturing.models.production_item import ProductionItem
 from app.modules.manufacturing.models.production_order import ProductionOrder
@@ -174,12 +175,14 @@ async def _complete(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Pr
             continue
         product = locked.get(item.product_id)
         if product is not None:
+            set_reason("production", reference_type="production_order", reference_id=obj.id, note="Materials used")
             product.stock = product.stock - item.quantity_required - item.wastage_quantity
 
     if finished_id is not None:
         finished = locked.get(finished_id)
         if finished is None:
             raise ValidationError("Finished product not found in this tenant")
+        set_reason("production", reference_type="production_order", reference_id=obj.id, note="Finished goods")
         finished.stock = finished.stock + obj.quantity
 
     obj.status = COMPLETED

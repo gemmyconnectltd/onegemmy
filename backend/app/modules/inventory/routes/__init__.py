@@ -12,6 +12,7 @@ from app.modules.inventory.routes.transfer import router as transfer_router
 from app.modules.inventory.routes.unit import router as unit_router
 from app.modules.inventory.routes.valuation import router as valuation_router
 from app.modules.inventory.routes.variant import router as variant_router
+from app.modules.inventory.routes.warehouse import router as warehouse_router
 
 inventory_router = APIRouter(dependencies=[Depends(inventory_access)])
 inventory_router.include_router(batch_router)
@@ -25,3 +26,4 @@ inventory_router.include_router(serial_router)
 inventory_router.include_router(retail_router)
 inventory_router.include_router(transfer_router)
 inventory_router.include_router(valuation_router)
+inventory_router.include_router(warehouse_router)

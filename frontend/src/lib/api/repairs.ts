@@ -95,6 +95,11 @@ export interface ApiStockTransfer {
   to_branch_id: string | null;
   from_branch_name: string | null;
   to_branch_name: string | null;
+  from_warehouse_id?: string | null;
+  to_warehouse_id?: string | null;
+  from_warehouse_name?: string | null;
+  to_warehouse_name?: string | null;
+  dispatched_at?: string | null;
   status: string;
   notes: string | null;
   items: ApiStockTransferItem[];

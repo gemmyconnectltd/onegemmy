@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.currency import ONE, compute_settlement, to_base_amount, to_decimal
 from app.core.exceptions import NotFoundError, ValidationError
 from app.core.period import DatePeriod
+from app.core.stock_context import set_reason
 from app.modules.accounting.schemas.tax import TaxCalculationCreate
 from app.modules.accounting.service.tax import (
     calculate_vat,
@@ -152,6 +153,7 @@ def _to_order_read(obj: Order) -> OrderRead:
     payment) shows the exact same numbers, never a value cached anywhere
     else that could drift."""
     read = OrderRead.model_validate(obj)
+    read.salesperson_name = obj.salesperson.full_name if obj.salesperson else None
     total = float(obj.total)
     paid = float(obj.amount_paid)
     outstanding = round(max(0.0, total - paid), 2)
@@ -247,8 +249,10 @@ def _complete_sale_item(item: OrderItem, product_name: str, quantity: float, var
     cost = float(variant.cost) if variant else (float(product.cost) if product else 0.0)
     item.cost_at_sale = cost
     if variant:
+        set_reason("sale", reference_type="order", reference_id=getattr(item, "order_id", None))
         variant.stock = max(0, float(variant.stock) - quantity)
     elif product:
+        set_reason("sale", reference_type="order", reference_id=getattr(item, "order_id", None))
         product.stock = max(0, float(product.stock) - quantity)
     return cost * quantity
 
@@ -290,17 +294,18 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
 async def list_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50,
     search: str | None = None, payment_status: str | None = None, branch_id: uuid.UUID | None = None,
-    period: DatePeriod | None = None, archived: bool = False,
+    period: DatePeriod | None = None, archived: bool = False, salesperson_id: uuid.UUID | None = None,
 ) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period, archived)
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period, archived, salesperson_id)
     return [_to_order_read(i) for i in items]
 
 
 async def count_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None,
     payment_status: str | None = None, branch_id: uuid.UUID | None = None, period: DatePeriod | None = None, archived: bool = False,
+    salesperson_id: uuid.UUID | None = None,
 ) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period, archived)
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period, archived, salesperson_id)
 
 
 async def _change_sale_date(db: AsyncSession, tenant_id: uuid.UUID, obj: Order, new_at: datetime, user_id: uuid.UUID | None, user_name: str | None) -> None:
@@ -393,6 +398,7 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
             raise ValidationError(f"'{old.product_name}' is serial-tracked. Record a return for it instead of correcting the sale.")
         target = await db.get(ProductVariant, old.variant_id) if old.variant_id else product
         if target is not None:
+            set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale corrected")
             target.stock = float(target.stock) + float(old.quantity)
     # New lines in: validate, take stock out, snapshot cost.
     await ProductRepository(db).lock_stock(tenant_id, {i.product_id for i in data.items if i.product_id}, {i.variant_id for i in data.items if i.variant_id})
@@ -508,6 +514,7 @@ async def void_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user
     for item in items:
         target = await db.get(ProductVariant, item.variant_id) if item.variant_id else (await db.get(Product, item.product_id) if item.product_id else None)
         if target is not None:
+            set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale voided")
             target.stock = float(target.stock) + float(item.quantity)
     for record in (await db.execute(select(TaxCalculation).where(TaxCalculation.tenant_id == tenant_id, TaxCalculation.reference_type == "sale", TaxCalculation.reference_id == str(obj.id)))).scalars().all():
         record.status = "Void"
@@ -590,11 +597,75 @@ async def require_backdating_allowed(db: AsyncSession, user, ordered_at: datetim
         raise ForbiddenError("Recording a sale for an earlier date needs a manager. Ask someone with approval authority on sales.")
 
 
+async def policy_on(db: AsyncSession, tenant_id: uuid.UUID, key: str) -> bool:
+    """A business policy that is OFF unless the business switched it on (Business Settings -> Approval rules). Existing businesses are untouched."""
+    from app.modules.tenants.models import Tenant
+    rules = (await db.execute(select(Tenant.approval_rules).where(Tenant.id == tenant_id))).scalar_one_or_none() or {}
+    return rules.get(key) is True
+
+
+async def own_sales_scope(db: AsyncSession, user) -> uuid.UUID | None:
+    """With the `own_sales_only` policy, anyone who cannot approve sales sees only the sales they are the salesperson on."""
+    if user.is_superuser or "orders:approve" in user.permissions_names:
+        return None
+    return user.id if await policy_on(db, user.tenant_id, "own_sales_only") else None
+
+
+async def sale_needs_approval(db: AsyncSession, tenant_id: uuid.UUID, can_approve_sale: bool) -> bool:
+    """Whether a sale entered now must wait for an approver. Only when the business switched `sale_approval` on; approvers may complete their
+    own sales unless the business also switched `sale_no_self_approval` on."""
+    if not await policy_on(db, tenant_id, "sale_approval"):
+        return False
+    return not (can_approve_sale and not await policy_on(db, tenant_id, "sale_no_self_approval"))
+
+
+async def _check_decider(db: AsyncSession, obj: Order, user_id: uuid.UUID, can_approve_sale: bool, can_approve_credit: bool) -> None:
+    from app.core.exceptions import ForbiddenError
+    if obj.held_reason == "policy":
+        if not can_approve_sale:
+            raise ForbiddenError("Permission required: orders:approve")
+        if user_id in (obj.created_by, obj.salesperson_id) and await policy_on(db, obj.tenant_id, "sale_no_self_approval"):
+            raise ForbiddenError("This business does not allow approving a sale you made or entered. Ask another approver.")
+    elif not can_approve_credit:
+        raise ForbiddenError("Permission required: credit:approve")
+
+
+async def resolve_salesperson(db: AsyncSession, tenant_id: uuid.UUID, chosen: uuid.UUID | None, entered_by: uuid.UUID) -> uuid.UUID:
+    """The salesperson must be an active user of this business. None means whoever is entering the sale, never the cashier taking payment later."""
+    from app.modules.tenants.models import User
+    wanted = chosen or entered_by
+    user = (await db.execute(select(User).where(User.id == wanted, User.tenant_id == tenant_id))).scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise ValidationError("Choose an active member of this business as the salesperson")
+    return wanted
+
+
+async def change_salesperson(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, salesperson_id: uuid.UUID, reason: str, user_id: uuid.UUID, user_name: str | None) -> OrderRead:
+    """Corrects who is credited with a sale. Money and stock are untouched; the change and its reason are audited."""
+    obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
+    if obj is None:
+        raise NotFoundError("Order not found")
+    new_id = await resolve_salesperson(db, tenant_id, salesperson_id, user_id)
+    before = obj.salesperson_id
+    if before == new_id:
+        return _to_order_read(obj)
+    obj.salesperson_id = new_id
+    await OrderRepository(db).save(obj)
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="order.salesperson_changed",
+        entity_type="order", entity_id=str(id), summary=f"Order {obj.order_number} salesperson changed",
+        changes={"before": str(before) if before else None, "after": str(new_id), "reason": reason},
+    )
+    await db.commit()
+    return _to_order_read(await OrderRepository(db).get_by_id_for_tenant(tenant_id, id))
+
+
 async def create_order(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate,
     active_branch_id: uuid.UUID | None = None,
     can_approve_credit: bool = False,
     can_sell_credit: bool = True,
+    can_approve_sale: bool = False,
 ) -> OrderRead:
     repo = OrderRepository(db)
     extra_payments: list = []
@@ -616,6 +687,7 @@ async def create_order(
 
     if data.customer_id and await CustomerRepository(db).get_by_id_for_tenant(tenant_id, data.customer_id) is None:
         raise ValidationError("Choose a customer belonging to this business")
+    salesperson_id = await resolve_salesperson(db, tenant_id, data.salesperson_id, user_id)
     order_number = await repo.next_order_number(tenant_id)
 
     # Currency context, settled before any amount is stored: the order's own currency, the rate that
@@ -670,6 +742,11 @@ async def create_order(
                 over_limit_by_approver = True
             else:
                 hold_for_approval = True
+    held_reason = "credit" if hold_for_approval else None
+    if data.status == "Completed" and not hold_for_approval and await sale_needs_approval(db, tenant_id, can_approve_sale):
+        hold_for_approval, held_reason = True, "policy"
+    if hold_for_approval and held_reason == "policy" and extra_payments:
+        raise ValidationError("This business approves sales before payment. Submit the sale for approval; payments are taken once it is approved.")
     if hold_for_approval and extra_payments:
         raise ValidationError("This credit sale needs approval and can't be held with several payments. Take it as one payment, or ask a manager to approve the credit.")
     completing = data.status == "Completed" and not hold_for_approval
@@ -683,8 +760,10 @@ async def create_order(
         deal_id=data.deal_id,
         branch_id=resolved_branch_id,
         created_by=user_id,
+        salesperson_id=salesperson_id,
         status=STATUS_AWAITING_APPROVAL if hold_for_approval else data.status,
         requested_paid=resolved_paid if hold_for_approval else None,
+        held_reason=held_reason,
         credit_base=None if hold_for_approval else credit_base,
         credit_granted_at=datetime.now(UTC) if credit_base and not hold_for_approval else None,
         subtotal=subtotal,
@@ -914,7 +993,8 @@ async def _finalize_completed_sale(
         obj.amount_paid = pay_fields["applied_amount"]
 
 
-async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: OrderUpdate, user_id: uuid.UUID | None = None, user_name: str | None = None) -> OrderRead:
+async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: OrderUpdate, user_id: uuid.UUID | None = None, user_name: str | None = None,
+                       can_approve_sale: bool = False) -> OrderRead:
     await OrderRepository(db).lock_financial_writes(tenant_id)
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
@@ -978,10 +1058,16 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
         if outstanding > _PAID_EPSILON:
             obj.credit_base = _base_value(outstanding, obj.currency_code or base_ccy, base_ccy, document_rate(obj))
 
-        if outstanding > _PAID_EPSILON and await _exceeds_daily_credit_limit(
+        if await sale_needs_approval(db, tenant_id, can_approve_sale):
+            obj.status = STATUS_AWAITING_APPROVAL
+            obj.held_reason = "policy"
+            obj.requested_paid = resolved_paid
+            obj.credit_base = None
+        elif outstanding > _PAID_EPSILON and await _exceeds_daily_credit_limit(
             db, tenant_id, obj.customer_id, obj.credit_base, await _credit_day(db, tenant_id),
         ):
             obj.status = STATUS_AWAITING_APPROVAL
+            obj.held_reason = "credit"
             obj.requested_paid = resolved_paid
             obj.credit_base = None
         else:
@@ -1006,6 +1092,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
 
 async def approve_order(
     db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, note: str | None = None,
+    can_approve_sale: bool = True, can_approve_credit: bool = True,
 ) -> OrderRead:
     """Completes a credit sale that was held over the daily limit: posts it exactly like a normal completed sale,
     with the cash the cashier recorded, and stamps who approved it and when."""
@@ -1015,6 +1102,7 @@ async def approve_order(
         raise NotFoundError("Order not found")
     if obj.status != STATUS_AWAITING_APPROVAL:
         raise ValidationError("Only orders awaiting approval can be approved")
+    await _check_decider(db, obj, user_id, can_approve_sale, can_approve_credit)
     base_ccy = await get_base_currency(db, tenant_id)
     # Price the sale again with the CURRENT VAT setting, as completing any open order does.
     gross = round(float(obj.subtotal) - float(obj.discount), 2)
@@ -1045,6 +1133,7 @@ async def approve_order(
 
 async def reject_order(
     db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id: uuid.UUID, user_name: str | None, note: str | None = None,
+    can_approve_sale: bool = True, can_approve_credit: bool = True,
 ) -> OrderRead:
     """Declines a held credit sale. Nothing was ever posted for it, so nothing needs reversing."""
     await OrderRepository(db).lock_financial_writes(tenant_id)
@@ -1053,6 +1142,9 @@ async def reject_order(
         raise NotFoundError("Order not found")
     if obj.status != STATUS_AWAITING_APPROVAL:
         raise ValidationError("Only orders awaiting approval can be rejected")
+    await _check_decider(db, obj, user_id, can_approve_sale, can_approve_credit)
+    if obj.held_reason == "policy" and len((note or "").strip()) < 3:
+        raise ValidationError("Give a reason for rejecting the sale")
     obj.status = STATUS_REJECTED
     obj.approved_by = user_id
     obj.approved_at = datetime.now(UTC)

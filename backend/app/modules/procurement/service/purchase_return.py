@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.stock_context import set_reason
 from app.modules.procurement.models.purchase_return import PurchaseReturn
 from app.modules.procurement.repository import PurchaseOrderRepository
 from app.modules.procurement.repository.purchase_return import PurchaseReturnRepository
@@ -79,6 +80,7 @@ async def _create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     delta = data.quantity * factors.pop()
     if delta > Decimal(str(target.stock)):
         raise ValidationError("Not enough stock to return these goods")
+    set_reason("supplier_return", reference_type="purchase_return")
     target.stock = Decimal(str(target.stock)) - delta
     data.product_name = eligible[0].product_name
 
@@ -179,6 +181,7 @@ async def _restore_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID,
         raise ValidationError("Purchase product is no longer available")
     lines = [i for i in obj.purchase_order.items if i.product_id == obj.product_id and i.variant_id == obj.variant_id]
     factor = next((Decimal(i.stock_factor) for i in lines if i.stock_factor is not None), Decimal(str(product.conversion_factor)))
+    set_reason("receipt", reference_type="purchase_return", note="Supplier return reversed")
     target.stock = Decimal(str(target.stock)) + Decimal(obj.quantity) * factor
     from app.modules.accounting.service.transaction import create_supplier_return_transaction
     await create_supplier_return_transaction(db, tenant_id, user_id, obj, obj.purchase_order.branch_id, target_status.lower())
