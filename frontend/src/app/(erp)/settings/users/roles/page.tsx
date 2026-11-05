@@ -29,6 +29,8 @@ export default function RolesPage() {
   const [form, setForm] = useState({ name: "", description: "" });
   const [error, setError] = useState<string | null>(null);
   const description = (id: string) => details.data?.items.find((r) => r.id === id)?.description;
+  const department = (id: string) => details.data?.items.find((r) => r.id === id)?.department ?? "Custom";
+  const [query, setQuery] = useState("");
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,12 +54,14 @@ export default function RolesPage() {
       </div>
       {seeded && <p role="status" className="rounded-lg bg-emerald-500/10 px-3 py-2 text-[13px] font-medium text-emerald-700 dark:text-emerald-400">{seeded} Roles you already had were not changed.</p>}
       {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-[12px] font-medium text-red-700 dark:text-red-400">{error}</p>}
+      <div className="max-w-sm"><Input aria-label="Search roles" type="search" placeholder="Search roles by name, department or description" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <TableScroll><table className="w-full min-w-[680px] text-left text-sm">
-          <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className="px-4 py-3 font-semibold">Role</th><th scope="col" className="px-4 py-3 font-semibold">Description</th><th scope="col" className="px-4 py-3 text-right font-semibold">People</th><th scope="col" className="px-4 py-3 text-right font-semibold">Permissions</th><th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th></tr></thead>
-          <tbody className="divide-y divide-border">{summaries.data.map((r) => (
+          <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className="px-4 py-3 font-semibold">Role</th><th scope="col" className="px-4 py-3 font-semibold">Department</th><th scope="col" className="px-4 py-3 font-semibold">Description</th><th scope="col" className="px-4 py-3 text-right font-semibold">People</th><th scope="col" className="px-4 py-3 text-right font-semibold">Permissions</th><th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th></tr></thead>
+          <tbody className="divide-y divide-border">{[...summaries.data].filter((r) => `${r.name} ${description(r.id) ?? ""} ${department(r.id)}`.toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) => department(a.id).localeCompare(department(b.id)) || a.name.localeCompare(b.name)).map((r) => (
             <tr key={r.id} className="hover:bg-surface/50">
               <td className="px-4 py-3"><p className="font-semibold text-foreground">{r.name}</p><Pill tone={r.builtIn ? "slate" : "green"}>{r.builtIn ? "Built in" : "Custom"}</Pill></td>
+              <td className="px-4 py-3 text-[12px] text-muted">{department(r.id)}</td>
               <td className="max-w-sm px-4 py-3 text-[12px] text-muted">{description(r.id) || "—"}</td>
               <td className="px-4 py-3 text-right tabular-nums">{r.users}</td>
               <td className="px-4 py-3 text-right tabular-nums">{r.permissions}</td>

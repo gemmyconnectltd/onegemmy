@@ -12,6 +12,7 @@ import type { CartItem } from "./types";
 import type { ApiCustomer } from "@/lib/api";
 import { useCreateCustomer, useUpdateCustomer, useCustomerDebtSnapshot } from "@/lib/api/hooks";
 import { useCan } from "@/lib/can";
+import { Input } from "@/components/ui/Form";
 import { SaleDate } from "./SaleDate";
 import { SALE_DATE_FOR_EVERYONE } from "./constants";
 
@@ -265,11 +266,11 @@ export function CartPanel({
                   <div role="group" aria-label="Customer type" className="grid grid-cols-2 gap-1 rounded-lg border border-border p-1 text-[12px] font-semibold">
                     {([["individual", "Individual"], ["business", "Business"]] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={newCust.type === k} onClick={() => setNewCust({ ...newCust, type: k })} className={`rounded-md py-1.5 ${newCust.type === k ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{l}</button>)}
                   </div>
-                  <input autoFocus required value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} placeholder={newCust.type === "business" ? "Business name" : "Name"} aria-label="Customer name" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  <input type="tel" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} placeholder="Phone" aria-label="Customer phone" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  <input value={newCust.address} onChange={(e) => setNewCust({ ...newCust, address: e.target.value })} placeholder="Address (optional)" aria-label="Customer address" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  <input type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} placeholder="Email (optional)" aria-label="Customer email" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
-                  <input value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (optional)" : "TIN (optional)"} aria-label="TIN" inputMode="numeric" className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 text-[14px] outline-none focus:border-accent" />
+                  <Input autoFocus required value={newCust.name} onChange={(e) => setNewCust({ ...newCust, name: e.target.value })} placeholder={newCust.type === "business" ? "Business name" : "Name"} aria-label="Customer name" />
+                  <Input type="tel" value={newCust.phone} onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })} placeholder="Phone" aria-label="Customer phone" />
+                  <Input value={newCust.address} onChange={(e) => setNewCust({ ...newCust, address: e.target.value })} placeholder="Address (optional)" aria-label="Customer address" />
+                  <Input type="email" value={newCust.email} onChange={(e) => setNewCust({ ...newCust, email: e.target.value })} placeholder="Email (optional)" aria-label="Customer email" />
+                  <Input value={newCust.tin} onChange={(e) => setNewCust({ ...newCust, tin: e.target.value })} placeholder={newCust.type === "business" ? "Business TIN (optional)" : "TIN (optional)"} aria-label="TIN" inputMode="numeric" />
                   {duplicate && <p role="status" className="rounded-lg bg-amber-500/10 px-2.5 py-2 text-[11.5px] font-medium text-amber-800 dark:text-amber-300">{duplicate.name} already has this {phoneKey && (duplicate.phone ?? "").replace(/\s+/g, "") === phoneKey ? "phone number" : "email"}. Saving will select them instead of creating a duplicate.</p>}
                   {custError && <p role="alert" className="text-[11px] font-medium text-red-600">{custError}</p>}
                   <div className="flex gap-2">

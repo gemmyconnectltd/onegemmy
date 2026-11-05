@@ -1,5 +1,6 @@
 "use client";
 
+import { StatCard } from "@/components/ui/StatCard";
 import Link from "next/link";
 import { AlertTriangle, ArrowRightLeft, Package, PackageX, Wallet } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -11,45 +12,6 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { TableWrap } from "@/components/ui/Table";
 import { fmtDate } from "@/lib/date";
 
-function KpiCard({
-  href,
-  label,
-  value,
-  hint,
-  tone = "default",
-  icon: Icon,
-}: {
-  href: string;
-  label: string;
-  value: string | number;
-  hint: string;
-  tone?: "default" | "warning" | "danger";
-  icon: typeof Package;
-}) {
-  const toneClass =
-    tone === "danger"
-      ? "border-red-200 bg-red-50/60"
-      : tone === "warning"
-        ? "border-amber-200 bg-amber-50/60"
-        : "border-border bg-card";
-  return (
-    <Link
-      href={href}
-      className={`block min-w-0 rounded-xl border p-4 transition-colors hover:border-accent/40 ${toneClass}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs text-muted">{label}</p>
-          <p className="mt-2 break-words text-xl font-semibold tabular-nums">{value}</p>
-          <p className="mt-1 text-xs text-muted">{hint}</p>
-        </div>
-        <span className="rounded-lg bg-accent/10 p-2.5 text-accent">
-          <Icon size={18} />
-        </span>
-      </div>
-    </Link>
-  );
-}
 
 export default function InventoryOverviewPage() {
   const { currencySymbol, t } = useAppConfig();
@@ -100,21 +62,21 @@ export default function InventoryOverviewPage() {
         </p>
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
-          <KpiCard
+          <StatCard
             href="/inventory/products"
             label={t("totalProducts")}
             value={summary?.product_count ?? 0}
             hint={t("skusTracked")}
             icon={Package}
           />
-          <KpiCard
+          <StatCard
             href="/inventory/stock"
             label={t("stockValue")}
             value={fmt(summary?.cost_value ?? 0)}
             hint={t("atCostPrice")}
             icon={Wallet}
           />
-          <KpiCard
+          <StatCard
             href="/inventory/stock?status=low"
             label={t("lowStock")}
             value={summary?.low_stock_count ?? 0}
@@ -122,7 +84,7 @@ export default function InventoryOverviewPage() {
             tone={(summary?.low_stock_count ?? 0) > 0 ? "warning" : "default"}
             icon={AlertTriangle}
           />
-          <KpiCard
+          <StatCard
             href="/inventory/stock?status=out"
             label={t("outOfStock")}
             value={summary?.out_of_stock_count ?? 0}
@@ -130,7 +92,7 @@ export default function InventoryOverviewPage() {
             tone={(summary?.out_of_stock_count ?? 0) > 0 ? "danger" : "default"}
             icon={PackageX}
           />
-          <KpiCard
+          <StatCard
             href="/inventory/transfers?status=pending"
             label="Pending transfers"
             value={pendingTransfers.data?.total ?? 0}

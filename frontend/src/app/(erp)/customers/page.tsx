@@ -1,4 +1,5 @@
 "use client";
+import { StatCard } from "@/components/ui/StatCard";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { fetchEvery } from "@/lib/exportTable";
 import { salesApi } from "@/lib/api/sales";
@@ -24,7 +25,8 @@ import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
 import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { Drawer } from "@/components/ui/Drawer";
-import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
+import { Field, Input, Select } from "@/components/ui/Form";
+import { FormActions, FormErrorSummary, FormRow, FormSection, MoneyField } from "@/components/ui/FormKit";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -86,7 +88,7 @@ function typeBadge(type: string) {
 
 export default function CustomersPage() {
   const { hasPermission } = useAuth();
-  const { currencySymbol, brandColor } = useAppConfig();
+  const { currency, currencySymbol, brandColor } = useAppConfig();
   const COLOR = brandColor;
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
@@ -305,15 +307,7 @@ export default function CustomersPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-all">
-            <div className="w-8 h-8 flex items-center justify-center rounded-xl mb-2" style={{ backgroundColor: `${s.color}15` }}>
-              <s.icon size={16} style={{ color: s.color }} />
-            </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={loading ? undefined : String(s.value)}>{loading ? "—" : s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
-          </div>
-        ))}
+        {stats.map((s) => <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} color={s.color} loading={loading} />)}
       </div>
 
       {/* Filters */}
@@ -593,58 +587,34 @@ export default function CustomersPage() {
       <Drawer open={showAdd || !!editing} onClose={closeDrawer}
         title={editing ? "Edit Customer" : "New Customer"}
         description={editing ? editing.name : "Add a customer to track their orders and spending"}
-        size="sm">
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <Field label="Full Name" required>
-            <Input autoFocus value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Jean Pierre" />
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="TIN" required hint="Tax identification number, for individuals and businesses"><Input value={form.tin} maxLength={50} inputMode="numeric" onChange={(e) => setForm({ ...form, tin: e.target.value })} placeholder="e.g. 100200300" /></Field>
-            <Field label="Phone">
-              <Input type="tel" value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="+250 788 123 456" />
-            </Field>
-            <Field label="Email">
-              <Input type="email" value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="jean@example.com" />
-            </Field>
-          </div>
-          {hasPermission("credit:approve") && <Field label={`Daily credit limit (${currencySymbol})`} hint="Leave empty to inherit the business default. Zero requires approval for any credit. Applies across all branches."><Input aria-label="Customer daily credit limit" inputMode="decimal" value={form.credit_daily_limit} onChange={(e) => setForm((f) => ({ ...f, credit_daily_limit: e.target.value }))} /></Field>}
-          <Field label="Address">
-            <Input value={form.address}
-              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-              placeholder="Street, City" />
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Customer Type">
-              <Select value={form.customer_type}
-                onChange={(e) => setForm((f) => ({ ...f, customer_type: e.target.value }))}>
-                {TYPE_OPTS.map((t) => <option key={t} value={t} className="capitalize">{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+        size="md">
+        <form onSubmit={handleSubmit} className="space-y-5 p-4 sm:p-5">
+          <FormErrorSummary errors={formError} />
+          <FormSection variant="plain" title="Basic information">
+            <FormRow><Field label="Full name" required>
+              <Input autoFocus required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Jean Pierre" />
+            </Field></FormRow>
+            <Field label="Customer type">
+              <Select value={form.customer_type} onChange={(e) => setForm((f) => ({ ...f, customer_type: e.target.value }))}>
+                {TYPE_OPTS.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
               </Select>
             </Field>
             <Field label="Status">
-              <Select value={form.is_active ? "active" : "inactive"}
-                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "active" }))}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+              <Select value={form.is_active ? "active" : "inactive"} onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "active" }))}>
+                <option value="active">Active</option><option value="inactive">Inactive</option>
               </Select>
             </Field>
-          </div>
-
-          {formError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>
-          )}
-
-          <FormFooter
-            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Customer"}
-            onCancel={closeDrawer}
-            disabled={saving || !form.name.trim()}
-            color={COLOR}
-          />
+          </FormSection>
+          <FormSection variant="plain" title="Contact details">
+            <Field label="Phone"><Input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+250 788 123 456" /></Field>
+            <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="jean@example.com" /></Field>
+            <FormRow><Field label="Address"><Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} placeholder="Street, City" /></Field></FormRow>
+          </FormSection>
+          <FormSection variant="plain" title="Tax and credit">
+            <Field label="TIN" required hint="Tax identification number, for individuals and businesses."><Input value={form.tin} maxLength={50} inputMode="numeric" onChange={(e) => setForm({ ...form, tin: e.target.value })} placeholder="e.g. 100200300" /></Field>
+            {hasPermission("credit:approve") && <MoneyField label="Daily credit limit" aria-label="Customer daily credit limit" currency={currency} value={form.credit_daily_limit} onChange={(value) => setForm((f) => ({ ...f, credit_daily_limit: value }))} hint="Empty uses the business default. Zero requires approval for any credit." />}
+          </FormSection>
+          <FormActions sticky onCancel={closeDrawer} busy={saving} disabled={!form.name.trim()} submitLabel={editing ? "Save Changes" : "Add Customer"} />
         </form>
       </Drawer>
 

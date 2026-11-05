@@ -23,6 +23,9 @@ class RoleRead(BaseModel):
     tenant_id: uuid.UUID
     name: str
     description: str | None
+    # Filled in from the built-in catalogue: where the role sits in pickers. Informational only; it grants nothing.
+    department: str | None = None
+    built_in: bool = False
     created_at: datetime
     updated_at: datetime
 

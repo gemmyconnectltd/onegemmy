@@ -798,3 +798,59 @@ async def test_a_platform_admin_sets_a_default_password_and_the_user_must_change
             assert (await ordinary.post(f"/api/v1/admin/tenants/{tenant.id}/users/{cashier.id}/set-password", json={"password": "Welcome2026"})).status_code == 403
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_standard_erp_roles_are_seeded_once_and_never_overwrite_a_role_a_business_made(db, monkeypatch):
+    from app.modules.tenants.models import Role, Tenant
+    from app.modules.tenants.service.role import FOCUSED_ROLES, seed_default_roles
+    tenant = Tenant(name="Roles test", slug=uuid.uuid4().hex, currency="RWF", is_active=True, subscription_status="active")
+    db.add(tenant)
+    await db.flush()
+    mine = Role(tenant_id=tenant.id, name="Sales Manager", description="made by hand")
+    db.add(mine)
+    await db.flush()
+    await seed_default_roles(db, tenant.id)
+    await seed_default_roles(db, tenant.id)  # running again adds nothing
+    roles = (await db.execute(select(Role).where(Role.tenant_id == tenant.id))).scalars().all()
+    names = [r.name for r in roles]
+    assert len(names) == len(set(names))
+    assert set(FOCUSED_ROLES) | {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager"} == set(names)
+    assert next(r for r in roles if r.name == "Sales Manager").description == "made by hand"  # untouched
+    by_name = {r.name: {p.name for p in r.permissions} for r in roles}
+    assert "orders:approve" in by_name["Purchasing Manager"] or "purchase_orders:approve" in by_name["Purchasing Manager"]
+    assert by_name["Auditor"] and all(name.endswith(":read") for name in by_name["Auditor"])  # an auditor only reads
+    assert not any(name.endswith(":delete") for r in FOCUSED_ROLES for name in by_name[r])  # no job role deletes; that stays with owners and admins
+    assert not any(name.split(":")[0] in {"users", "roles", "billing", "tenants"} for r in FOCUSED_ROLES if r != "IT Administrator" for name in by_name[r])  # no job role manages people or billing (IT only reads the team)
+
+
+@pytest.mark.db
+async def test_the_role_catalogue_is_least_privilege_grouped_and_usable(db, monkeypatch):
+    from app.modules.tenants.models import Role, Tenant
+    from app.modules.tenants.service.role import (
+        FOCUSED_ROLES,
+        ROLE_DEPARTMENTS,
+        SYSTEM_ROLES,
+        list_roles,
+        seed_default_roles,
+    )
+    tenant = Tenant(name="Catalogue test", slug=uuid.uuid4().hex, currency="RWF", is_active=True, subscription_status="active")
+    db.add(tenant)
+    await db.flush()
+    await seed_default_roles(db, tenant.id)
+    roles = {r.name: {p.name for p in r.permissions} for r in (await db.execute(select(Role).where(Role.tenant_id == tenant.id))).scalars().all()}
+    for name in ["Store Manager", "Cashier Supervisor", "Stock Counter", "Delivery / Dispatch Officer", "Accounts Receivable Officer", "Credit Controller", "Treasury Officer",
+                 "Financial Controller", "Procurement Assistant", "Recruitment Officer", "Machine Operator", "Service Advisor", "CRM Manager", "Operations Manager", "Compliance Officer", "IT Administrator"]:
+        assert roles[name], name
+    assert "Integration Manager" not in roles  # nothing in PESAA for it to manage yet
+    # separation of duties: those who prepare cannot approve; those who review do not enter
+    assert not any(n.endswith(":approve") for n in roles["Expense Officer"] | roles["Accounts Payable Officer"] | roles["Procurement Assistant"] | roles["Stock Counter"] | roles["Treasury Officer"])
+    assert "journal_entries:approve" in roles["Financial Controller"] and not any(n.endswith((":create", ":delete")) for n in roles["Financial Controller"])
+    assert all(n.endswith(":read") for n in roles["Compliance Officer"] | roles["Auditor"])
+    assert "credit:approve" in roles["Credit Controller"] and "returns:approve" in roles["Cashier Supervisor"] and "purchase_orders:approve" in roles["Purchasing Manager"]
+    # a technical role sees the team but cannot change people, roles or billing
+    assert {n for n in roles["IT Administrator"] if n.split(":")[0] in {"users", "roles", "permissions", "billing", "tenants"}} == {"users:read"}
+    assert not any(n.endswith(":delete") for r in FOCUSED_ROLES for n in roles[r])
+    assert set(ROLE_DEPARTMENTS) == SYSTEM_ROLES
+    listed = {r.name: r for r in await list_roles(db, tenant.id, 0, 200)}
+    assert listed["Store Manager"].department == "Sales & Retail" and listed["Store Manager"].built_in is True

@@ -1,4 +1,5 @@
 "use client";
+import { StatCard } from "@/components/ui/StatCard";
 import { fmtMoney } from "@/lib/config";
 import { Users, TrendingUp, ShoppingCart, Repeat } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
@@ -44,15 +45,7 @@ export default function CustomerAnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-card p-4">
-            <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
-              <s.icon size={16} style={{ color: s.color }} />
-            </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={String(s.value)}>{s.value}</p>
-            <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
-          </div>
-        ))}
+        {stats.map((s) => <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} color={s.color} />)}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

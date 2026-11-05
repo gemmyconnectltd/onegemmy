@@ -1,4 +1,5 @@
 "use client";
+import type { CompanyRole } from "@/lib/api/companyRoles";
 import { Button } from "@/components/ui/Button";
 
 import Link from "next/link";
@@ -43,7 +44,6 @@ const ACTIVITY_TONE: Record<string, string> = {
   login: "bg-surface text-muted",
 };
 
-const BUILT_IN_ROLES = ["admin", "member", "viewer", "owner/ceo", "general manager", "branch manager", "factory manager", "cashier", "accountant", "inventory officer"];
 const ROLE_HELP: Record<string, string> = {
   viewer: "Can look at information but not change anything.",
   cashier: "Runs the till: sells, takes payment and looks up products and customers.",
@@ -557,17 +557,11 @@ function UserForm({
         />
       </Field>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Role" hint={ROLE_HELP[form.role] ?? "Determines what they can access."}>
+        <Field label="Role" hint={roles.data?.items.find((role) => role.name.toLowerCase() === form.role)?.description ?? ROLE_HELP[form.role] ?? "Determines what they can access."}>
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-            <option value="viewer">Viewer — view only</option>
-            <option value="cashier">Cashier</option>
-            <option value="accountant">Accountant</option>
-            <option value="inventory officer">Inventory Officer</option>
-            <option value="member">Member</option>
-            <option value="branch manager">Branch Manager</option>
-            <option value="general manager">General Manager</option>
-            <option value="factory manager">Factory Manager</option>
-            {roles.data?.items.filter((role) => !BUILT_IN_ROLES.includes(role.name.toLowerCase())).map((role) => <option key={role.id} value={role.name.toLowerCase()}>{role.name}</option>)}
+            {/* The business's own roles, grouped by department, straight from its Roles & Permissions. */}
+            {Object.entries((roles.data?.items ?? []).filter((role) => !["admin", "owner/ceo"].includes(role.name.toLowerCase())).reduce<Record<string, CompanyRole[]>>((groups, role) => { (groups[role.department ?? "Other"] ??= []).push(role); return groups; }, {})).sort(([a], [b]) => a.localeCompare(b)).map(([group, items]) => <optgroup key={group} label={group}>{items.sort((a, b) => a.name.localeCompare(b.name)).map((role) => <option key={role.id} value={role.name.toLowerCase()}>{role.name}</option>)}</optgroup>)}
+            {!roles.data?.items.length && ["viewer", "cashier", "accountant", "inventory officer", "member", "branch manager", "general manager", "factory manager"].map((name) => <option key={name} value={name}>{name.replace(/\b\w/g, (c) => c.toUpperCase())}</option>)}
             <option value="admin">Admin — full access</option>
             <option value="owner/ceo">Owner/CEO — full access</option>
           </Select>

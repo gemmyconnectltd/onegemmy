@@ -47,7 +47,7 @@ async def people(db):
     await db.flush()
     catalog = {p.name: p for p in (await db.execute(select(Permission))).scalars().all()}
     roles = {r.name: r for r in (await db.execute(select(Role).where(Role.tenant_id == tenant.id))).scalars().all()}
-    ops = Role(tenant_id=tenant.id, name="Operations Manager", permissions=[catalog[n] for n in ("approvals:approve", "approvals:read", "items:read", "items:update")])
+    ops = Role(tenant_id=tenant.id, name="Approvals Lead", permissions=[catalog[n] for n in ("approvals:approve", "approvals:read", "items:read", "items:update")])
     db.add(ops)
     await db.flush()
     kabuga = Branch(tenant_id=tenant.id, name="Kabuga", is_main=True)

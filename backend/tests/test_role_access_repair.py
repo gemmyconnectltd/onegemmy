@@ -11,8 +11,9 @@ from scripts.repair_role_access import repair_tenant, template_catalog
 
 def test_repair_templates_preserve_least_privilege_and_all_builtin_roles():
     templates = default_role_permissions(template_catalog([]))
-    assert set(templates) == {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager",
-        "Branch Manager", "Factory Manager", "Cashier", "Accountant", "Inventory Officer"}
+    from app.modules.tenants.service.role import FOCUSED_ROLES
+    assert set(templates) == {"Admin", "Member", "Viewer", "Owner/CEO", "General Manager", "Branch Manager", "Factory Manager"} | set(FOCUSED_ROLES)
+    assert {"Cashier", "Accountant", "Inventory Officer", "Sales Manager", "HR Manager", "Auditor"} <= set(templates)
     assert all(p.action == "read" for p in templates["Viewer"])
     assert all(p.action in {"create", "read", "update"} for p in templates["Member"])
     branch = {p.name for p in templates["Branch Manager"]}

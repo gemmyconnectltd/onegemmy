@@ -1,7 +1,7 @@
 "use client";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, Trash2, UploadCloud } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { formatMoney } from "@/lib/money";
@@ -15,6 +15,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { AccountPicker, FinancialError } from "@/components/accounting/FinancialShared";
 import { SearchSelect } from "@/components/ui/SearchSelect";
+import { FileDropzone } from "@/components/ui/FormKit";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Row = { isService: boolean; expenseAccount: string; taxRate: 0 | 18; id: string; product: ApiProduct | null; productId: string; name: string; sku: string | null; variantId: string; cost: string; quantity: string; updateCost: boolean; updatePrice: boolean; sellingPrice: string };
@@ -58,11 +59,6 @@ export function PurchaseEditor({ initial, onClose, onSaved, page = false }: { in
   const denominator = subtotal * BigInt(118);
   const numerator = taxable * (subtotal - discountMinor) * BigInt(18);
   const includedVat = denominator > BigInt(0) ? (numerator + denominator / BigInt(2)) / denominator : BigInt(0);
-  function chooseFiles(selected: File[]) {
-    const accepted = ["application/pdf", "image/png", "image/jpeg"];
-    if (selected.length > 10 || selected.some(file => file.size > 5 * 1024 * 1024 || !accepted.includes(file.type))) {setError({detail: "Choose up to ten PDF, PNG or JPEG files, no larger than 5 MB each."}); setFiles([]); return;}
-    setFiles(selected);
-  }
   function change(id: string, patch: Partial<Row>) { setDirty(true); setRows(previous => previous.map(row => row.id === id ? {...row, ...patch} : row)); }
   function leave() { if (busy) return; if (dirty) confirm({title: "Discard unsaved purchase?", message: "Your changes have not been saved.", confirmLabel: "Discard changes", danger: true, onConfirm: onClose}); else onClose(); }
   async function submit(status: "Draft" | "PendingApproval") {
@@ -103,13 +99,7 @@ export function PurchaseEditor({ initial, onClose, onSaved, page = false }: { in
           <TableScroll mobileLayout="cards" label="Purchase items"><table className="w-full min-w-[900px] table-fixed text-left text-sm"><colgroup><col /><col className="w-28" /><col className="w-24" /><col className="w-32" /><col className="w-36" /><col className="w-32" /><col className="w-12" /></colgroup><thead><tr><th className="px-3 py-2.5 whitespace-nowrap">Product / variant</th><th className="px-3 py-2.5 whitespace-nowrap">SKU</th><th className="px-3 py-2.5 whitespace-nowrap text-right">Qty</th><th className="px-3 py-2.5 whitespace-nowrap text-right">Unit cost</th><th className="px-3 py-2.5 whitespace-nowrap">Tax</th><th className="px-3 py-2.5 whitespace-nowrap text-right">Line total</th><th className="px-3 py-2.5"><span className="sr-only">Remove</span></th></tr></thead><tbody className="divide-y divide-border">{rows.map((row, index) => <PurchaseRow key={row.id} row={row} index={index} currency={code} catalogCurrency={currency} money={money} canPrice={canPrice} vatEnabled={vatEnabled} onChange={patch => change(row.id, patch)} onRemove={rows.length > 1 ? () => {setDirty(true); setRows(previous => previous.filter(item => item.id !== row.id));} : undefined} />)}</tbody></table></TableScroll>
           <p className="p-4 text-xs text-muted">Costs are VAT-inclusive. Catalog price changes apply only when received. Service lines post to their selected expense account and never increase stock.</p>
         </section>
-        <section className="space-y-4 rounded-xl border border-border bg-card p-4"><h2 className="pesaa-card-title">Notes and attachments</h2><div className="grid gap-3 sm:grid-cols-2"><Field label="Purchase notes"><Textarea rows={3} maxLength={5000} placeholder="e.g. Reorder for Q4 stock, urgent delivery…" value={notes} onChange={event => setNotes(event.target.value)} /></Field><Field label="Delivery instructions"><Textarea rows={3} maxLength={2000} placeholder="e.g. Deliver to main store, before 5 PM…" value={instructions} onChange={event => setInstructions(event.target.value)} /></Field></div><div><span className="mb-1 block text-[13px] font-medium">Attachments</span>
-          <label onDragOver={event => event.preventDefault()} onDrop={event => {event.preventDefault(); chooseFiles(Array.from(event.dataTransfer.files));}} className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-dashed border-border bg-surface/40 px-4 py-4 text-center text-sm text-muted hover:border-accent focus-within:border-accent">
-            <UploadCloud size={20} aria-hidden /><span>Drag and drop files here, or <span className="font-medium text-accent">click to browse</span></span>
-            <span className="text-xs">PDF, PNG or JPEG. Up to 10 files, 5 MB each. Files upload after the order is saved.</span>
-            <input className="sr-only" type="file" accept="application/pdf,image/png,image/jpeg" multiple onChange={event => {chooseFiles(Array.from(event.target.files || [])); event.target.value = "";}} />
-          </label>
-          {files.length > 0 && <ul className="mt-2 flex flex-wrap gap-2 text-xs">{files.map(file => <li key={file.name + file.size} className="rounded-full border border-border bg-card px-2.5 py-1">{file.name} · {(file.size / 1024).toFixed(0)} KB</li>)}</ul>}</div></section>
+        <section className="space-y-4 rounded-xl border border-border bg-card p-4"><h2 className="pesaa-card-title">Notes and attachments</h2><div className="grid gap-3 sm:grid-cols-2"><Field label="Purchase notes"><Textarea rows={3} maxLength={5000} placeholder="e.g. Reorder for Q4 stock, urgent delivery…" value={notes} onChange={event => setNotes(event.target.value)} /></Field><Field label="Delivery instructions"><Textarea rows={3} maxLength={2000} placeholder="e.g. Deliver to main store, before 5 PM…" value={instructions} onChange={event => setInstructions(event.target.value)} /></Field></div><FileDropzone label="Attachments" files={files} onChange={setFiles} hint="PDF, PNG or JPEG. Up to 10 files, 5 MB each. Files upload after the order is saved." /></section>
       </div>
       <aside className="h-fit space-y-3 rounded-xl border border-border bg-card p-4 xl:sticky xl:top-16"><h2 className="pesaa-card-title">Order summary</h2><div className="flex justify-between text-sm"><span>Items subtotal (inclusive)</span><span>{money(Number(subtotal) / 100)}</span></div>{!!initial?.discount && <div className="flex justify-between text-sm"><span>Discount</span><span>{money(initial.discount)}</span></div>}{!!initial?.tax && <div className="flex justify-between text-sm"><span>Existing additional tax</span><span>{money(initial.tax)}</span></div>}<div className="flex justify-between text-sm"><span>Net of included VAT</span><span>{money(Number(subtotal - discountMinor - includedVat) / 100)}</span></div><div className="flex justify-between text-sm"><span>Included VAT</span><span>{money(Number(includedVat) / 100)}</span></div><div className="flex items-baseline justify-between border-t border-border pt-3"><span className="font-semibold">Grand total</span><span className="text-lg font-bold tabular-nums text-accent">{money(Number(total) / 100)}</span></div><p className="text-xs text-muted">Currency: {code}. A purchase order reserves no stock and records no payment. Bills are posted when deliveries are confirmed.</p><Button type="submit" variant="outline" className="w-full" disabled={busy}>{busy ? "Saving…" : initial ? "Save changes" : "Save as Draft"}</Button>{!initial && <Button className="w-full" disabled={busy} onClick={() => void submit("PendingApproval")}>Create Purchase Order</Button>}<Button variant="ghost" className="w-full" onClick={leave}>Cancel</Button><FinancialError error={error} /></aside>
     </fieldset>
