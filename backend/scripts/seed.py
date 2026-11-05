@@ -261,20 +261,27 @@ async def seed_tenant(session: AsyncSession, td: TenantDef, all_permissions: lis
 
 
 async def seed_superadmin(session: AsyncSession) -> None:
-    """Seed the global superadmin (no tenant). Idempotent."""
-    exists = (await session.execute(
-        select(User).where(User.email == "pesaa.customer@gmail.com")
-    )).scalar_one_or_none()
-    if exists:
-        return
-    session.add(User(
-        tenant_id=None, email="pesaa.customer@gmail.com",
-        hashed_password=hash_password(settings.SEED_SUPER_ADMIN_PASSWORD),
-        full_name="Global Super Admin", role="superadmin",
-        is_active=True, is_superuser=True,
-    ))
+    """Seed platform superadmins (no tenant). Idempotent."""
+    admins = (
+        ("pesaa.customer@gmail.com", "Global Super Admin"),
+        ("huzacarenetwork@gmail.com", "Global Super Admin"),
+    )
+    for email, full_name in admins:
+        existing = (await session.execute(
+            select(User).where(User.email == email)
+        )).scalar_one_or_none()
+        if existing:
+            if existing.tenant_id is not None or existing.role != "superadmin" or not existing.is_superuser:
+                raise ValueError(f"Seed platform admin email is already assigned to another account: {email}")
+            continue
+        session.add(User(
+            tenant_id=None, email=email,
+            hashed_password=hash_password(settings.SEED_SUPER_ADMIN_PASSWORD),
+            full_name=full_name, role="superadmin",
+            is_active=True, is_superuser=True,
+        ))
     await session.commit()
-    log.info("seed.superadmin_complete")
+    log.info("seed.platform_superadmins_complete", extra={"_extra_fields": {"count": len(admins)}})
 
 
 async def main() -> None:
