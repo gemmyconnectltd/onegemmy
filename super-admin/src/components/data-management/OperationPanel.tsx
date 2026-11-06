@@ -18,11 +18,11 @@ const FIELDS: Record<string, { key: string; label: string; type?: string }[]> = 
 };
 
 /** Choose what to do with the selected records and set it up. Nothing runs from here: the next step is a preview of the exact impact. */
-export function OperationPanel({ info, sel, count, filters, tenantId, salespeople, busy, error, onPrepare }: {
-  info: DmModuleInfo; sel: Sel; count: number; filters: DmFilters; tenantId: string; salespeople: { id: string; name: string }[]; busy: boolean; error: string | null;
+export function OperationPanel({ initialOp, info, sel, count, filters, tenantId, salespeople, busy, error, onPrepare }: {
+  initialOp?: DmOperation; info: DmModuleInfo; sel: Sel; count: number; filters: DmFilters; tenantId: string; salespeople: { id: string; name: string }[]; busy: boolean; error: string | null;
   onPrepare: (operation: DmOperation, payload: Record<string, unknown>) => void;
 }) {
-  const [op, setOp] = useState<DmOperation | null>(null);
+  const [op, setOp] = useState<DmOperation | null>(initialOp ?? null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [action, setAction] = useState<"salesperson" | "notes" | "void">("notes");
   const [person, setPerson] = useState("");

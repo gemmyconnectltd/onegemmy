@@ -7,6 +7,6 @@ import { PageLoader } from "@/components/ui/PageLoader";
 
 function Content() {
   const tenant = useSearchParams().get("tenant");
-  return tenant ? <Recovery tenantId={tenant} /> : <BusinessPicker />;
+  return tenant ? <Recovery tenantId={tenant} /> : <BusinessPicker hrefFor={(id) => `/data-management/recovery?tenant=${id}`} />;
 }
 export default function RecoveryPage() { return <Suspense fallback={<PageLoader />}><Content /></Suspense>; }

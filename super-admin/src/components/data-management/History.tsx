@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { OP_LABEL, type DmHistoryFilters, type DmOperation, type DmStatus } from "@/lib/api";
 import { useDmHistory, useDmMe } from "@/lib/api/hooks";
@@ -17,7 +18,8 @@ import { errorText, StatusBadge, STATUS_LABEL } from "./common";
 export function History({ tenantId }: { tenantId?: string }) {
   const me = useDmMe().data;
   const [page, setPage] = useState(1);
-  const [f, setF] = useState<DmHistoryFilters>({ tenant_id: tenantId });
+  const initialStatus = useSearchParams().get("status") ?? undefined;
+  const [f, setF] = useState<DmHistoryFilters>({ tenant_id: tenantId, status: initialStatus });
   const q = useDmHistory(page, f);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [batch, setBatch] = useState(false);

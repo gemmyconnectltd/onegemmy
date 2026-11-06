@@ -7,6 +7,6 @@ import { PageLoader } from "@/components/ui/PageLoader";
 
 function Content() {
   const tenant = useSearchParams().get("tenant");
-  return tenant ? <CloseWizard tenantId={tenant} /> : <BusinessPicker />;
+  return tenant ? <CloseWizard tenantId={tenant} /> : <BusinessPicker hrefFor={(id) => `/data-management/close?tenant=${id}`} />;
 }
 export default function ClosePage() { return <Suspense fallback={<PageLoader />}><Content /></Suspense>; }

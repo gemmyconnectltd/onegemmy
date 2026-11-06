@@ -11,6 +11,11 @@ export const OP_HINT: Record<DmOperation, string> = {
 };
 
 export interface DmBusiness { id: string; name: string; slug: string; logo_url: string | null; status: string; subscription: string; timezone?: string; currency?: string }
+export interface DmBusinessRow extends DmBusiness { plan: string | null; country: string | null; users: number; branches: number; created_at: string }
+export interface DmBusinessQuery { page: number; page_size: number; search?: string; status?: string; plan?: string; country?: string; sort?: string; descending?: boolean }
+export interface DmSummary { businesses: number | null; pending_requests: number | null; awaiting_approval: number | null; operations_30d: number | null; finished_30d: number | null; success_rate: number | null }
+export interface DmDayActivity { date: string; timezone: string; modules: { module: string; label: string; group: string; date_type: string; date_label: string; count: number; archive: boolean; delete: boolean }[] }
+export interface DmRequestQuery { page?: number; tenant_id?: string; module?: string; from_date?: string; to_date?: string }
 export interface DmModuleCount { key: string; label: string; group: string; noun: string; count: number; operations: DmOperation[] }
 export interface DmColumn { key: string; label: string; align: string; kind: string }
 export interface DmModuleInfo {
@@ -56,10 +61,7 @@ export interface DmBusinessRequest {
   reason: string;
   requested_by: string | null;
   created_at: string;
-  /** Requests asked for together (one date range, several modules) share this id. */
-  batch_id: string | null;
 }
-export interface DmBatchResult { request_id: string; module: string; operation?: { id: string; reference: string; summary: { selected: number; eligible: number; blocked: number } }; empty?: boolean; message?: string; error?: string }
 
 const B = "/admin/data-management";
 
@@ -67,7 +69,11 @@ export const dmApi = {
   me: () => request<SingleResponse<{ id: string; permissions: string[]; labels: Record<string, string>; all: string[]; require_second_approver: boolean }>>(`${B}/me`),
   settings: () => request<SingleResponse<{ require_second_approver: boolean }>>(`${B}/settings`),
   saveSettings: (require_second_approver: boolean) => request<SingleResponse<{ require_second_approver: boolean }>>(`${B}/settings`, { method: "PUT", body: JSON.stringify({ require_second_approver }) }),
-  businesses: (page = 1, search?: string) => request<PaginatedResponse<DmBusiness>>(`${B}/businesses${qs({ page, page_size: 20, search })}`),
+  businesses: (q: DmBusinessQuery) => request<PaginatedResponse<DmBusinessRow>>(`${B}/businesses${qs({ ...q, descending: q.descending ? "true" : undefined })}`),
+  facets: () => request<SingleResponse<{ plans: string[]; countries: string[]; statuses: string[] }>>(`${B}/businesses/facets`),
+  meta: () => request<SingleResponse<{ operations: Record<string, string>; modules: { key: string; label: string; group: string }[] }>>(`${B}/meta`),
+  summary: () => request<SingleResponse<DmSummary>>(`${B}/summary`),
+  dayActivity: (tenantId: string, date: string) => request<SingleResponse<DmDayActivity>>(`${B}/businesses/${tenantId}/day-activity${qs({ date })}`),
   business: (id: string) => request<SingleResponse<DmBusiness>>(`${B}/businesses/${id}`),
   modules: (tenantId: string) => request<SingleResponse<DmModuleCount[]>>(`${B}/businesses/${tenantId}/modules`),
   moduleInfo: (module: string) => request<SingleResponse<DmModuleInfo>>(`${B}/modules/${module}`),
@@ -89,10 +95,8 @@ export const dmApi = {
     request<SingleResponse<{ results: DmBatchRun[] }>>(`${B}/operations/approve-and-run-batch`, { method: "POST", body: JSON.stringify({ ids, phrase }) }),
   cancel: (id: string) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/cancel`, { method: "POST" }),
   history: (page = 1, f: DmHistoryFilters = {}) => request<PaginatedResponse<DmOperationRecord>>(`${B}/operations${qs({ page, page_size: 25, ...f, include_drafts: f.include_drafts ? "true" : undefined })}`),
-  requests: (page = 1, tenant_id?: string) => request<PaginatedResponse<DmBusinessRequest>>(`${B}/requests${qs({ page, page_size: 20, tenant_id })}`),
+  requests: (q: DmRequestQuery = {}) => request<PaginatedResponse<DmBusinessRequest>>(`${B}/requests${qs({ page: 1, ...q, page_size: 20 })}`),
   prepareRequest: (id: string) => request<SingleResponse<{ request_id: string; operation: DmOperationRecord }>>(`${B}/requests/${id}/prepare`, { method: "POST" }),
-  prepareBatch: (batchId: string) => request<SingleResponse<{ batch_id: string; results: DmBatchResult[] }>>(`${B}/requests/batch/${batchId}/prepare`, { method: "POST" }),
-  rejectBatch: (batchId: string, note: string) => request<SingleResponse<{ batch_id: string; declined: number }>>(`${B}/requests/batch/${batchId}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
   rejectRequest: (id: string, note: string) => request<SingleResponse<{ id: string; status: string }>>(`${B}/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ note }) }),
   recovery: (tenantId: string) => request<SingleResponse<DmRecovery>>(`${B}/businesses/${tenantId}/recovery`),
   savedFilters: (module?: string) => request<SingleResponse<DmSavedFilter[]>>(`${B}/saved-filters${qs({ module })}`),

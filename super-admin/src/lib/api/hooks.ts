@@ -3,7 +3,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData, type UseMutationOptions } from "@tanstack/react-query";
 import { adminApi, currencyApi, aiApi, dmApi } from "@/lib/api";
-import type { DmFilters, DmHistoryFilters, DmOperation, DmSelection } from "@/lib/api";
+import type { DmBusinessQuery, DmFilters, DmHistoryFilters, DmOperation, DmRequestQuery, DmSelection } from "@/lib/api";
 import type {
   AdminUserFilters, EngagementCategory, EngagementQuery, TenantRecordFilters, TenantRecordSection, UsagePeriod,
 } from "@/lib/api";
@@ -310,7 +310,11 @@ export const useSaveTeamRolePermissions = mutation(({tenantId,roleId,data}:{tena
 // ── Data Management ──────────────────────────────────────────────────────────
 const DM = ["data-management"] as const;
 export const useDmMe = () => useQ([...DM, "me"], () => dmApi.me(), (r) => r.data, { staleTime: 60_000 });
-export const useDmBusinesses = (page: number, search: string, opts?: QueryOpts) => useQ([...DM, "businesses", page, search], () => dmApi.businesses(page, search), (r) => r.data, opts);
+export const useDmBusinesses = (q: DmBusinessQuery, opts?: QueryOpts) => useQ([...DM, "businesses", q], () => dmApi.businesses(q), (r) => r.data, opts);
+export const useDmFacets = (opts?: QueryOpts) => useQ([...DM, "facets"], () => dmApi.facets(), (r) => r.data, { staleTime: 5 * 60_000, ...opts });
+export const useDmMeta = (opts?: QueryOpts) => useQ([...DM, "meta"], () => dmApi.meta(), (r) => r.data, { staleTime: 10 * 60_000, ...opts });
+export const useDmSummary = (opts?: QueryOpts) => useQ([...DM, "summary"], () => dmApi.summary(), (r) => r.data, { staleTime: 30_000, ...opts });
+export const useDmDayActivity = (tenantId: string | undefined, date: string) => useQ([...DM, "day", tenantId, date], () => dmApi.dayActivity(tenantId!, date), (r) => r.data, { enabled: !!tenantId && !!date });
 export const useDmBusiness = (id: string | undefined) => useQ([...DM, "business", id], () => dmApi.business(id!), (r) => r.data, { enabled: !!id });
 export const useDmModules = (tenantId: string | undefined) => useQ([...DM, "modules", tenantId], () => dmApi.modules(tenantId!), (r) => r.data, { enabled: !!tenantId });
 export const useDmModuleInfo = (module: string | undefined) => useQ([...DM, "module", module], () => dmApi.moduleInfo(module!), (r) => r.data, { enabled: !!module, staleTime: 5 * 60_000 });
@@ -325,14 +329,12 @@ export const useDmOperation = (id: string | undefined) => useQuery({
 });
 export const useDmItems = (id: string | undefined, page: number, outcome?: string) => useQ([...DM, "items", id, page, outcome ?? ""], () => dmApi.items(id!, page, outcome), (r) => r.data, { enabled: !!id });
 export const useDmHistory = (page: number, f: DmHistoryFilters, opts?: QueryOpts) => useQ([...DM, "history", page, f], () => dmApi.history(page, f), (r) => r.data, opts);
-export const useDmRequests = (page = 1, tenantId?: string) => useQ([...DM, "requests", page, tenantId], () => dmApi.requests(page, tenantId), (r) => r.data);
+export const useDmRequests = (q: DmRequestQuery = {}) => useQ([...DM, "requests", q], () => dmApi.requests(q), (r) => r.data);
 export const useDmRecovery = (tenantId: string | undefined) => useQ([...DM, "recovery", tenantId], () => dmApi.recovery(tenantId!), (r) => r.data, { enabled: !!tenantId });
 export const useDmSavedFilters = (module?: string) => useQ([...DM, "saved", module ?? ""], () => dmApi.savedFilters(module), (r) => r.data);
 export const useDmPrepare = mutation((v: { tenantId: string; module: string; operation: DmOperation; selection?: DmSelection | null; payload?: Record<string, unknown> }) =>
   dmApi.prepare(v.tenantId, { module: v.module, operation: v.operation, selection: v.selection, payload: v.payload }), [[...DM, "history"]]);
 export const useDmPrepareRequest = mutation((id: string) => dmApi.prepareRequest(id), [[...DM]]);
-export const useDmPrepareBatch = mutation((batchId: string) => dmApi.prepareBatch(batchId), [[...DM]]);
-export const useDmRejectBatch = mutation((v: { batchId: string; note: string }) => dmApi.rejectBatch(v.batchId, v.note), [[...DM]]);
 export const useDmRejectRequest = mutation((v: { id: string; note: string }) => dmApi.rejectRequest(v.id, v.note), [[...DM]]);
 export const useDmSubmit = mutation((v: { id: string; reason: string; attest?: boolean }) => dmApi.submit(v.id, v.reason, v.attest), [[...DM]]);
 export const useDmDecide = mutation((v: { id: string; approve: boolean; note?: string }) => dmApi.decide(v.id, v.approve, v.note), [[...DM]]);

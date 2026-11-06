@@ -3,6 +3,7 @@
 Every destructive step here runs against disposable fixtures created inside the test."""
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -601,5 +602,51 @@ async def test_bulk_approve_and_run_needs_one_typed_confirmation_and_respects_th
             assert again.status_code == 409  # only operations still waiting for approval can be chosen
             for oid in ids:
                 assert (await db.get(DataOperation, uuid.UUID(oid), populate_existing=True)).self_approved is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_overview_summary_directory_filters_and_day_activity_are_real_and_tenant_scoped(db, monkeypatch):
+    tenant, owner, sold_to, spare, product, unsold, paid, draft = await world(db, monkeypatch)
+    tenant.country, tenant.subscription_plan = "Rwanda", "pro"
+    await db.flush()
+    solo = await platform_admin(db, "Solo", list(ALL))
+    bare = await platform_admin(db, "Bare", [])
+    viewer = await platform_admin(db, "Viewer", ["data:view"])
+    try:
+        async with as_admin(bare) as c:
+            assert (await c.get(f"{DM}/summary")).status_code == 403
+        async with as_admin(viewer) as c:
+            seen = (await c.get(f"{DM}/summary")).json()["data"]
+            assert seen["businesses"] >= 1 and seen["operations_30d"] is None and seen["pending_requests"] is None  # only what this account may see
+        async with as_admin(solo) as c:
+            before = (await c.get(f"{DM}/summary")).json()["data"]
+            plan = await run(c, tenant, "customers", "delete", selection(spare.id))
+            await c.post(f"{DM}/operations/{plan['id']}/submit", json={"reason": "This customer was created by mistake"})
+            after = (await c.get(f"{DM}/summary")).json()["data"]
+            assert after["operations_30d"] == before["operations_30d"] + 1 and after["awaiting_approval"] == before["awaiting_approval"] + 1
+            done = (await c.post(f"{DM}/operations/{plan['id']}/approve-and-run", json={"confirm": _confirm("Kigali Traders", plan)})).json()["data"]
+            assert done["status"] == "Completed"
+            end = (await c.get(f"{DM}/summary")).json()["data"]
+            assert end["finished_30d"] == before["finished_30d"] + 1 and end["success_rate"] is not None and 0 <= end["success_rate"] <= 100
+
+            facets = (await c.get(f"{DM}/businesses/facets")).json()["data"]
+            assert "pro" in facets["plans"] and "Rwanda" in facets["countries"]
+            listing = (await c.get(f"{DM}/businesses", params={"search": "kigali traders", "plan": "pro", "country": "Rwanda", "status": "Active"})).json()["data"]
+            row = next(b for b in listing["items"] if b["id"] == str(tenant.id))
+            assert row["plan"] == "pro" and row["country"] == "Rwanda" and row["users"] >= 1 and row["branches"] >= 0 and row["created_at"]
+            assert (await c.get(f"{DM}/businesses", params={"search": "kigali traders", "plan": "enterprise-nobody"})).json()["data"]["items"] == []
+            assert (await c.get(f"{DM}/businesses", params={"search": str(tenant.id)[:8]})).json()["data"]["items"]  # by identifier
+            small = (await c.get(f"{DM}/businesses", params={"page_size": 1, "sort": "created_at", "descending": "true"})).json()["data"]
+            assert len(small["items"]) == 1 and small["total"] >= 1
+            assert (await c.get(f"{DM}/businesses", params={"sort": "hashed_password"})).status_code == 422
+
+            today = datetime.now(ZoneInfo("Africa/Kigali")).date().isoformat()
+            day = (await c.get(f"{DM}/businesses/{tenant.id}/day-activity", params={"date": today})).json()["data"]
+            by = {m["module"]: m for m in day["modules"]}
+            assert day["timezone"] == "Africa/Kigali" and by["sales"]["count"] >= 1 and by["sales"]["delete"] in (True, False)
+            other = await c.get(f"{DM}/businesses/{uuid.uuid4()}/day-activity", params={"date": today})
+            assert other.status_code == 404
     finally:
         app.dependency_overrides.clear()

@@ -1,9 +1,9 @@
 "use client";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Database, History, LifeBuoy, ListChecks } from "lucide-react";
-import type { DmFilters, DmOperation } from "@/lib/api";
+import { OP_LABEL, type DmFilters, type DmOperation } from "@/lib/api";
 import { useDmBusiness, useDmHistory, useDmMe, useDmModuleInfo, useDmModules, useDmFilterOptions, useDmPrepare } from "@/lib/api/hooks";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -20,15 +20,19 @@ import { BusinessRequestQueue } from "./BusinessRequestQueue";
  *  The same component serves Data Management and Businesses → Data Management, so there is only one feature. */
 export function Workspace({ tenantId }: { tenantId: string }) {
   const router = useRouter();
+  const params = useSearchParams();
+  const startOp = (["archive", "delete", "clean_test", "correct"] as const).find((o) => o === params.get("op"));
+  const startFrom = params.get("from"), startTo = params.get("to"), startModule = params.get("module");
   const me = useDmMe();
   const business = useDmBusiness(tenantId);
   const modules = useDmModules(tenantId);
-  const [moduleKey, setModuleKey] = useState<string>("sales");
+  const [moduleKey, setModuleKey] = useState<string>(startModule ?? "sales");
   const infoQuery = useDmModuleInfo(moduleKey);
   // While a new module's description loads, the previous one is still around: never use it for the module just chosen.
   const info = { ...infoQuery, data: infoQuery.data?.key === moduleKey ? infoQuery.data : undefined };
   const options = useDmFilterOptions(tenantId, moduleKey).data;
-  const [filtersByModule, setFiltersByModule] = useState<Record<string, DmFilters>>({});
+  const [filtersByModule, setFiltersByModule] = useState<Record<string, DmFilters>>(() =>
+    startModule && startFrom && startTo ? { [startModule]: { date_type: params.get("date_type") ?? undefined, preset: "custom", from: startFrom, to: startTo } } : {});
   const [sel, setSel] = useState<Sel>(NONE);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -84,8 +88,10 @@ export function Workspace({ tenantId }: { tenantId: string }) {
 
       {(perms.includes("data:preview") || perms.includes("data:approve")) && <BusinessRequestQueue tenantId={tenantId} canPreview={perms.includes("data:preview")} canReject={perms.includes("data:approve")} />}
 
+      {startOp && <Notice tone="blue"><strong>{OP_LABEL[startOp]}.</strong> Choose a module, then the records, and prepare a preview. Nothing changes until the preview has been checked{startOp === "archive" ? "" : " and approved"}.</Notice>}
+
       {info.data && (perms.includes("data:preview")
-        ? <OperationPanel info={info.data} sel={sel} count={count} filters={filters} tenantId={tenantId} salespeople={options?.salesperson_id ?? options?.created_by ?? []} busy={prepare.isPending} error={error} onPrepare={onPrepare} />
+        ? <OperationPanel initialOp={startOp} info={info.data} sel={sel} count={count} filters={filters} tenantId={tenantId} salespeople={options?.salesperson_id ?? options?.created_by ?? []} busy={prepare.isPending} error={error} onPrepare={onPrepare} />
         : <Notice tone="amber">You can look at records, but you need the Preview operations permission to plan anything.</Notice>)}
 
       <div className="@container">

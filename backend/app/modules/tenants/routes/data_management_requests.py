@@ -17,9 +17,7 @@ router = APIRouter(tags=["Business Data Management Requests"])
 
 
 class CreateRequest(BaseModel):
-    # One module with its own date type, or several modules asked for together over the same dates (each uses its own main date).
-    module: str | None = Field(default=None, min_length=1, max_length=30)
-    modules: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    module: str = Field(min_length=1, max_length=30)
     date_type: str | None = Field(default=None, max_length=30)
     from_date: date
     to_date: date
@@ -62,7 +60,6 @@ def _dump(row: DataManagementRequest, operation_status: str | None = None, opera
         "review_note": row.review_note,
         "operation_id": str(row.operation_id) if row.operation_id else None,
         "operation_reference": operation_reference,
-        "batch_id": str(row.batch_id) if row.batch_id else None,
     }
 
 
@@ -84,10 +81,6 @@ async def available_modules(current_user: CurrentUser):
     return success_response(data=modules, message="Requestable modules retrieved")
 
 
-def _default_date_type(spec) -> str:
-    return "transaction" if "transaction" in spec.dates else next(iter(spec.dates))
-
-
 @router.post("/data-management-requests", dependencies=[Depends(_require_business_owner)])
 async def create_request(body: CreateRequest, current_user: CurrentUser, db: DbSession):
     tenant_id = _owner_tenant(current_user)
@@ -96,37 +89,27 @@ async def create_request(body: CreateRequest, current_user: CurrentUser, db: DbS
     reason = body.reason.strip()
     if len(reason) < 10:
         raise ValidationError("The reason must be at least 10 characters")
-    if bool(body.module) == bool(body.modules):
-        raise ValidationError("Choose one module, or a list of modules")
-    keys = list(dict.fromkeys([body.module] if body.module else body.modules or []))
-    batch_id = uuid.uuid4() if body.modules else None
-    created: list[DataManagementRequest] = []
-    for key in keys:  # validate every module first: a batch is all or nothing
-        spec = spec_for(key)
-        if not spec.cap("delete").supported:
-            raise ValidationError(f"{spec.label} does not support safe record removal")
-        if not spec.dates:
-            raise ValidationError(f"{spec.label} cannot be filtered by date")
-        date_type = (body.date_type if body.module else None) or _default_date_type(spec)
-        if date_type not in spec.dates:
-            raise ValidationError(f"{spec.label} has no '{date_type}' date")
-        filters = {"date_type": date_type, "preset": "custom", "from": body.from_date.isoformat(), "to": body.to_date.isoformat()}
-        created.append(DataManagementRequest(tenant_id=tenant_id, module=spec.key, filters=filters, reason=reason, requested_by=current_user.id,
-                                             requested_by_name=current_user.full_name or current_user.email, batch_id=batch_id))
-    db.add_all(created)
+    spec = spec_for(body.module)
+    if not spec.cap("delete").supported:
+        raise ValidationError(f"{spec.label} does not support safe record removal")
+    if not spec.dates:
+        raise ValidationError(f"{spec.label} cannot be filtered by date")
+    date_type = body.date_type or ("transaction" if "transaction" in spec.dates else next(iter(spec.dates)))
+    if date_type not in spec.dates:
+        raise ValidationError(f"{spec.label} has no '{date_type}' date")
+    filters = {"date_type": date_type, "preset": "custom", "from": body.from_date.isoformat(), "to": body.to_date.isoformat()}
+    request = DataManagementRequest(tenant_id=tenant_id, module=spec.key, filters=filters, reason=reason, requested_by=current_user.id,
+                                    requested_by_name=current_user.full_name or current_user.email)
+    db.add(request)
     await db.flush()
-    for request in created:
-        await record_audit(
-            db, tenant_id=tenant_id, actor_user_id=current_user.id, actor_name=current_user.full_name, action="data_management.requested",
-            entity_type="data_management_request", entity_id=str(request.id), summary=f"Requested platform review to remove {spec_for(request.module).label} records",
-            changes={"module": request.module, "filters": request.filters, "reason": request.reason, "batch_id": str(batch_id) if batch_id else None},
-        )
+    await record_audit(
+        db, tenant_id=tenant_id, actor_user_id=current_user.id, actor_name=current_user.full_name, action="data_management.requested",
+        entity_type="data_management_request", entity_id=str(request.id), summary=f"Requested platform review to remove {spec.label} records",
+        changes={"module": spec.key, "filters": filters, "reason": reason},
+    )
     await db.commit()
-    for request in created:
-        await db.refresh(request)
-    if body.modules:
-        return success_response(data={"batch_id": str(batch_id), "requests": [_dump(r) for r in created]}, message=f"{len(created)} requests sent for platform review", status_code=201)
-    return success_response(data=_dump(created[0]), message="Request sent for platform review", status_code=201)
+    await db.refresh(request)
+    return success_response(data=_dump(request), message="Request sent for platform review", status_code=201)
 
 
 @router.get("/data-management-requests", dependencies=[Depends(_require_business_owner)])

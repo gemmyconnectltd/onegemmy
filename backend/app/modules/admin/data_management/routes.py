@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import String, func, select
 
 from app.core.deps import DbSession, SuperUser
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
@@ -118,18 +118,97 @@ async def meta(admin: SuperUser):
     return success_response(data={"operations": OP_LABEL, "modules": [{"key": m.key, "label": m.label, "group": m.group} for m in MODULES.values()]}, message="Data Management retrieved")
 
 
-@router.get("/businesses")
-async def businesses(admin: SuperUser, db: DbSession, page: PageQuery, search: str | None = Query(None, max_length=100)):
-    """Businesses to choose from: just enough to pick one. Nothing about its records is shown until it is chosen."""
+BUSINESS_SORTS = ("name", "plan", "country", "users", "branches", "created_at", "status")
+
+
+def _status_of(t) -> str:
+    return "Archived" if t.archived_at else "Active" if t.is_active else "Suspended"
+
+
+@router.get("/summary")
+async def summary(admin: SuperUser, db: DbSession):
+    """Real numbers for the Data Management overview. A figure that cannot be worked out is null, never invented."""
+    if not perms.granted(admin):
+        raise ForbiddenError("Data Management permission required")
+    from datetime import UTC, datetime, timedelta
+
+    from app.modules.tenants.models import Tenant
+    since = datetime.now(UTC) - timedelta(days=30)
+    can_see_ops = perms.has(admin, perms.HISTORY)
+    out: dict[str, Any] = {"businesses": None, "pending_requests": None, "awaiting_approval": None, "operations_30d": None, "finished_30d": None, "success_rate": None}
+    if perms.has(admin, perms.VIEW):
+        out["businesses"] = (await db.execute(select(func.count()).select_from(Tenant))).scalar_one()
+    if perms.has(admin, perms.PREVIEW) or perms.has(admin, perms.APPROVE):
+        out["pending_requests"] = (await db.execute(select(func.count()).select_from(DataManagementRequest).where(DataManagementRequest.status == "Submitted", DataManagementRequest.operation_id.is_(None)))).scalar_one()
+    if can_see_ops or perms.has(admin, perms.APPROVE):
+        out["awaiting_approval"] = (await db.execute(select(func.count()).select_from(DataOperation).where(DataOperation.status == "PendingApproval"))).scalar_one()
+    if can_see_ops:
+        rows = dict((await db.execute(select(DataOperation.status, func.count()).where(DataOperation.submitted_at.is_not(None), DataOperation.created_at >= since).group_by(DataOperation.status))).all())
+        out["operations_30d"] = sum(rows.values())
+        done = rows.get("Completed", 0) + rows.get("PartiallyCompleted", 0) + rows.get("Failed", 0)
+        out["finished_30d"] = done
+        out["success_rate"] = round(100 * rows.get("Completed", 0) / done, 1) if done else None  # nothing has finished yet: no rate to show
+    return success_response(data=out, message="Summary retrieved")
+
+
+@router.get("/businesses/facets")
+async def business_facets(admin: SuperUser, db: DbSession):
     perms.require(admin, perms.VIEW)
     from app.modules.tenants.models import Tenant
-    stmt = select(Tenant.id, Tenant.name, Tenant.slug, Tenant.logo_url, Tenant.is_active, Tenant.subscription_status)
-    if search:
-        stmt = stmt.where(Tenant.name.ilike(f"%{search}%") | Tenant.slug.ilike(f"%{search}%"))
-    total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()
-    rows = (await db.execute(stmt.order_by(Tenant.name).offset(page.offset).limit(page.limit))).all()
-    return paginated_response(items=[{"id": str(r.id), "name": r.name, "slug": r.slug, "logo_url": r.logo_url, "status": "Active" if r.is_active else "Suspended", "subscription": r.subscription_status} for r in rows],
+    plans = (await db.execute(select(Tenant.subscription_plan).where(Tenant.subscription_plan.is_not(None)).distinct().order_by(Tenant.subscription_plan))).scalars().all()
+    countries = (await db.execute(select(Tenant.country).where(Tenant.country.is_not(None), Tenant.country != "").distinct().order_by(Tenant.country))).scalars().all()
+    return success_response(data={"plans": plans, "countries": countries, "statuses": ["Active", "Suspended", "Archived"]}, message="Filters retrieved")
+
+
+@router.get("/businesses")
+async def businesses(admin: SuperUser, db: DbSession, page: PageQuery, search: str | None = Query(None, max_length=100), status: str | None = Query(None, pattern="^(Active|Suspended|Archived)$"),
+                     plan: str | None = Query(None, max_length=50), country: str | None = Query(None, max_length=100), sort: str = Query("name"), descending: bool = False):
+    """Businesses to choose from, filtered, sorted and paged on the server. Nothing about a business's records is shown until it is chosen."""
+    perms.require(admin, perms.VIEW)
+    from app.modules.tenants.models import Branch, Tenant, User
+    if sort not in BUSINESS_SORTS:
+        raise ValidationError("Unknown sort column")
+    users = select(func.count()).select_from(User).where(User.tenant_id == Tenant.id).correlate(Tenant).scalar_subquery()
+    branches = select(func.count()).select_from(Branch).where(Branch.tenant_id == Tenant.id).correlate(Tenant).scalar_subquery()
+    stmt = select(Tenant, users.label("users"), branches.label("branches"))
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        stmt = stmt.where(Tenant.name.ilike(term) | Tenant.slug.ilike(term) | func.cast(Tenant.id, String).ilike(term))
+    if status == "Archived":
+        stmt = stmt.where(Tenant.archived_at.is_not(None))
+    elif status == "Active":
+        stmt = stmt.where(Tenant.archived_at.is_(None), Tenant.is_active.is_(True))
+    elif status == "Suspended":
+        stmt = stmt.where(Tenant.archived_at.is_(None), Tenant.is_active.is_(False))
+    if plan:
+        stmt = stmt.where(Tenant.subscription_plan == plan)
+    if country:
+        stmt = stmt.where(Tenant.country == country)
+    total = (await db.execute(select(func.count()).select_from(stmt.order_by(None).subquery()))).scalar_one()
+    column = {"name": func.lower(Tenant.name), "plan": Tenant.subscription_plan, "country": Tenant.country, "users": users, "branches": branches, "created_at": Tenant.created_at,
+              "status": Tenant.is_active}[sort]
+    order = column.desc() if descending else column.asc()
+    rows = (await db.execute(stmt.order_by(order, Tenant.id).offset(page.offset).limit(page.limit))).all()
+    return paginated_response(items=[{"id": str(t.id), "name": t.name, "slug": t.slug, "logo_url": t.logo_url, "status": _status_of(t), "subscription": t.subscription_status, "plan": t.subscription_plan,
+                                      "country": t.country, "users": u, "branches": br, "created_at": t.created_at} for t, u, br in rows],
                               total=total, page=page.page, page_size=page.page_size, message="Businesses retrieved")
+
+
+@router.get("/businesses/{tenant_id}/day-activity")
+async def day_activity(tenant_id: uuid.UUID, admin: SuperUser, db: DbSession, day: date = Query(alias="date")):
+    """What the business recorded on one calendar day (in its own time zone), module by module: the starting point of Reset Business Day."""
+    perms.require(admin, perms.VIEW)
+    tenant = await explorer.tenant_of(db, tenant_id)
+    out = []
+    for m in MODULES.values():
+        if not m.dates:
+            continue
+        date_type = "transaction" if "transaction" in m.dates else next(iter(m.dates))
+        filters = {"date_type": date_type, "preset": "custom", "from": day.isoformat(), "to": day.isoformat()}
+        data = await explorer.list_records(db, tenant, m.key, filters, page=1, page_size=1, sort=None, descending=True)
+        out.append({"module": m.key, "label": m.label, "group": m.group, "date_type": date_type, "date_label": m.dates[date_type][1], "count": data["total"],
+                    "archive": m.cap("archive").supported, "delete": m.cap("delete").supported})
+    return success_response(data={"date": day.isoformat(), "timezone": tenant.timezone, "modules": out}, message="Day activity retrieved")
 
 
 @router.get("/businesses/{tenant_id}")
@@ -183,7 +262,8 @@ async def prepare(tenant_id: uuid.UUID, body: Prepare, admin: SuperUser, db: DbS
 
 
 @router.get("/requests", dependencies=[Depends(_require_request_queue_access)])
-async def business_requests(admin: SuperUser, db: DbSession, page: PageQuery, tenant_id: uuid.UUID | None = None):
+async def business_requests(admin: SuperUser, db: DbSession, page: PageQuery, tenant_id: uuid.UUID | None = None, module: str | None = Query(None, max_length=30),
+                            from_date: date | None = None, to_date: date | None = None):
     if not (perms.has(admin, perms.PREVIEW) or perms.has(admin, perms.APPROVE)):
         raise ForbiddenError("Data Management permission required")
     stmt = select(DataManagementRequest).where(
@@ -192,6 +272,12 @@ async def business_requests(admin: SuperUser, db: DbSession, page: PageQuery, te
     )
     if tenant_id:
         stmt = stmt.where(DataManagementRequest.tenant_id == tenant_id)
+    if module:
+        stmt = stmt.where(DataManagementRequest.module == module)
+    if from_date:
+        stmt = stmt.where(func.date(DataManagementRequest.created_at) >= from_date)
+    if to_date:
+        stmt = stmt.where(func.date(DataManagementRequest.created_at) <= to_date)
     total = await db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows = (await db.execute(
         stmt.order_by(DataManagementRequest.created_at.asc()).offset(page.offset).limit(page.limit)
@@ -212,21 +298,12 @@ async def business_requests(admin: SuperUser, db: DbSession, page: PageQuery, te
             "reason": row.reason,
             "requested_by": row.requested_by_name,
             "created_at": row.created_at,
-            "batch_id": str(row.batch_id) if row.batch_id else None,
         } for row in rows],
         total=total or 0,
         page=page.page,
         page_size=page.page_size,
         message="Business requests retrieved",
     )
-
-
-# Records that others depend on come last: customers and products are referenced by sales, purchases and expenses.
-BATCH_ORDER = ("sales", "purchases", "expenses", "customers", "products")
-
-
-def _batch_rank(module: str) -> int:
-    return BATCH_ORDER.index(module) if module in BATCH_ORDER else len(BATCH_ORDER)
 
 
 async def _prepare_request_row(db, admin, request: DataManagementRequest) -> dict:
@@ -252,44 +329,21 @@ async def _decline_request_row(db, admin, request: DataManagementRequest, note: 
     )
 
 
-async def _open_requests(db, *, request_id: uuid.UUID | None = None, batch_id: uuid.UUID | None = None) -> list[DataManagementRequest]:
-    stmt = select(DataManagementRequest).where(DataManagementRequest.status == "Submitted", DataManagementRequest.operation_id.is_(None)).with_for_update()
-    stmt = stmt.where(DataManagementRequest.id == request_id) if request_id else stmt.where(DataManagementRequest.batch_id == batch_id)
-    rows = list((await db.execute(stmt)).scalars().all())
-    if not rows:
+async def _open_request(db, request_id: uuid.UUID) -> DataManagementRequest:
+    request = (await db.execute(select(DataManagementRequest).where(
+        DataManagementRequest.id == request_id, DataManagementRequest.status == "Submitted", DataManagementRequest.operation_id.is_(None)).with_for_update())).scalar_one_or_none()
+    if request is None:
         raise ConflictError("This business request was not found or has already been reviewed")
-    return sorted(rows, key=lambda r: (_batch_rank(r.module), r.created_at))
+    return request
 
 
 @router.post("/requests/{request_id}/prepare", dependencies=[Depends(_require_data_preview)])
 async def prepare_business_request(request_id: uuid.UUID, admin: SuperUser, db: DbSession):
     perms.require(admin, perms.PREVIEW)
-    request = (await _open_requests(db, request_id=request_id))[0]
+    request = await _open_request(db, request_id)
     plan = await _prepare_request_row(db, admin, request)
     await db.commit()
     return success_response(data={"request_id": str(request.id), "operation": plan}, message="Eligibility preview prepared", status_code=201)
-
-
-@router.post("/requests/batch/{batch_id}/prepare", dependencies=[Depends(_require_data_preview)])
-async def prepare_business_request_batch(batch_id: uuid.UUID, admin: SuperUser, db: DbSession):
-    """Prepares every open request of a batch, records others depend on last. One module that cannot be prepared does not stop the rest."""
-    perms.require(admin, perms.PREVIEW)
-    results = []
-    for request in await _open_requests(db, batch_id=batch_id):
-        try:
-            async with db.begin_nested():
-                plan = await _prepare_request_row(db, admin, request)
-            results.append({"request_id": str(request.id), "module": request.module, "operation": {"id": plan["id"], "reference": plan["reference"], "summary": plan["summary"]}})
-        except Exception as exc:  # noqa: BLE001 - reported for this module; the others carry on
-            message = getattr(exc, "message", None) or str(exc)
-            if message == "No records were selected":
-                # Nothing in that date range for this module: close the request with the reason, so it does not sit in the queue forever.
-                await _decline_request_row(db, admin, request, "No records matched this date range, so there was nothing to review.")
-                results.append({"request_id": str(request.id), "module": request.module, "empty": True, "message": "Nothing in this date range"})
-            else:
-                results.append({"request_id": str(request.id), "module": request.module, "error": message})
-    await db.commit()
-    return success_response(data={"batch_id": str(batch_id), "results": results}, message="Eligibility previews prepared", status_code=201)
 
 
 @router.post("/requests/{request_id}/reject", dependencies=[Depends(_require_data_approval)])
@@ -298,23 +352,10 @@ async def reject_business_request(request_id: uuid.UUID, body: RejectRequest, ad
     note = body.note.strip()
     if len(note) < 3:
         raise ValidationError("The decline note must be at least 3 characters")
-    request = (await _open_requests(db, request_id=request_id))[0]
+    request = await _open_request(db, request_id)
     await _decline_request_row(db, admin, request, note)
     await db.commit()
     return success_response(data={"id": str(request.id), "status": request.status, "review_note": request.review_note}, message="Business request declined")
-
-
-@router.post("/requests/batch/{batch_id}/reject", dependencies=[Depends(_require_data_approval)])
-async def reject_business_request_batch(batch_id: uuid.UUID, body: RejectRequest, admin: SuperUser, db: DbSession):
-    perms.require(admin, perms.APPROVE)
-    note = body.note.strip()
-    if len(note) < 3:
-        raise ValidationError("The decline note must be at least 3 characters")
-    rows = await _open_requests(db, batch_id=batch_id)
-    for request in rows:
-        await _decline_request_row(db, admin, request, note)
-    await db.commit()
-    return success_response(data={"batch_id": str(batch_id), "declined": len(rows)}, message="Business requests declined")
 
 
 @router.get("/operations")

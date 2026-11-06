@@ -91,11 +91,8 @@ class DataManagementRequest(UUIDPKMixin, TimestampMixin, Base):
     operation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("data_operations.id", ondelete="SET NULL"))
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"))
     review_note: Mapped[str | None] = mapped_column(Text)
-    # Requests asked for together (one date range, several modules) share a batch id so they can be reviewed together.
-    batch_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
     __table_args__ = (
-        Index("ix_data_management_requests_batch", "batch_id"),
         Index("ix_data_management_requests_tenant_created", "tenant_id", "created_at"),
         Index("ix_data_management_requests_status_created", "status", "created_at"),
     )
