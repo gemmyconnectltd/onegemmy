@@ -25,7 +25,7 @@ export function History({ tenantId }: { tenantId?: string }) {
   const [batch, setBatch] = useState(false);
   const set = (patch: DmHistoryFilters) => { setPage(1); setPicked(new Set()); setF({ ...f, ...patch }); };
   const canBulk = !!me && me.permissions.includes("data:approve") && me.permissions.includes("data:execute");
-  const waiting = (q.data?.items ?? []).filter((o) => o.status === "PendingApproval");
+  const waiting = (q.data?.items ?? []).filter((o) => o.status === "PendingApproval" && o.operation !== "reset_data"); // a reset is always confirmed on its own page
   const chosen = waiting.filter((o) => picked.has(o.id));
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   if (me && !me.permissions.includes("data:history")) return <EmptyState title="You do not have access to Operation History" description="Ask a platform administrator for the View operation history permission." />;
@@ -56,7 +56,7 @@ export function History({ tenantId }: { tenantId?: string }) {
           <thead className="border-b border-border bg-surface/60"><tr>{canBulk && <th scope="col" className={thClass}><span className="sr-only">Select</span></th>}{["Operation", "Business", "Module", "Type", "Requested by", "Approved by", "Date", "Selected", "Affected", "Status"].map((h) => <th key={h} scope="col" className={thClass}>{h}</th>)}</tr></thead>
           <tbody className="divide-y divide-border">{q.data.items.map((o) => (
             <tr key={o.id} className="hover:bg-surface/50">
-              {canBulk && <td className="px-4 py-2.5">{o.status === "PendingApproval" ? <input type="checkbox" aria-label={`Select ${o.reference}`} checked={picked.has(o.id)} onChange={() => toggle(o.id)} /> : null}</td>}
+              {canBulk && <td className="px-4 py-2.5">{o.status === "PendingApproval" && o.operation !== "reset_data" ? <input type="checkbox" aria-label={`Select ${o.reference}`} checked={picked.has(o.id)} onChange={() => toggle(o.id)} /> : null}</td>}
               <td className="px-4 py-2.5 font-mono"><Link href={`/data-management/operations/${o.id}`} className="font-semibold text-accent hover:underline">{o.reference}</Link></td>
               <td className="px-4 py-2.5">{o.tenant_name}</td><td className="px-4 py-2.5 capitalize">{o.module.replace("_", " ")}</td><td className="px-4 py-2.5">{OP_LABEL[o.operation]}</td>
               <td className="px-4 py-2.5">{o.requested_by ?? "—"}</td><td className="px-4 py-2.5">{o.decided_by ?? (o.approval_required ? "—" : "Not required")}{o.self_approved && <Badge tone="violet" className="ml-1.5">Self-approved</Badge>}</td>

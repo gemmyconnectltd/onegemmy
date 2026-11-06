@@ -10,10 +10,11 @@ import { Field, Input, Textarea } from "@/components/ui/Form";
 import { errorText } from "./common";
 
 /** Reverses books entries, payments and stock: shown in red before anything that removes or voids records. */
-export const reversesBooks = (op: Pick<DmOperationRecord, "operation" | "payload">) => ["delete", "clean_test"].includes(op.operation) || (op.operation === "correct" && op.payload?.action === "void");
+export const reversesBooks = (op: Pick<DmOperationRecord, "operation" | "payload">) => ["delete", "clean_test", "reset_data"].includes(op.operation) || (op.operation === "correct" && op.payload?.action === "void");
+export const RESET_WARNING = "This permanently deletes data. A full backup is created first and kept, but there is no automatic restore: it is the only copy of what is deleted.";
 export const REVERSAL_WARNING = "This reverses the books entries, payments and stock that belong to these records. It cannot be undone from here.";
 
-const AFTER: Record<string, string> = { delete: "Removed for good", clean_test: "Removed for good", archive: "Archived (the business can restore them)", correct: "Changed through the module's own workflow", reset: "Books closed through the closing date" };
+const AFTER: Record<string, string> = { reset_data: "Deleted for good (a full backup is stored first)", delete: "Removed for good", clean_test: "Removed for good", archive: "Archived (the business can restore them)", correct: "Changed through the module's own workflow", reset: "Books closed through the closing date" };
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 function BeforeAfter({ op }: { op: DmOperationRecord }) {
@@ -35,16 +36,19 @@ export function ApproveRunDialog({ op, onClose }: { op: DmOperationRecord; onClo
   const needsReason = op.status === "Prepared";
   const [reason, setReason] = useState("");
   const [attest, setAttest] = useState(false);
+  const [ownerReq, setOwnerReq] = useState(false);
   const [business, setBusiness] = useState("");
   const [reference, setReference] = useState("");
   const [key] = useState(() => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())));
   const [error, setError] = useState<string | null>(null);
   const typed = same(business, op.tenant_name) && reference.trim().toUpperCase() === op.reference;
-  const ready = typed && (!needsReason || reason.trim().length >= 10) && (op.operation !== "clean_test" || !needsReason || attest) && op.summary.eligible > 0;
+  const isReset = op.operation === "reset_data";
+  const minReason = isReset ? 20 : 10;
+  const ready = typed && (!needsReason || (reason.trim().length >= minReason && (!isReset || ownerReq))) && (op.operation !== "clean_test" || !needsReason || attest) && op.summary.eligible > 0;
   const danger = reversesBooks(op);
   const go = async () => {
     setError(null);
-    try { await run.mutateAsync({ id: op.id, reason: needsReason ? reason : undefined, attest, key, confirm: { business_name: business, reference } }); onClose(); } catch (e) { setError(errorText(e)); }
+    try { await run.mutateAsync({ id: op.id, reason: needsReason ? reason : undefined, attest, ownerRequest: ownerReq, key, confirm: { business_name: business, reference } }); onClose(); } catch (e) { setError(errorText(e)); }
   };
   return (
     <Drawer open onClose={onClose} side="center" size="md" title="Approve & run"
@@ -58,9 +62,10 @@ export function ApproveRunDialog({ op, onClose }: { op: DmOperationRecord; onClo
           <div><dt className="text-muted">Action</dt><dd className="font-semibold">{OP_LABEL[op.operation]}</dd></div>
         </dl>
         <BeforeAfter op={op} />
-        {danger && <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-[12.5px] font-semibold text-red-700 dark:text-red-400"><ShieldAlert size={15} className="mt-0.5 flex-shrink-0" aria-hidden />{REVERSAL_WARNING}</div>}
-        {needsReason ? <Field label="Why is this needed?" required hint="At least 10 characters. It is kept in the business's audit trail."><Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+        {danger && <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-[12.5px] font-semibold text-red-700 dark:text-red-400"><ShieldAlert size={15} className="mt-0.5 flex-shrink-0" aria-hidden />{isReset ? RESET_WARNING : REVERSAL_WARNING}</div>}
+        {needsReason ? <Field label="Why is this needed?" required hint={`At least ${minReason} characters. It is kept in the business's audit trail.`}><Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
           : <p className="text-[12.5px]"><span className="text-muted">Reason:</span> <em>{op.reason}</em></p>}
+        {needsReason && isReset && <label className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px]"><input type="checkbox" className="mt-0.5" checked={ownerReq} onChange={(e) => setOwnerReq(e.target.checked)} /><span>I have the business owner&apos;s written request.</span></label>}
         {needsReason && op.operation === "clean_test" && <label className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-[12.5px]"><input type="checkbox" className="mt-0.5" checked={attest} onChange={(e) => setAttest(e.target.checked)} /><span>I have reviewed these records and they are test data, not real business history.</span></label>}
         <div className="space-y-2 rounded-lg border border-border p-3"><p className="text-[12.5px] font-semibold">Type these to confirm</p>
           <Field label={`Business name (${op.tenant_name})`}><Input value={business} onChange={(e) => setBusiness(e.target.value)} autoComplete="off" /></Field>

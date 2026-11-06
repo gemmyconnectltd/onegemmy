@@ -145,6 +145,9 @@ export const useTenant = (id: string | undefined, opts?: QueryOpts) =>
 export const useTenantStats = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...TENANTS, id, "stats"], () => adminApi.tenantStats(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 
+export const useTenantLocations = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...TENANTS, id, "locations"], () => adminApi.tenantLocations(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+
 export const useTenantRecords = (id: string | undefined, section: TenantRecordSection, page = 1, filters: TenantRecordFilters = {}, opts?: QueryOpts) =>
   useQ(
     [...TENANTS, id, "records", section, page, filters],
@@ -336,11 +339,13 @@ export const useDmPrepare = mutation((v: { tenantId: string; module: string; ope
   dmApi.prepare(v.tenantId, { module: v.module, operation: v.operation, selection: v.selection, payload: v.payload }), [[...DM, "history"]]);
 export const useDmPrepareRequest = mutation((id: string) => dmApi.prepareRequest(id), [[...DM]]);
 export const useDmRejectRequest = mutation((v: { id: string; note: string }) => dmApi.rejectRequest(v.id, v.note), [[...DM]]);
-export const useDmSubmit = mutation((v: { id: string; reason: string; attest?: boolean }) => dmApi.submit(v.id, v.reason, v.attest), [[...DM]]);
+export const useDmSubmit = mutation((v: { id: string; reason: string; attest?: boolean; ownerRequest?: boolean }) => dmApi.submit(v.id, v.reason, v.attest, v.ownerRequest), [[...DM]]);
+export const useDmResetOptions = (tenantId: string | undefined) => useQ([...DM, "reset-options", tenantId], () => dmApi.resetOptions(tenantId!), (r) => r.data, { enabled: !!tenantId });
+export const useDmExportLink = mutation((opId: string) => dmApi.exportLink(opId), []);
 export const useDmDecide = mutation((v: { id: string; approve: boolean; note?: string }) => dmApi.decide(v.id, v.approve, v.note), [[...DM]]);
 export const useDmExecute = mutation((v: { id: string; key: string; confirm?: { business_name: string; reference: string } }) => dmApi.execute(v.id, v.key, v.confirm), [[...DM]]);
-export const useDmApproveAndRun = mutation((v: { id: string; reason?: string; attest?: boolean; key: string; confirm: { business_name: string; reference: string } }) =>
-  dmApi.approveAndRun(v.id, { reason: v.reason, attest_test_data: v.attest, idempotency_key: v.key, confirm: v.confirm }), [[...DM]]);
+export const useDmApproveAndRun = mutation((v: { id: string; reason?: string; attest?: boolean; ownerRequest?: boolean; key: string; confirm: { business_name: string; reference: string } }) =>
+  dmApi.approveAndRun(v.id, { reason: v.reason, attest_test_data: v.attest, attest_owner_request: v.ownerRequest, idempotency_key: v.key, confirm: v.confirm }), [[...DM]]);
 export const useDmApproveAndRunBatch = mutation((v: { ids: string[]; phrase: string }) => dmApi.approveAndRunBatch(v.ids, v.phrase), [[...DM]]);
 export const useDmSettings = () => useQ([...DM, "settings"], () => dmApi.settings(), (r) => r.data);
 export const useDmSaveSettings = mutation((v: boolean) => dmApi.saveSettings(v), [[...DM]]);

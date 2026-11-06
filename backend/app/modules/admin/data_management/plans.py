@@ -4,15 +4,19 @@ Prepare changes nothing: it fixes the exact records, runs the impact analysis an
 decision. Execute re-checks everything from scratch (permission, business, eligibility, record versions, plan integrity, expiry) and then
 does the records one at a time through their own services. Nothing is assumed to be undoable: each record has its own outcome.
 """
+import asyncio
 import hashlib
 import json
 import secrets
+import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import AsyncSessionLocal
 from app.core.exceptions import (
     AppError,
     ConflictError,
@@ -20,7 +24,7 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.modules.admin.data_management import opening
+from app.modules.admin.data_management import opening, reset
 from app.modules.admin.data_management import permissions as perms
 from app.modules.admin.data_management.explorer import (
     has_date_limit,
@@ -31,6 +35,7 @@ from app.modules.admin.data_management.explorer import (
 )
 from app.modules.admin.data_management.models import DataOperation, DataOperationItem
 from app.modules.admin.data_management.operations import Assessment, assess, rows_for, run_one
+from app.modules.admin.models import TenantExport
 from app.modules.audit.service import record_audit
 from app.modules.currency.models import PlatformSetting
 from app.modules.tenants.models import User
@@ -48,6 +53,9 @@ RESTRICTIONS = {
                    "Only records with no financial, stock or history references are removed, whatever they are called."],
     "archive": ["Reversible. The records stay in the business with all their history and can be restored by the business."],
     "correct": ["Applied through the module's own workflow. The change and its reason are written to the business's audit trail."],
+    "reset_data": ["Permanent. The records of every group that is not kept are deleted for good, in dependency order, in one transaction: if anything fails, nothing is deleted.",
+                   "A complete copy is stored first, and the reset does not start if that copy cannot be made. There is no automatic restore from it.",
+                   "Users, branches, settings, subscription and billing history, the audit log and this operation history are never deleted."],
     "reset": ["The books are locked through the closing date. Nothing is deleted or re-posted. The business can reopen the period with a reason."],
 }
 
@@ -84,7 +92,7 @@ def plan_fingerprint(op: DataOperation) -> str:
 
 
 def approval_needed(operation: str, module: str, eligible: int, payload: dict) -> bool:
-    if operation in (*DESTRUCTIVE, "reset"):
+    if operation in (*DESTRUCTIVE, "reset", "reset_data"):
         return True
     if operation == "archive":
         return eligible > APPROVAL_OVER
@@ -124,10 +132,10 @@ async def _get(db: AsyncSession, op_id: uuid.UUID, lock: bool = False) -> DataOp
     return op
 
 
-async def _event(db: AsyncSession, op: DataOperation, admin: User | None, action: str, note: str | None = None, extra: dict | None = None) -> None:
+async def _event(db: AsyncSession, op: DataOperation, admin: User | None, action: str, note: str | None = None, extra: dict | None = None, summary: str | None = None) -> None:
     """Every state change is also written to the append-only audit log, on the business's own trail and attributed to the platform administrator."""
     await record_audit(db, tenant_id=op.tenant_id, actor_user_id=admin.id if admin else None, actor_name=f"{_name(admin)} (platform)" if admin else "system", action=f"data_operation.{action}",
-                       entity_type="data_operation", entity_id=str(op.id), summary=f"{op.reference}: {op.operation.replace('_', ' ')} {op.module} {action}", changes={"status": op.status, "note": note, **(extra or {})})
+                       entity_type="data_operation", entity_id=str(op.id), summary=summary or f"{op.reference}: {op.operation.replace('_', ' ')} {op.module} {action}", changes={"status": op.status, "note": note, **(extra or {})})
 
 
 async def prepare(
@@ -146,7 +154,16 @@ async def prepare(
     payload = dict(payload or {})
     now = datetime.now(UTC)
     ref = f"DM-{now.year}-{secrets.token_hex(3).upper()}"
-    if operation == "reset":
+    if operation == "reset_data":
+        cfg = reset.parse_config(payload)
+        data = await reset.plan(db, tenant, cfg)
+        blockers = data["blockers"]
+        deleting = data["totals"]["delete"]
+        analysis = {"summary": {"selected": deleting, "eligible": 0 if blockers or deleting == 0 else 1, "blocked": len(blockers), "delete": deleting, "kept": data["totals"]["kept"]},
+                    "reset": data, "blockers": blockers, "assessments": [], "related": {}, "restrictions": RESTRICTIONS["reset_data"]}
+        payload, record_ids, versions, selection, filters = {**cfg.dump()}, [], {}, {"mode": "reset_data"}, {}
+        eligible_ids: list[uuid.UUID] = []
+    elif operation == "reset":
         if module != "accounting":
             raise ValidationError("Closing a period is done from the Accounting module")
         try:
@@ -197,7 +214,7 @@ async def prepare(
     return dump(op, full=True)
 
 
-async def submit(db: AsyncSession, admin: User, op_id: uuid.UUID, reason: str, attest_test_data: bool = False) -> dict:
+async def submit(db: AsyncSession, admin: User, op_id: uuid.UUID, reason: str, attest_test_data: bool = False, attest_owner_request: bool = False) -> dict:
     perms.require(admin, perms.REQUEST)
     op = await _get(db, op_id, lock=True)
     if op.requested_by != admin.id:
@@ -209,9 +226,18 @@ async def submit(db: AsyncSession, admin: User, op_id: uuid.UUID, reason: str, a
         op.status = "Expired"
         await db.commit()
         raise ConflictError("This preview has expired. Prepare it again so it reflects the data as it is now.")
-    if len((reason or "").strip()) < 10:
-        raise ValidationError("Give a reason of at least 10 characters")
-    if op.analysis["summary"]["eligible"] < 1:
+    minimum = 20 if op.operation == "reset_data" else 10
+    if len((reason or "").strip()) < minimum:
+        raise ValidationError(f"Give a reason of at least {minimum} characters")
+    if op.operation == "reset_data":
+        if op.analysis.get("blockers"):
+            raise ValidationError("Resolve the blockers first: keep the groups named in the preview, or delete both sides")
+        if op.analysis["summary"].get("delete", 0) < 1:
+            raise ValidationError("Nothing would be deleted, so there is nothing to request")
+        if not attest_owner_request:
+            raise ValidationError("Confirm that you have the business owner's written request")
+        op.payload = {**op.payload, "owner_request_confirmed": True}
+    elif op.analysis["summary"]["eligible"] < 1:
         raise ValidationError("Nothing in this selection is eligible, so there is nothing to request")
     if op.operation == "clean_test":
         if not attest_test_data:
@@ -292,12 +318,19 @@ async def execute(db: AsyncSession, admin: User, op_id: uuid.UUID, idempotency_k
         raise ConflictError("This plan has expired. Prepare it again.")
     if op.plan_hash != plan_fingerprint(op):
         raise ConflictError("This plan no longer matches what was approved. Prepare and submit it again.")
-    if op.operation in (*DESTRUCTIVE, "reset") and not confirmed and not _confirmed(op, confirm):
+    if op.operation in (*DESTRUCTIVE, "reset", "reset_data") and not confirmed and not _confirmed(op, confirm):
         raise ValidationError("Type the business name and the operation reference exactly to confirm")
     tenant = await tenant_of(db, op.tenant_id)
+    if op.operation == "reset_data":
+        running = (await db.execute(select(func.count()).select_from(DataOperation).where(DataOperation.tenant_id == op.tenant_id, DataOperation.status == "Executing", DataOperation.id != op.id))).scalar_one()
+        if running:
+            raise ConflictError("Another Data Management operation is running for this business. Wait for it to finish, then run this again.")
     op.status, op.started_at, op.executed_by, op.executed_by_name, op.idempotency_key = "Executing", now, admin.id, _name(admin), (idempotency_key or "")[:64] or None
     await _event(db, op, admin, "started")
     await db.commit()
+    if op.operation == "reset_data":
+        await _launch(op_id, admin.id)
+        return dump(await _get(db, op_id), full=True)
     label = f"{_name(admin)} (platform)"
 
     if op.operation == "reset":
@@ -352,7 +385,8 @@ async def execute(db: AsyncSession, admin: User, op_id: uuid.UUID, idempotency_k
     return dump(op, full=True)
 
 
-async def approve_and_run(db: AsyncSession, admin: User, op_id: uuid.UUID, *, reason: str, attest_test_data: bool, idempotency_key: str | None, confirm: dict | None, batch_confirmed: bool = False) -> dict:
+async def approve_and_run(db: AsyncSession, admin: User, op_id: uuid.UUID, *, reason: str, attest_test_data: bool, idempotency_key: str | None, confirm: dict | None, batch_confirmed: bool = False,
+                          attest_owner_request: bool = False) -> dict:
     """Submit (if still a preview), approve and run in one step. Every check of the separate steps still applies, and the plan is assessed again from scratch before it runs.
     The administrator who requested it may approve it only while the platform does not require a second approver."""
     perms.require(admin, perms.APPROVE)
@@ -368,7 +402,7 @@ async def approve_and_run(db: AsyncSession, admin: User, op_id: uuid.UUID, *, re
     if not batch_confirmed and not _confirmed(op, confirm):
         raise ValidationError("Type the business name and the operation reference exactly to confirm")
     if op.status == "Prepared":
-        await submit(db, admin, op_id, reason, attest_test_data)
+        await submit(db, admin, op_id, reason, attest_test_data, attest_owner_request)
         op = await _get(db, op_id)
     if op.status == "PendingApproval":
         await decide(db, admin, op_id, True, None)
@@ -400,6 +434,98 @@ async def approve_and_run_batch(db: AsyncSession, admin: User, ids: list[uuid.UU
             admin = await db.get(User, admin_id, populate_existing=True)
             results.append({"id": str(oid), "reference": reference, "status": "NotRun", "affected": 0, "error": exc.detail})
     return results
+
+
+# ── Reset Business Data: runs in the background, one transaction for the deletes ──────────────────────────────
+
+RUN_INLINE = False  # tests run the job inside the request so they can look at the outcome
+_TASKS: set[asyncio.Task] = set()
+
+
+@asynccontextmanager
+async def session_scope():
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+progress_scope = session_scope
+
+
+async def _progress(op_id: uuid.UUID, data: dict) -> None:
+    """Where the job has got to, written on its own short transaction so the page can show it while the deletes are still open."""
+    async with progress_scope() as db:
+        op = await _get(db, op_id)
+        op.result = {**(op.result or {}), "progress": data}
+        await db.commit()
+
+
+async def _launch(op_id: uuid.UUID, admin_id: uuid.UUID) -> None:
+    if RUN_INLINE:
+        await _reset_job(op_id, admin_id)
+        return
+    task = asyncio.get_running_loop().create_task(_reset_job(op_id, admin_id))
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)
+
+
+async def _fail(op_id: uuid.UUID, admin_id: uuid.UUID, stage: str, exc: BaseException, extra: dict | None = None) -> None:
+    async with session_scope() as db:
+        await db.rollback()
+        op = await _get(db, op_id, lock=True)
+        admin = await db.get(User, admin_id)
+        message = getattr(exc, "detail", None) or str(exc) or exc.__class__.__name__
+        op.status, op.finished_at = "Failed", datetime.now(UTC)
+        op.result = {"error": message, "stage": stage, "nothing_deleted": True, **(extra or {})}
+        await _event(db, op, admin, "failed", message, {"stage": stage, "nothing_deleted": True}, summary=f"{op.reference}: Reset Business Data failed ({stage}); nothing was deleted")
+        await db.commit()
+
+
+async def _reset_job(op_id: uuid.UUID, admin_id: uuid.UUID) -> None:
+    started = time.monotonic()
+    async with session_scope() as db:
+        op = await _get(db, op_id)
+        tenant = await tenant_of(db, op.tenant_id)
+        cfg = reset.parse_config(op.payload)
+        tenant_id, reference, requested_by, decided_by, self_approved, reason = tenant.id, op.reference, op.requested_by_name, op.decided_by_name, op.self_approved, op.reason
+    # 1. A complete copy first. If it cannot be made, nothing is deleted.
+    export_id = uuid.uuid4()
+    try:
+        await _progress(op_id, {"stage": "export"})
+        async with session_scope() as db:
+            tenant = await tenant_of(db, tenant_id)
+            stored = await reset.export_all(db, tenant, cfg, export_id)
+            db.add(TenantExport(id=export_id, tenant_id=tenant_id, requested_by=admin_id, categories=["reset_backup"], fmt="zip", expires_at=datetime.now(UTC) + timedelta(days=3650),
+                                file_path=stored["path"], file_sha256=stored["sha256"], file_bytes=stored["bytes"]))
+            await db.commit()
+    except Exception as exc:  # noqa: BLE001 - reported on the operation; nothing has been deleted
+        await _fail(op_id, admin_id, "export", exc)
+        return
+    # 2. The deletes: one transaction, all or nothing.
+    try:
+        async with session_scope() as db:
+            tenant = await tenant_of(db, tenant_id)
+            fresh = await reset.plan(db, tenant, cfg)
+            if fresh["blockers"]:
+                raise ConflictError("The data changed since the preview and a blocker appeared: " + fresh["blockers"][0]["message"])
+
+            async def progress(data: dict) -> None:
+                await _progress(op_id, data)
+
+            counts = await reset.delete_data(db, tenant, cfg, progress)
+            op = await _get(db, op_id, lock=True)
+            admin = await db.get(User, admin_id)
+            kept = {g["key"]: g["kept"] for g in fresh["groups"]}
+            deleted_total = sum(counts.values())
+            labels = {g.key: g.label for g in reset.GROUPS}
+            op.status, op.finished_at, op.affected_count = "Completed", datetime.now(UTC), deleted_total
+            op.result = {"counts": counts, "total": deleted_total, "kept": kept, "export_id": str(export_id), "export_bytes": stored["bytes"], "export_sha256": stored["sha256"],
+                         "duration_seconds": round(time.monotonic() - started, 2), "config": cfg.dump(), "labels": labels, "groups": fresh["groups"], "notes": fresh["notes"]}
+            await _event(db, op, admin, "completed", f"{deleted_total} records deleted", {
+                "requested_by": requested_by, "approved_by": decided_by, "self_approved": self_approved, "reason": reason, "kept_groups": sorted(cfg.keep), "date_from": cfg.date_from.isoformat() if cfg.date_from else None,
+                "date_to": cfg.date_to.isoformat() if cfg.date_to else None, "deleted": counts, "export_id": str(export_id)}, summary=f"{reference}: Reset Business Data completed")
+            await db.commit()
+    except Exception as exc:  # noqa: BLE001 - the transaction rolls back as a whole
+        await _fail(op_id, admin_id, "delete", exc, {"export_id": str(export_id)})
 
 
 async def get(db: AsyncSession, op_id: uuid.UUID) -> dict:

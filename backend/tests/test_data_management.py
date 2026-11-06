@@ -650,3 +650,27 @@ async def test_overview_summary_directory_filters_and_day_activity_are_real_and_
             assert other.status_code == 404
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_business_overview_numbers_and_locations_are_real_and_belong_to_that_business_only(db, monkeypatch):
+    tenant, owner, sold_to, spare, product, unsold, paid, draft = await world(db, monkeypatch)
+    from app.modules.inventory.models.warehouse import Warehouse
+    other_tenant = (await db.execute(select(Warehouse.tenant_id).where(Warehouse.tenant_id != tenant.id).limit(1))).scalar_one_or_none()
+    solo = await platform_admin(db, "Solo", list(ALL))
+    admin = "/api/v1/admin"
+    try:
+        async with as_admin(solo) as c:
+            stats = (await c.get(f"{admin}/tenants/{tenant.id}/stats")).json()["data"]
+            assert stats["customers"] >= 2 and stats["products"] >= 2 and stats["orders"] >= 2 and stats["revenue"] >= 0 and stats["stock_value"] >= 0 and stats["expenses"] >= 0
+            loc = (await c.get(f"{admin}/tenants/{tenant.id}/locations")).json()["data"]
+            assert isinstance(loc["branches"], list) and isinstance(loc["warehouses"], list)
+            assert all(w["code"] and w["products"] >= 0 and w["stock_value"] >= 0 for w in loc["warehouses"])
+            if other_tenant:
+                theirs = (await c.get(f"{admin}/tenants/{other_tenant}/locations")).json()["data"]
+                assert not {w["id"] for w in loc["warehouses"]} & {w["id"] for w in theirs["warehouses"]}
+            assert (await c.get(f"{admin}/tenants/{uuid.uuid4()}/locations")).status_code == 404
+        async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t", headers={"Authorization": "Bearer " + create_access_token(str(owner.id), {"tenant_id": str(tenant.id)})}) as c:
+            assert (await c.get(f"{admin}/tenants/{tenant.id}/locations")).status_code in (401, 403)  # a business owner never reaches platform data
+    finally:
+        app.dependency_overrides.clear()

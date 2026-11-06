@@ -320,6 +320,20 @@ async def download_export(tenant_id: uuid.UUID, export_id: uuid.UUID, token: str
     if export.expires_at < datetime.now(UTC):
         raise ForbiddenError("This download link has expired; request a new export")
     tenant = await get_tenant(db, tenant_id)
+    if export.file_path:  # the backup taken before a data reset: stored, read back as it was written
+        from pathlib import Path
+        stored = Path(export.file_path)
+        if not stored.is_file():
+            raise NotFoundError("The stored backup file is missing")
+        content = stored.read_bytes()
+        if hashlib.sha256(content).hexdigest() != export.file_sha256:
+            raise ConflictError("The stored backup file does not match its checksum and was not served")
+        export.download_count += 1
+        export.last_downloaded_at, export.last_downloaded_by = datetime.now(UTC), admin.id
+        await audit(db, admin, tenant, "tenant.export_downloaded", "Downloaded the backup taken before a data reset", {"export_id": str(export.id)})
+        await db.commit()
+        slug = re.sub(r"[^a-z0-9-]+", "-", tenant.slug.lower()) or "business"
+        return Response(content, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{slug}-reset-backup-{export.created_at:%Y%m%d}.zip"', "Cache-Control": "no-store"})
     notes, sheets = [], {}
     for key in export.categories:
         header, rows, truncated = await category_rows(db, tenant_id, key, export.date_from, export.date_to)

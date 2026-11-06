@@ -60,7 +60,17 @@ export interface AdminTenantStats {
   completed_orders: number;
   revenue: number;
   products: number;
+  customers: number;
+  expenses: number;
+  stock_value: number;
 }
+
+export interface TenantLocationBranch { id: string; name: string; location: string | null; status: string; users: number; warehouses: number; created_at: string | null }
+export interface TenantLocationWarehouse {
+  id: string; code: string; name: string; branch_id: string | null; branch_name: string | null; is_active: boolean; is_default: boolean; address: string | null;
+  products: number; units: number; stock_value: number; created_at: string | null;
+}
+export interface TenantLocations { branches: TenantLocationBranch[]; warehouses: TenantLocationWarehouse[] }
 
 export type TenantRecordSection =
   | "sales" | "customers" | "inventory" | "purchases" | "payments" | "debts"
@@ -682,6 +692,7 @@ export const adminApi = {
     request<SingleResponse<unknown>>(`${B}/tenants/${id}/deletion-requests/${requestId}/${action}`, { method: "POST", body: JSON.stringify({ note }) }),
   tenantStats: (id: string) =>
     request<SingleResponse<AdminTenantStats>>(`${B}/tenants/${id}/stats`),
+  tenantLocations: (id: string) => request<SingleResponse<TenantLocations>>(`${B}/tenants/${id}/locations`),
   tenantRecords: (id: string, section: TenantRecordSection, page = 1, filters: TenantRecordFilters = {}) =>
     request<PaginatedResponse<AdminTenantRecord>>(`${B}/tenants/${id}/records${qs({ section, page, page_size: 25, ...filters })}`),
   teamRolePermissions: (tenantId:string,roleId:string) => request<SingleResponse<TeamPermissions>>(`${B}/tenants/${tenantId}/team/roles/${roleId}/permissions`),

@@ -1,13 +1,14 @@
 import { request, qs } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 
-export type DmOperation = "archive" | "delete" | "clean_test" | "correct" | "reset";
+export type DmOperation = "archive" | "delete" | "clean_test" | "correct" | "reset" | "reset_data";
 export type DmStatus = "Prepared" | "PendingApproval" | "Approved" | "Rejected" | "Executing" | "Completed" | "PartiallyCompleted" | "Failed" | "Expired" | "Cancelled";
 
-export const OP_LABEL: Record<DmOperation, string> = { archive: "Archive records", delete: "Delete eligible records", clean_test: "Clean test data", correct: "Correct / adjust", reset: "Close period & opening balances" };
+export const OP_LABEL: Record<DmOperation, string> = { archive: "Archive records", delete: "Delete eligible records", clean_test: "Clean test data", correct: "Correct / adjust", reset: "Close period & opening balances", reset_data: "Reset business data" };
 export const OP_HINT: Record<DmOperation, string> = {
   archive: "Take records out of daily use and keep their history.", delete: "Permanently remove records nothing else depends on.", clean_test: "Remove records you have checked are test data.",
   correct: "Change a record through its own workflow, with before and after.", reset: "Lock the books through a date and record the opening position.",
+  reset_data: "Wipe a business's transactional data and start fresh, keeping what you choose.",
 };
 
 export interface DmBusiness { id: string; name: string; slug: string; logo_url: string | null; status: string; subscription: string; timezone?: string; currency?: string }
@@ -33,15 +34,22 @@ export interface DmPreview {
   closing_date: string; locked_through: string | null; currency: string; books_balanced: boolean; balances: Record<"asset" | "liability" | "equity", { code: string; name: string; balance: number }[]>;
   period_result: number; customer_receivables: number; inventory_value: number; inventory_note: string; blockers: { count: number; what: string; fix: string }[];
 }
+export interface DmResetTable { table: string; total: number; delete: number; kept: number }
+export interface DmResetGroup { key: string; label: string; kind: "master" | "transactional"; keep: boolean; delete: number; kept: number; tables: DmResetTable[]; note: string }
+export interface DmResetBlocker { deleted: string; deleted_table: string; kept: string; kept_table: string; count: number; message: string }
+export interface DmResetPlan { groups: DmResetGroup[]; always_kept: { key: string; label: string }[]; blockers: DmResetBlocker[]; notes: string[]; totals: { delete: number; kept: number };
+  config: { keep: string[]; reset_numbering: boolean; zero_stock: boolean; date_from: string | null; date_to: string | null } }
+export interface DmResetOptions { groups: { key: string; label: string; kind: "master" | "transactional"; count: number; note: string }[]; presets: Record<string, { label: string; keep: string[] }>; default_preset: string; always_kept: { key: string; label: string }[]; tenant_name: string }
+export interface DmResetProgress { stage: "export" | "delete" | "recalculate"; table?: string; tables_done?: number; tables_total?: number }
 export interface DmAnalysis {
-  summary: { selected: number; eligible: number; blocked: number }; assessments: DmAssessment[]; eligible_shown?: number; related: Record<string, number>; restrictions: string[];
-  not_found?: string[]; preview?: DmPreview; blockers?: { count: number; what: string; fix: string }[];
+  summary: { selected: number; eligible: number; blocked: number; delete?: number; kept?: number }; assessments: DmAssessment[]; eligible_shown?: number; related: Record<string, number>; restrictions: string[];
+  not_found?: string[]; preview?: DmPreview; blockers?: { count: number; what: string; fix: string }[]; reset?: DmResetPlan;
 }
 export interface DmOperationRecord {
   id: string; reference: string; tenant_id: string; tenant_name: string; module: string; operation: DmOperation; status: DmStatus; reason: string | null; approval_required: boolean;
   requested_by: string | null; requested_by_id: string | null; decided_by: string | null; self_approved: boolean; decision_note: string | null; decided_at: string | null; executed_by: string | null;
   created_at: string; submitted_at: string | null; started_at: string | null; finished_at: string | null; expires_at: string; selected: number; affected: number;
-  summary: DmAnalysis["summary"]; restrictions: string[]; payload: Record<string, unknown>; result: Record<string, unknown> & { counts?: Record<string, number>; total?: number; error?: string; locked_through?: string; opening_position?: Record<string, unknown> };
+  summary: DmAnalysis["summary"]; restrictions: string[]; payload: Record<string, unknown>; result: Record<string, unknown> & { progress?: DmResetProgress; export_id?: string; export_bytes?: number; export_sha256?: string; duration_seconds?: number; stage?: string; nothing_deleted?: boolean; kept?: Record<string, number>; labels?: Record<string, string>; groups?: DmResetGroup[]; notes?: string[]; counts?: Record<string, number>; total?: number; error?: string; locked_through?: string; opening_position?: Record<string, unknown> };
   filters?: DmFilters; selection?: Record<string, unknown>; analysis?: DmAnalysis; plan_hash?: string; replayed?: boolean;
 }
 export interface DmBatchRun { id: string; reference: string; status: string; affected: number; error: string | null }
@@ -85,11 +93,13 @@ export const dmApi = {
     request<SingleResponse<DmOperationRecord>>(`${B}/businesses/${tenantId}/operations`, { method: "POST", body: JSON.stringify(body) }),
   operation: (id: string) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}`),
   items: (id: string, page = 1, outcome?: string) => request<PaginatedResponse<DmItem>>(`${B}/operations/${id}/items${qs({ page, page_size: 50, outcome })}`),
-  submit: (id: string, reason: string, attest_test_data = false) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/submit`, { method: "POST", body: JSON.stringify({ reason, attest_test_data }) }),
+  submit: (id: string, reason: string, attest_test_data = false, attest_owner_request = false) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/submit`, { method: "POST", body: JSON.stringify({ reason, attest_test_data, attest_owner_request }) }),
+  resetOptions: (tenantId: string) => request<SingleResponse<DmResetOptions>>(`${B}/businesses/${tenantId}/reset-options`),
+  exportLink: (opId: string) => request<SingleResponse<{ export_id: string; bytes: number; sha256: string; expires_at: string; download_url: string }>>(`${B}/operations/${opId}/export-link`, { method: "POST" }),
   decide: (id: string, approve: boolean, note?: string) => request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/decision`, { method: "POST", body: JSON.stringify({ approve, note: note ?? null }) }),
   execute: (id: string, idempotency_key: string, confirm?: { business_name: string; reference: string }) =>
     request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/execute`, { method: "POST", body: JSON.stringify({ idempotency_key, confirm: confirm ?? null }) }),
-  approveAndRun: (id: string, body: { reason?: string; attest_test_data?: boolean; idempotency_key: string; confirm: { business_name: string; reference: string } }) =>
+  approveAndRun: (id: string, body: { reason?: string; attest_test_data?: boolean; attest_owner_request?: boolean; idempotency_key: string; confirm: { business_name: string; reference: string } }) =>
     request<SingleResponse<DmOperationRecord>>(`${B}/operations/${id}/approve-and-run`, { method: "POST", body: JSON.stringify(body) }),
   approveAndRunBatch: (ids: string[], phrase: string) =>
     request<SingleResponse<{ results: DmBatchRun[] }>>(`${B}/operations/approve-and-run-batch`, { method: "POST", body: JSON.stringify({ ids, phrase }) }),

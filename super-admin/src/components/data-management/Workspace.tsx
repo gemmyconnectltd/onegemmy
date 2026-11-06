@@ -14,11 +14,12 @@ import { cn } from "@/lib/utils";
 import { errorText, StatusBadge } from "./common";
 import { NONE, RecordExplorer, selectedCount, toSelection, type Sel } from "./RecordExplorer";
 import { OperationPanel } from "./OperationPanel";
+import { OPERATION_CARDS } from "./operations";
 import { BusinessRequestQueue } from "./BusinessRequestQueue";
 
 /** One workspace for one business: its header, the modules with their real record counts, the records, and the operation panel.
  *  The same component serves Data Management and Businesses → Data Management, so there is only one feature. */
-export function Workspace({ tenantId }: { tenantId: string }) {
+export function Workspace({ tenantId, embedded = false }: { tenantId: string; embedded?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const startOp = (["archive", "delete", "clean_test", "correct"] as const).find((o) => o === params.get("op"));
@@ -61,7 +62,17 @@ export function Workspace({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+      {embedded && (
+        <section aria-label="Data operations" className="space-y-2">
+          <div><h2 className="pesaa-card-title">Data Operations</h2><p className="text-[12px] text-muted">Powerful tools to manage, correct, clean and organize this business&apos;s data safely. Each one starts with a preview.</p></div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{OPERATION_CARDS.map((c) => { const Icon = c.icon; return (
+            <Link key={c.key} href={`/data-management/new?op=${c.key}&tenant=${tenantId}`} className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 hover:border-accent/40 hover:bg-surface/50 focus-visible:outline-2 focus-visible:outline-accent">
+              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><Icon size={15} aria-hidden /></span>
+              <span className="min-w-0"><span className="block truncate text-[13px] font-semibold">{c.title}</span><span className="block truncate text-[11px] text-muted">{c.description}</span></span></Link>); })}</div>
+        </section>
+      )}
+
+      {!embedded && <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
         <div className="flex min-w-0 items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {b.logo_url ? <img src={b.logo_url.startsWith("http") ? b.logo_url : `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1$/, "") ?? "http://localhost:8000"}${b.logo_url}`} alt="" className="h-11 w-11 rounded-lg border border-border object-cover" />
@@ -78,7 +89,7 @@ export function Workspace({ tenantId }: { tenantId: string }) {
           <Link href={`/data-management/operations?tenant=${tenantId}`}><Button variant="outline" size="sm"><History size={14} /> Operation history</Button></Link>
           <Link href={`/data-management/recovery?tenant=${tenantId}`}><Button variant="outline" size="sm"><LifeBuoy size={14} /> Backups &amp; recovery</Button></Link>
         </div>
-      </header>
+      </header>}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-3.5"><p className="flex items-center gap-2 text-[12px] font-medium text-muted"><Database size={15} />Business modules</p><p className="mt-1 text-xl font-semibold tabular-nums">{moduleList?.length ?? 0}</p></div>

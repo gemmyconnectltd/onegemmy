@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
-import { AlertTriangle, Bell, Database, Download, Loader2, Power, Archive } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Bell, Database, Download, Eraser, Loader2, Power, Archive } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { adminApi, type AdminTenant, type AdminUser, type NotificationInput } from "@/lib/api";
 import { useActivateTenant, useArchiveRequests, useDecideArchive, useRequestArchive, useRequestTenantExport, useSendTenantNotification, useSuspendTenant, useTenantExports, useTenantNotifications } from "@/lib/api/hooks";
@@ -24,6 +25,7 @@ export function OperationsPanel({ tenant, users }: { tenant: AdminTenant; users:
       <AccessCard tenant={tenant} />
       <NotificationCard tenant={tenant} users={users} />
       <ExportCard tenant={tenant} />
+      <ResetCard tenant={tenant} />
       <BackupCard />
       <ArchiveCard tenant={tenant} />
     </div>
@@ -107,6 +109,16 @@ function NotificationCard({ tenant, users }: { tenant: AdminTenant; users: Admin
 }
 
 const CATEGORIES: [string, string][] = [["sales", "Sales"], ["inventory", "Inventory"], ["purchases", "Purchases"], ["expenses", "Expenses"], ["customers", "Customers"], ["suppliers", "Suppliers"], ["users", "Users (no passwords)"], ["financial", "Financial records"]];
+
+function ResetCard({ tenant }: { tenant: AdminTenant }) {
+  const { user } = useAuth();
+  if (!user?.isSuperuser) return null;
+  return (
+    <Card title="Reset business data" action={<Link href={`/data-management/reset?tenant=${tenant.id}`}><Button variant="danger"><Eraser size={14} />Reset business data…</Button></Link>}>
+      <p className="text-[12.5px] text-muted">Wipe this business&apos;s transactional data and start fresh, keeping the groups you choose. You review a preview first; a full backup is stored before anything is deleted, and the reset needs the Data Management permissions and approval rules.</p>
+    </Card>
+  );
+}
 
 function ExportCard({ tenant }: { tenant: AdminTenant }) {
   const history = useTenantExports(tenant.id);

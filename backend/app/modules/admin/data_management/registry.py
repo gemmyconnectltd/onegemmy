@@ -25,7 +25,7 @@ from app.modules.services.models.service import Service
 from app.modules.tenants.models import Branch, User
 
 OPS = ("archive", "delete", "clean_test", "correct", "reset")
-OP_LABEL = {"archive": "Archive records", "delete": "Delete eligible records", "clean_test": "Clean test data", "correct": "Correct / adjust", "reset": "Close period and record opening balances"}
+OP_LABEL = {"archive": "Archive records", "delete": "Delete eligible records", "clean_test": "Clean test data", "correct": "Correct / adjust", "reset": "Close period and record opening balances", "reset_data": "Reset business data"}
 
 
 @dataclass

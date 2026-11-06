@@ -2,7 +2,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -63,6 +63,10 @@ class TenantExport(UUIDPKMixin, TimestampMixin, Base):
     download_count: Mapped[int] = mapped_column(Integer, default=0)
     last_downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_downloaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    # Set only for the backup a data reset takes first: that file is stored (under uploads/private), unlike a normal export, which is built when downloaded.
+    file_path: Mapped[str | None] = mapped_column(String(500))
+    file_sha256: Mapped[str | None] = mapped_column(String(64))
+    file_bytes: Mapped[int | None] = mapped_column(BigInteger)
 
     __table_args__ = (Index("ix_tenant_exports_tenant", "tenant_id", "created_at"),)
 

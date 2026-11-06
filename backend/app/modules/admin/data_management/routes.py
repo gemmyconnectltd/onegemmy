@@ -10,7 +10,7 @@ from app.core.deps import DbSession, SuperUser
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
-from app.modules.admin.data_management import explorer, plans
+from app.modules.admin.data_management import explorer, plans, reset
 from app.modules.admin.data_management import permissions as perms
 from app.modules.admin.data_management.models import (
     DataManagementRequest,
@@ -34,7 +34,7 @@ class Query_(BaseModel):
 
 class Prepare(BaseModel):
     module: str
-    operation: str = Field(pattern="^(archive|delete|clean_test|correct|reset)$")
+    operation: str = Field(pattern="^(archive|delete|clean_test|correct|reset|reset_data)$")
     selection: dict[str, Any] | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
@@ -42,6 +42,7 @@ class Prepare(BaseModel):
 class Submit(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
     attest_test_data: bool = False
+    attest_owner_request: bool = False
 
 
 class Decision(BaseModel):
@@ -57,6 +58,7 @@ class Execute(BaseModel):
 class ApproveAndRun(Execute):
     reason: str = Field(default="", max_length=1000)
     attest_test_data: bool = False
+    attest_owner_request: bool = False
 
 
 class ApproveAndRunBatch(BaseModel):
@@ -192,6 +194,34 @@ async def businesses(admin: SuperUser, db: DbSession, page: PageQuery, search: s
     return paginated_response(items=[{"id": str(t.id), "name": t.name, "slug": t.slug, "logo_url": t.logo_url, "status": _status_of(t), "subscription": t.subscription_status, "plan": t.subscription_plan,
                                       "country": t.country, "users": u, "branches": br, "created_at": t.created_at} for t, u, br in rows],
                               total=total, page=page.page, page_size=page.page_size, message="Businesses retrieved")
+
+
+@router.get("/businesses/{tenant_id}/reset-options")
+async def reset_options(tenant_id: uuid.UUID, admin: SuperUser, db: DbSession):
+    """The checklist of Reset Business Data: every data group with its live record count for this business, the presets and what is always kept."""
+    perms.require(admin, perms.PREVIEW)
+    tenant = await explorer.tenant_of(db, tenant_id)
+    return success_response(data={"groups": await reset.group_counts(db, tenant), "presets": reset.PRESETS, "default_preset": reset.DEFAULT_PRESET, "always_kept": list(reset.ALWAYS_KEPT),
+                                  "tenant_name": tenant.name}, message="Reset options retrieved")
+
+
+@router.post("/operations/{op_id}/export-link")
+async def export_link(op_id: uuid.UUID, admin: SuperUser, db: DbSession):
+    """A short-lived download link for the backup a data reset took before it deleted anything."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.core.security import create_access_token
+    if not (perms.has(admin, perms.HISTORY) or perms.has(admin, perms.RECOVERY)):
+        raise ForbiddenError("Data Management permission required")
+    op = await db.get(DataOperation, op_id)
+    export_id = (op.result or {}).get("export_id") if op else None
+    export = await db.get(TenantExport, uuid.UUID(export_id)) if export_id else None
+    if op is None or export is None or export.tenant_id != op.tenant_id or not export.file_path:
+        raise NotFoundError("This operation has no stored backup")
+    expires = datetime.now(UTC) + timedelta(minutes=15)
+    token = create_access_token(str(admin.id), {"type": "tenant_export", "export": str(export.id), "tenant": str(export.tenant_id), "exp": int(expires.timestamp())})
+    return success_response(data={"export_id": str(export.id), "bytes": export.file_bytes, "sha256": export.file_sha256, "expires_at": expires.isoformat(),
+                                  "download_url": f"/admin/tenants/{export.tenant_id}/exports/{export.id}/download?token={token}"}, message="Backup link ready")
 
 
 @router.get("/businesses/{tenant_id}/day-activity")
@@ -384,7 +414,7 @@ async def operation_items(op_id: uuid.UUID, admin: SuperUser, db: DbSession, pag
 
 @router.post("/operations/{op_id}/submit")
 async def submit(op_id: uuid.UUID, body: Submit, admin: SuperUser, db: DbSession):
-    return success_response(data=await plans.submit(db, admin, op_id, body.reason, body.attest_test_data), message="Submitted")
+    return success_response(data=await plans.submit(db, admin, op_id, body.reason, body.attest_test_data, body.attest_owner_request), message="Submitted")
 
 
 @router.post("/operations/{op_id}/decision")
@@ -407,7 +437,7 @@ async def approve_and_run_batch(body: ApproveAndRunBatch, admin: SuperUser, db: 
 @router.post("/operations/{op_id}/approve-and-run")
 async def approve_and_run(op_id: uuid.UUID, body: ApproveAndRun, admin: SuperUser, db: DbSession):
     """Submit, approve and run in one step for the requester, while the platform allows self-approval. Everything is checked again before it runs."""
-    return success_response(data=await plans.approve_and_run(db, admin, op_id, reason=body.reason, attest_test_data=body.attest_test_data, idempotency_key=body.idempotency_key, confirm=body.confirm),
+    return success_response(data=await plans.approve_and_run(db, admin, op_id, reason=body.reason, attest_test_data=body.attest_test_data, idempotency_key=body.idempotency_key, confirm=body.confirm, attest_owner_request=body.attest_owner_request),
                             message="Operation finished")
 
 

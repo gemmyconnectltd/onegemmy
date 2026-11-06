@@ -91,3 +91,28 @@ data exports (not restore points) and a list of past removals. Each removed reco
 `POST /admin/tenants/{id}/reset-data` predates this feature and deleted whole tables for a business, including accounting transactions, with
 only the business name typed as protection. The endpoint now returns `410 Gone`, and its UI action has been removed. Use Data Management to
 prepare a bounded operation; its dependency checks, permissions, approval requirements and audit history remain in force.
+
+
+## Reset Business Data
+
+Wipes a business's transactional data and starts it fresh, keeping the groups the administrator chooses (`reset_data`, backend `data_management/reset.py`).
+The tenant-wide reset endpoint stays retired (410): this is the only way, and it goes through the same plan, approval and typed-confirmation steps.
+
+- **Groups.** Master data (customers, suppliers, products, categories, expense categories, chart of accounts, warehouses) and transactional data (sales, purchases,
+  expenses, accounting, stock, debt, manufacturing, HR, services, repairs, CRM). Users, branches, settings, subscription and billing history, the audit log and the
+  Data Management history are never touched. Presets: keep customers & suppliers (default), keep all master data, full wipe.
+- **Preview.** A server-side dry run counts what each group deletes and keeps, and lists blockers: rows that stay but point at rows that would be deleted (for example
+  kept purchases and deleted suppliers). A reset cannot be submitted while a blocker exists, and the plan is checked again just before it runs.
+- **Confirm.** Reason of 20+ characters, the owner's written request ticked, the business name and operation reference typed. A reset always waits for an approval
+  decision; the platform setting *Require a second administrator* decides whether the requester may approve it (Approve & run). It is not part of bulk approval.
+- **Run.** One background job per business. First a complete copy of the data the reset touches is stored under `uploads/private/tenant-exports/` (never publicly served,
+  with a checksum) and the reset does not start if that fails. Then every delete runs in one transaction, children before parents, in batches, scoped by `tenant_id` (line
+  tables through their parent row). Any error rolls everything back and the operation records which step failed. Only one Data Management operation may run per business.
+- **Stock ledger.** The ledger rejects deletes in the database. A reset sets a transaction-local setting naming the one business, which the trigger accepts for that
+  transaction only.
+- **Numbering.** Order, expense, payment and transaction numbers are worked out from the documents that exist, so they restart at 0001 once none remain. The journal counter
+  is deleted when numbering is reset and accounting is not kept. With a date range, or when documents are kept, numbers continue.
+- **Date range.** A record is judged by its own created date; lines follow their document. Tables with no created date are left alone while a range is set.
+- **Aggregates.** Stock is set to 0 on kept products when the stock history is deleted (option). Customer and supplier balances, and dashboards, are computed from the
+  records, so nothing else is cached.
+- **Results.** Counts deleted and kept per group, duration, and a download link for the backup. The backup is a copy, not an automatic restore.

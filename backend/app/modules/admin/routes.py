@@ -713,10 +713,39 @@ async def admin_tenant_stats(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
     completed = (await db.execute(select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id, Order.status == "Completed"))).scalar_one()
     revenue = (await _tenant_usage_map(db, [tenant_id])).get(tenant_id, _empty_usage())["revenue"]
     products = (await db.execute(select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id))).scalar_one()
+    from app.modules.accounting.models.expense import Expense
+    from app.modules.sales.models.customer import Customer
+    customers = (await db.execute(select(func.count()).select_from(Customer).where(Customer.tenant_id == tenant_id))).scalar_one()
+    expenses = (await db.execute(select(func.coalesce(func.sum(func.coalesce(Expense.base_amount, Expense.amount)), 0)).where(Expense.tenant_id == tenant_id, Expense.status == "Approved"))).scalar_one()
+    stock_value = (await db.execute(select(func.coalesce(func.sum(Product.cost * Product.stock), 0)).where(Product.tenant_id == tenant_id))).scalar_one()
     return success_response(data={
         "users": users, "orders": orders, "completed_orders": completed,
-        "revenue": float(revenue), "products": products,
+        "revenue": float(revenue), "products": products, "customers": customers, "expenses": float(expenses), "stock_value": float(stock_value),
     }, message="Tenant stats retrieved")
+
+
+@router.get("/tenants/{tenant_id}/locations")
+async def admin_tenant_locations(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+    """Branches and warehouses of one business with their real counts: users and warehouses per branch, products, units and stock value per warehouse (from the stock ledger)."""
+    from app.modules.inventory.models.warehouse import StockMovement, Warehouse
+    from app.modules.tenants.models import Branch
+    await service.get_by_id(db, tenant_id)
+    branches = (await db.execute(select(Branch).where(Branch.tenant_id == tenant_id).order_by(Branch.name))).scalars().all()
+    users_by_branch = dict((await db.execute(select(User.branch_id, func.count()).where(User.tenant_id == tenant_id, User.branch_id.is_not(None)).group_by(User.branch_id))).all())
+    warehouses = (await db.execute(select(Warehouse).where(Warehouse.tenant_id == tenant_id).order_by(Warehouse.name))).scalars().all()
+    per = select(StockMovement.warehouse_id, StockMovement.product_id, func.sum(StockMovement.quantity).label("qty")).where(StockMovement.tenant_id == tenant_id).group_by(StockMovement.warehouse_id, StockMovement.product_id).subquery()
+    stock = {r.warehouse_id: r for r in (await db.execute(
+        select(per.c.warehouse_id, func.count().filter(per.c.qty > 0).label("products"), func.coalesce(func.sum(per.c.qty), 0).label("units"), func.coalesce(func.sum(per.c.qty * Product.cost), 0).label("value"))
+        .select_from(per.join(Product, Product.id == per.c.product_id)).group_by(per.c.warehouse_id))).all()}
+    by_branch: dict = {}
+    for w in warehouses:
+        by_branch[w.branch_id] = by_branch.get(w.branch_id, 0) + 1
+    return success_response(data={
+        "branches": [{"id": str(b.id), "name": b.name, "location": b.location, "status": b.status, "users": users_by_branch.get(b.id, 0), "warehouses": by_branch.get(b.id, 0), "created_at": b.created_at} for b in branches],
+        "warehouses": [{"id": str(w.id), "code": w.code, "name": w.name, "branch_id": str(w.branch_id) if w.branch_id else None, "branch_name": w.branch.name if w.branch else None, "is_active": w.is_active, "is_default": w.is_default,
+                        "address": w.address, "products": int(stock[w.id].products) if w.id in stock else 0, "units": float(stock[w.id].units) if w.id in stock else 0.0, "stock_value": float(stock[w.id].value) if w.id in stock else 0.0,
+                        "created_at": w.created_at} for w in warehouses],
+    }, message="Locations retrieved")
 
 
 @router.get("/tenants/{tenant_id}/records")

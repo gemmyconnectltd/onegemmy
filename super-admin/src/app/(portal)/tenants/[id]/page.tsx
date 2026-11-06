@@ -26,23 +26,21 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
-import Link from "next/link";
 import FeaturesPanel from "./FeaturesPanel";
 import UserFeatureAccess from "./UserFeatureAccess";
 import InviteBusinessUser from "./InviteBusinessUser";
 import { RolePermissionManager } from "./EmployeePermissions";
 import { Button } from "@/components/ui/Button";
-import { SecondaryNav, SectionLayout } from "@/components/ui/SecondaryNav";
+import { BusinessShell, SubTabs } from "@/components/business/BusinessShell";
+import { ControlCenter } from "@/components/business/ControlCenter";
+import { LocationsPanel } from "@/components/business/LocationsPanel";
+import { ProfileTab } from "@/components/business/ProfileTab";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
-import { ContactBadge } from "@/components/tenants/ContactBadge";
-import { TenantLogo, TenantStatusBadge } from "@/components/tenants/StatusBadge";
-import { OperationsPanel } from "./TenantOperations";
-import { OverviewPanel, SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
-import { resolveUploadUrl } from "@/lib/api/client";
+import { SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
 import { TenantRecords } from "./TenantRecords";
 
 const PANEL_TABS: readonly PanelTab[] = [
-  "overview", "records", "users", "user-access", "branches", "subscription",
+  "overview", "profile", "records", "users", "user-access", "branches", "subscription",
   "usage", "invoices", "modules", "approvals", "activity", "security", "operations",
 ];
 
@@ -358,59 +356,34 @@ function TenantDetailPageInner() {
     </div>
   );
   const panelProps = { tenant, stats, limits, branches, usersCount: users.length, go: selectTab };
-  const TABS: { key: PanelTab; label: string; group: string; count?: number }[] = [
-    { key: "overview", label: "Overview & profile", group: "Business" },
-    { key: "records", label: "Business records", group: "Business" },
-    { key: "users", label: "Users, departments & roles", group: "Business", count: usersData?.total ?? users.length },
-    { key: "user-access", label: "Team access", group: "Business" },
-    { key: "branches", label: "Branches", group: "Business", count: branches.length },
-    { key: "subscription", label: "Subscription", group: "Plan & billing" },
-    { key: "usage", label: "Usage", group: "Plan & billing" },
-    { key: "invoices", label: "Invoices", group: "Plan & billing" },
-    { key: "modules", label: "Modules & features", group: "Plan & billing" },
-    { key: "approvals", label: "Approvals", group: "Governance" },
-    { key: "activity", label: "Activity & audit", group: "Governance" },
-    { key: "security", label: "Security", group: "Governance" },
-    { key: "operations", label: "Business actions", group: "Governance" },
-  ];
 
   return (
     <div className="space-y-5">
       {confirmDialog}
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link href="/tenants" aria-label="Back to Tenants" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface text-muted transition-colors hover:bg-border hover:text-foreground"><ArrowLeft size={15} /></Link>
-          <TenantLogo name={tenant.name} src={resolveUploadUrl(tenant.logo_url)} size={44} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2"><h1 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">{tenant.name}</h1><TenantStatusBadge tenant={tenant} /><ContactBadge value={tenant.preferred_contact} /></div>
-            <p className="mt-0.5 truncate text-[12.5px] text-muted">{[tenant.country, tenant.slug, tenant.created_at ? `Registered ${new Date(tenant.created_at).toLocaleDateString()}` : null].filter(Boolean).join(" · ")}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <BusinessShell tenant={tenant} panel={tab}
+        actions={
+        <>
           <Button variant="outline" onClick={() => selectTab("subscription")}><Crown size={14} /> Change Plan</Button>
           <Button variant="primary" type="button" onClick={openInvite}><UserPlus size={14} /> Invite User</Button>
           <ActionMenu label="More actions" items={[
-                      { label: "Edit business profile", icon: <Building2 size={14} />, onSelect: openEditProfile },
+            { label: "Edit business profile", icon: <Building2 size={14} />, onSelect: openEditProfile },
             { label: tenant.is_active ? "Suspend business…" : "Activate business", disabled: !!tenant.archived_at, icon: <Power size={14} />, danger: tenant.is_active, onSelect: toggleStatus },
           ]} />
-        </div>
-      </div>
-
-      {notice && (
+        </>
+        }
+        notice={notice ? (
         <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${notice.kind === "error" ? "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
           <span className="flex items-center gap-2">{notice.kind === "error" ? <XCircle size={14} /> : <CheckCircle size={14} />}{notice.text}</span>
           <button onClick={() => setNotice(null)} aria-label="Dismiss" className="text-muted transition-colors hover:text-foreground"><X size={14} /></button>
         </div>
-      )}
-
-      {/* Tabs */}
-      <SectionLayout nav={<SecondaryNav label="Tenant sections" title="Manage business" subtitle={tenant.name} items={[...TABS.map((t) => ({ key: t.key, label: t.label, group: t.group, count: t.count, active: tab === t.key, onSelect: () => selectTab(t.key) })), { key: "data-management", label: "Data Management", group: "Governance", href: `/tenants/${id}/data`, active: false }]} />}>
+      ) : null}>
       <div>
         <div className="min-w-0 space-y-6">
           {tab === "user-access" && <UserFeatureAccess tenantId={id} />}
-          {tab === "overview" && <OverviewPanel {...panelProps} controls={controls} onEditProfile={openEditProfile} />}
+          {tab === "overview" && <ControlCenter tenant={tenant} stats={stats} limits={limits} branches={branches} usersCount={users.length} events={tenantEvents} />}
+          {(tab === "profile" || tab === "operations") && <ProfileTab tenant={tenant} users={users} controls={controls} events={tenantEvents} onEdit={openEditProfile} />}
+          {["subscription", "usage", "invoices"].includes(tab) && <SubTabs label="Subscription and billing" active={tab} onSelect={(k) => selectTab(k as PanelTab)} items={[{ key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }]} />}
           {tab === "records" && <TenantRecords tenantId={id} currency={tenant.currency} />}
           {tab === "subscription" && <SubscriptionManager tenantId={id} />}
           {tab === "modules" && <FeaturesPanel tenantId={id} />}
@@ -418,14 +391,11 @@ function TenantDetailPageInner() {
           {tab === "invoices" && <LiveBillingList kind="invoices" tenantId={id} />}
           {tab === "approvals" && <TenantRecords tenantId={id} currency={tenant.currency} initialSection="approvals" />}
           {tab === "security" && <SecurityPanel tenant={tenant} usersCount={users.length} inactiveUsers={users.filter((u) => !u.is_active).length} events={tenantEvents} eventsLoading={audit.isLoading} />}
-          {tab === "operations" && <OperationsPanel tenant={tenant} users={users} />}
           {tab === "activity" && <TenantRecords tenantId={id} currency={tenant.currency} initialSection="activity" />}
-          {tab === "users" && (
-            <div role="group" aria-label="User management" className="flex gap-1 rounded-lg border border-border bg-surface p-1 text-[12.5px] font-semibold sm:w-fit">
-              {([["users", "Users", users.length], ["departments", "Departments", departments.length], ["roles", "Roles", roles.length]] as const).map(([k, label, n]) => (
-                <button key={k} type="button" aria-pressed={usersSub === k} onClick={() => setUsersSub(k)} className={`flex-1 rounded-md px-3 py-1.5 sm:flex-none ${usersSub === k ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}>{label} <span className="text-muted">{n}</span></button>
-              ))}
-            </div>
+          {(tab === "users" || tab === "user-access") && (
+            <SubTabs label="User management" active={tab === "user-access" ? "access" : usersSub}
+              onSelect={(k) => { if (k === "access") selectTab("user-access"); else { setUsersSub(k as typeof usersSub); if (tab !== "users") selectTab("users"); } }}
+              items={[{ key: "users", label: "Users", count: users.length }, { key: "departments", label: "Departments", count: departments.length }, { key: "roles", label: "Roles", count: roles.length }, { key: "access", label: "Team access" }]} />
           )}
 
       {/* Users panel */}
@@ -540,73 +510,19 @@ function TenantDetailPageInner() {
         </div>
       )}
 
-      {/* Branches panel */}
+      {/* Branches & warehouses panel */}
       {tab === "branches" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="text-sm font-bold text-foreground">Branches ({branches.length})</h2>
-            <button onClick={() => setShowAddBranch(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
-              <Plus size={13} /> Add
-            </button>
-          </div>
-          {branchesError && (
-            <div className="px-5 py-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border-b border-red-500/20">Failed to load branches.</div>
-          )}
-          {branches.length === 0 ? (
-            <div className="py-12 text-center">
-              <Building2 size={28} className="text-muted/30 mx-auto mb-2" />
-              <p className="text-sm text-muted">No branches yet</p>
-              <Button variant="primary" size="sm" onClick={() => setShowAddBranch(true)}>
-                <Plus size={13} /> Add a branch
-              </Button>
-            </div>
-          ) : (
-            <>
-              {bulkBranches.count > 0 && (
-                <div className="px-5 py-3 border-b border-border">
-                  <BulkActionBar count={bulkBranches.count} label="branch" pluralLabel="branches" onDelete={confirmBulkDeleteBranches} onClear={bulkBranches.clear} deleting={bulkDeleting} />
-                </div>
-              )}
-            <div className="divide-y divide-border">
-              {branches.map((b) => (
-                <div key={b.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <input type="checkbox" checked={bulkBranches.selected.has(b.id)} onChange={() => bulkBranches.toggle(b.id)} className="w-4 h-4 rounded shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">{b.name}</p>
-                      <p className="text-[11px] text-muted mt-0.5">{b.location || "—"} {b.status && <span className="capitalize ml-1">· {b.status}</span>}</p>
-                    </div>
-                  </div>
-                  <Button variant="danger" size="sm"
-                    onClick={() => handleRemoveBranch(b)}
-                    disabled={deleteBranch.isPending && deleteBranch.variables?.branchId === b.id}
-                  >
-                    {deleteBranch.isPending && deleteBranch.variables?.branchId === b.id
-                      ? <Loader2 size={13} className="animate-spin" />
-                      : <Trash2 size={13} />} Delete
-                  </Button>
-                </div>
-              ))}
-            </div>
-            </>
-          )}
-        </div>
+        <>
+          {branchesError && <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">Failed to load branches.</div>}
+          {bulkBranches.count > 0 && <BulkActionBar count={bulkBranches.count} label="branch" pluralLabel="branches" onDelete={confirmBulkDeleteBranches} onClear={bulkBranches.clear} deleting={bulkDeleting} />}
+          <LocationsPanel tenant={tenant} onAddBranch={() => setShowAddBranch(true)} bulk={{ selected: bulkBranches.selected, toggle: bulkBranches.toggle }}
+            deletingId={deleteBranch.isPending ? deleteBranch.variables?.branchId ?? null : null} onDeleteBranch={(branchId, name) => handleRemoveBranch({ id: branchId, name } as (typeof branches)[number])} />
+        </>
       )}
         </div>
       </div>
 
-      {tab === "overview" && (
-      <div className="rounded-xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-surface">
-            <AlertTriangle size={15} className="text-muted" />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">Business lifecycle</h2>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-4 py-3"><div><p className="text-sm font-semibold">Archive business</p><p className="text-xs text-muted">Needs a reason, the typed business name and a second administrator&apos;s approval. Records are always retained.</p></div><Button variant="outline" onClick={() => selectTab("operations")}>Go to actions</Button></div>
-      </div>
-      )}
-      </SectionLayout>
+      </BusinessShell>
 
       {editForm && <Drawer open onClose={() => setEditForm(null)} title="Edit business profile" description={`Update registration and contact details for ${tenant.name}`}>
         <form className="space-y-5 p-5" onSubmit={e => {

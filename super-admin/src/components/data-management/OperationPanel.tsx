@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Archive, CalendarCheck, ClipboardEdit, FlaskConical, Lock, Trash2 } from "lucide-react";
+import { Archive, CalendarCheck, ClipboardEdit, Eraser, FlaskConical, Lock, Trash2 } from "lucide-react";
 import { OP_HINT, OP_LABEL, type DmFilters, type DmModuleInfo, type DmOperation } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select, Textarea } from "@/components/ui/Form";
@@ -9,7 +9,7 @@ import { Notice } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import { hasDateLimit, type Sel } from "./RecordExplorer";
 
-const ICON = { archive: Archive, delete: Trash2, clean_test: FlaskConical, correct: ClipboardEdit, reset: CalendarCheck } as const;
+const ICON = { archive: Archive, delete: Trash2, clean_test: FlaskConical, correct: ClipboardEdit, reset: CalendarCheck, reset_data: Eraser } as const;
 const ORDER: DmOperation[] = ["archive", "correct", "delete", "clean_test", "reset"];
 const FIELDS: Record<string, { key: string; label: string; type?: string }[]> = {
   customers: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "address", label: "Address" }, { key: "tin", label: "TIN" }],

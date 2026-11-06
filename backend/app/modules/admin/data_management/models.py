@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 from app.core.models import TimestampMixin, UUIDPKMixin
 
-OPERATIONS = ("archive", "delete", "clean_test", "correct", "reset")
+OPERATIONS = ("archive", "delete", "clean_test", "correct", "reset", "reset_data")
 STATUSES = ("Prepared", "PendingApproval", "Approved", "Rejected", "Executing", "Completed", "PartiallyCompleted", "Failed", "Expired", "Cancelled")
 
 

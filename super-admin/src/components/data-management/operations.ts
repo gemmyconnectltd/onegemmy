@@ -1,4 +1,4 @@
-import { Archive, CalendarCheck, CalendarX2, ClipboardEdit, Download, FlaskConical, Trash2, Upload, type LucideIcon } from "lucide-react";
+import { Archive, CalendarCheck, CalendarX2, ClipboardEdit, Download, Eraser, FlaskConical, Trash2, Upload, type LucideIcon } from "lucide-react";
 
 export interface DmOperationCard {
   key: string;
@@ -26,12 +26,13 @@ export const OPERATION_CARDS: DmOperationCard[] = [
     steps: ["Select business", "Select module", "Select records", "Dependency analysis", "Approval", "Typed confirmation", "Execute"], target: (t) => `/data-management?tenant=${t}&op=delete` },
   { key: "opening-balance", title: "Opening Balance Reset", description: "Establish a verified new opening position.", icon: CalendarCheck, permission: "data:preview",
     steps: ["Select business", "Select cutoff", "Reconcile", "Review opening balances", "Approval", "Execute", "Verify"], target: (t) => `/data-management/close?tenant=${t}` },
+  { key: "reset-data", title: "Reset Business Data", description: "Wipe a business's transactional data and start fresh. You choose what to keep.", icon: Eraser, permission: "data:preview",
+    steps: ["Select business", "Configure", "Preview", "Confirm", "Execute", "Results"], target: (t) => `/data-management/reset?tenant=${t}` },
   { key: "import", title: "Import Data", description: "Upload and validate business records.", icon: Upload, permission: "data:view",
     steps: ["Select business", "Select module", "Upload file", "Map columns", "Validate", "Confirm", "Import"], target: null,
     unavailable: { why: "Super Admin cannot import records into a business. Imports change business data, so they run inside the business with its own validation, permissions and audit trail.", instead: "A business user with import access uploads the file from the module itself (for example Inventory → Products → Import)." } },
   { key: "export", title: "Export Data", description: "Export authorized business data and reports.", icon: Download, permission: "data:view",
-    steps: ["Select business", "Select module", "Filters", "Fields", "Preview", "Export", "Download"], target: null,
-    unavailable: { why: "Super Admin has no export of a business's records. The platform keeps no cross-business export of business data, and exporting it would bypass the business's own report permissions.", instead: "The business exports from its own reports and settings. Exports it already made are listed under Backups & recovery." } },
+    steps: ["Select business", "Select data", "Date range", "Format", "Export", "Download"], target: (t) => `/tenants/${t}?tab=profile` },
 ];
 
 export const cardFor = (key: string | null | undefined) => OPERATION_CARDS.find((c) => c.key === key);
