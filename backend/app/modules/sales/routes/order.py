@@ -154,8 +154,8 @@ async def download_order_invoice_pdf(id: uuid.UUID, db: DbSession, current_user:
 
 @router.get("/sales/orders/{id}/receipt.pdf")
 async def download_order_receipt_pdf(id: uuid.UUID, db: DbSession, current_user: CurrentUser,
-                                     paper: Literal["80mm", "58mm"] = "80mm"):
-    """The till receipt at thermal-paper width (A4 is the invoice)."""
+                                     paper: Literal["80mm", "58mm", "A4"] = "80mm"):
+    """The receipt at the paper it will be printed on: 80 mm / 58 mm thermal rolls, or an A4 sheet."""
     from app.modules.sales.service.receipt_pdf import generate_order_receipt_pdf
     _require_tenant(current_user.tenant_id)
     filename, content = await generate_order_receipt_pdf(db, current_user.tenant_id, id, paper)
@@ -226,6 +226,7 @@ async def restore_order(id: uuid.UUID, db: DbSession, current_user: CurrentUser)
 
 class InvoiceEmail(BaseModel):
     kind: Literal["invoice", "receipt"] = "invoice"
+    paper: Literal["80mm", "58mm", "A4"] = "80mm"  # receipt paper size
     to: EmailStr | None = None
     message: str | None = Field(default=None, max_length=1000)
 
@@ -234,7 +235,7 @@ class InvoiceEmail(BaseModel):
 async def email_order_invoice(id: uuid.UUID, data: InvoiceEmail, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     from app.modules.sales.service.invoice_share import email_invoice
-    return success_response(data=await email_invoice(db, current_user.tenant_id, id, current_user, data.to, data.message, data.kind), message="Invoice emailed")
+    return success_response(data=await email_invoice(db, current_user.tenant_id, id, current_user, data.to, data.message, data.kind, data.paper), message="Invoice emailed")
 
 
 @router.patch("/sales/orders/{id}")

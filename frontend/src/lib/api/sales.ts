@@ -293,14 +293,14 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/orders/${id}`, { method: "DELETE" }),
   invoiceFile: (id: string, orderNumber: string) =>
     fetchFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
-  emailInvoice: (id: string, to: string | null, message: string | null, kind: "invoice" | "receipt" = "invoice") =>
-    request<SingleResponse<{ sent_to: string }>>(`${BASE}/orders/${id}/invoice/email`, { method: "POST", body: JSON.stringify({ kind, to: to || null, message: message || null }) }),
+  emailInvoice: (id: string, to: string | null, message: string | null, kind: "invoice" | "receipt" = "invoice", paper: "58mm" | "80mm" | "A4" = "80mm") =>
+    request<SingleResponse<{ sent_to: string }>>(`${BASE}/orders/${id}/invoice/email`, { method: "POST", body: JSON.stringify({ kind, paper, to: to || null, message: message || null }) }),
   downloadInvoicePdf: (id: string, orderNumber: string) =>
     downloadFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
-  /** The till receipt at thermal-paper width (black text only, the business's branding). A4 paper is the invoice. */
-  receiptFile: (id: string, orderNumber: string, paper: "58mm" | "80mm" = "80mm") =>
+  /** The receipt at the chosen paper (80 mm / 58 mm till roll or A4): black text only, with the business's branding. */
+  receiptFile: (id: string, orderNumber: string, paper: "58mm" | "80mm" | "A4" = "80mm") =>
     fetchFile(`${BASE}/orders/${id}/receipt.pdf?paper=${paper}`, `receipt-${orderNumber}.pdf`),
-  downloadReceiptPdf: (id: string, orderNumber: string, paper: "58mm" | "80mm" = "80mm") =>
+  downloadReceiptPdf: (id: string, orderNumber: string, paper: "58mm" | "80mm" | "A4" = "80mm") =>
     downloadFile(`${BASE}/orders/${id}/receipt.pdf?paper=${paper}`, `receipt-${orderNumber}.pdf`),
 
   // Salespeople, quotations

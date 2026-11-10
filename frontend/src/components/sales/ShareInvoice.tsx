@@ -17,9 +17,9 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
   label?: string; variant?: "secondary" | "outline" | "ghost"; iconOnly?: boolean; document?: "invoice" | "receipt"; paper?: "58mm" | "80mm" | "A4";
 }) {
   const noun = document === "receipt" ? "receipt" : "invoice";
-  // A receipt is shared as the till receipt at the chosen paper width; on A4 paper the full invoice is the document.
-  const receipt = document === "receipt" && paper !== "A4";
-  const documentFile = () => receipt ? salesApi.receiptFile(orderId, orderNumber, paper as "58mm" | "80mm") : salesApi.invoiceFile(orderId, orderNumber);
+  // The document that is selected is the one shared: a receipt at its chosen paper size, otherwise the invoice.
+  const receipt = document === "receipt";
+  const documentFile = () => receipt ? salesApi.receiptFile(orderId, orderNumber, paper) : salesApi.invoiceFile(orderId, orderNumber);
   const Noun = `${noun[0].toUpperCase()}${noun.slice(1)}`;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
@@ -59,9 +59,9 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
     window.open(`https://wa.me/${digits.length >= 11 ? digits : ""}?text=${encodeURIComponent(text)}`, "_blank");
     setNote("The PDF was downloaded. Attach it in the WhatsApp chat that opened.");
   });
-  const pdf = () => run("pdf", () => receipt ? salesApi.downloadReceiptPdf(orderId, orderNumber, paper as "58mm" | "80mm") : salesApi.downloadInvoicePdf(orderId, orderNumber));
+  const pdf = () => run("pdf", () => receipt ? salesApi.downloadReceiptPdf(orderId, orderNumber, paper) : salesApi.downloadInvoicePdf(orderId, orderNumber));
   const sendEmail = () => run("email", async () => {
-    const result = await salesApi.emailInvoice(orderId, (to || customerEmail || "").trim() || null, message.trim() || null, receipt ? "receipt" : "invoice");
+    const result = await salesApi.emailInvoice(orderId, (to || customerEmail || "").trim() || null, message.trim() || null, receipt ? "receipt" : "invoice", paper);
     setNote(`${Noun} emailed to ${result.data.sent_to} as a PDF attachment.`); setEmailing(false); setMessage("");
   });
 

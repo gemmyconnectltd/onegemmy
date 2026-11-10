@@ -1,4 +1,4 @@
-"""POS receipt as a PDF at till-paper width (80 mm or 58 mm), for Download and Share from the till.
+"""Receipt as a PDF at the chosen paper: 80 mm or 58 mm till rolls, or A4, for Download and Share from the till.
 
 Plain black text on white: no background fills, no rules or table lines, so it reads like a thermal receipt and prints
 cleanly anywhere. The business's own identity on top (logo when it has one, name, contacts, TIN/VAT number); the page is
@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
@@ -24,14 +25,14 @@ from app.core.brand_pdf import business_contact_lines, business_name, logo_flowa
 from app.core.currency import format_money
 from app.core.filenames import document_filename
 
-PAPERS = {"80mm": 80 * mm, "58mm": 58 * mm}
+PAPERS = {"80mm": 80 * mm, "58mm": 58 * mm, "A4": A4[0]}
+A4_COLUMN = 120 * mm  # on A4 the receipt keeps a readable column, centred, instead of stretching across the sheet
 METHODS = {"cash": "Cash", "mobile": "Mobile Money", "card": "Card", "bank": "Bank transfer", "credit": "Credit"}
 BLACK = colors.black
 
 
 def _styles(width: float) -> dict[str, ParagraphStyle]:
-    small = width < 70 * mm
-    size = 7.2 if small else 8.2
+    size = 7.2 if width < 70 * mm else 8.2 if width < 100 * mm else 10
     base = ParagraphStyle("r", fontName="Helvetica", fontSize=size, leading=size * 1.32, textColor=BLACK)
     return {
         "body": base,
@@ -57,7 +58,9 @@ def _rows(pairs, st, width, strong=False) -> Table:
 
 def build_receipt(order, tenant, paper: str = "80mm", cashier: str | None = None) -> bytes:
     page_w = PAPERS.get(paper, PAPERS["80mm"])
-    margin = 4 * mm
+    sheet = paper == "A4"
+    margin = (page_w - A4_COLUMN) / 2 if sheet else 4 * mm
+    top = 18 * mm if sheet else margin
     width = page_w - 2 * margin - 12  # the page frame keeps 6 pt padding on each side
     st = _styles(page_w)
     currency = order.currency_code or getattr(tenant, "currency", None) or "RWF"
@@ -65,7 +68,7 @@ def build_receipt(order, tenant, paper: str = "80mm", cashier: str | None = None
     flow: list = []
 
     if getattr(tenant, "logo_url", None):
-        logo = logo_flowable(tenant, min(34, width / mm), 14)
+        logo = logo_flowable(tenant, 50 if sheet else min(34, width / mm), 22 if sheet else 14)
         if isinstance(logo, Image):  # the uploaded logo only; the coloured monogram fallback isn't printed on receipts
             logo.hAlign = "CENTER"
             flow += [logo, Spacer(1, 1.5 * mm)]
@@ -136,9 +139,9 @@ def build_receipt(order, tenant, paper: str = "80mm", cashier: str | None = None
     flow += [_rows(pay, st, width), Spacer(1, 3 * mm), Paragraph("Thank you for your purchase!", st["center"])]
 
     # Measure the content so the page is exactly as long as the receipt (thermal paper has no fixed length).
-    height = margin * 2 + sum(f.wrap(width, 10_000)[1] + getattr(f, "spaceBefore", 0) for f in flow) + 6 * mm
+    height = A4[1] if sheet else margin * 2 + sum(f.wrap(width, 10_000)[1] + getattr(f, "spaceBefore", 0) for f in flow) + 6 * mm
     out = io.BytesIO()
-    doc = SimpleDocTemplate(out, pagesize=(page_w, height), leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin,
+    doc = SimpleDocTemplate(out, pagesize=(page_w, height), leftMargin=margin, rightMargin=margin, topMargin=top, bottomMargin=top,
                             title=f"Receipt {order.order_number} - {business_name(tenant)}", author=business_name(tenant))
     doc.build(flow)
     return out.getvalue()

@@ -21,7 +21,7 @@ TENANT = N(name="Kigali Fresh Mart", logo_url=None, currency="RWF", address="KN 
            phone="+250788000000", email=None, website=None, tin="100200300", vat_enabled=False)
 
 
-@pytest.mark.parametrize(("paper", "points"), [("80mm", 226.77), ("58mm", 164.41)])
+@pytest.mark.parametrize(("paper", "points"), [("80mm", 226.77), ("58mm", 164.41), ("A4", 595.28)])
 def test_receipt_is_thermal_width(paper, points):
     pdf = build_receipt(_sale(), TENANT, paper, "Alice")
     width = float(re.search(rb"/MediaBox \[\s*0 0 ([\d.]+)", pdf).group(1))

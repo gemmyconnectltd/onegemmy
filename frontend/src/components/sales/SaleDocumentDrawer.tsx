@@ -46,7 +46,7 @@ export function SaleDocumentDrawer({ order, onClose, initialLayout = "invoice", 
   async function pdf() {
     if (busy) return;
     setBusy("pdf"); setError("");
-    try { await salesApi.downloadInvoicePdf(order.id, order.order_number); } catch { setError("Could not download the document. Please try again."); } finally { setBusy(null); }
+    try { await (layout === "receipt" ? salesApi.downloadReceiptPdf(order.id, order.order_number, paper) : salesApi.downloadInvoicePdf(order.id, order.order_number)); } catch { setError("Could not download the document. Please try again."); } finally { setBusy(null); }
   }
   async function copy() {
     try { await navigator.clipboard.writeText((layout === "invoice" ? invoice : receipt).current?.textContent ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); }
@@ -66,7 +66,7 @@ export function SaleDocumentDrawer({ order, onClose, initialLayout = "invoice", 
         </div>
         <div className="flex flex-wrap gap-2">
           {extraActions}
-          <ShareInvoice document={layout} orderId={order.id} orderNumber={order.order_number} customerName={order.customer?.name} customerEmail={order.customer?.email} customerPhone={order.customer?.phone} />
+          <ShareInvoice document={layout} paper={paper} orderId={order.id} orderNumber={order.order_number} customerName={order.customer?.name} customerEmail={order.customer?.email} customerPhone={order.customer?.phone} />
           <Button variant="secondary" disabled={!!busy} onClick={() => void pdf()}>{busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}PDF</Button>
           <Button variant="secondary" onClick={() => void copy()}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Copy"}</Button>
           <Button disabled={!!busy} onClick={() => void print()}>{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Print</Button>

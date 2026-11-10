@@ -30,7 +30,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
   const handlePdf = async () => {
     if (!sale.backendOrderId || busy) return;
     setBusy("pdf"); setError("");
-    try { await (paper === "A4" ? salesApi.downloadInvoicePdf(sale.backendOrderId, sale.orderId) : salesApi.downloadReceiptPdf(sale.backendOrderId, sale.orderId, paper)); } catch { setError("Could not download the receipt document. Please try again."); } finally { setBusy(null); }
+    try { await salesApi.downloadReceiptPdf(sale.backendOrderId, sale.orderId, paper); } catch { setError("Could not download the receipt document. Please try again."); } finally { setBusy(null); }
   };
   const handleCopy = async () => {
     try { await navigator.clipboard.writeText(receipt.current?.textContent ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError("Could not copy the receipt. You can print or download it instead."); }
