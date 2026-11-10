@@ -73,9 +73,9 @@ async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUs
         features, limits, modules = {}, {}, {}
     else:
         modules = await service.resolve_modules(db, current_user.tenant_id)
-        features = {k: v == "enabled" for k, v in modules.items()}
-        from app.modules.discounts.settings import load
-        features["discounts"] = features.get("sales", False) and (await load(db, current_user.tenant_id))["enabled"]
+        # One rule for what the business can open (POS and Discounts need Sales; the Discounts page opens whenever its
+        # module is on, so the business can switch discount management on from its Settings tab).
+        features = await service.get_effective_features(db, current_user.tenant_id)
         limits_data = await service.get_tenant_limits(db, current_user.tenant_id)
         limits = limits_data.model_dump()
     return success_response(
