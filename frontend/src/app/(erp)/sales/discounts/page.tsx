@@ -12,7 +12,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useDiscountOverview, useDiscountSettings, useSaveDiscountSettings, useDiscountRules, useDiscountCampaigns, useDiscountCoupons, useDiscountStatus, useDiscountAnalytics, useSaveDiscountCampaign, useGenerateDiscountCoupons } from "@/lib/api/hooks";
 import type { DiscountFlags } from "@/lib/api/discounts";
 
-const flags: [DiscountFlags, string][] = [["enabled", "Enable Discount Management"], ["manual_pos", "Manual POS discounts"], ["automatic", "Automatic discounts"], ["campaigns", "Promotion campaigns"], ["coupons", "Coupon codes"], ["approvals", "Discount approvals"], ["advanced", "Advanced discount types"]];
+const flags: [DiscountFlags, string][] = [["manual_pos", "Manual POS discounts"], ["automatic", "Automatic discounts"], ["campaigns", "Promotion campaigns"], ["coupons", "Coupon codes"], ["approvals", "Discount approvals"], ["advanced", "Advanced discount types"]];
 function DiscountsWorkspace() {
   const params = useSearchParams();
   const [tab, setTab] = useState(params.get("tab") === "Settings" ? "Settings" : "Overview");
@@ -43,7 +43,6 @@ function DiscountsWorkspace() {
   const rows = list.data?.items ?? [];
   return <div className="space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="pesaa-page-title">Discounts &amp; Promotions</h1><p className="text-sm text-muted">Manage price reductions and preserve the terms of every sale.</p></div>{config.data?.enabled && can("discounts:create") && <Link href="/sales/discounts/new"><Button>Create discount</Button></Link>}</div>
-    {!config.data?.enabled && <p className="rounded-xl border border-border bg-card p-4 text-sm">Discount management is disabled. Existing configurations and sales history are preserved. Enable it in Settings to start applying rules.</p>}
     <nav aria-label="Discount sections" className="flex flex-wrap gap-2">{tabs.map(t => <Button key={t} variant={visibleTab === t ? "primary" : "secondary"} onClick={() => { setTab(t); setPage(1); }} aria-current={visibleTab === t ? "page" : undefined}>{t}</Button>)}</nav>
     {message && <p role="status" className="text-sm">{message}</p>}
     {visibleTab === "Settings" ? <section className="space-y-4 rounded-xl border border-border bg-card p-6"><h2 className="pesaa-section-title">Sales settings · Discounts &amp; Promotions</h2>{flags.map(([key, label]) => <label key={key} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={!!config.data?.[key]} disabled={saveConfig.isPending} onChange={e => action(() => saveConfig.mutateAsync({ [key]: e.target.checked }))} />{label}</label>)}<form className="flex flex-wrap items-end gap-4" onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); action(() => saveConfig.mutateAsync({ authority: { default_percent: Number(f.get("limit")), roles: config.data?.authority.roles ?? {} } })); }}><Field label="Default manual authority (%)" hint="Roles without an explicit limit use this value."><Input name="limit" type="number" min="0" max="100" step="0.01" defaultValue={config.data?.authority.default_percent ?? 0} /></Field><Button disabled={saveConfig.isPending}>Save authority</Button></form></section>

@@ -748,7 +748,10 @@ async def create_order(
 
     pricing = None
     discount_config = await discount_settings.load(db, tenant_id)
-    if not preserve_quotation_prices and (discount_config["enabled"] or data.discount or any(i.discount for i in data.items) or data.coupon_codes or data.manual_discount or data.discount_approval_id):
+    asked = bool(data.discount or any(i.discount for i in data.items) or data.coupon_codes or data.manual_discount or data.discount_approval_id)
+    # The discount engine prices in the base currency. A foreign-currency sale with no discount asked for is sold as before
+    # (automatic rules don't apply to it); one that asks for a discount is refused with the reason.
+    if not preserve_quotation_prices and ((discount_config["enabled"] and currency_code == base_ccy) or asked):
         if currency_code != base_ccy:
             raise ValidationError("Discount pricing currently requires the business base currency")
         pricing_user = await get_user_by_id_raw(db, tenant_id, user_id)

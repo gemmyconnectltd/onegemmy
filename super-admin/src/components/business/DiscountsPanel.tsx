@@ -8,7 +8,6 @@ import type { AdminTenant } from "@/lib/api/admin";
 import { Card } from "@/app/(portal)/tenants/[id]/TenantPanels";
 
 const DEFAULT_DISCOUNT_FLAGS = {
-  enabled: true,
   manualPos: true,
   automatic: true,
   campaigns: true,
@@ -20,7 +19,6 @@ const DEFAULT_DISCOUNT_FLAGS = {
 type DiscountFlagKey = keyof typeof DEFAULT_DISCOUNT_FLAGS;
 
 const FLAG_LABELS: Record<DiscountFlagKey, string> = {
-  enabled: "Enable Discount Management",
   manualPos: "Enable Manual POS Discounts",
   automatic: "Enable Automatic Discounts",
   campaigns: "Enable Promotion Campaigns",
@@ -53,11 +51,7 @@ export function DiscountsPanel({ tenant }: { tenant: AdminTenant }) {
     <div className="space-y-4">
       <Card title="Discount & Promotion Management" action={<Button variant="outline" size="sm">Review rules</Button>}>
         <div className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed border-border bg-surface/60 p-3 text-[12.5px] text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>{tenant.name} can keep discount controls optional for every business. When disabled, the POS hides discount actions, automatic discounts stop, and protected backend operations are removed from the active rule set.</p>
-          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground">
-            <span className={config.enabled ? "inline-block h-2 w-2 rounded-full bg-emerald-500" : "inline-block h-2 w-2 rounded-full bg-muted"} aria-hidden />
-            {config.enabled ? "Enabled" : "Disabled"}
-          </div>
+          <p>Discounts &amp; Promotions works for {tenant.name} whenever its module is on (Modules tab). These options shape how it works; switching the module off is done under Modules.</p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -67,7 +61,6 @@ export function DiscountsPanel({ tenant }: { tenant: AdminTenant }) {
                 <div className="min-w-0">
                   <p className="text-[12.5px] font-semibold text-foreground">{FLAG_LABELS[key]}</p>
                   <p className="mt-1 text-[11.5px] text-muted">
-                    {key === "enabled" && "Master switch for the sales discount engine."}
                     {key === "manualPos" && "Controls manual line and cart discounts in POS."}
                     {key === "automatic" && "Applies automatic eligibility rules without operator intervention."}
                     {key === "campaigns" && "Allows campaign-based promotional windows and bundles."}

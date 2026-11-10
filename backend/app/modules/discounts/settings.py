@@ -1,4 +1,5 @@
-"""Per-business switches for discounts and promotions. Everything is off until the business turns it on, and turning it off never deletes anything."""
+"""Per-business switches for discounts and promotions. With the Discounts module on, discount management works straight away
+(approvals excepted, which need an approver workflow); a business can switch any part off, and turning it off never deletes anything."""
 
 import uuid
 from decimal import Decimal
@@ -11,7 +12,6 @@ from app.modules.tenants.models import Role, Tenant
 
 FLAGS = ("enabled", "manual_pos", "automatic", "campaigns", "coupons", "approvals", "advanced")
 LABELS = {
-    "enabled": "Enable Discount Management",
     "manual_pos": "Enable Manual POS Discounts",
     "automatic": "Enable Automatic Discounts",
     "campaigns": "Enable Promotion Campaigns",
@@ -23,8 +23,12 @@ LABELS = {
 UNLIMITED_ROLES = frozenset({"owner", "admin"})
 
 
+# What a business gets before it has changed anything: discount management on, approvals off until an approver is chosen.
+DEFAULT_ON = {"enabled": True, "manual_pos": True, "automatic": True, "campaigns": True, "coupons": True, "approvals": False, "advanced": True}
+
+
 def defaults() -> dict:
-    return {**{f: False for f in FLAGS}, "authority": {"default_percent": 0, "roles": {}}}
+    return {**{f: DEFAULT_ON[f] for f in FLAGS}, "authority": {"default_percent": 0, "roles": {}}}
 
 
 async def load(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
@@ -32,7 +36,10 @@ async def load(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
         await db.execute(select(Tenant.discount_settings).where(Tenant.id == tenant_id))
     ).scalar_one_or_none() or {}
     merged = defaults()
-    merged.update({f: bool(raw.get(f, False)) for f in FLAGS})
+    merged.update({f: bool(raw.get(f, DEFAULT_ON[f])) for f in FLAGS})  # a saved choice always wins over the default
+    # Discounts & Promotions is an independent module: with the module on it is always working. There is no separate
+    # master switch any more (an old saved "off" is ignored); the module itself is switched in Modules.
+    merged["enabled"] = True
     authority = raw.get("authority") or {}
     merged["authority"] = {
         "default_percent": float(authority.get("default_percent", 0)),
@@ -52,6 +59,8 @@ def effective(settings: dict) -> dict:
 async def save(db: AsyncSession, tenant_id: uuid.UUID, patch: dict) -> dict:
     current = await load(db, tenant_id)
     for flag in FLAGS:
+        if flag == "enabled":
+            continue  # not a business switch: the module decides
         if flag in patch and patch[flag] is not None:
             current[flag] = bool(patch[flag])
     if patch.get("authority") is not None:

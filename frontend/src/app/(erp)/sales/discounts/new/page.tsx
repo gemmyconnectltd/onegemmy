@@ -26,7 +26,6 @@ export default function NewDiscountPage() {
   const [error, setError] = useState("");
   if (config.isLoading) return <PageLoader variant="page" />;
   if (config.error) return <p role="alert">{config.error.message}</p>;
-  if (!config.data?.enabled) return <p>Enable Discount Management in Sales Settings before creating rules.</p>;
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setError(""); const f = new FormData(e.currentTarget);
     const active = ((e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement)?.value === "activate";

@@ -119,12 +119,12 @@ async def test_expired_disabled_automatic_and_disabled_module_show_regular_price
     await db.flush()
     automatic_off = await catalog_prices(db, user, request(product), None)
     assert automatic_off["items"][0]["offers"] == []
+    # There is no master "off" switch any more: an old saved {"enabled": false} is ignored while the module is on.
+    # Switching discounts off is done with the module itself, which closes the whole discounts API (feature gate).
     tenant.discount_settings = {"enabled": False}
     await db.flush()
-    module_off = await catalog_prices(db, user, request(product), None)
-    assert (
-        module_off["items"][0]["unit_price"] == "100.00" and module_off["items"][0]["offers"] == []
-    )
+    still_on = await catalog_prices(db, user, request(product), None)
+    assert still_on["items"][0]["unit_price"] == "90.00"
 
 
 async def test_foreign_products_are_rejected_and_preview_does_not_mutate_stock(db):
