@@ -202,6 +202,9 @@ async def generate(db: AsyncSession, user: User, data: ReportRequest,
             from app.modules.accounting.repository import AccountRepository
             if await AccountRepository(db).get_by_id_for_tenant(tenant_id, data.account_id) is None:
                 raise NotFoundError("Account not found")
+        # Opening balance per account (debits less credits posted before the period) for the ledger register's running balances.
+        before = await repo.balances(tenant_id, to_date=start - timedelta(days=1), branch_id=branch_id) if start else {}
+        metadata["opening_balances"] = {f"{b['account'].code} · {b['account'].name}": str(b["debit_total"] - b["credit_total"]) for b in before.values()}
         async for row in repo.source_lines(tenant_id, start, end, branch_id, data.account_id, data.search, data.cash_only):
             await append(row)
         metadata["columns"] = columns(("date", "Date", "date"), ("reference", "Journal", "text"), ("transaction_reference", "Source reference", "text"), ("name", "Description", "text"),

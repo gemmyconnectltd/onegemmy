@@ -244,7 +244,10 @@ export function firstAllowedHref(
   can: (permission: string) => boolean,
   isOwner: boolean,
 ): string {
-  return visiblePrimaryNavigation(features, canAccess, can, isOwner).flatMap(g => g.items)[0]?.href ?? "/support";
+  // The landing page is never the full-screen till unless the till is all this person may open (a cashier).
+  const items = visiblePrimaryNavigation(features, canAccess, can, isOwner).flatMap(g => g.items);
+  const workspace = items.find(item => item.href !== "/pos" && !item.href.startsWith("/support"));
+  return (workspace ?? items.find(item => item.href === "/pos") ?? items[0])?.href ?? "/support";
 }
 
 /** Second-sidebar links the user may see (those with `requires` need that permission). */

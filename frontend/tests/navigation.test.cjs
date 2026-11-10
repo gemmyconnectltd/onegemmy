@@ -156,3 +156,10 @@ test('the Overview and Reports are for the business owner only', () => {
   assert.equal(nav.firstAllowedHref(undefined, () => false, () => false, false), '/support');
   assert.equal(nav.firstAllowedHref(undefined, hrOnly, () => false, true), '/dashboard');
 });
+
+test('the landing page is the first workspace, not the till, unless the till is all a person may open', () => {
+  const all = Object.fromEntries(nav.PRIMARY_NAV_GROUPS.flatMap(g => g.items).filter(i => i.feature).map(i => [i.feature, true]));
+  assert.equal(nav.firstAllowedHref(all, () => true, () => true, false), '/sales');
+  assert.equal(nav.firstAllowedHref({ pos: true }, module => module === 'pos', () => false, false), '/pos');
+  assert.equal(nav.firstAllowedHref(all, () => true, () => true, true), '/dashboard');
+});

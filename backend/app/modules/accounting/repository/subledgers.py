@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, String, and_, cast, func, literal, or_, select, union_all
+from sqlalchemy import Date, and_, cast, func, literal, or_, select, union_all
 
 from app.core.exceptions import ValidationError
 from app.modules.accounting.repository.reporting import ReportingRepository
@@ -79,7 +79,7 @@ class SubledgerRepository(ReportingRepository):
         parent = select(Product.id.label("id"), Product.id.label("product_id"), Product.name.label("name"),
                         Product.sku.label("code"), Product.stock.label("quantity"), Product.cost.label("unit_cost"),
                         literal("Product").label("kind")).where(Product.tenant_id == tenant_id, or_(Product.has_variants.is_(False), ~select(ProductVariant.id).where(ProductVariant.product_id == Product.id).exists()))
-        variants = select(ProductVariant.id, Product.id, (Product.name + literal(" · ") + func.coalesce(ProductVariant.sku, cast(ProductVariant.id, String))).label("name"),
+        variants = select(ProductVariant.id, Product.id, (Product.name + literal(" · ") + func.coalesce(ProductVariant.sku, literal("variant without SKU"))).label("name"),
                           func.coalesce(ProductVariant.sku, Product.sku), ProductVariant.stock, ProductVariant.cost, literal("Variant")).join(
             Product, Product.id == ProductVariant.product_id).where(Product.tenant_id == tenant_id, Product.has_variants.is_(True), ProductVariant.is_active.is_(True))
         stmt = union_all(parent, variants).subquery()

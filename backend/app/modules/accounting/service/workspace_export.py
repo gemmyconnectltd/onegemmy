@@ -51,7 +51,8 @@ class _NumberedCanvas(Canvas):
         self._startPage()
 
     def save(self):
-        self._pages.append(dict(self.__dict__))  # the page still being drawn
+        if self._code:  # the page still being drawn (platypus has already closed its last page)
+            self._pages.append(dict(self.__dict__))
         total = len(self._pages)
         for state in self._pages:
             self.__dict__.update(state)
@@ -377,8 +378,17 @@ async def export_snapshot(db, user, snapshot_id: uuid.UUID, fmt: str) -> tuple[s
     try:
         from app.modules.tenants.repository import TenantRepository
         tenant = await TenantRepository(db).get(user.tenant_id)
-        writer = await asyncio.to_thread(ExportWriter, path, fmt, report, tenant)
         repo = ReportingRepository(db)
+        from app.modules.accounting.service.report_layouts import LAYOUTS, render
+        if fmt == "pdf" and report.get("kind") in LAYOUTS:
+            # Each accounting report has its own document layout (statement, register, aging ...), from the same snapshot rows.
+            rows = []
+            for offset in range(0, report["total"], 500):
+                rows += await repo.rows(user.tenant_id, snapshot_id, offset, 500)
+            await asyncio.to_thread(render, path, report, rows, tenant)
+            media = "application/pdf"
+            return path, f'{report["kind"]}-{report["as_of"]}.pdf', media
+        writer = await asyncio.to_thread(ExportWriter, path, fmt, report, tenant)
         for offset in range(0, report["total"], 100):
             rows = await repo.rows(user.tenant_id, snapshot_id, offset, 100)
             await asyncio.to_thread(writer.rows, rows)

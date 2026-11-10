@@ -66,3 +66,36 @@ def test_source_reference_is_the_document_number_not_an_internal_id():
     txn = SimpleNamespace(type="sale")
     assert source_label(txn, "SO-1001") == "Sale SO-1001"
     assert source_label(SimpleNamespace(type="manual")) == "Manual journal"
+
+
+def test_every_accounting_report_has_its_own_layout_and_renders_with_and_without_rows(tmp_path):
+    import pytest
+
+    from app.modules.accounting.service.report_layouts import BUILDERS, render
+
+    samples = {
+        "balance-sheet": [{"section": "Current assets", "code": "1000", "name": "Cash", "amount": "100"},
+                          {"section": "Current assets", "code": "1200", "name": "Inventory", "amount": "-40"},
+                          {"section": "Current liabilities", "code": "2100", "name": "VAT Payable", "amount": "18"},
+                          {"section": "Equity", "code": "—", "name": "Retained earnings", "amount": "42"}],
+        "income-statement": [{"section": "Revenue", "code": "4000", "name": "Sales", "amount": "100"},
+                             {"section": "Cost of goods sold", "code": "5000", "name": "COGS", "amount": "60"}],
+        "cash-flow": [{"section": "Operating activities", "code": "4000", "name": "Sales", "amount": "100"}],
+        "equity": [{"section": "Equity bridge", "name": "Opening equity", "amount": "0"}, {"section": "Equity bridge", "name": "Closing equity", "amount": "40"}],
+        "trial-balance": [{"code": "1000", "name": "Cash", "type": "Assets", "amount": "100"}, {"code": "4000", "name": "Sales", "type": "Revenue", "amount": "100"}],
+        "general-ledger": [{"date": "2026-11-02", "reference": "TXN-1", "transaction_reference": "Sale SO-1", "name": "Cash", "account": "1000 · Cash", "debit": "100", "credit": "0"}],
+        "receivables-aging": [{"name": "Alexis", "reference": "ORD-1", "due_date": "2026-10-01", "amount": "50", "bucket": "days_31_60"}],
+        "payables-aging": [{"name": "Supplier", "reference": "BILL-1", "due_date": None, "amount": "20", "bucket": "current"}],
+        "inventory": [{"code": "SKU", "name": "Phone", "quantity": "-2", "unit_cost": "10", "amount": "-20"}],
+    }
+    assert set(samples) == set(BUILDERS)  # a new report kind needs a layout and a sample here
+    for kind, rows in samples.items():
+        for data in (rows, []):
+            meta, _ = report()
+            meta.update(kind=kind, title=kind.replace("-", " ").title(), totals={}, reconciliation={"balanced": True, "difference": "0", "label": "check"})
+            path = tmp_path / f"{kind}-{len(data)}.pdf"
+            render(str(path), meta, data, TENANT)
+            content = path.read_bytes()
+            assert content.startswith(b"%PDF"), kind
+            assert re.findall(rb"/Type /Page\b", content), kind
+    pytest.importorskip("openpyxl")
