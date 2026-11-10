@@ -97,11 +97,12 @@ async def resolve_modules(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, s
 async def get_effective_features(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, bool]:
     """Which modules a business can use right now."""
     features = {k: v == ENABLED for k, v in (await resolve_modules(db, tenant_id)).items()}
-    tenant = await TenantRepository(db).get(tenant_id)
-    discount_config = getattr(tenant, "discount_settings", None) or {}
     sales = features.get("sales", False)  # the till and discounts work on sales records, so they need Sales switched on as well
     features["pos"] = sales and features.get("pos", False)
-    features["discounts"] = sales and features.get("discounts", False) and discount_config.get("enabled") is True
+    # The Discounts page is reachable whenever the module is on, so a business can switch discount management on from its
+    # Settings tab. Whether discounts actually apply at the till and on sales is the business's own switch
+    # (discount_settings.enabled), which the POS and the pricing engine check separately.
+    features["discounts"] = sales and features.get("discounts", False)
     return features
 
 

@@ -68,7 +68,7 @@ async def test_effective_features_defaults_when_no_overrides(monkeypatch):
     tenant = _FakeTenant()
     monkeypatch.setattr(service.feature.TenantRepository, "get", _FakeRepo(tenant).get)
     result = await service.get_effective_features(_FakeDB(tenant), tenant.id)
-    assert result == {**{k: True for k in FLAG_KEYS}, "discounts": False}  # discounts also needs the business to opt in
+    assert result == {k: True for k in FLAG_KEYS}  # the Discounts page is reachable so a business can switch it on
 
 
 @pytest.mark.asyncio
@@ -173,9 +173,9 @@ async def test_services_defaults_preserve_explicit_opt_out(monkeypatch):
     assert result["inventory"] is True
 
 
-async def test_discount_navigation_requires_explicit_opt_in_and_sales(monkeypatch):
+async def test_discount_page_needs_sales_but_not_the_business_opt_in(monkeypatch):
     tenant = _FakeTenant(features={"sales": False})
-    tenant.discount_settings = {"enabled": True}
+    tenant.discount_settings = {"enabled": False}  # not switched on yet: the page must still open so it can be switched on
     monkeypatch.setattr(service.feature.TenantRepository, "get", _FakeRepo(tenant).get)
     assert not (await service.get_effective_features(_FakeDB(tenant), tenant.id))["discounts"]
     tenant.features = {}
