@@ -99,6 +99,9 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
         order_by="OrderPayment.paid_at.desc()", cascade="all, delete-orphan",
     )
 
+    applied_discounts = relationship("AppliedDiscount", lazy="selectin", viewonly=True,
+        primaryjoin="and_(Order.id == AppliedDiscount.order_id, Order.tenant_id == AppliedDiscount.tenant_id)")
+
     __table_args__ = (
         Index("ix_orders_tenant_customer_credit", "tenant_id", "customer_id", "credit_granted_at"),
         Index("ix_orders_tenant_salesperson_ordered", "tenant_id", "salesperson_id", "ordered_at"),

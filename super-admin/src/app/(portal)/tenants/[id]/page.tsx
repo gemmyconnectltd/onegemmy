@@ -33,6 +33,7 @@ import { RolePermissionManager } from "./EmployeePermissions";
 import { Button } from "@/components/ui/Button";
 import { BusinessShell, SubTabs } from "@/components/business/BusinessShell";
 import { ControlCenter } from "@/components/business/ControlCenter";
+import { DiscountsPanel } from "@/components/business/DiscountsPanel";
 import { LocationsPanel } from "@/components/business/LocationsPanel";
 import { ProfileTab } from "@/components/business/ProfileTab";
 import { ActionMenu } from "@/components/tenants/ActionMenu";
@@ -40,7 +41,7 @@ import { SecurityPanel, UsagePanel, type PanelTab } from "./TenantPanels";
 import { TenantRecords } from "./TenantRecords";
 
 const PANEL_TABS: readonly PanelTab[] = [
-  "overview", "profile", "records", "users", "user-access", "branches", "subscription",
+  "overview", "profile", "records", "discounts", "users", "user-access", "branches", "subscription",
   "usage", "invoices", "modules", "approvals", "activity", "security", "operations",
 ];
 
@@ -382,6 +383,7 @@ function TenantDetailPageInner() {
         <div className="min-w-0 space-y-6">
           {tab === "user-access" && <UserFeatureAccess tenantId={id} />}
           {tab === "overview" && <ControlCenter tenant={tenant} stats={stats} limits={limits} branches={branches} usersCount={users.length} events={tenantEvents} />}
+          {tab === "discounts" && <DiscountsPanel tenant={tenant} />}
           {(tab === "profile" || tab === "operations") && <ProfileTab tenant={tenant} users={users} controls={controls} events={tenantEvents} onEdit={openEditProfile} />}
           {["subscription", "usage", "invoices"].includes(tab) && <SubTabs label="Subscription and billing" active={tab} onSelect={(k) => selectTab(k as PanelTab)} items={[{ key: "subscription", label: "Subscription" }, { key: "usage", label: "Usage" }, { key: "invoices", label: "Invoices" }]} />}
           {tab === "records" && <TenantRecords tenantId={id} currency={tenant.currency} />}

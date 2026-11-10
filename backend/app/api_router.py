@@ -21,6 +21,7 @@ from app.modules.billing.routes import tenant_router as billing_tenant_router
 from app.modules.crm.routes import crm_router
 from app.modules.currency.routes import admin_router as currency_admin_router
 from app.modules.currency.routes import tenant_router as currency_tenant_router
+from app.modules.discounts.routes import router as discounts_router
 from app.modules.hr.routes import hr_router
 from app.modules.inventory.routes import inventory_router
 from app.modules.manufacturing.routes import manufacturing_router
@@ -72,3 +73,5 @@ api_router.include_router(services_router, prefix="/tenants", dependencies=[Depe
 # Registered last so the generic /tenants/{tenant_id} routes can never shadow a module's own /tenants/<module> path (e.g. /tenants/repairs).
 api_router.include_router(tenants_router)
 api_router.include_router(global_router)
+
+api_router.include_router(discounts_router, prefix="/tenants", dependencies=[Depends(require_feature("sales")), Depends(require_feature("discounts")), Depends(require_module_write("discounts"))])

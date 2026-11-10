@@ -81,6 +81,8 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     debt_limit_per_client: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True, default=200000, server_default="200000")
     # Which kinds of request need approval: {"debt_over_limit": true, "price_change": true, "stock_adjustment": true, "stock_transfer": true}. A missing key means on.
     approval_rules: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    # Discounts & promotions: one switch per feature (all off until the business turns them on) and who may give how much by hand. See modules/discounts/settings.py.
+    discount_settings: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
 

@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.discounts.schemas import ManualDiscount
 from app.modules.sales.schemas.customer import CustomerRead
 from app.modules.sales.schemas.order_item import OrderItemCreate, OrderItemRead
 from app.modules.sales.schemas.order_payment import OrderPaymentRead
@@ -19,6 +20,12 @@ class OrderPaymentEntry(BaseModel):
 
 
 class OrderCreate(BaseModel):
+    manual_discount_reason: str | None = Field(default=None, max_length=500)
+    expected_pricing_hash: str | None = Field(default=None, min_length=64, max_length=64)
+    coupon_codes: list[str] = Field(default_factory=list, max_length=5)
+    manual_discount: ManualDiscount | None = None
+    discount_approval_id: uuid.UUID | None = None
+    pricing_channel: Literal["pos", "sales_order"] = "sales_order"
     customer_id: uuid.UUID | None = None
     # Who is responsible for the sale. Omit it and the person entering the sale is the salesperson.
     salesperson_id: uuid.UUID | None = None
@@ -108,6 +115,9 @@ class OrderCorrection(BaseModel):
 
 
 class OrderRead(BaseModel):
+    discount_details: list[dict] = Field(default_factory=list)
+    original_subtotal: float | None = None
+    total_discount: float | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID

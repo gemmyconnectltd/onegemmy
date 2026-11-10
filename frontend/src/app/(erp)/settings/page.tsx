@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/components/ui/Button";
 import { Building2, Store } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Field, Input, Select } from "@/components/ui/Form";
@@ -78,8 +81,10 @@ function BusinessInfoForm({ tenant }: { tenant: Tenant }) {
 
 export default function GeneralSettingsPage() {
   const { data: tenant } = useCurrentTenant();
+  const { hasPermission } = useAuth();
   return (
     <div className="space-y-4">
+      {hasPermission("discounts:settings") && <SettingsCard title="Sales Settings" description="Optional pricing and promotion features." icon={Store}><Link href="/sales/discounts?tab=Settings"><Button variant="secondary">Discounts &amp; Promotions</Button></Link></SettingsCard>}
       {tenant ? <BusinessInfoForm tenant={tenant} /> : <PageLoader variant="compact" />}
     </div>
   );

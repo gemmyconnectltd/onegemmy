@@ -29,8 +29,8 @@ from app.modules.tenants.models import Role, User
 
 log = get_logger("approvals")
 
-KINDS = ("price_change", "stock_adjustment", "stock_transfer", "debt_over_limit", "sale_void")
-KIND_LABEL = {"price_change": "Price change", "stock_adjustment": "Stock adjustment", "stock_transfer": "Stock transfer", "credit": "Credit sale", "debt_over_limit": "Debt over the limit", "sale_void": "Void a sale"}
+KINDS = ("price_change", "stock_adjustment", "stock_transfer", "debt_over_limit", "sale_void", "discount")
+KIND_LABEL = {"price_change": "Price change", "stock_adjustment": "Stock adjustment", "stock_transfer": "Stock transfer", "credit": "Credit sale", "debt_over_limit": "Debt over the limit", "sale_void": "Void a sale", "discount": "Discount"}
 GM_ROLE = "General Manager"
 AUTHORITY = "approvals:approve"
 
@@ -52,8 +52,11 @@ async def exempt_fields(db: AsyncSession, tenant_id: uuid.UUID) -> frozenset[str
     return frozenset(off)
 
 
-def can_decide(user) -> bool:
-    return bool(user.is_superuser or AUTHORITY in user.permissions_names)
+def can_decide(user, kind: str | None = None) -> bool:
+    """Who may decide requests. Discount requests are also decided by people holding the discounts approval permission, who see nothing else in the inbox."""
+    if user.is_superuser or AUTHORITY in user.permissions_names:
+        return True
+    return kind == "discount" and "discounts:approve" in user.permissions_names
 
 
 def _num(value) -> float:
@@ -79,9 +82,9 @@ async def create_request(db: AsyncSession, user, *, kind: str, subject_id: uuid.
     tenant_id = user.tenant_id
     reason = (reason or "").strip() or None
     title, snapshot = await _describe(db, tenant_id, kind, subject_id, payload)
-    if kind in ("price_change", "stock_adjustment", "sale_void") and (reason is None or len(reason) < 5):
+    if kind in ("price_change", "stock_adjustment", "sale_void", "discount") and (reason is None or len(reason) < 5):
         raise ValidationError("Say why: give a short reason of at least 5 characters")
-    existing = None if kind == "debt_over_limit" else (await db.execute(select(ApprovalRequest).where(
+    existing = None if kind in ("debt_over_limit", "discount") else (await db.execute(select(ApprovalRequest).where(
         ApprovalRequest.tenant_id == tenant_id, ApprovalRequest.kind == kind, ApprovalRequest.subject_id == subject_id, ApprovalRequest.status == "pending",
     ))).scalars().first()
     if existing is not None:
@@ -108,6 +111,8 @@ async def _describe(db: AsyncSession, tenant_id: uuid.UUID, kind: str, subject_i
         if customer is None or customer.tenant_id != tenant_id:
             raise NotFoundError("Customer not found")
         return f"Debt of {payload.get('amount')} for {customer.name}", {"customer_name": customer.name}
+    if kind == "discount":
+        return f"Discount of {payload.get('discount_percent')}% ({payload.get('discount')}) on a sale of {payload.get('subtotal')}", {}
     if kind == "sale_void":
         from app.modules.sales.models.order import Order
         order = await db.get(Order, subject_id) if subject_id else None
@@ -150,9 +155,23 @@ async def _describe(db: AsyncSession, tenant_id: uuid.UUID, kind: str, subject_i
 # ── Deciding ──────────────────────────────────────────────────────────────────
 
 async def decide(db: AsyncSession, user, request_id: uuid.UUID, *, approve: bool, note: str | None) -> ApprovalRequest:
-    if not can_decide(user):
-        raise ForbiddenError("You don't have approval authority")
     request = await _get(db, user.tenant_id, request_id, lock=True)
+    if request.kind == "discount":
+        assigned = getattr(user, "branch_ids", None)
+        fixed = getattr(user, "branch_id", None)
+        if assigned is not None and str(request.branch_id) not in {str(b) for b in assigned} or assigned is None and fixed and request.branch_id != fixed:
+            raise ForbiddenError("This discount request belongs to another branch")
+    if request.kind == "discount" and approve:
+        from decimal import Decimal
+
+        from app.modules.discounts.service import require_enabled
+        from app.modules.discounts.settings import authority_percent
+        config = await require_enabled(db, user, "approvals")
+        limit = await authority_percent(db, user, config)
+        if limit is not None and Decimal(str(request.payload.get("discount_percent", 0))) > limit:
+            raise ForbiddenError("This discount exceeds your approval authority")
+    if not can_decide(user, request.kind):
+        raise ForbiddenError("You don't have approval authority")
     if request.status != "pending":
         raise ConflictError(f"This request was already {request.status}")
     if request.requested_by == user.id and not user.is_superuser:
@@ -163,7 +182,8 @@ async def decide(db: AsyncSession, user, request_id: uuid.UUID, *, approve: bool
     request.decided_by, request.decided_by_name, request.decided_at, request.decision_note = user.id, user.full_name or user.email, datetime.now(UTC), note
     if approve:
         await _apply(db, request)
-        request.applied_at = datetime.now(UTC)
+        if request.kind != "discount":
+            request.applied_at = datetime.now(UTC)
     request.status = "approved" if approve else "rejected"
     await record_audit(db, tenant_id=user.tenant_id, actor_user_id=user.id, actor_name=request.decided_by_name, action=f"approval.{request.status}",
                        entity_type="approval", entity_id=str(request.id), summary=f"{KIND_LABEL[request.kind]} {request.status}: {request.title}", changes={"note": note, "payload": request.payload})
@@ -174,6 +194,8 @@ async def decide(db: AsyncSession, user, request_id: uuid.UUID, *, approve: bool
 
 async def _apply(db: AsyncSession, request: ApprovalRequest) -> None:
     payload = request.payload
+    if request.kind == "discount":
+        return  # approving only unlocks the discount: it is used (and checked again) when the sale is completed
     if request.kind == "debt_over_limit":
         from app.modules.accounting.service.debt_actions import insert_manual
         await insert_manual(db, request.tenant_id, request.requested_by, "receivable", uuid.UUID(str(payload["branch_id"])), payload)
@@ -268,7 +290,9 @@ async def list_requests(db: AsyncSession, user, *, status: str | None, kind: str
     from sqlalchemy import func
     stmt = select(ApprovalRequest).where(ApprovalRequest.tenant_id == user.tenant_id)
     if mine or not (can_decide(user) or "approvals:read" in user.permissions_names):
-        stmt = stmt.where(ApprovalRequest.requested_by == user.id)  # people without the inbox see only their own
+        own = ApprovalRequest.requested_by == user.id
+        # discount approvers see the discount requests, and only those
+        stmt = stmt.where(own | (ApprovalRequest.kind == "discount")) if "discounts:approve" in user.permissions_names and not mine else stmt.where(own)
     if status:
         stmt = stmt.where(ApprovalRequest.status == status)
     if kind:

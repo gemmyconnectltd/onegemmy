@@ -29,10 +29,10 @@ router = APIRouter(tags=["Inventory - Products"])
 
 @router.get("/inventory/products")
 async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
-                        search: str | None = None, is_active: bool | None = None):
+                        search: str | None = None, is_active: bool | None = None, category_id: uuid.UUID | None = None):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period)
-    total = await service.count_products(db, current_user.tenant_id, search, is_active, period)
+    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period, category_id)
+    total = await service.count_products(db, current_user.tenant_id, search, is_active, period, category_id)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Products retrieved successfully")
 
 

@@ -47,8 +47,8 @@ async def get_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> 
 
 
 async def list_products(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20,
-                        search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None) -> list[ProductRead]:
-    items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period)
+                        search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None) -> list[ProductRead]:
+    items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period, category_id)
     return [ProductRead.model_validate(i) for i in items]
 
 
@@ -66,8 +66,8 @@ async def get_product_by_barcode(db: AsyncSession, tenant_id: uuid.UUID, barcode
     raise NotFoundError("No product found for this barcode")
 
 
-async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None) -> int:
-    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period)
+async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None) -> int:
+    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id)
 
 
 def _product_with_sku(tenant_id: uuid.UUID, payload: dict[str, object]) -> Product:

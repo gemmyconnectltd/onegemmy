@@ -39,6 +39,7 @@ interface PaymentPanelProps {
   cashGiven: string;
   subtotal: number;
   discount: number;
+  discountBreakdown?: { product: number; order: number; coupon: number };
   tax: number;
   total: number;
   cartCount: number;
@@ -51,6 +52,9 @@ interface PaymentPanelProps {
   currencySymbol: string;
   fmt: (v: number) => string;
   saving?: boolean;
+  pricingPending?: boolean;
+  checkoutBlocked?: boolean;
+  approvalPending?: boolean;
   saleError?: string | null;
   /** Sum of cash recorded per cart line, when itemizing instead of one lump sum. */
   itemsCashReceivedSum?: number;
@@ -63,8 +67,8 @@ interface PaymentPanelProps {
 }
 
 export function PaymentPanel({
-  payment, cashGiven, subtotal, discount, tax, total, cartCount, hasCustomer, customerName, customerId, dueDate, vatEnabled, vatRate, currencySymbol, fmt,
-  saving, saleError, itemsCashReceivedSum, notes, onNotesChange, onPaymentChange, onCashChange, onDueDateChange, onCharge,
+  payment, cashGiven, subtotal, discount, discountBreakdown, tax, total, cartCount, hasCustomer, customerName, customerId, dueDate, vatEnabled, vatRate, currencySymbol, fmt,
+  saving, pricingPending, checkoutBlocked, approvalPending, saleError, itemsCashReceivedSum, notes, onNotesChange, onPaymentChange, onCashChange, onDueDateChange, onCharge,
 }: PaymentPanelProps) {
   const can = useCan();
   const canCredit = can("credit", "create");
@@ -99,7 +103,7 @@ export function PaymentPanel({
   const needsRef = (m: PaymentMethod) => m === "mobile" || m === "card" || m === "bank";
   const refMissing = (single && needsRef(tab as PaymentMethod) && paid > 0 && !reference.trim()) || (tab === "split" && splitPayments.some((s) => needsRef(s.method) && !s.reference));
   const missingDebtFields = debt && (!hasCustomer || !dueDate || !canCredit);
-  const blocked = cartCount === 0 || saving || over || overNonCash || refMissing || (debt && !debtAccepted) || (arr === "partial" && (!debt || paid <= 0)) || missingDebtFields || (tab === "split" && splitPayments.length === 0 && !debt) || (tab === "cash" && cashGiven !== "" && entered < 0);
+  const blocked = cartCount === 0 || saving || checkoutBlocked || pricingPending || over || overNonCash || refMissing || (debt && !debtAccepted) || (arr === "partial" && (!debt || paid <= 0)) || missingDebtFields || (tab === "split" && splitPayments.length === 0 && !debt) || (tab === "cash" && cashGiven !== "" && entered < 0);
 
   const snapshot = useCustomerDebtSnapshot(customerId ?? null, debt).data;
   const owedNow = snapshot?.summary.outstanding != null ? Number(snapshot.summary.outstanding) : null;
@@ -206,13 +210,18 @@ export function PaymentPanel({
     <div className="flex flex-col gap-2 lg:gap-2.5">
       {/* Totals: one muted line of detail, then the total */}
       <div>
-        <p className="flex flex-wrap justify-between gap-x-3 text-[11px] font-mono text-muted">
-          <span>{vatEnabled ? "Subtotal incl. VAT" : "Subtotal"} {currencySymbol} {fmt(subtotal)}</span>
-          {discount > 0 && <span className="font-semibold text-emerald-600 dark:text-emerald-400">Discount -{currencySymbol} {fmt(discount)}</span>}
-          {vatEnabled && <span>VAT{vatRate ? ` ${Math.round(vatRate * 1000) / 10}%` : ""} {currencySymbol} {fmt(tax)}</span>}
-        </p>
+        <dl className="space-y-1 text-xs text-muted">
+          <div className="flex justify-between gap-2"><dt>{discount > 0 ? "Subtotal before discounts" : "Subtotal"}{vatEnabled ? " (incl. VAT)" : ""}</dt><dd className="tabular-nums">{currencySymbol} {fmt(subtotal)}</dd></div>
+          {discountBreakdown && discount > 0 ? <>
+            {discountBreakdown.product > 0 && <div className="flex justify-between"><dt>Product discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.product)}</dd></div>}
+            {discountBreakdown.order > 0 && <div className="flex justify-between"><dt>Sale / manual discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.order)}</dd></div>}
+            {discountBreakdown.coupon > 0 && <div className="flex justify-between"><dt>Coupon discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.coupon)}</dd></div>}
+          </> : discount > 0 && <div className="flex justify-between"><dt>Discounts</dt><dd>−{currencySymbol} {fmt(discount)}</dd></div>}
+          {discount > 0 && <div className="flex justify-between font-medium text-accent"><dt>Total savings</dt><dd>{currencySymbol} {fmt(discount)}</dd></div>}
+          {vatEnabled && <div className="flex justify-between"><dt>VAT included{vatRate ? ` (${Math.round(vatRate * 1000) / 10}%)` : ""}</dt><dd>{currencySymbol} {fmt(tax)}</dd></div>}
+        </dl>
         <div className="mt-1 flex items-center justify-between rounded-xl bg-accent/10 px-3 py-1.5 lg:py-2">
-          <span className="text-[12px] font-bold uppercase tracking-wider text-foreground">Total</span>
+          <span className="text-[12px] font-bold uppercase tracking-wider text-foreground">Total payable</span>
           <span className="font-mono text-[20px] lg:text-[24px] font-extrabold leading-tight tabular-nums tracking-tight text-accent">{currencySymbol} {fmt(total)}</span>
         </div>
       </div>
@@ -302,8 +311,8 @@ export function PaymentPanel({
       {saleError && (
         <div className="flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] font-medium text-red-600"><AlertCircle size={12} className="mt-0.5 flex-shrink-0" /><span>{saleError}</span></div>
       )}
-      <Button disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving}>
-        {saving ? "Saving sale…" : <>{label}{cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(amountShown)}</span>}</>}
+      <Button disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving || pricingPending}>
+        {saving ? "Saving sale…" : pricingPending ? "Checking price…" : approvalPending ? "Approval required" : <>{label}{cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(amountShown)}</span>}</>}
       </Button>
       </div>
 

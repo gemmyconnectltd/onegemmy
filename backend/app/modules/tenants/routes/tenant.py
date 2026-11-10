@@ -74,6 +74,8 @@ async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUs
     else:
         modules = await service.resolve_modules(db, current_user.tenant_id)
         features = {k: v == "enabled" for k, v in modules.items()}
+        from app.modules.discounts.settings import load
+        features["discounts"] = features.get("sales", False) and (await load(db, current_user.tenant_id))["enabled"]
         limits_data = await service.get_tenant_limits(db, current_user.tenant_id)
         limits = limits_data.model_dump()
     return success_response(

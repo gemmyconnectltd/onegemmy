@@ -103,8 +103,8 @@ const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
-export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange) =>
-  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period)], () => inventoryApi.listProducts(page, pageSize, search, isActive, period), (r) => r.data, opts);
+export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string) =>
+  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId), (r) => r.data, opts);
 
 /** Count + list of products at/below their own minimum stock, computed on the server over ALL products. */
 export const useLowStockReport = (opts?: QueryOpts) => useQ([...PRODUCTS, "low-stock-report"], () => inventoryApi.lowStockReport(), (r) => r.data, opts);
@@ -1078,3 +1078,22 @@ export const useWarehouseAction = mutation((v: { id: string; action: "activate" 
 export const useReceiveStock = mutation((v: { id: string; data: Parameters<typeof warehousesApi.receive>[1] }) => warehousesApi.receive(v.id, v.data), [...STOCKLEDGER, ["inventory"]]);
 export const useSubmitCount = mutation((data: Parameters<typeof warehousesApi.submitCount>[0]) => warehousesApi.submitCount(data), [...STOCKLEDGER, ["inventory"]]);
 export const useDecideCount = mutation((v: { id: string; approve: boolean; note?: string }) => warehousesApi.decideCount(v.id, v.approve, v.note), [...STOCKLEDGER, ["inventory"]]);
+
+// Discounts use the same tenant/branch query cache and mutation invalidation as sales.
+import { discountsApi, type DiscountPriceInput, type CatalogPriceInput } from "./discounts";
+export const useDiscountSettings = () => useQ(["discounts", "settings"], discountsApi.settings, r => r.data, { refetchInterval: 15000, refetchOnWindowFocus: true });
+export const useSaveDiscountSettings = mutation(discountsApi.saveSettings, [["discounts"], ["tenants"]]);
+export const useDiscountRules = (page = 1, enabled = true) => useQ(["discounts", "rules", page], () => discountsApi.rules(page), r => r.data, { enabled });
+export const useDiscountCampaigns = (page = 1, enabled = true) => useQ(["discounts", "campaigns", page], () => discountsApi.campaigns(page), r => r.data, { enabled });
+export const useDiscountCoupons = (page = 1, enabled = true) => useQ(["discounts", "coupons", page], () => discountsApi.coupons(page), r => r.data, { enabled });
+export const useSaveDiscountRule = mutation(discountsApi.saveRule, [["discounts"]]);
+export const useSaveDiscountCampaign = mutation(discountsApi.saveCampaign, [["discounts"]]);
+export const useGenerateDiscountCoupons = mutation(discountsApi.generateCoupons, [["discounts"]]);
+export const useDiscountStatus = mutation(discountsApi.status, [["discounts"]]);
+export const useDiscountPrice = (input: DiscountPriceInput, enabled: boolean, context?: string) => useQ(["discounts", "price", input, context], () => discountsApi.price(input), r => r.data, { enabled, placeholderData: undefined, staleTime: 0, refetchInterval: 15000, retry: false });
+export const useRequestDiscountApproval = mutation(discountsApi.requestApproval, [["approvals"]]);
+export const useDiscountAnalytics = (enabled: boolean, start?: string, end?: string) => useQ(["discounts", "analytics", start, end], () => discountsApi.analytics(start, end), r => r.data, { enabled });
+
+export const useDiscountOverview = (enabled: boolean) => useQ(["discounts", "overview"], discountsApi.overview, r => r.data, { enabled });
+
+export const useCatalogPrices = (input: CatalogPriceInput, enabled: boolean, context?: string) => useQ(["discounts", "catalog", input, context], () => discountsApi.catalog(input), r => r.data, { enabled, placeholderData: undefined, staleTime: 0, refetchInterval: 15000, retry: false });

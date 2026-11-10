@@ -19,7 +19,7 @@ def legacy_billing_dependencies(monkeypatch):
 
 
 FLAG_KEYS = ["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing",
-    "services", "appointments", "queue",
+    "services", "appointments", "queue", "pos", "discounts",
 ]
 
 
@@ -68,7 +68,7 @@ async def test_effective_features_defaults_when_no_overrides(monkeypatch):
     tenant = _FakeTenant()
     monkeypatch.setattr(service.feature.TenantRepository, "get", _FakeRepo(tenant).get)
     result = await service.get_effective_features(_FakeDB(tenant), tenant.id)
-    assert result == {k: True for k in FLAG_KEYS}
+    assert result == {**{k: True for k in FLAG_KEYS}, "discounts": False}  # discounts also needs the business to opt in
 
 
 @pytest.mark.asyncio
@@ -171,3 +171,12 @@ async def test_services_defaults_preserve_explicit_opt_out(monkeypatch):
     result = await service.get_effective_features(_FakeDB(tenant), tenant.id)
     assert all(result[key] is False for key in ("services", "appointments", "queue"))
     assert result["inventory"] is True
+
+
+async def test_discount_navigation_requires_explicit_opt_in_and_sales(monkeypatch):
+    tenant = _FakeTenant(features={"sales": False})
+    tenant.discount_settings = {"enabled": True}
+    monkeypatch.setattr(service.feature.TenantRepository, "get", _FakeRepo(tenant).get)
+    assert not (await service.get_effective_features(_FakeDB(tenant), tenant.id))["discounts"]
+    tenant.features = {}
+    assert (await service.get_effective_features(_FakeDB(tenant), tenant.id))["discounts"]

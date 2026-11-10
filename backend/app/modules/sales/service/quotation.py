@@ -199,7 +199,7 @@ async def convert_quotation(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUI
                     items=[{"product_id": i.product_id, "variant_id": i.variant_id, "product_name": i.product_name, "sku": i.sku,
                             "variant_attributes": i.variant_attributes, "unit_price": float(i.unit_price), "quantity": float(i.quantity),
                             "discount": float(i.discount)} for i in q.items]),
-        active_branch_id,
+        active_branch_id, preserve_quotation_prices=True,
     )
     q = await _load(db, tenant_id, id, lock=True)
     q.converted_order_id = order.id

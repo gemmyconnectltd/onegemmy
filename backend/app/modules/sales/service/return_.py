@@ -74,10 +74,15 @@ async def get_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> R
 async def _check_quantities(db: AsyncSession, tenant_id: uuid.UUID, data: ReturnCreate) -> None:
     """A line cannot come back in larger quantity than was sold, counting what earlier (not rejected) returns already took back."""
     from sqlalchemy import func, select
+
+    from app.modules.discounts.engine import money
+    from app.modules.sales.models.order import Order
     for item in data.items:
         if not item.order_item_id:
             continue
-        sold = await db.get(OrderItem, item.order_item_id)
+        sold = (await db.execute(select(OrderItem).join(Order, Order.id == OrderItem.order_id).where(
+            Order.tenant_id == tenant_id, OrderItem.id == item.order_item_id,
+        ))).unique().scalar_one_or_none()
         if sold is None or (data.order_id and sold.order_id != data.order_id):
             raise ValidationError("A returned line does not belong to that sale")
         already = (await db.execute(
@@ -85,9 +90,30 @@ async def _check_quantities(db: AsyncSession, tenant_id: uuid.UUID, data: Return
             .where(Return.tenant_id == tenant_id, ReturnItem.order_item_id == item.order_item_id, Return.status != "Rejected"))).scalar_one()
         if float(already) + float(item.quantity) > float(sold.quantity) + 1e-9:
             raise ValidationError(f"Only {float(sold.quantity) - float(already):g} of '{sold.product_name}' can still be returned ({float(sold.quantity):g} sold, {float(already):g} already returned)")
+        # Refund frozen allocated sale prices, never a cashier-supplied amount or current promotion.
+        order = await db.get(Order, sold.order_id)
+        data.order_id = order.id
+        if data.customer_id is not None and data.customer_id != order.customer_id:
+            raise ValidationError("A refund must use the original sale customer")
+        data.customer_id = order.customer_id
+        if order.status != "Completed":
+            raise ValidationError("Only completed sale lines may be returned")
+        original_line = Decimal(str(sold.line_total))
+        if order.discount and order.subtotal:
+            original_line = money(original_line * (Decimal(str(order.subtotal)) - Decimal(str(order.discount))) / Decimal(str(order.subtotal)))
+        unit_refund = min(original_line / Decimal(str(sold.quantity)), Decimal(str(item.refund_per_unit)))
+        previous_refund = await db.scalar(select(func.coalesce(func.sum(ReturnItem.line_refund), 0)).join(Return, Return.id == ReturnItem.return_id).where(
+            Return.tenant_id == tenant_id, ReturnItem.order_item_id == item.order_item_id, Return.status != "Rejected"))
+        refund = min(money(unit_refund * Decimal(str(item.quantity))), max(original_line - Decimal(str(previous_refund)), Decimal(0)))
+        item.refund_per_unit = float(unit_refund)
+        item.line_refund = float(refund)
+        item.product_id = sold.product_id
+        item.product_name = sold.product_name
 
 
 async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ReturnCreate) -> ReturnRead:
+    from app.modules.sales.repository import OrderRepository
+    await OrderRepository(db).lock_financial_writes(tenant_id)
     await _check_quantities(db, tenant_id, data)
     repo = ReturnRepository(db)
     return_number = await repo.next_return_number(tenant_id)

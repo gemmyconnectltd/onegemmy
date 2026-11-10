@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -58,3 +58,5 @@ class Product(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     supplier = relationship("Supplier", back_populates="products", lazy="joined")
     variants = relationship("ProductVariant", back_populates="product", lazy="selectin", cascade="all, delete-orphan")
     serials = relationship("ProductSerial", back_populates="product", lazy="selectin", cascade="all, delete-orphan")
+
+    __table_args__ = (Index("ix_inventory_products_tenant_category_name", "tenant_id", "category_id", "name", "id"),)

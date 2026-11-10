@@ -1,15 +1,15 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ReturnItemCreate(BaseModel):
     order_item_id: uuid.UUID | None = None
     product_id: uuid.UUID | None = None
     product_name: str
-    quantity: int = 1
-    refund_per_unit: float
+    quantity: int = Field(default=1, gt=0)
+    refund_per_unit: float = Field(ge=0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def compute_line_refund(self):

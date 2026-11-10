@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { CreditCard, Database, FileText, History, Layers, Lock, Package, Settings, ShieldCheck, Users, Warehouse, Power, ChevronRight, ShoppingCart, Boxes, Receipt, UserRound, Wallet, Archive } from "lucide-react";
+import { CreditCard, Database, FileText, History, Layers, Lock, Package, Percent, Settings, ShieldCheck, Users, Warehouse, Power, ChevronRight, ShoppingCart, Boxes, Receipt, UserRound, Wallet, Archive } from "lucide-react";
 import type { AdminBranch, AdminTenant, AdminTenantRecord, AdminTenantStats, TenantLimits } from "@/lib/api/admin";
 import { useBillingOverview } from "@/lib/api/hooks";
 import { billingDate, billingMoney } from "@/components/billing/BillingShared";
@@ -11,10 +11,10 @@ import { tabHref, BUSINESS_TABS } from "./BusinessShell";
 
 function Kpi({ icon: Icon, label, value, sub }: { icon: typeof Package; label: string; value: string; sub?: string }) {
   return (
-    <div className="min-w-0 rounded-xl border border-border bg-card p-3.5">
+    <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-3.5">
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent"><Icon size={15} aria-hidden /></span>
       <p className="mt-2 truncate text-[11.5px] font-medium text-muted">{label}</p>
-      <p className="truncate text-xl font-extrabold leading-tight text-foreground">{value}</p>
+      <p className="truncate text-lg font-extrabold leading-tight text-foreground sm:text-xl" title={value}>{value}</p>
       {sub && <p className="truncate text-[10.5px] text-muted">{sub}</p>}
     </div>
   );
@@ -30,6 +30,7 @@ function Meter({ label, used, allowed }: { label: string; used: number; allowed:
 const TILES: { panel: string; icon: typeof Package; title: string; text: string; href?: (id: string) => string }[] = [
   { panel: "profile", icon: FileText, title: "Business Profile", text: "Business details, contacts, currency, timezone" },
   { panel: "records", icon: Package, title: "Business Records", text: "View sales, purchases, expenses and more" },
+  { panel: "discounts", icon: Percent, title: "Discounts & Promotions", text: "Configure pricing rules, approvals and coupon campaigns" },
   { panel: "users", icon: Users, title: "Users & Access", text: "Users, roles and permissions" },
   { panel: "branches", icon: Warehouse, title: "Branches & Warehouses", text: "Branches, warehouses and stock locations" },
   { panel: "subscription", icon: CreditCard, title: "Subscription & Billing", text: "Plan, invoices, payments and usage" },
@@ -62,16 +63,16 @@ export function ControlCenter({ tenant, stats, limits, branches, usersCount, eve
             <Kpi icon={Wallet} label="Expenses" value={money(stats?.expenses)} sub="Approved" />
             <Kpi icon={Archive} label="Stock value" value={money(stats?.stock_value)} sub="At cost" />
           </section>
-          <section aria-labelledby="ops" className="rounded-xl border border-border bg-card p-4">
+          <section aria-labelledby="ops" className="rounded-xl border border-border bg-card p-3 sm:p-4">
             <h3 id="ops" className="pesaa-card-title">Business Operations</h3><p className="mt-0.5 text-[12.5px] text-muted">Manage all aspects of this business from one place.</p>
-            <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
               {TILES.map((t) => { const Icon = t.icon; const tab = BUSINESS_TABS.find((b) => b.panels.includes(t.panel))!;
                 return (
                   <Link key={t.title} href={t.href ? t.href(tenant.id) : tab.href ? tab.href(tenant.id) : `/tenants/${encodeURIComponent(tenant.id)}?tab=${t.panel}`}
-                    className="group flex items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:border-accent/40 hover:bg-surface/50 focus-visible:outline-2 focus-visible:outline-accent">
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent"><Icon size={16} aria-hidden /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-[13px] font-semibold group-hover:text-accent">{t.title}</span><span className="block text-[11.5px] leading-snug text-muted">{t.text}</span></span>
-                    <ChevronRight size={14} className="flex-shrink-0 text-muted" aria-hidden /></Link>); })}
+                    className="group flex min-h-[3.25rem] items-center gap-2.5 rounded-xl border border-border p-2.5 transition-colors sm:gap-3 sm:p-3 hover:border-accent/40 hover:bg-surface/50 focus-visible:outline-2 focus-visible:outline-accent">
+                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent sm:h-9 sm:w-9"><Icon size={16} aria-hidden /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[12.5px] font-semibold leading-tight group-hover:text-accent sm:text-[13px]">{t.title}</span><span className="hidden text-[11.5px] leading-snug text-muted sm:block">{t.text}</span></span>
+                    <ChevronRight size={14} className="hidden flex-shrink-0 text-muted sm:block" aria-hidden /></Link>); })}
             </div>
           </section>
         </div>

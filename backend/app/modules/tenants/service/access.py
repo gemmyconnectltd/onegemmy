@@ -17,7 +17,7 @@ from app.modules.tenants.models import Branch, FeatureFlag, Permission, Role, Us
 from app.modules.tenants.service.feature import ENABLED, NOT_INCLUDED, resolve_modules
 
 ACTION_LABELS = {"read": "View", "create": "Create", "update": "Update", "delete": "Delete", "approve": "Approve"}
-ACTION_ORDER = ("read", "create", "update", "delete", "approve")
+ACTION_ORDER = ("read", "create", "update", "delete", "approve", "activate", "apply", "promotions", "coupons", "analytics", "settings")
 WRITE_ACTIONS = ("create", "update", "delete", "approve")
 BUSINESS = "business"  # resources that belong to no ERP module (people, roles, branches, billing ...)
 
@@ -35,6 +35,9 @@ def resource_home() -> dict[str, str]:
     for module, resources in _module_resources().items():
         for resource in resources:
             home.setdefault(resource, module)
+    for module, resources in _module_resources().items():
+        if module in resources:  # a module that is its own resource (pos, discounts) owns it even when Sales also lists it
+            home[module] = module
     return home
 
 

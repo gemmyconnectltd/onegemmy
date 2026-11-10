@@ -24,6 +24,8 @@ log = get_logger("access")
 # Module → the permission resources that grant access to it. Keep in step with MODULE_RESOURCES in frontend/src/lib/auth.tsx.
 MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "sales": ("orders", "pos", "invoices", "returns", "pricing", "contacts", "accounts", "leads", "opportunities", "activities"),
+    "pos": ("pos",),
+    "discounts": ("discounts",),
     "inventory": ("items", "warehouses", "stock", "pricing", "returns"),
     "accounting": ("invoices", "chart_of_accounts", "journal_entries", "accounts_payable", "accounts_receivable", "banking", "fixed_assets",
                    "budgeting", "tax", "expenses", "payroll"),
@@ -57,6 +59,14 @@ PATH_RESOURCES: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
 
 # Exact permission(s) (any one of) for specific endpoints — evaluated before the coarse module rule.
 EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
+    ("PATCH", re.compile(r"^/sales/discounts/settings$"), ("discounts:settings",)),
+    ("POST", re.compile(r"^/sales/discounts/rules/[^/]+/status$"), ("discounts:activate",)),
+    ("POST", re.compile(r"^/sales/discounts/campaigns"), ("discounts:promotions",)),
+    ("PUT", re.compile(r"^/sales/discounts/campaigns/[^/]+$"), ("discounts:promotions",)),
+    ("POST", re.compile(r"^/sales/discounts/coupons"), ("discounts:coupons",)),
+    ("POST", re.compile(r"^/sales/discounts/approvals$"), ("discounts:apply",)),
+    ("POST", re.compile(r"^/sales/discounts/rules$"), ("discounts:create",)),
+    ("PUT", re.compile(r"^/sales/discounts/rules/[^/]+$"), ("discounts:update",)),
     ("POST", re.compile(r"^/sales/orders$"), ("orders:create", "pos:create")),
     ("POST", re.compile(r"^/sales/quotations$"), ("orders:create",)),
     ("POST", re.compile(r"^/sales/quotations/[^/]+/(send|accept|reject|convert)$"), ("orders:update",)),
@@ -98,6 +108,8 @@ READ_ALSO: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
     (re.compile(r"^/hr/employees"), ("services", "appointments", "queue", "service_commissions", "orders", "pos")),
     (re.compile(r"^/sales/customers"), ("services", "appointments", "queue", "accounts_receivable", "accounts_payable", "repairs", "items")),
     (re.compile(r"^/accounting/tax/rates"), ("orders", "pos", "invoices", "items")),
+    # The till and the sales screens read discount settings and prices to show a cart; only managing rules needs discounts permissions.
+    (re.compile(r"^/sales/discounts"), ("pos", "orders", "pricing")),
 ]
 
 # POSTs that only compute or look something up and change nothing.

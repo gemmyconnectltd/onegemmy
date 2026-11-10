@@ -104,6 +104,9 @@ export interface ApiOrderPayment {
 }
 
 export interface ApiOrder {
+  discount_details?: { name: string; kind: string; type: string; amount: string; coupon_code?: string | null }[];
+  original_subtotal?: number;
+  total_discount?: number;
   id: string;
   order_number: string;
   customer_id: string | null;

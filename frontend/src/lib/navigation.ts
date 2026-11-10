@@ -151,7 +151,8 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   { id: "workspace", label: "Workspace", items: [{ name: "Overview", href: "/dashboard", icon: LayoutDashboard, tour: "dashboard", ownerOnly: true }] },
   { id: "operations", label: "Operations", items: [
     { name: "Sales", href: "/sales", icon: ShoppingCart, feature: "sales", module: "sales" },
-    { name: "Point of Sale", href: "/pos", icon: ScanLine, feature: "sales", module: "sales" },
+    { name: "Point of Sale", href: "/pos", icon: ScanLine, feature: "pos", access: "pos" },
+    { name: "Discounts & Promotions", href: "/sales/discounts", icon: Tag, feature: "discounts", access: "discounts", permission: "discounts:read" },
     { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
     { name: "Inventory", href: "/inventory", icon: Warehouse, feature: "inventory", module: "inventory" },
     { name: "Purchases", href: "/procurement", icon: ShoppingBag, feature: "procurement", module: "procurement" },
@@ -174,8 +175,8 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   ] },
   { id: "administration", label: "Administration", items: [
     { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
-    { name: "Approvals", href: "/approvals", icon: ClipboardCheck, permission: "approvals:read", tour: "approvals" },
-    { name: "Branches", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
+    { name: "Approval Management", href: "/approvals", icon: ClipboardCheck, permission: "approvals:read", tour: "approvals" },
+    { name: "Branch Management", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
     { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing", hidden: true },
     { name: "Business Settings", href: "/settings", icon: Settings, permission: "tenants:update", exact: true, tour: "settings",
       activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
@@ -187,6 +188,10 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
 export function isPrimaryActive(path: string, item: Pick<PrimaryNavItem, "href" | "exact" | "activeFor">): boolean {
   if (path === item.href) return true;
   if (item.activeFor?.some(prefix => path === prefix || path.startsWith(prefix + "/"))) return true;
+  // A standalone feature nested beneath another route owns its active row.
+  if (PRIMARY_NAV_GROUPS.some(group => group.items.some(other =>
+    other.href.startsWith(item.href + "/") && (path === other.href || path.startsWith(other.href + "/"))
+  ))) return false;
   return item.href !== "/dashboard" && !item.exact && path.startsWith(item.href + "/");
 }
 
@@ -227,6 +232,7 @@ export function visiblePrimaryNavigation(
     && (!item.ownerOnly || isOwner)
     && (!item.feature || features?.[item.feature] === true)
     && (!item.module || item.access === "" || canAccess(item.access || item.module))
+    && (!item.access || canAccess(item.access))
     && (!item.permission || can(item.permission));
   return PRIMARY_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(visible).map(item => item.module === "services" && features?.appointments !== true ? { ...item, href: visibleModuleLinks("services", can, features)[0]?.href ?? "/services/catalog", activeFor: ["/services"] } : item) })).filter(group => group.items.length);
 }

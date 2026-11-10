@@ -3,12 +3,17 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, Plus } from "lucide-react";
 import { resolveUploadUrl } from "@/lib/api/client";
 
+import type { CatalogProductPrice } from "@/lib/api/discounts";
+import { ProductDiscountBadge } from "./ProductDiscountBadge";
+
 import { LOW_STOCK_THRESHOLD } from "./constants";
 import { IconBadge, getProductIcon, productAccent } from "./icons";
 import type { Product, Variant } from "./types";
 
 interface ProductCardProps {
   product: Product;
+  pricing?: CatalogProductPrice;
+  variantPricing?: Record<string, CatalogProductPrice>;
   inCartQty: number;
   bumping: boolean;
   expanded: boolean;
@@ -25,11 +30,12 @@ function attrLabel(attrs: Record<string, string>) {
   return entries.length ? entries.map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
 }
 
-export function ProductCard({ product, inCartQty, bumping, expanded, currencySymbol, fmt, onAdd, onAddVariant, onToggle, layout = "vertical" }: ProductCardProps) {
+export function ProductCard({ product, pricing, variantPricing, inCartQty, bumping, expanded, currencySymbol, fmt, onAdd, onAddVariant, onToggle, layout = "vertical" }: ProductCardProps) {
   const isVariantGroup = product.has_variants && (product.variants?.length ?? 0) > 0;
   const availableStock = isVariantGroup ? (product.variants ?? []).reduce((sum, variant) => sum + variant.stock, 0) : product.stock;
   const outOfStock = availableStock <= 0;
   const lowStock = !outOfStock && availableStock <= LOW_STOCK_THRESHOLD;
+  const offers = isVariantGroup ? Array.from(new Map((product.variants ?? []).flatMap(variant => variantPricing?.[variant.id]?.offers ?? []).map(offer => [offer.rule_id, { ...offer, label: "VARIANT OFFER", conditional: true }])).values()) : pricing?.offers ?? [];
   const accent = productAccent(product.id);
   const disabled = outOfStock;
   const [failedImage, setFailedImage] = useState<string | null>(null);
@@ -65,6 +71,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
               </div>
             )}
             {outOfStock && <div className="absolute inset-0 bg-background/60" />}
+            {!!offers.length && <span className="absolute inset-x-1 top-1"><ProductDiscountBadge offers={offers} currencySymbol={currencySymbol} fmt={fmt} /></span>}
           </div>
 
           {/* Info */}
@@ -76,7 +83,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
                 : (product.sku ?? product.category)}
             </p>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-[13px] font-bold text-accent font-mono">{currencySymbol} {fmt(product.price)}</p>
+              <CardPrice regular={product.price} pricing={pricing} currencySymbol={currencySymbol} fmt={fmt} />
               {lowStock && !isVariantGroup && (
                 <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600">
                   <AlertTriangle size={9} /> {product.stock} left
@@ -118,7 +125,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[11px] text-muted">{v.stock} left</span>
-                    <span className="text-[12px] font-bold text-accent font-mono">{currencySymbol} {fmt(v.price)}</span>
+                    <CardPrice regular={v.price} pricing={variantPricing?.[v.id]} currencySymbol={currencySymbol} fmt={fmt} />
                   </div>
                 </button>
               );
@@ -188,6 +195,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
               </div>
             </div>
           )}
+          {!!offers.length && <span className="absolute left-1 right-9 top-1 max-w-full"><ProductDiscountBadge offers={offers} currencySymbol={currencySymbol} fmt={fmt} /></span>}
           {outOfStock && (
             <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
               <span className="text-[10px] font-bold text-white bg-red-500/90 px-2 py-0.5 rounded-full shadow-sm">Out of stock</span>
@@ -199,7 +207,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
         <div className="flex w-full flex-1 flex-col gap-0.5 p-2">
           <p className="line-clamp-2 min-h-[2.2em] text-[12px] font-semibold leading-tight text-foreground">{product.name}</p>
           <div className="flex items-center justify-between gap-1">
-            <p className="font-mono text-[13px] font-bold tracking-tight text-accent">{currencySymbol} {fmt(product.price)}</p>
+            {isVariantGroup ? <p className="min-h-8 text-xs text-muted">Choose a variant</p> : <CardPrice regular={product.price} pricing={pricing} currencySymbol={currencySymbol} fmt={fmt} />}
             {lowStock && !isVariantGroup && (
               <span className="flex flex-shrink-0 items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400"><AlertTriangle size={9} /> {product.stock}</span>
             )}
@@ -235,7 +243,7 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
                   {v.sku && <p className="text-[10px] text-muted font-mono truncate">{v.sku}</p>}
                 </div>
                 <div className="flex flex-col items-end flex-shrink-0">
-                  <span className="text-[12px] font-bold text-accent font-mono">{currencySymbol} {fmt(v.price)}</span>
+                  <CardPrice regular={v.price} pricing={variantPricing?.[v.id]} currencySymbol={currencySymbol} fmt={fmt} />
                   <span className={`text-[10px] ${v.stock <= LOW_STOCK_THRESHOLD ? "text-amber-600 font-semibold" : "text-muted"}`}>{v.stock} left</span>
                 </div>
               </button>
@@ -245,4 +253,13 @@ export function ProductCard({ product, inCartQty, bumping, expanded, currencySym
       )}
     </div>
   );
+}
+
+
+function CardPrice({ regular, pricing, currencySymbol, fmt }: { regular: number; pricing?: CatalogProductPrice; currencySymbol: string; fmt: (value: number) => string }) {
+  const discounted = !!pricing && !pricing.blocked && Number(pricing.savings) > 0;
+  return <span className="flex min-h-8 min-w-0 flex-col" title={pricing ? `${pricing.price_context}${pricing.price_approximate ? "; rounded average per unit; the cart shows the exact line amount" : ""}; checkout revalidates promotions` : undefined}>
+    <span className={`text-xs text-muted ${discounted ? "line-through" : "invisible"}`} aria-hidden={!discounted}>{currencySymbol} {fmt(Number(pricing?.original_unit_price ?? regular))}</span>
+    <span className={`font-mono text-sm font-semibold ${discounted ? "text-accent" : "text-foreground"}`}>{discounted && pricing.price_approximate ? "≈ " : ""}{currencySymbol} {fmt(discounted ? Number(pricing.unit_price) : Number(pricing?.original_unit_price ?? regular))}</span>
+  </span>;
 }

@@ -34,6 +34,9 @@ interface CartPanelProps {
   onNotesChange: (v: string) => void;
   onUpdateQty: (id: string, delta: number) => void;
   onUpdateDiscount: (id: string, discount: number) => void;
+  onUpdatePrice?: (id: string, price: number) => void;
+  priceEditingDisabled?: boolean;
+  linePricing?: { ref: string; discount: string; net: string; rules: { name: string; amount: string; kind: string }[] }[];
   onRemoveItem: (id: string) => void;
   onClear: () => void;
   onHold: () => void;
@@ -45,7 +48,7 @@ interface CartPanelProps {
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
   onCustomerChange, saleAt, onSaleAtChange, team = [], salespersonId = "", onSalespersonChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
-  showCashReceived, onUpdateCashReceived,
+  showCashReceived, onUpdateCashReceived, onUpdatePrice, priceEditingDisabled, linePricing,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -228,9 +231,11 @@ export function CartPanel({
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {cart.map((item) => {
+            {cart.map((item, index) => {
               const accent = productAccent(item.id);
-              const lineTotal = item.price * item.qty - item.discount;
+              const priced = linePricing?.find(line => line.ref === String(index));
+              const appliedDiscount = priced ? Number(priced.discount) : item.discount;
+              const lineTotal = priced ? Number(priced.net) : item.price * item.qty - item.discount;
               const variant = item.variant_attributes && Object.keys(item.variant_attributes).length > 0 ? Object.entries(item.variant_attributes).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
               return (
                 <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-surface/50">
@@ -246,9 +251,10 @@ export function CartPanel({
                       <p className="min-w-0 line-clamp-2 break-words text-[12.5px] font-semibold leading-tight text-foreground" title={item.name}>{item.name}</p>
                       <span className="shrink-0 font-mono text-[12.5px] font-bold tabular-nums text-foreground">{currencySymbol} {fmt(lineTotal)}</span>
                     </div>
+                    {appliedDiscount > 0 && <div className="flex flex-wrap items-center gap-2 text-xs"><s className="text-muted">{currencySymbol} {fmt(item.price * item.qty)}</s><span className="text-accent">{priced?.rules.map(rule => rule.name).join(" · ") || "Manual discount"}</span></div>}
                     {/* Line 2: unit price, the stepper and remove */}
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <p className="min-w-0 truncate font-mono text-[10.5px] text-muted">{currencySymbol} {fmt(item.price)}{variant ? ` · ${variant}` : ""}</p>
+                      {onUpdatePrice ? <UnitPriceEditor key={`${item.id}:${item.price}:${item.cost ?? 0}`} item={item} currencySymbol={currencySymbol} fmt={fmt} disabled={priceEditingDisabled} onCommit={price => onUpdatePrice(item.id, price)} /> : <p className="min-w-0 truncate font-mono text-[10.5px] text-muted">{currencySymbol} {fmt(item.price)}{variant ? ` · ${variant}` : ""}</p>}
                       <div className="flex shrink-0 items-center gap-1">
                         <div className="inline-flex h-7 items-center overflow-hidden rounded-lg border border-border bg-card">
                           <button aria-label={`Decrease quantity of ${item.name}`} onClick={() => onUpdateQty(item.id, -1)} className="flex h-7 w-7 items-center justify-center text-foreground/70 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"><Minus size={12} /></button>
@@ -293,4 +299,37 @@ export function CartPanel({
       </Drawer>
     </div>
   );
+}
+
+
+function UnitPriceEditor({ item, currencySymbol, fmt, disabled, onCommit }: {
+  item: CartItem; currencySymbol: string; fmt: (value: number) => string;
+  disabled?: boolean; onCommit: (price: number) => void;
+}) {
+  const [error, setError] = useState("");
+  const minimum = item.cost ?? 0;
+  return <div className="min-w-0 space-y-1">
+    <label className="block text-xs text-muted">
+      Unit price ({currencySymbol})
+      <Input type="number" inputMode="decimal" step="0.01" min={minimum} defaultValue={item.price}
+        aria-label={`Unit selling price for ${item.name}`} disabled={disabled} className="w-28"
+        onFocus={event => event.currentTarget.select()}
+        onKeyDown={event => {
+          if (event.key === "Escape") { event.currentTarget.value = String(item.price); setError(""); event.currentTarget.blur(); }
+          if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
+        }}
+        onBlur={event => {
+          const price = event.currentTarget.valueAsNumber;
+          if (!Number.isFinite(price) || price < minimum || !event.currentTarget.validity.valid) {
+            event.currentTarget.value = String(item.price);
+            setError(`Enter a valid price of at least ${currencySymbol} ${fmt(minimum)}.`);
+            return;
+          }
+          setError("");
+          if (price !== item.price) onCommit(price);
+        }} />
+    </label>
+    {item.variant_attributes && <p className="text-xs text-muted">{Object.entries(item.variant_attributes).map(([key, value]) => `${key}: ${value}`).join(" · ")}</p>}
+    {error && <p role="alert" className="text-xs text-muted">{error}</p>}
+  </div>;
 }

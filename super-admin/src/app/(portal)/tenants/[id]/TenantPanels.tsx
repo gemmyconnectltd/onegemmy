@@ -12,7 +12,7 @@ import { useBillingOverview, useUsageTenant } from "@/lib/api/hooks";
 import { billingDate, billingMoney } from "@/components/billing/BillingShared";
 import { TenantStatusBadge } from "@/components/tenants/StatusBadge";
 
-export type PanelTab = "user-access" | "overview" | "profile" | "records" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations" | "modules" | "approvals";
+export type PanelTab = "user-access" | "overview" | "profile" | "records" | "discounts" | "users" | "branches" | "subscription" | "usage" | "invoices" | "security" | "activity" | "operations" | "modules" | "approvals";
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = { sole: "Sole Proprietorship", partnership: "Partnership", llc: "Limited Liability (LLC)", unregistered: "Not Registered" };
 

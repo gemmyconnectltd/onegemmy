@@ -62,6 +62,14 @@ async def list_orders(
 @router.post("/sales/orders")
 async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
+    if data.pricing_channel == "pos":  # a till sale needs the POS module for the business and for this person
+        from app.modules.tenants import service as tenant_service
+
+        status = await tenant_service.module_status(db, current_user.tenant_id, "pos")
+        if status != "enabled":
+            raise ForbiddenError("Point of Sale is not available for your business. An administrator can turn it on in Business Settings → Features & Modules.")
+        if "pos" in (getattr(current_user, "disabled_modules", None) or []) and not current_user.is_superuser:
+            raise ForbiddenError("Point of Sale has been switched off for your account. Ask an administrator of your business.")
     can_approve = current_user.is_superuser or "credit:approve" in current_user.permissions_names
     if data.ordered_at is not None:
         await service.require_backdating_allowed(db, current_user, data.ordered_at)

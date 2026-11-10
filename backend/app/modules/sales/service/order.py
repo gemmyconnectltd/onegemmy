@@ -153,7 +153,12 @@ def _to_order_read(obj: Order) -> OrderRead:
     payment) shows the exact same numbers, never a value cached anywhere
     else that could drift."""
     read = OrderRead.model_validate(obj)
+    read.discount_details = [{"name": item.rule_name, "kind": item.kind, "type": item.rule_type,
+        "amount": str(item.amount), "coupon_code": item.coupon_code} for item in obj.applied_discounts]
     read.salesperson_name = obj.salesperson.full_name if obj.salesperson else None
+    line_discount = sum(Decimal(str(item.discount or 0)) for item in obj.items)
+    read.original_subtotal = float(Decimal(str(obj.subtotal)) + line_discount)
+    read.total_discount = float(Decimal(str(obj.discount)) + line_discount)
     total = float(obj.total)
     paid = float(obj.amount_paid)
     outstanding = round(max(0.0, total - paid), 2)
@@ -520,6 +525,8 @@ async def void_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user
         record.status = "Void"
     before = {"status": obj.status, "total": float(obj.total), "paid": float(obj.amount_paid or 0)}
     obj.status = "Cancelled"
+    from app.modules.discounts.service import release_coupon_usage
+    await release_coupon_usage(db, tenant_id, obj.id)
     obj.amount_paid = 0
     obj.notes = f"{obj.notes + chr(10) if obj.notes else ''}VOIDED: {reason}"
     await record_audit(db, tenant_id=tenant_id, actor_user_id=user_id, actor_name=user_name, action="order.void", entity_type="order", entity_id=str(obj.id),
@@ -666,6 +673,7 @@ async def create_order(
     can_approve_credit: bool = False,
     can_sell_credit: bool = True,
     can_approve_sale: bool = False,
+    preserve_quotation_prices: bool = False,
 ) -> OrderRead:
     repo = OrderRepository(db)
     extra_payments: list = []
@@ -702,6 +710,40 @@ async def create_order(
     currency_code, fx_rate, base_ccy = await resolve_document_currency(
         db, tenant_id, data.currency_code, data.exchange_rate, at=effective_at,
     )
+
+    from app.modules.discounts import settings as discount_settings
+    from app.modules.discounts.schemas import PriceIn, PriceItem
+    from app.modules.discounts.service import record_sale, validate_checkout
+    from app.modules.tenants.service import get_user_by_id_raw
+
+    pricing = None
+    discount_config = await discount_settings.load(db, tenant_id)
+    if not preserve_quotation_prices and (discount_config["enabled"] or data.discount or any(i.discount for i in data.items) or data.coupon_codes or data.manual_discount or data.discount_approval_id):
+        if currency_code != base_ccy:
+            raise ValidationError("Discount pricing currently requires the business base currency")
+        pricing_user = await get_user_by_id_raw(db, tenant_id, user_id)
+        pricing_branch = await _resolve_order_branch_id(db, tenant_id, active_branch_id, data.branch_id)
+        manual = data.manual_discount
+        if data.discount:
+            if manual:
+                raise ValidationError("Use one order-level manual discount")
+            from app.modules.discounts.schemas import ManualDiscount
+            manual = ManualDiscount(kind="fixed", value=Decimal(str(data.discount)))
+        request = PriceIn(items=[PriceItem(product_id=i.product_id, variant_id=i.variant_id,
+            unit_price=Decimal(str(i.unit_price)), quantity=Decimal(str(i.quantity)),
+            discount=Decimal(str(i.discount))) for i in data.items], customer_id=data.customer_id,
+            branch_id=pricing_branch, channel=data.pricing_channel, coupon_codes=data.coupon_codes,
+            manual_discount=manual, manual_reason=data.manual_discount_reason, discount_approval_id=data.discount_approval_id)
+        pricing = await validate_checkout(db, pricing_user, request, pricing_branch)
+        priced = pricing[0]
+        if data.expected_pricing_hash:
+            from app.modules.discounts.service import pricing_hash
+            if data.expected_pricing_hash != pricing_hash(priced):
+                raise ValidationError("Discount pricing changed; review the refreshed cart before charging")
+        data = data.model_copy(update={"discount": 0, "items": [
+            i.model_copy(update={"discount": float(priced.lines[n]["discount"]),
+                                 "line_total": float(priced.lines[n]["net"])})
+            for n, i in enumerate(data.items)]})
 
     subtotal = sum(item.line_total for item in data.items)
     gross = round(subtotal - data.discount, 2)
@@ -789,10 +831,12 @@ async def create_order(
         order.ordered_at = data.ordered_at if data.ordered_at.tzinfo else data.ordered_at.replace(tzinfo=UTC)
     order = await repo.save(order)
 
+
     if completing:
         await ProductRepository(db).lock_stock(tenant_id,
             {item.product_id for item in data.items if item.product_id},
             {item.variant_id for item in data.items if item.variant_id})
+    created_items = []
     cogs_total = 0.0
     for item_data in data.items:
         variant = None
@@ -821,7 +865,20 @@ async def create_order(
             if product.has_variants:
                 raise ValidationError(f"Product '{product.name}' has variants — pick a specific variant")
 
+        unit_cost = Decimal(str(variant.cost if variant else product.cost))
+        if _base_value(item_data.unit_price, currency_code, base_ccy, fx_rate) < unit_cost:
+            raise ValidationError(f"The selling price for '{product_name}' cannot be below unit cost")
+
+        if data.pricing_channel == "pos":
+            effective_line = Decimal(str(item_data.line_total))
+            if data.discount and subtotal:
+                effective_line *= (Decimal(str(subtotal)) - Decimal(str(data.discount))) / Decimal(str(subtotal))
+            cost_total = unit_cost * Decimal(str(item_data.quantity))
+            if _base_value(effective_line, currency_code, base_ccy, fx_rate) < cost_total:
+                raise ValidationError(f"The selling price for '{product_name}' after discounts cannot be below unit cost")
+
         item = OrderItem(
+            id=uuid.uuid4(),
             order_id=order.id,
             product_id=variant.product_id if variant else item_data.product_id,
             variant_id=variant.id if variant else item_data.variant_id,
@@ -835,6 +892,7 @@ async def create_order(
             line_total=item_data.line_total,
         )
         db.add(item)
+        created_items.append(item)
 
         # deduct stock + snapshot cost + post COGS when order is Completed
         if completing:
@@ -848,6 +906,10 @@ async def create_order(
                 quantity=item_data.quantity,
                 order_item_id=item.id,
             )
+
+    if pricing:
+        await db.flush()
+        await record_sale(db, pricing_user, order, pricing, created_items)
 
     if completing:
         # Targets, the ledger and VAT records are all kept in the tenant's BASE currency; a foreign
@@ -1006,6 +1068,16 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     was_completed = obj.status == "Completed"
     before = obj.status
     update_fields = data.model_dump(exclude_unset=True)
+    from app.modules.discounts.models import AppliedDiscount
+    if data.discount is not None and Decimal(str(data.discount)) != Decimal(str(obj.discount)):
+        raise ValidationError("Reprice discounts through a new sale or the audited correction workflow")
+    frozen_discount = await db.scalar(select(AppliedDiscount.id).where(
+        AppliedDiscount.tenant_id == tenant_id, AppliedDiscount.order_id == obj.id,
+    ).limit(1))
+    if frozen_discount and any(key in update_fields and str(update_fields[key]) != str(getattr(obj, key))
+                               for key in ("customer_id", "branch_id", "currency_code", "exchange_rate")):
+        raise ValidationError("Discount pricing is bound to this customer, branch and currency; create a replacement sale")
+
     if data.ordered_at is not None:
         await _change_sale_date(db, tenant_id, obj, data.ordered_at, user_id, user_name)
     if data.due_date and data.due_date < obj.ordered_at.date():
@@ -1039,6 +1111,9 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     update_fields.pop("ordered_at", None)  # handled above, with its ledger and audit effects
     for field, value in update_fields.items():
         setattr(obj, field, value)
+    if obj.status == "Cancelled" and before != "Cancelled":
+        from app.modules.discounts.service import release_coupon_usage
+        await release_coupon_usage(db, tenant_id, obj.id)
     # Every price is VAT-inclusive — tax is always recomputed from the gross
     # (subtotal - discount) using the tenant's configured rate, never taken
     # from client input, so it can never be double-counted or drift from the
@@ -1146,6 +1221,8 @@ async def reject_order(
     if obj.held_reason == "policy" and len((note or "").strip()) < 3:
         raise ValidationError("Give a reason for rejecting the sale")
     obj.status = STATUS_REJECTED
+    from app.modules.discounts.service import release_coupon_usage
+    await release_coupon_usage(db, tenant_id, obj.id)
     obj.approved_by = user_id
     obj.approved_at = datetime.now(UTC)
     obj.approval_note = (note or "").strip() or None

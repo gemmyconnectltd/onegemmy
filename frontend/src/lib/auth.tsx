@@ -74,6 +74,8 @@ export interface RegisterInput {
 // that grant access to each ERP module the sidebar/nav exposes.
 const MODULE_RESOURCES: Record<string, string[]> = {
   sales: ["orders", "pos", "invoices"],
+  pos: ["pos"],
+  discounts: ["discounts"],
   inventory: ["items", "warehouses", "stock", "pricing", "returns"],
   expenses: ["expenses"],
   debts: ["accounts_receivable", "accounts_payable"],

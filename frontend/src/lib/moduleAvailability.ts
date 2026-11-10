@@ -15,7 +15,7 @@ export function featureForPath(path: string): { key: string; name: string } | nu
   if (child?.feature) return { key: child.feature, name: child.label || child.nameKey };
   const item = navItemForPath(path);
   if (!item?.feature) return null;
-  return { key: item.feature, name: path === "/pos" || path.startsWith("/pos/") ? "Sales & POS" : item.name };
+  return { key: item.feature, name: item.name };
 }
 
 /** What the signed-in person needs to open a page, read the way the menu reads it: a module they hold permissions in, and/or one
@@ -23,7 +23,7 @@ export function featureForPath(path: string): { key: string; name: string } | nu
 export function accessForPath(path: string): { name: string; module?: string; permission?: string; ownerOnly?: boolean } | null {
   const item = navItemForPath(path);
   if (!item) return null;
-  const needed = item.module && item.access !== "" ? (item.access || item.module) : undefined;
+  const needed = item.access === "" ? undefined : (item.access || item.module);
   if (!needed && !item.permission && !item.ownerOnly) return null;
   return { name: item.name, module: needed, permission: item.permission, ...(item.ownerOnly ? { ownerOnly: true } : {}) };
 }

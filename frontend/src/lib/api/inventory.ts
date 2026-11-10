@@ -9,6 +9,7 @@ export interface PictureImportResult {
 export interface ProductGallery { main: string | null; gallery: { id: string; url: string; position: number }[] }
 
 export interface ApiVariant {
+  barcode?: string | null;
   id: string;
   product_id: string;
   sku: string | null;
@@ -126,8 +127,8 @@ export const inventoryApi = {
   // Products
   /** Server-side low-stock report (every product at/below its own minimum) — the same rule Pesaa AI uses. */
   lowStockReport: () => request<SingleResponse<{ items: { id: string; name: string; stock: number; min_stock: number }[]; total: number }>>("/tenants/inventory/products/low-stock"),
-  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange) =>
-    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, is_active: isActive === undefined ? undefined : String(isActive), ...periodParams(period) })}`),
+  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string) =>
+    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, is_active: isActive === undefined ? undefined : String(isActive), ...periodParams(period) })}`),
   createProduct: (data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateProducts: (items: object[]) =>

@@ -11,6 +11,9 @@ import { ConfirmSaleDialog } from "@/components/pos/ConfirmSaleDialog";
 import { ProductCard } from "@/components/pos/ProductCard";
 import { Receipt } from "@/components/pos/Receipt";
 import type { CartItem, HeldOrder, PaymentMethod, Product, SaleResult, Variant } from "@/components/pos/types";
+import { PosDiscounts, type ManualRequest } from "@/components/pos/PosDiscounts";
+import { usePricingExpiry } from "@/components/pos/usePricingExpiry";
+import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
@@ -21,7 +24,7 @@ import { saleAtLabel } from "@/components/pos/SaleDate";
 import { SALE_DATE_FOR_EVERYONE } from "@/components/pos/constants";
 import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
-import { useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
+import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -30,6 +33,7 @@ function apiToProduct(p: ApiProduct): Product {
     id: p.id,
     name: p.name,
     price: p.price,
+    cost: p.cost,
     category: p.category?.name ?? "Uncategorized",
     emoji: "📦",
     stock: p.stock,
@@ -40,21 +44,30 @@ function apiToProduct(p: ApiProduct): Product {
     variants: p.variants?.map((v) => ({
       id: v.id,
       sku: v.sku,
+      barcode: v.barcode,
       attributes: v.attributes,
       price: v.price,
+      cost: v.cost,
       stock: v.stock,
     })),
   };
 }
 export default function POSPage() {
   usePageTitle("Point of Sale");
-  const { currencySymbol, locale, setLocale, locales, theme, setTheme, vatEnabled } = useAppConfig();
+  const { currencySymbol, locale, setLocale, locales, theme, setTheme, vatEnabled: configuredVatEnabled } = useAppConfig();
   const vat = useVatRate();
+  const vatEnabled = vat.data?.enabled ?? configuredVatEnabled;
   const { data: tenant } = useCurrentTenant();
 
+  const [category, setCategory] = useState("All");
+  const categoryData = useCategories();
+  const selectedCategoryId = categoryData.data?.items.find(item => item.name === category)?.id;
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [search, setSearch] = useState("");
+
   // ── inventory ────────────────────────────────────────────────────────────
-  const { data: productData, isLoading, isError, refetch } = useProducts(1, 500);
-  const loading = isLoading;
+  const { data: productData, isLoading, isPlaceholderData, isError, refetch } = useProducts(catalogPage, 40, search || undefined, true, undefined, undefined, selectedCategoryId);
+  const loading = isLoading || isPlaceholderData;
   const error = isError ? "Failed to load inventory. Check your connection." : null;
   const products = useMemo(
     () => (productData?.items ?? []).filter((p) => p.is_active).map(apiToProduct),
@@ -62,8 +75,8 @@ export default function POSPage() {
   );
 
   const categories = useMemo(
-    () => ["All", ...Array.from(new Set(products.map((p) => p.category)))],
-    [products]
+    () => ["All", ...(categoryData.data?.items.map(item => item.name) ?? Array.from(new Set(products.map((product) => product.category))))],
+    [categoryData.data, products]
   );
 
   const { data: customersData } = useCustomers(1, 500);
@@ -72,14 +85,12 @@ export default function POSPage() {
   const createOrder = useCreateOrder();
 
   // ── ui state ─────────────────────────────────────────────────────────────
-  const [category, setCategory] = useState("All");
-  const [search, setSearch] = useState("");
   const [showLang, setShowLang] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const saleInFlight = useRef(false);
   const [cartOpen, setCartOpen] = useState(false);
   const can = useCan();
-  const { user } = useAuth();
+  const { user, hasPermission, activeBranchId } = useAuth();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggleExpanded = (id: string) =>
@@ -138,7 +149,7 @@ export default function POSPage() {
           (p.name.toLowerCase().includes(search.toLowerCase()) ||
             (p.sku ?? "").toLowerCase().includes(search.toLowerCase()) ||
             (p.barcode ?? "").toLowerCase().includes(search.toLowerCase()) ||
-            (p.variants ?? []).some(variant => (variant.sku ?? "").toLowerCase().includes(search.toLowerCase())))
+            (p.variants ?? []).some(variant => ((variant.sku ?? "").toLowerCase().includes(search.toLowerCase()) || (variant.barcode ?? "").toLowerCase().includes(search.toLowerCase()))))
       ),
     [products, category, search]
   );
@@ -149,7 +160,7 @@ export default function POSPage() {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === p.id);
       if (existing) return prev.map((i) => i.id === p.id ? { ...i, qty: Math.min(p.stock, i.qty + 1) } : i);
-      return [...prev, { id: p.id, product_id: p.id, variant_id: null, name: p.name, price: p.price, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null }];
+      return [...prev, { id: p.id, product_id: p.id, variant_id: null, name: p.name, price: Number(pricesByProduct[p.id]?.original_unit_price ?? p.price), cost: p.cost, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null }];
     });
     setCashGiven("");
     setBumpId(p.id);
@@ -163,7 +174,7 @@ export default function POSPage() {
       const existing = prev.find((i) => i.id === id);
       if (existing) return prev.map((i) => i.id === id ? { ...i, qty: Math.min(v.stock, i.qty + 1) } : i);
       return [...prev, {
-        id, product_id: p.id, variant_id: v.id, name: p.name, price: v.price,
+        id, product_id: p.id, variant_id: v.id, name: p.name, price: Number(pricesByVariant[v.id]?.original_unit_price ?? v.price), cost: v.cost,
         qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url,
         sku: v.sku ?? p.sku, variant_attributes: v.attributes,
       }];
@@ -184,6 +195,25 @@ export default function POSPage() {
     setCashGiven("");
   };
 
+  const updatePrice = (id: string, price: number) => {
+    if (saleInFlight.current || !Number.isFinite(price) || price < 0) return;
+    const item = cart.find(line => line.id === id);
+    const product = products.find(product => product.id === item?.product_id);
+    const cost = item?.variant_id ? product?.variants?.find(variant => variant.id === item.variant_id)?.cost : product?.cost;
+    if (price < (cost ?? item?.cost ?? 0)) {
+      setSaleError("The selling price cannot be below unit cost.");
+      return;
+    }
+    setCart(previous => previous.map(line => line.id === id ? {
+      ...line, price: Math.round(price * 100) / 100,
+      discount: Math.min(line.discount, Math.round(price * line.qty * 100) / 100),
+    } : line));
+    setCashGiven("");
+    setApprovalId(undefined);
+    setReview(null);
+    setSaleError(null);
+  };
+
   const updateDiscount = (id: string, discount: number) => {
     setCart((prev) => prev.map((i) => i.id === id ? { ...i, discount: Math.max(0, discount) } : i));
     setCashGiven("");
@@ -200,6 +230,7 @@ export default function POSPage() {
 
   const clearCart = () => {
     setCart([]);
+    setCouponCode(""); setManualValue(""); setDiscountReason(""); setApprovalId(undefined);
     setCustomerId(null);
     setSaleAt(null);
     setCustomerName("");
@@ -212,30 +243,63 @@ export default function POSPage() {
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || filtered.length === 0) return;
     const match = filtered.find(product => product.barcode === search || product.sku === search) ?? filtered[0];
-    const variant = match.variants?.find(variant => variant.sku === search);
+    const variant = match.variants?.find(variant => variant.sku === search || variant.barcode === search);
     if (variant) addVariantToCart(match, variant);
     else if (match.has_variants) toggleExpanded(match.id);
     else addToCart(match);
     setSearch("");
   };
 
+  const checkoutReference = useRef<string>("");
+  const discountSettings = useDiscountSettings();
+  const [couponCode, setCouponCode] = useState("");
+  const [manualValue, setManualValue] = useState("");
+  const [manualKind, setManualKind] = useState<"percent" | "fixed">("percent");
+  const [discountReason, setDiscountReason] = useState("");
+  const [approvalId, setApprovalId] = useState<string>();
+  const requestDiscountApproval = useRequestDiscountApproval();
+  const manualAvailable = !!discountSettings.data?.enabled && !!discountSettings.data?.manual_pos && hasPermission("discounts:apply");
+  const pricingInput = {
+    items: cart.map(i => ({ product_id: i.product_id ?? null, variant_id: i.variant_id ?? null, unit_price: i.price, quantity: i.qty, discount: manualAvailable ? i.discount : 0 })),
+    customer_id: customerId, channel: "pos" as const, manual_reason: discountReason || undefined, discount_approval_id: approvalId,
+    coupon_codes: discountSettings.data?.enabled && discountSettings.data.coupons && couponCode.trim() ? [couponCode.trim()] : [],
+    ...(manualAvailable && Number(manualValue) > 0 ? { manual_discount: { kind: manualKind, value: Number(manualValue), reason: discountReason } } : {}),
+  };
+  const pricingContext = `${activeBranchId ?? "main"}:${saleAt ?? "now"}`;
+  const discountPricing = useDiscountPrice(pricingInput, !!discountSettings.data?.enabled && cart.length > 0, pricingContext);
+  const cartPricingExpired = usePricingExpiry(discountPricing.data?.valid_until, discountPricing.refetch);
+  const livePricing = discountSettings.data?.enabled && !cartPricingExpired ? discountPricing.data : undefined;
+  const catalogInput = {
+    products: products.flatMap<{ product_id: string; variant_id: string | null }>(product => product.has_variants ? (product.variants ?? []).map(variant => ({ product_id: product.id, variant_id: variant.id })) : [{ product_id: product.id, variant_id: null }]),
+    customer_id: customerId,
+    ...(cart.length ? { cart: pricingInput } : {}),
+  };
+  const catalogPricing = useCatalogPrices(catalogInput, !!discountSettings.data?.enabled && catalogInput.products.length > 0, pricingContext);
+  const catalogExpired = usePricingExpiry(catalogPricing.data?.valid_until, catalogPricing.refetch);
+  const verifiedCatalog = discountSettings.data?.enabled && !catalogExpired && !catalogPricing.isError ? catalogPricing.data?.items ?? [] : [];
+  const pricesByProduct = Object.fromEntries(verifiedCatalog.filter(price => !price.variant_id).map(price => [price.product_id, price]));
+  const pricesByVariant = Object.fromEntries(verifiedCatalog.filter(price => price.variant_id).map(price => [price.variant_id!, price]));
+  const confirmedPricing = useRef<string | undefined>(undefined);
+
+  const pricingBlocked = discountSettings.isPending || discountSettings.isError || (discountSettings.data?.enabled && cart.length > 0 && (discountPricing.isFetching || discountPricing.isError || !livePricing || !!livePricing.blocked || !!livePricing.coupon_errors?.length || (livePricing.approval_required && livePricing.approval_status !== "approved")));
+
   // ── totals ───────────────────────────────────────────────────────────────
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const discount = cart.reduce((s, i) => s + i.discount, 0);
+  const subtotal = livePricing ? Number(livePricing.subtotal) : cart.reduce((sum, item) => sum + Math.round(item.price * item.qty * 100), 0) / 100;
+  const discount = livePricing ? Number(livePricing.total_discount) : manualAvailable ? cart.reduce((sum, item) => sum + item.discount, 0) : 0;
   const itemsCashReceivedSum = cart.reduce((s, i) => s + (i.cashReceived || 0), 0);
   const gross = subtotal - discount;
   // The server sends the VAT rate as a percentage (18), the sums below use a fraction (0.18).
   const vatRate = vatEnabled ? (vat.data?.rate ?? 0) / 100 : 0;
-  const taxable = Math.round(gross / (1 + vatRate));
-  const tax = gross - taxable;
-  const total = gross;
-  const fmt = (v: number) => v.toLocaleString();
+  const taxable = Math.round(gross / (1 + vatRate) * 100) / 100;
+  const tax = livePricing ? Number(livePricing.tax) : Math.round((gross - taxable) * 100) / 100;
+  const total = livePricing ? Number(livePricing.total) : gross;
+  const fmt = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
   // ── hold / resume ────────────────────────────────────────────────────────
   const holdSale = () => {
     if (saleInFlight.current || cart.length === 0) return;
     setHeldOrders((prev) => [
-      { id: `H-${Date.now()}`, label: customerName.trim() || `Parked ${timeLabel()}`, time: timeLabel(), cart, customerName, customerId, notes, payment, cashGiven, dueDate },
+      { id: `H-${Date.now()}`, label: customerName.trim() || `Parked ${timeLabel()}`, time: timeLabel(), cart, customerName, customerId, notes, payment, cashGiven, dueDate, discountContext: { couponCode, manualValue, manualKind, discountReason, approvalId } },
       ...prev,
     ]);
     clearCart();
@@ -246,6 +310,11 @@ export default function POSPage() {
     const held = heldOrders.find((h) => h.id === id);
     if (!held) return;
     setCart(held.cart);
+    setCouponCode(held.discountContext?.couponCode ?? "");
+    setManualValue(held.discountContext?.manualValue ?? "");
+    setManualKind(held.discountContext?.manualKind ?? "percent");
+    setDiscountReason(held.discountContext?.discountReason ?? "");
+    setApprovalId(held.discountContext?.approvalId);
     setCustomerId(held.customerId ?? null);
     setPayment(held.payment ?? "cash");
     setCashGiven(held.cashGiven ?? "");
@@ -262,6 +331,8 @@ export default function POSPage() {
   // Simple full payments are charged straight away. Anything with a split, a debt or a past date is reviewed first.
   const requestCharge = (checkout: Checkout) => {
     if (saleInFlight.current || saving || cart.length === 0) return;
+    if (pricingBlocked) return;
+    confirmedPricing.current = livePricing?.pricing_hash;
     if (checkout.kind !== "single" || checkout.outstanding > 0 || saleAt) setReview(checkout);
     else void completeSale(checkout);
   };
@@ -283,8 +354,15 @@ export default function POSPage() {
     setSaleError(null);
     try {
       // order-level discount is 0 — item discounts are already baked into each line_total
+      if (pricingBlocked) throw new Error("Wait for valid discount pricing before checkout.");
+      if (discountSettings.data?.enabled && confirmedPricing.current !== livePricing?.pricing_hash) throw new Error("Pricing changed. Review the refreshed total and charge again.");
+      if (!checkoutReference.current) checkoutReference.current = crypto.randomUUID();
       const created = await createOrder.mutateAsync({
         status: "Completed",
+        pricing_channel: "pos",
+        expected_pricing_hash: discountSettings.data?.enabled ? confirmedPricing.current : undefined,
+        client_order_id: checkoutReference.current,
+        ...(discountSettings.data?.enabled ? { coupon_codes: pricingInput.coupon_codes, manual_discount: pricingInput.manual_discount, manual_discount_reason: discountReason || undefined, discount_approval_id: approvalId } : {}),
         customer_id: customerId,
         ...(saleAt ? { ordered_at: new Date(saleAt).toISOString() } : {}),
         ...(salespersonId ? { salesperson_id: salespersonId } : {}),
@@ -298,7 +376,7 @@ export default function POSPage() {
             ? { payment_method: "cash", amount_paid: 0 }
             : { payment_method: checkout.payments[0]?.method ?? payment, amount_paid: checkout.paid, amount_tendered: checkout.payments[0]?.tendered ?? checkout.paid, change_due: checkout.change, payment_reference: checkout.payments[0]?.reference ?? null }),
         due_date: checkout.outstanding > 0 ? checkout.dueDate : null,
-        items: cart.map((i) => ({
+        items: cart.map((i, index) => ({
           product_id: i.product_id ?? null,
           variant_id: i.variant_id ?? null,
           product_name: i.name,
@@ -306,11 +384,13 @@ export default function POSPage() {
           variant_attributes: i.variant_attributes ?? null,
           unit_price: i.price,
           quantity: i.qty,
-          discount: i.discount,
-          line_total: i.price * i.qty - i.discount,
+          discount: pricingInput.items[index].discount,
+          line_total: i.price * i.qty - pricingInput.items[index].discount,
         })),
       });
 
+      checkoutReference.current = "";
+      setCouponCode(""); setManualValue(""); setApprovalId(undefined);
       // Credit over the customer's daily limit is held for the General Manager/CEO: nothing was sold or posted yet,
       // so no receipt — tell the cashier clearly and let them carry on.
       if (created.data.status === "Awaiting Approval") {
@@ -351,7 +431,12 @@ export default function POSPage() {
           {/* Cart items: take all the space the header and the checkout footer leave, never less than a usable floor, scrolling on their own */}
           <div className="min-h-[11rem] flex-1 overflow-hidden">
             <CartPanel
-              cart={cart}
+              cart={cart.map(item => {
+                const product = products.find(product => product.id === item.product_id);
+                const cost = item.variant_id ? product?.variants?.find(variant => variant.id === item.variant_id)?.cost : product?.cost;
+                return { ...item, cost: cost ?? item.cost };
+              })}
+              linePricing={livePricing?.lines}
               customers={customers}
               customerId={customerId}
               customerName={customerName}
@@ -367,6 +452,8 @@ export default function POSPage() {
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}
+              onUpdatePrice={updatePrice}
+              priceEditingDisabled={saving}
               onRemoveItem={removeItem}
               onClear={clearCart}
               onHold={holdSale}
@@ -376,11 +463,22 @@ export default function POSPage() {
           </div>
           {/* Checkout footer: natural height; on a short screen it scrolls itself instead of crushing the cart */}
           <div className="max-h-[58%] shrink-0 overflow-y-auto overscroll-contain border-t border-border bg-card p-3 shadow-[0_-6px_12px_-8px_rgba(0,0,0,0.12)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              {discountSettings.data && <PosDiscounts settings={discountSettings.data} canApply={hasPermission("discounts:apply")} cart={cart} pricing={livePricing}
+                error={discountPricing.error?.message} coupon={pricingInput.coupon_codes[0] ?? ""} onCoupon={code => { setCouponCode(code); setApprovalId(undefined); setCashGiven(""); }}
+                onManual={(request: ManualRequest) => {
+                  setDiscountReason(request.reason); setApprovalId(undefined); setCashGiven("");
+                  setCart(items => items.map(item => ({ ...item, discount: request.scope === item.id ? (request.kind === "percent" ? Math.round(item.price * item.qty * request.value) / 100 : request.value) : 0 })));
+                  setManualKind(request.kind); setManualValue(request.scope === "sale" ? String(request.value) : "");
+                }}
+                onRemoveManual={() => { setManualValue(""); setCart(items => items.map(item => ({ ...item, discount: 0 }))); setApprovalId(undefined); setCashGiven(""); }}
+                money={amount => `${currencySymbol} ${fmt(amount)}`} approvalId={approvalId} onApprovalId={setApprovalId} requesting={requestDiscountApproval.isPending}
+                onRequestApproval={() => requestDiscountApproval.mutate({ ...pricingInput, reason: discountReason }, { onSuccess: result => setSaleError(`Discount approval requested: ${result.data.id}`), onError: error => setSaleError(error.message) })} />}
               <PaymentPanel
                 payment={payment}
                 cashGiven={cashGiven}
                 subtotal={subtotal}
                 discount={discount}
+                discountBreakdown={livePricing ? { product: Number(livePricing.product_discount_total), order: Number(livePricing.order_discount_total), coupon: Number(livePricing.coupon_discount_total) } : undefined}
                 tax={tax}
                 total={total}
                 cartCount={cart.length}
@@ -391,6 +489,9 @@ export default function POSPage() {
                 currencySymbol={currencySymbol}
                 fmt={fmt}
                 saving={saving}
+                pricingPending={discountSettings.isPending || (discountSettings.data?.enabled && discountPricing.isFetching && cart.length > 0)}
+                checkoutBlocked={!!pricingBlocked}
+                approvalPending={!!livePricing?.approval_required && livePricing.approval_status !== "approved"}
                 saleError={saleError}
                 itemsCashReceivedSum={itemsCashReceivedSum}
                 onPaymentChange={(m) => { setPayment(m); setCashGiven(""); }}
@@ -411,7 +512,7 @@ export default function POSPage() {
     <div className="h-dvh min-w-0 flex flex-col overflow-hidden bg-background">
       {/* Review before confirming anything other than a simple full payment */}
       {review && (
-        <ConfirmSaleDialog checkout={review} cart={cart} total={total} customerName={customerName} saleAt={saleAt} currencySymbol={currencySymbol} fmt={fmt} saving={saving}
+        <ConfirmSaleDialog checkout={review} cart={cart.map((item, index) => ({ ...item, discount: Number(livePricing?.lines[index]?.discount ?? pricingInput.items[index].discount) }))} total={total} customerName={customerName} saleAt={saleAt} currencySymbol={currencySymbol} fmt={fmt} saving={saving || !!pricingBlocked}
           onCancel={() => setReview(null)} onConfirm={() => { const c = review; setReview(null); void completeSale(c); }} />
       )}
       {/* Receipt modal */}
@@ -479,7 +580,7 @@ export default function POSPage() {
                 aria-label="Search products by name, SKU or barcode"
                 ref={searchRef}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCatalogPage(1); }}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search by name or SKU… (press / or Enter to add top match)"
                 className="min-w-0 flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
@@ -498,7 +599,7 @@ export default function POSPage() {
               <button
                 key={c}
                 aria-pressed={category === c}
-                onClick={() => setCategory(c)}
+                onClick={() => { setCategory(c); setCatalogPage(1); }}
                 className={`px-3 py-1.5 text-[12px] font-semibold whitespace-nowrap rounded-lg transition-all flex-shrink-0 ${
                   category === c
                     ? "bg-accent text-white"
@@ -510,6 +611,9 @@ export default function POSPage() {
             ))}
           </div>
 
+          {discountSettings.data?.enabled && catalogPricing.isPending && products.length > 0 && <PageLoader variant="compact" />}
+          {catalogPricing.isError && <p role="status" className="px-4 py-2 text-xs text-muted">Offers could not be verified. Regular prices are shown; checkout verifies pricing.</p>}
+          <div className="flex items-center justify-between gap-2 px-4 py-2"><Button size="sm" variant="secondary" disabled={catalogPage <= 1} onClick={() => { setCatalogPage(page => page - 1); setCategory("All"); }}>Previous</Button><span className="text-xs text-muted">Page {catalogPage} of {Math.max(1, Math.ceil((productData?.total ?? 0) / 40))}</span><Button size="sm" variant="secondary" disabled={catalogPage * 40 >= (productData?.total ?? 0)} onClick={() => { setCatalogPage(page => page + 1); setCategory("All"); }}>Next</Button></div>
           {/* Product grid */}
           <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 min-h-0">
             {loading ? (
@@ -529,6 +633,8 @@ export default function POSPage() {
                     <ProductCard
                       key={p.id}
                       product={p}
+                      pricing={pricesByProduct[p.id]}
+                      variantPricing={pricesByVariant}
                       inCartQty={inCartQty}
                       bumping={bumpId === p.id}
                       expanded={expanded.has(p.id)}

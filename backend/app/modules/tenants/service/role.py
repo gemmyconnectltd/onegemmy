@@ -26,6 +26,8 @@ _PERMISSION_RESOURCES = [
     "leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets",
     "bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing",
     "services", "appointments", "queue", "service_commissions",
+    # Discounts & promotions: create/update = manage rules, campaigns and coupons; approve = decide discount requests; read = see them and the reports.
+    "discounts",
     # Customer credit control: credit:approve = approve credit sales over the daily limit and set that limit.
     "credit",
 ]
@@ -36,7 +38,7 @@ _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 # these — only "Admin" (and the tenant owner, who bypasses role checks
 # entirely via is_superuser) can manage who else has access.
 # "approvals": whoever decides requests is chosen deliberately (granted on a role), never handed out by a template.
-_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "billing", "approvals"}
+_ADMIN_ONLY_RESOURCES = {"tenants", "users", "roles", "permissions", "credit", "billing", "approvals", "discounts"}
 
 # What an invite's free-text role ("admin"/"member"/"viewer", whatever the
 # inviter typed or picked) maps to among the seeded defaults. Unrecognized
@@ -346,7 +348,8 @@ async def ensure_permissions_seeded(db: AsyncSession) -> list[Permission]:
     existing = (await db.execute(select(Permission))).scalars().all()
     existing_names = {p.name for p in existing}
     for resource in _PERMISSION_RESOURCES:
-        for action in _PERMISSION_ACTIONS:
+        actions = _PERMISSION_ACTIONS + (["activate", "apply", "promotions", "coupons", "analytics", "settings"] if resource == "discounts" else [])
+        for action in actions:
             name = f"{resource}:{action}"
             if name not in existing_names:
                 db.add(Permission(name=name, resource=resource, action=action, description=f"Can {action} {resource}"))

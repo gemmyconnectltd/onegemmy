@@ -12,6 +12,7 @@ export type Product = {
   id: string;
   name: string;
   price: number;
+  cost?: number;
   category: string;
   emoji: string;
   stock: number;
@@ -23,10 +24,12 @@ export type Product = {
 };
 
 export type Variant = {
+  barcode?: string | null;
   id: string;
   sku?: string | null;
   attributes: Record<string, string>;
   price: number;
+  cost?: number;
   stock: number;
 };
 
@@ -36,6 +39,7 @@ export type CartItem = {
   variant_id?: string | null;
   name: string;
   price: number;
+  cost?: number;
   qty: number;
   emoji: string;
   discount: number;
@@ -48,6 +52,7 @@ export type CartItem = {
 };
 
 export type HeldOrder = {
+  discountContext?: { couponCode: string; manualValue: string; manualKind: "percent" | "fixed"; discountReason: string; approvalId?: string };
   id: string;
   label: string;
   time: string;
@@ -63,6 +68,7 @@ export type HeldOrder = {
 export type PaymentMethod = "cash" | "mobile" | "card" | "bank";
 
 export type SaleResult = {
+  discountDetails?: { name: string; kind: string; type: string; amount: string; coupon_code?: string | null }[];
   cashierName?: string;
   orderId: string;
   /** The real backend Order id (UUID), distinct from `orderId` above (a

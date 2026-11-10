@@ -165,7 +165,8 @@ async def test_directory_counts_plans_and_edits_are_audited_and_guarded(db, monk
 async def test_only_real_business_dependencies_are_forced(db, monkeypatch):
     """Purchases and services work without accounting or sales, so turning those off must not be blocked."""
     from app.modules.tenants.service.feature import DEPENDENCIES
-    assert DEPENDENCIES == {"manufacturing": ("inventory",), "procurement": ("inventory",), "appointments": ("services",), "queue": ("services",)}
+    assert DEPENDENCIES == {"manufacturing": ("inventory",), "procurement": ("inventory",), "appointments": ("services",), "queue": ("services",),
+                            "pos": ("sales",), "discounts": ("sales",)}
     tenant = await business(db)
     plan(monkeypatch, "inventory", "sales", "accounting", "procurement", "services")
     await service.set_module_activation(db, tenant.id, "accounting", False)

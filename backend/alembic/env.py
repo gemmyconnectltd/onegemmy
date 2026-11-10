@@ -19,6 +19,7 @@ from app.core.database import Base
 from app.modules.billing import models as billing_models  # noqa: F401
 from app.modules.ai.models import AiAction, AiConversation, AiMessage, AiUsageEvent  # noqa: F401
 from app.modules.approvals.models import ApprovalRequest  # noqa: F401
+from app.modules.discounts import models as _discount_models  # noqa: F401
 from app.modules.audit.models import AuditLog  # noqa: F401
 from app.modules.currency.models import Currency, ExchangeRate, PlatformSetting  # noqa: F401
 from app.modules.hr.models import (  # noqa: F401

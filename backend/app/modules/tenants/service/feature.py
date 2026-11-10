@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +40,14 @@ DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "procurement": ("inventory",),
     "appointments": ("services",),
     "queue": ("services",),
+    "pos": ("sales",),  # the till rings up sales orders, customers and returns
+    "discounts": ("sales",),  # discounts price quotations, sales and returns
 }
+
+# POS and Discounts used to be part of Sales. Plans made before they were separated cover them wherever they cover Sales;
+# the frozen price history is not rewritten. Plans made from this date on list them like any other module.
+SPLIT_FROM_SALES = ("pos", "discounts")
+SPLIT_DATE = datetime(2026, 11, 10, tzinfo=UTC)
 
 ENABLED, AVAILABLE, NOT_INCLUDED, RESTRICTED = "enabled", "available", "not_included", "restricted"
 
@@ -59,16 +67,20 @@ async def resolve_modules(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, s
     tenant = await _get_tenant(db, tenant_id)
     overrides = tenant.features or {}
     activation = getattr(tenant, "module_activation", None) or {}
+    from app.modules.billing.models import BillingPrice
     from app.modules.billing.repository import BillingRepository
     sub = await BillingRepository(db).subscription(tenant_id)
     included = set(sub.terms.get("modules", [])) if sub is not None else None
     enforce = settings.ENFORCE_PLAN_ENTITLEMENTS
+    price_id = getattr(sub, "price_id", None)
+    created = (await db.execute(select(BillingPrice.created_at).where(BillingPrice.id == price_id))).scalar_one_or_none() if price_id else None
+    legacy_bundle = bool(included and "sales" in included and created is not None and created < SPLIT_DATE)
     states: dict[str, str] = {}
     for f in flags:
         if not enforce:
             entitled, platform_off = True, overrides.get(f.key) is False  # no plan requirement: only Pesaa's restriction can close a module
         elif included is not None:
-            entitled, platform_off = f.key in included, overrides.get(f.key, True) is False
+            entitled, platform_off = f.key in included or (f.key in SPLIT_FROM_SALES and legacy_bundle), overrides.get(f.key, True) is False
         else:
             entitled, platform_off = bool(overrides.get(f.key, f.default_enabled)), False
         if not entitled:
@@ -84,7 +96,13 @@ async def resolve_modules(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, s
 
 async def get_effective_features(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, bool]:
     """Which modules a business can use right now."""
-    return {k: v == ENABLED for k, v in (await resolve_modules(db, tenant_id)).items()}
+    features = {k: v == ENABLED for k, v in (await resolve_modules(db, tenant_id)).items()}
+    tenant = await TenantRepository(db).get(tenant_id)
+    discount_config = getattr(tenant, "discount_settings", None) or {}
+    sales = features.get("sales", False)  # the till and discounts work on sales records, so they need Sales switched on as well
+    features["pos"] = sales and features.get("pos", False)
+    features["discounts"] = sales and features.get("discounts", False) and discount_config.get("enabled") is True
+    return features
 
 
 async def module_status(db: AsyncSession, tenant_id: uuid.UUID, key: str) -> str:
