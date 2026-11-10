@@ -152,6 +152,20 @@ async def download_order_invoice_pdf(id: uuid.UUID, db: DbSession, current_user:
     )
 
 
+@router.get("/sales/orders/{id}/receipt.pdf")
+async def download_order_receipt_pdf(id: uuid.UUID, db: DbSession, current_user: CurrentUser,
+                                     paper: Literal["80mm", "58mm"] = "80mm"):
+    """The till receipt at thermal-paper width (A4 is the invoice)."""
+    from app.modules.sales.service.receipt_pdf import generate_order_receipt_pdf
+    _require_tenant(current_user.tenant_id)
+    filename, content = await generate_order_receipt_pdf(db, current_user.tenant_id, id, paper)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"},
+    )
+
+
 class ArchiveReason(BaseModel):
     reason: str = Field(default="", max_length=500)
 

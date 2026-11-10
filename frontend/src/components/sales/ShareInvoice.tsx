@@ -12,11 +12,14 @@ type Busy = "whatsapp" | "email" | "device" | "pdf" | null;
 
 /** One Share button for an invoice or receipt. It always shares the PDF document itself: attached to an email, handed to the phone's
  *  share menu (WhatsApp and others), or downloaded. There are no public links. */
-export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail, customerPhone, label, variant = "secondary", iconOnly = false, document = "invoice" }: {
+export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail, customerPhone, label, variant = "secondary", iconOnly = false, document = "invoice", paper = "80mm" }: {
   orderId: string; orderNumber: string; customerName?: string | null; customerEmail?: string | null; customerPhone?: string | null;
-  label?: string; variant?: "secondary" | "outline" | "ghost"; iconOnly?: boolean; document?: "invoice" | "receipt";
+  label?: string; variant?: "secondary" | "outline" | "ghost"; iconOnly?: boolean; document?: "invoice" | "receipt"; paper?: "58mm" | "80mm" | "A4";
 }) {
   const noun = document === "receipt" ? "receipt" : "invoice";
+  // A receipt is shared as the till receipt at the chosen paper width; on A4 paper the full invoice is the document.
+  const receipt = document === "receipt" && paper !== "A4";
+  const documentFile = () => receipt ? salesApi.receiptFile(orderId, orderNumber, paper as "58mm" | "80mm") : salesApi.invoiceFile(orderId, orderNumber);
   const Noun = `${noun[0].toUpperCase()}${noun.slice(1)}`;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
@@ -36,7 +39,7 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
 
   /** The PDF as a File, if this browser can hand files to other apps (phones can; most desktops cannot). */
   async function sharableFile() {
-    const { blob, filename } = await salesApi.invoiceFile(orderId, orderNumber);
+    const { blob, filename } = await documentFile();
     const file = new File([blob], filename, { type: "application/pdf" });
     const supported = typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
     return { file, blob, filename, supported };
@@ -56,9 +59,9 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
     window.open(`https://wa.me/${digits.length >= 11 ? digits : ""}?text=${encodeURIComponent(text)}`, "_blank");
     setNote("The PDF was downloaded. Attach it in the WhatsApp chat that opened.");
   });
-  const pdf = () => run("pdf", () => salesApi.downloadInvoicePdf(orderId, orderNumber));
+  const pdf = () => run("pdf", () => receipt ? salesApi.downloadReceiptPdf(orderId, orderNumber, paper as "58mm" | "80mm") : salesApi.downloadInvoicePdf(orderId, orderNumber));
   const sendEmail = () => run("email", async () => {
-    const result = await salesApi.emailInvoice(orderId, (to || customerEmail || "").trim() || null, message.trim() || null, document);
+    const result = await salesApi.emailInvoice(orderId, (to || customerEmail || "").trim() || null, message.trim() || null, receipt ? "receipt" : "invoice");
     setNote(`${Noun} emailed to ${result.data.sent_to} as a PDF attachment.`); setEmailing(false); setMessage("");
   });
 

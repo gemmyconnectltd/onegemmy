@@ -17,7 +17,11 @@ async def email_invoice(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.U
     if not recipient:
         raise ValidationError(f"Enter the email address to send this {kind} to; the customer has none on file")
     tenant = await _load_tenant(db, tenant_id)
-    filename, pdf = await generate_order_invoice_pdf(db, tenant_id, order_id)
+    if kind == "receipt":
+        from app.modules.sales.service.receipt_pdf import generate_order_receipt_pdf
+        filename, pdf = await generate_order_receipt_pdf(db, tenant_id, order_id)
+    else:
+        filename, pdf = await generate_order_invoice_pdf(db, tenant_id, order_id)
     note = f"<p>{html.escape(message)}</p>" if message else ""
     greeting = f"Dear {html.escape(order.customer.name)}," if order.customer else "Hello,"
     body = f"<p>{greeting}</p><p>Please find your {kind} {html.escape(order.order_number)} from {html.escape(tenant.name)} attached.</p>{note}<p>Thank you.</p>"

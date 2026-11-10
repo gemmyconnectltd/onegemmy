@@ -30,7 +30,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
   const handlePdf = async () => {
     if (!sale.backendOrderId || busy) return;
     setBusy("pdf"); setError("");
-    try { await salesApi.downloadInvoicePdf(sale.backendOrderId, sale.orderId); } catch { setError("Could not download the receipt document. Please try again."); } finally { setBusy(null); }
+    try { await (paper === "A4" ? salesApi.downloadInvoicePdf(sale.backendOrderId, sale.orderId) : salesApi.downloadReceiptPdf(sale.backendOrderId, sale.orderId, paper)); } catch { setError("Could not download the receipt document. Please try again."); } finally { setBusy(null); }
   };
   const handleCopy = async () => {
     try { await navigator.clipboard.writeText(receipt.current?.textContent ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError("Could not copy the receipt. You can print or download it instead."); }
@@ -42,7 +42,7 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
     {error && <p role="alert" className="mb-3 text-xs text-red-600">{error}</p>}
     {!!sale.balanceDue && sale.balanceDue > 0 && sale.customerId && <Link href={`/customers/${sale.customerId}`} className="mb-2 block"><Button variant="outline" className="w-full">View {sale.customerName || "customer"}&apos;s debt</Button></Link>}
     <Button onClick={onNewSale} className="w-full">New Sale</Button>
-    {sale.backendOrderId && <div className="mt-2"><ShareInvoice document="receipt" label="Share receipt" orderId={sale.backendOrderId} orderNumber={sale.orderId} customerName={sale.customerName} /></div>}
+    {sale.backendOrderId && <div className="mt-2"><ShareInvoice document="receipt" paper={paper} label="Share receipt" orderId={sale.backendOrderId} orderNumber={sale.orderId} customerName={sale.customerName} /></div>}
     <div className="mt-2 grid grid-cols-2 gap-2"><Button variant="secondary" disabled={!!busy} onClick={handlePrint}>{busy === "print" ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}Print Receipt</Button><Button variant="secondary" disabled={!!busy || !sale.backendOrderId} onClick={handlePdf}>{busy === "pdf" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}Download PDF</Button></div>
     <div className="mt-2 flex justify-between gap-2"><Button size="sm" variant="ghost" onClick={() => setView(value => !value)}><Eye size={14} />{view ? "Hide Receipt" : "View Receipt"}</Button>{sale.backendOrderId && <Button size="sm" variant="ghost" onClick={() => setInvoice(true)}><Eye size={14} />Invoice</Button>}<Button size="sm" variant="ghost" onClick={handleCopy}><Copy size={14} />{copied ? "Copied" : "Copy"}</Button>{onClose && <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>}</div>
   {invoice && sale.backendOrderId && <SaleDocumentById orderId={sale.backendOrderId} onClose={() => setInvoice(false)} />}</div>;
