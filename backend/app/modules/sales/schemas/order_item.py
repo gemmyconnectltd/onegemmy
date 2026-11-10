@@ -40,4 +40,10 @@ class OrderItemRead(BaseModel):
     discount: float
     line_total: float
     cost_at_sale: float | None = None
+    # VAT snapshot frozen when the line was priced (None on documents from before line-level VAT).
+    tax_treatment: str | None = None
+    tax_code: str | None = None
+    tax_rate: float | None = None
+    taxable_base: float | None = None
+    tax_amount: float | None = None
     created_at: datetime | None = None

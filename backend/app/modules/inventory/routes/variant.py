@@ -38,7 +38,7 @@ async def list_variants(product_id: uuid.UUID, db: DbSession, current_user: Curr
 @router.post("/inventory/products/{product_id}/variants")
 async def create_variant(product_id: uuid.UUID, data: VariantCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    obj = await service.create_variant(db, current_user.tenant_id, product_id, data)
+    obj = await service.create_variant(db, current_user.tenant_id, product_id, data, actor=current_user)
     return success_response(data=obj.model_dump(), message="Variant created", status_code=201)
 
 

@@ -2,6 +2,8 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import ONE, compute_settlement, to_decimal
@@ -17,6 +19,7 @@ from app.modules.currency.service import (
     lookup_rate,
     require_active_currency,
 )
+from app.modules.procurement.models.purchase_item import PurchaseItem
 from app.modules.procurement.models.purchase_order import PurchaseOrder
 from app.modules.procurement.models.supplier_bill import SupplierBill, SupplierPayment
 from app.modules.procurement.repository import SupplierBillRepository, SupplierPaymentRepository
@@ -86,24 +89,41 @@ async def create_bill_for_purchase(db: AsyncSession, tenant_id: uuid.UUID, user_
     )
     bill = await repo.save(bill)
     # The ledger is in base currency: Dr Inventory / Cr Accounts Payable at the converted value.
+    from app.modules.procurement.service.purchase import recoverable_vat
+    # `purchase` may arrive without its items loaded (e.g. freshly built in memory); a lazy load
+    # would run sync IO inside the async loop, so fetch them explicitly when they are missing.
+    if "items" in sa_inspect(purchase).unloaded:
+        items = (await db.execute(
+            select(PurchaseItem).where(PurchaseItem.purchase_order_id == purchase.id)
+        )).scalars().all()
+    else:
+        items = purchase.items
     weights = {}
     received = {line.purchase_item_id: Decimal(line.quantity) for line in receipt.lines} if receipt else None
-    for item in purchase.items:
+    subtotal = Decimal(str(purchase.subtotal or 0))
+    discount_factor = (subtotal - Decimal(str(purchase.discount or 0))) / subtotal if subtotal else Decimal(1)
+    vat_in_lines = Decimal(0)
+    for item in items:
         quantity = received.get(item.id, Decimal(0)) if received is not None else Decimal(item.quantity)
         if quantity <= 0:
             continue
         key = item.expense_account_id if item.is_service else None
-        weights[key] = weights.get(key, Decimal(0)) + Decimal(item.line_total) * quantity / Decimal(item.quantity)
+        share = quantity / Decimal(item.quantity)
+        vat = Decimal(str(item.tax_amount)) * share * discount_factor if recoverable_vat(item) else Decimal(0)
+        vat_in_lines += vat
+        weights[key] = weights.get(key, Decimal(0)) + Decimal(item.line_total) * share * discount_factor - vat
+    # Recoverable input VAT goes to Input VAT Recoverable; the rest of the bill is what the goods and services cost.
+    input_vat = min((vat_in_lines * document_rate(purchase)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), base_amount) if vat_in_lines > 0 else Decimal(0)
     weight_total = sum(weights.values(), Decimal(0))
     allocated = {}
-    remaining = base_amount
+    remaining = base_amount - input_vat
     for index, (key, weight) in enumerate(weights.items()):
-        value = remaining if index == len(weights) - 1 else (base_amount * weight / weight_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if weight_total else Decimal(0)
+        value = remaining if index == len(weights) - 1 else ((base_amount - input_vat) * weight / weight_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if weight_total else Decimal(0)
         allocated[key] = value
         remaining -= value
     expenses = {key: value for key, value in allocated.items() if key is not None}
     await create_purchase_transaction(db, tenant_id, user_id, purchase.id, base_amount,
-        bill.reference, branch_id=purchase.branch_id, expense_allocations=expenses)
+        bill.reference, branch_id=purchase.branch_id, expense_allocations=expenses, input_vat=input_vat)
     return bill
 
 

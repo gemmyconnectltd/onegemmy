@@ -1,5 +1,6 @@
 "use client";
-import { Input } from "@/components/ui/Form";
+import { Input, Select } from "@/components/ui/Form";
+import { VatClassifyDrawer } from "@/components/inventory/VatClassifyDrawer";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
@@ -27,7 +28,7 @@ import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
 import { type ApiProduct, type PictureImportResult } from "@/lib/api";
 import { ImportPicturesDrawer } from "@/components/inventory/ImportPicturesDrawer";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport } from "@/lib/api/hooks";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -57,7 +58,19 @@ function toFormValues(p: ApiProduct): ProductFormValues {
     stock: p.stock,
     minStock: p.min_stock,
     image_url: p.image_url,
+    vatTreatment: p.vat_treatment ?? "",
+    taxCode: p.tax_code ?? "",
+    vatReason: p.vat_reason ?? "",
   };
+}
+
+const VAT_FILTERS = [["", "All VAT"], ["not_reviewed", "Not reviewed"], ["standard", "Standard-rated"], ["zero_rated", "Zero-rated"], ["exempt", "Exempt"], ["out_of_scope", "Out of scope"]] as const;
+
+/** The product's VAT treatment as a compact badge; the standard rate shows its percentage. */
+function VatBadge({ treatment, rate }: { treatment?: string | null; rate?: number }) {
+  if (!treatment) return <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">Not reviewed</span>;
+  const label = treatment === "standard" ? `Standard${rate ? ` (${rate}%)` : ""}` : treatment === "zero_rated" ? "Zero-rated (0%)" : treatment === "exempt" ? "Exempt" : "Out of scope";
+  return <span className="inline-flex whitespace-nowrap rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-muted ring-1 ring-border">{label}</span>;
 }
 
 function ProductsContent() {
@@ -77,6 +90,13 @@ function ProductsContent() {
   const onStatusFilterChange = (f: "all" | "active" | "inactive") => { setStatusFilter(f); setPage(1); };
   const [period, setPeriod] = useState<PeriodValue>(params.get("from") || params.get("to") ? {key:"custom",from:params.get("from")||"",to:params.get("to")||""} : ALL_TIME);
   const [moreFilters, setMoreFilters] = useState(false);
+  const [vatFilter, setVatFilter] = useState<string>(params.get("vat") ?? "");
+  const onVatFilterChange = (v: string) => { setVatFilter(v); setPage(1); };
+  const [classifyOpen, setClassifyOpen] = useState(false);
+  const vatSummary = useProductVatSummary();
+  const vatRate = useVatRate();
+  const canClassifyVat = vatSummary.data?.can_classify ?? false;
+  const notReviewed = vatSummary.data?.counts.not_reviewed ?? 0;
   const range = periodRange(period);
   const valuation = useValuationReport(1, "all");
   const summary = valuation.data?.summary;
@@ -88,9 +108,10 @@ function ProductsContent() {
     if(pageSize!==20) next.set("size",String(pageSize));
     if(range.from) next.set("from",range.from);
     if(range.to) next.set("to",range.to);
+    if(vatFilter) next.set("vat",vatFilter);
     const query = next.toString();
     window.history.replaceState(null,"",`/inventory/products${query?`?${query}`:""}`);
-  }, [search,statusFilter,page,pageSize,range.from,range.to]);
+  }, [search,statusFilter,page,pageSize,range.from,range.to,vatFilter]);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
   const [stockMode, setStockMode] = useState<"restock" | "adjust">("restock");
   const [showForm, setShowForm] = useState(false);
@@ -113,7 +134,7 @@ function ProductsContent() {
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
   const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
-  const { data, isLoading, isFetching } = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range);
+  const { data, isLoading, isFetching } = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range, undefined, vatFilter || undefined);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -150,6 +171,8 @@ function ProductsContent() {
       brand_id: v.brand_id && !v.brand_id.startsWith("__fb") ? v.brand_id : null,
       unit_id: v.unit_id && !v.unit_id.startsWith("__fb") ? v.unit_id : null,
       price: v.price, cost: v.cost, ...(!restricted && can("stock","update") ? {stock:v.stock} : {}), min_stock: v.minStock,
+      // VAT fields are only sent once a treatment is chosen; the server ignores them when nothing changed.
+      ...(v.vatTreatment ? { vat_treatment: v.vatTreatment, tax_code: v.taxCode || null, vat_reason: v.vatReason || null } : {}),
     };
     if (editing) {
       await updateProduct.mutateAsync({ id: editing.id, data: payload });
@@ -220,6 +243,7 @@ function ProductsContent() {
   return (
     <div className="space-y-6">
       {confirmDialog}
+      {classifyOpen && <VatClassifyDrawer productIds={Array.from(bulk.selected)} onClose={() => setClassifyOpen(false)} onDone={() => { setClassifyOpen(false); bulk.clear(); }} />}
       {statusError && <p role="alert" className="rounded-xl border border-border bg-card p-4 text-sm text-red-600">{statusError}</p>}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
@@ -269,6 +293,12 @@ function ProductsContent() {
         </div>
       )}
 
+      {notReviewed > 0 && vatFilter !== "not_reviewed" && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <span>{notReviewed} product{notReviewed === 1 ? " has" : "s have"} no VAT treatment yet. {notReviewed === 1 ? "It is" : "They are"} sold at the standard rate until reviewed.</span>
+          <Button variant="outline" size="sm" onClick={() => onVatFilterChange("not_reviewed")}>Review VAT</Button>
+        </div>
+      )}
       <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
           <div className="relative flex-1 max-w-xs">
@@ -284,6 +314,9 @@ function ProductsContent() {
               </button>
             ))}
           </div>
+          <Select value={vatFilter} onChange={(e) => onVatFilterChange(e.target.value)} aria-label="Filter by VAT treatment" className="w-auto">
+            {VAT_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}{value && vatSummary.data ? ` (${vatSummary.data.counts[value] ?? 0})` : ""}</option>)}
+          </Select>
           <Button variant="secondary" size="sm" onClick={() => setMoreFilters((v) => !v)} aria-expanded={moreFilters}>
             {moreFilters ? "Hide filters" : "More filters"}
           </Button>
@@ -297,7 +330,10 @@ function ProductsContent() {
 
         {bulk.count > 0 && (
           <div className="px-5 py-3 border-b border-border">
-            <BulkActionBar count={bulk.count} label="product" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1"><BulkActionBar count={bulk.count} label="product" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} /></div>
+              {canClassifyVat && <Button variant="outline" size="sm" onClick={() => setClassifyOpen(true)}>Set VAT treatment</Button>}
+            </div>
           </div>
         )}
 
@@ -305,7 +341,7 @@ function ProductsContent() {
           <label className="flex min-h-11 items-center gap-3 border-b border-border px-4 text-sm"><input type="checkbox" aria-label="Select all products" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} disabled={!products.length} />Select this page</label>
           <div className="grid gap-3 p-3 sm:grid-cols-2">
             {products.map((p) => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4">
-              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold"><Link className="hover:underline text-accent" href={`/inventory/products/${p.id}`}>{p.name}</Link></h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
+              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold"><Link className="hover:underline text-accent" href={`/inventory/products/${p.id}`}>{p.name}</Link></h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p><div className="mt-1.5"><VatBadge treatment={p.vat_treatment} rate={vatRate.data?.rate} /></div></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
               <div className="mt-3 flex justify-end">{productActions(p)}</div>
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Selling price</dt><dd className="font-semibold">{fmt(p.price)}</dd></div><div><dt className="text-xs text-muted">Stock</dt><dd className="font-semibold">{variantStock(p)}</dd></div><div><dt className="text-xs text-muted">Cost</dt><dd>{fmt(p.cost)}</dd></div><div><dt className="text-xs text-muted">Margin</dt><dd>{margin(p)}%</dd></div></dl>
               {hasRowActions && <details className="mt-3 border-t border-border"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-accent">Product actions</summary><div className="flex flex-wrap gap-2">
@@ -326,7 +362,7 @@ function ProductsContent() {
                 <th className="px-5 py-3 w-10">
                   <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={products.length === 0} />
                 </th>
-                {["Product", "Category", "Brand", "Cost", "Price", "Margin", "Stock", "Status", ""].map((h, i) => (
+                {["Product", "Category", "Brand", "Cost", "Price", "VAT", "Margin", "Stock", "Status", ""].map((h, i) => (
                   <th key={i} className={`p-4 text-xs font-semibold text-muted ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
                 ))}
               </tr>
@@ -360,6 +396,7 @@ function ProductsContent() {
                   <td className="px-5 py-3.5 text-sm text-muted">{p.brand?.name ?? "—"}</td>
                   <td className="px-5 py-3.5 text-right text-sm text-muted tabular-nums">{fmt(p.cost)}</td>
                   <td className="px-5 py-3.5 text-right text-sm font-semibold text-foreground tabular-nums">{fmt(p.price)}</td>
+                  <td className="px-5 py-3.5"><VatBadge treatment={p.vat_treatment} rate={vatRate.data?.rate} /></td>
                   <td className="px-5 py-3.5 text-right">
                     <span className="text-sm font-bold text-emerald-600 tabular-nums">{margin(p)}%</span>
                   </td>
@@ -377,7 +414,7 @@ function ProductsContent() {
               ))}
               {products.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
+                  <td colSpan={11} className="py-16 text-center">
                     <Package size={36} className="text-border mx-auto mb-3" />
                     <p className="text-sm font-semibold text-muted">No products found</p>
                     <p className="text-xs text-muted/70 mt-1">Try adjusting your search or filters</p>

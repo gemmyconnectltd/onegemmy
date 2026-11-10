@@ -9,7 +9,8 @@ import { useCan } from "@/lib/can";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
 import { ProductGallery } from "@/components/inventory/ProductGallery";
-import { useProductDetails, useUpdateProduct, useRestockProduct, useUploadProductImage } from "@/lib/api/hooks";
+import { useProductDetails, useUpdateProduct, useRestockProduct, useUploadProductImage, useVatRate } from "@/lib/api/hooks";
+import { PRODUCT_VAT_OPTIONS } from "@/lib/api/inventory";
 import { ProductAvatar } from "./ProductAvatar";
 import { ProductFormDrawer, type ProductFormValues } from "./ProductFormDrawer";
 import { RestockDrawer } from "./RestockDrawer";
@@ -25,6 +26,7 @@ export function ProductDetailsView({id, initialTab = "overview"}: {id: string; i
   // Reset per-context activity state when switching workspace or identity.
   const contextKey = `${user?.id}:${activeBranchId}:${id}`;
   const {currencySymbol, vatEnabled} = useAppConfig();
+  const vatRate = useVatRate();
   const can = useCan();
   const {confirm, dialog} = useConfirmDialog();
   const router = useRouter();
@@ -40,10 +42,10 @@ export function ProductDetailsView({id, initialTab = "overview"}: {id: string; i
   if (query.isLoading) return <PageLoader variant="page" />;
   const errorInfo = query.error as {status?:number; detail?:string; message?:string} | null;
   if (query.error || !p || !data) return <div className="space-y-4 rounded-xl border border-border bg-card p-6" role="alert"><h1 className="pesaa-page-title">{errorInfo?.status===404?"Product not found":errorInfo?.status===403?"Access denied":"Product unavailable"}</h1><p>{errorInfo?.detail || errorInfo?.message || "This product was not found or you do not have access."}</p><Button variant="secondary" onClick={()=>void query.refetch()}>Try again</Button><Link className="ml-4 text-accent" href="/inventory/products">Back to products</Link></div>;
-  const initial: ProductFormValues = {name:p.name,sku:p.sku??"",barcode:p.barcode??"",subcategory:p.subcategory??"",category:p.category?.name??"",category_id:p.category_id??"",brand:p.brand?.name??"",brand_id:p.brand_id??"",unit:p.unit?.name??"",unit_id:p.unit_id??"",price:p.price,cost:p.cost,stock:p.stock,minStock:p.min_stock,image_url:p.image_url};
+  const initial: ProductFormValues = {name:p.name,sku:p.sku??"",barcode:p.barcode??"",subcategory:p.subcategory??"",category:p.category?.name??"",category_id:p.category_id??"",brand:p.brand?.name??"",brand_id:p.brand_id??"",unit:p.unit?.name??"",unit_id:p.unit_id??"",price:p.price,cost:p.cost,stock:p.stock,minStock:p.min_stock,image_url:p.image_url,vatTreatment:p.vat_treatment??"",taxCode:p.tax_code??"",vatReason:p.vat_reason??""};
   const tabs = [["overview","Overview"],["stock","Stock"],["history","History"],...(data.modules.includes("sales") ? [["sales","Sales"]] : []),...(data.modules.includes("procurement") ? [["purchases","Purchases"]] : []),["transfers","Transfers"],["adjustments","Adjustments"],...(p.tracks_serials ? [["serials","Serials"]] : [])];
   const activeTab = tabs.some(([key])=>key===tab) ? tab : "overview";
-  const details: [string, string | number | null | undefined][] = [["Description",p.description],["SKU",p.sku],["Barcode",p.barcode],["Category",p.category?.name],["Subcategory",p.subcategory],["Brand",p.brand?.name],["Unit",p.unit?.name],["Product type",p.has_variants?"With variants":p.sale_by_weight?"Sold by weight":"Standard"],["Supplier",p.supplier?.name],["Selling price",fmt(p.price)],["Cost price",fmt(p.cost)],["Tax",vatEnabled ? "VAT-inclusive prices; transaction tax rules apply" : "VAT disabled for this business"],["Status",p.is_active?"Active":"Inactive"],["Created",p.created_at?new Date(p.created_at).toLocaleString():null],["Updated",p.updated_at?new Date(p.updated_at).toLocaleString():null]];
+  const details: [string, string | number | null | undefined][] = [["Description",p.description],["SKU",p.sku],["Barcode",p.barcode],["Category",p.category?.name],["Subcategory",p.subcategory],["Brand",p.brand?.name],["Unit",p.unit?.name],["Product type",p.has_variants?"With variants":p.sale_by_weight?"Sold by weight":"Standard"],["Supplier",p.supplier?.name],["Selling price",fmt(p.price)],["Cost price",fmt(p.cost)],["VAT treatment",!vatEnabled ? "Business not VAT-registered: no VAT charged" : p.vat_treatment ? `${PRODUCT_VAT_OPTIONS.find(o=>o.value===p.vat_treatment)?.label ?? p.vat_treatment}${p.vat_treatment==="standard" && vatRate.data?.rate ? ` (${vatRate.data.rate}%)` : ""}` : "Not reviewed (standard rate applies)"],["Tax code",p.tax_code],["VAT reason",p.vat_reason],["Pricing mode",vatEnabled ? (vatRate.data?.mode === "exclusive" ? "VAT added to selling price" : "Selling price includes VAT") : null],["VAT reviewed",p.vat_reviewed_at ? new Date(p.vat_reviewed_at).toLocaleString() : null],["Status",p.is_active?"Active":"Inactive"],["Created",p.created_at?new Date(p.created_at).toLocaleString():null],["Updated",p.updated_at?new Date(p.updated_at).toLocaleString():null]];
   return <div className="min-w-0 space-y-6">
     {dialog}
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm text-muted"><Link href="/inventory">Inventory</Link><span>/</span><Link href="/inventory/products">Products</Link><span>/</span><span className="break-words text-foreground">{p.name}</span></nav>
@@ -57,7 +59,7 @@ export function ProductDetailsView({id, initialTab = "overview"}: {id: string; i
     </section>
     <p className="text-xs text-muted">{data.limitations.slice(1).join(" ")}</p>
     <ProductFormDrawer key={`${p.updated_at}:${editing}`} open={editing} onClose={()=>setEditing(false)} initial={initial} onSubmit={async(v,image)=>{
-      const payload: Record<string,unknown> = {name:v.name,sku:v.sku||null,barcode:v.barcode||null,subcategory:v.subcategory||null,category_id:v.category_id||null,brand_id:v.brand_id||null,unit_id:v.unit_id||null,price:v.price,cost:v.cost,min_stock:v.minStock};
+      const payload: Record<string,unknown> = {name:v.name,sku:v.sku||null,barcode:v.barcode||null,subcategory:v.subcategory||null,category_id:v.category_id||null,brand_id:v.brand_id||null,unit_id:v.unit_id||null,price:v.price,cost:v.cost,min_stock:v.minStock,...(v.vatTreatment?{vat_treatment:v.vatTreatment,tax_code:v.taxCode||null,vat_reason:v.vatReason||null}:{})};
       if(!p.has_variants && !restricted && can("stock","update")) payload.stock=v.stock;
       await update.mutateAsync({id,data:payload});if(image) await upload.mutateAsync({id,file:image});setEditing(false);
     }}/>

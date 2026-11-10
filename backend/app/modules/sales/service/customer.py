@@ -19,24 +19,29 @@ from app.modules.sales.schemas import (
 
 async def list_customers(
     db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50, search: str | None = None,
-    customer_type: str | None = None, period: DatePeriod | None = None,
+    customer_type: str | None = None, period: DatePeriod | None = None, status: str | None = None, with_figures: bool = False,
 ) -> list[CustomerRead]:
-    items = await CustomerRepository(db).list_for_tenant(tenant_id, offset, limit, search, customer_type, period)
-    return [CustomerRead.model_validate(i) for i in items]
+    from app.modules.sales.service.customer_lifecycle import list_figures, status_of
+    items = await CustomerRepository(db).list_for_tenant(tenant_id, offset, limit, search, customer_type, period, status)
+    figures = await list_figures(db, tenant_id, [i.id for i in items]) if with_figures else {}
+    empty = {"orders_count": 0, "total_spent": 0, "last_order_at": None, "outstanding": 0}
+    return [CustomerRead.model_validate(i).model_copy(update={"status": status_of(i), **(figures.get(i.id, empty) if with_figures else {})}) for i in items]
 
 
-async def count_customers(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None, period: DatePeriod | None = None) -> int:
-    return await CustomerRepository(db).count_for_tenant(tenant_id, search, customer_type, period)
+async def count_customers(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None, period: DatePeriod | None = None,
+                          status: str | None = None) -> int:
+    return await CustomerRepository(db).count_for_tenant(tenant_id, search, customer_type, period, status)
 
 
 async def get_customer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> CustomerRead:
+    from app.modules.sales.service.customer_lifecycle import status_of
     obj = await CustomerRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Customer not found")
-    return CustomerRead.model_validate(obj)
+    return CustomerRead.model_validate(obj).model_copy(update={"status": status_of(obj)})
 
 
-async def create_customer(db: AsyncSession, tenant_id: uuid.UUID, data: CustomerCreate) -> CustomerRead:
+async def create_customer(db: AsyncSession, tenant_id: uuid.UUID, data: CustomerCreate, actor=None) -> CustomerRead:
     # The same phone or email is the same person: point at the existing customer instead of creating a second one.
     for column, value, what in ((Customer.phone, (data.phone or "").strip(), "phone number"), (Customer.email, (data.email or "").strip().lower(), "email")):
         if value:
@@ -45,6 +50,9 @@ async def create_customer(db: AsyncSession, tenant_id: uuid.UUID, data: Customer
                 raise ConflictError(f"A customer with this {what} already exists: {match}. Select that customer instead.")
     obj = Customer(tenant_id=tenant_id, **data.model_dump(exclude={"source"}))
     obj = await CustomerRepository(db).save(obj)
+    if actor is not None:
+        from app.modules.sales.service.customer_lifecycle import _audit
+        await _audit(db, tenant_id, actor, "customer.created", obj, f"Customer {obj.name} created")
     await db.commit()
     obj = await CustomerRepository(db).get_by_id_for_tenant(tenant_id, obj.id)
     return CustomerRead.model_validate(obj)
@@ -121,13 +129,18 @@ async def bulk_create_customers(db: AsyncSession, tenant_id: uuid.UUID, data: Cu
     return CustomerBulkResult(created=created, skipped=skipped, failed=failed, errors=errors)
 
 
-async def update_customer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: CustomerUpdate) -> CustomerRead:
+async def update_customer(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: CustomerUpdate, actor=None) -> CustomerRead:
     obj = await CustomerRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Customer not found")
+    changes = {f: {"from": str(getattr(obj, f)) if getattr(obj, f) is not None else None, "to": str(v) if v is not None else None}
+               for f, v in data.model_dump(exclude_unset=True).items() if getattr(obj, f) != v}
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, field, value)
     await CustomerRepository(db).save(obj)
+    if actor is not None and changes:
+        from app.modules.sales.service.customer_lifecycle import _audit
+        await _audit(db, tenant_id, actor, "customer.updated", obj, f"Customer {obj.name} edited", changes)
     await db.commit()
     obj = await CustomerRepository(db).get_by_id_for_tenant(tenant_id, id)
     return CustomerRead.model_validate(obj)

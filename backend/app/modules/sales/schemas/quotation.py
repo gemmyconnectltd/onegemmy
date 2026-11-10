@@ -47,6 +47,12 @@ class QuotationItemRead(BaseModel):
     quantity: float
     discount: float
     line_total: float
+    # VAT snapshot frozen when the line was priced (None on documents from before line-level VAT).
+    tax_treatment: str | None = None
+    tax_code: str | None = None
+    tax_rate: float | None = None
+    taxable_base: float | None = None
+    tax_amount: float | None = None
 
 
 class QuotationRead(BaseModel):

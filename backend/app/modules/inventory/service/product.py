@@ -1,6 +1,7 @@
 import uuid
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,9 +47,38 @@ async def get_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> 
     return ProductRead.model_validate(obj)
 
 
+VAT_FIELDS = ("vat_treatment", "tax_code", "vat_reason")
+
+
+def may_classify_vat(actor: User | None) -> bool:
+    """Product VAT treatment is a tax decision: owners, administrators and people holding tax:update may set it."""
+    if actor is None or actor.is_superuser or (actor.role or "").lower() in ("owner", "admin"):
+        return True
+    return "tax:update" in (getattr(actor, "permissions_names", None) or [])
+
+
+def _apply_vat_classification(obj: Product, payload: dict, actor: User | None) -> None:
+    """Checks the permission and stamps who reviewed the classification and when, whenever VAT fields are set."""
+    from datetime import UTC, datetime
+
+    from app.core.exceptions import ForbiddenError
+
+    touched = {k: payload[k] for k in VAT_FIELDS if k in payload}
+    if not touched or all(getattr(obj, k, None) == v for k, v in touched.items()):
+        return
+    if not may_classify_vat(actor):
+        raise ForbiddenError("Changing a product's VAT treatment needs the tax update permission. Ask an administrator.")
+    if touched.get("vat_treatment") == "standard" and "vat_reason" not in touched:
+        payload["vat_reason"] = None
+    if payload.get("vat_treatment") or obj.vat_treatment:
+        obj.vat_reviewed_at = datetime.now(UTC)
+        obj.vat_reviewed_by = actor.id if actor else None
+
+
 async def list_products(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20,
-                        search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None) -> list[ProductRead]:
-    items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period, category_id)
+                        search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
+                        vat: str | None = None) -> list[ProductRead]:
+    items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period, category_id, vat)
     return [ProductRead.model_validate(i) for i in items]
 
 
@@ -66,8 +96,9 @@ async def get_product_by_barcode(db: AsyncSession, tenant_id: uuid.UUID, barcode
     raise NotFoundError("No product found for this barcode")
 
 
-async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None) -> int:
-    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id)
+async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
+                         vat: str | None = None) -> int:
+    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id, vat)
 
 
 def _product_with_sku(tenant_id: uuid.UUID, payload: dict[str, object]) -> Product:
@@ -86,6 +117,7 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
     if not payload.get("image_url"):
         payload["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
     obj = _product_with_sku(tenant_id, payload)
+    _apply_vat_classification(obj, {k: v for k, v in payload.items() if k in VAT_FIELDS and v is not None}, actor)
     obj = await ProductRepository(db).save(obj)
     await record_product_change(db, obj, "product.created", {}, data.model_dump(), actor)
     await db.commit()
@@ -146,6 +178,7 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
         updates["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
     if "sku" in updates and not updates["sku"]:
         updates["sku"] = obj.sku or f"PRD-{obj.id.hex.upper()}"
+    _apply_vat_classification(obj, updates, actor)
     before = {field: getattr(obj, field) for field in updates}
     for field, value in updates.items():
         setattr(obj, field, value)
@@ -295,3 +328,34 @@ async def record_product_change(db: AsyncSession, product: Product, action: str,
             summary=f"{event.replace('product.', '').capitalize()}: {product.name}",
             changes=jsonable_encoder({"before": {k: before[k] for k in keys if k in before},
                                       "after": {k: after[k] for k in keys}, **metadata}, custom_encoder={Decimal: str}))
+
+
+async def classify_vat(db: AsyncSession, tenant_id: uuid.UUID, data, actor: User | None) -> dict:
+    """Bulk VAT classification from Product Management. Only this business's products are touched; each change is audited."""
+    from app.core.exceptions import ForbiddenError
+
+    if not may_classify_vat(actor):
+        raise ForbiddenError("Changing a product's VAT treatment needs the tax update permission. Ask an administrator.")
+    rows = (await db.execute(select(Product).where(Product.tenant_id == tenant_id, Product.id.in_(set(data.product_ids))))).scalars().all()
+    payload = {"vat_treatment": data.vat_treatment, "tax_code": data.tax_code,
+               "vat_reason": data.vat_reason if data.vat_treatment != "standard" else (data.vat_reason or None)}
+    changed = 0
+    for obj in rows:
+        before = {k: getattr(obj, k) for k in VAT_FIELDS}
+        if before == payload:
+            continue
+        _apply_vat_classification(obj, dict(payload), actor)
+        for k, v in payload.items():
+            setattr(obj, k, v)
+        await record_product_change(db, obj, "product.vat_classified", before, payload, actor)
+        changed += 1
+    await db.commit()
+    return {"updated": changed, "matched": len(rows), "not_found": len(set(data.product_ids)) - len(rows)}
+
+
+async def vat_review_counts(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
+    """How many products sit in each VAT treatment, including the ones not reviewed yet."""
+    from sqlalchemy import func
+
+    rows = (await db.execute(select(Product.vat_treatment, func.count()).where(Product.tenant_id == tenant_id).group_by(Product.vat_treatment))).all()
+    return {(k or "not_reviewed"): n for k, n in rows}

@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Index, Numeric, String, Text, false
+from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text, false
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -74,6 +74,11 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # tax = 0 everywhere (receipts, reports, accounting postings). Toggleable
     # by the tenant's own admin and by a platform superadmin.
     vat_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # VAT registration details. vat_enabled above is the registration status itself.
+    vat_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    vat_registered_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Whether selling prices already include VAT (the default, and every price before this setting existed) or have it added.
+    vat_pricing_mode: Mapped[str] = mapped_column(String(10), default="inclusive", server_default="inclusive")
     # Most NEW credit (unpaid balance) one customer may be granted in a single day, in the base currency.
     # Null = no limit (the behaviour before this existed). Set by someone holding credit:approve (GM/CEO).
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)

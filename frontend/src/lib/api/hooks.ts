@@ -1,3 +1,4 @@
+import { taxApi } from "./tax";
 import { productHistoryApi, type ProductHistoryFilters } from "./productHistory";
 import { accessApi, type AccessFilters } from "./access";
 import { branchWorkspaceApi, type BranchFilters } from "./branchWorkspace";
@@ -103,8 +104,10 @@ const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
-export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string) =>
-  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId), (r) => r.data, opts);
+export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string, vat?: string) =>
+  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId, vat ?? ""], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId, vat), (r) => r.data, opts);
+export const useProductVatSummary = () => useQ([...PRODUCTS, "vat-summary"], () => inventoryApi.vatSummary(), (r) => r.data);
+export const useClassifyProductVat = mutation(inventoryApi.classifyVat, [[...PRODUCTS]]);
 
 /** Count + list of products at/below their own minimum stock, computed on the server over ALL products. */
 export const useLowStockReport = (opts?: QueryOpts) => useQ([...PRODUCTS, "low-stock-report"], () => inventoryApi.lowStockReport(), (r) => r.data, opts);
@@ -183,8 +186,11 @@ const ORDERS = ["sales", "orders"] as const;
 const RETURNS = ["sales", "returns"] as const;
 const TARGETS = ["sales", "targets"] as const;
 
-export const useCustomers = (page = 1, pageSize = 200, search?: string, customerType?: string, opts?: QueryOpts, period?: PeriodRange) =>
-  useQ([...CUSTOMERS, page, pageSize, search ?? "", customerType ?? "all", periodKey(period)], () => salesApi.listCustomers(page, pageSize, search, customerType, period), (r) => r.data, opts);
+export const useCustomers = (page = 1, pageSize = 200, search?: string, customerType?: string, opts?: QueryOpts, period?: PeriodRange, status?: CustomerStatusFilter, figures?: boolean) =>
+  useQ([...CUSTOMERS, page, pageSize, search ?? "", customerType ?? "all", periodKey(period), status ?? "current", figures ? "figures" : ""], () => salesApi.listCustomers(page, pageSize, search, customerType, period, status, figures), (r) => r.data, opts);
+export const useCustomerActivity = (id: string, page = 1) => useQ([...CUSTOMERS, id, "activity", page], () => salesApi.customerActivity(id, page), (r) => r.data);
+export const useCustomerDependencies = (id: string | null) => useQ([...CUSTOMERS, id ?? "", "dependencies"], () => salesApi.customerDependencies(id!), (r) => r.data, { enabled: !!id });
+export const useSetCustomerStatus = mutation(({ id, status }: { id: string; status: CustomerStatus }) => salesApi.setCustomerStatus(id, status), [[...CUSTOMERS], ["sales", "customer-profile"]]);
 
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
@@ -960,7 +966,7 @@ export const useCashPosition = (id: string | undefined, branch?: string | null, 
 
 // Debt workspace: bounded source-subledger reads; branch belongs in every cache key.
 import { debtApi } from "./debts";
-import type { CustomerSection } from "./sales";
+import type { CustomerSection, CustomerStatus, CustomerStatusFilter, TaxPreviewInput } from "./sales";
 import type { DebtEditInput, DebtFilters, DebtKind, ManualDebtInput } from "@/lib/debts";
 import type { DebtPaymentInput } from "@/lib/debts";
 import { periodKey, type PeriodRange } from "@/lib/period";
@@ -1027,6 +1033,8 @@ export const useModuleDetail = (key: string | undefined, opts?: QueryOpts) => us
 
 /** The VAT the business really charges (from its tax settings), so the till never assumes a rate. */
 export const useVatRate = () => useQ(["sales", "vat-rate"], () => salesApi.vatRate(), r => r.data, { staleTime: 300000 });
+export const useVatReport = (from: string, to: string, branchId?: string | null) => useQ(["accounting", "tax", "vat-report", from, to, branchId ?? ""], () => taxApi.vatReport(from, to, branchId), r => r.data, { enabled: !!from && !!to });
+export const useTaxPreview = (input: TaxPreviewInput, enabled: boolean) => useQ(["sales", "tax-preview", input], () => salesApi.taxPreview(input), r => r.data, { enabled, placeholderData: undefined, staleTime: 0, retry: false });
 
 /** What one customer owes right now and their daily credit limit, for the till's credit card. Only fetched when needed. */
 export const useCustomerDebtSnapshot = (id: string | null, enabled: boolean) =>

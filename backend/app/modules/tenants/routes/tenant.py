@@ -139,9 +139,29 @@ async def update_tenant(
         current_user.is_superuser or "approvals:approve" in current_user.permissions_names
     ):
         raise ForbiddenError("Permission required: approvals:approve")
-    if data.model_fields_set - {"credit_daily_limit"}:
+    # VAT registration and pricing policy are tax decisions: owners, administrators or tax:update.
+    vat_fields = {"vat_enabled", "vat_number", "vat_registered_from", "vat_pricing_mode"} & data.model_fields_set
+    may_set_vat = current_user.is_superuser or (current_user.role or "").lower() in ("owner", "admin") or "tax:update" in current_user.permissions_names
+    if vat_fields and not may_set_vat:
+        raise ForbiddenError("Permission required: tax:update")
+    if data.model_fields_set - {"credit_daily_limit"} - vat_fields:
         await require_permission("tenants:update")(current_user)
+    before = None
+    if vat_fields:
+        from app.modules.tenants.models import Tenant
+        row = await db.get(Tenant, tenant_id)
+        before = {f: getattr(row, f) for f in vat_fields} if row else None
     tenant = await service.update_tenant(db, tenant_id, data)
+    if vat_fields and before is not None:
+        after = {f: getattr(tenant, f) for f in vat_fields}
+        if after != before:  # the change only affects documents priced from now on; nothing already recorded is touched
+            from fastapi.encoders import jsonable_encoder
+
+            from app.modules.audit.service import record_audit
+            await record_audit(db, tenant_id=tenant_id, actor_user_id=current_user.id, actor_name=current_user.full_name,
+                               action="tenant.vat_settings_changed", entity_type="tenant", entity_id=str(tenant_id),
+                               summary="VAT settings changed", changes={"before": jsonable_encoder(before), "after": jsonable_encoder(after)})
+            await db.commit()
     return success_response(
         data=tenant.model_dump(),
         message="Company updated successfully",

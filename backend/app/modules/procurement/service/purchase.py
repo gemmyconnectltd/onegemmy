@@ -80,6 +80,12 @@ async def _require_pricing(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid
         raise ForbiddenError("Pricing update permission is required to change catalog cost or selling price")
 
 
+def recoverable_vat(item) -> bool:
+    """Whether a purchase line's input VAT is reclaimed (split out of inventory/expense into Input VAT Recoverable).
+    Lines priced before line-level input VAT (tax_amount NULL) keep their old treatment: VAT stays in the cost."""
+    return bool(item.tax_amount) and item.vat_recoverable is not False and bool(item.tax_rate)
+
+
 async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: PurchaseOrder, items) -> None:
     """Validate each item resolves to a tenant-owned product/variant and persist snapshots."""
     products, variants = await PurchasePricingRepository(db).catalog(tenant_id, items)
@@ -115,6 +121,11 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
                 raise ValidationError(f"Product '{product.name}' has variants — pick a specific variant")
 
         line_total = (item_data.unit_cost * item_data.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        # Input VAT from the supplier's invoice: costs include VAT, so it is the VAT inside the line. A business that is
+        # not VAT-registered, or a zero-rated / exempt / out-of-scope supply, carries none.
+        treatment = item_data.tax_treatment or ("standard" if item_data.tax_rate else None)
+        rate = Decimal(item_data.tax_rate) if vat_enabled and treatment in (None, "standard") else Decimal(0)
+        input_vat = (line_total * rate / (100 + rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if rate else Decimal(0)
         item = PurchaseItem(
             purchase_order_id=purchase.id,
             product_id=variant.product_id if variant else item_data.product_id,
@@ -127,7 +138,10 @@ async def _build_items(db: AsyncSession, tenant_id: uuid.UUID, purchase: Purchas
             line_total=line_total,
             is_service=item_data.is_service,
             expense_account_id=item_data.expense_account_id,
-            tax_rate=Decimal(item_data.tax_rate if vat_enabled else 0),
+            tax_rate=rate,
+            tax_treatment=treatment if vat_enabled else None,
+            tax_amount=input_vat if vat_enabled else None,
+            vat_recoverable=item_data.vat_recoverable if vat_enabled and input_vat else None,
             stock_factor=Decimal(str(product.conversion_factor)) if product else None,
             update_catalog_cost=item_data.update_catalog_cost,
             selling_price=item_data.selling_price,
@@ -162,7 +176,10 @@ async def _apply_receive(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
         factor = Decimal(item.stock_factor) if item.stock_factor is not None else Decimal(str(product.conversion_factor))
         if factor <= 0:
             raise ValidationError("Product conversion factor must be positive")
-        new_cost = (Decimal(str(item.unit_cost)) * document_rate(purchase) / factor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        unit_cost = Decimal(str(item.unit_cost))
+        if recoverable_vat(item):  # reclaimable VAT is not part of what the goods cost the business
+            unit_cost -= unit_cost * Decimal(item.tax_rate) / (100 + Decimal(item.tax_rate))
+        new_cost = (unit_cost * document_rate(purchase) / factor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if item.update_catalog_cost and new_cost > Decimal("9999999999.99"):
             raise ValidationError("Converted catalog cost exceeds the supported amount")
         instruction = (new_cost if item.update_catalog_cost else None, item.selling_price)

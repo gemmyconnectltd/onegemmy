@@ -1,6 +1,6 @@
 import type React from "react";
 import type { LucideIcon } from "lucide-react";
-import { Activity, ArrowLeftRight, Award, BarChart2, BarChart3, BookOpen, Building2, CalendarClock, CalendarDays, ChartNoAxesCombined, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Handshake, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, ScanLine, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
+import { Activity, ArrowLeftRight, Award, BarChart2, BookOpen, Building2, CalendarClock, CalendarDays, ChartColumnIncreasing, ClipboardCheck, ClipboardList, Clock, CreditCard, Crown, DollarSign, Factory, FileText, Hammer, HandCoins, Handshake, Landmark, Layers, LayoutDashboard, LifeBuoy, ListChecks, ListOrdered, Mail, Megaphone, Package, Receipt, ReceiptText, RotateCcw, ScanLine, Settings, ShoppingBag, ShoppingCart, Sparkles, Star, Tag, Target, TrendingUp, Truck, UserCheck, UserCog, UserPlus, Users, Wallet, Warehouse } from "lucide-react";
 
 export type ModuleKey =
   | "debts" | "expenses" | "sales" | "services" | "accounting" | "hr" | "crm" | "procurement"
@@ -32,7 +32,6 @@ export const ACCOUNTING_NAV = [
   { href: "/accounting/assets", label: "Fixed Assets", icon: Building2, group: "Assets and payroll", requires: "fixed_assets:read" },
   { href: "/accounting/payroll", label: "Payroll", icon: Wallet, group: "Assets and payroll", requires: "payroll:read" },
   { href: "/accounting/tax", label: "Tax Management", icon: ReceiptText, group: "Compliance and reports", requires: "tax:read" },
-  { href: "/accounting/reports", label: "Financial Reports", icon: ChartNoAxesCombined, group: "Compliance and reports", requires: "journal_entries:read" },
 ];
 
 export const DEBT_NAV = [
@@ -110,7 +109,7 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
       activeFor: ["/reports/sales-report"] },
     { nameKey: "operations", label: "Operations",             href: "/reports/operations", icon: Package,
       activeFor: ["/reports/inventory", "/reports/inventory-overview", "/reports/inventory-report", "/reports/procurement-overview", "/reports/manufacturing-overview", "/reports/services-overview", "/reports/daily"] },
-    { nameKey: "accounting", label: "Financial Reports",      href: "/reports/finance",    icon: DollarSign,
+    { nameKey: "accounting", label: "Finance overview",       href: "/reports/finance",    icon: DollarSign,
       activeFor: ["/reports/accounting", "/reports/accounting-overview", "/reports/expenses-overview", "/reports/debts-overview"] },
   ],
   // Settings has no second sidebar: its pages are in the main sidebar's Administration group and Business Settings has its own tabs.
@@ -150,13 +149,13 @@ export type PrimaryNavGroup = { id?: string; label?: string; items: PrimaryNavIt
 export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   { id: "workspace", label: "Workspace", items: [{ name: "Overview", href: "/dashboard", icon: LayoutDashboard, tour: "dashboard", ownerOnly: true }] },
   { id: "operations", label: "Operations", items: [
-    { name: "Sales", href: "/sales", icon: ShoppingCart, feature: "sales", module: "sales" },
     { name: "Point of Sale", href: "/pos", icon: ScanLine, feature: "pos", access: "pos" },
+    { name: "Sales", href: "/sales", icon: ShoppingCart, feature: "sales", module: "sales" },
     { name: "Discounts & Promotions", href: "/sales/discounts", icon: Tag, feature: "discounts", access: "discounts", permission: "discounts:read" },
-    { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
     { name: "Inventory", href: "/inventory", icon: Warehouse, feature: "inventory", module: "inventory" },
     { name: "Purchases", href: "/procurement", icon: ShoppingBag, feature: "procurement", module: "procurement" },
     { name: "Manufacturing", href: "/manufacturing", icon: Factory, feature: "manufacturing", module: "manufacturing" },
+    { name: "Services", href: "/services", icon: CalendarClock, feature: "services", module: "services" },
   ] },
   { id: "relationships", label: "Relationships", items: [
     { name: "Customers", href: "/customers", icon: Users, feature: "sales", module: "customers" },
@@ -170,8 +169,9 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
   { id: "people", label: "People", items: [
     { name: "HR", href: "/hr", icon: UserCog, feature: "hr", module: "hr" },
   ] },
-  { id: "insights", label: "Insights", items: [
-    { name: "Reports", href: "/reports", icon: BarChart3, module: "reports", access: "", ownerOnly: true },
+  { id: "insights", label: "Insights & Analytics", items: [
+    { name: "Business Reports", href: "/reports", icon: ChartColumnIncreasing, module: "reports", access: "", ownerOnly: true, tour: "reports" },
+    { name: "Accounting Reports", href: "/accounting/reports", icon: Landmark, feature: "accounting", access: "accounting", permission: "journal_entries:read", tour: "financial-reports" },
   ] },
   { id: "administration", label: "Administration", items: [
     { name: "Team & Access", href: "/settings/users", icon: UserPlus, permission: "users:read", tour: "team" },
@@ -208,7 +208,7 @@ export const MODULE_TITLES: Record<ModuleKey, { title: string; icon: LucideIcon;
   accounting: { title: "Accounting", icon: HandCoins, blurb: "Books, banking and tax" },
   hr: { title: "HR", icon: UserCog, blurb: "Team, attendance and payroll" },
   crm: { title: "CRM", icon: Megaphone, blurb: "Contacts and campaigns" },
-  reports: { title: "Reports", icon: BarChart3, blurb: "Performance and trends" },
+  reports: { title: "Business Reports", icon: ChartColumnIncreasing, blurb: "Sales, operations and performance" },
   settings: { title: "Settings", icon: Settings, blurb: "Business, team and billing" },
   repairs: { title: "Repairs", icon: Hammer, blurb: "Jobs in progress" },
 };

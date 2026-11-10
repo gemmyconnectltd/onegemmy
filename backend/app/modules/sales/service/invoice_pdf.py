@@ -22,6 +22,7 @@ from reportlab.platypus import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.brand_pdf import business_contact_lines
 from app.core.currency import format_money
 from app.core.logging import get_logger
 from app.modules.sales.schemas.order import OrderRead
@@ -64,25 +65,7 @@ async def _load_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
 
 
 def _tenant_contact_lines(tenant: Tenant) -> list[str]:
-    lines = []
-    if tenant.address:
-        lines.append(tenant.address)
-    if tenant.city:
-        city = tenant.city
-        if tenant.country:
-            city = f"{city}, {tenant.country}"
-        lines.append(city)
-    elif tenant.country:
-        lines.append(tenant.country)
-    if tenant.phone:
-        lines.append(f"Tel: {tenant.phone}")
-    if getattr(tenant, "email", None):
-        lines.append(f"Email: {tenant.email}")
-    if getattr(tenant, "tin", None):
-        lines.append(f"TIN: {tenant.tin}")
-    if tenant.website:
-        lines.append(tenant.website)
-    return lines
+    return business_contact_lines(tenant)
 
 
 def _register_fonts() -> None:
@@ -231,6 +214,8 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
             bill_lines.append(Paragraph(esc(order.customer.phone), styles["body_muted"]))
         if order.customer.address:
             bill_lines.append(Paragraph(esc(order.customer.address), styles["body_muted"]))
+        if getattr(order.customer, "tin", None):
+            bill_lines.append(Paragraph(f"TIN: {esc(order.customer.tin)}", styles["body"]))
     else:
         bill_lines.append(Paragraph("Walk-in customer", styles["body"]))
 

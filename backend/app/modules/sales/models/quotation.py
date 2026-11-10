@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSON, UUID
@@ -61,6 +62,12 @@ class QuotationItem(UUIDPKMixin, Base):
     quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False, default=1)
     discount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     line_total: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    # Tax snapshot, frozen when the line is priced. NULL on documents created before line-level VAT existed.
+    tax_treatment: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    tax_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)
+    taxable_base: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 
     quotation = relationship("Quotation", back_populates="items")
 

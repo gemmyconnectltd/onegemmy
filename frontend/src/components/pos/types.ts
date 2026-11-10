@@ -79,12 +79,18 @@ export type SaleResult = {
   customerId?: string | null;
   payment: PaymentMethod;
   customerName: string;
+  /** The customer's taxpayer number, printed on the receipt when recorded. */
+  customerTin?: string | null;
   notes: string;
   items: CartItem[];
   subtotal: number;
   discount: number;
   tax: number;
   total: number;
+  /** VAT by treatment from the sale's own line snapshots; absent on sales from before line-level VAT. */
+  vatBreakdown?: { treatment: string; rate: number; base: number; tax: number }[];
+  /** True when VAT was added on top of the prices (VAT-exclusive pricing). */
+  vatExclusive?: boolean;
   cashGiven: string;
   change: number;
   timestamp: Date;

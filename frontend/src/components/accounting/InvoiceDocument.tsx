@@ -157,6 +157,7 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
               {order.customer?.address && (
                 <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><MapPin size={11} className="flex-shrink-0" /> {order.customer.address}</p>
               )}
+              {order.customer?.tin && <p className="mt-0.5 text-[12px] font-semibold text-foreground">TIN: {order.customer.tin}</p>}
             </div>
             <div>
               <p className="text-[11px] text-muted uppercase tracking-wide mb-1.5">Date Issued</p>

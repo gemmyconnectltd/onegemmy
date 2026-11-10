@@ -134,7 +134,23 @@ export interface RwandaTaxRates {
 
 const BASE = "/tenants/accounting/tax";
 
+/** VAT position for a period, built from each document's recorded VAT and compared with the ledger (base currency). */
+export interface VatReport {
+  period: { from: string; to: string };
+  branch_id: string | null;
+  sales: Record<string, { base: string; tax: string; documents: number }>;
+  returns: Record<string, { gross: string; tax: string }>;
+  output_vat: string;
+  returns_vat: string;
+  input_vat: { recoverable: string; non_recoverable: string; purchase_returns: string };
+  net_vat: string;
+  ledger: { vat_payable_movement: string; input_vat_movement: string; difference: string };
+}
+
 export const taxApi = {
+  vatReport: (from: string, to: string, branchId?: string | null) =>
+    request<SingleResponse<VatReport>>(`${BASE}/vat-report?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${branchId ? `&branch_id=${encodeURIComponent(branchId)}` : ""}`),
+
   // ── Tax Rates ─────────────────────────────────────────────────────────────
   getRwandaTaxRates: () =>
     request<SingleResponse<RwandaTaxRates>>(`${BASE}/rates`),

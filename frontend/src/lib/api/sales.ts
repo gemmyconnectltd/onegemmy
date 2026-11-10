@@ -13,7 +13,18 @@ export interface ApiCustomer {
   tin?: string | null;
   is_active: boolean;
   created_at: string | null;
+  archived_at?: string | null;
+  /** active | inactive | archived */
+  status?: CustomerStatus;
+  /** Filled when the list is asked for figures (base currency, from the server). */
+  orders_count?: number | null;
+  total_spent?: string | number | null;
+  last_order_at?: string | null;
+  outstanding?: string | number | null;
 }
+export type CustomerStatus = "active" | "inactive" | "archived";
+export type CustomerStatusFilter = "current" | "active" | "inactive" | "archived" | "all";
+export interface CustomerActivity { id: string; action: string; summary: string; actor: string | null; changes: Record<string, unknown> | null; at: string }
 
 export interface QuotationItem { id: string; product_id: string | null; variant_id: string | null; product_name: string; sku: string | null; unit_price: number; quantity: number; discount: number; line_total: number }
 export type QuotationStatus = "Draft" | "Sent" | "Accepted" | "Rejected" | "Expired";
@@ -57,7 +68,7 @@ export interface ApiDeal {
   owner_id: string | null;
   expected_close_date: string | null;
   notes: string | null;
-  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; tin?: string | null } | null;
   created_at: string | null;
 }
 
@@ -73,6 +84,12 @@ export interface ApiOrderItem {
   quantity: number;
   discount: number;
   line_total: number;
+  /** VAT frozen on the line when it was priced (null on sales from before line-level VAT). */
+  tax_treatment?: VatTreatment | null;
+  tax_code?: string | null;
+  tax_rate?: number | null;
+  taxable_base?: number | null;
+  tax_amount?: number | null;
 }
 
 export interface ApiOrderPayment {
@@ -131,7 +148,7 @@ export interface ApiOrder {
   amount_tendered: number | null;
   change_due: number | null;
   ordered_at: string | null;
-  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; tin?: string | null } | null;
   items: ApiOrderItem[];
   created_at: string | null;
   // Credit sales / partial payments
@@ -178,7 +195,7 @@ export interface ApiReturn {
   status: string;
   processed_by: string | null;
   return_date: string;
-  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; tin?: string | null } | null;
   items: ApiReturnItem[];
   created_at: string | null;
 }
@@ -200,19 +217,35 @@ export type CustomerSection = "orders" | "payments" | "returns" | "debts";
 export interface CustomerSectionPage { items: Record<string, string | number | boolean | null>[]; total: number; page?: number; page_size?: number; currency?: string }
 export interface CustomerProfile {
   name: string; currency: string; deals: number | null;
-  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; customer_type: string; is_active: boolean; credit_daily_limit: string | null; created_at: string } | null;
+  customer: { id: string; name: string; email: string | null; phone: string | null; address: string | null; customer_type: string; tin?: string | null; is_active: boolean; credit_daily_limit: string | null; created_at: string } | null;
   summary: { completed_orders?: number; lifetime_sales?: string; first_order_at?: string | null; last_order_at?: string | null; returns?: number; refunded?: string; outstanding?: string; overdue?: string };
   sections: Record<CustomerSection, CustomerSectionPage | null>;
 }
 
+export type VatMode = "inclusive" | "exclusive";
+export type VatTreatment = "standard" | "zero_rated" | "exempt" | "out_of_scope" | "not_registered";
+export interface TaxPreviewInput { items: { product_id?: string | null; variant_id?: string | null; line_total: number }[]; discount?: number }
+export interface TaxPreviewLine { ref: string; treatment: VatTreatment; tax_code: string | null; rate: string; taxable_base: string; tax: string; gross: string }
+export interface TaxPreview { mode: VatMode; registered: boolean; net: string; tax: string; gross: string; rate?: number; lines: TaxPreviewLine[]; breakdown: Partial<Record<VatTreatment, { base: string; tax: string; gross: string }>> }
+/** Short labels shown on cart lines, receipts and the product list. */
+export const VAT_LABELS: Record<VatTreatment, string> = { standard: "Standard", zero_rated: "Zero-rated", exempt: "Exempt", out_of_scope: "Out of scope", not_registered: "No VAT" };
+
 export const salesApi = {
   // Customers
   getOrder: (id: string) => request<SingleResponse<ApiOrder>>(`${BASE}/orders/${encodeURIComponent(id)}`),
-  vatRate: () => request<SingleResponse<{ enabled: boolean; rate: number }>>(`${BASE}/vat-rate`),
+  vatRate: () => request<SingleResponse<{ enabled: boolean; rate: number; mode?: VatMode; vat_number?: string | null }>>(`${BASE}/vat-rate`),
+  /** VAT for a cart from the server's tax engine (read-only): the till shows exactly what the checkout will record. */
+  taxPreview: (body: TaxPreviewInput) => request<SingleResponse<TaxPreview>>(`${BASE}/tax/preview`, { method: "POST", body: JSON.stringify(body) }),
   customerProfile: (id: string) => request<SingleResponse<CustomerProfile>>(`${BASE}/customers/${encodeURIComponent(id)}/profile`),
   customerRecords: (id: string, section: CustomerSection, page: number) => request<SingleResponse<CustomerSectionPage>>(`${BASE}/customers/${encodeURIComponent(id)}/records/${section}${qs({ page, page_size: 10 })}`),
-  listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string, period?: PeriodRange) =>
-    request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers${qs({ page, page_size: pageSize, search, customer_type: customerType, ...periodParams(period) })}`),
+  listCustomers: (page = 1, pageSize = 20, search?: string, customerType?: string, period?: PeriodRange, status?: CustomerStatusFilter, figures?: boolean) =>
+    request<PaginatedResponse<ApiCustomer>>(`${BASE}/customers${qs({ page, page_size: pageSize, search, customer_type: customerType, status, figures: figures ? "true" : undefined, ...periodParams(period) })}`),
+  setCustomerStatus: (id: string, status: CustomerStatus) =>
+    request<SingleResponse<ApiCustomer>>(`${BASE}/customers/${encodeURIComponent(id)}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  customerDependencies: (id: string) =>
+    request<SingleResponse<{ linked: Record<string, number>; deletable: boolean }>>(`${BASE}/customers/${encodeURIComponent(id)}/dependencies`),
+  customerActivity: (id: string, page = 1) =>
+    request<PaginatedResponse<CustomerActivity>>(`${BASE}/customers/${encodeURIComponent(id)}/activity${qs({ page, page_size: 20 })}`),
   createCustomer: (data: object) =>
     request<SingleResponse<ApiCustomer>>(`${BASE}/customers`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateCustomers: (items: object[]) =>

@@ -90,6 +90,11 @@ async def _create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
     received_total = sum((Decimal(i.quantity) for i in eligible), Decimal(0))
     gross = sum((Decimal(i.line_total) for i in eligible), Decimal(0)) * data.quantity / received_total
     amount = (gross * Decimal(po.total) / Decimal(po.subtotal)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if Decimal(po.subtotal) else Decimal(0)
+    # The returned goods take back their share of the recoverable input VAT that was split from inventory on receipt.
+    from app.modules.procurement.service.purchase import recoverable_vat
+    line_vat = sum((Decimal(str(i.tax_amount)) for i in eligible if recoverable_vat(i)), Decimal(0)) * data.quantity / received_total
+    discount_factor = (Decimal(po.subtotal) - Decimal(str(po.discount or 0))) / Decimal(po.subtotal) if Decimal(po.subtotal) else Decimal(1)
+    base_input_vat = (line_vat * discount_factor * document_rate(po)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if line_vat else None
     obj = PurchaseReturn(
         tenant_id=tenant_id,
         reference=reference,
@@ -100,6 +105,7 @@ async def _create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.U
         quantity=data.quantity,
         amount=amount,
         base_amount=(amount * document_rate(po)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        base_input_vat=base_input_vat,
         currency_code=po.currency_code,
         client_reference=data.client_reference,
         reason=data.reason,

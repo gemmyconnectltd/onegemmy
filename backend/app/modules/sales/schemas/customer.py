@@ -72,5 +72,12 @@ class CustomerRead(BaseModel):
     customer_type: str
     tin: str | None = None
     is_active: bool
+    archived_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # active | inactive | archived, and the list's per-customer figures (base currency; filled by the list endpoint)
+    status: str = "active"
+    orders_count: int | None = None
+    total_spent: Decimal | None = None
+    last_order_at: datetime | None = None
+    outstanding: Decimal | None = None

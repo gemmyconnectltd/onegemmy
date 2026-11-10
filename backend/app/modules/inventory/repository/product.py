@@ -74,7 +74,7 @@ class ProductRepository(BaseRepository[Product]):
 
     async def list_for_tenant(
         self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None, is_active: bool | None = None,
-        period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
+        period: DatePeriod | None = None, category_id: uuid.UUID | None = None, vat: str | None = None,
     ) -> list[Product]:
         stmt = (
             select(Product)
@@ -83,6 +83,8 @@ class ProductRepository(BaseRepository[Product]):
         )
         if category_id is not None:
             stmt = stmt.where(Product.category_id == category_id)
+        if vat:  # a VAT treatment, or "not_reviewed" for products nobody has classified yet
+            stmt = stmt.where(Product.vat_treatment.is_(None) if vat == "not_reviewed" else Product.vat_treatment == vat)
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like), Product.variants.any(or_(ProductVariant.sku.ilike(like), ProductVariant.barcode.ilike(like)))))
@@ -94,10 +96,13 @@ class ProductRepository(BaseRepository[Product]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
+                               vat: str | None = None) -> int:
         stmt = select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id)
         if category_id is not None:
             stmt = stmt.where(Product.category_id == category_id)
+        if vat:  # a VAT treatment, or "not_reviewed" for products nobody has classified yet
+            stmt = stmt.where(Product.vat_treatment.is_(None) if vat == "not_reviewed" else Product.vat_treatment == vat)
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like), Product.variants.any(or_(ProductVariant.sku.ilike(like), ProductVariant.barcode.ilike(like)))))

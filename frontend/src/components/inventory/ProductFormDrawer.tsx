@@ -5,7 +5,8 @@ import { XCircle, ImagePlus, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
-import { useCategories, useBrands, useUnits } from "@/lib/api/hooks";
+import { useCategories, useBrands, useUnits, useProductVatSummary } from "@/lib/api/hooks";
+import { PRODUCT_VAT_OPTIONS, type ProductVatTreatment } from "@/lib/api/inventory";
 import { resolveUploadUrl } from "@/lib/api/client";
 
 export interface ProductFormValues {
@@ -24,6 +25,10 @@ export interface ProductFormValues {
   stock: number;
   minStock: number;
   image_url?: string | null;
+  /** "" = not reviewed yet. */
+  vatTreatment?: ProductVatTreatment | "";
+  taxCode?: string;
+  vatReason?: string;
 }
 
 const FALLBACK_CATEGORIES = ["Accessories", "Cables", "Audio", "Chargers", "Storage", "Networking"];
@@ -68,11 +73,16 @@ function toForm(initial?: ProductFormValues | null) {
     cost: initial?.cost != null ? String(initial.cost) : "",
     stock: initial?.stock != null ? String(initial.stock) : "",
     minStock: initial?.minStock != null ? String(initial.minStock) : "",
+    vatTreatment: initial?.vatTreatment ?? "",
+    taxCode: initial?.taxCode ?? "",
+    vatReason: initial?.vatReason ?? "",
   };
 }
 
 function isValid(f: Record<string, string>) {
-  return f.name.trim() && f.price.trim() && f.cost.trim() && f.stock.trim() && f.minStock.trim();
+  // Zero-rated, exempt and out-of-scope products need the reason (legal basis), as the server requires.
+  const vatOk = !f.vatTreatment || f.vatTreatment === "standard" || !!f.vatReason?.trim();
+  return f.name.trim() && f.price.trim() && f.cost.trim() && f.stock.trim() && f.minStock.trim() && vatOk;
 }
 
 function parseForm(f: Record<string, string>): ProductFormValues {
@@ -91,12 +101,17 @@ function parseForm(f: Record<string, string>): ProductFormValues {
     cost: Number(f.cost),
     stock: Number(f.stock),
     minStock: Number(f.minStock),
+    vatTreatment: (f.vatTreatment || "") as ProductVatTreatment | "",
+    taxCode: f.taxCode?.trim() ?? "",
+    vatReason: f.vatReason?.trim() ?? "",
   };
 }
 
 // ── Single form ──────────────────────────────────────────────────────────────
 
 function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFormValues | null; onClose: () => void; onSubmit: (v: ProductFormValues, imageFile?: File) => Promise<void>; color?: string }) {
+  const vatSummary = useProductVatSummary();
+  const canClassify = vatSummary.data?.can_classify ?? false;
   const [form, setForm] = useState(() => toForm(initial));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,6 +280,25 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
             <Input type="number" min="0" value={form.minStock} onChange={(e) => set("minStock", e.target.value)} placeholder="0" />
           </Field>
         </div>
+
+        {/* Tax & VAT: classified by someone allowed to make tax decisions; everyone else sees it read-only. */}
+        <fieldset className="space-y-3 border-t border-border pt-4" disabled={!canClassify}>
+          <legend className="text-sm font-semibold text-foreground">Tax &amp; VAT</legend>
+          <Field label="Sales VAT treatment" hint={!canClassify ? "Changing VAT treatment needs the tax permission." : PRODUCT_VAT_OPTIONS.find((o) => o.value === form.vatTreatment)?.hint ?? "Not reviewed yet: sold at the standard rate until someone classifies it."}>
+            <Select value={form.vatTreatment} onChange={(e) => set("vatTreatment", e.target.value)} aria-label="Sales VAT treatment">
+              {!form.vatTreatment && <option value="">Not reviewed (standard rate applies)</option>}
+              {PRODUCT_VAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Tax code (optional)">
+              <Input value={form.taxCode} onChange={(e) => set("taxCode", e.target.value)} maxLength={30} placeholder="e.g. your EBM tax code" />
+            </Field>
+            <Field label={`Reason${form.vatTreatment && form.vatTreatment !== "standard" ? "" : " (optional)"}`} required={!!form.vatTreatment && form.vatTreatment !== "standard"}>
+              <Input value={form.vatReason} onChange={(e) => set("vatReason", e.target.value)} maxLength={255} placeholder="Legal basis for this treatment" />
+            </Field>
+          </div>
+        </fieldset>
       </div>
     </Drawer>
   );

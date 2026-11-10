@@ -40,6 +40,8 @@ async def list_quotations(db: DbSession, user: CurrentUser, page: PageQuery, sta
 
 @router.post("/sales/quotations")
 async def create_quotation(data: QuotationCreate, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
+    from app.modules.sales.service.customer_lifecycle import require_usable
+    await require_usable(db, user.tenant_id, getattr(data, "customer_id", None))  # a new quotation names an active customer
     q = await quotes.create_quotation(db, user.tenant_id, user.id, user.full_name, data, branch)
     return success_response(data=q.model_dump(), message="Quotation created", status_code=201)
 

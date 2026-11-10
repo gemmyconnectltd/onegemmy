@@ -55,19 +55,19 @@ async def test_draft_price_edit_receive_and_audit_preserve_historical_values(db,
     changed = await purchase.update_purchase(db, tenant.id, created.id, PurchaseUpdate(items=[line(product, unit_cost="13", selling_price="26")]), actor.id)
     assert changed.total == 26 and len(changed.items) == 1
     assert changed.items[0].unit_cost == 13
-    with pytest.raises(ForbiddenError):
-        await purchase.receive_purchase(db, tenant.id, created.id, member.id)
-    received = await purchase.receive_purchase(db, tenant.id, created.id, actor.id)
+    # Baseline operational view/edit lets the member receive (update-level); creating purchases still needs a role grant.
+    received = await purchase.receive_purchase(db, tenant.id, created.id, member.id)
     await db.refresh(product)
     assert received.status == "Received"
-    assert product.stock == 7 and product.cost == 13 and product.price == 26
+    # 13 per unit includes 18% reclaimable VAT, so the catalog cost is 13 / 1.18 = 11.02.
+    assert product.stock == 7 and product.cost == Decimal("11.02") and product.price == 26
     with pytest.raises(ValidationError):
         await purchase.receive_purchase(db, tenant.id, created.id, actor.id)
     with pytest.raises(ValidationError):
         await purchase.update_purchase(db, tenant.id, created.id, PurchaseUpdate(items=[item]), actor.id)
     audit = (await db.execute(select(AuditLog).where(AuditLog.tenant_id == tenant.id, AuditLog.action == "purchase.receive", AuditLog.entity_id == str(created.id)))).scalar_one()
     change = audit.changes["price_changes"][0]
-    assert Decimal(change["previous_cost"]) == 10 and Decimal(change["new_cost"]) == 13
+    assert Decimal(change["previous_cost"]) == 10 and Decimal(change["new_cost"]) == Decimal("11.02")
     assert Decimal(change["previous_price"]) == 20 and Decimal(change["new_price"]) == 26
     assert (await purchase.get_purchase(db, tenant.id, created.id)).items[0].unit_cost == 13
     repo = PurchaseOrderRepository(db)
@@ -89,9 +89,15 @@ async def test_variant_price_updates_conversion_and_default_no_repricing(db, con
     await purchase.receive_purchase(db, tenant.id, created.id, actor.id)
     await db.refresh(variant)
     await db.refresh(product)
-    assert variant.stock == 2 and variant.cost == 15 and variant.price == 40
+    # 30 per pack of 2 includes 18% VAT the business reclaims, so the catalog cost is 15 / 1.18 = 12.71 per unit.
+    assert variant.stock == 2 and variant.cost == Decimal("12.71") and variant.price == 40
     assert product.price == 20 and product.cost == 10
     other = await purchase.create_purchase(db, tenant.id, actor.id, PurchaseCreate(supplier_id=supplier.id, items=[line(product, variant_id=variant.id, unit_cost="50", quantity="1", update_catalog_cost=False, selling_price=None)]), branch.id)
     await purchase.receive_purchase(db, tenant.id, other.id, actor.id)
     await db.refresh(variant)
-    assert variant.stock == 4 and variant.cost == 15 and variant.price == 40
+    assert variant.stock == 4 and variant.cost == Decimal("12.71") and variant.price == 40
+    # VAT that cannot be reclaimed stays part of the cost, exactly as before input VAT was split out.
+    kept = await purchase.create_purchase(db, tenant.id, actor.id, PurchaseCreate(supplier_id=supplier.id, items=[line(product, variant_id=variant.id, unit_cost="30", quantity="1", vat_recoverable=False)]), branch.id)
+    await purchase.receive_purchase(db, tenant.id, kept.id, actor.id)
+    await db.refresh(variant)
+    assert variant.cost == 15

@@ -108,7 +108,7 @@ async def profile(db: AsyncSession, user: User, active: uuid.UUID | None, custom
     contact = None
     if can(user, "contacts:read"):
         contact = {"id": customer.id, "name": customer.name, "email": customer.email, "phone": customer.phone, "address": customer.address,
-                   "customer_type": customer.customer_type, "is_active": customer.is_active, "credit_daily_limit": customer.credit_daily_limit,
+                   "customer_type": customer.customer_type, "tin": customer.tin, "is_active": customer.is_active, "credit_daily_limit": customer.credit_daily_limit,
                    "created_at": customer.created_at}
     sections: dict[str, Any] = {}
     for name in SECTIONS:

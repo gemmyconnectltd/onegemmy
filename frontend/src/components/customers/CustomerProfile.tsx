@@ -75,7 +75,8 @@ export function CustomerProfileScreen({
     {customer && <section aria-label="Contact details" className="grid gap-3 rounded-xl border border-border bg-card p-4 text-[12px] sm:grid-cols-2 lg:grid-cols-4">
       <p className="flex items-center gap-2"><Mail size={14} className="text-muted" aria-hidden />{customer.email ? <a className="truncate hover:underline" href={`mailto:${customer.email}`}>{customer.email}</a> : <span className="text-muted">No email</span>}</p>
       <p className="flex items-center gap-2"><Phone size={14} className="text-muted" aria-hidden />{customer.phone ? <a className="hover:underline" href={`tel:${customer.phone}`}>{customer.phone}</a> : <span className="text-muted">No phone</span>}</p>
-      <p className="flex items-start gap-2 sm:col-span-2"><MapPin size={14} className="mt-0.5 shrink-0 text-muted" aria-hidden /><span className={customer.address ? "" : "text-muted"}>{customer.address || "No address"}</span></p>
+      <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 shrink-0 text-muted" aria-hidden /><span className={customer.address ? "" : "text-muted"}>{customer.address || "No address"}</span></p>
+      <p className="flex items-center gap-2"><span className="text-muted">TIN</span><span className={customer.tin ? "font-semibold" : "text-muted"}>{customer.tin || "Not recorded"}</span></p>
       {customer.credit_daily_limit && <p className="sm:col-span-4 text-muted">Daily credit limit: {money(customer.credit_daily_limit)}</p>}
     </section>}
     {tiles.length > 0 && <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">{tiles.map(t => <div key={t.label} className="min-w-0 rounded-xl border border-border bg-card p-4"><dt className="text-[11px] text-muted">{t.label}</dt><dd className={`mt-1 break-words text-[17px] font-bold tabular-nums ${t.danger ? "text-red-600" : t.warn ? "text-amber-600" : ""}`}>{t.value}</dd></div>)}</dl>}

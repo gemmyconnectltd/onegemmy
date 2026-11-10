@@ -1,5 +1,6 @@
 "use client";
 
+import { VAT_LABELS, type TaxPreviewLine } from "@/lib/api/sales";
 import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, FileText, Minus, Pause, Plus, ShoppingCart, Trash2, UserRound, Wallet } from "lucide-react";
@@ -37,6 +38,8 @@ interface CartPanelProps {
   onUpdatePrice?: (id: string, price: number) => void;
   priceEditingDisabled?: boolean;
   linePricing?: { ref: string; discount: string; net: string; rules: { name: string; amount: string; kind: string }[] }[];
+  /** Each line's VAT treatment from the server's tax engine (shown only when it is not the standard rate). */
+  lineVat?: TaxPreviewLine[];
   onRemoveItem: (id: string) => void;
   onClear: () => void;
   onHold: () => void;
@@ -48,7 +51,7 @@ interface CartPanelProps {
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
   onCustomerChange, saleAt, onSaleAtChange, team = [], salespersonId = "", onSalespersonChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
-  showCashReceived, onUpdateCashReceived, onUpdatePrice, priceEditingDisabled, linePricing,
+  showCashReceived, onUpdateCashReceived, onUpdatePrice, priceEditingDisabled, linePricing, lineVat,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
 
@@ -236,6 +239,8 @@ export function CartPanel({
               const priced = linePricing?.find(line => line.ref === String(index));
               const appliedDiscount = priced ? Number(priced.discount) : item.discount;
               const lineTotal = priced ? Number(priced.net) : item.price * item.qty - item.discount;
+              const vatLine = lineVat?.find(line => line.ref === String(index));
+              const vatNote = vatLine && vatLine.treatment !== "standard" && vatLine.treatment !== "not_registered" ? VAT_LABELS[vatLine.treatment] : null;
               const variant = item.variant_attributes && Object.keys(item.variant_attributes).length > 0 ? Object.entries(item.variant_attributes).map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
               return (
                 <div key={item.id} className="flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-surface/50">
@@ -248,7 +253,7 @@ export function CartPanel({
                   <div className="min-w-0 flex-1">
                     {/* Line 1: what it is and what it comes to */}
                     <div className="flex items-baseline justify-between gap-2">
-                      <p className="min-w-0 line-clamp-2 break-words text-[12.5px] font-semibold leading-tight text-foreground" title={item.name}>{item.name}</p>
+                      <p className="min-w-0 line-clamp-2 break-words text-[12.5px] font-semibold leading-tight text-foreground" title={item.name}>{item.name}{vatNote && <span className="ml-1.5 inline-flex rounded-md bg-surface px-1.5 py-px align-middle text-[10px] font-semibold text-muted ring-1 ring-border" title={`VAT: ${vatNote}`}>{vatNote}</span>}</p>
                       <span className="shrink-0 font-mono text-[12.5px] font-bold tabular-nums text-foreground">{currencySymbol} {fmt(lineTotal)}</span>
                     </div>
                     {appliedDiscount > 0 && <div className="flex flex-wrap items-center gap-2 text-xs"><s className="text-muted">{currencySymbol} {fmt(item.price * item.qty)}</s><span className="text-accent">{priced?.rules.map(rule => rule.name).join(" · ") || "Manual discount"}</span></div>}

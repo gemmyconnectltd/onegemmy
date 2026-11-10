@@ -111,6 +111,22 @@ async def _check_quantities(db: AsyncSession, tenant_id: uuid.UUID, data: Return
         item.product_name = sold.product_name
 
 
+async def _snapshot_return_vat(db: AsyncSession, item: ReturnItem) -> None:
+    """The VAT this return reverses: the original sale line's own recorded VAT, in proportion to the refund (never today's
+    rate or the product's current treatment). Lines sold before line-level VAT keep no snapshot and are reversed as before."""
+    if not item.order_item_id:
+        return
+    sold = await db.get(OrderItem, item.order_item_id)
+    if sold is None or sold.tax_amount is None or sold.taxable_base is None:
+        return
+    from decimal import Decimal
+
+    from app.modules.tax.engine import reverse
+    gross = Decimal(str(sold.taxable_base)) + Decimal(str(sold.tax_amount))
+    _, tax_back = reverse(sold.taxable_base, sold.tax_amount, gross, Decimal(str(item.line_refund)))
+    item.tax_treatment, item.tax_rate, item.tax_amount = sold.tax_treatment, sold.tax_rate, tax_back
+
+
 async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ReturnCreate) -> ReturnRead:
     from app.modules.sales.repository import OrderRepository
     await OrderRepository(db).lock_financial_writes(tenant_id)
@@ -144,6 +160,7 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
             refund_per_unit=item_data.refund_per_unit,
             line_refund=item_data.line_refund,
         )
+        await _snapshot_return_vat(db, item)
         db.add(item)
 
         # a return can be recorded as already Approved in one step (not just via a later

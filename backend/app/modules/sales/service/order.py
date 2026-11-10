@@ -37,6 +37,7 @@ from app.modules.sales.schemas import (
     OrderRead,
     OrderUpdate,
 )
+from app.modules.tax.service import snapshot as snapshot_tax
 
 _PAID_EPSILON = 0.01
 STATUS_AWAITING_APPROVAL = "Awaiting Approval"
@@ -279,6 +280,34 @@ async def _apply_vat(db: AsyncSession, tenant_id: uuid.UUID, gross: float) -> tu
     return round(vat["vat_amount"], 2), round(gross, 2), float(rate)
 
 
+async def _price_vat(db: AsyncSession, tenant_id: uuid.UUID, items, discount, on=None):
+    """VAT for a sale, line by line, through the shared tax engine: each line taxed by its product's treatment, with
+    the order-level discount spread over the lines first. Returns (tax, total, standard rate, engine result).
+    Inclusive pricing (the default) leaves the total equal to subtotal - discount; exclusive pricing adds the VAT."""
+    from app.modules.tax.service import price_lines
+
+    lines = [(i.product_id, i.variant_id, Decimal(str(i.line_total))) for i in items]
+    try:
+        result = await price_lines(db, tenant_id, lines, Decimal(str(discount or 0)), on)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+    rate = float(next((ln.rate for ln in result.lines if ln.rate), 0)) or (float(await get_effective_vat_rate(db, tenant_id)) if result.registered else 0.0)
+    return float(result.tax), float(result.gross), rate, result
+
+
+async def _reprice_vat(db: AsyncSession, tenant_id: uuid.UUID, obj: Order) -> tuple[float, float, float]:
+    """Price an open order's VAT again from its stored lines (as completing any open order does) and refresh each line's
+    snapshot. An order with no lines is taxed on its subtotal as one standard line, as before."""
+    items = list(obj.items or [])
+    if not items:
+        gross = round(float(obj.subtotal) - float(obj.discount), 2)
+        return await _apply_vat(db, tenant_id, gross)
+    tax, total, rate, result = await _price_vat(db, tenant_id, items, obj.discount, obj.ordered_at.date() if obj.ordered_at else None)
+    for item, taxed in zip(items, result.lines, strict=True):
+        snapshot_tax(item, taxed)
+    return tax, total, rate
+
+
 async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID, tax_amount: float, total: float, vat_rate: float) -> None:
     """Write a VAT TaxCalculation record for a completed order."""
     if tax_amount <= 0:
@@ -371,7 +400,7 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
     gross = round(subtotal - data.discount, 2)
     if gross < 0:
         raise ValidationError("The sale discount cannot exceed the subtotal")
-    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+    tax, total, vat_rate, vat_lines = await _price_vat(db, tenant_id, data.items, data.discount, day)
     paid = round(float(obj.amount_paid or 0), 2)
     if total + _PAID_EPSILON < paid:
         raise ValidationError(f"The corrected total ({total}) is less than the {paid} already paid. Reverse a payment first, or record a return.")
@@ -431,6 +460,7 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
         row = OrderItem(order_id=obj.id, product_id=variant.product_id if variant else item_data.product_id, variant_id=variant.id if variant else None,
                         product_name=name, sku=sku, variant_attributes=attributes, unit_price=item_data.unit_price, quantity=item_data.quantity,
                         discount=item_data.discount, line_total=item_data.line_total)
+        snapshot_tax(row, vat_lines.lines[len(new_rows)])
         cogs_total += _complete_sale_item(row, name, item_data.quantity, variant, product)
         new_rows.append(row)
 
@@ -749,7 +779,7 @@ async def create_order(
     gross = round(subtotal - data.discount, 2)
     if gross < 0:
         raise ValidationError("The sale discount cannot exceed the subtotal")
-    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+    tax, total, vat_rate, vat_lines = await _price_vat(db, tenant_id, data.items, data.discount, effective_at.date())
 
     resolved_paid = _resolve_amount_paid(data.amount_paid, data.amount_tendered, total) if data.status == "Completed" else 0.0
     if data.payments:
@@ -891,6 +921,7 @@ async def create_order(
             discount=item_data.discount,
             line_total=item_data.line_total,
         )
+        snapshot_tax(item, vat_lines.lines[len(created_items)])
         db.add(item)
         created_items.append(item)
 
@@ -1118,8 +1149,7 @@ async def update_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, da
     # (subtotal - discount) using the tenant's configured rate, never taken
     # from client input, so it can never be double-counted or drift from the
     # rest of the system's calculation.
-    gross = round(float(obj.subtotal) - float(obj.discount), 2)
-    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+    tax, total, vat_rate = await _reprice_vat(db, tenant_id, obj)
     obj.tax = tax
     obj.total = total
     _set_base_amounts(obj, base_ccy)
@@ -1180,8 +1210,7 @@ async def approve_order(
     await _check_decider(db, obj, user_id, can_approve_sale, can_approve_credit)
     base_ccy = await get_base_currency(db, tenant_id)
     # Price the sale again with the CURRENT VAT setting, as completing any open order does.
-    gross = round(float(obj.subtotal) - float(obj.discount), 2)
-    tax, total, vat_rate = await _apply_vat(db, tenant_id, gross)
+    tax, total, vat_rate = await _reprice_vat(db, tenant_id, obj)
     obj.tax = tax
     obj.total = total
     _set_base_amounts(obj, base_ccy)

@@ -24,7 +24,7 @@ def request(method, path, body=b"{}"):
 
 
 async def test_stock_view_does_not_grant_stock_modifications():
-    viewer = SimpleNamespace(id=uuid.uuid4(), is_superuser=False, permissions_names=["items:read", "stock:read", "items:update"])
+    viewer = SimpleNamespace(id=uuid.uuid4(), role="viewer", is_superuser=False, permissions_names=["items:read", "stock:read", "items:update"])
     await inventory_access(request("GET", "/inventory/reports/valuation"), viewer)
     with pytest.raises(ForbiddenError):
         await inventory_access(request("PATCH", "/inventory/products/anything", b'{"stock":10}'), viewer)
@@ -115,6 +115,9 @@ async def test_direct_api_stock_permissions_branch_isolation_and_module_gate(db,
     async def feature(_db, _tenant, key):
         return key != "manufacturing"
 
+    async def module_status(_db, _tenant, key):
+        return "not_included" if key == "manufacturing" else "enabled"
+
     async def current():
         return user
 
@@ -123,6 +126,7 @@ async def test_direct_api_stock_permissions_branch_isolation_and_module_gate(db,
 
     from app.modules.tenants import service
     monkeypatch.setattr(service, "feature_enabled", feature)
+    monkeypatch.setattr(service, "module_status", module_status)
     old = app.dependency_overrides.copy()
     app.dependency_overrides[get_current_user] = current
     app.dependency_overrides[get_db] = session

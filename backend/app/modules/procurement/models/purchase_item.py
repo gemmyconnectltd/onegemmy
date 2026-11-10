@@ -33,6 +33,10 @@ class PurchaseItem(UUIDPKMixin, Base):
         UUID(as_uuid=True), ForeignKey("accounting_accounts.id"), nullable=True
     )
     tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    # Input VAT on this line, from the supplier's invoice (not from the product's sales treatment).
+    tax_treatment: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    vat_recoverable: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # NULL = recoverable (the default treatment)
     stock_factor: Mapped[Decimal | None] = mapped_column(Numeric(14, 3), nullable=True)
     received_quantity: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0, server_default="0")
     update_catalog_cost: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

@@ -39,6 +39,8 @@ class PurchaseReturn(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     quantity: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False)
     currency_code: Mapped[str | None] = mapped_column(String(3), nullable=True)
     base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    # Recoverable input VAT inside base_amount, reversed with the goods (NULL on returns from before input VAT was split out).
+    base_input_vat: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     refund_base_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     amount: Mapped[float] = mapped_column(Numeric(14, 2), default=0)
     processed_by: Mapped[uuid.UUID | None] = mapped_column(

@@ -4,6 +4,7 @@ import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtDateTime } from "@/lib/date";
 import type { Tenant } from "@/lib/api";
 import type { SaleResult } from "./types";
+import { VAT_LABELS } from "@/lib/api/sales";
 
 export const paymentLabel = (method: string) => ({ cash: "Cash", mobile: "Mobile Money", card: "Card", split: "Split payment", bank: "Bank" })[method] ?? method;
 
@@ -20,15 +21,19 @@ export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled 
       {tenant && <p>{[tenant.address, tenant.city, tenant.country].filter(Boolean).join(", ")}</p>}
       {tenant?.phone && <p>{tenant.phone}</p>}{tenant?.email && <p>{tenant.email}</p>}{tenant?.website && <p>{tenant.website}</p>}
       {tenant?.tin && <p className="font-semibold">TIN: {tenant.tin}</p>}
+      {vatEnabled && tenant?.vat_number && <p className="font-semibold">VAT No: {tenant.vat_number}</p>}
       <p className="mt-2 font-semibold">Receipt {sale.orderId}</p><p>{fmtDateTime(sale.timestamp)}</p>
-      {sale.cashierName && <p>Cashier: {sale.cashierName}</p>}{sale.customerName && <p>Customer: {sale.customerName}</p>}
+      {sale.cashierName && <p>Cashier: {sale.cashierName}</p>}{sale.customerName && <p>Customer: {sale.customerName}</p>}{sale.customerTin && <p>Customer TIN: {sale.customerTin}</p>}
     </header>
     <table className="w-full table-fixed text-left"><thead><tr><th className="border-b border-border pb-2">Item / quantity × price</th><th className="w-[31%] border-b border-border pb-2 text-right">Amount</th></tr></thead><tbody>{sale.items.map(item => <tr key={item.id}><td className="py-2 pr-2 align-top"><p className="receipt-item-name break-words font-medium">{item.name}</p>{item.variant_attributes && <small className="receipt-meta block text-muted">{Object.entries(item.variant_attributes).map(([key,value]) => `${key}: ${value}`).join(" · ")}</small>}<small className="receipt-meta block text-muted">{item.qty} × {item.discount > 0 ? <s>{money(item.price)}</s> : money(item.price)}</small>{item.discount > 0 && <small className="receipt-meta block text-muted">Discount: {money(item.discount)}</small>}</td><td className="py-2 text-right align-top font-medium tabular-nums">{money(item.price * item.qty - item.discount)}</td></tr>)}</tbody></table>
     {!!sale.discountDetails?.length && <p className="mt-2 break-words text-xs">Offers: {sale.discountDetails.map(item => `${item.name}${item.coupon_code ? ` (${item.coupon_code})` : ""}`).join(" · ")}</p>}
     <section className="receipt-totals mt-3 border-t border-dashed border-border pt-2">
-      {row(vatEnabled ? "Subtotal (VAT inclusive)" : "Subtotal", money(sale.subtotal))}
+      {row(vatEnabled ? (sale.vatExclusive ? "Subtotal (excl. VAT)" : "Subtotal (VAT inclusive)") : "Subtotal", money(sale.subtotal))}
       {sale.discount > 0 && row("Discount", `−${money(sale.discount)}`)}
-      {vatEnabled && sale.tax > 0 && row("VAT (included)", money(sale.tax))}
+      {vatEnabled && sale.tax > 0 && row(sale.vatExclusive ? "VAT" : "VAT (included)", money(sale.tax))}
+      {vatEnabled && sale.vatBreakdown && sale.vatBreakdown.length > 1 && <div className="receipt-vat mt-1 border-t border-dashed border-border pt-1 text-[11px]">
+        {sale.vatBreakdown.map(group => row(`${VAT_LABELS[group.treatment as keyof typeof VAT_LABELS] ?? group.treatment}${group.rate ? ` ${group.rate}%` : ""}: ${money(group.base)}`, `VAT ${money(group.tax)}`))}
+      </div>}
       <div className="receipt-grand mt-2 border-t border-border pt-2 text-base font-bold">{row("Total", money(sale.total))}</div>
       {row("Payment", paymentLabel(sale.payment))}{row("Amount paid", money(sale.amountPaid ?? sale.total))}
       {!!sale.balanceDue && sale.balanceDue > 0 ? <>{row("Balance due", money(sale.balanceDue))}{sale.dueDate && row("Due date", sale.dueDate)}</> : row("Change", money(sale.change))}

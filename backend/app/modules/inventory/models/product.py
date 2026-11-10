@@ -30,6 +30,12 @@ class Product(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     conversion_factor: Mapped[float] = mapped_column(Numeric(14, 3), default=1)
     promo_price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     promo_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # VAT: NULL = not reviewed yet (priced as standard-rated, as before classification existed).
+    vat_treatment: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    tax_code: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    vat_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)  # why a product is zero-rated, exempt or out of scope
+    vat_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    vat_reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("inventory_categories.id", ondelete="SET NULL"), nullable=True

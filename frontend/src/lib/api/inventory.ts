@@ -29,6 +29,15 @@ export interface ApiVariantListItem extends ApiVariant {
   product_sku: string | null;
 }
 
+export type ProductVatTreatment = "standard" | "zero_rated" | "exempt" | "out_of_scope";
+export const PRODUCT_VAT_OPTIONS: { value: ProductVatTreatment; label: string; hint: string }[] = [
+  { value: "standard", label: "Standard-rated", hint: "The business's standard VAT rate" },
+  { value: "zero_rated", label: "Zero-rated (0%)", hint: "A taxable supply at 0%, only where the law allows it" },
+  { value: "exempt", label: "Exempt", hint: "Not taxable: no VAT, reported apart from zero-rated sales" },
+  { value: "out_of_scope", label: "Out of scope", hint: "Outside the VAT system altogether" },
+];
+export interface VatClassificationInput { product_ids: string[]; vat_treatment: ProductVatTreatment; tax_code?: string | null; vat_reason?: string | null }
+
 export interface ApiProduct {
   id: string;
   name: string;
@@ -54,6 +63,11 @@ export interface ApiProduct {
   unit: { id: string; name: string; abbreviation: string | null } | null;
   supplier: { id: string; name: string } | null;
   variants: ApiVariant[];
+  /** null = not reviewed yet (priced as standard-rated, as before VAT classification existed). */
+  vat_treatment?: ProductVatTreatment | null;
+  tax_code?: string | null;
+  vat_reason?: string | null;
+  vat_reviewed_at?: string | null;
 }
 
 export interface ApiCategory { id: string; name: string; description: string | null; }
@@ -127,8 +141,12 @@ export const inventoryApi = {
   // Products
   /** Server-side low-stock report (every product at/below its own minimum) — the same rule Pesaa AI uses. */
   lowStockReport: () => request<SingleResponse<{ items: { id: string; name: string; stock: number; min_stock: number }[]; total: number }>>("/tenants/inventory/products/low-stock"),
-  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string) =>
-    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, is_active: isActive === undefined ? undefined : String(isActive), ...periodParams(period) })}`),
+  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string, vat?: string) =>
+    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, vat, is_active: isActive === undefined ? undefined : String(isActive), ...periodParams(period) })}`),
+  /** Products per VAT treatment ("not_reviewed" for those nobody has classified) and whether this person may classify. */
+  vatSummary: () => request<SingleResponse<{ counts: Record<string, number>; can_classify: boolean }>>(`${BASE}/products/vat-summary`),
+  classifyVat: (data: VatClassificationInput) =>
+    request<SingleResponse<{ updated: number; matched: number; not_found: number }>>(`${BASE}/products/vat-classification`, { method: "POST", body: JSON.stringify(data) }),
   createProduct: (data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateProducts: (items: object[]) =>

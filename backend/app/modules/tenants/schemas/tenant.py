@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -72,6 +72,10 @@ class TenantUpdate(TimezoneModel):
     timezone: str | None = None
     currency: str | None = None
     vat_enabled: bool | None = None
+    # VAT registration and pricing policy: owners, administrators or tax:update (enforced in the route).
+    vat_number: str | None = Field(default=None, max_length=50)
+    vat_registered_from: date | None = None
+    vat_pricing_mode: Literal["inclusive", "exclusive"] | None = None
     multi_branch: bool | None = None
     # Needs credit:approve (GM/CEO) — enforced in the route.
     credit_daily_limit: Decimal | None = Field(default=None, ge=0)
@@ -114,6 +118,9 @@ class TenantRead(BaseModel):
     timezone: str = "UTC"
     currency: str
     vat_enabled: bool = True
+    vat_number: str | None = None
+    vat_registered_from: date | None = None
+    vat_pricing_mode: str = "inclusive"
     multi_branch: bool = False
     credit_daily_limit: Decimal | None = None
     debt_limit_per_client: Decimal | None = None

@@ -70,3 +70,33 @@ def draw_brand_band(canvas, page_w: float, page_h: float, accent: colors.Color, 
     canvas.setFillColor(accent)
     canvas.rect(0, page_h - height_mm * mm, page_w, height_mm * mm, stroke=0, fill=1)
     canvas.restoreState()
+
+
+def business_contact_lines(tenant) -> list[str]:
+    """The business's own identity for every document it issues, in one order everywhere. Only fields the business has
+    filled in are shown (nothing is invented); the VAT number appears only while the business charges VAT."""
+    lines: list[str] = []
+    if getattr(tenant, "address", None):
+        lines.append(tenant.address)
+    city, country = getattr(tenant, "city", None), getattr(tenant, "country", None)
+    if city or country:
+        lines.append(", ".join(x for x in (city, country) if x))
+    if getattr(tenant, "phone", None):
+        lines.append(f"Tel: {tenant.phone}")
+    if getattr(tenant, "email", None):
+        lines.append(f"Email: {tenant.email}")
+    if getattr(tenant, "website", None):
+        lines.append(tenant.website)
+    tax_ids = []
+    if getattr(tenant, "tin", None):
+        tax_ids.append(f"TIN: {tenant.tin}")
+    if getattr(tenant, "vat_enabled", False) and getattr(tenant, "vat_number", None):
+        tax_ids.append(f"VAT No: {tenant.vat_number}")
+    if tax_ids:
+        lines.append(" · ".join(tax_ids))
+    return lines
+
+
+def business_name(tenant) -> str:
+    """The business's name for document metadata; a neutral word when it is missing, never the software vendor's name."""
+    return (getattr(tenant, "name", None) or "").strip() or "Business"

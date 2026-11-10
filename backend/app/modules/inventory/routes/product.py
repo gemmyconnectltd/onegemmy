@@ -20,6 +20,7 @@ from app.modules.inventory.schemas import (
     ProductUpdate,
     RestockRequest,
 )
+from app.modules.inventory.schemas.product import VatClassification
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
@@ -29,11 +30,29 @@ router = APIRouter(tags=["Inventory - Products"])
 
 @router.get("/inventory/products")
 async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
-                        search: str | None = None, is_active: bool | None = None, category_id: uuid.UUID | None = None):
+                        search: str | None = None, is_active: bool | None = None, category_id: uuid.UUID | None = None,
+                        vat: Literal["standard", "zero_rated", "exempt", "out_of_scope", "not_reviewed"] | None = None):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period, category_id)
-    total = await service.count_products(db, current_user.tenant_id, search, is_active, period, category_id)
+    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period, category_id, vat)
+    total = await service.count_products(db, current_user.tenant_id, search, is_active, period, category_id, vat)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Products retrieved successfully")
+
+
+@router.get("/inventory/products/vat-summary")
+async def vat_summary(db: DbSession, current_user: CurrentUser):
+    """How many products are in each VAT treatment, including those not reviewed yet."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service.product import may_classify_vat, vat_review_counts
+    return success_response(data={"counts": await vat_review_counts(db, current_user.tenant_id), "can_classify": may_classify_vat(current_user)})
+
+
+@router.post("/inventory/products/vat-classification")
+async def classify_products_vat(data: VatClassification, db: DbSession, current_user: CurrentUser):
+    """Bulk VAT classification. Needs tax:update (owners and administrators always may)."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.inventory.service.product import classify_vat
+    result = await classify_vat(db, current_user.tenant_id, data, current_user)
+    return success_response(data=result, message=f"{result['updated']} products classified")
 
 
 @router.get("/inventory/products/low-stock")

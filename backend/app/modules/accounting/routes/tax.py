@@ -1,3 +1,6 @@
+import uuid
+from datetime import date
+
 from fastapi import APIRouter, Query
 
 from app.core.branches import has_branch_restriction
@@ -32,6 +35,17 @@ def _require_tenant(user) -> None:
 
 
 # ── Tax Calculator Endpoints ──────────────────────────────────────────────────
+
+@router.get("/accounting/tax/vat-report")
+async def vat_report(db: DbSession, current_user: CurrentUser, start: date = Query(alias="from"), end: date = Query(alias="to"),
+                     branch_id: uuid.UUID | None = None, treatment: str | None = None):
+    """Output VAT by treatment, input VAT, returns and the net VAT position, reconciled to the ledger (tax:read)."""
+    _require_tenant(current_user)
+    if end < start or (end - start).days > 366:
+        raise ValidationError("Choose a period of up to one year, ending on or after it starts")
+    from app.modules.tax.report import vat_report as build
+    return success_response(data=await build(db, current_user.tenant_id, start, end, branch_id, treatment))
+
 
 @router.get("/accounting/tax/rates")
 async def get_rwanda_tax_rates():

@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import Literal
 from urllib.parse import quote
 
@@ -29,7 +30,41 @@ async def vat_rate(db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     from app.modules.accounting.service.tax import get_effective_vat_rate, is_vat_enabled
     enabled = await is_vat_enabled(db, current_user.tenant_id)
-    return success_response(data={"enabled": enabled, "rate": float(await get_effective_vat_rate(db, current_user.tenant_id)) if enabled else 0.0}, message="VAT rate retrieved")
+    from app.modules.tenants.models import Tenant
+    row = await db.get(Tenant, current_user.tenant_id)
+    return success_response(data={
+        "enabled": enabled, "rate": float(await get_effective_vat_rate(db, current_user.tenant_id)) if enabled else 0.0,
+        "mode": getattr(row, "vat_pricing_mode", None) or "inclusive", "vat_number": getattr(row, "vat_number", None),
+    }, message="VAT rate retrieved")
+
+
+class TaxPreviewLine(BaseModel):
+    product_id: uuid.UUID | None = None
+    variant_id: uuid.UUID | None = None
+    line_total: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
+
+
+class TaxPreviewIn(BaseModel):
+    items: list[TaxPreviewLine] = Field(min_length=1, max_length=200)
+    discount: Decimal = Field(default=Decimal(0), ge=0, max_digits=14, decimal_places=2)
+
+
+async def _may_price_sales(current_user: CurrentUser) -> None:
+    """Pricing a cart is for people who sell: permission to create orders or POS sales (owners and administrators always)."""
+    if current_user.is_superuser or (current_user.role or "").lower() in ("owner", "admin"):
+        return
+    if not {"orders:create", "pos:create", "orders:update"} & set(current_user.permissions_names):
+        raise ForbiddenError("You don't have access to sales pricing")
+
+
+@router.post("/sales/tax/preview", dependencies=[Depends(_may_price_sales)])
+async def tax_preview(data: TaxPreviewIn, db: DbSession, current_user: CurrentUser):
+    """VAT for a cart before it is charged, from the same engine the checkout uses (read-only, nothing is stored).
+    The till shows these figures, so it never charges a total the server would not record."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.sales.service.order import _price_vat
+    _tax, _total, rate, result = await _price_vat(db, current_user.tenant_id, data.items, data.discount)
+    return success_response(data={**result.dump(), "rate": rate})
 
 
 @router.get("/sales/team")
@@ -62,6 +97,8 @@ async def list_orders(
 @router.post("/sales/orders")
 async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
+    from app.modules.sales.service.customer_lifecycle import require_usable
+    await require_usable(db, current_user.tenant_id, data.customer_id)  # new sales only name active customers; history is untouched
     if data.pricing_channel == "pos":  # a till sale needs the POS module for the business and for this person
         from app.modules.tenants import service as tenant_service
 

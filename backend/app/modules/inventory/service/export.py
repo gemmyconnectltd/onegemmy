@@ -23,6 +23,7 @@ from reportlab.platypus import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.brand_pdf import business_contact_lines, business_name
 from app.core.currency import CURRENCIES, format_money
 from app.core.logging import get_logger
 from app.modules.inventory.service.valuation import inventory_valuation
@@ -65,21 +66,7 @@ async def _load_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
 
 
 def _tenant_contact_lines(tenant: Tenant) -> list[str]:
-    lines = []
-    if tenant.address:
-        lines.append(tenant.address)
-    if tenant.city:
-        city = tenant.city
-        if tenant.country:
-            city = f"{city}, {tenant.country}"
-        lines.append(city)
-    elif tenant.country:
-        lines.append(tenant.country)
-    if tenant.phone:
-        lines.append(f"Tel: {tenant.phone}")
-    if tenant.website:
-        lines.append(tenant.website)
-    return lines
+    return business_contact_lines(tenant)
 
 
 # ── CSV ─────────────────────────────────────────────────────────────────────
@@ -226,7 +213,7 @@ def _build_pdf(report, tenant: Tenant, styles: dict) -> bytes:
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=18 * mm,
         title=f"Inventory Valuation Report — {tenant.name or 'Company'}",
-        author=tenant.name or "Pesaa",
+        author=business_name(tenant),
     )
 
     flow: list = []
@@ -333,7 +320,7 @@ def _build_pdf(report, tenant: Tenant, styles: dict) -> bytes:
         canvas.line(MARGIN, 14 * mm, PAGE_W - MARGIN, 14 * mm)
         canvas.setFont(FONT, 7.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN, 10 * mm, f"{tenant.name or 'Pesaa'} · Inventory Valuation Report")
+        canvas.drawString(MARGIN, 10 * mm, f"{business_name(tenant)} · Inventory Valuation Report")
         canvas.drawRightString(PAGE_W - MARGIN, 10 * mm, f"Page {doc_.page}")
         canvas.restoreState()
 

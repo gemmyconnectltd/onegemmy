@@ -17,7 +17,12 @@ from app.modules.sales.models.quotation import Quotation, QuotationItem
 from app.modules.sales.repository import CustomerRepository
 from app.modules.sales.schemas.order import OrderCreate
 from app.modules.sales.schemas.quotation import QuotationCreate, QuotationRead, QuotationUpdate
-from app.modules.sales.service.order import _apply_vat, create_order, resolve_salesperson
+from app.modules.sales.service.order import (
+    _apply_vat,
+    _price_vat,
+    create_order,
+    resolve_salesperson,
+)
 
 
 def _today() -> date:
@@ -66,7 +71,14 @@ async def _totals(db: AsyncSession, tenant_id: uuid.UUID, q: Quotation) -> None:
     gross = round(q.subtotal - float(q.discount), 2)
     if gross < 0:
         raise ValidationError("The discount cannot exceed the subtotal")
-    q.tax, q.total, _ = await _apply_vat(db, tenant_id, gross)
+    if not q.items:
+        q.tax, q.total, _ = await _apply_vat(db, tenant_id, gross)
+        return
+    from app.modules.tax.service import snapshot
+
+    q.tax, q.total, _, result = await _price_vat(db, tenant_id, q.items, q.discount, q.issue_date if getattr(q, "issue_date", None) else None)
+    for item, taxed in zip(q.items, result.lines, strict=True):
+        snapshot(item, taxed)  # an estimate until the quotation becomes a sale, which is priced again
 
 
 async def _default_terms(db: AsyncSession, tenant_id: uuid.UUID) -> str | None:

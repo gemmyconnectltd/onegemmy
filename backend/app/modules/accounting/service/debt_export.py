@@ -81,5 +81,7 @@ async def export_statement(db: AsyncSession, user: User, kind: DebtKind, active,
     report["totals"] = {"Opening balance": data["opening"], "Total billed": data["totals"]["billed"],
                         "Total paid": data["totals"]["paid"], "Written off": data["totals"]["written_off"],
                         "Closing balance": data["closing"], **{f"Aging {k}": v for k, v in data["aging"].items()}}
+    if data["party"].get("tin"):  # the customer's taxpayer number, as on their invoices
+        report["branch"] = f'{report["branch"]} | {data["party"]["name"]} TIN: {data["party"]["tin"]}'
     path = await _write(report, data["rows"], fmt)
     return path, f"statement-{data['party']['name'].replace(' ', '-').lower()}-{data['date_to']}.{fmt}", MEDIA[fmt]

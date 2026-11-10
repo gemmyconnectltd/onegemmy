@@ -116,13 +116,13 @@ async def statement(db: AsyncSession, user: User, kind: str, active: uuid.UUID |
 async def _party(db, tenant, kind, party_id):
     if kind == "receivable":
         from app.modules.sales.models.customer import Customer
-        row = (await db.execute(select(Customer.id, Customer.name, Customer.email).where(
+        row = (await db.execute(select(Customer.id, Customer.name, Customer.email, Customer.tin).where(
             Customer.tenant_id == tenant, Customer.id == party_id))).first()
     else:
         from app.modules.inventory.models.supplier import Supplier
         row = (await db.execute(select(Supplier.id, Supplier.name, Supplier.email).where(
             Supplier.tenant_id == tenant, Supplier.id == party_id))).first()
-    return {"id": row.id, "name": row.name, "email": row.email} if row else None
+    return {"id": row.id, "name": row.name, "email": row.email, "tin": getattr(row, "tin", None)} if row else None
 
 
 async def _payments(db, tenant, kind, docs, ids) -> list[dict]:

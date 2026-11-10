@@ -390,6 +390,7 @@ export default function CustomersPage() {
                       <div className="space-y-0.5">
                         {c.phone && <div className="flex items-center gap-1.5 text-[12px] text-muted"><Phone size={11} /> {c.phone}</div>}
                         {c.email && <div className="flex items-center gap-1.5 text-[12px] text-muted"><Mail size={11} /> {c.email}</div>}
+                        {c.tin && <div className="text-[12px] text-muted">TIN: <span className="font-medium text-foreground">{c.tin}</span></div>}
                         {!c.phone && !c.email && <span className="text-[12px] text-muted">—</span>}
                       </div>
                     </td>

@@ -176,7 +176,7 @@ async def test_credit_sale_and_partial_payment_in_base_currency_behave_as_before
 
 async def test_usd_tenant_with_a_usd_order(db):
     t, u = await make_tenant(db, "USD")
-    p = await make_product(db, t)
+    p = await make_product(db, t, cost=100)  # catalog cost must stay below the selling price
     order = await place_order(db, t, u, p, unit_price=250)
     assert order.currency_code == "USD" and order.base_total == D("250.00")
     await assert_ledger_balanced(db, t.id)
@@ -439,7 +439,9 @@ async def test_foreign_purchase_bill_and_supplier_payments(db):
     po = await purchase_service.receive_purchase(db, t.id, po.id, u.id)
     assert po.currency_code == "USD" and po.total == 1000 and po.base_total == D(1450000)
     bal = await balances(db, t.id)
-    assert net(bal, "1200") == D(1450000) and net(bal, "2000") == D(-1450000)        # Dr Inventory / Cr AP in RWF
+    # Dr Inventory + Dr Input VAT Recoverable (the 18% inside the cost) / Cr AP, all in RWF
+    assert net(bal, "1200") + net(bal, "1150") == D(1450000) and net(bal, "2000") == D(-1450000)
+    assert net(bal, "1150") == D("221183.00")
 
     bill = (await bill_service.list_bills(db, t.id))[0]
     assert bill.currency_code == "USD" and bill.amount == 1000 and bill.base_amount == D(1450000)
@@ -522,7 +524,7 @@ async def test_overview_metric_is_tenant_sales_in_the_reporting_currency(db, ana
 
     country = f"Testland-{uuid.uuid4().hex[:6]}"
     us, us_u = await make_tenant(db, "USD", country)
-    await place_order(db, us, us_u, await make_product(db, us), unit_price=100)
+    await place_order(db, us, us_u, await make_product(db, us, cost=50), unit_price=100)
     await add_rate(db, None, "USD", "RWF", "1450", when=datetime.now(UTC) - timedelta(days=1))
     await db.commit()
     resp = await analytics_env.analytics_overview(analytics_env.resolve_period(None, None), analytics_env.TenantFilter(country=country))

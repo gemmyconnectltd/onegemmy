@@ -56,12 +56,17 @@ async def get_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.U
     return VariantRead.model_validate(obj)
 
 
-async def create_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, data: VariantCreate) -> VariantRead:
+async def create_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uuid.UUID, data: VariantCreate, actor: User | None = None) -> VariantRead:
     product = await _get_product_or_404(db, tenant_id, product_id)
     if not product.has_variants:
         # auto-enable has_variants on first variant
         product.has_variants = True
         await ProductRepository(db).save(product)
+    if data.vat_treatment is not None and actor is not None:
+        from app.core.exceptions import ForbiddenError
+        from app.modules.inventory.service.product import may_classify_vat
+        if not may_classify_vat(actor):
+            raise ForbiddenError("Setting a variant's VAT treatment needs the tax update permission. Ask an administrator.")
     obj = ProductVariant(product_id=product_id, **data.model_dump())
     obj = await VariantRepository(db).save(obj)
     await db.commit()
@@ -77,6 +82,11 @@ async def update_variant(db: AsyncSession, tenant_id: uuid.UUID, product_id: uui
     if obj is None:
         raise NotFoundError("Variant not found")
     updates = data.model_dump(exclude_unset=True)
+    if "vat_treatment" in updates and updates["vat_treatment"] != obj.vat_treatment:
+        from app.core.exceptions import ForbiddenError
+        from app.modules.inventory.service.product import may_classify_vat
+        if not may_classify_vat(actor):
+            raise ForbiddenError("Changing a variant's VAT treatment needs the tax update permission. Ask an administrator.")
     from app.modules.approvals.service import exempt_fields, guard_direct_change
     guard_direct_change({"price": obj.price, "promo_price": obj.promo_price, "stock": obj.stock}, updates, can_approve,
                         {"price": "the selling price", "promo_price": "the promotional price", "stock": "the stock quantity"},

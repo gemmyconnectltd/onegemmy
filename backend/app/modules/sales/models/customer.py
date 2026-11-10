@@ -1,7 +1,10 @@
 
+import uuid
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Index, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, Index, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -19,6 +22,10 @@ class Customer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     customer_type: Mapped[str] = mapped_column(String(20), default="individual")
     tin: Mapped[str | None] = mapped_column(String(50), nullable=True)  # taxpayer number of a business customer, printed on its invoices
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Lifecycle: active (is_active), inactive (not is_active) or archived (archived_at set). Archiving hides the customer from
+    # everyday lists and new sales; every sale, payment, debt and journal stays linked.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    archived_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 

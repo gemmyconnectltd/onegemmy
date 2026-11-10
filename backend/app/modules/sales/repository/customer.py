@@ -7,6 +7,19 @@ from app.core.repository import BaseRepository
 from app.modules.sales.models.customer import Customer
 
 
+def _with_status(stmt, status: str | None):
+    """Default (None/"current"): everyone not archived. "active", "inactive", "archived" or "all" narrow or widen it."""
+    if status in (None, "", "current"):
+        return stmt.where(Customer.archived_at.is_(None))
+    if status == "active":
+        return stmt.where(Customer.archived_at.is_(None), Customer.is_active.is_(True))
+    if status == "inactive":
+        return stmt.where(Customer.archived_at.is_(None), Customer.is_active.is_(False))
+    if status == "archived":
+        return stmt.where(Customer.archived_at.isnot(None))
+    return stmt
+
+
 class CustomerRepository(BaseRepository[Customer]):
     model = Customer
 
@@ -18,12 +31,13 @@ class CustomerRepository(BaseRepository[Customer]):
 
     async def list_for_tenant(
         self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 50, search: str | None = None,
-        customer_type: str | None = None, period: DatePeriod | None = None,
+        customer_type: str | None = None, period: DatePeriod | None = None, status: str | None = None,
     ) -> list[Customer]:
         stmt = select(Customer).where(Customer.tenant_id == tenant_id)
         if search:
             like = f"%{search}%"
-            stmt = stmt.where(or_(Customer.name.ilike(like), Customer.email.ilike(like), Customer.phone.ilike(like)))
+            stmt = stmt.where(or_(Customer.name.ilike(like), Customer.email.ilike(like), Customer.phone.ilike(like), Customer.tin.ilike(like)))
+        stmt = _with_status(stmt, status)
         if customer_type:
             stmt = stmt.where(Customer.customer_type == customer_type)
         if period:
@@ -32,11 +46,13 @@ class CustomerRepository(BaseRepository[Customer]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None, period: DatePeriod | None = None) -> int:
+    async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, customer_type: str | None = None, period: DatePeriod | None = None,
+                               status: str | None = None) -> int:
         stmt = select(func.count()).select_from(Customer).where(Customer.tenant_id == tenant_id)
         if search:
             like = f"%{search}%"
-            stmt = stmt.where(or_(Customer.name.ilike(like), Customer.email.ilike(like), Customer.phone.ilike(like)))
+            stmt = stmt.where(or_(Customer.name.ilike(like), Customer.email.ilike(like), Customer.phone.ilike(like), Customer.tin.ilike(like)))
+        stmt = _with_status(stmt, status)
         if customer_type:
             stmt = stmt.where(Customer.customer_type == customer_type)
         if period:

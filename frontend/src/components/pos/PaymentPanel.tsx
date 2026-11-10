@@ -1,5 +1,6 @@
 "use client";
 
+import { VAT_LABELS } from "@/lib/api/sales";
 import { useRef, useState } from "react";
 import { AlertCircle, Banknote, Calendar, CreditCard, Plus, Smartphone, SplitSquareHorizontal, Trash2, UserRound } from "lucide-react";
 
@@ -49,6 +50,10 @@ interface PaymentPanelProps {
   dueDate: string;
   vatEnabled: boolean;
   vatRate?: number;
+  /** inclusive: prices contain VAT; exclusive: VAT is added on top. */
+  vatMode?: "inclusive" | "exclusive";
+  /** Sales by VAT treatment, from the server's tax engine. */
+  vatBreakdown?: Partial<Record<string, { base: string; tax: string; gross: string }>>;
   currencySymbol: string;
   fmt: (v: number) => string;
   saving?: boolean;
@@ -67,7 +72,7 @@ interface PaymentPanelProps {
 }
 
 export function PaymentPanel({
-  payment, cashGiven, subtotal, discount, discountBreakdown, tax, total, cartCount, hasCustomer, customerName, customerId, dueDate, vatEnabled, vatRate, currencySymbol, fmt,
+  payment, cashGiven, subtotal, discount, discountBreakdown, tax, total, cartCount, hasCustomer, customerName, customerId, dueDate, vatEnabled, vatRate, vatMode = "inclusive", vatBreakdown, currencySymbol, fmt,
   saving, pricingPending, checkoutBlocked, approvalPending, saleError, itemsCashReceivedSum, notes, onNotesChange, onPaymentChange, onCashChange, onDueDateChange, onCharge,
 }: PaymentPanelProps) {
   const can = useCan();
@@ -211,14 +216,15 @@ export function PaymentPanel({
       {/* Totals: one muted line of detail, then the total */}
       <div>
         <dl className="space-y-1 text-xs text-muted">
-          <div className="flex justify-between gap-2"><dt>{discount > 0 ? "Subtotal before discounts" : "Subtotal"}{vatEnabled ? " (incl. VAT)" : ""}</dt><dd className="tabular-nums">{currencySymbol} {fmt(subtotal)}</dd></div>
+          <div className="flex justify-between gap-2"><dt>{discount > 0 ? "Subtotal before discounts" : "Subtotal"}{vatEnabled ? (vatMode === "exclusive" ? " (excl. VAT)" : " (incl. VAT)") : ""}</dt><dd className="tabular-nums">{currencySymbol} {fmt(subtotal)}</dd></div>
           {discountBreakdown && discount > 0 ? <>
             {discountBreakdown.product > 0 && <div className="flex justify-between"><dt>Product discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.product)}</dd></div>}
             {discountBreakdown.order > 0 && <div className="flex justify-between"><dt>Sale / manual discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.order)}</dd></div>}
             {discountBreakdown.coupon > 0 && <div className="flex justify-between"><dt>Coupon discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.coupon)}</dd></div>}
           </> : discount > 0 && <div className="flex justify-between"><dt>Discounts</dt><dd>−{currencySymbol} {fmt(discount)}</dd></div>}
           {discount > 0 && <div className="flex justify-between font-medium text-accent"><dt>Total savings</dt><dd>{currencySymbol} {fmt(discount)}</dd></div>}
-          {vatEnabled && <div className="flex justify-between"><dt>VAT included{vatRate ? ` (${Math.round(vatRate * 1000) / 10}%)` : ""}</dt><dd>{currencySymbol} {fmt(tax)}</dd></div>}
+          {vatEnabled && <div className="flex justify-between"><dt>{vatMode === "exclusive" ? "VAT" : "VAT included"}{vatRate ? ` (${Math.round(vatRate * 1000) / 10}%)` : ""}</dt><dd>{currencySymbol} {fmt(tax)}</dd></div>}
+          {vatEnabled && (["zero_rated", "exempt", "out_of_scope"] as const).map(kind => vatBreakdown?.[kind] && <div key={kind} className="flex justify-between"><dt>{VAT_LABELS[kind]} sales</dt><dd className="tabular-nums">{currencySymbol} {fmt(Number(vatBreakdown[kind]!.gross))}</dd></div>)}
         </dl>
         <div className="mt-1 flex items-center justify-between rounded-xl bg-accent/10 px-3 py-1.5 lg:py-2">
           <span className="text-[12px] font-bold uppercase tracking-wider text-foreground">Total payable</span>

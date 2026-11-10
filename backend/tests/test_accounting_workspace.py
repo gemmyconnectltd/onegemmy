@@ -272,8 +272,8 @@ async def test_manual_lifecycle_and_journal_branch_permissions(db, finance):
     staff = User(tenant_id=tenant.id, email=f"{uuid.uuid4().hex}@example.test", full_name="Staff", role="staff", is_superuser=False, hashed_password="x")
     db.add(staff)
     await db.flush()
-    with pytest.raises(ForbiddenError):
-        await update_transaction(db, tenant.id, draft.id, TransactionUpdate(description="unauthorized"), staff)
+    # Baseline operational view/edit lets the staff member edit draft journals in their scope.
+    await update_transaction(db, tenant.id, draft.id, TransactionUpdate(description="staff edit"), staff)
     await post_transaction(db, tenant.id, draft.id, owner.id)
     with pytest.raises(ValidationError, match="immutable"):
         await update_transaction(db, tenant.id, draft.id, TransactionUpdate(description="changed"), owner)

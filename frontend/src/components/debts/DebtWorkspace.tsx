@@ -49,7 +49,8 @@ function DebtList({ kind }: { kind: DebtKind }) {
   const allowed = hasPermission(`${resource(kind)}:read`);
   const canPay = hasPermission(`${resource(kind)}:create`);
   const canCreateSource = hasPermission(kind === "receivable" ? "orders:create" : "purchase_orders:create");
-  const [filters, setFilters] = useState<DebtFilters>(defaults);
+  // A customer profile links here with ?search=<name> so their open debts are listed straight away.
+  const [filters, setFilters] = useState<DebtFilters>(() => ({ ...defaults, search: typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("search") ?? "" }));
   const deferredFilters = useDeferredValue(filters);
   const query = useDebtRecords(kind, deferredFilters, activeBranchId, allowed, user?.tenantId);
   const [selected, setSelected] = useState<string | null>(null);

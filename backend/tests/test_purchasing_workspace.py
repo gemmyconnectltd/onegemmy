@@ -134,7 +134,12 @@ async def test_service_receipt_posts_expense_and_leaves_stock_unchanged(db, cont
     debit = await db.scalar(select(func.sum(TransactionLine.amount)).join(Transaction, Transaction.id == TransactionLine.transaction_id)
         .where(Transaction.tenant_id == tenant.id, Transaction.purchase_id == order.id,
                TransactionLine.account_id == expense.id, TransactionLine.type == "debit"))
-    assert debit == Decimal(118)
+    # The reclaimable VAT is an asset (Input VAT Recoverable), not part of the expense.
+    assert debit == Decimal(100)
+    vat = await db.scalar(select(func.sum(TransactionLine.amount)).join(Transaction, Transaction.id == TransactionLine.transaction_id)
+        .join(Account, Account.id == TransactionLine.account_id)
+        .where(Transaction.tenant_id == tenant.id, Transaction.purchase_id == order.id, Account.code == "1150", TransactionLine.type == "debit"))
+    assert vat == Decimal(18)
     assert (await purchase.get_purchase(db, tenant.id, order.id)).included_vat == Decimal(18)
 
 

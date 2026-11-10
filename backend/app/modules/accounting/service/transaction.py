@@ -481,6 +481,16 @@ async def create_return_transaction(
         vat_share = Decimal(str(order.base_tax or 0)) / Decimal(str(order.base_total))
     refund = to_decimal(refund_amount)
     vat = (refund * vat_share).quantize(Decimal("0.01"))
+    # Returns of lines sold with line-level VAT reverse exactly the VAT those lines carried (an exempt or zero-rated line
+    # reverses none). The return's own currency share is kept by working from the ratio of VAT to refund on its lines.
+    # The share is taken from the sold lines unrounded, so a foreign-currency return is not skewed by cent rounding.
+    snap = (await db.execute(select(ReturnItem.line_refund, ReturnItem.tax_amount, OrderItem.taxable_base, OrderItem.tax_amount)
+                             .join(OrderItem, OrderItem.id == ReturnItem.order_item_id).where(ReturnItem.return_id == return_id))).all()
+    if snap and all(t is not None and b is not None and own is not None for _, own, b, t in snap):
+        doc_refund = sum((Decimal(str(r)) for r, _, _, _ in snap), Decimal(0))
+        doc_vat = sum((Decimal(str(t)) * min(Decimal(str(r)) / (Decimal(str(b)) + Decimal(str(t))), Decimal(1))
+                       for r, _, b, t in snap if Decimal(str(b)) + Decimal(str(t)) > 0), Decimal(0))
+        vat = (refund * doc_vat / doc_refund).quantize(Decimal("0.01")) if doc_refund > 0 else Decimal(0)
     cost = Decimal(0)
     rows = (await db.execute(select(ReturnItem.quantity, OrderItem.cost_at_sale).join(OrderItem, OrderItem.id == ReturnItem.order_item_id)
                              .where(ReturnItem.return_id == return_id))).all()
@@ -545,6 +555,7 @@ async def create_purchase_transaction(
     reference: str,
     branch_id: uuid.UUID | None = None,
     expense_allocations: dict[uuid.UUID, Decimal] | None = None,
+    input_vat: Decimal = Decimal(0),
 ) -> None:
     """Auto-called when a purchase order is received and its supplier bill is
     raised. Debit Inventory, Credit Accounts Payable — receiving goods creates
@@ -556,7 +567,11 @@ async def create_purchase_transaction(
     if Decimal(str(total)) == 0:
         return
     expenses = expense_allocations or {}
-    inventory_amount = Decimal(str(total)) - sum(expenses.values(), Decimal(0))
+    # Recoverable input VAT is an asset (Input VAT Recoverable, 1150), not part of the goods' cost. Without that account
+    # it stays in the cost, as before.
+    vat_id = await _get_account_by_code(db, tenant_id, "1150") if input_vat and input_vat > 0 else None
+    input_vat = Decimal(str(input_vat)) if vat_id else Decimal(0)
+    inventory_amount = Decimal(str(total)) - input_vat - sum(expenses.values(), Decimal(0))
     if inventory_amount < 0:
         raise ValidationError("Purchase expense allocation exceeds its value")
     if not ap_id or (inventory_amount > 0 and not inv_id):
@@ -579,6 +594,8 @@ async def create_purchase_transaction(
     txn = await repo.save(txn)
     if inventory_amount:
         db.add(TransactionLine(transaction_id=txn.id, account_id=inv_id, type="debit", amount=inventory_amount, description="Inventory"))
+    if input_vat:
+        db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="debit", amount=input_vat, description="Input VAT Recoverable"))
     for account_id, amount in expenses.items():
         if amount:
             db.add(TransactionLine(transaction_id=txn.id, account_id=account_id, type="debit", amount=amount, description="Purchased service"))
@@ -825,6 +842,11 @@ async def create_supplier_return_transaction(db: AsyncSession, tenant_id: uuid.U
         type="supplier_return", status="Posted", transaction_date=datetime.now(UTC).date(),
         description=f"Supplier return {returned.reference}: {event}", purchase_id=returned.purchase_order_id,
         branch_id=branch_id, created_by=user_id))
+    # Goods received with recoverable input VAT carry that VAT in 1150, not in Inventory: it moves with them.
+    vat = Decimal(str(getattr(returned, "base_input_vat", None) or 0))
+    vat_id = await _get_account_by_code(db, tenant_id, "1150") if vat and event != "refund" else None
+    if not vat_id:
+        vat = Decimal(0)
     if event == "create":
         debit, credit, debit_amount = claim, inventory, amount
     elif event == "refund":
@@ -835,7 +857,16 @@ async def create_supplier_return_transaction(db: AsyncSession, tenant_id: uuid.U
         credit, debit_amount = claim, cash_amount
     else:
         debit, credit, debit_amount = inventory, claim, amount
-    db.add(TransactionLine(transaction_id=txn.id, account_id=debit, type="debit", amount=debit_amount, description=returned.reference))
-    db.add(TransactionLine(transaction_id=txn.id, account_id=credit, type="credit", amount=amount, description=returned.reference))
+    if vat and event == "create":
+        db.add(TransactionLine(transaction_id=txn.id, account_id=debit, type="debit", amount=debit_amount, description=returned.reference))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=credit, type="credit", amount=amount - vat, description=returned.reference))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="credit", amount=vat, description=f"{returned.reference} input VAT"))
+    elif vat:  # goods replaced or the return cancelled: inventory and the input VAT come back
+        db.add(TransactionLine(transaction_id=txn.id, account_id=debit, type="debit", amount=debit_amount - vat, description=returned.reference))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=vat_id, type="debit", amount=vat, description=f"{returned.reference} input VAT"))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=credit, type="credit", amount=amount, description=returned.reference))
+    else:
+        db.add(TransactionLine(transaction_id=txn.id, account_id=debit, type="debit", amount=debit_amount, description=returned.reference))
+        db.add(TransactionLine(transaction_id=txn.id, account_id=credit, type="credit", amount=amount, description=returned.reference))
     if event == "refund" and cash_amount != amount:
         await _add_fx_line(db, tenant_id, txn.id, gain=cash_amount > amount, amount=abs(cash_amount - amount))

@@ -57,6 +57,9 @@ export interface Tenant {
   timezone?: string;
   currency: string;
   vat_enabled: boolean;
+  vat_number?: string | null;
+  vat_registered_from?: string | null;
+  vat_pricing_mode?: "inclusive" | "exclusive";
   multi_branch: boolean;
   /** Most NEW credit one customer can be granted per day, in the base currency. null = no limit. */
   credit_daily_limit?: number | string | null;
@@ -82,6 +85,9 @@ export interface TenantUpdateInput {
   currency?: string;
   brand_color?: string | null;
   vat_enabled?: boolean;
+  vat_number?: string | null;
+  vat_registered_from?: string | null;
+  vat_pricing_mode?: "inclusive" | "exclusive";
   /** null clears the limit. Needs credit:approve — the server refuses anyone else. */
   credit_daily_limit?: number | null;
   debt_limit_per_client?: number | null;

@@ -19,6 +19,10 @@ class PurchaseItemCreate(BaseModel):
     is_service: bool = False
     expense_account_id: uuid.UUID | None = None
     tax_rate: Literal[0, 18] = 18
+    # The supplier invoice's treatment of this line (not the product's sales treatment). Non-standard lines carry no VAT.
+    tax_treatment: Literal["standard", "zero_rated", "exempt", "out_of_scope"] | None = None
+    # Whether the input VAT can be reclaimed. Non-recoverable VAT stays part of the cost of the goods or service.
+    vat_recoverable: bool = True
     update_catalog_cost: bool = False
     selling_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
 
@@ -48,6 +52,9 @@ class PurchaseItemRead(BaseModel):
     is_service: bool = False
     expense_account_id: uuid.UUID | None = None
     tax_rate: Decimal | None = None
+    tax_treatment: str | None = None
+    tax_amount: Decimal | None = None
+    vat_recoverable: bool | None = None
     received_quantity: Decimal = Decimal(0)
     update_catalog_cost: bool = False
     selling_price: Decimal | None = None

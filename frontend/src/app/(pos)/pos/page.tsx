@@ -24,7 +24,7 @@ import { saleAtLabel } from "@/components/pos/SaleDate";
 import { SALE_DATE_FOR_EVERYONE } from "@/components/pos/constants";
 import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
-import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate } from "@/lib/api/hooks";
+import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate, useTaxPreview } from "@/lib/api/hooks";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -79,8 +79,11 @@ export default function POSPage() {
     [categoryData.data, products]
   );
 
-  const { data: customersData } = useCustomers(1, 500);
-  const customers = customersData?.items ?? [];
+  // New sales name active customers only; inactive and archived customers keep their history but are not offered here.
+  const { data: customersData } = useCustomers(1, 500, undefined, undefined, undefined, undefined, "active");
+  const customers = useMemo(() => customersData?.items ?? [], [customersData]);
+  // "Create sale" from a customer's profile opens the till with that customer already chosen (/pos?customer=<id>).
+  const presetCustomer = useRef(typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("customer"));
 
   const createOrder = useCreateOrder();
 
@@ -108,6 +111,15 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
+  useEffect(() => {
+    const wanted = presetCustomer.current;
+    if (!wanted) return;
+    const match = customers.find((c) => c.id === wanted);
+    if (!match) return;
+    presetCustomer.current = null;
+    setCustomerId(match.id);
+    setCustomerName(match.name);
+  }, [customers]);
   const [saleAt, setSaleAt] = useState<string | null>(null);
   const team = useSalesTeam();
   const [salespersonId, setSalespersonId] = useState("");
@@ -281,7 +293,13 @@ export default function POSPage() {
   const pricesByVariant = Object.fromEntries(verifiedCatalog.filter(price => price.variant_id).map(price => [price.variant_id!, price]));
   const confirmedPricing = useRef<string | undefined>(undefined);
 
-  const pricingBlocked = discountSettings.isPending || discountSettings.isError || (discountSettings.data?.enabled && cart.length > 0 && (discountPricing.isFetching || discountPricing.isError || !livePricing || !!livePricing.blocked || !!livePricing.coupon_errors?.length || (livePricing.approval_required && livePricing.approval_status !== "approved")));
+  // VAT per line from the server's tax engine. With Discounts on, its preview already carries the VAT; otherwise the
+  // till asks for the VAT alone. Either way the total shown is the total the checkout records.
+  const vatMode = vat.data?.mode ?? "inclusive";
+  const taxInput = { items: cart.map(i => ({ product_id: i.product_id ?? null, variant_id: i.variant_id ?? null, line_total: Math.round(i.price * i.qty * 100) / 100 })), discount: 0 };
+  const taxPreview = useTaxPreview(taxInput, !discountSettings.data?.enabled && cart.length > 0 && vatEnabled);
+  const vatLines = livePricing?.vat ?? (!discountSettings.data?.enabled ? taxPreview.data : undefined);
+  const pricingBlocked = (vatEnabled && vatMode === "exclusive" && cart.length > 0 && !discountSettings.data?.enabled && (taxPreview.isFetching || !taxPreview.data)) || discountSettings.isPending || discountSettings.isError || (discountSettings.data?.enabled && cart.length > 0 && (discountPricing.isFetching || discountPricing.isError || !livePricing || !!livePricing.blocked || !!livePricing.coupon_errors?.length || (livePricing.approval_required && livePricing.approval_status !== "approved")));
 
   // ── totals ───────────────────────────────────────────────────────────────
   const subtotal = livePricing ? Number(livePricing.subtotal) : cart.reduce((sum, item) => sum + Math.round(item.price * item.qty * 100), 0) / 100;
@@ -291,8 +309,8 @@ export default function POSPage() {
   // The server sends the VAT rate as a percentage (18), the sums below use a fraction (0.18).
   const vatRate = vatEnabled ? (vat.data?.rate ?? 0) / 100 : 0;
   const taxable = Math.round(gross / (1 + vatRate) * 100) / 100;
-  const tax = livePricing ? Number(livePricing.tax) : Math.round((gross - taxable) * 100) / 100;
-  const total = livePricing ? Number(livePricing.total) : gross;
+  const tax = livePricing ? Number(livePricing.tax) : vatLines ? Number(vatLines.tax) : Math.round((gross - taxable) * 100) / 100;
+  const total = livePricing ? Number(livePricing.total) : vatLines ? Number(vatLines.gross) : gross;
   const fmt = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
   // ── hold / resume ────────────────────────────────────────────────────────
@@ -437,6 +455,7 @@ export default function POSPage() {
                 return { ...item, cost: cost ?? item.cost };
               })}
               linePricing={livePricing?.lines}
+              lineVat={vatLines?.lines}
               customers={customers}
               customerId={customerId}
               customerName={customerName}
@@ -502,6 +521,8 @@ export default function POSPage() {
                 onNotesChange={setNotes}
                 vatEnabled={vatEnabled}
                 vatRate={vatRate}
+                vatMode={vatMode}
+                vatBreakdown={vatLines?.breakdown}
               />
           </div>
     </fieldset>

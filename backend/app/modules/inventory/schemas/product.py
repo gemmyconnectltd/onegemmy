@@ -2,12 +2,22 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.modules.inventory.schemas.brand import BrandRead
 from app.modules.inventory.schemas.category import CategoryRead
 from app.modules.inventory.schemas.supplier import SupplierRead
 from app.modules.inventory.schemas.unit import UnitRead
+
+VatTreatment = Literal["standard", "zero_rated", "exempt", "out_of_scope"]
+NON_STANDARD = ("zero_rated", "exempt", "out_of_scope")
+
+
+def _check_vat(model):
+    """Zero-rated, exempt and out-of-scope need a stated reason (the legal basis), so nothing is reclassified silently."""
+    if getattr(model, "vat_treatment", None) in NON_STANDARD and not (getattr(model, "vat_reason", None) or "").strip():
+        raise ValueError("Give the reason (legal basis) for a zero-rated, exempt or out-of-scope product")
+    return model
 
 
 class VariantCreate(BaseModel):
@@ -21,6 +31,7 @@ class VariantCreate(BaseModel):
     is_active: bool = True
     promo_price: float | None = None
     promo_ends_at: datetime | None = None
+    vat_treatment: VatTreatment | None = None  # None = same as the product
 
 
 class VariantUpdate(BaseModel):
@@ -34,6 +45,7 @@ class VariantUpdate(BaseModel):
     is_active: bool | None = None
     promo_price: float | None = None
     promo_ends_at: datetime | None = None
+    vat_treatment: VatTreatment | None = None  # None = same as the product
 
 
 class VariantRead(BaseModel):
@@ -52,6 +64,7 @@ class VariantRead(BaseModel):
     is_active: bool
     promo_price: float | None = None
     promo_ends_at: datetime | None = None
+    vat_treatment: VatTreatment | None = None  # None = same as the product
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -79,6 +92,11 @@ class ProductCreate(BaseModel):
     conversion_factor: float = 1
     promo_price: float | None = None
     promo_ends_at: datetime | None = None
+    vat_treatment: VatTreatment | None = None  # None = not reviewed yet (priced as standard)
+    tax_code: str | None = Field(default=None, max_length=30)
+    vat_reason: str | None = Field(default=None, max_length=255)
+
+    _vat = model_validator(mode="after")(_check_vat)
     category_id: uuid.UUID | None = None
     brand_id: uuid.UUID | None = None
     unit_id: uuid.UUID | None = None
@@ -141,6 +159,11 @@ class ProductUpdate(BaseModel):
     conversion_factor: float | None = None
     promo_price: float | None = None
     promo_ends_at: datetime | None = None
+    vat_treatment: VatTreatment | None = None  # None = not reviewed yet (priced as standard)
+    tax_code: str | None = Field(default=None, max_length=30)
+    vat_reason: str | None = Field(default=None, max_length=255)
+
+    _vat = model_validator(mode="after")(_check_vat)
     category_id: uuid.UUID | None = None
     brand_id: uuid.UUID | None = None
     unit_id: uuid.UUID | None = None
@@ -184,6 +207,10 @@ class ProductRead(BaseModel):
     conversion_factor: float = 1
     promo_price: float | None = None
     promo_ends_at: datetime | None = None
+    vat_treatment: str | None = None
+    tax_code: str | None = None
+    vat_reason: str | None = None
+    vat_reviewed_at: datetime | None = None
     category_id: uuid.UUID | None
     brand_id: uuid.UUID | None
     unit_id: uuid.UUID | None
@@ -199,3 +226,13 @@ class ProductRead(BaseModel):
     variants: list[VariantRead] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class VatClassification(BaseModel):
+    """Classify many products at once (Product Management bulk action)."""
+    product_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+    vat_treatment: VatTreatment
+    tax_code: str | None = Field(default=None, max_length=30)
+    vat_reason: str | None = Field(default=None, max_length=255)
+
+    _vat = model_validator(mode="after")(_check_vat)

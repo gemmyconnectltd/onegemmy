@@ -84,7 +84,7 @@ async def catalog_preview(data: CatalogPriceIn, db: DbSession, user: CurrentUser
 @router.post("/preview", dependencies=[Depends(preview_access)])
 async def preview(data: PriceIn, db: DbSession, user: CurrentUser, branch: ActiveBranchId):
     _require_tenant(user)
-    from app.modules.sales.service.order import _apply_vat, _resolve_order_branch_id
+    from app.modules.sales.service.order import _price_vat, _resolve_order_branch_id
 
     branch = await _resolve_order_branch_id(db, user.tenant_id, branch, data.branch_id)
     result, rules, coupons, config = await quote(db, user, data, branch)
@@ -93,7 +93,12 @@ async def preview(data: PriceIn, db: DbSession, user: CurrentUser, branch: Activ
         from app.modules.discounts.service import validate_checkout
         await validate_checkout(db, user, data, branch, pricing=(result, rules, coupons, config))
         approval_status = "approved"
-    tax, total, _ = await _apply_vat(db, user.tenant_id, float(result.net_subtotal))
+    from types import SimpleNamespace
+
+    # VAT per line on what each line sells for after every discount, through the same engine the checkout uses.
+    lines = [SimpleNamespace(product_id=item.product_id, variant_id=item.variant_id, line_total=priced["net"])
+             for item, priced in zip(data.items, result.lines, strict=True)]
+    tax, total, _, vat = await _price_vat(db, user.tenant_id, lines, 0)
 
     from app.modules.discounts.service import pricing_hash
     product_total = sum((item.amount for item in result.applied if item.kind == "automatic" and item.type != "order"), 0)
@@ -109,6 +114,7 @@ async def preview(data: PriceIn, db: DbSession, user: CurrentUser, branch: Activ
             "valid_until": config["_valid_until"],
             "tax": str(tax),
             "total": str(total),
+            "vat": vat.dump(),
             "pricing_hash": pricing_hash(result),
         }
     )

@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/Form";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
 import { currencySymbolFor } from "@/lib/money";
+import { SettingRow, SettingsCard } from "@/components/settings/parts";
 
 /**
  * Financial settings: the business's base (accounting) currency. (Exchange rates are deliberately not
@@ -46,40 +47,22 @@ export function FinancialSettings({ color }: { color: string }) {
   };
 
   return (
-    <>
-      <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center rounded-lg" style={{ backgroundColor: `${color}15` }}>
-            <Banknote size={15} style={{ color }} />
-          </div>
-          <h2 className="text-sm font-bold text-foreground">Base Currency</h2>
+    <SettingsCard title="Base currency" icon={Banknote} description={`${current?.name ?? base} (${base}, symbol ${currencySymbolFor(base)}). Reports, the ledger and VAT are kept in this currency.`}>
+      <SettingRow label="Accounting currency" hint={canChange ? "Can be changed only until the business records its first transaction." : lockedReason ?? "Locked once transactions exist, so historical amounts keep their meaning."}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select id="base-currency" aria-label="Base currency" value={pick} disabled={!canChange || updateTenant.isPending}
+            onChange={(e) => setSelected(e.target.value)} className="w-full sm:w-64">
+            {currencies.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
+          </Select>
+          {canChange && dirty && (
+            <Button type="button" variant="primary" color={color} onClick={save} disabled={updateTenant.isPending}>
+              {updateTenant.isPending ? "Saving…" : "Save"}
+            </Button>
+          )}
+          {!canChange && <span className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-muted"><Lock size={11} /> Locked</span>}
         </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-muted mb-1.5" htmlFor="base-currency">Base currency</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <Select id="base-currency" value={pick} disabled={!canChange || updateTenant.isPending}
-              onChange={(e) => setSelected(e.target.value)} className="max-w-sm">
-              {currencies.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
-            </Select>
-            {canChange && dirty && (
-              <Button type="button" variant="primary" color={color} onClick={save} disabled={updateTenant.isPending} className="rounded-lg text-[13px]">
-                {updateTenant.isPending ? "Saving…" : "Save"}
-              </Button>
-            )}
-            {!canChange && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-muted">
-                <Lock size={11} /> Locked
-              </span>
-            )}
-          </div>
-          <p className="mt-2 text-xs text-muted">
-            {current?.name ?? base} · {base} · symbol {currencySymbolFor(base)}. All reports, the ledger and VAT are kept in this currency.
-          </p>
-          {!canChange && lockedReason && <p className="mt-1 text-xs text-muted">{lockedReason}</p>}
-          {saveError && <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{saveError}</p>}
-        </div>
-      </div>
-    </>
+        {saveError && <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{saveError}</p>}
+      </SettingRow>
+    </SettingsCard>
   );
 }

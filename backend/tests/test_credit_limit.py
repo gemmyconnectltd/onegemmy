@@ -33,7 +33,7 @@ async def make_tenant(db, limit=LIMIT):
     db.add(u)
     await db.flush()
     await seed_default_accounts(db, t.id)
-    p = Product(tenant_id=t.id, name="Widget", sku=f"W-{uuid.uuid4().hex[:6]}", price=1000, cost=400, stock=1000)
+    p = Product(tenant_id=t.id, name="Widget", sku=f"W-{uuid.uuid4().hex[:6]}", price=1000, cost=1, stock=1000)  # cost stays below every sale amount in these flows
     db.add(p)
     await db.flush()
     return t, u, p

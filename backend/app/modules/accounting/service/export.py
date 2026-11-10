@@ -23,6 +23,7 @@ from reportlab.platypus import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.brand_pdf import business_contact_lines, business_name
 from app.core.currency import CURRENCIES, format_money
 from app.core.logging import get_logger
 from app.modules.accounting import service as accounting_service
@@ -75,25 +76,7 @@ async def _load_tenant(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
 
 
 def _tenant_contact_lines(tenant: Tenant) -> list[str]:
-    lines = []
-    if tenant.address:
-        lines.append(tenant.address)
-    if tenant.city:
-        city = tenant.city
-        if tenant.country:
-            city = f"{city}, {tenant.country}"
-        lines.append(city)
-    elif tenant.country:
-        lines.append(tenant.country)
-    if tenant.phone:
-        lines.append(f"Tel: {tenant.phone}")
-    if getattr(tenant, "email", None):
-        lines.append(f"Email: {tenant.email}")
-    if getattr(tenant, "tin", None):
-        lines.append(f"TIN: {tenant.tin}")
-    if tenant.website:
-        lines.append(tenant.website)
-    return lines
+    return business_contact_lines(tenant)
 
 
 # ── Shared branding helpers ────────────────────────────────────────────────
@@ -144,7 +127,7 @@ def _start_pdf(tenant: Tenant, styles: dict, title: str, subtitle: str, footer_l
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=18 * mm,
         title=f"{title} — {tenant.name or 'Company'}",
-        author=tenant.name or "Pesaa",
+        author=business_name(tenant),
     )
     flow: list = []
 
@@ -189,7 +172,7 @@ def _start_pdf(tenant: Tenant, styles: dict, title: str, subtitle: str, footer_l
         canvas.line(MARGIN, 14 * mm, PAGE_W - MARGIN, 14 * mm)
         canvas.setFont(FONT, 7.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN, 10 * mm, f"{tenant.name or 'Pesaa'} · {footer_label}")
+        canvas.drawString(MARGIN, 10 * mm, f"{business_name(tenant)} · {footer_label}")
         canvas.drawRightString(PAGE_W - MARGIN, 10 * mm, f"Page {doc_.page}")
         canvas.restoreState()
 

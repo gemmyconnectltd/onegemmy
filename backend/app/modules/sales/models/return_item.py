@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -25,6 +26,10 @@ class ReturnItem(UUIDPKMixin, Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     refund_per_unit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     line_refund: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False)
+    # The VAT reversed on this return, taken from the original sale line (NULL on returns made before line-level VAT).
+    tax_treatment: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    tax_rate: Mapped[Decimal | None] = mapped_column(Numeric(7, 4), nullable=True)
+    tax_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     return_ = relationship("Return", back_populates="items")

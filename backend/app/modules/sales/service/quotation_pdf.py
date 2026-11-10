@@ -12,7 +12,13 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.brand_pdf import brand_color, draw_brand_band, logo_flowable, readable_on
+from app.core.brand_pdf import (
+    brand_color,
+    business_name,
+    draw_brand_band,
+    logo_flowable,
+    readable_on,
+)
 from app.modules.accounting.service.tax import get_effective_vat_rate, is_vat_enabled
 from app.modules.inventory.models.product import Product
 from app.modules.sales.service.invoice_pdf import (
@@ -62,7 +68,7 @@ def _build(q, tenant: Tenant, seller: str | None, units: dict, vat_rate: float, 
     cur = tenant.currency or "USD"
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=12 * mm, bottomMargin=22 * mm,
-                            title=f"Sales Quotation {q.quote_number} — {tenant.name or 'Company'}", author=tenant.name or "Pesaa")
+                            title=f"Sales Quotation {q.quote_number} — {tenant.name or 'Company'}", author=business_name(tenant))
     label = st["contact"]
     key = lambda text: Paragraph(f'<font color="#6b7280">{esc(text)}</font>', st["cell"])
     val = lambda text, bold=False: Paragraph(esc(str(text)), st["cell_right_bold" if bold else "cell"])

@@ -26,6 +26,7 @@ class ProductVariant(UUIDPKMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     promo_price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     promo_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    vat_treatment: Mapped[str | None] = mapped_column(String(20), nullable=True)  # NULL = same as the product
 
     product = relationship("Product", back_populates="variants")
 
