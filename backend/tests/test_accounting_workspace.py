@@ -93,7 +93,8 @@ async def test_statements_cash_transfer_contra_assets_and_saved_exports(db, fina
                 assert ["Assets", report["totals"]["Assets"]] in rows
             elif fmt == "xlsx":
                 workbook = load_workbook(path, read_only=True)
-                assert ("Assets", report["totals"]["Assets"], None, None)[:2] in [tuple(row[:2]) for row in workbook.active.values]
+                # Totals are real numbers in Excel (not text), so they can be summed and formatted.
+                assert ("Assets", Decimal(str(report["totals"]["Assets"]))) in [(row[0], Decimal(str(row[1])) if isinstance(row[1], int | float) else row[1]) for row in workbook.active.values]
                 workbook.close()
             else:
                 with open(path, "rb") as file:

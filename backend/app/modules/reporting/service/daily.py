@@ -1,14 +1,8 @@
-import csv
-import io
 import uuid
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenError, ValidationError
@@ -80,34 +74,38 @@ async def daily_export_report(db: AsyncSession, user: User, start: date | None, 
     return report
 
 
-def export_report(report: dict, format: str) -> bytes:
+LABELS = {"sales": ("Sales", "money"), "customer_credit": ("Credit granted", "money"), "collections": ("Collections", "money"),
+          "expenses": ("Expenses", "money"), "stock_in": ("Stock in (qty)", "number"), "stock_out": ("Stock out (qty)", "number"),
+          "production": ("Produced (qty)", "number"), "materials_consumed": ("Materials used (qty)", "number"), "wastage": ("Wastage (qty)", "number")}
+
+
+def export_report(report: dict, format: str, tenant=None) -> bytes:
+    """Daily branch activity through the shared business-branded writer (PDF, Excel or CSV from the same rows)."""
+    import os
+    import tempfile
+    from datetime import UTC, datetime
+
+    from app.modules.accounting.service.workspace_export import ExportWriter
+
     metrics = report.get("metrics", METRICS)
-    columns = ("day", "branch", *metrics)
-    rows = [[str(row.get(key, "")) for key in columns] for row in report["items"]]
-    rows.append(["TOTAL", "", *(str(report["totals"][key]) for key in metrics)])
-    if format == "csv":
-        out = io.StringIO()
-        writer = csv.writer(out)
-        writer.writerow(["Daily branch activity", report["currency"], report["timezone"], report["from_date"], report["to_date"]])
-        writer.writerow(["Current outstanding customer debt (not historical)", report.get("outstanding_debt_now", 0)])
-        writer.writerow(columns)
-        writer.writerows(rows)
-        for key, definition in report["definitions"].items():
-            writer.writerow([key, definition])
-        return out.getvalue().encode("utf-8-sig")
-    out = io.BytesIO()
-    styles = getSampleStyleSheet()
-    width = landscape(A4)[0] - 48
-    column_widths = [60, 110] + [(width - 170) / len(metrics)] * len(metrics)
-    header_style = styles["Normal"].clone("table-header", fontSize=7, leading=9)
-    body_style = styles["Normal"].clone("table-body", fontSize=7, leading=9)
-    formatted = [[Paragraph(escape(str(value)), header_style if index == 0 else body_style)
-                  for value in row] for index, row in enumerate([list(columns), *rows])]
-    flow = [Paragraph(f"Daily branch activity ({report['currency']})", styles["Title"]),
-            Paragraph(f"{report['from_date']} to {report['to_date']} · {report['timezone']}", styles["Normal"]),
-            Paragraph(f"Current outstanding customer debt: {report.get('outstanding_debt_now', 0)} (not historical)", styles["Normal"]),
-            Spacer(1, 12), Table(formatted, colWidths=column_widths, repeatRows=1,
-                style=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)])]
-    flow.extend(Paragraph(definition, styles["Normal"]) for definition in report["definitions"].values())
-    SimpleDocTemplate(out, pagesize=landscape(A4), leftMargin=24, rightMargin=24).build(flow)
-    return out.getvalue()
+    columns = [{"key": "day", "label": "Date", "kind": "date"}, {"key": "branch", "label": "Branch", "kind": "text"}]
+    columns += [{"key": m, "label": LABELS.get(m, (m.replace("_", " ").capitalize(), "money"))[0], "kind": LABELS.get(m, ("", "money"))[1]} for m in metrics]
+    meta = {"id": "daily-branches", "kind": "daily-branches", "title": "Daily Branch Activity", "business": (getattr(tenant, "name", None) or "Business"),
+            "currency": report["currency"], "branch": "Branches in scope", "from_date": str(report["from_date"]), "to_date": str(report["to_date"]),
+            "as_of": str(report["to_date"]), "generated_at": datetime.now(UTC).isoformat(timespec="seconds"), "columns": columns,
+            "totals": {**{f"Total {LABELS.get(m, (m, ''))[0].lower()}": report["totals"][m] for m in metrics},
+                       "Outstanding customer debt now (not historical)": report.get("outstanding_debt_now", 0)},
+            "notes": [f"Times are in {report['timezone']}.", *report["definitions"].values()],
+            "quantity_totals": [f"Total {LABELS[m][0].lower()}" for m in metrics if LABELS.get(m, ("", "money"))[1] == "number"]}
+    branches = sorted({row.get("branch") for row in report["items"] if row.get("branch")})
+    meta["branch"] = branches[0] if len(branches) == 1 else "All branches in scope"
+    with tempfile.NamedTemporaryFile(suffix=f".{format}", delete=False) as handle:
+        path = handle.name
+    try:
+        writer = ExportWriter(path, format, meta, tenant)
+        writer.rows([{**row, "day": str(row.get("day", ""))[:10]} for row in report["items"]])
+        writer.finish()
+        with open(path, "rb") as output:
+            return output.read()
+    finally:
+        os.unlink(path)

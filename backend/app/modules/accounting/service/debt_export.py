@@ -32,11 +32,16 @@ async def _header(db: AsyncSession, tenant: uuid.UUID, branch: uuid.UUID | None,
             "as_of": today, "from_date": today, "to_date": today, "totals": {}, "notes": []}
 
 
-async def _write(report: dict, rows: list[dict], fmt: str) -> str:
+async def _tenant(db: AsyncSession, tenant_id: uuid.UUID):
+    from app.modules.tenants.repository import TenantRepository
+    return await TenantRepository(db).get(tenant_id)
+
+
+async def _write(report: dict, rows: list[dict], fmt: str, tenant=None) -> str:
     with tempfile.NamedTemporaryFile(prefix="pesaa-debt-", suffix=f".{fmt}", delete=False) as file:
         path = file.name
     try:
-        writer = await asyncio.to_thread(ExportWriter, path, fmt, report)
+        writer = await asyncio.to_thread(ExportWriter, path, fmt, report, tenant)
         await asyncio.to_thread(writer.rows, rows)
         await asyncio.to_thread(writer.finish)
     except BaseException:
@@ -65,7 +70,7 @@ async def export_list(db: AsyncSession, user: User, kind: DebtKind, active, filt
     report["totals"] = {"Records": len(encoded_items)}
     if len(items) >= LIMIT:
         report["notes"].append(f"Limited to the first {LIMIT} records; narrow the filters for the rest.")
-    path = await _write(report, encoded_items, fmt)
+    path = await _write(report, encoded_items, fmt, await _tenant(db, user.tenant_id))
     return path, f"{label.lower()}-{today.isoformat()}.{fmt}", MEDIA[fmt]
 
 
@@ -83,5 +88,5 @@ async def export_statement(db: AsyncSession, user: User, kind: DebtKind, active,
                         "Closing balance": data["closing"], **{f"Aging {k}": v for k, v in data["aging"].items()}}
     if data["party"].get("tin"):  # the customer's taxpayer number, as on their invoices
         report["branch"] = f'{report["branch"]} | {data["party"]["name"]} TIN: {data["party"]["tin"]}'
-    path = await _write(report, data["rows"], fmt)
+    path = await _write(report, data["rows"], fmt, await _tenant(db, user.tenant_id))
     return path, f"statement-{data['party']['name'].replace(' ', '-').lower()}-{data['date_to']}.{fmt}", MEDIA[fmt]

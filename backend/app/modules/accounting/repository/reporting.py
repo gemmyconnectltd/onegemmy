@@ -16,6 +16,18 @@ from app.modules.accounting.models.workspace import FinancialSnapshot, Financial
 ZERO = Decimal(0)
 
 
+_SOURCE_TYPES = {"sale": "Sale", "purchase": "Purchase", "return": "Return", "refund": "Refund", "payment": "Payment",
+                 "supplier_payment": "Supplier payment", "supplier_return": "Supplier return", "expense": "Expense", "manual": "Manual journal",
+                 "adjustment": "Adjustment", "transfer": "Transfer", "depreciation": "Depreciation", "payroll": "Payroll"}
+
+
+def source_label(txn, order_number=None, purchase_ref=None, return_number=None) -> str:
+    """A readable source for a journal: the document's own number when there is one, otherwise the journal's kind."""
+    number = order_number or purchase_ref or return_number
+    kind = _SOURCE_TYPES.get(txn.type, (txn.type or "Journal").replace("_", " ").capitalize())
+    return f"{kind} {number}" if number else kind
+
+
 class ReportingRepository(BaseRepository[FinancialSnapshot]):
     model = FinancialSnapshot
 
@@ -90,11 +102,19 @@ class ReportingRepository(BaseRepository[FinancialSnapshot]):
         if search:
             like = f"%{search}%"
             stmt = stmt.where(or_(Transaction.reference.ilike(like), Transaction.description.ilike(like), Account.name.ilike(like)))
-        stream = await self.db.stream(stmt.order_by(Transaction.transaction_date.desc(), Transaction.id, TransactionLine.id)
+        # The source document's own number (sale, purchase, return), never its internal id: readable on screen and in exports.
+        from app.modules.procurement.models.purchase_order import PurchaseOrder
+        from app.modules.sales.models.order import Order
+        from app.modules.sales.models.return_ import Return
+        stmt = (stmt.outerjoin(Order, and_(Order.id == Transaction.order_id, Order.tenant_id == Transaction.tenant_id))
+                .outerjoin(PurchaseOrder, and_(PurchaseOrder.id == Transaction.purchase_id, PurchaseOrder.tenant_id == Transaction.tenant_id))
+                .outerjoin(Return, and_(Return.id == Transaction.return_id, Return.tenant_id == Transaction.tenant_id))
+                .add_columns(Order.order_number, PurchaseOrder.reference, Return.return_number))
+        stream = await self.db.stream(stmt.order_by(Transaction.transaction_date.desc(), Transaction.reference.desc(), Transaction.id, TransactionLine.id)
                                       .execution_options(yield_per=100))
-        async for line, txn, account in stream:
+        async for line, txn, account, order_number, purchase_ref, return_number in stream:
             yield {"id": str(line.id), "transaction_id": str(txn.id), "date": txn.transaction_date.isoformat(),
-                   "reference": txn.reference, "transaction_reference": str(txn.order_id or txn.purchase_id or txn.return_id or txn.id),
+                   "reference": txn.reference, "transaction_reference": source_label(txn, order_number, purchase_ref, return_number),
                    "name": line.description or txn.description or "—", "account": f"{account.code} · {account.name}",
                    "debit": str(line.amount if line.type == "debit" else ZERO),
                    "credit": str(line.amount if line.type == "credit" else ZERO), "status": txn.status}

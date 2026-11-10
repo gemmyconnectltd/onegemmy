@@ -26,9 +26,11 @@ async def purchase_csv(db: AsyncSession, tenant_id: uuid.UUID, status: str | Non
             break
         buffer.seek(0)
         buffer.truncate()
+        from app.modules.tenants.repository import BranchRepository
+        branches = await BranchRepository(db).names_for_ids(tenant_id, {row.branch_id for row in rows if row.branch_id})
         for row in rows:
             writer.writerow([_cell(row.reference), _cell(row.supplier.name if row.supplier else ""),
-                row.branch_id, row.order_date or row.created_at.date(), row.expected_date,
+                _cell(branches.get(row.branch_id, "")), row.order_date or row.created_at.date(), row.expected_date,
                 row.status, row.currency_code, row.total])
         yield buffer.getvalue()
         offset += len(rows)
@@ -72,7 +74,7 @@ async def purchase_pdf(db: AsyncSession, tenant_id: uuid.UUID, purchase_id: uuid
         path = file.name
     try:
         def render() -> None:
-            writer = ExportWriter(path, "pdf", report)
+            writer = ExportWriter(path, "pdf", report, tenant)
             writer.rows(rows)
             writer.finish()
         await asyncio.to_thread(render)
