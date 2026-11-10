@@ -1,4 +1,4 @@
-import { request, getStoredToken, API_BASE, qs } from "./client";
+import { request, getStoredToken, API_BASE, qs, filenameFromDisposition } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 import { periodParams, type PeriodRange } from "@/lib/period";
 export interface PictureImportResult {
@@ -267,7 +267,7 @@ export const inventoryApi = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `inventory-valuation-${new Date().toISOString().slice(0, 10)}.${format}`;
+    a.download = filenameFromDisposition(res, `inventory-valuation.${format}`);  // the server names it after the business and date
     document.body.appendChild(a);
     a.click();
     a.remove();

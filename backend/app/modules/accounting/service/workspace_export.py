@@ -16,6 +16,7 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Paragraph
 
 from app.core.currency import CURRENCIES, format_money
+from app.core.filenames import document_filename, period_label
 from app.modules.accounting.repository.reporting import ReportingRepository
 from app.modules.accounting.service.workspace import read_snapshot
 
@@ -371,6 +372,14 @@ class ExportWriter:
             return False
 
 
+def _report_filename(report: dict, fmt: str) -> str:
+    kind = report.get("kind")
+    as_of_only = kind in {"balance-sheet", "trial-balance", "receivables-aging", "payables-aging", "inventory"}
+    period = period_label(None, report.get("as_of")) if as_of_only else period_label(report.get("from_date"), report.get("to_date"))
+    scope = report.get("branch") if report.get("branch") and report.get("branch") != "All branches" else None
+    return document_filename(report.get("business"), report["title"], fmt, period=" - ".join(p for p in (period, scope) if p))
+
+
 async def export_snapshot(db, user, snapshot_id: uuid.UUID, fmt: str) -> tuple[str, str, str]:
     report = await read_snapshot(db, user, snapshot_id)
     with tempfile.NamedTemporaryFile(prefix="pesaa-financial-", suffix=f".{fmt}", delete=False) as file:
@@ -387,7 +396,7 @@ async def export_snapshot(db, user, snapshot_id: uuid.UUID, fmt: str) -> tuple[s
                 rows += await repo.rows(user.tenant_id, snapshot_id, offset, 500)
             await asyncio.to_thread(render, path, report, rows, tenant)
             media = "application/pdf"
-            return path, f'{report["kind"]}-{report["as_of"]}.pdf', media
+            return path, _report_filename(report, "pdf"), media
         writer = await asyncio.to_thread(ExportWriter, path, fmt, report, tenant)
         for offset in range(0, report["total"], 100):
             rows = await repo.rows(user.tenant_id, snapshot_id, offset, 100)
@@ -397,4 +406,4 @@ async def export_snapshot(db, user, snapshot_id: uuid.UUID, fmt: str) -> tuple[s
         os.unlink(path)
         raise
     media = {"pdf": "application/pdf", "csv": "text/csv; charset=utf-8", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[fmt]
-    return path, f'{report["kind"]}-{report["as_of"]}.{fmt}', media
+    return path, _report_filename(report, fmt), media

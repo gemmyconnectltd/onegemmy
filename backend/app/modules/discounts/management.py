@@ -247,7 +247,7 @@ async def upsert(db, user, model, data, id=None):
         db,
         tenant_id=user.tenant_id,
         actor_user_id=user.id,
-        actor_name=None,
+        actor_name=getattr(user, "full_name", None),
         action="discount.updated" if id else "discount.created",
         entity_type=model.__tablename__,
         entity_id=str(row.id),
@@ -284,11 +284,12 @@ async def change_status(db, user, model, id, status):
         db,
         tenant_id=user.tenant_id,
         actor_user_id=user.id,
-        actor_name=None,
+        actor_name=getattr(user, "full_name", None),
         action="discount.status",
         entity_type=model.__tablename__,
         entity_id=str(id),
-        summary=f"Status changed to {status}",
+        summary=f"{getattr(row, 'name', None) or getattr(row, 'code', 'Offer')}: status changed to {status}",
     )
     await db.commit()
+    await db.refresh(row)  # updated_at is set by the database; read it back before the response is built (was a 500)
     return row

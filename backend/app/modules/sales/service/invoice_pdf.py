@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.brand_pdf import business_contact_lines
 from app.core.currency import format_money
+from app.core.filenames import document_filename
 from app.core.logging import get_logger
 from app.modules.sales.schemas.order import OrderRead
 from app.modules.sales.service.order import get_order
@@ -385,5 +386,5 @@ async def generate_order_invoice_pdf(db: AsyncSession, tenant_id: uuid.UUID, ord
     tenant = await _load_tenant(db, tenant_id)
     _register_fonts()
     pdf_bytes = _build_pdf(order, tenant)
-    filename = f"invoice-{order.order_number}.pdf"
+    filename = document_filename(tenant.name, "Invoice", "pdf", reference=order.order_number)
     return filename, pdf_bytes

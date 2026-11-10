@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query, Response
 
 from app.core.deps import CurrentUser, DbSession, require_feature
+from app.core.filenames import content_disposition, document_filename, period_label
 from app.core.response import success_response
 from app.modules.reporting.service.daily import daily_export_report, daily_report, export_report
 from app.modules.reporting.service.day import day_report
@@ -39,4 +40,5 @@ async def export(db: DbSession, current_user: CurrentUser, from_date: date | Non
     tenant = await TenantRepository(db).get(current_user.tenant_id)
     media = {"csv": "text/csv", "pdf": "application/pdf", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[format]
     return Response(export_report(report, format, tenant), media_type=media,
-                    headers={"Content-Disposition": f'attachment; filename="daily-branches.{format}"'})
+                    headers={"Content-Disposition": content_disposition(document_filename(
+                        tenant.name if tenant else None, "Daily Branch Activity", format, period=period_label(report["from_date"], report["to_date"])))})

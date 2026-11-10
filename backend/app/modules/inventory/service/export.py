@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.brand_pdf import business_contact_lines, business_name
 from app.core.currency import CURRENCIES, format_money
+from app.core.filenames import document_filename, period_label
 from app.core.logging import get_logger
 from app.modules.inventory.service.valuation import inventory_valuation
 from app.modules.tenants.models import Tenant
@@ -332,11 +333,10 @@ async def export_valuation_report(db: AsyncSession, tenant_id: uuid.UUID, fmt: s
     report = await inventory_valuation(db, tenant_id)
     tenant = await _load_tenant(db, tenant_id)
 
-    day = datetime.now(UTC).strftime("%Y-%m-%d")
-    base_name = f"inventory-valuation-{day}"
+    period = period_label(None, datetime.now(UTC).date())
 
     if fmt == "csv":
-        return f"{base_name}.csv", _export_csv(report, tenant), "text/csv; charset=utf-8"
+        return document_filename(tenant.name, "Inventory Valuation", "csv", period=period), _export_csv(report, tenant), "text/csv; charset=utf-8"
 
     _register_fonts()
-    return f"{base_name}.pdf", _build_pdf(report, tenant, _styles()), "application/pdf"
+    return document_filename(tenant.name, "Inventory Valuation", "pdf", period=period), _build_pdf(report, tenant, _styles()), "application/pdf"

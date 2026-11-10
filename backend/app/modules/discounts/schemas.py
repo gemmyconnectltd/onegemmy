@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 RuleType = Literal[
     "percentage",
@@ -160,6 +160,15 @@ class Scope(BaseModel):
     customer_types: list[Literal["individual", "business"]] = Field(default_factory=list)
     branch_ids: list[uuid.UUID] = Field(default_factory=list, max_length=200)
     channels: list[Literal["pos", "sales_order", "quotation"]] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _no_conflicts(self):
+        both = set(self.product_ids) & set(self.exclude_product_ids)
+        if both:
+            raise ValueError("A product can't be both included and excluded")
+        if set(self.category_ids) & set(self.exclude_category_ids):
+            raise ValueError("A category can't be both included and excluded")
+        return self
 
 
 class Conditions(BaseModel):

@@ -42,6 +42,8 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        # Lets the apps read a download's file name ("<Business> - <Report> - <period>.pdf") from another origin.
+        expose_headers=["Content-Disposition"],
     )
 
     app.add_exception_handler(AppError, app_error_handler)

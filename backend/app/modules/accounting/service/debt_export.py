@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.filenames import document_filename, period_label
 from app.modules.accounting.repository.debt import DebtRepository
 from app.modules.accounting.schemas.debt import DebtFilters, DebtKind
 from app.modules.accounting.service import debt as base
@@ -71,7 +72,7 @@ async def export_list(db: AsyncSession, user: User, kind: DebtKind, active, filt
     if len(items) >= LIMIT:
         report["notes"].append(f"Limited to the first {LIMIT} records; narrow the filters for the rest.")
     path = await _write(report, encoded_items, fmt, await _tenant(db, user.tenant_id))
-    return path, f"{label.lower()}-{today.isoformat()}.{fmt}", MEDIA[fmt]
+    return path, document_filename(report["business"], label, fmt, period=period_label(today, today)), MEDIA[fmt]
 
 
 async def export_statement(db: AsyncSession, user: User, kind: DebtKind, active, party_id: uuid.UUID, date_from, date_to,
@@ -89,4 +90,4 @@ async def export_statement(db: AsyncSession, user: User, kind: DebtKind, active,
     if data["party"].get("tin"):  # the customer's taxpayer number, as on their invoices
         report["branch"] = f'{report["branch"]} | {data["party"]["name"]} TIN: {data["party"]["tin"]}'
     path = await _write(report, data["rows"], fmt, await _tenant(db, user.tenant_id))
-    return path, f"statement-{data['party']['name'].replace(' ', '-').lower()}-{data['date_to']}.{fmt}", MEDIA[fmt]
+    return path, document_filename(report["business"], f"Statement {data['party']['name']}", fmt, period=period_label(data["date_from"], data["date_to"])), MEDIA[fmt]

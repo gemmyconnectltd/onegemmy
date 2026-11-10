@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
 
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession, require_permission
-from app.core.exceptions import ForbiddenError, ValidationError
+from app.core.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.discounts import management, settings
@@ -53,7 +53,7 @@ async def update_settings(data: SettingsIn, db: DbSession, user: CurrentUser):
         db,
         tenant_id=user.tenant_id,
         actor_user_id=user.id,
-        actor_name=None,
+        actor_name=getattr(user, "full_name", None),
         action="discount.settings",
         entity_type="tenant",
         entity_id=str(user.tenant_id),
@@ -157,14 +157,83 @@ async def rules(
     user: CurrentUser,
     page: PageQuery,
     search: str | None = Query(None, max_length=100),
+    status: str | None = Query(None, max_length=20),
+    type: str | None = Query(None, max_length=20),
 ):
+    """Discount rules with optional search (name or code), status and type filters, and each rule's real usage:
+    how many sales it was applied to and the discount it granted."""
     _require_tenant(user)
     rows, total = await DiscountRepository(db).page(
-        DiscountRule, user.tenant_id, page.offset, page.limit, search
+        DiscountRule, user.tenant_id, page.offset, page.limit, search, status, type
     )
+    usage = await _usage(db, user.tenant_id, [r.id for r in rows])
     return paginated_response(
-        items=[output(r) for r in rows], total=total, page=page.page, page_size=page.page_size
+        items=[{**output(r), **usage.get(r.id, {"usage_count": 0, "discount_total": "0"})} for r in rows],
+        total=total, page=page.page, page_size=page.page_size,
     )
+
+
+async def _usage(db, tenant_id, ids) -> dict:
+    from sqlalchemy import func, select
+
+    from app.modules.discounts.models import AppliedDiscount
+    if not ids:
+        return {}
+    rows = (await db.execute(select(AppliedDiscount.rule_id, func.count(func.distinct(AppliedDiscount.order_id)), func.sum(AppliedDiscount.amount))
+                             .where(AppliedDiscount.tenant_id == tenant_id, AppliedDiscount.rule_id.in_(ids)).group_by(AppliedDiscount.rule_id))).all()
+    return {rule_id: {"usage_count": int(n or 0), "discount_total": str(total or 0)} for rule_id, n, total in rows}
+
+
+@router.get("/rules/{id}", dependencies=[Depends(require_permission("discounts:read"))])
+async def rule_detail(id: uuid.UUID, db: DbSession, user: CurrentUser):
+    """One rule with its usage summary and its campaign name."""
+    _require_tenant(user)
+    row = await DiscountRepository(db).get_for_tenant(DiscountRule, user.tenant_id, id)
+    if row is None:
+        raise NotFoundError("Discount rule not found")
+    usage = (await _usage(db, user.tenant_id, [row.id])).get(row.id, {"usage_count": 0, "discount_total": "0"})
+    campaign = await DiscountRepository(db).get_for_tenant(PromotionCampaign, user.tenant_id, row.campaign_id) if row.campaign_id else None
+    return success_response(data={**output(row), **usage, "campaign_name": campaign.name if campaign else None})
+
+
+@router.get("/rules/{id}/usage", dependencies=[Depends(require_permission("discounts:read"))])
+async def rule_usage(id: uuid.UUID, db: DbSession, user: CurrentUser, page: PageQuery):
+    """The sales this rule was actually applied to: sale reference, date, branch, customer (with contacts:read) and amount."""
+    _require_tenant(user)
+    from sqlalchemy import func, select
+
+    from app.modules.discounts.models import AppliedDiscount
+    from app.modules.sales.models.customer import Customer
+    from app.modules.sales.models.order import Order
+    from app.modules.tenants.models import Branch
+    if await DiscountRepository(db).get_for_tenant(DiscountRule, user.tenant_id, id) is None:
+        raise NotFoundError("Discount rule not found")
+    where = (AppliedDiscount.tenant_id == user.tenant_id, AppliedDiscount.rule_id == id)
+    total = await db.scalar(select(func.count()).select_from(AppliedDiscount).where(*where))
+    see_customers = user.is_superuser or (user.role or "").lower() in ("owner", "admin") or "contacts:read" in user.permissions_names
+    rows = (await db.execute(
+        select(AppliedDiscount, Order.order_number, Order.status, Branch.name, Customer.name)
+        .join(Order, Order.id == AppliedDiscount.order_id).outerjoin(Branch, Branch.id == AppliedDiscount.branch_id)
+        .outerjoin(Customer, Customer.id == AppliedDiscount.customer_id)
+        .where(*where).order_by(AppliedDiscount.created_at.desc()).offset(page.offset).limit(page.limit))).all()
+    items = [{"id": str(a.id), "order_id": str(a.order_id), "order_number": number, "order_status": status, "date": a.created_at,
+              "branch": branch, "customer": customer if see_customers else None, "kind": a.kind, "coupon_code": a.coupon_code,
+              "amount": str(a.amount)} for a, number, status, branch, customer in rows]
+    return paginated_response(items=jsonable_encoder(items), total=total or 0, page=page.page, page_size=page.page_size)
+
+
+@router.get("/rules/{id}/history", dependencies=[Depends(require_permission("discounts:read"))])
+async def rule_history(id: uuid.UUID, db: DbSession, user: CurrentUser):
+    """Created, edited, activated, paused and archived events for this rule, from the audit log."""
+    _require_tenant(user)
+    from sqlalchemy import select
+
+    from app.modules.audit.models.audit import AuditLog
+    if await DiscountRepository(db).get_for_tenant(DiscountRule, user.tenant_id, id) is None:
+        raise NotFoundError("Discount rule not found")
+    rows = (await db.execute(select(AuditLog).where(AuditLog.tenant_id == user.tenant_id, AuditLog.entity_type == DiscountRule.__tablename__,
+                                                    AuditLog.entity_id == str(id)).order_by(AuditLog.created_at.desc()).limit(100))).scalars().all()
+    return success_response(data=jsonable_encoder([{"action": r.action, "summary": r.summary, "actor": r.actor_name, "changes": r.changes, "at": r.created_at} for r in rows]))
 
 
 @router.post("/rules", dependencies=[Depends(require_permission("discounts:create"))])
@@ -192,10 +261,11 @@ async def rule_status(id: uuid.UUID, data: StatusIn, db: DbSession, user: Curren
 
 
 @router.get("/campaigns", dependencies=[Depends(require_permission("discounts:read"))])
-async def campaigns(db: DbSession, user: CurrentUser, page: PageQuery):
+async def campaigns(db: DbSession, user: CurrentUser, page: PageQuery, status: str | None = Query(None, max_length=20),
+                    search: str | None = Query(None, max_length=100)):
     _require_tenant(user)
     rows, total = await DiscountRepository(db).page(
-        PromotionCampaign, user.tenant_id, page.offset, page.limit
+        PromotionCampaign, user.tenant_id, page.offset, page.limit, search, status
     )
     return paginated_response(
         items=[output(r) for r in rows], total=total, page=page.page, page_size=page.page_size

@@ -464,3 +464,54 @@ async def test_pos_checks_variant_cost_instead_of_parent_cost(db):
             'product_id': product.id, 'variant_id': variant.id, 'product_name': product.name,
             'unit_price': 50, 'quantity': 1,
         }]))
+
+
+async def test_rule_list_filters_usage_detail_and_history(db):
+    from types import SimpleNamespace
+
+    from app.modules.discounts.repository import DiscountRepository
+    from app.modules.discounts.routes import _usage, rule_history, rule_usage
+
+    tenant, user, product = await setup(db)
+    rule = DiscountRule(tenant_id=tenant.id, name="Weekend ten", code="WEEKEND", type="percentage", status="Active", value_kind="percent", value=Decimal(10), config={})
+    other = DiscountRule(tenant_id=tenant.id, name="Draft fixed", code="DRAFTFIX", type="fixed", status="Draft", value_kind="fixed", value=Decimal(5), config={})
+    db.add_all([rule, other])
+    await db.flush()
+    order = await create_order(db, tenant.id, user.id, OrderCreate(client_order_id=uuid.uuid4().hex, items=[{"product_id": product.id, "product_name": product.name, "unit_price": 100, "quantity": 1}]))
+    repo = DiscountRepository(db)
+    rows, total = await repo.page(DiscountRule, tenant.id, 0, 25, "weekend", None, None)
+    assert total == 1 and rows[0].id == rule.id  # search matches the name, not only the code
+    rows, total = await repo.page(DiscountRule, tenant.id, 0, 25, None, "Draft", "fixed")
+    assert [r.id for r in rows] == [other.id]
+    usage = await _usage(db, tenant.id, [rule.id, other.id])
+    assert usage[rule.id]["usage_count"] == 1 and Decimal(usage[rule.id]["discount_total"]) == Decimal(10) and other.id not in usage
+    page = SimpleNamespace(offset=0, limit=25, page=1, page_size=25)
+    applied = (await rule_usage(rule.id, db, user, page)).body
+    assert order.order_number.encode() in applied
+    history = (await rule_history(rule.id, db, user)).body
+    assert history.startswith(b"{")
+
+
+async def test_status_changes_answer_with_the_saved_offer_not_a_server_error(db):
+    from app.modules.discounts.models import PromotionCampaign
+    from app.modules.discounts.routes import campaign_status, rule_status
+    from app.modules.discounts.schemas import StatusIn
+
+    tenant, user, _product = await setup(db)
+    tenant.discount_settings = {"campaigns": True}
+    rule = DiscountRule(tenant_id=tenant.id, name="Status rule", code="STAT", type="percentage", status="Draft", value_kind="percent", value=Decimal(10), config={})
+    promo = PromotionCampaign(tenant_id=tenant.id, name="Status promo", code="SPROMO", status="Draft")
+    db.add_all([rule, promo])
+    await db.flush()
+    for status in ("Active", "Paused", "Archived"):
+        body = (await rule_status(rule.id, StatusIn(status=status), db, user)).body
+        assert f'"status":"{status}"'.encode() in body
+    assert b'"status":"Active"' in (await campaign_status(promo.id, StatusIn(status="Active"), db, user)).body
+
+
+def test_a_product_cannot_be_both_included_and_excluded():
+    from app.modules.discounts.schemas import RuleIn
+
+    same = str(uuid.uuid4())
+    with pytest.raises(ValueError, match="both included and excluded"):
+        RuleIn(name="Clash", type="percentage", value_kind="percent", value=10, config={"scope": {"product_ids": [same], "exclude_product_ids": [same]}})

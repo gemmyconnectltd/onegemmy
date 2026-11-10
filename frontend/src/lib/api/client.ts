@@ -172,6 +172,8 @@ function _triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+export function filenameFromDisposition(res: Response, fallback: string): string { return _filenameFromDisposition(res, fallback); }
+
 function _filenameFromDisposition(res: Response, fallback: string): string {
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);

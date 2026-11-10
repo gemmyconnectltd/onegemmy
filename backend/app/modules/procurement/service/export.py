@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.filenames import document_filename
 from app.modules.procurement.repository.purchase import PurchaseOrderRepository
 
 
@@ -81,4 +82,4 @@ async def purchase_pdf(db: AsyncSession, tenant_id: uuid.UUID, purchase_id: uuid
     except BaseException:
         os.unlink(path)
         raise
-    return path, f"{purchase.reference}.pdf"
+    return path, document_filename(tenant.name, "Purchase Order", "pdf", reference=purchase.reference)

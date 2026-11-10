@@ -1,4 +1,4 @@
-import { request, getStoredToken, API_BASE } from "./client";
+import { request, getStoredToken, API_BASE, filenameFromDisposition } from "./client";
 import type { SingleResponse, PaginatedResponse } from "./types";
 
 export interface AccountingAccount {
@@ -222,7 +222,7 @@ export const accountingApi = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${statement}-${new Date().toISOString().slice(0, 10)}.${format}`;
+    a.download = filenameFromDisposition(res, `${statement}.${format}`);  // the server names it after the business and period
     document.body.appendChild(a);
     a.click();
     a.remove();

@@ -4,10 +4,12 @@ import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { downloadTable, type ExportTable } from "@/lib/exportTable";
+import { useCurrentTenant } from "@/lib/api/hooks";
 
 /** The Export button every Import page shows beside Import. It exports what the page is currently filtered to, as an Excel file. */
 export function ExportButton({ build, label = "Export", disabled }: { build: () => Promise<ExportTable>; label?: string; disabled?: boolean }) {
   const [busy, setBusy] = useState(false);
+  const tenant = useCurrentTenant();
   const [problem, setProblem] = useState<string | null>(null);
   const run = async () => {
     setBusy(true);
@@ -15,7 +17,7 @@ export function ExportButton({ build, label = "Export", disabled }: { build: () 
     try {
       const table = await build();
       if (table.rows.length === 0) setProblem("There is nothing to export for the current filters.");
-      else downloadTable(table);
+      else downloadTable(table, tenant.data?.name);
     } catch (e: unknown) {
       setProblem((e as { detail?: string })?.detail ?? (e as Error)?.message ?? "The export could not be created. Try again.");
     } finally { setBusy(false); }

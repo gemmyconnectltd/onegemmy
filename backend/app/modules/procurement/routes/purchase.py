@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, Query, UploadFile
 
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.filenames import content_disposition, document_filename, period_label
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
 from app.modules.procurement import service
@@ -107,7 +108,8 @@ async def export_purchase_orders(db: DbSession, current_user: CurrentUser, branc
     return StreamingResponse(purchase_csv(db, current_user.tenant_id, status,
         branch_id=scoped, search=search, from_date=from_date, to_date=to_date,
         supplier_id=supplier_id, currency_code=currency_code, sort=sort, direction=direction),
-        media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="purchase-orders.csv"'})
+        media_type="text/csv", headers={"Content-Disposition": content_disposition(document_filename(
+            await _business_name(db, current_user.tenant_id), "Purchase Orders", "csv", period=period_label(from_date, to_date)))})
 
 
 @router.get("/procurement/purchase-orders/{id}")
@@ -237,3 +239,10 @@ async def download_purchase_attachment(id: uuid.UUID, attachment_id: uuid.UUID,
 def _purchase_payload(obj, user) -> dict:
     excluded = set() if user.is_superuser or "accounts_payable:read" in user.permissions_names else {"payment_status"}
     return obj.model_dump(exclude=excluded)
+
+
+async def _business_name(db, tenant_id) -> str | None:
+    from sqlalchemy import select
+
+    from app.modules.tenants.models import Tenant
+    return (await db.execute(select(Tenant.name).where(Tenant.id == tenant_id))).scalar_one_or_none()

@@ -19,6 +19,7 @@ from app.core.brand_pdf import (
     logo_flowable,
     readable_on,
 )
+from app.core.filenames import document_filename
 from app.modules.accounting.service.tax import get_effective_vat_rate, is_vat_enabled
 from app.modules.inventory.models.product import Product
 from app.modules.sales.service.invoice_pdf import (
@@ -149,4 +150,4 @@ async def generate_quotation_pdf(db: AsyncSession, tenant_id: uuid.UUID, quotati
     rate = float(await get_effective_vat_rate(db, tenant_id)) if await is_vat_enabled(db, tenant_id) else 0.0
     accent = brand_color(tenant)
     _register_fonts()
-    return f"quotation-{q.quote_number}.pdf", _build(q, tenant, seller, units, rate, accent)
+    return document_filename(tenant.name, "Quotation", "pdf", reference=q.quote_number), _build(q, tenant, seller, units, rate, accent)

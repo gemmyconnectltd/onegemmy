@@ -1,6 +1,6 @@
 """Tenant-scoped storage and serialization points for discount usage."""
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.core.repository import BaseRepository
 from app.modules.discounts.models import AppliedDiscount, Coupon, DiscountRule, PromotionCampaign
@@ -25,10 +25,17 @@ class DiscountRepository(BaseRepository):
             )
         ).scalar_one_or_none()
 
-    async def page(self, model, tenant_id, offset, limit, search=None):
+    async def page(self, model, tenant_id, offset, limit, search=None, status=None, type_=None):
         filters = [model.tenant_id == tenant_id]
         if search:
-            filters.append(model.code.ilike(f"%{search}%"))
+            like = f"%{search}%"
+            filters.append(or_(model.code.ilike(like), model.name.ilike(like)) if hasattr(model, "name") else model.code.ilike(like))
+        if status == "current":  # everything except archived (the default list)
+            filters.append(model.status != "Archived")
+        elif status:
+            filters.append(model.status == status)
+        if type_ and hasattr(model, "type"):
+            filters.append(model.type == type_)
         total = await self.db.scalar(select(func.count()).select_from(model).where(*filters))
         rows = (
             await self.db.scalars(

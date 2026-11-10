@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.brand_pdf import business_contact_lines, business_name
 from app.core.currency import CURRENCIES, format_money
+from app.core.filenames import document_filename, period_label
 from app.core.logging import get_logger
 from app.modules.accounting import service as accounting_service
 from app.modules.accounting.schemas.report import (
@@ -536,13 +537,14 @@ async def export_accounting_statement(
     else:  # cash-flow
         report = await accounting_service.cash_flow(db, tenant_id, from_date, to_date)
 
-    day = datetime.now(UTC).strftime("%Y-%m-%d")
-    base_name = f"{statement}-{day}"
+    title = {"balance-sheet": "Balance Sheet", "general-ledger": "General Ledger", "trial-balance": "Trial Balance",
+             "income-statement": "Profit and Loss", "cash-flow": "Cash Flow Statement"}.get(statement, statement.replace("-", " ").title())
+    period = period_label(from_date, to_date)
 
     if fmt == "csv":
         csv_bytes, _ = builder(report, tenant, _styles())
-        return f"{base_name}.csv", csv_bytes, "text/csv; charset=utf-8"
+        return document_filename(tenant.name, title, "csv", period=period), csv_bytes, "text/csv; charset=utf-8"
 
     _register_fonts()
     _, pdf_bytes = builder(report, tenant, _styles())
-    return f"{base_name}.pdf", pdf_bytes, "application/pdf"
+    return document_filename(tenant.name, title, "pdf", period=period), pdf_bytes, "application/pdf"

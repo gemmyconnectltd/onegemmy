@@ -1,3 +1,4 @@
+import type { DiscountRuleFilters } from "./discounts";
 import { taxApi } from "./tax";
 import { productHistoryApi, type ProductHistoryFilters } from "./productHistory";
 import { accessApi, type AccessFilters } from "./access";
@@ -1091,8 +1092,11 @@ export const useDecideCount = mutation((v: { id: string; approve: boolean; note?
 import { discountsApi, type DiscountPriceInput, type CatalogPriceInput } from "./discounts";
 export const useDiscountSettings = () => useQ(["discounts", "settings"], discountsApi.settings, r => r.data, { refetchInterval: 15000, refetchOnWindowFocus: true });
 export const useSaveDiscountSettings = mutation(discountsApi.saveSettings, [["discounts"], ["tenants"]]);
-export const useDiscountRules = (page = 1, enabled = true) => useQ(["discounts", "rules", page], () => discountsApi.rules(page), r => r.data, { enabled });
-export const useDiscountCampaigns = (page = 1, enabled = true) => useQ(["discounts", "campaigns", page], () => discountsApi.campaigns(page), r => r.data, { enabled });
+export const useDiscountRules = (page = 1, enabled = true, filters: DiscountRuleFilters = {}) => useQ(["discounts", "rules", page, filters], () => discountsApi.rules(page, filters), r => r.data, { enabled });
+export const useDiscountRule = (id: string) => useQ(["discounts", "rule", id], () => discountsApi.rule(id), r => r.data, { enabled: !!id, refetchOnWindowFocus: false });
+export const useDiscountRuleUsage = (id: string, page = 1, enabled = true) => useQ(["discounts", "rule", id, "usage", page], () => discountsApi.ruleUsage(id, page), r => r.data, { enabled: !!id && enabled });
+export const useDiscountRuleHistory = (id: string, enabled = true) => useQ(["discounts", "rule", id, "history"], () => discountsApi.ruleHistory(id), r => r.data, { enabled: !!id && enabled });
+export const useDiscountCampaigns = (page = 1, enabled = true, status?: string) => useQ(["discounts", "campaigns", page, status ?? ""], () => discountsApi.campaigns(page, status), r => r.data, { enabled });
 export const useDiscountCoupons = (page = 1, enabled = true) => useQ(["discounts", "coupons", page], () => discountsApi.coupons(page), r => r.data, { enabled });
 export const useSaveDiscountRule = mutation(discountsApi.saveRule, [["discounts"]]);
 export const useSaveDiscountCampaign = mutation(discountsApi.saveCampaign, [["discounts"]]);

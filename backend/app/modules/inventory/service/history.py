@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.access import decide_read
 from app.core.branches import branch_allowed, has_branch_restriction
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.core.filenames import content_disposition, document_filename
 from app.core.period import DatePeriod
 from app.modules.inventory.repository.history import ProductHistoryRepository
 from app.modules.inventory.repository.product import ProductRepository
@@ -98,6 +99,13 @@ async def product_details(
             "Total sold is completed sales less approved customer returns in the authorized scope.",
         ],
     }
+
+
+async def _business_name(db, tenant_id) -> str | None:
+    from sqlalchemy import select
+
+    from app.modules.tenants.models import Tenant
+    return (await db.execute(select(Tenant.name).where(Tenant.id == tenant_id))).scalar_one_or_none()
 
 
 async def history_export(
@@ -193,5 +201,6 @@ async def history_export(
     return StreamingResponse(
         chunks(),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="product-history-{product_id}.csv"'},
+        headers={"Content-Disposition": content_disposition(document_filename(
+            await _business_name(db, user.tenant_id), f"Product History {product.name}", "csv"))},
     )
