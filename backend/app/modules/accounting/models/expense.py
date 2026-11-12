@@ -84,6 +84,11 @@ class ExpenseCategory(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # The ledger account this category's expenses post to; None = the built-in default (see service.expense).
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("accounting_accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    account = relationship("Account", lazy="selectin")
     __table_args__ = (Index("uq_expense_categories_tenant_name", "tenant_id", "name", unique=True),)
 
 

@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from typing import Literal
 
@@ -23,3 +24,4 @@ class ExpenseCategoryInput(BaseModel):
     name: str = Field(min_length=1, max_length=50)
     description: str | None = Field(default=None, max_length=255)
     is_active: bool = True
+    account_id: uuid.UUID | None = None  # expense account its expenses post to; None = the default

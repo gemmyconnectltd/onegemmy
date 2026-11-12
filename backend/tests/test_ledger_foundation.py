@@ -213,16 +213,24 @@ async def test_an_approved_expense_is_reversed_by_a_new_journal_with_a_reason(db
 
 
 @pytest.mark.db
-async def test_an_expense_without_a_mappable_account_cannot_be_approved_into_other_expense(db, monkeypatch):
-    from app.core.exceptions import ValidationError
+async def test_a_custom_category_posts_to_its_own_account_or_general_expenses_never_other_expense(db, monkeypatch):
+    from app.modules.accounting.models.expense import ExpenseCategory
     from app.modules.accounting.schemas import ExpenseCreate
     from app.modules.accounting.service import expense as expenses
+    from app.modules.accounting.service.transaction import _get_account_by_code
     tenant, _branch, _product, _, owner = await _till(db, monkeypatch)
+    today = datetime.now(UTC).date()
     created = await expenses.create_expense(db, tenant.id, owner.id, ExpenseCreate(
-        title="Mystery", amount=900, expense_date=datetime.now(UTC).date(), category="Misc", payment_method="Cash"), owner.full_name)
-    with pytest.raises(ValidationError, match="expense account"):
-        await expenses.approve_expense(db, tenant.id, created.id, owner.id, owner.full_name)
-    assert (await _net(db, tenant.id, "5900"))["5900"] == 0.0
+        title="Mystery", amount=900, expense_date=today, category="Household Expenses", payment_method="Cash"), owner.full_name)
+    await expenses.approve_expense(db, tenant.id, created.id, owner.id, owner.full_name)
+    assert await _net(db, tenant.id, "5700", "5900") == {"5700": 900.0, "5900": 0.0}
+    # A category the business linked to an account posts there instead.
+    db.add(ExpenseCategory(tenant_id=tenant.id, name="Cleaning", account_id=await _get_account_by_code(db, tenant.id, "5400")))
+    await db.flush()
+    linked = await expenses.create_expense(db, tenant.id, owner.id, ExpenseCreate(
+        title="Soap", amount=300, expense_date=today, category="cleaning", payment_method="Cash"), owner.full_name)
+    await expenses.approve_expense(db, tenant.id, linked.id, owner.id, owner.full_name)
+    assert (await _net(db, tenant.id, "5400"))["5400"] == 300.0
 
 
 @pytest.mark.db

@@ -1,14 +1,14 @@
 import uuid
 from datetime import UTC, datetime, time
 
-from sqlalchemy import text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import to_base_amount
 from app.core.exceptions import NotFoundError, ValidationError
 from app.modules.accounting.models.budget import Budget
-from app.modules.accounting.models.expense import Expense
+from app.modules.accounting.models.expense import Expense, ExpenseCategory
 from app.modules.accounting.repository import BudgetRepository, ExpenseRepository
 from app.modules.accounting.schemas import (
     ExpenseBulkCreate,
@@ -35,16 +35,22 @@ async def _stamp_currency(
     obj.base_amount = to_base_amount(obj.amount, code, base, rate)
 
 
-# Everyday categories and the chart account they belong to. Anything else must be given an account on purpose,
-# so ordinary running costs never pile up in "Other Expense" by default.
+# Everyday categories and the chart account they belong to. Any other category posts to its own account when the
+# business set one on the Categories tab, otherwise to 5700 General Expenses: an operating expense, never "Other Expense"
+# (5900, non-operating), so running costs stay in operating profit and approval is never blocked.
 _CATEGORY_ACCOUNTS = {"rent": "5100", "utilities": "5200", "salaries": "5300", "payroll": "5300", "supplies": "5400"}
+GENERAL_EXPENSES = "5700"
 
 
 async def _expense_account(db: AsyncSession, tenant_id: uuid.UUID, obj: Expense) -> uuid.UUID:
     if obj.account_id:
         return obj.account_id
-    code = _CATEGORY_ACCOUNTS.get((obj.category or "").strip().lower())
-    account_id = await get_account_id(db, tenant_id, code) if code else None
+    name = (obj.category or "").strip()
+    category = (await db.execute(select(ExpenseCategory.account_id).where(
+        ExpenseCategory.tenant_id == tenant_id, func.lower(ExpenseCategory.name) == name.lower()))).scalar()
+    if category:
+        return category
+    account_id = await get_account_id(db, tenant_id, _CATEGORY_ACCOUNTS.get(name.lower(), GENERAL_EXPENSES))
     if account_id is None:
         raise ValidationError(f"Choose an expense account for \"{obj.category}\" expenses before approving {obj.reference}")
     return account_id

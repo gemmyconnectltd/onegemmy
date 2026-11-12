@@ -38,6 +38,7 @@ DEFAULT_ACCOUNTS = [
     ("5300", "Salaries Expense",        "Expense",     "debit"),
     ("5400", "Supplies Expense",        "Expense",     "debit"),
     ("5600", "Bad Debt Expense",        "Expense",     "debit"),
+    ("5700", "General Expenses",        "Expense",     "debit"),
     ("5800", "Inventory Adjustment",    "Expense",     "debit"),
     ("4910", "Other Income",            "Revenue",     "credit"),
     ("5900", "Other Expense",           "Expense",     "debit"),

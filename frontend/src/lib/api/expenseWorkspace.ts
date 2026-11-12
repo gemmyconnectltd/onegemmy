@@ -10,7 +10,7 @@ export interface ExpenseRecord extends AccountingExpense {
 }
 export interface ExpenseFilters { search?: string; category?: string; payment_method?: string; status?: string; from_date?: string; to_date?: string; }
 export interface ExpensePage { items: ExpenseRecord[]; total: number; page: number; page_size: number; currency: string; summary?: { total: string; count: number; categories: {name: string; amount: string; count: number}[]; other_amount: string }; }
-export interface ExpenseCategory { id: string; name: string; description: string | null; is_active: boolean; }
+export interface ExpenseCategory { id: string; name: string; description: string | null; is_active: boolean; account_id?: string | null; account_name?: string | null; }
 export interface CategoryPage { items: ExpenseCategory[]; total: number; page: number; page_size: number; }
 export interface ExpenseDetail { record: ExpenseRecord; supplier: string | null; history: { action: string; summary: string; actor: string | null; date: string }[]; history_total: number; }
 export interface ExpenseInput { title: string; amount: string; expense_date: string; category: string; notes: string | null; payment_method: string; reference_number: string | null; supplier_id: string | null; client_reference?: string; on_credit?: boolean; allow_duplicate?: boolean; }
@@ -35,7 +35,7 @@ export const expenseWorkspaceApi = {
   runRecurring: () => request<SingleResponse<{ created: number }>>(`${base}/recurring/run`, {method: "POST"}),
   reverse: (id: string, reason: string) => request<SingleResponse<ExpenseRecord>>(`${base}/${id}/reverse`, {method: "POST", body: JSON.stringify({ reason })}),
   categories: (page: number, search: string) => request<SingleResponse<CategoryPage>>(`${base}/categories${qs({ page, search })}`),
-  saveCategory: (data: Omit<ExpenseCategory, "id">, id?: string) => request<SingleResponse<ExpenseCategory>>(`${base}/categories${id ? `/${id}` : ""}`, {method: id ? "PATCH" : "POST", body: JSON.stringify(data)}),
+  saveCategory: (data: Omit<ExpenseCategory, "id" | "account_name">, id?: string) => request<SingleResponse<ExpenseCategory>>(`${base}/categories${id ? `/${id}` : ""}`, {method: id ? "PATCH" : "POST", body: JSON.stringify(data)}),
   attach: (id: string, file: File) => { const body = new FormData(); body.append("file", file); return request<SingleResponse<{receipt_name: string}>>(`${base}/${id}/receipt`, { method: "PUT", body }); },
   receipt: (id: string, name: string) => downloadFile(`${base}/${id}/receipt`, name),
 };

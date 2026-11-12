@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.expense import Expense, ExpenseCategory
 from app.modules.accounting.repository.expense_workspace import ExpenseWorkspaceRepository
 from app.modules.accounting.repository.reporting import ReportingRepository
@@ -29,6 +30,8 @@ def category_read(obj: ExpenseCategory) -> dict[str, Any]:
         "name": obj.name,
         "description": obj.description,
         "is_active": obj.is_active,
+        "account_id": obj.account_id,
+        "account_name": f"{obj.account.code} · {obj.account.name}" if obj.account_id and obj.account else None,
     }
 
 
@@ -263,7 +266,13 @@ async def save_category(
         raise NotFoundError("Expense category not found")
     if identity and obj.name != name:
         await repo.rename_category(tenant, obj.name, name)
-    obj.name, obj.description, obj.is_active = name, data.description, data.is_active
+    if data.account_id:
+        account = await db.get(Account, data.account_id)
+        if account is None or account.tenant_id != tenant or account.type != "Expense" or not account.is_active:
+            raise ValidationError("Choose an active expense account for this category")
+        if account.code.startswith("50"):
+            raise ValidationError("Cost of goods sold accounts are posted by sales, not by expenses; choose another expense account")
+    obj.name, obj.description, obj.is_active, obj.account_id = name, data.description, data.is_active, data.account_id
     db.add(obj)
     await db.flush()
     await record_audit(
@@ -276,6 +285,7 @@ async def save_category(
         entity_id=str(obj.id),
         summary=f"Saved expense category {name}",
     )
+    await db.refresh(obj, ["account"])
     result = encoded(category_read(obj))
     await db.commit()
     return result
