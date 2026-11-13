@@ -3,9 +3,11 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload, Download, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { Upload, Download, CheckCircle2, XCircle, FileText, Loader2, AlertTriangle } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { FormFooter } from "@/components/ui/Form";
+import { Button } from "@/components/ui/Button";
+import { parseCsv, summarizeIssues, type ImportIssue } from "@/lib/importValues";
 
 // Generic bulk-import drawer shared by every "Import" flow (products,
 // customers, suppliers, expenses, orders): download an Excel template,
@@ -29,23 +31,31 @@ interface ParsedRow<T> {
   raw: Record<string, string>;
   data: T;
   valid: boolean;
-  errors: string[];
+  issues: ImportIssue[];
 }
+
+/** What an import ended with, shown in the drawer instead of closing it (e.g. products created and pictures attached). */
+export interface ImportOutcome { summary: string; problems?: { label: string; reason: string }[] }
 
 export interface CsvImportDrawerProps<T> {
   open: boolean;
   onClose: () => void;
-  /** `file` is the spreadsheet that was chosen, for imports that also need something only the file holds (pictures pasted into its rows). */
-  onSubmit: (items: T[], file?: File) => Promise<void> | void;
+  /** `file` is the spreadsheet that was chosen, for imports that also need something only the file holds (pictures pasted into its rows).
+   *  `progress` updates the status line while it runs. Return an outcome to show a final summary instead of closing. */
+  onSubmit: (items: T[], file?: File, progress?: (status: string) => void) => Promise<void | ImportOutcome> | void;
   title: string;
   /** Singular noun for the submit label, e.g. "customer" -> "Import 3 customers". */
   itemNoun: string;
   templateFilename: string;
   templateHeaders: string[];
   templateSampleRows: string[][];
+  /** Template columns written as plain numbers (General format, no thousands separator) rather than text. */
+  templateNumberColumns?: string[];
+  /** Lines for a "How to use" sheet added after the template sheet. */
+  templateHowTo?: string[];
   previewColumns: CsvPreviewColumn[];
-  /** Validates + maps one raw CSV row; return errors to mark the row invalid. */
-  parseRow: (raw: Record<string, string>) => { data: T; errors: string[] };
+  /** Validates + maps one raw row; return errors to mark the row invalid. An issue with a `column` highlights that cell. */
+  parseRow: (raw: Record<string, string>) => { data: T; errors: (string | ImportIssue)[] };
   color?: string;
 }
 
@@ -55,39 +65,60 @@ function normalizeHeader(h: string) {
   return h.trim().toLowerCase().replace(/\s+/g, "");
 }
 
-function parseCsvText(text: string): Record<string, string>[] {
-  const lines = text.trim().split("\n").filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(normalizeHeader);
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    const row: Record<string, string> = {};
-    headers.forEach((h, i) => { row[h] = values[i] ?? ""; });
-    return row;
-  });
-}
+interface Sheet { headers: string[]; rows: Record<string, string>[] }
 
-/** Reads the first sheet of an .xlsx/.xls workbook into the same
- * lowercased-header row shape the CSV parser produces, so downstream
- * validation/preview code never needs to know which format was uploaded. */
-function parseWorkbook(buffer: ArrayBuffer): Record<string, string>[] {
-  const workbook = XLSX.read(buffer, { type: "array" });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return [];
-  const grid = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, raw: false, defval: "" });
-  if (grid.length < 2) return [];
-  const headers = grid[0].map((h) => normalizeHeader(String(h ?? "")));
-  return grid.slice(1)
+function toSheet(grid: string[][]): Sheet {
+  if (grid.length < 2) return { headers: grid[0] ?? [], rows: [] };
+  const headers = grid[0].map((h) => String(h ?? "").trim());
+  const keys = headers.map(normalizeHeader);
+  const rows = grid.slice(1)
     .map((line) => {
       const row: Record<string, string> = {};
-      headers.forEach((h, i) => { row[h] = String(line[i] ?? "").trim(); });
+      keys.forEach((k, i) => { if (k) row[k] = String(line[i] ?? "").trim(); });
       return row;
     })
     .filter((row) => Object.values(row).some((v) => v !== ""));
+  return { headers, rows };
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** A cell's stored value rather than the text Excel displays, so "2,500" formatted with separators arrives as 2500,
+ *  long barcodes aren't shown in scientific notation, and dates arrive as YYYY-MM-DD whatever the display format. */
+function cellText(cell: XLSX.CellObject | undefined): string {
+  if (!cell || cell.v === undefined || cell.v === null) return "";
+  if (cell.t === "n") {
+    if (cell.z && XLSX.SSF.is_date(cell.z)) {
+      const d = XLSX.SSF.parse_date_code(cell.v as number);
+      if (d) return `${d.y}-${pad(d.m)}-${pad(d.d)}`;
+    }
+    return String(cell.v);
+  }
+  if (cell.t === "d" && cell.v instanceof Date) return `${cell.v.getFullYear()}-${pad(cell.v.getMonth() + 1)}-${pad(cell.v.getDate())}`;
+  if (cell.t === "s") return String(cell.v);
+  return cell.w ?? String(cell.v);
+}
+
+/** Reads the first sheet of an .xlsx/.xls workbook into the same lowercased-header row shape the CSV parser produces,
+ *  so downstream validation/preview code never needs to know which format was uploaded. */
+function parseWorkbook(buffer: ArrayBuffer): Sheet {
+  const workbook = XLSX.read(buffer, { type: "array", cellNF: true });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet?.["!ref"]) return { headers: [], rows: [] };
+  const range = XLSX.utils.decode_range(sheet["!ref"]);
+  const grid: string[][] = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const line: string[] = [];
+    for (let c = range.s.c; c <= range.e.c; c++) line.push(cellText(sheet[XLSX.utils.encode_cell({ r, c })]).trim());
+    grid.push(line);
+  }
+  return toSheet(grid.filter((line) => line.some((v) => v !== "")));
+}
+
+const asIssue = (e: string | ImportIssue): ImportIssue => (typeof e === "string" ? { message: e } : e);
+
 export function CsvImportDrawer<T>({
-  open, onClose, onSubmit, title, itemNoun, templateFilename, templateHeaders, templateSampleRows, previewColumns, parseRow, color,
+  open, onClose, onSubmit, title, itemNoun, templateFilename, templateHeaders, templateSampleRows, templateNumberColumns, templateHowTo, previewColumns, parseRow, color,
 }: CsvImportDrawerProps<T>) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<ParsedRow<T>[] | null>(null);
@@ -95,10 +126,17 @@ export function CsvImportDrawer<T>({
   const [chosenFile, setChosenFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [status, setStatus] = useState("");
+  const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
+  const [failure, setFailure] = useState("");
 
   if (!open) return null;
 
   const validRows = rows?.filter((r) => r.valid) ?? [];
+  const invalidRows = rows?.filter((r) => !r.valid) ?? [];
+  const common = summarizeIssues(invalidRows.map((r) => r.issues));
+  const commonText = common.map((c) => `${c.rows} row${c.rows === 1 ? "" : "s"}: ${c.label}`).join(" · ");
 
   const handleFile = (file: File) => {
     setFileName(file.name);
@@ -106,12 +144,18 @@ export function CsvImportDrawer<T>({
     const isCsv = /\.csv$/i.test(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const raws = isCsv
-        ? parseCsvText(e.target?.result as string)
-        : parseWorkbook(e.target?.result as ArrayBuffer);
-      setRows(raws.map((raw) => {
+      let sheet: Sheet;
+      try {
+        sheet = isCsv ? toSheet(parseCsv(e.target?.result as string)) : parseWorkbook(e.target?.result as ArrayBuffer);
+      } catch {
+        setFailure("This file could not be read. Save it as .xlsx or .csv and try again."); setRows([]); return;
+      }
+      setFailure(""); setOutcome(null);
+      setHeaders(sheet.headers);
+      setRows(sheet.rows.map((raw) => {
         const { data, errors } = parseRow(raw);
-        return { raw, data, valid: errors.length === 0, errors };
+        const issues = errors.map(asIssue);
+        return { raw, data, valid: issues.length === 0, issues };
       }));
     };
     if (isCsv) reader.readAsText(file);
@@ -127,20 +171,42 @@ export function CsvImportDrawer<T>({
 
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([templateHeaders, ...templateSampleRows]);
+    const numeric = new Set((templateNumberColumns ?? []).map(normalizeHeader));
+    // Amount columns are real numbers in General format: no thousands separator, so nothing arrives as text.
+    const sample = templateSampleRows.map((line) => line.map((v, i) => (numeric.has(normalizeHeader(templateHeaders[i] ?? "")) && v !== "" && !isNaN(Number(v)) ? Number(v) : v)));
+    const ws = XLSX.utils.aoa_to_sheet([templateHeaders, ...sample]);
+    for (const [address, cell] of Object.entries(ws)) if (!address.startsWith("!") && (cell as XLSX.CellObject).t === "n") (cell as XLSX.CellObject).z = "General";
+    ws["!cols"] = templateHeaders.map((h) => ({ wch: Math.max(12, h.length + 2) }));
     XLSX.utils.book_append_sheet(wb, ws, "Template");
+    if (templateHowTo?.length) {
+      const how = XLSX.utils.aoa_to_sheet(templateHowTo.map((line) => [line]));
+      how["!cols"] = [{ wch: 110 }];
+      XLSX.utils.book_append_sheet(wb, how, "How to use");
+    }
     XLSX.writeFile(wb, templateFilename);
+  };
+
+  /** The rows that can't be imported, as they were in the file plus an "Error" column, to fix and upload again. */
+  const downloadErrors = () => {
+    const keys = headers.map(normalizeHeader);
+    const lines = invalidRows.map((r) => [...keys.map((k) => r.raw[k] ?? ""), r.issues.map((i) => i.message).join("; ")]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[...headers, "Error"], ...lines]), "Errors");
+    XLSX.writeFile(wb, `${(fileName.replace(/\.[^.]+$/, "") || templateFilename.replace(/\.[^.]+$/, ""))} - errors.xlsx`);
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validRows.length || submitting) return;
-    setSubmitting(true);
+    setSubmitting(true); setFailure(""); setStatus("");
     try {
-      await onSubmit(validRows.map((r) => r.data), chosenFile ?? undefined);
-      onClose();
+      const result = await onSubmit(validRows.map((r) => r.data), chosenFile ?? undefined, setStatus);
+      if (result) setOutcome(result);
+      else onClose();
+    } catch (cause) {
+      setFailure((cause as { detail?: string; message?: string })?.detail ?? (cause as { message?: string })?.message ?? "The import failed. Nothing was saved; please try again.");
     } finally {
-      setSubmitting(false);
+      setSubmitting(false); setStatus("");
     }
   };
 
@@ -149,13 +215,15 @@ export function CsvImportDrawer<T>({
       open
       onClose={onClose}
       title={title}
-      description={rows ? `${validRows.length} valid · ${rows.length - validRows.length} errors` : "Upload an Excel or CSV file"}
+      description={outcome ? "Import finished" : rows ? `${validRows.length} valid · ${invalidRows.length} errors${commonText ? ` · ${commonText}` : ""}` : "Upload an Excel or CSV file"}
       size="lg"
       footer={
-        rows && (
+        outcome ? (
+          <div className="flex justify-end"><Button onClick={onClose}>Done</Button></div>
+        ) : rows && (
           <form onSubmit={submit}>
             <FormFooter
-              submitLabel={submitting ? "Importing…" : `Import ${validRows.length} ${itemNoun}${validRows.length !== 1 ? "s" : ""}`}
+              submitLabel={submitting ? (status || "Importing…") : `Import ${validRows.length} ${itemNoun}${validRows.length !== 1 ? "s" : ""}`}
               onCancel={onClose}
               disabled={validRows.length === 0 || submitting}
               color={color}
@@ -165,6 +233,22 @@ export function CsvImportDrawer<T>({
       }
     >
       <div className="p-5 space-y-4">
+        {outcome && (
+          <div className="space-y-3" role="status">
+            <p className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5 text-sm font-medium text-foreground"><CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" aria-hidden />{outcome.summary}</p>
+            {!!outcome.problems?.length && (
+              <div className="rounded-lg border border-border">
+                <p className="border-b border-border px-3 py-2 text-xs font-semibold text-muted">Needs a look ({outcome.problems.length})</p>
+                <ul className="max-h-72 divide-y divide-border overflow-auto text-sm">{outcome.problems.map((p, i) => <li key={`${p.label}${i}`} className="flex flex-wrap justify-between gap-2 px-3 py-2"><span className="break-all font-medium">{p.label}</span><span className="text-muted">{p.reason}</span></li>)}</ul>
+              </div>
+            )}
+          </div>
+        )}
+        {submitting && (
+          <p role="status" aria-live="polite" className="flex items-center gap-2 rounded-lg border border-border bg-surface/50 px-3 py-2.5 text-sm font-medium text-foreground"><Loader2 size={15} className="animate-spin text-muted" aria-hidden />{status || "Importing…"}</p>
+        )}
+        {failure && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400">{failure}</p>}
+        {!outcome && <>
         {!rows && (
           <div className="border border-border rounded-lg p-4">
             <p className="text-sm font-semibold text-foreground mb-1">Fields you&apos;ll need</p>
@@ -230,11 +314,20 @@ export function CsvImportDrawer<T>({
 
         {rows && rows.length > 0 && (
           <div className="border border-border rounded-lg overflow-hidden">
-            <div className="px-4 py-2.5 bg-surface/50 border-b border-border flex items-center justify-between">
+            <div className="px-4 py-2.5 bg-surface/50 border-b border-border flex items-center justify-between gap-3">
               <span className="text-xs font-semibold text-foreground">Preview — {rows.length} rows</span>
-              <button type="button" onClick={() => { setRows(null); setFileName(""); }} className="text-xs text-muted hover:text-foreground">Clear</button>
+              <button type="button" onClick={() => { setRows(null); setFileName(""); setHeaders([]); }} className="text-xs text-muted hover:text-foreground">Clear</button>
             </div>
-            <div className="overflow-x-auto max-h-64">
+            {invalidRows.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-red-100 bg-red-50 px-4 py-2.5 dark:border-red-900 dark:bg-red-950/30">
+                <div className="min-w-0 text-xs text-red-700 dark:text-red-400">
+                  <p className="flex items-center gap-1.5 font-semibold"><AlertTriangle size={13} aria-hidden />{invalidRows.length} row{invalidRows.length === 1 ? "" : "s"} can&apos;t be imported and will be skipped</p>
+                  <ul className="mt-1 space-y-0.5">{common.map((c) => <li key={c.label}>{c.rows} row{c.rows === 1 ? "" : "s"}: {c.label}</li>)}</ul>
+                </div>
+                <Button type="button" size="sm" variant="secondary" onClick={downloadErrors}><Download size={13} aria-hidden />Download error report</Button>
+              </div>
+            )}
+            <div className="overflow-x-auto max-h-96">
               <TableScroll><table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-surface/30 text-left">
@@ -247,39 +340,51 @@ export function CsvImportDrawer<T>({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {rows.map((row, i) => (
-                    <tr key={i} className={row.valid ? "bg-white dark:bg-transparent" : "bg-red-50 dark:bg-red-950/30"}>
-                      <td className="px-3 py-2">
-                        {row.valid
-                          ? <CheckCircle2 size={13} className="text-emerald-500" />
-                          : <XCircle size={13} className="text-red-500" />}
-                      </td>
-                      {previewColumns.map((c, ci) => (
-                        <td key={c.key} className={`px-3 py-2 ${c.align === "right" ? "text-right" : ""} ${ci === 0 ? "font-medium text-foreground" : "text-muted"}`}>
-                          {row.raw[c.key] || <span className="text-red-400">—</span>}
+                  {rows.map((row, i) => {
+                    const messages = row.issues.map((x) => x.message);
+                    const byColumn = new Map<string, string[]>();
+                    for (const x of row.issues) if (x.column) byColumn.set(x.column, [...(byColumn.get(x.column) ?? []), x.message]);
+                    return [
+                      <tr key={`r${i}`} className={row.valid ? "bg-white dark:bg-transparent" : "bg-red-50/60 dark:bg-red-950/20"}>
+                        <td className="px-3 py-2">
+                          {row.valid
+                            ? <CheckCircle2 size={13} className="text-emerald-500" aria-label="Ready to import" />
+                            : <span title={messages.join("\n")} role="img" aria-label={`Row ${i + 2} errors: ${messages.join("; ")}`}><XCircle size={13} className="text-red-500" aria-hidden /></span>}
                         </td>
-                      ))}
-                    </tr>
-                  ))}
+                        {previewColumns.map((c, ci) => {
+                          const bad = byColumn.get(c.key);
+                          return (
+                            <td key={c.key} title={bad?.join("\n")} className={`whitespace-nowrap px-3 py-2 ${c.align === "right" ? "text-right" : ""} ${bad ? "bg-red-100 font-semibold text-red-700 ring-1 ring-inset ring-red-300 dark:bg-red-950/60 dark:text-red-300 dark:ring-red-800" : ci === 0 ? "font-medium text-foreground" : "text-muted"}`}>
+                              {row.raw[c.key] || <span className="text-red-400">—</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>,
+                      !row.valid && (
+                        <tr key={`e${i}`} className="bg-red-50/60 dark:bg-red-950/20">
+                          <td />
+                          <td colSpan={previewColumns.length} className="px-3 pb-2 pt-0">
+                            <ul className="sticky left-3 max-w-[calc(100vw-5rem)] space-y-0.5 text-[11px] text-red-700 sm:max-w-[340px] dark:text-red-400">
+                              {messages.map((m) => <li key={m}><span className="font-semibold">Row {i + 2}:</span> {m}</li>)}
+                            </ul>
+                          </td>
+                        </tr>
+                      ),
+                    ];
+                  })}
                 </tbody>
               </table></TableScroll>
             </div>
-            {rows.some((r) => !r.valid) && (
-              <div className="px-4 py-2.5 bg-red-50 dark:bg-red-950/30 border-t border-red-100 dark:border-red-900">
-                <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                  {rows.filter((r) => !r.valid).length} row(s) have errors and will be skipped on import.
-                </p>
-              </div>
-            )}
           </div>
         )}
 
-        {rows && rows.length === 0 && (
+        {rows && rows.length === 0 && !failure && (
           <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg">
             <FileText size={14} className="text-amber-500" />
             <p className="text-xs text-amber-700 font-medium">No rows found. Make sure the file has a header row and data rows.</p>
           </div>
         )}
+        </>}
       </div>
     </Drawer>
   );

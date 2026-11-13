@@ -4,7 +4,8 @@ import { useState, useRef } from "react";
 import { XCircle, ImagePlus, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { CsvImportDrawer, type ImportOutcome } from "@/components/ui/CsvImportDrawer";
+import { checkProductRow } from "@/lib/importValues";
 import { useCategories, useBrands, useUnits, useProductVatSummary } from "@/lib/api/hooks";
 import { PRODUCT_VAT_OPTIONS, type ProductVatTreatment } from "@/lib/api/inventory";
 import { resolveUploadUrl } from "@/lib/api/client";
@@ -53,7 +54,7 @@ interface ProductFormDrawerProps {
   onClose: () => void;
   initial?: ProductFormValues | null;
   onSubmit: (values: ProductFormValues, imageFile?: File) => Promise<void>;
-  onBulkSubmit?: (values: ProductBulkRow[], file?: File) => void | Promise<void>;
+  onBulkSubmit?: (values: ProductBulkRow[], file?: File, progress?: (status: string) => void) => void | Promise<void | ImportOutcome>;
   color?: string;
 }
 
@@ -306,40 +307,48 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
 
 // ── Bulk import (Excel or CSV) ────────────────────────────────────────────────
 
-function parseProductRow(row: Record<string, string>): { data: ProductBulkRow; errors: string[] } {
-  const errors: string[] = [];
-  if (!row.name) errors.push("name required");
-  if (!row.price || isNaN(Number(row.price))) errors.push("invalid price");
-  if (!row.cost || isNaN(Number(row.cost))) errors.push("invalid cost");
-  if (row.stock === undefined || isNaN(Number(row.stock))) errors.push("invalid stock");
-  if (row.minstock === undefined || isNaN(Number(row.minstock))) errors.push("invalid minStock");
-  if (row.expirydate && isNaN(new Date(row.expirydate).getTime())) errors.push("invalid expiryDate");
-  if (row.manufactureddate && isNaN(new Date(row.manufactureddate).getTime())) errors.push("invalid manufacturedDate");
-  if (row.imageurl?.trim() && !/^https:\/\//i.test(row.imageurl.trim())) errors.push("picture link must start with https://");
-  // normalise minstock → minStock for parseForm()
-  const normalised = row.minstock !== undefined ? { ...row, minStock: row.minstock } : row;
+function parseProductRow(row: Record<string, string>) {
+  // Amounts typed with separators or a currency ("2,500", "RWF 5,000") count as numbers; each problem names its column and value.
+  const { price, cost, stock, minStock, issues } = checkProductRow(row);
+  const base = parseForm({ ...row, name: row.name ?? "", price: "0", cost: "0", stock: "0", minStock: "0" });
   return {
     data: {
-      ...parseForm(normalised),
+      ...base,
+      price, cost, stock, minStock,
       batchNumber: row.batchnumber?.trim() ?? "",
       expiryDate: row.expirydate?.trim() ?? "",
       manufacturedDate: row.manufactureddate?.trim() ?? "",
       imageUrl: row.imageurl?.trim() ?? "",
     },
-    errors,
+    errors: issues,
   };
 }
 
-function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: (v: ProductBulkRow[], file?: File) => void | Promise<void>; color?: string }) {
+const PRODUCT_TEMPLATE_HOW_TO = [
+  "How to import products",
+  "",
+  "1. Fill one product per row on the Template sheet (the first sheet). Keep the heading row.",
+  "2. Required: name, cost, price, stock, minStock. Everything else is optional.",
+  "3. cost, price, stock and minStock are plain numbers. 2500, 2,500 and RWF 2,500 are all read as 2500. Don't use negative numbers.",
+  "4. Dates (expiryDate, manufacturedDate) are written YYYY-MM-DD, for example 2026-04-01. Excel date cells also work.",
+  "5. Pictures: paste each picture over its product's row. The leftmost picture becomes the main picture, the others extra pictures.",
+  "   Products and their pictures are imported together in one step. Pictures can be JPEG, PNG or WebP, up to 5MB each.",
+  "6. imageUrl is optional: a picture link starting with https://.",
+  "7. Upload the file on Inventory > Products > Import. Rows with problems are listed with the reason; download the error report, fix them and upload again.",
+];
+
+function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: NonNullable<ProductFormDrawerProps["onBulkSubmit"]>; color?: string }) {
   return (
     <CsvImportDrawer<ProductBulkRow>
       open
       onClose={onClose}
-      onSubmit={async (items, file) => onBulkSubmit(items, file)}
+      onSubmit={async (items, file, progress) => onBulkSubmit(items, file, progress)}
       title="Import Products"
       itemNoun="product"
       templateFilename="products_template.xlsx"
       templateHeaders={CSV_HEADERS}
+      templateNumberColumns={["cost", "price", "stock", "minStock"]}
+      templateHowTo={PRODUCT_TEMPLATE_HOW_TO}
       templateSampleRows={[
         ["Phone Case - iPhone", "PC-001", "Accessories", "Generic", "Piece", "2500", "5000", "45", "10", "", "", "", "", "", "https://example.com/pictures/pc-001.jpg"],
         ["Amoxicillin 500mg", "AMX-500", "Antibiotics", "GSK", "Box", "8000", "12000", "60", "10", "LOT-2026-04", "2026-04-01", "2025-10-01", "", "", ""],

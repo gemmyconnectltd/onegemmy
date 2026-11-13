@@ -26,9 +26,10 @@ import { RestockDrawer, type RestockValues } from "@/components/inventory/Restoc
 import { ProductActionsMenu } from "@/components/inventory/ProductActionsMenu";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
-import { type ApiProduct, type PictureImportResult } from "@/lib/api";
+import { type ApiProduct } from "@/lib/api";
+import type { ImportOutcome } from "@/components/ui/CsvImportDrawer";
 import { ImportPicturesDrawer } from "@/components/inventory/ImportPicturesDrawer";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate } from "@/lib/api/hooks";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useImportProductPictures, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -119,7 +120,6 @@ function ProductsContent() {
   const [editing, setEditing] = useState<ApiProduct | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [picturesOpen, setPicturesOpen] = useState(false);
-  const [pictureResult, setPictureResult] = useState<PictureImportResult | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiProduct | null>(null);
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
   const [requestTarget, setRequestTarget] = useState<ApiProduct | null>(null);
@@ -184,8 +184,11 @@ function ProductsContent() {
     }
   };
 
-  const handleBulkSubmit = async (items: ProductBulkRow[], file?: File) => {
-    await bulkCreateProducts.mutateAsync(items.map((v) => ({
+  const importPictures = useImportProductPictures();
+  const handleBulkSubmit = async (items: ProductBulkRow[], file?: File, progress?: (status: string) => void): Promise<ImportOutcome> => {
+    const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+    progress?.(`Importing ${plural(items.length, "product")}…`);
+    const created = (await bulkCreateProducts.mutateAsync(items.map((v) => ({
       name: v.name, sku: v.sku || null,
       barcode: v.barcode || null, subcategory: v.subcategory || null,
       category_id: v.category_id && !v.category_id.startsWith("__fb") ? v.category_id : null,
@@ -196,13 +199,27 @@ function ProductsContent() {
       expiry_date: v.expiryDate || null,
       manufactured_date: v.manufacturedDate || null,
       image_url: v.imageUrl || null,
-    })));
+    })))).data;
+    const problems: { label: string; reason: string }[] = (created.errors ?? []).map((reason) => ({ label: "Product", reason }));
+    let summary = `${plural(created.created, "product")} imported${created.failed ? `, ${created.failed} not imported` : ""}`;
     // Pictures pasted into the Excel sheet travel in the file itself, so the same file is read again for them now that the products exist.
     // A sheet without pictures is normal, and a problem with the pictures must never undo the products that were just created.
-    if (file && /\.xlsx$/i.test(file.name)) {
-      try { setPictureResult((await inventoryApi.importProductPictures(file)).data); }
-      catch (e) { if (!/No pictures were found/i.test((e as { message?: string; detail?: string })?.message ?? (e as { detail?: string })?.detail ?? "")) setPictureResult({ matched: 0, skipped: 1, pictures: [], problems: [{ file: "Pictures", reason: (e as { message?: string })?.message ?? "The pictures in the sheet could not be read" }] }); }
+    if (file && /\.xlsx$/i.test(file.name) && created.created > 0) {
+      const count = await countWorkbookPictures(file);
+      if (count !== 0) {
+        progress?.(count ? `Products imported. Attaching ${plural(count, "picture")}…` : "Products imported. Attaching pictures…");
+        try {
+          const pictures = (await importPictures.mutateAsync(file)).data;
+          const attached = pictures.total_pictures ?? pictures.matched;
+          summary += `, ${plural(attached, "picture")} attached${pictures.extra_pictures ? ` (${pictures.extra_pictures} extra)` : ""}`;
+          problems.push(...pictures.problems.map((p) => ({ label: p.file, reason: p.reason })));
+        } catch (e) {
+          const reason = (e as { detail?: string; message?: string })?.detail ?? (e as { message?: string })?.message ?? "The pictures in the sheet could not be read";
+          if (!/No pictures were found/i.test(reason)) { summary += ", pictures not attached"; problems.push({ label: "Pictures", reason }); }
+        }
+      }
     }
+    return { summary: `${summary}.`, problems };
   };
 
   const handleRestock = async (v: RestockValues) => {
@@ -428,7 +445,6 @@ function ProductsContent() {
       </div>
 
       {picturesOpen && <ImportPicturesDrawer onClose={() => setPicturesOpen(false)} />}
-      {pictureResult && <ImportPicturesDrawer initialResult={pictureResult} onClose={() => setPictureResult(null)} />}
       <ProductFormDrawer
         key={formKey}
         open={showForm}
@@ -486,6 +502,15 @@ function ProductsContent() {
       </Drawer>
     </div>
   );
+}
+
+/** How many pictures are pasted into an .xlsx (it is a ZIP; pictures live in xl/media). null when it can't be told. */
+async function countWorkbookPictures(file: File): Promise<number | null> {
+  try {
+    const XLSX = await import("xlsx");
+    const zip = XLSX.CFB.read(new Uint8Array(await file.arrayBuffer()), { type: "array" }) as { FullPaths: string[] };
+    return zip.FullPaths.filter((p) => /(^|\/)xl\/media\/[^/]+$/i.test(p)).length;
+  } catch { return null; }
 }
 
 export default function ProductsPage() { return <Suspense fallback={<PageLoader variant="page"/>}><ProductsContent/></Suspense>; }

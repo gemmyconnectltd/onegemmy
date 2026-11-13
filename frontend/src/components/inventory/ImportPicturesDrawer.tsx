@@ -29,7 +29,7 @@ export function ImportPicturesDrawer({ onClose, initialResult = null }: { onClos
           <li>Put the pictures in one ZIP file (JPEG, PNG or WebP, up to 5MB each, up to 300 pictures).</li>
           <li>Choose the ZIP below. Pictures that match replace the product&apos;s main picture; the rest are listed with the reason.</li>
         </ol>
-        <p className="rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-muted"><strong className="text-foreground">Pictures pasted into your Excel sheet?</strong> Import the products first, then choose the same <code>.xlsx</code> file here. Each picture goes to the product on its row: the first (leftmost) picture is the main one and any others become extra pictures.</p>
+        <p className="rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-muted"><strong className="text-foreground">Pictures pasted into your Excel sheet?</strong> They are attached automatically when you import the products with <strong className="text-foreground">Import</strong>. Use this to add pictures later: choose the same <code>.xlsx</code> file, and each picture goes to the product on its row (the leftmost is the main picture, any others become extra pictures).</p>
         <FormErrorSummary errors={error} />
         <input ref={input} type="file" accept=".zip,.xlsx,application/zip,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" aria-label="ZIP or Excel file with pictures" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }} />
         <div className="flex flex-wrap items-center gap-2">
