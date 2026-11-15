@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { CsvImportDrawer, bulkOutcome } from "@/components/ui/CsvImportDrawer";
+import type { ImportIssue } from "@/lib/importValues";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
@@ -30,16 +31,15 @@ interface SupplierImportRow {
   address: string | null;
 }
 
-function parseSupplierRow(raw: Record<string, string>): { data: SupplierImportRow; errors: string[] } {
-  const errors: string[] = [];
-  if (!raw.name) errors.push("name required");
+function parseSupplierRow(raw: Record<string, string>): { data: SupplierImportRow; errors: ImportIssue[] } {
+  const errors: ImportIssue[] = [];
+  const name = raw.name?.trim() ?? "", email = raw.email?.trim() ?? "", phone = raw.phone?.trim() ?? "";
+  if (!name) errors.push({ column: "name", message: "Name is required", summary: "missing Name" });
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push({ column: "email", message: `Email '${email}' isn't a valid address`, summary: "invalid Email" });
+  const digits = phone.replace(/\D/g, "");
+  if (phone && (digits.length < 7 || digits.length > 15 || /[a-z]/i.test(phone))) errors.push({ column: "phone", message: `Phone '${phone}' isn't a phone number`, summary: "invalid Phone" });
   return {
-    data: {
-      name: raw.name?.trim() ?? "",
-      email: raw.email?.trim() || null,
-      phone: raw.phone?.trim() || null,
-      address: raw.address?.trim() || null,
-    },
+    data: { name, email: email || null, phone: phone || null, address: raw.address?.trim() || null },
     errors,
   };
 }
@@ -261,7 +261,8 @@ export function SuppliersManager() {
       <CsvImportDrawer<SupplierImportRow>
         open={showImport}
         onClose={() => setShowImport(false)}
-        onSubmit={async (items) => { await bulkCreateSuppliers.mutateAsync(items); }}
+        onSubmit={async (items) => bulkOutcome("supplier", (await bulkCreateSuppliers.mutateAsync(items)).data)}
+        module="suppliers"
         title="Import Suppliers"
         itemNoun="supplier"
         templateFilename="suppliers_template.xlsx"
@@ -271,8 +272,8 @@ export function SuppliersManager() {
           ["Anker Distribution", "sales@anker.com", "+250 788 333 444", "Nyarugenge"],
         ]}
         previewColumns={[
-          { key: "name", label: "Name", required: true },
-          { key: "email", label: "Email" },
+          { key: "name", label: "Name", required: true, unique: true },
+          { key: "email", label: "Email", unique: true },
           { key: "phone", label: "Phone" },
           { key: "address", label: "Address" },
         ]}

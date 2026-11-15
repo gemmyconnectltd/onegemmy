@@ -19,6 +19,10 @@ export type Product = {
   image_url?: string | null;
   sku?: string | null;
   barcode?: string | null;
+  /** Shown on the till so similar products (same name, other size or brand) aren't confused. */
+  brand?: string | null;
+  unit?: string | null;
+  subcategory?: string | null;
   has_variants?: boolean;
   variants?: Variant[];
 };
@@ -49,6 +53,8 @@ export type CartItem = {
   image_url?: string | null;
   sku?: string | null;
   variant_attributes?: Record<string, string> | null;
+  /** Brand and unit of the product, shown under the line so the cashier sees exactly which product was added. */
+  details?: string | null;
 };
 
 export type HeldOrder = {

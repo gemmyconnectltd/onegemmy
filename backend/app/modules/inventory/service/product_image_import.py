@@ -136,30 +136,27 @@ async def _find_product(db: AsyncSession, tenant_id: uuid.UUID, sku: str, barcod
     return None, "No product matches this row's SKU, barcode or name"
 
 
-async def import_workbook_pictures(db: AsyncSession, tenant_id: uuid.UUID, content: bytes) -> dict:
-    """Pictures pasted into the rows of an Excel product sheet. Each row's first picture becomes the product's main picture and any others
-    become its extra pictures. The row's product is found by SKU, then barcode, then name, so import the products first, then the same file."""
+def _sheet_pictures(content: bytes) -> dict[int, list]:
+    """{sheet row: pictures on it}, without the header row (a logo there belongs to no product)."""
     try:
         found, _ = xlsx_pictures.extract(content)
     except xlsx_pictures.NotAWorkbook as exc:
         raise ValidationError(str(exc)) from exc
-    pictures = [p for p in found if p.row > 1]  # a picture on the header row (a logo) belongs to no product
-    if not pictures:
-        raise ValidationError("No pictures were found in the first sheet. Paste each picture over the row of its product, or use a ZIP named by SKU.")
-    columns, rows = _sheet_rows(content)
-    if not columns:
-        raise ValidationError("The first row must have headings such as name, sku or barcode, so each picture can be matched to its product.")
     by_row: dict[int, list] = {}
-    for picture in pictures[:MAX_PICTURES]:
+    for picture in [p for p in found if p.row > 1][:MAX_PICTURES]:
         by_row.setdefault(picture.row, []).append(picture)
+    return by_row
 
+
+async def _attach_rows(db: AsyncSession, tenant_id: uuid.UUID, by_row: dict[int, list], resolve) -> dict:
+    """Each row's first usable picture becomes its product's main picture, the others extra pictures. `resolve(row)` gives (product, why not)."""
     attached, problems, total, extras = [], [], 0, 0
     for row in sorted(by_row):
         label = f"Row {row}"
-        values = rows.get(row, [])
-        product, why = await _find_product(db, tenant_id, _cell(values, columns, "sku"), _cell(values, columns, "barcode"), _cell(values, columns, "name"))
+        product, why = await resolve(row)
         if product is None:
-            problems.append({"file": label, "reason": why})
+            if why:
+                problems.append({"file": label, "reason": why})
             continue
         usable = [p for p in by_row[row] if p.data]
         for bad in (p for p in by_row[row] if not p.data):
@@ -185,3 +182,33 @@ async def import_workbook_pictures(db: AsyncSession, tenant_id: uuid.UUID, conte
         attached.append({"file": label, "product": product.name, "sku": product.sku, "count": count})
     await db.commit()
     return {"source": "excel", "matched": len(attached), "skipped": len(problems), "pictures": attached, "problems": problems, "total_pictures": total, "extra_pictures": extras}
+
+
+async def import_workbook_pictures(db: AsyncSession, tenant_id: uuid.UUID, content: bytes) -> dict:
+    """Pictures pasted into the rows of an Excel product sheet. The row's product is found by SKU, then barcode, then name,
+    so import the products first, then the same file."""
+    by_row = _sheet_pictures(content)
+    if not by_row:
+        raise ValidationError("No pictures were found in the first sheet. Paste each picture over the row of its product, or use a ZIP named by SKU.")
+    columns, rows = _sheet_rows(content)
+    if not columns:
+        raise ValidationError("The first row must have headings such as name, sku or barcode, so each picture can be matched to its product.")
+
+    async def resolve(row: int):
+        values = rows.get(row, [])
+        return await _find_product(db, tenant_id, _cell(values, columns, "sku"), _cell(values, columns, "barcode"), _cell(values, columns, "name"))
+    return await _attach_rows(db, tenant_id, by_row, resolve)
+
+
+async def attach_sheet_pictures(db: AsyncSession, tenant_id: uuid.UUID, content: bytes, products_by_row: dict[int, uuid.UUID]) -> dict:
+    """Pictures pasted into an import sheet, attached to the products just created from those rows ({sheet row: product id}).
+    Matching by the row itself, not by names in the file, keeps pictures right after rows were corrected during review.
+    Rows not listed (their picture was removed or replaced in review, or the row was not imported) are left alone."""
+    by_row = {row: pictures for row, pictures in _sheet_pictures(content).items() if row in products_by_row}
+    ids = set(products_by_row.values())
+    found = {p.id: p for p in (await db.execute(select(Product).where(Product.tenant_id == tenant_id, Product.id.in_(ids)))).unique().scalars().all()} if ids else {}
+
+    async def resolve(row: int):
+        product = found.get(products_by_row[row])
+        return (product, None) if product else (None, "The product for this row was not found")
+    return await _attach_rows(db, tenant_id, by_row, resolve)

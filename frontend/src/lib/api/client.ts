@@ -124,7 +124,7 @@ async function tryRefreshToken(): Promise<string | null> {
 // expired flow below (that flow assumes an existing session went stale).
 const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/change-password"];
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const token = getStoredToken();
   const activeBranchId = getActiveBranchId();
   const headers: Record<string, string> = {
@@ -134,7 +134,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
 
-  const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers }, REQUEST_TIMEOUT_MS);
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers }, timeoutMs);
 
   // Auto-refresh on 401
   if (res.status === 401 && !PUBLIC_AUTH_PATHS.some((p) => path.startsWith(p))) {
@@ -142,7 +142,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     if (newToken) {
       // Retry original request with new token
       const retryHeaders = { ...headers, "Authorization": `Bearer ${newToken}` };
-      const retryRes = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers: retryHeaders }, REQUEST_TIMEOUT_MS);
+      const retryRes = await fetchWithTimeout(`${API_BASE}${path}`, { ...options, headers: retryHeaders }, timeoutMs);
       if (retryRes.ok) return retryRes.json();
     }
     // Refresh failed — session expired

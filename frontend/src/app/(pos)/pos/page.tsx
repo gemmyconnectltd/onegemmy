@@ -40,6 +40,9 @@ function apiToProduct(p: ApiProduct): Product {
     image_url: p.image_url,
     sku: p.sku,
     barcode: p.barcode,
+    brand: p.brand?.name ?? null,
+    unit: p.unit ? (p.unit.abbreviation || p.unit.name) : null,
+    subcategory: p.subcategory ?? null,
     has_variants: p.has_variants && (p.variants?.length ?? 0) > 0,
     variants: p.variants?.map((v) => ({
       id: v.id,
@@ -172,7 +175,7 @@ export default function POSPage() {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === p.id);
       if (existing) return prev.map((i) => i.id === p.id ? { ...i, qty: Math.min(p.stock, i.qty + 1) } : i);
-      return [...prev, { id: p.id, product_id: p.id, variant_id: null, name: p.name, price: Number(pricesByProduct[p.id]?.original_unit_price ?? p.price), cost: p.cost, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null }];
+      return [...prev, { id: p.id, product_id: p.id, variant_id: null, name: p.name, price: Number(pricesByProduct[p.id]?.original_unit_price ?? p.price), cost: p.cost, qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url, sku: p.sku, variant_attributes: null, details: [p.brand, p.unit].filter(Boolean).join(" · ") || null }];
     });
     setCashGiven("");
     setBumpId(p.id);
@@ -188,7 +191,7 @@ export default function POSPage() {
       return [...prev, {
         id, product_id: p.id, variant_id: v.id, name: p.name, price: Number(pricesByVariant[v.id]?.original_unit_price ?? v.price), cost: v.cost,
         qty: 1, emoji: p.emoji, discount: 0, image_url: p.image_url,
-        sku: v.sku ?? p.sku, variant_attributes: v.attributes,
+        sku: v.sku ?? p.sku, variant_attributes: v.attributes, details: [p.brand, p.unit].filter(Boolean).join(" · ") || null,
       }];
     });
     setCashGiven("");

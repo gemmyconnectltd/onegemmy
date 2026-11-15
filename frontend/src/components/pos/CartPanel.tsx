@@ -256,10 +256,15 @@ export function CartPanel({
                       <p className="min-w-0 line-clamp-2 break-words text-[12.5px] font-semibold leading-tight text-foreground" title={item.name}>{item.name}{vatNote && <span className="ml-1.5 inline-flex rounded-md bg-surface px-1.5 py-px align-middle text-[10px] font-semibold text-muted ring-1 ring-border" title={`VAT: ${vatNote}`}>{vatNote}</span>}</p>
                       <span className="shrink-0 font-mono text-[12.5px] font-bold tabular-nums text-foreground">{currencySymbol} {fmt(lineTotal)}</span>
                     </div>
+                    {(item.details || variant || (item.sku && !/^PRD-[0-9A-F]{32}$/i.test(item.sku))) && (
+                      <p className="truncate text-[10.5px] text-muted" title={[item.details, variant, item.sku].filter(Boolean).join(" · ")}>
+                        {[item.details, variant].filter(Boolean).join(" · ")}{item.sku && !/^PRD-[0-9A-F]{32}$/i.test(item.sku) ? <span className="font-mono">{item.details || variant ? " · " : ""}{item.sku}</span> : null}
+                      </p>
+                    )}
                     {appliedDiscount > 0 && <div className="flex flex-wrap items-center gap-2 text-xs"><s className="text-muted">{currencySymbol} {fmt(item.price * item.qty)}</s><span className="text-accent">{priced?.rules.map(rule => rule.name).join(" · ") || "Manual discount"}</span></div>}
                     {/* Line 2: unit price, the stepper and remove */}
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      {onUpdatePrice ? <UnitPriceEditor key={`${item.id}:${item.price}:${item.cost ?? 0}`} item={item} currencySymbol={currencySymbol} fmt={fmt} disabled={priceEditingDisabled} onCommit={price => onUpdatePrice(item.id, price)} /> : <p className="min-w-0 truncate font-mono text-[10.5px] text-muted">{currencySymbol} {fmt(item.price)}{variant ? ` · ${variant}` : ""}</p>}
+                      {onUpdatePrice ? <UnitPriceEditor key={`${item.id}:${item.price}:${item.cost ?? 0}`} item={item} currencySymbol={currencySymbol} fmt={fmt} disabled={priceEditingDisabled} onCommit={price => onUpdatePrice(item.id, price)} /> : <p className="min-w-0 truncate font-mono text-[10.5px] text-muted">{currencySymbol} {fmt(item.price)}</p>}
                       <div className="flex shrink-0 items-center gap-1">
                         <div className="inline-flex h-7 items-center overflow-hidden rounded-lg border border-border bg-card">
                           <button aria-label={`Decrease quantity of ${item.name}`} onClick={() => onUpdateQty(item.id, -1)} className="flex h-7 w-7 items-center justify-center text-foreground/70 transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"><Minus size={12} /></button>

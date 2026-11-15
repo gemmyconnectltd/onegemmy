@@ -128,9 +128,15 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
 async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: ProductBulkCreate, actor: User | None = None) -> ProductBulkResult:
     repo = ProductRepository(db)
     batch_repo = BatchRepository(db)
+    from app.modules.tenants import service as tenant_service
+
+    # The plan's product limit applies to imports exactly as to adding one product: the whole batch must fit.
+    if data.items:
+        await tenant_service.enforce_limit(db, tenant_id, "max_products", await count_products(db, tenant_id) + len(data.items) - 1, noun="product")
     default_image = default_product_image(await _tenant_industry(db, tenant_id))
     created = 0
     errors: list[str] = []
+    ids: list[uuid.UUID | None] = []
     for item in data.items:
         try:
             async with db.begin_nested():
@@ -157,11 +163,13 @@ async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: Pro
                     await batch_repo.save(batch)
 
             created += 1
+            ids.append(obj.id)
         except (SQLAlchemyError, ValidationError) as e:
             errors.append(f"{item.name or item.sku}: {e!s}")
+            ids.append(None)
     if created > 0:
         await db.commit()
-    return ProductBulkResult(created=created, failed=len(errors), errors=errors)
+    return ProductBulkResult(created=created, failed=len(errors), errors=errors, ids=ids)
 
 
 async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, data: ProductUpdate, can_approve: bool = True, actor: User | None = None) -> ProductRead:

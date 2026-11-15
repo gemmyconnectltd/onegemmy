@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { XCircle, ImagePlus, X } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
-import { CsvImportDrawer, type ImportOutcome } from "@/components/ui/CsvImportDrawer";
+import { CsvImportDrawer, type ImportOutcome, type ImportRowMeta } from "@/components/ui/CsvImportDrawer";
 import { checkProductRow } from "@/lib/importValues";
 import { useCategories, useBrands, useUnits, useProductVatSummary } from "@/lib/api/hooks";
 import { PRODUCT_VAT_OPTIONS, type ProductVatTreatment } from "@/lib/api/inventory";
@@ -54,7 +54,9 @@ interface ProductFormDrawerProps {
   onClose: () => void;
   initial?: ProductFormValues | null;
   onSubmit: (values: ProductFormValues, imageFile?: File) => Promise<void>;
-  onBulkSubmit?: (values: ProductBulkRow[], file?: File, progress?: (status: string) => void) => void | Promise<void | ImportOutcome>;
+  onBulkSubmit?: (values: ProductBulkRow[], file?: File, progress?: (status: string) => void, rows?: ImportRowMeta[]) => void | Promise<void | ImportOutcome>;
+  /** Formats an amount in the business currency, for the import confirmation. */
+  money?: (value: number) => string;
   color?: string;
 }
 
@@ -310,7 +312,8 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
 function parseProductRow(row: Record<string, string>) {
   // Amounts typed with separators or a currency ("2,500", "RWF 5,000") count as numbers; each problem names its column and value.
   const { price, cost, stock, minStock, issues } = checkProductRow(row);
-  const base = parseForm({ ...row, name: row.name ?? "", price: "0", cost: "0", stock: "0", minStock: "0" });
+  // Category, brand and unit names are matched to this business's own records by the import check (_category_id etc.).
+  const base = parseForm({ ...row, name: row.name ?? "", price: "0", cost: "0", stock: "0", minStock: "0", category_id: row._category_id ?? "", brand_id: row._brand_id ?? "", unit_id: row._unit_id ?? "" });
   return {
     data: {
       ...base,
@@ -334,15 +337,31 @@ const PRODUCT_TEMPLATE_HOW_TO = [
   "5. Pictures: paste each picture over its product's row. The leftmost picture becomes the main picture, the others extra pictures.",
   "   Products and their pictures are imported together in one step. Pictures can be JPEG, PNG or WebP, up to 5MB each.",
   "6. imageUrl is optional: a picture link starting with https://.",
-  "7. Upload the file on Inventory > Products > Import. Rows with problems are listed with the reason; download the error report, fix them and upload again.",
+  "7. Upload the file on Inventory > Products > Import. You don't need this template: your own sheet works too, its columns are matched for you.",
+  "8. Category, brand and unit are matched by name to the ones already in Pesaa. Problems can be fixed on screen before importing.",
 ];
 
-function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onBulkSubmit: NonNullable<ProductFormDrawerProps["onBulkSubmit"]>; color?: string }) {
+function importEffects(items: ProductBulkRow[], money: (value: number) => string) {
+  const units = items.reduce((sum, p) => sum + p.stock, 0);
+  const value = items.reduce((sum, p) => sum + p.stock * p.cost, 0);
+  const batches = items.filter((p) => p.batchNumber).length;
+  return [
+    `Creates ${items.length.toLocaleString()} product${items.length === 1 ? "" : "s"} with ${units.toLocaleString()} units of opening stock, worth ${money(value)} at cost.`,
+    "Opening stock is each product's starting quantity. Like adding a product by hand, it isn't posted to the accounts; use a stock adjustment or purchase for that.",
+    ...(batches ? [`Creates ${batches} batch${batches === 1 ? "" : "es"} with their expiry dates.`] : []),
+    "Prices are saved as entered. VAT treatment stays \"not reviewed\" until you classify the products.",
+  ];
+}
+
+function BulkImport({ onClose, onBulkSubmit, money, color }: { onClose: () => void; onBulkSubmit: NonNullable<ProductFormDrawerProps["onBulkSubmit"]>; money: (value: number) => string; color?: string }) {
   return (
     <CsvImportDrawer<ProductBulkRow>
       open
+      module="products"
+      pictures
+      effects={(items) => importEffects(items, money)}
       onClose={onClose}
-      onSubmit={async (items, file, progress) => onBulkSubmit(items, file, progress)}
+      onSubmit={async (items, file, progress, rows) => onBulkSubmit(items, file, progress, rows)}
       title="Import Products"
       itemNoun="product"
       templateFilename="products_template.xlsx"
@@ -355,10 +374,10 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
       ]}
       previewColumns={[
         { key: "name", label: "Name", required: true },
-        { key: "sku", label: "SKU" },
+        { key: "sku", label: "SKU", unique: true },
         { key: "category", label: "Category" },
         { key: "subcategory", label: "Subcategory" },
-        { key: "barcode", label: "Barcode" },
+        { key: "barcode", label: "Barcode", unique: true },
         { key: "brand", label: "Brand" },
         { key: "unit", label: "Unit" },
         { key: "cost", label: "Cost", align: "right", required: true },
@@ -378,8 +397,8 @@ function BulkImport({ onClose, onBulkSubmit, color }: { onClose: () => void; onB
 
 // ── Public component ─────────────────────────────────────────────────────────
 
-export function ProductFormDrawer({ open, mode = "single", onClose, initial, onSubmit, onBulkSubmit, color }: ProductFormDrawerProps) {
+export function ProductFormDrawer({ open, mode = "single", onClose, initial, onSubmit, onBulkSubmit, money = (v) => v.toLocaleString(), color }: ProductFormDrawerProps) {
   if (!open) return null;
-  if (mode === "bulk") return <BulkImport onClose={onClose} onBulkSubmit={onBulkSubmit ?? (() => {})} color={color} />;
+  if (mode === "bulk") return <BulkImport onClose={onClose} onBulkSubmit={onBulkSubmit ?? (() => {})} money={money} color={color} />;
   return <SingleForm initial={initial} onClose={onClose} onSubmit={onSubmit} color={color} />;
 }

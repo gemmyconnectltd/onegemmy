@@ -1,8 +1,8 @@
 // Reading values typed into an import spreadsheet. Plain functions (no imports) so they can be tested on their own.
 
 /** One problem with an imported row. `column` is the preview column key it belongs to, so that cell can be highlighted;
- *  `summary` groups the same problem across rows ("invalid Cost"). */
-export interface ImportIssue { column?: string; message: string; summary?: string }
+ *  `summary` groups the same problem across rows ("invalid Cost"). A `warning` is shown but doesn't stop the row importing. */
+export interface ImportIssue { column?: string; message: string; summary?: string; level?: "error" | "warning" }
 
 const CURRENCY = /^(?:rwf|frw|rf|usd|us\$|kes|ksh|ugx|tzs|eur|gbp|\$|€|£)\.?\s*|\s*(?:rwf|frw|rf|usd|kes|ksh|ugx|tzs|eur|gbp|\$|€|£)\.?$/i;
 

@@ -25,6 +25,17 @@ interface ProductCardProps {
   layout?: "vertical" | "horizontal";
 }
 
+/** Brand, kind and unit, e.g. "Inyange · Dairy · 500ml": what tells two similar names apart. */
+function detailLine(product: Product) {
+  return [product.brand, product.subcategory || (product.category !== "Uncategorized" ? product.category : null), product.unit].filter(Boolean).join(" · ");
+}
+
+/** The code a cashier can check on the package: SKU, or the barcode when there is no SKU. Generated SKUs (PRD-…) mean nothing on a shelf. */
+function productCode(product: Product) {
+  const sku = product.sku && !/^PRD-[0-9A-F]{32}$/i.test(product.sku) ? product.sku : null;
+  return sku ?? product.barcode ?? null;
+}
+
 function attrLabel(attrs: Record<string, string>) {
   const entries = Object.entries(attrs);
   return entries.length ? entries.map(([k, v]) => `${k}: ${v}`).join(" · ") : "";
@@ -41,6 +52,9 @@ export function ProductCard({ product, pricing, variantPricing, inCartQty, bumpi
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const imageSrc = resolveUploadUrl(product.image_url);
   const hasImage = !!imageSrc && failedImage !== imageSrc;
+  const details = detailLine(product);
+  const code = productCode(product);
+  const fullTitle = [product.name, details, code].filter(Boolean).join("\n");
 
   // ── Horizontal (mobile list) ────────────────────────────────────────────────
   if (layout === "horizontal") {
@@ -76,11 +90,10 @@ export function ProductCard({ product, pricing, variantPricing, inCartQty, bumpi
 
           {/* Info */}
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-foreground leading-tight truncate">{product.name}</p>
-            <p className="text-[10px] text-muted truncate mt-0.5">
-              {isVariantGroup
-                ? `${product.variants?.length} variants`
-                : (product.sku ?? product.category)}
+            <p className="text-[13px] font-semibold text-foreground leading-tight line-clamp-2" title={fullTitle}>{product.name}</p>
+            {details && <p className="text-[11px] text-muted truncate mt-0.5">{details}</p>}
+            <p className="text-[10px] text-muted truncate">
+              {isVariantGroup ? `${product.variants?.length} variants` : <>{code && <span className="font-mono">{code} · </span>}{outOfStock ? "Unavailable" : `${availableStock} in stock`}</>}
             </p>
             <div className="flex items-center gap-2 mt-1">
               <CardPrice regular={product.price} pricing={pricing} currencySymbol={currencySymbol} fmt={fmt} />
@@ -205,7 +218,8 @@ export function ProductCard({ product, pricing, variantPricing, inCartQty, bumpi
 
         {/* Info: compact, three short lines */}
         <div className="flex w-full flex-1 flex-col gap-0.5 p-2">
-          <p className="line-clamp-2 min-h-[2.2em] text-[12px] font-semibold leading-tight text-foreground">{product.name}</p>
+          <p className="line-clamp-3 min-h-[2.2em] text-[12px] font-semibold leading-tight text-foreground" title={fullTitle}>{product.name}</p>
+          {details && <p className="truncate text-[10px] font-medium text-muted" title={details}>{details}</p>}
           <div className="flex items-center justify-between gap-1">
             {isVariantGroup ? <p className="min-h-8 text-xs text-muted">Choose a variant</p> : <CardPrice regular={product.price} pricing={pricing} currencySymbol={currencySymbol} fmt={fmt} />}
             {lowStock && !isVariantGroup && (
@@ -214,7 +228,7 @@ export function ProductCard({ product, pricing, variantPricing, inCartQty, bumpi
           </div>
           <div className="flex items-center justify-between gap-1 text-[10px]">
             <span className="truncate text-muted">
-              {isVariantGroup ? <span className="inline-flex items-center gap-0.5 font-semibold text-accent">{product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></span> : <>{product.sku ? `${product.sku} · ` : ""}{outOfStock ? "Unavailable" : `${availableStock} in stock`}</>}
+              {isVariantGroup ? <span className="inline-flex items-center gap-0.5 font-semibold text-accent">{product.variants?.length} variants <ChevronDown size={10} className={`transition-transform ${expanded ? "rotate-180" : ""}`} /></span> : <>{code ? <span className="font-mono">{code} · </span> : ""}{outOfStock ? "Unavailable" : `${availableStock} in stock`}</>}
             </span>
             <span className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-accent">{isVariantGroup ? "Choose" : inCartQty > 0 ? "Add more" : "Add"}<Plus size={11} /></span>
           </div>

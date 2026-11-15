@@ -15,7 +15,8 @@ import { StatusBadge } from "@/components/hr/State";
 import { FinancialError, FinancialPagination } from "@/components/accounting/FinancialShared";
 import { CashBalanceWarning } from "@/components/accounting/CashBalanceWarning";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { CsvImportDrawer, bulkOutcome } from "@/components/ui/CsvImportDrawer";
+import { checkAmount, isIsoDate, type ImportIssue } from "@/lib/importValues";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { ExpenseRules } from "./ExpenseRules";
@@ -25,11 +26,15 @@ import { ExpenseEditor } from "./ExpenseEditor";
 import { ExpenseDetails } from "./ExpenseDetails";
 interface ImportExpense { title: string; amount: number; expense_date: string; category: string; notes: string | null; }
 function parseImport(raw: Record<string, string>) {
-  const errors: string[] = [];
-  if (!raw.title?.trim()) errors.push("Description required");
-  if (!(Number(raw.amount) > 0)) errors.push("Amount must be positive");
-  if (!raw.expensedate || Number.isNaN(Date.parse(raw.expensedate))) errors.push("Valid expenseDate required");
-  return { data: { title: raw.title, amount: Number(raw.amount), expense_date: raw.expensedate, category: raw.category || "Other", notes: raw.notes || null }, errors };
+  const errors: ImportIssue[] = [];
+  if (!raw.title?.trim()) errors.push({column: "title", message: "Description is required", summary: "missing Description"});
+  const amount = checkAmount(raw.amount, "amount", "Amount");
+  if ("issue" in amount) errors.push(amount.issue);
+  else if (amount.value <= 0) errors.push({column: "amount", message: `Amount must be more than 0 (got '${raw.amount}')`, summary: "invalid Amount"});
+  const date = raw.expensedate?.trim() ?? "";
+  if (!date) errors.push({column: "expensedate", message: "Date is required", summary: "missing Date"});
+  else if (!isIsoDate(date)) errors.push({column: "expensedate", message: `Date must be YYYY-MM-DD (got '${date}')`, summary: "invalid Date"});
+  return { data: { title: raw.title?.trim() ?? "", amount: "value" in amount ? amount.value : 0, expense_date: date, category: raw.category?.trim() || "Other", notes: raw.notes?.trim() || null }, errors };
 }
 export function ExpenseList() { const { scope } = useExpenseContext(); return <List key={scope} />; }
 function List() {
@@ -92,6 +97,6 @@ function List() {
     </section>}
     {editor && <ExpenseEditor key={editor} id={editor === "new" ? null : editor} onClose={() => {setEditor(null); router.replace("/expenses/list", {scroll: false});}} onSaved={id => {setEditor(null); setSelected(id); router.replace(`/expenses/list?record=${id}`, {scroll: false});}} />}
     {selected && <ExpenseDetails key={selected} id={selected} onEdit={() => {setEditor(selected); setSelected(null);}} onClose={() => setSelected(null)} onAction={act} busy={action.isPending} />}
-    <CsvImportDrawer<ImportExpense> open={importing} onClose={() => setImporting(false)} onSubmit={async items => { const result = await importExpenses.mutateAsync(items); if (result.data.failed) throw new Error(`${result.data.failed} rows could not be imported. ${result.data.errors.join("; ")}`); }} title="Import Expenses" itemNoun="expense" templateFilename="expenses_template.xlsx" templateHeaders={["title", "amount", "expenseDate", "category", "notes"]} templateSampleRows={[["Rent", "150000", "2026-10-01", "Rent", "Monthly rent"]]} previewColumns={[{key: "title", label: "Description", required: true}, {key: "amount", label: "Amount", required: true}, {key: "expensedate", label: "Date", required: true}, {key: "category", label: "Category"}, {key: "notes", label: "Notes"}]} parseRow={parseImport} />
+    <CsvImportDrawer<ImportExpense> open={importing} onClose={() => setImporting(false)} onSubmit={async items => bulkOutcome("expense", (await importExpenses.mutateAsync(items)).data)} module="expenses" templateNumberColumns={["amount"]} effects={items => [`Creates ${items.length.toLocaleString()} expense${items.length === 1 ? "" : "s"} as Pending. Nothing is posted to the accounts until each one is approved.`]} title="Import Expenses" itemNoun="expense" templateFilename="expenses_template.xlsx" templateHeaders={["title", "amount", "expenseDate", "category", "notes"]} templateSampleRows={[["Rent", "150000", "2026-10-01", "Rent", "Monthly rent"]]} previewColumns={[{key: "title", label: "Description", required: true}, {key: "amount", label: "Amount", required: true}, {key: "expensedate", label: "Date", required: true}, {key: "category", label: "Category"}, {key: "notes", label: "Notes"}]} parseRow={parseImport} />
   </div>;
 }

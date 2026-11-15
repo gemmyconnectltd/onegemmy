@@ -7,6 +7,7 @@ import { Suspense, useEffect } from "react";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { fetchEvery } from "@/lib/exportTable";
 import { inventoryApi } from "@/lib/api/inventory";
+import { useQueryClient } from "@tanstack/react-query";
 import { PeriodFilter } from "@/components/ui/PeriodFilter";
 import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
 import { TableScroll } from "@/components/ui/TableScroll";
@@ -27,9 +28,10 @@ import { ProductActionsMenu } from "@/components/inventory/ProductActionsMenu";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
 import { type ApiProduct } from "@/lib/api";
-import type { ImportOutcome } from "@/components/ui/CsvImportDrawer";
+import type { ImportOutcome, ImportRowMeta } from "@/components/ui/CsvImportDrawer";
+import { importsApi } from "@/lib/api/imports";
 import { ImportPicturesDrawer } from "@/components/inventory/ImportPicturesDrawer";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useImportProductPictures, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate } from "@/lib/api/hooks";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -184,8 +186,8 @@ function ProductsContent() {
     }
   };
 
-  const importPictures = useImportProductPictures();
-  const handleBulkSubmit = async (items: ProductBulkRow[], file?: File, progress?: (status: string) => void): Promise<ImportOutcome> => {
+  const queryClient = useQueryClient();
+  const handleBulkSubmit = async (items: ProductBulkRow[], file?: File, progress?: (status: string) => void, rows?: ImportRowMeta[]): Promise<ImportOutcome> => {
     const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
     progress?.(`Importing ${plural(items.length, "product")}…`);
     const created = (await bulkCreateProducts.mutateAsync(items.map((v) => ({
@@ -202,24 +204,41 @@ function ProductsContent() {
     })))).data;
     const problems: { label: string; reason: string }[] = (created.errors ?? []).map((reason) => ({ label: "Product", reason }));
     let summary = `${plural(created.created, "product")} imported${created.failed ? `, ${created.failed} not imported` : ""}`;
-    // Pictures pasted into the Excel sheet travel in the file itself, so the same file is read again for them now that the products exist.
-    // A sheet without pictures is normal, and a problem with the pictures must never undo the products that were just created.
-    if (file && /\.xlsx$/i.test(file.name) && created.created > 0) {
-      const count = await countWorkbookPictures(file);
-      if (count !== 0) {
-        progress?.(count ? `Products imported. Attaching ${plural(count, "picture")}…` : "Products imported. Attaching pictures…");
-        try {
-          const pictures = (await importPictures.mutateAsync(file)).data;
-          const attached = pictures.total_pictures ?? pictures.matched;
-          summary += `, ${plural(attached, "picture")} attached${pictures.extra_pictures ? ` (${pictures.extra_pictures} extra)` : ""}`;
-          problems.push(...pictures.problems.map((p) => ({ label: p.file, reason: p.reason })));
-        } catch (e) {
-          const reason = (e as { detail?: string; message?: string })?.detail ?? (e as { message?: string })?.message ?? "The pictures in the sheet could not be read";
-          if (!/No pictures were found/i.test(reason)) { summary += ", pictures not attached"; problems.push({ label: "Pictures", reason }); }
-        }
+    const ids = created.ids ?? [];
+    // Pictures follow their own row to the product just created from it, so corrections made during review never mismatch them.
+    // A problem with pictures never undoes the products that were created.
+    const sheetRows: Record<number, string> = {};
+    const chosen: { id: string; file: File; row: number }[] = [];
+    rows?.forEach((meta, i) => {
+      const id = ids[i];
+      if (!id) return;
+      if (meta.picture instanceof File) chosen.push({ id, file: meta.picture, row: meta.sheetRow });
+      else if (meta.picture === undefined && meta.sheetRow) sheetRows[meta.sheetRow] = id;
+    });
+    let attached = 0, extras = 0;
+    if (file && /\.xlsx$/i.test(file.name) && Object.keys(sheetRows).length && (await countWorkbookPictures(file)) !== 0) {
+      progress?.("Products imported. Attaching the pictures from your sheet…");
+      try {
+        const pictures = (await importsApi.attachSheetPictures(file, sheetRows)).data;
+        attached += pictures.total_pictures; extras += pictures.extra_pictures;
+        problems.push(...pictures.problems.map((p) => ({ label: p.file, reason: p.reason })));
+      } catch (e) {
+        problems.push({ label: "Pictures", reason: (e as { detail?: string })?.detail ?? "The pictures in the sheet could not be attached" });
       }
     }
-    return { summary: `${summary}.`, problems };
+    for (const [n, pick] of chosen.entries()) {
+      progress?.(`Attaching pictures ${n + 1}/${chosen.length}…`);
+      try {
+        const res = await inventoryApi.uploadProductImage(pick.id, pick.file);
+        if (!(res as { data?: unknown }).data) throw res;
+        attached += 1;
+      } catch (e) {
+        problems.push({ label: `Row ${pick.row}`, reason: (e as { detail?: string; message?: string })?.detail ?? (e as { message?: string })?.message ?? "The picture could not be uploaded" });
+      }
+    }
+    if (attached || chosen.length) await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+    if (attached) summary += `, ${plural(attached, "picture")} attached${extras ? ` (${extras} extra)` : ""}`;
+    return { summary: `${summary}.`, problems, imported: created.created, failed: created.failed };
   };
 
   const handleRestock = async (v: RestockValues) => {
@@ -453,6 +472,7 @@ function ProductsContent() {
         initial={editing ? toFormValues(editing) : null}
         onSubmit={handleSubmit}
         onBulkSubmit={handleBulkSubmit}
+        money={fmt}
         color={INV_COLOR}
       />
 

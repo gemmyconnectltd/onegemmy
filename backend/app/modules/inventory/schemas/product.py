@@ -139,6 +139,8 @@ class ProductBulkResult(BaseModel):
     created: int
     failed: int
     errors: list[str] = []
+    # The new product's id for each submitted row, in order (None where that row failed), so pictures can follow their row.
+    ids: list[uuid.UUID | None] = []
 
 
 class ProductUpdate(BaseModel):

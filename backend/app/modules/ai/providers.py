@@ -294,6 +294,19 @@ class OpenAIProvider:
         except ValueError:
             return False
 
+    async def complete_parts(self, messages: list[dict[str, Any]], *, max_tokens: int, model: str | None = None) -> ProviderResult:
+        """One reply to messages already in wire form, so a message can carry pictures or a PDF beside its text
+        (used to read photographed records for an import). No tools; the reply text is returned as is."""
+        body: dict[str, Any] = {"model": model or self.model, "messages": messages, "max_tokens": max_tokens, "temperature": 0}
+        body.update(self._extra)
+        data = (await self._send(body)).json()
+        try:
+            usage = data.get("usage") or {}
+            return ProviderResult(text=data["choices"][0]["message"].get("content"), model=data.get("model", body["model"]),
+                                  prompt_tokens=int(usage.get("prompt_tokens", 0)), completion_tokens=int(usage.get("completion_tokens", 0)))
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise ProviderError("The AI provider sent an unreadable reply") from exc
+
     async def complete(self, messages: list[ChatMessage], tools: list[ToolSpec], *, max_tokens: int) -> ProviderResult:
         body: dict[str, Any] = {
             "model": self.model, "messages": [self._to_wire(m) for m in messages],
@@ -303,6 +316,25 @@ class OpenAIProvider:
         if tools:
             body["tools"] = [{"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.parameters}} for t in tools]
             body["tool_choice"] = "auto"
+        resp = await self._send(body)
+        try:
+            data = resp.json()
+            msg = data["choices"][0]["message"]
+            usage = data.get("usage") or {}
+            calls = [ToolCall(c["id"], c["function"]["name"], c["function"].get("arguments") or "{}") for c in (msg.get("tool_calls") or [])]
+            text = msg.get("content")
+            if not calls and text:
+                # Small local models sometimes write the call as plain text instead of using the tool channel.
+                calls, text = recover_text_tool_calls(text, {t.name for t in tools})
+            return ProviderResult(
+                text=text, tool_calls=calls, model=data.get("model", self.model),
+                prompt_tokens=int(usage.get("prompt_tokens", 0)), completion_tokens=int(usage.get("completion_tokens", 0)),
+            )
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise ProviderError("The AI provider sent an unreadable reply") from exc
+
+    async def _send(self, body: dict[str, Any]) -> httpx.Response:
+        """Post, absorbing a short rate-limit wait, and turn an error reply into a ProviderError a person can act on."""
         resp = await self._post(body)
         for _ in range(2):  # rate limit (tokens/minute on small plans): wait the provider's own short hint, up to twice
             if resp.status_code != 429 or self._is_credit_error(resp):
@@ -329,21 +361,7 @@ class OpenAIProvider:
             if code in ("insufficient_quota", "credit_balance_exhausted"):
                 raise ProviderError("The AI provider account has no credit left (add billing credit in the provider dashboard)")
             raise ProviderError(f"The AI provider returned an error ({resp.status_code})")
-        try:
-            data = resp.json()
-            msg = data["choices"][0]["message"]
-            usage = data.get("usage") or {}
-            calls = [ToolCall(c["id"], c["function"]["name"], c["function"].get("arguments") or "{}") for c in (msg.get("tool_calls") or [])]
-            text = msg.get("content")
-            if not calls and text:
-                # Small local models sometimes write the call as plain text instead of using the tool channel.
-                calls, text = recover_text_tool_calls(text, {t.name for t in tools})
-            return ProviderResult(
-                text=text, tool_calls=calls, model=data.get("model", self.model),
-                prompt_tokens=int(usage.get("prompt_tokens", 0)), completion_tokens=int(usage.get("completion_tokens", 0)),
-            )
-        except (KeyError, IndexError, TypeError, ValueError) as exc:
-            raise ProviderError("The AI provider sent an unreadable reply") from exc
+        return resp
 
 
 def get_provider() -> AIProvider:

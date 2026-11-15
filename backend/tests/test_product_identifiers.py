@@ -89,6 +89,9 @@ async def test_failed_bulk_row_keeps_successful_products(monkeypatch):
     monkeypatch.setattr(service, "Product", SimpleNamespace)
     monkeypatch.setattr(service, "ProductRepository", lambda db: SimpleNamespace(save=save))
     monkeypatch.setattr(service, "_tenant_industry", AsyncMock(return_value=None))
+    monkeypatch.setattr(service, "count_products", AsyncMock(return_value=10))
+    limit = AsyncMock()
+    monkeypatch.setattr("app.modules.tenants.service.enforce_limit", limit)
     monkeypatch.setattr(service, "BatchRepository", lambda db: SimpleNamespace(
         get_by_batch_number=AsyncMock(return_value=object()),
     ))
@@ -102,5 +105,9 @@ async def test_failed_bulk_row_keeps_successful_products(monkeypatch):
     assert result.failed == 1
     assert [p.name for p in saved] == ["First", "Last"]
     assert len({p.sku for p in saved}) == 2
+    # each row's new id in order, None for the failed row, so pictures follow their own row
+    assert result.ids == [saved[0].id, None, saved[1].id]
+    # the plan limit is checked for the whole batch: 10 existing + 3 new must fit
+    assert limit.await_args.args[2:] == ("max_products", 12)
     db.rollback.assert_not_awaited()
     db.commit.assert_awaited_once()

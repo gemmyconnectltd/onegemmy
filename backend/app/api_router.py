@@ -23,6 +23,7 @@ from app.modules.currency.routes import admin_router as currency_admin_router
 from app.modules.currency.routes import tenant_router as currency_tenant_router
 from app.modules.discounts.routes import router as discounts_router
 from app.modules.hr.routes import hr_router
+from app.modules.imports.routes import router as imports_router
 from app.modules.inventory.routes import inventory_router
 from app.modules.manufacturing.routes import manufacturing_router
 from app.modules.marketing.routes import public_router as marketing_public_router
@@ -56,6 +57,7 @@ api_router.include_router(marketing_router)
 api_router.include_router(marketing_public_router)
 api_router.include_router(currency_admin_router)
 api_router.include_router(ai_router)
+api_router.include_router(imports_router)
 api_router.include_router(ai_admin_router)
 api_router.include_router(currency_tenant_router)
 api_router.include_router(audit_router)

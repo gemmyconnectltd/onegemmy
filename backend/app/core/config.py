@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROQ_MODEL: str = "openai/gpt-oss-120b"  # tool-calling model available on Groq; override with GROQ_MODEL
     AI_MODEL: str = "gpt-4o-mini"
+    # Model that reads photographed records and PDFs for imports. Empty: OpenAI uses AI_MODEL (which sees pictures and
+    # PDFs); Groq and Ollama need a vision model named here (e.g. a Llama 4 Scout on Groq), and they cannot read PDFs.
+    AI_VISION_MODEL: str = ""
+    AI_IMPORT_TIMEOUT_SECONDS: float = 90.0
     # Where the assistant sends people who ask for a human (same public group link the app's support button uses).
     SUPPORT_WHATSAPP_URL: str = "https://chat.whatsapp.com/KdYZ26ywxvK3x0clmLWedK?mode=gi_t"
     SUPPORT_EMAIL: str = "support@pesaa.io"

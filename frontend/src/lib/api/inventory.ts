@@ -150,7 +150,7 @@ export const inventoryApi = {
   createProduct: (data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products`, { method: "POST", body: JSON.stringify(data) }),
   bulkCreateProducts: (items: object[]) =>
-    request<SingleResponse<{ created: number; failed: number; errors: string[] }>>(`${BASE}/products/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
+    request<SingleResponse<{ created: number; failed: number; errors: string[]; ids?: (string | null)[] }>>(`${BASE}/products/bulk`, { method: "POST", body: JSON.stringify({ items }) }),
   getProduct: (id: string) => request<SingleResponse<ApiProduct>>(`/tenants/inventory/products/${id}`),
   updateProduct: (id: string, data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),

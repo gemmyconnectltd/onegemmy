@@ -1,7 +1,7 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 
 from app.core.deps import ActiveBranchId, CurrentUser, DbSession, require_permission
 from app.core.exceptions import ValidationError
@@ -84,6 +84,25 @@ async def import_product_pictures(db: DbSession, current_user: CurrentUser, file
     content = await file.read(MAX_ZIP_BYTES + 1)
     result = await import_pictures(db, current_user.tenant_id, content, actor=current_user)
     return success_response(data=result, message=f"{result['matched']} pictures attached")
+
+
+@router.post("/inventory/products/attach-sheet-pictures", dependencies=[Depends(require_permission("items:create"))])
+async def attach_sheet_pictures(db: DbSession, current_user: CurrentUser, file: UploadFile = File(...), rows: str = Form(...)):
+    """Pictures pasted into an import sheet, attached to the products just created from its rows. `rows` is JSON {sheet row: product id}."""
+    _require_tenant(current_user.tenant_id)
+    import json
+
+    from app.modules.inventory.service.product_image_import import MAX_ZIP_BYTES
+    from app.modules.inventory.service.product_image_import import attach_sheet_pictures as attach
+    try:
+        mapping = {int(row): uuid.UUID(str(pid)) for row, pid in json.loads(rows).items()}
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValidationError("rows must map sheet row numbers to product ids") from exc
+    content = await file.read(MAX_ZIP_BYTES + 1)
+    if len(content) > MAX_ZIP_BYTES:
+        raise ValidationError("The file is larger than 60MB")
+    result = await attach(db, current_user.tenant_id, content, mapping)
+    return success_response(data=result, message=f"{result['total_pictures']} pictures attached")
 
 
 @router.post("/inventory/products/bulk")

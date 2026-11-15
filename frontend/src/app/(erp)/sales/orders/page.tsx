@@ -36,7 +36,8 @@ import { accountingApi } from "@/lib/api/accounting";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { CsvImportDrawer } from "@/components/ui/CsvImportDrawer";
+import { CsvImportDrawer, bulkOutcome } from "@/components/ui/CsvImportDrawer";
+import { checkAmount, isIsoDate, type ImportIssue } from "@/lib/importValues";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
@@ -93,25 +94,32 @@ interface OrderImportRow {
   unit_price: number;
 }
 
-function parseOrderRow(raw: Record<string, string>): { data: OrderImportRow; errors: string[] } {
-  const errors: string[] = [];
-  if (!raw.orderreference) errors.push("Sale reference required");
-  if (!raw.sku) errors.push("sku required");
-  if (!raw.unitprice || isNaN(Number(raw.unitprice))) errors.push("invalid unitPrice");
-  if (raw.quantity !== undefined && raw.quantity !== "" && isNaN(Number(raw.quantity))) errors.push("invalid quantity");
+function parseOrderRow(raw: Record<string, string>): { data: OrderImportRow; errors: ImportIssue[] } {
+  const errors: ImportIssue[] = [];
+  if (!raw.orderreference?.trim()) errors.push({ column: "orderreference", message: "Sale reference is required", summary: "missing Sale Ref" });
+  if (!raw.sku?.trim()) errors.push({ column: "sku", message: "SKU is required", summary: "missing SKU" });
+  const price = checkAmount(raw.unitprice, "unitprice", "Unit Price");
+  if ("issue" in price) errors.push(price.issue);
+  const qtyText = raw.quantity?.trim() ?? "";
+  const qty = qtyText ? checkAmount(qtyText, "quantity", "Qty") : { value: 1 };
+  if ("issue" in qty) errors.push(qty.issue);
+  else if (qty.value <= 0) errors.push({ column: "quantity", message: `Qty must be more than 0 (got '${qtyText}')`, summary: "invalid Qty" });
+  const date = raw.orderedat?.trim() ?? "";
+  if (date && !isIsoDate(date.slice(0, 10))) errors.push({ column: "orderedat", message: `Date must be YYYY-MM-DD (got '${date}')`, summary: "invalid Date" });
   const status = (raw.status || "Completed").trim();
-  if (status && !["Completed", "Pending"].includes(status)) errors.push("status must be Completed or Pending");
+  const knownStatus = ["Completed", "Pending"].find((s) => s.toLowerCase() === status.toLowerCase());
+  if (!knownStatus) errors.push({ column: "status", message: `Status must be Completed or Pending (got '${status}')`, summary: "invalid Status" });
   return {
     data: {
       order_reference: raw.orderreference?.trim() ?? "",
       customer: raw.customer?.trim() || null,
-      ordered_at: raw.orderedat?.trim() || null,
-      status: status || "Completed",
+      ordered_at: date || null,
+      status: knownStatus ?? "Completed",
       payment_method: raw.paymentmethod?.trim() || null,
       notes: raw.notes?.trim() || null,
       sku: raw.sku?.trim() ?? "",
-      quantity: raw.quantity ? Number(raw.quantity) : 1,
-      unit_price: Number(raw.unitprice),
+      quantity: "value" in qty ? qty.value : 1,
+      unit_price: "value" in price ? price.value : 0,
     },
     errors,
   };
@@ -790,7 +798,16 @@ export default function SalesOrdersPage() {
       <CsvImportDrawer<OrderImportRow>
         open={showImport}
         onClose={() => setShowImport(false)}
-        onSubmit={async (items) => { await bulkCreateOrders.mutateAsync(items); }}
+        onSubmit={async (items) => bulkOutcome("sale", (await bulkCreateOrders.mutateAsync(items)).data)}
+        module="sales"
+        effects={(items) => {
+          const sales = new Set(items.map((i) => i.order_reference)).size;
+          return [
+            `Records ${sales.toLocaleString()} sale${sales === 1 ? "" : "s"} from ${items.length.toLocaleString()} line${items.length === 1 ? "" : "s"}; lines with the same Sale Ref become one sale.`,
+            "Each sale goes through the normal sale process, like a POS sale: VAT, stock deduction and accounting entries are recorded.",
+            "Customers are matched by email or name; a customer that isn't found is created.",
+          ];
+        }}
         title="Import Sales"
         itemNoun="sale"
         templateFilename="sales_template.xlsx"
