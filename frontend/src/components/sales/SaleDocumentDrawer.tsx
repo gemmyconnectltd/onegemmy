@@ -8,6 +8,7 @@ import { useCurrentTenant, useOrder } from "@/lib/api/hooks";
 import { salesApi, type ApiOrder } from "@/lib/api/sales";
 import { fmtMoney } from "@/lib/config";
 import { printReceipt, type ReceiptPaper } from "@/lib/pos/printReceipt";
+import { isIOS, openPdfToPrint } from "@/lib/pos/printPdf";
 import { orderToSale } from "@/lib/saleDocument";
 import { Button } from "@/components/ui/Button";
 import { ShareInvoice } from "@/components/sales/ShareInvoice";
@@ -37,6 +38,12 @@ export function SaleDocumentDrawer({ order, onClose, initialLayout = "invoice", 
   async function print() {
     if (busy) return;
     setError("");
+    if (isIOS()) {
+      setBusy("print");
+      try { await openPdfToPrint(() => layout === "receipt" ? salesApi.receiptFile(order.id, order.order_number, paper) : salesApi.invoiceFile(order.id, order.order_number)); }
+      catch { setError("Could not open the document to print. Please try again."); } finally { setBusy(null); }
+      return;
+    }
     if (layout === "invoice") { window.print(); return; }
     const node = receipt.current?.querySelector<HTMLElement>("[data-pos-receipt]");
     if (!node) return;

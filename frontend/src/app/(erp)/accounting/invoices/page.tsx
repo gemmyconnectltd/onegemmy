@@ -19,6 +19,7 @@ import { fmtDateTime } from "@/lib/date";
 import { StatusBadge, PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
 import { SaleDocumentDrawer } from "@/components/sales/SaleDocumentDrawer";
 import { salesApi } from "@/lib/api/sales";
+import { isIOS, openPdfToPrint } from "@/lib/pos/printPdf";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
 import { Button } from "@/components/ui/Button";
@@ -56,6 +57,7 @@ export default function InvoicesPage() {
   };
 
   const printInvoice = (order: ApiOrder) => {
+    if (isIOS()) { void openPdfToPrint(() => salesApi.invoiceFile(order.id, order.order_number)).catch(() => undefined); return; }
     setViewingId(order.id);
     // Wait a tick for the drawer (and its printable content) to render before
     // invoking the browser's print dialog.

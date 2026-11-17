@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { fmtDateTime } from "@/lib/date";
 import { salesApi } from "@/lib/api/sales";
 import { printReceipt, type ReceiptPaper } from "@/lib/pos/printReceipt";
+import { isIOS, openPdfToPrint } from "@/lib/pos/printPdf";
 import type { Tenant } from "@/lib/api";
 import type { SaleResult } from "./types";
 import { ReceiptDocument, paymentLabel } from "./ReceiptDocument";
@@ -22,6 +23,12 @@ export function Receipt({ sale, currencySymbol, fmt, vatEnabled, onNewSale, onCl
   const [copied, setCopied] = useState(false);
   const [invoice, setInvoice] = useState(false);
   const handlePrint = async () => {
+    if (isIOS() && sale.backendOrderId) {
+      if (busy) return;
+      setBusy("print"); setError("");
+      try { await openPdfToPrint(() => salesApi.receiptFile(sale.backendOrderId!, sale.orderId, paper)); } catch { setError("Could not open the receipt to print. Please try again."); } finally { setBusy(null); }
+      return;
+    }
     const document = receipt.current?.querySelector<HTMLElement>("[data-pos-receipt]");
     if (!document || busy) return;
     setBusy("print"); setError("");
