@@ -67,8 +67,9 @@ async def update_settings(data: SettingsIn, db: DbSession, user: CurrentUser):
 async def preview_access(user: CurrentUser):
     if user.is_superuser or (user.role or "").lower() in ("owner", "admin"):
         return
-    assigned = set(getattr(user, "role_permissions_names", []))
-    if not assigned & {"pos:read", "orders:read", "discounts:read"}:
+    # Anyone who may ring up a sale may see its price, including people who sell through the default business access.
+    held = set(user.permissions_names)
+    if not held & {"pos:read", "pos:create", "orders:read", "orders:create", "discounts:read"}:
         raise ForbiddenError("Pricing previews require assigned sales or discount access")
 
 

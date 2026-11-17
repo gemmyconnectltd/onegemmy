@@ -307,7 +307,7 @@ export default function POSPage() {
 
   // Why Complete Sale is unavailable, said to the cashier instead of a silently grey button.
   const pricingReason = !pricingBlocked || cart.length === 0 ? null
-    : discountSettings.data?.enabled && discountPricing.isError ? "The price could not be checked. Check the connection and press Retry."
+    : discountSettings.data?.enabled && discountPricing.isError ? `The price could not be checked: ${discountPricing.error?.message || "check the connection"}. Press Retry.`
     : livePricing?.blocked ? livePricing.blocked
     : livePricing?.coupon_errors?.length ? `Coupon problem: ${livePricing.coupon_errors.join("; ")}. Remove the coupon or fix it.`
     : livePricing?.approval_required && livePricing.approval_status !== "approved" ? "This discount needs approval before the sale can be completed."

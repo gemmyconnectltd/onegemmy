@@ -167,3 +167,16 @@ async def test_only_the_business_owner_can_record_a_sale_for_another_salesperson
             assert for_ben.json()["data"]["salesperson_id"] == str(ben.id)
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_seller_without_explicit_role_grants_can_check_the_cart_price(db, monkeypatch):
+    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    try:
+        async with client(ann) as c:
+            body = {"items": [{"unit_price": 100, "quantity": 1}]}
+            priced = await c.post(f"{API}/sales/discounts/preview", json=body)
+            assert "Pricing previews require" not in priced.text, priced.text
+            assert priced.status_code != 403, priced.text
+    finally:
+        app.dependency_overrides.clear()
