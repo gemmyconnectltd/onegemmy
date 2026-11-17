@@ -150,3 +150,20 @@ async def test_sales_team_lists_active_people_for_the_picker_without_user_admin_
             assert [m["name"] for m in (await c.get(f"{API}/sales/team")).json()["data"]] == ["Ann"]
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_only_the_business_owner_can_record_a_sale_for_another_salesperson(db, monkeypatch):
+    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    try:
+        async with client(ann) as c:
+            refused = await c.post(f"{API}/sales/orders", json=sale(1, salesperson_id=str(ben.id)))
+            assert refused.status_code == 403 and "business owner" in refused.text
+            mine = await c.post(f"{API}/sales/orders", json=sale(1, salesperson_id=str(ann.id)))
+            assert mine.status_code in (200, 201), mine.text
+            assert mine.json()["data"]["salesperson_id"] == str(ann.id)
+        async with client(owner) as c:
+            for_ben = await c.post(f"{API}/sales/orders", json=sale(1, salesperson_id=str(ben.id)))
+            assert for_ben.json()["data"]["salesperson_id"] == str(ben.id)
+    finally:
+        app.dependency_overrides.clear()

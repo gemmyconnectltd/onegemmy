@@ -1039,7 +1039,8 @@ async def admin_team_invite(tenant_id: uuid.UUID, data: UserCreate, db: DbSessio
     from app.modules.admin.user_access import invite_employee
 
     user = await invite_employee(db, tenant_id, data, admin)
-    return success_response(data=user.model_dump(), message="User created; invitation email requested", status_code=201)
+    message = "User created; invitation email sent" if user.email_sent else "User created, but the invitation email could not be sent"
+    return success_response(data=user.model_dump(), message=message, status_code=201)
 
 
 @router.get("/tenants/{tenant_id}/team/users/{user_id}")

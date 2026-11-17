@@ -774,8 +774,10 @@ export interface EmployeeAccess {
 export interface TeamUser extends AdminUser {
   role_id:string|null; phone:string|null; branch_ids:string[]|null; branch_id:string|null;
   department_id:string|null; last_login:string|null; updated_at:string|null;
+  /** Only on the reply to inviting: whether the invitation email went out. */
+  email_sent?:boolean|null;
 }
-export interface TeamInvite {full_name:string;email:string;phone?:string;role_id:string;branch_ids:string[]|null;branch_id:string|null;department_id:string|null}
+export interface TeamInvite {full_name:string;email:string;phone?:string;role_id:string;branch_ids:string[]|null;branch_id:string|null;department_id:string|null;password?:string|null}
 export type TeamUpdate = Partial<Omit<TeamInvite,"email">>;
 export interface TeamPermissions {
   role_id:string|null; role_name:string|null; role_users:number; is_owner:boolean;

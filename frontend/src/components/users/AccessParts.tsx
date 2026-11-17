@@ -46,10 +46,22 @@ export function Back({ href, children }: { href: string; children: ReactNode }) 
   return <Link href={href} className="mb-2 inline-block text-[12px] font-semibold text-muted hover:text-foreground">← {children}</Link>;
 }
 
-/** The permission matrix: one row per resource, one column per action the catalogue really has. Read-only unless `onToggle` is given. */
+const STANDARD: Record<string, string> = { read: "View", create: "Create", update: "Update", delete: "Delete", approve: "Approve" };
+
+/** The permission matrix: one row per resource, one column per standard action, and a "More" column for every other permission the
+ *  catalogue has (apply discounts at checkout, coupons ...). A cell whose permission means something specific says so ("Sell on credit").
+ *  Read-only unless `onToggle` is given. */
 export function PermissionMatrix({ groups, onToggle, isOn }: { groups: PermissionGroup[]; onToggle?: (id: string, granted: boolean) => void; isOn?: (id: string, stored: boolean) => boolean }) {
-  const actions = ["read", "create", "update", "delete", "approve"].filter((a) => groups.some((g) => g.resources.some((r) => r.actions[a])));
-  const label = (a: string) => groups.flatMap((g) => g.resources).find((r) => r.actions[a])?.actions[a].label ?? a;
+  const actions = Object.keys(STANDARD).filter((a) => groups.some((g) => g.resources.some((r) => r.actions[a])));
+  const label = (a: string) => STANDARD[a] ?? a;
+  const extras = (r: PermissionGroup["resources"][number]) => Object.entries(r.actions).filter(([a]) => !(a in STANDARD));
+  const anyExtra = groups.some((g) => g.resources.some((r) => extras(r).length));
+  const control = (cell: PermissionGroup["resources"][number]["actions"][string], resource: string) => {
+    const on = isOn ? isOn(cell.id, cell.granted) : cell.granted;
+    return onToggle
+      ? <input type="checkbox" className="h-4 w-4 accent-[var(--accent)]" checked={on} onChange={(e) => onToggle(cell.id, e.target.checked)} aria-label={`${cell.label} ${resource}`} />
+      : <span aria-label={on ? "Allowed" : "Not allowed"} className={on ? "font-bold text-emerald-600" : "text-muted"}>{on ? "✓" : "—"}</span>;
+  };
   return (
     <div className="space-y-4">
       {groups.map((g) => (
@@ -61,7 +73,7 @@ export function PermissionMatrix({ groups, onToggle, isOn }: { groups: Permissio
           </header>
           <div className="overflow-x-auto">
             <TableScroll label="Permission matrix"><table className="w-full min-w-[480px] text-left text-sm">
-              <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className="px-4 py-2 font-semibold">Area</th>{actions.map((a) => <th key={a} scope="col" className="px-3 py-2 text-center font-semibold">{label(a)}</th>)}</tr></thead>
+              <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className="px-4 py-2 font-semibold">Area</th>{actions.map((a) => <th key={a} scope="col" className="px-3 py-2 text-center font-semibold">{label(a)}</th>)}{anyExtra && <th scope="col" className="px-3 py-2 font-semibold">More</th>}</tr></thead>
               <tbody className="divide-y divide-border">
                 {g.resources.map((r) => (
                   <tr key={r.resource}>
@@ -69,15 +81,13 @@ export function PermissionMatrix({ groups, onToggle, isOn }: { groups: Permissio
                     {actions.map((a) => {
                       const cell = r.actions[a];
                       if (!cell) return <td key={a} className="px-3 py-2 text-center text-muted" aria-label="Not available">—</td>;
-                      const on = isOn ? isOn(cell.id, cell.granted) : cell.granted;
                       return (
                         <td key={a} className="px-3 py-2 text-center">
-                          {onToggle
-                            ? <input type="checkbox" className="h-4 w-4 accent-[var(--accent)]" checked={on} onChange={(e) => onToggle(cell.id, e.target.checked)} aria-label={`${cell.label} ${r.label}`} />
-                            : <span aria-label={on ? "Allowed" : "Not allowed"} className={on ? "font-bold text-emerald-600" : "text-muted"}>{on ? "✓" : "—"}</span>}
+                          <span className="inline-flex flex-col items-center gap-0.5">{control(cell, r.label)}{cell.label !== STANDARD[a] && <span className="text-[11px] font-semibold leading-tight text-foreground">{cell.label}</span>}</span>
                         </td>
                       );
                     })}
+                    {anyExtra && <td className="px-3 py-2"><div className="flex flex-wrap gap-x-4 gap-y-1">{extras(r).map(([a, cell]) => <label key={a} className="inline-flex items-center gap-1.5 whitespace-nowrap text-[12px]">{control(cell, r.label)}{cell.label}</label>)}</div></td>}
                   </tr>
                 ))}
               </tbody>

@@ -42,7 +42,18 @@ def resource_home() -> dict[str, str]:
 
 
 # Resource names are the stable permission identifiers; people read these instead.
-_LABELS = {"pos": "Point of sale", "rfq": "Requests for quotation", "bom": "Bills of materials", "mrp": "Material planning", "tax": "Tax", "hr": "HR"}
+_LABELS = {"pos": "Point of sale", "rfq": "Requests for quotation", "bom": "Bills of materials", "mrp": "Material planning", "tax": "Tax", "hr": "HR",
+           "credit": "Credit sales", "discounts": "Discounts & promotions"}
+
+# What a permission really allows, where the plain action word would not say it ("Credit sales: Create" is selling on credit).
+_ACTION_LABELS = {
+    ("credit", "create"): "Sell on credit", ("credit", "approve"): "Approve over the limit", ("credit", "read"): "View credit",
+    ("credit", "update"): "Change credit limit",
+    ("discounts", "apply"): "Apply at checkout", ("discounts", "activate"): "Turn rules on/off", ("discounts", "promotions"): "Manage promotions",
+    ("discounts", "coupons"): "Manage coupons", ("discounts", "analytics"): "View reports", ("discounts", "settings"): "Discount settings",
+}
+# Resources that belong to no module's access list but are used inside one: shown there, where people look for them.
+_SHOWN_UNDER = {"credit": "sales"}
 
 
 def _label(resource: str) -> str:
@@ -62,9 +73,10 @@ def matrix(catalog: list[Permission], granted: set[str], everything: bool, state
     home = resource_home()
     groups: dict[str, dict[str, dict]] = {}
     for p in catalog:
-        module = home.get(p.resource, BUSINESS)
+        module = home.get(p.resource) or _SHOWN_UNDER.get(p.resource, BUSINESS)
         row = groups.setdefault(module, {}).setdefault(p.resource, {"resource": p.resource, "label": _label(p.resource), "actions": {}})
-        row["actions"][p.action] = {"id": str(p.id), "name": p.name, "label": ACTION_LABELS.get(p.action, p.action.title()), "granted": everything or p.name in granted}
+        label = _ACTION_LABELS.get((p.resource, p.action)) or ACTION_LABELS.get(p.action, p.action.title())
+        row["actions"][p.action] = {"id": str(p.id), "name": p.name, "label": label, "granted": everything or p.name in granted}
     order = [*_module_resources().keys(), BUSINESS]
     out = []
     for module in sorted(groups, key=lambda m: order.index(m) if m in order else len(order)):

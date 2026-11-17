@@ -108,6 +108,8 @@ async def create_order(data: OrderCreate, db: DbSession, current_user: CurrentUs
         if "pos" in (getattr(current_user, "disabled_modules", None) or []) and not current_user.is_superuser:
             raise ForbiddenError("Point of Sale has been switched off for your account. Ask an administrator of your business.")
     can_approve = current_user.is_superuser or "credit:approve" in current_user.permissions_names
+    if data.salesperson_id and data.salesperson_id != current_user.id and not current_user.is_superuser:
+        raise ForbiddenError("Only the business owner can record a sale for another salesperson")
     if data.ordered_at is not None:
         await service.require_backdating_allowed(db, current_user, data.ordered_at)
     can_sell_credit = current_user.is_superuser or "credit:create" in current_user.permissions_names

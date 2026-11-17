@@ -680,7 +680,7 @@ export default function SalesOrdersPage() {
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </Field>
-            {!editing && (team.data?.length ?? 0) > 1 && (
+            {!editing && !!authUser?.isSuperuser && (team.data?.length ?? 0) > 1 && (
               <Field label="Salesperson" hint="Who is credited with this sale. Leave as Me if you made it.">
                 <Select value={form.salesperson_id} onChange={(e) => setForm({ ...form, salesperson_id: e.target.value })}>
                   <option value="">Me</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}

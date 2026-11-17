@@ -59,6 +59,9 @@ interface PaymentPanelProps {
   saving?: boolean;
   pricingPending?: boolean;
   checkoutBlocked?: boolean;
+  /** Why pricing keeps the sale from completing, shown under the button. */
+  blockedReason?: string | null;
+  onRetryPricing?: () => void;
   approvalPending?: boolean;
   saleError?: string | null;
   /** Sum of cash recorded per cart line, when itemizing instead of one lump sum. */
@@ -73,7 +76,7 @@ interface PaymentPanelProps {
 
 export function PaymentPanel({
   payment, cashGiven, subtotal, discount, discountBreakdown, tax, total, cartCount, hasCustomer, customerName, customerId, dueDate, vatEnabled, vatRate, vatMode = "inclusive", vatBreakdown, currencySymbol, fmt,
-  saving, pricingPending, checkoutBlocked, approvalPending, saleError, itemsCashReceivedSum, notes, onNotesChange, onPaymentChange, onCashChange, onDueDateChange, onCharge,
+  saving, pricingPending, checkoutBlocked, blockedReason, onRetryPricing, approvalPending, saleError, itemsCashReceivedSum, notes, onNotesChange, onPaymentChange, onCashChange, onDueDateChange, onCharge,
 }: PaymentPanelProps) {
   const can = useCan();
   const canCredit = can("credit", "create");
@@ -108,6 +111,16 @@ export function PaymentPanel({
   const needsRef = (m: PaymentMethod) => m === "mobile" || m === "card" || m === "bank";
   const refMissing = (single && needsRef(tab as PaymentMethod) && paid > 0 && !reference.trim()) || (tab === "split" && splitPayments.some((s) => needsRef(s.method) && !s.reference));
   const missingDebtFields = debt && (!hasCustomer || !dueDate || !canCredit);
+  const why = cartCount === 0 || saving ? null
+    : checkoutBlocked && !pricingPending ? blockedReason ?? "The price is still being checked."
+    : over ? "The payments add up to more than the total."
+    : overNonCash ? "Mobile money or card can't be more than the total."
+    : refMissing ? "Enter the transaction reference for the mobile money or card payment."
+    : missingDebtFields ? (!canCredit ? "You don't have permission to sell on credit. Ask the owner, or take full payment." : !hasCustomer ? "Choose the customer who will owe the balance." : "Choose when the balance is due.")
+    : debt && !debtAccepted ? "The amount is less than the total. Choose Partial payment or On credit, or take the full amount."
+    : arr === "partial" && (!debt || paid <= 0) ? "Enter an amount between zero and the total for a partial payment."
+    : tab === "split" && splitPayments.length === 0 && !debt ? "Add the split payments."
+    : null;
   const blocked = cartCount === 0 || saving || checkoutBlocked || pricingPending || over || overNonCash || refMissing || (debt && !debtAccepted) || (arr === "partial" && (!debt || paid <= 0)) || missingDebtFields || (tab === "split" && splitPayments.length === 0 && !debt) || (tab === "cash" && cashGiven !== "" && entered < 0);
 
   const snapshot = useCustomerDebtSnapshot(customerId ?? null, debt).data;
@@ -317,9 +330,15 @@ export function PaymentPanel({
       {saleError && (
         <div className="flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] font-medium text-red-600"><AlertCircle size={12} className="mt-0.5 flex-shrink-0" /><span>{saleError}</span></div>
       )}
-      <Button disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving || pricingPending}>
+      <Button disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving || pricingPending} aria-describedby={blocked && why ? "pos-charge-why" : undefined}>
         {saving ? "Saving sale…" : pricingPending ? "Checking price…" : approvalPending ? "Approval required" : <>{label}{cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(amountShown)}</span>}</>}
       </Button>
+      {blocked && why && (
+        <p id="pos-charge-why" role="status" className="flex items-start gap-1.5 text-[11.5px] font-medium text-amber-700 dark:text-amber-400">
+          <AlertCircle size={12} className="mt-0.5 flex-shrink-0" aria-hidden /><span className="min-w-0 flex-1">{why}</span>
+          {checkoutBlocked && onRetryPricing && <button type="button" onClick={onRetryPricing} className="shrink-0 font-semibold text-accent hover:underline">Retry</button>}
+        </p>
+      )}
       </div>
 
       <Drawer open={dialog === "split"} onClose={() => setDialog(null)} side="center" size="md" title="Split payment">

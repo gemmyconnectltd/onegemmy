@@ -302,7 +302,18 @@ export default function POSPage() {
   const taxInput = { items: cart.map(i => ({ product_id: i.product_id ?? null, variant_id: i.variant_id ?? null, line_total: Math.round(i.price * i.qty * 100) / 100 })), discount: 0 };
   const taxPreview = useTaxPreview(taxInput, !discountSettings.data?.enabled && cart.length > 0 && vatEnabled);
   const vatLines = livePricing?.vat ?? (!discountSettings.data?.enabled ? taxPreview.data : undefined);
-  const pricingBlocked = (vatEnabled && vatMode === "exclusive" && cart.length > 0 && !discountSettings.data?.enabled && (taxPreview.isFetching || !taxPreview.data)) || discountSettings.isPending || discountSettings.isError || (discountSettings.data?.enabled && cart.length > 0 && (discountPricing.isFetching || discountPricing.isError || !livePricing || !!livePricing.blocked || !!livePricing.coupon_errors?.length || (livePricing.approval_required && livePricing.approval_status !== "approved")));
+  // Discount settings that fail to load never lock the till: the server prices every sale itself, discounts included.
+  const pricingBlocked = (vatEnabled && vatMode === "exclusive" && cart.length > 0 && !discountSettings.data?.enabled && (taxPreview.isFetching || !taxPreview.data)) || (discountSettings.isPending && !discountSettings.isError) || (discountSettings.data?.enabled && cart.length > 0 && (discountPricing.isFetching || discountPricing.isError || !livePricing || !!livePricing.blocked || !!livePricing.coupon_errors?.length || (livePricing.approval_required && livePricing.approval_status !== "approved")));
+
+  // Why Complete Sale is unavailable, said to the cashier instead of a silently grey button.
+  const pricingReason = !pricingBlocked || cart.length === 0 ? null
+    : discountSettings.data?.enabled && discountPricing.isError ? "The price could not be checked. Check the connection and press Retry."
+    : livePricing?.blocked ? livePricing.blocked
+    : livePricing?.coupon_errors?.length ? `Coupon problem: ${livePricing.coupon_errors.join("; ")}. Remove the coupon or fix it.`
+    : livePricing?.approval_required && livePricing.approval_status !== "approved" ? "This discount needs approval before the sale can be completed."
+    : vatEnabled && vatMode === "exclusive" && taxPreview.isError ? "VAT could not be calculated. Check the connection and press Retry."
+    : "Checking the price…";
+  const retryPricing = () => { void discountSettings.refetch(); if (discountSettings.data?.enabled) void discountPricing.refetch(); else void taxPreview.refetch(); };
 
   // ── totals ───────────────────────────────────────────────────────────────
   const subtotal = livePricing ? Number(livePricing.subtotal) : cart.reduce((sum, item) => sum + Math.round(item.price * item.qty * 100), 0) / 100;
@@ -386,7 +397,7 @@ export default function POSPage() {
         ...(discountSettings.data?.enabled ? { coupon_codes: pricingInput.coupon_codes, manual_discount: pricingInput.manual_discount, manual_discount_reason: discountReason || undefined, discount_approval_id: approvalId } : {}),
         customer_id: customerId,
         ...(saleAt ? { ordered_at: new Date(saleAt).toISOString() } : {}),
-        ...(salespersonId ? { salesperson_id: salespersonId } : {}),
+        ...(salespersonId && user?.isSuperuser ? { salesperson_id: salespersonId } : {}),
         notes: `POS — ${checkout.kind === "split" ? "split" : checkout.kind === "credit" ? "credit" : payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
         discount: 0,
         tax,
@@ -470,7 +481,7 @@ export default function POSPage() {
               onSaleAtChange={setSaleAt}
               team={team.data ?? []}
               salespersonId={salespersonId}
-              onSalespersonChange={setSalespersonId}
+              onSalespersonChange={user?.isSuperuser ? setSalespersonId : undefined}
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}
@@ -511,8 +522,10 @@ export default function POSPage() {
                 currencySymbol={currencySymbol}
                 fmt={fmt}
                 saving={saving}
-                pricingPending={discountSettings.isPending || (discountSettings.data?.enabled && discountPricing.isFetching && cart.length > 0)}
+                pricingPending={(discountSettings.isPending && !discountSettings.isError) || (discountSettings.data?.enabled && discountPricing.isFetching && cart.length > 0)}
                 checkoutBlocked={!!pricingBlocked}
+                blockedReason={pricingReason}
+                onRetryPricing={retryPricing}
                 approvalPending={!!livePricing?.approval_required && livePricing.approval_status !== "approved"}
                 saleError={saleError}
                 itemsCashReceivedSum={itemsCashReceivedSum}
