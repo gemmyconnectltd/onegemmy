@@ -29,7 +29,9 @@ export async function printReceipt(source: HTMLElement, paper: ReceiptPaper): Pr
       .receipt-totals{border-top:1px dashed gray;padding-top:6px;margin-top:6px}
       .receipt-row{display:flex;justify-content:space-between;gap:8px;margin:3px 0;overflow-wrap:anywhere}
       .receipt-row strong{text-align:right}.receipt-grand{font-size:15px;font-weight:bold;border-top:1px solid gray;padding-top:5px}
-      .receipt-footer{text-align:left;margin-top:12px;font-size:10px}tr{break-inside:avoid}thead{display:table-header-group}
+      .receipt-footer{text-align:center;margin-top:12px;padding-top:8px;border-top:1px dashed gray;font-size:10px}
+      .receipt-thanks{font-size:12px;font-weight:bold;margin:0}.receipt-welcome{font-size:10px;margin:2px 0 0}
+      .receipt-powered{text-align:center;font-size:9px;letter-spacing:.03em;border-top:1px dashed gray;margin-top:8px;padding-top:6px}tr{break-inside:avoid}thead{display:table-header-group}
       ${paper === "A4" ? `
       body{font-size:13px;line-height:1.5}.pos-receipt{padding:0}
       h1{font-size:24px;margin:4px 0 8px}
@@ -39,7 +41,7 @@ export async function printReceipt(source: HTMLElement, paper: ReceiptPaper): Pr
       td{padding:9px 6px;border-bottom:1px solid #ddd}th:last-child,td:last-child{width:24%}
       .receipt-totals{width:60%;border-top:0;margin-top:14px}
       .receipt-grand{font-size:17px}
-      .receipt-footer{border-top:1px solid #ddd;padding-top:10px;margin-top:28px;font-size:11px}` : ""}
+      .receipt-footer{border-top:1px solid #ddd;padding-top:12px;margin-top:28px;font-size:11px}.receipt-thanks{font-size:15px}.receipt-welcome{font-size:12px}` : ""}
       @media print{html,body,.pos-receipt{overflow:visible!important;height:auto!important;max-height:none!important}}
     `;
     doc.head.appendChild(style);

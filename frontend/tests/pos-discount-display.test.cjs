@@ -51,10 +51,10 @@ test('manual discount entry is closed by default and respects settings/permissio
   const { PosDiscounts } = load('PosDiscounts.tsx');
   const config = { settings: { enabled: true, manual_pos: true }, canApply: true, cart: [props.product], coupon: '', money: String };
   const html = renderToStaticMarkup(React.createElement(PosDiscounts, config));
-  assert.ok(html.includes('+ Apply Discount'));
+  assert.ok(html.includes('+ Add discount'));
   assert.ok(!html.includes('Discount type'));
   assert.equal(renderToStaticMarkup(React.createElement(PosDiscounts, { ...config, settings: { enabled: false } })), '');
-  assert.ok(!renderToStaticMarkup(React.createElement(PosDiscounts, { ...config, canApply: false })).includes('+ Apply Discount'));
+  assert.ok(!renderToStaticMarkup(React.createElement(PosDiscounts, { ...config, canApply: false })).includes('+ Add discount'));
 });
 
 test('an empty coupon error list does not render a stray zero', () => {

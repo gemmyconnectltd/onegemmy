@@ -85,7 +85,7 @@ export function POSHeader({
           <div className="relative">
             <button
               onClick={onToggleLang}
-              aria-label="POS language" aria-expanded={showLang}
+              aria-label="Language" aria-expanded={showLang}
               className="flex items-center gap-1 px-3 py-2 border border-border rounded-lg text-[12px] font-semibold text-foreground hover:bg-surface transition-colors"
             >
               <Globe size={14} />
@@ -113,7 +113,7 @@ export function POSHeader({
           <button
             onClick={onToggleTheme}
             className="w-9 h-9 flex items-center justify-center border border-border rounded-lg text-muted hover:text-foreground hover:bg-surface transition-colors"
-            aria-label="Toggle theme"
+            aria-label="Switch light or dark mode"
           >
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>

@@ -1,4 +1,5 @@
 import io
+import re
 import uuid
 from pathlib import Path
 from xml.sax.saxutils import escape as esc
@@ -85,6 +86,16 @@ def _register_fonts() -> None:
         return
     FONT = "App"
     FONT_BOLD = "App-Bold"
+
+
+def customer_note(notes: str | None) -> str:
+    """The note a customer sees. The till's own stamp ("POS — cash — name") is for reports; only what the cashier typed after "|" is kept."""
+    if not notes:
+        return ""
+    if not re.match(r"\s*POS\s*[—\-–:]", notes, re.IGNORECASE):
+        return notes
+    _, bar, typed = notes.partition(" | ")
+    return typed.strip() if bar else ""
 
 
 def _styles(accent: colors.Color) -> dict:
@@ -325,9 +336,10 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
         flow.append(pay_table)
         flow.append(Spacer(1, 6 * mm))
 
-    if order.notes:
+    note = customer_note(order.notes)
+    if note:
         flow.append(Paragraph("NOTES", styles["h2"]))
-        flow.append(Paragraph(esc(order.notes), styles["body_muted"]))
+        flow.append(Paragraph(esc(note), styles["body_muted"]))
         flow.append(Spacer(1, 6 * mm))
 
     # ── QR + footer — a compact, honest order reference (no fabricated
@@ -361,8 +373,9 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
 
     def _page_footer(canvas, doc_):
         canvas.saveState()
-        from app.core.brand_pdf import draw_brand_band
+        from app.core.brand_pdf import draw_brand_band, draw_powered_by
         draw_brand_band(canvas, PAGE_W, A4[1], accent)
+        draw_powered_by(canvas, PAGE_W / 2, 10 * mm, font=FONT, bold_font=FONT_BOLD, muted=MUTED)
         canvas.setFont(FONT, 7)
         canvas.setFillColor(MUTED)
         canvas.drawRightString(PAGE_W - MARGIN, 10 * mm, f"Page {doc_.page}")

@@ -113,7 +113,7 @@ export function PaymentPanel({
   const refMissing = (single && needsRef(tab as PaymentMethod) && paid > 0 && !reference.trim()) || (tab === "split" && splitPayments.some((s) => needsRef(s.method) && !s.reference));
   const missingDebtFields = debt && (!hasCustomer || !dueDate || !canCredit);
   const why = cartCount === 0 || saving ? null
-    : checkoutBlocked && !pricingPending ? blockedReason ?? "The price is still being checked."
+    : checkoutBlocked && !pricingPending ? blockedReason ?? "Please wait while the price is confirmed."
     : over ? "The payments add up to more than the total."
     : overNonCash ? "Mobile money or card can't be more than the total."
     : refMissing ? "Enter the reference for the card or bank payment."
@@ -208,7 +208,7 @@ export function PaymentPanel({
       </dl>
       <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${hasCustomer ? "bg-card text-foreground ring-1 ring-border" : "bg-red-500/10 text-red-700 dark:text-red-400"}`}>
         <UserRound size={14} className="shrink-0" aria-hidden />
-        {hasCustomer ? <span className="min-w-0 truncate">Owed by {customerName || "the selected customer"}</span> : <span>A debt needs a customer. Close this and use the Customer button (Select or + New).</span>}
+        {hasCustomer ? <span className="min-w-0 truncate">Owed by {customerName || "the selected customer"}</span> : <span>Choose a customer first: close this and tap Customer to pick or add one.</span>}
       </div>
       {hasCustomer && (owedNow !== null || dailyLimit !== null) && (
         <p className="text-[12px] leading-snug text-muted">{owedNow !== null && <>Already owes <strong className="text-foreground">{currencySymbol} {fmt(owedNow)}</strong>. After this sale: <strong className="text-foreground">{currencySymbol} {fmt(owedNow + remaining)}</strong>.</>}{dailyLimit !== null && <> Daily credit limit {currencySymbol} {fmt(dailyLimit)}.</>}</p>
@@ -233,7 +233,7 @@ export function PaymentPanel({
           <div className="flex justify-between gap-2"><dt>{discount > 0 ? "Subtotal before discounts" : "Subtotal"}{vatEnabled ? (vatMode === "exclusive" ? " (excl. VAT)" : " (incl. VAT)") : ""}</dt><dd className="tabular-nums">{currencySymbol} {fmt(subtotal)}</dd></div>
           {discountBreakdown && discount > 0 ? <>
             {discountBreakdown.product > 0 && <div className="flex justify-between"><dt>Product discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.product)}</dd></div>}
-            {discountBreakdown.order > 0 && <div className="flex justify-between"><dt>Sale / manual discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.order)}</dd></div>}
+            {discountBreakdown.order > 0 && <div className="flex justify-between"><dt>Sale discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.order)}</dd></div>}
             {discountBreakdown.coupon > 0 && <div className="flex justify-between"><dt>Coupon discounts</dt><dd>−{currencySymbol} {fmt(discountBreakdown.coupon)}</dd></div>}
           </> : discount > 0 && <div className="flex justify-between"><dt>Discounts</dt><dd>−{currencySymbol} {fmt(discount)}</dd></div>}
           {discount > 0 && <div className="flex justify-between font-medium text-accent"><dt>Total savings</dt><dd>{currencySymbol} {fmt(discount)}</dd></div>}
@@ -256,7 +256,7 @@ export function PaymentPanel({
           );
         })}
       </div>
-      {!canCredit && <p className="-mt-1 text-[11px] text-muted">Partial payment and On credit need the &quot;Partial payment and credit sales&quot; permission. The owner can turn it on.</p>}
+      {!canCredit && <p className="-mt-1 text-[11px] text-muted">Partial payment and credit sales are turned off for your account. Ask the owner to turn them on.</p>}
 
       {/* What is it paid with? (the method). Not needed when the whole sale is on credit. */}
       {arr !== "credit" && (
@@ -275,12 +275,12 @@ export function PaymentPanel({
           {/* Cash / Mobile Money / Card / Bank: only the fields that matter */}
           {single && (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <label htmlFor="pos-paid-now" className="sr-only">{tab === "cash" ? "Amount received" : "Amount paid"}</label>
-                <div className="relative min-w-0 flex-1">
+                <div className="relative min-w-[10rem] flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-mono text-muted">{currencySymbol}</span>
                   <input id="pos-paid-now" type="number" inputMode="decimal" min={0} max={total} value={cashGiven} onChange={(e) => onCashChange(limitSingle(e.target.value))} placeholder={`${tab === "cash" ? "Received" : "Paid"} ${fmt(total)}`}
-                    className={`w-full rounded-xl border-2 bg-card py-1.5 lg:py-2.5 pl-10 pr-3 font-mono text-[15px] font-bold tabular-nums outline-none transition-colors ${debt ? "border-amber-400 focus:border-amber-500" : "border-border focus:border-accent"}`} />
+                    className={`w-full rounded-xl border-2 bg-card py-1.5 lg:py-2.5 pl-10 pr-3 font-mono text-base font-bold tabular-nums outline-none transition-colors ${debt ? "border-amber-400 focus:border-amber-500" : "border-border focus:border-accent"}`} />
                 </div>
                 
                 {tab === "cash" && cashGiven === "" && <span className="shrink-0 text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">Paid in full</span>}
@@ -346,8 +346,8 @@ export function PaymentPanel({
       <Drawer open={dialog === "split"} onClose={() => setDialog(null)} side="center" size="md" title="Split payment">
         <div className="space-y-3 p-4">{splitEditor}<Button className="w-full" onClick={() => setDialog(null)}>Done</Button></div>
       </Drawer>
-      <Drawer open={dialog === "debt"} onClose={() => setDialog(null)} side="center" size="md" title={arr === "credit" ? "Credit terms" : "Partial payment: credit terms"}>
-        <div className="space-y-3 p-4">{debtEditor}<Button className="w-full" disabled={!debtReady} onClick={() => setDialog(null)}>{debtReady ? "Done" : "Complete the terms above"}</Button></div>
+      <Drawer open={dialog === "debt"} onClose={() => setDialog(null)} side="center" size="md" title={arr === "credit" ? "Credit terms" : "Partial payment details"}>
+        <div className="space-y-3 p-4">{debtEditor}<Button className="w-full" disabled={!debtReady} onClick={() => setDialog(null)}>{debtReady ? "Done" : "Fill in the details above"}</Button></div>
       </Drawer>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, X } from "lucide-react";
 
 import { CartPanel } from "@/components/pos/CartPanel";
@@ -72,7 +73,7 @@ export default function POSPage() {
   // ── inventory ────────────────────────────────────────────────────────────
   const { data: productData, isLoading, isPlaceholderData, isError, refetch } = useProducts(catalogPage, 40, search || undefined, true, undefined, undefined, selectedCategoryId);
   const loading = isLoading || isPlaceholderData;
-  const error = isError ? "Failed to load inventory. Check your connection." : null;
+  const error = isError ? "Products couldn't load. Check your internet connection and try again." : null;
   const products = useMemo(
     () => (productData?.items ?? []).filter((p) => p.is_active).map(apiToProduct),
     [productData]
@@ -143,6 +144,7 @@ export default function POSPage() {
   const [saleError, setSaleError] = useState<string | null>(null);
   const [quoteId, setQuoteId] = useState<string | null>(null);
   const createQuotation = useCreateQuotation();
+  const queryClient = useQueryClient();
   const [review, setReview] = useState<Checkout | null>(null);
 
   // ── keyboard shortcut: / → focus search ─────────────────────────────────
@@ -219,7 +221,7 @@ export default function POSPage() {
     const product = products.find(product => product.id === item?.product_id);
     const cost = item?.variant_id ? product?.variants?.find(variant => variant.id === item.variant_id)?.cost : product?.cost;
     if (price < (cost ?? item?.cost ?? 0)) {
-      setSaleError("The selling price cannot be below unit cost.");
+      setSaleError("The price can't be lower than the product's cost.");
       return;
     }
     setCart(previous => previous.map(line => line.id === id ? {
@@ -310,11 +312,11 @@ export default function POSPage() {
 
   // Why Complete Sale is unavailable, said to the cashier instead of a silently grey button.
   const pricingReason = !pricingBlocked || cart.length === 0 ? null
-    : discountSettings.data?.enabled && discountPricing.isError ? `The price could not be checked: ${discountPricing.error?.message || "check the connection"}. Press Retry.`
+    : discountSettings.data?.enabled && discountPricing.isError ? "We couldn't confirm the price. Check your internet connection and tap Retry."
     : livePricing?.blocked ? livePricing.blocked
-    : livePricing?.coupon_errors?.length ? `Coupon problem: ${livePricing.coupon_errors.join("; ")}. Remove the coupon or fix it.`
-    : livePricing?.approval_required && livePricing.approval_status !== "approved" ? "This discount needs approval before the sale can be completed."
-    : vatEnabled && vatMode === "exclusive" && taxPreview.isError ? "VAT could not be calculated. Check the connection and press Retry."
+    : livePricing?.coupon_errors?.length ? `This coupon can't be used: ${livePricing.coupon_errors.join("; ")}. Remove it to continue.`
+    : livePricing?.approval_required && livePricing.approval_status !== "approved" ? "A manager needs to approve this discount before you can complete the sale."
+    : vatEnabled && vatMode === "exclusive" && taxPreview.isError ? "We couldn't calculate VAT. Check your internet connection and tap Retry."
     : "Checking the price…";
   const retryPricing = () => { void discountSettings.refetch(); if (discountSettings.data?.enabled) void discountPricing.refetch(); else void taxPreview.refetch(); };
 
@@ -334,7 +336,7 @@ export default function POSPage() {
   const holdSale = () => {
     if (saleInFlight.current || cart.length === 0) return;
     setHeldOrders((prev) => [
-      { id: `H-${Date.now()}`, label: customerName.trim() || `Parked ${timeLabel()}`, time: timeLabel(), cart, customerName, customerId, notes, payment, cashGiven, dueDate, discountContext: { couponCode, manualValue, manualKind, discountReason, approvalId } },
+      { id: `H-${Date.now()}`, label: customerName.trim() || `Held at ${timeLabel()}`, time: timeLabel(), cart, customerName, customerId, notes, payment, cashGiven, dueDate, discountContext: { couponCode, manualValue, manualKind, discountReason, approvalId } },
       ...prev,
     ]);
     clearCart();
@@ -353,9 +355,11 @@ export default function POSPage() {
         items: cart.map((i, index) => ({ product_id: i.product_id ?? null, variant_id: i.variant_id ?? null, product_name: i.name, sku: i.sku ?? null,
           unit_price: i.price, quantity: i.qty, discount: pricingInput.items[index].discount })),
       });
+      // Show the saved quotation at once from the reply, instead of loading it again.
+      queryClient.setQueryData(["sales", "quotations", created.data.id], created);
       setQuoteId(created.data.id);
     } catch (cause) {
-      setSaleError(`The quotation could not be saved: ${(cause as { detail?: string })?.detail ?? (cause as Error)?.message ?? "please try again"}`);
+      setSaleError(`The quotation wasn't saved. ${(cause as { detail?: string })?.detail ?? "Please try again."}`);
     }
   };
 
@@ -395,12 +399,12 @@ export default function POSPage() {
     if (saleInFlight.current || saving || cart.length === 0) return;
     if (checkout.outstanding > 0 && !customerId) {
       setReview(null);
-      setSaleError("A customer is required for a partial or credit sale.");
+      setSaleError("Choose a customer for a partial payment or credit sale.");
       return;
     }
     if (checkout.outstanding > 0 && !checkout.dueDate) {
       setReview(null);
-      setSaleError("A due date is required for a partial or credit sale.");
+      setSaleError("Choose when the balance is due.");
       return;
     }
     saleInFlight.current = true;
@@ -408,8 +412,8 @@ export default function POSPage() {
     setSaleError(null);
     try {
       // order-level discount is 0 — item discounts are already baked into each line_total
-      if (pricingBlocked) throw new Error("Wait for valid discount pricing before checkout.");
-      if (discountSettings.data?.enabled && confirmedPricing.current !== livePricing?.pricing_hash) throw new Error("Pricing changed. Review the refreshed total and charge again.");
+      if (pricingBlocked) throw new Error("Please wait while the price is confirmed.");
+      if (discountSettings.data?.enabled && confirmedPricing.current !== livePricing?.pricing_hash) throw new Error("The price has changed. Check the new total and complete the sale again.");
       if (!checkoutReference.current) checkoutReference.current = crypto.randomUUID();
       const created = await createOrder.mutateAsync({
         status: "Completed",
@@ -450,8 +454,8 @@ export default function POSPage() {
       if (created.data.status === "Awaiting Approval") {
         clearCart();
         setSaleError(created.data.held_reason === "policy"
-          ? `Order ${created.data.order_number} was sent for approval. No stock or money has been recorded: take payment once it is approved.`
-          : `Credit above the daily limit for this customer. Order ${created.data.order_number} was sent for approval — no stock or money has been recorded yet.`);
+          ? `Sale ${created.data.order_number} is waiting for a manager's approval. Take payment once it is approved.`
+          : `This customer has reached today's credit limit. Sale ${created.data.order_number} is waiting for a manager's approval.`);
         return;
       }
 
@@ -465,7 +469,7 @@ export default function POSPage() {
     } catch (e: unknown) {
       setSaleError(
         (e as { detail?: string })?.detail ??
-          "Could not save the sale. Check your connection and try again."
+          "The sale wasn't saved. Check your internet connection and try again."
       );
     } finally {
       saleInFlight.current = false;
@@ -529,7 +533,7 @@ export default function POSPage() {
                 }}
                 onRemoveManual={() => { setManualValue(""); setCart(items => items.map(item => ({ ...item, discount: 0 }))); setApprovalId(undefined); setCashGiven(""); }}
                 money={amount => `${currencySymbol} ${fmt(amount)}`} approvalId={approvalId} onApprovalId={setApprovalId} requesting={requestDiscountApproval.isPending}
-                onRequestApproval={() => requestDiscountApproval.mutate({ ...pricingInput, reason: discountReason }, { onSuccess: result => setSaleError(`Discount approval requested: ${result.data.id}`), onError: error => setSaleError(error.message) })} />}
+                onRequestApproval={() => requestDiscountApproval.mutate({ ...pricingInput, reason: discountReason }, { onSuccess: result => setSaleError(`Approval requested. When the manager approves it, enter this approval code: ${result.data.id}`), onError: error => setSaleError(error.message) })} />}
               <PaymentPanel
                 payment={payment}
                 cashGiven={cashGiven}
@@ -644,7 +648,7 @@ export default function POSPage() {
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setCatalogPage(1); }}
                 onKeyDown={handleSearchKeyDown}
-                placeholder="Search by name or SKU… (press / or Enter to add top match)"
+                placeholder="Search products or scan a barcode"
                 className="min-w-0 flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
               />
               {search && (
@@ -674,7 +678,7 @@ export default function POSPage() {
           </div>
 
           {discountSettings.data?.enabled && catalogPricing.isPending && products.length > 0 && <PageLoader variant="compact" />}
-          {catalogPricing.isError && <p role="status" className="px-4 py-2 text-xs text-muted">Offers could not be verified. Regular prices are shown; checkout verifies pricing.</p>}
+          {catalogPricing.isError && <p role="status" className="px-4 py-2 text-xs text-muted">Offers couldn&apos;t load right now. Regular prices are shown, and the final price is confirmed at checkout.</p>}
           <div className="flex items-center justify-between gap-2 px-4 py-2"><Button size="sm" variant="secondary" disabled={catalogPage <= 1} onClick={() => { setCatalogPage(page => page - 1); setCategory("All"); }}>Previous</Button><span className="text-xs text-muted">Page {catalogPage} of {Math.max(1, Math.ceil((productData?.total ?? 0) / 40))}</span><Button size="sm" variant="secondary" disabled={catalogPage * 40 >= (productData?.total ?? 0)} onClick={() => { setCatalogPage(page => page + 1); setCategory("All"); }}>Next</Button></div>
           {/* Product grid */}
           <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 min-h-0">

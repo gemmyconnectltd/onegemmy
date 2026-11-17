@@ -100,3 +100,25 @@ def business_contact_lines(tenant) -> list[str]:
 def business_name(tenant) -> str:
     """The business's name for document metadata; a neutral word when it is missing, never the software vendor's name."""
     return (getattr(tenant, "name", None) or "").strip() or "Business"
+
+
+# The small Pesaa credit at the foot of every invoice, receipt and quotation: quiet grey text with the name in Pesaa green.
+PESAA_GREEN = colors.HexColor(DEFAULT_BRAND)
+POWERED_BY_GREY = colors.HexColor("#6B7280")
+POWERED_BY_MARKUP = 'Powered by <b>Pesaa</b>'
+
+
+def draw_powered_by(canvas, x: float, y: float, align: str = "center", size: float = 7, font: str = "Helvetica",
+                    bold_font: str = "Helvetica-Bold", muted: colors.Color = POWERED_BY_GREY) -> None:
+    """Draws "Powered by Pesaa" with x as its centre, or its right edge when align is "right"."""
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    parts = [("Powered by ", font, muted), ("Pesaa", bold_font, PESAA_GREEN)]
+    width = sum(stringWidth(text, f, size) for text, f, _ in parts)
+    left = x - width / 2 if align == "center" else x - width
+    canvas.saveState()
+    for text, f, colour in parts:
+        canvas.setFont(f, size)
+        canvas.setFillColor(colour)
+        canvas.drawString(left, y, text)
+        left += stringWidth(text, f, size)
+    canvas.restoreState()

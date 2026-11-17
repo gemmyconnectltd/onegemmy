@@ -38,6 +38,10 @@ export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled 
       {row("Payment", paymentLabel(sale.payment))}{row("Amount paid", money(sale.amountPaid ?? sale.total))}
       {!!sale.balanceDue && sale.balanceDue > 0 ? <>{row("Balance due", money(sale.balanceDue))}{sale.dueDate && row("Due date", sale.dueDate)}</> : row("Change", money(sale.change))}
     </section>
-    <footer className="receipt-footer mt-4 text-left text-xs text-muted">Thank you for your purchase!</footer>
+    <footer className="receipt-footer mt-4 border-t border-dashed border-border pt-3 text-center">
+      <p className="receipt-thanks text-[13px] font-semibold text-foreground">Thank you for shopping with {tenant?.name?.trim() || "us"}!</p>
+      <p className="receipt-welcome mt-0.5 text-[11px] text-muted">We look forward to seeing you again.</p>
+      <p className="receipt-powered mt-3 border-t border-dashed border-border pt-2 text-center text-[10px] tracking-wide">Powered by <strong className="font-semibold text-foreground">Pesaa</strong></p>
+    </footer>
   </article>;
 }

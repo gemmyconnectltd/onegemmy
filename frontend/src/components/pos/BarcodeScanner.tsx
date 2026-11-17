@@ -22,7 +22,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   useEffect(() => {
     const supported = "BarcodeDetector" in window;
     if (!supported) {
-      queueMicrotask(() => setError("Camera scanner not supported in this browser. Use manual entry below."));
+      queueMicrotask(() => setError("This browser can't scan with the camera. Type the barcode below instead."));
       return;
     }
 
@@ -40,7 +40,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         }
         scan();
       } catch {
-        setError("Camera access denied. Use manual entry below.");
+        setError("Camera access is blocked. Allow the camera in your browser settings, or type the barcode below.");
       }
     }
 

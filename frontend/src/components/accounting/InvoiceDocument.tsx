@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtDateTime } from "@/lib/date";
+import { customerNote } from "@/lib/orders";
 import type { ApiOrder, Tenant } from "@/lib/api";
 
 // The backend's Order.status is stored Title Case ("Pending"/"Completed"/
@@ -279,10 +280,10 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
             </div>
           )}
 
-          {order.notes && (
+          {customerNote(order.notes) && (
             <div className="px-7 py-4 border-t border-border">
               <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-[13px] text-foreground/70">{order.notes}</p>
+              <p className="text-[13px] text-foreground/70">{customerNote(order.notes)}</p>
             </div>
           )}
         </div>
@@ -290,13 +291,16 @@ export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayme
         {/* Branded footer */}
         <div className="flex-shrink-0 border-t border-border">
           <div className="h-1" style={{ backgroundColor: brandColor }} />
-          <div className="px-7 py-4 text-left">
-            <p className="text-[12px] font-bold text-foreground">Thank you for your business{tenant?.name ? ` — ${tenant.name}` : ""}!</p>
-            {(tenant?.website || tenant?.phone) && (
-              <p className="text-[11px] text-muted mt-1">
-                {[tenant?.website, tenant?.phone].filter(Boolean).join(" · ")}
-              </p>
-            )}
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-7 py-4 text-left">
+            <div>
+              <p className="text-[12px] font-bold text-foreground">Thank you for your business{tenant?.name ? ` — ${tenant.name}` : ""}!</p>
+              {(tenant?.website || tenant?.phone) && (
+                <p className="text-[11px] text-muted mt-1">
+                  {[tenant?.website, tenant?.phone].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            <p className="text-[10.5px] tracking-wide text-muted">Powered by <strong className="font-semibold text-foreground">Pesaa</strong></p>
           </div>
         </div>
       </div>

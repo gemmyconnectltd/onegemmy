@@ -16,6 +16,7 @@ from app.core.brand_pdf import (
     brand_color,
     business_name,
     draw_brand_band,
+    draw_powered_by,
     logo_flowable,
     readable_on,
 )
@@ -57,8 +58,10 @@ def _page(tenant, accent):
         canvas.setFillColor(FOREGROUND)
         canvas.drawString(MARGIN, 12 * mm, "Authorized Signature :______________________________      Received By: _________________      Date : ____ / ____ / 20 __")
         canvas.setFillColor(MUTED)
-        canvas.drawString(MARGIN, 7 * mm, line[:120])
-        canvas.drawRightString(PAGE_W - MARGIN, 7 * mm, f"Page {doc.page}")
+        canvas.drawString(MARGIN, 7 * mm, line[:85])
+        page = f"Page {doc.page}"
+        canvas.drawRightString(PAGE_W - MARGIN, 7 * mm, page)
+        draw_powered_by(canvas, PAGE_W - MARGIN - canvas.stringWidth(page, FONT, 7.5) - 4 * mm, 7 * mm, align="right", size=7)
         canvas.restoreState()
     return draw
 

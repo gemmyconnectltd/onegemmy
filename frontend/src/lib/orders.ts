@@ -14,6 +14,14 @@ export function parsePaymentFromNotes(notes: string | null | undefined): Payment
   return (METHODS as readonly string[]).includes(v) ? (v as PaymentMethod) : null;
 }
 
+/** The note to show a customer. The till's own stamp ("POS — cash — name") is for reports, so only what the cashier typed after "|" is kept. */
+export function customerNote(notes: string | null | undefined): string {
+  if (!notes) return "";
+  if (!/^\s*POS\s*[—\-–:]/i.test(notes)) return notes;
+  const bar = notes.indexOf(" | ");
+  return bar >= 0 ? notes.slice(bar + 3).trim() : "";
+}
+
 /** The sale's VAT by treatment, read from each line's frozen snapshot (never recomputed from today's product settings). */
 function vatSummary(o: ApiOrder): Pick<SaleResult, "vatBreakdown" | "vatExclusive"> {
   const lines = (o.items ?? []).filter((i) => i.tax_treatment);

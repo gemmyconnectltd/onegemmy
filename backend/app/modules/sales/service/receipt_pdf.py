@@ -21,7 +21,12 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.brand_pdf import business_contact_lines, business_name, logo_flowable
+from app.core.brand_pdf import (
+    POWERED_BY_MARKUP,
+    business_contact_lines,
+    business_name,
+    logo_flowable,
+)
 from app.core.currency import format_money
 from app.core.filenames import document_filename
 
@@ -37,6 +42,9 @@ def _styles(width: float) -> dict[str, ParagraphStyle]:
     return {
         "body": base,
         "center": ParagraphStyle("c", parent=base, alignment=TA_CENTER),
+        "thanks": ParagraphStyle("th", parent=base, fontName="Helvetica-Bold", fontSize=size + 1, leading=(size + 1) * 1.35, alignment=TA_CENTER),
+        # Black only, like the rest of a till receipt, and smaller than the receipt text.
+        "powered": ParagraphStyle("p", parent=base, fontSize=size - 1.2, leading=(size - 1.2) * 1.3, alignment=TA_CENTER),
         "biz": ParagraphStyle("b", parent=base, fontName="Helvetica-Bold", fontSize=size + 3, leading=(size + 3) * 1.25, alignment=TA_CENTER),
         "title": ParagraphStyle("t", parent=base, fontName="Helvetica-Bold", fontSize=size + 1.5, alignment=TA_CENTER, spaceBefore=4),
         "bold": ParagraphStyle("bo", parent=base, fontName="Helvetica-Bold"),
@@ -136,7 +144,9 @@ def build_receipt(order, tenant, paper: str = "80mm", cashier: str | None = None
             pay.append(("Due date", order.due_date.strftime("%d %b %Y")))
     elif order.change_due:
         pay.append(("Change", money(order.change_due)))
-    flow += [_rows(pay, st, width), Spacer(1, 3 * mm), Paragraph("Thank you for your purchase!", st["center"])]
+    flow += [_rows(pay, st, width), Spacer(1, 3 * mm), Paragraph(escape(f"Thank you for shopping with {(tenant.name or '').strip() or 'us'}!"), st["thanks"]),
+             Paragraph("We look forward to seeing you again.", st["center"]),
+             Spacer(1, 2.5 * mm), Paragraph(POWERED_BY_MARKUP, st["powered"])]
 
     # Measure the content so the page is exactly as long as the receipt (thermal paper has no fixed length).
     height = A4[1] if sheet else margin * 2 + sum(f.wrap(width, 10_000)[1] + getattr(f, "spaceBefore", 0) for f in flow) + 6 * mm

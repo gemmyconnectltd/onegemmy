@@ -279,10 +279,16 @@ export function CartPanel({
                       </div>
                     </div>
                     {showCashReceived && onUpdateCashReceived && (
-                      <div className="mt-1 flex w-fit items-center gap-1 rounded-md bg-surface px-1.5 py-0.5 focus-within:ring-1 focus-within:ring-accent" title="Cash received for this item">
-                        <Wallet size={10} className="flex-shrink-0 text-muted/60" />
-                        <input type="number" min={0} value={item.cashReceived || ""} onChange={(e) => onUpdateCashReceived(item.id, Number(e.target.value) || 0)} placeholder="Received" className="w-16 bg-transparent font-mono text-[11px] text-foreground outline-none" />
-                      </div>
+                      <label className="mt-1.5 flex w-full items-center gap-2 rounded-lg bg-surface px-2 py-1 focus-within:ring-1 focus-within:ring-accent">
+                        <Wallet size={13} className="shrink-0 text-muted" aria-hidden />
+                        <span className="shrink-0 text-[11px] font-medium text-muted">Cash received</span>
+                        {/* 16px text on phones stops iPhone from zooming the screen when the box is tapped. */}
+                        <span className="ml-auto flex min-w-0 items-center gap-1">
+                          <span className="shrink-0 font-mono text-[11px] text-muted">{currencySymbol}</span>
+                          <input type="number" inputMode="decimal" min={0} value={item.cashReceived || ""} onChange={(e) => onUpdateCashReceived(item.id, Number(e.target.value) || 0)} placeholder="0"
+                            aria-label={`Cash received for ${item.name}`} className="h-7 w-full min-w-0 max-w-28 bg-transparent text-right font-mono text-base tabular-nums text-foreground outline-none sm:text-[12px]" />
+                        </span>
+                      </label>
                     )}
                   </div>
                 </div>
