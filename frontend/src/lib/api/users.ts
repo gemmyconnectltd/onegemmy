@@ -22,6 +22,8 @@ export interface ApiUser {
   permissions: string[];
   created_at: string | null;
   updated_at: string | null;
+  /** Only on the reply to adding a user: whether the invitation email went out. */
+  email_sent?: boolean | null;
 }
 
 export interface ApiAuditLog {
@@ -47,6 +49,8 @@ export interface UserCreatePayload {
   branch_ids?: string[] | null;
   branch_id?: string | null;
   department_id?: string | null;
+  /** The password the inviter chose, to give the person directly. Left out, one is generated and emailed. */
+  password?: string | null;
 }
 
 export type UserUpdatePayload = Partial<
@@ -65,6 +69,7 @@ export interface PasswordResetResult {
   email: string;
   full_name: string;
   emailed: boolean;
+  password_chosen?: boolean;
 }
 
 const U = "/tenants/users";
@@ -103,12 +108,11 @@ export const usersApi = {
 
   remove: (id: string) => request<SingleResponse<unknown>>(`${U}/${id}`, { method: "DELETE" }),
 
-  /** The admin never sees or sets the new password — the backend generates it
-   *  and emails it to the user. */
-  resetPassword: (id: string, sendEmail = true) =>
+  /** Sets the password the admin chose, or (without one) a generated one the admin never sees. Emailed when sendEmail. */
+  resetPassword: (id: string, sendEmail = true, password?: string) =>
     request<SingleResponse<PasswordResetResult>>(`${U}/${id}/reset-password`, {
       method: "POST",
-      body: JSON.stringify({ send_email: sendEmail }),
+      body: JSON.stringify({ send_email: sendEmail, ...(password ? { password } : {}) }),
     }),
 
   activity: (id: string, page = 1, pageSize = 20) =>

@@ -450,3 +450,39 @@ async def test_member_create_permission_is_enforced_and_can_be_granted_individua
             assert (await staff.post(f"{API}/expense-management", json={})).status_code == 422  # now authorized; invalid body is checked
     finally:
         app.dependency_overrides.clear()
+
+
+async def test_an_owner_can_choose_the_password_when_adding_or_resetting_a_user_and_is_told_when_email_fails(db, monkeypatch):
+    from app.core.security import verify_password
+    tenant, roles, owner, cashier, *_ = await business(db, "ChosenPassword")
+    monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())
+    monkeypatch.setattr("app.modules.tenants.service.enforce_limit", AsyncMock())
+    invite = AsyncMock(return_value=False)  # the mail server is down
+    reset_mail = AsyncMock(side_effect=RuntimeError("SMTP down"))
+    monkeypatch.setattr("app.modules.tenants.service.user.send_invite_email", invite)
+    monkeypatch.setattr("app.modules.tenants.service.user.send_temp_password_email", reset_mail)
+    email = f"new{uuid.uuid4().hex[:6]}@example.com"
+    try:
+        async with client(db, owner) as c:
+            short = await c.post(f"{API}/users", json={"email": email, "full_name": "Neo", "role": "cashier", "password": "abc"})
+            assert short.status_code == 422 and "6 characters" in short.text
+            made = await c.post(f"{API}/users", json={"email": email, "full_name": "Neo", "role": "cashier", "password": "duka2026"})
+            assert made.status_code == 201, made.text
+            assert made.json()["data"]["email_sent"] is False and "could not be sent" in made.json()["message"]
+            assert invite.await_args.kwargs["temp_password"] == "duka2026"
+            new = (await db.execute(select(User).where(User.email == email))).scalar_one()
+            assert verify_password("duka2026", new.hashed_password)
+
+            reset = await c.post(f"{API}/users/{cashier.id}/reset-password", json={"send_email": True, "password": "kigali1"})
+            assert reset.status_code == 200, reset.text
+            assert reset.json()["data"] == {**reset.json()["data"], "emailed": False, "password_chosen": True}
+            assert "kigali1" not in reset.text  # the chosen password is not sent back
+            await db.refresh(cashier)
+            assert verify_password("kigali1", cashier.hashed_password)
+
+            generated = await c.post(f"{API}/users/{cashier.id}/reset-password", json={"send_email": True})
+            assert generated.status_code == 200 and "could not be sent" in generated.json()["message"]
+            await db.refresh(cashier)
+            assert not verify_password("kigali1", cashier.hashed_password)
+    finally:
+        app.dependency_overrides.clear()

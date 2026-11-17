@@ -816,7 +816,7 @@ export const useUpdateCompanyUser = mutation(({ id, data }: { id: string; data: 
 export const useActivateCompanyUser = mutation((id: string) => usersApi.activate(id), USER_INVALIDATIONS);
 export const useDeactivateCompanyUser = mutation((id: string) => usersApi.deactivate(id), USER_INVALIDATIONS);
 export const useDeleteCompanyUser = mutation((id: string) => usersApi.remove(id), USER_INVALIDATIONS);
-export const useResetCompanyUserPassword = mutation(({ id, sendEmail }: { id: string; sendEmail?: boolean }) => usersApi.resetPassword(id, sendEmail ?? true), USER_INVALIDATIONS);
+export const useResetCompanyUserPassword = mutation(({ id, sendEmail, password }: { id: string; sendEmail?: boolean; password?: string }) => usersApi.resetPassword(id, sendEmail ?? true, password), USER_INVALIDATIONS);
 
 // ── Services (appointments/walk-ins/catalog/staff commissions) ─────────────
 

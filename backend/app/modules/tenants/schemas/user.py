@@ -15,6 +15,8 @@ class UserCreate(TrimmedModel):
     branch_ids: list[uuid.UUID] | None = Field(default=None, max_length=100)
     branch_id: uuid.UUID | None = None
     department_id: uuid.UUID | None = None
+    # Optional: the password the inviter chose, to hand over in person when email does not arrive. Without it, one is generated.
+    password: str | None = Field(default=None, max_length=128)
 
 
 class UserRead(BaseModel):
@@ -40,6 +42,8 @@ class UserRead(BaseModel):
     permissions: list[str] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Only on the reply to adding a user: whether the invitation email was sent.
+    email_sent: bool | None = None
 
 
 class UserUpdate(TrimmedModel):
@@ -69,12 +73,11 @@ class ChangePasswordRequest(BaseModel):
 
 
 class AdminResetPasswordRequest(BaseModel):
-    """An administrator resetting someone else's password. The new value is
-    always generated server-side and emailed to the user — an admin-supplied
-    password is never honoured, so it cannot be read back over the admin's
-    shoulder or reused elsewhere."""
+    """An administrator resetting someone else's password: to one they choose (to hand over in person when email does not
+    arrive), or, without one, to a generated one that is emailed and never returned."""
 
     send_email: bool = True
+    password: str | None = Field(default=None, max_length=128)
 
 
 class ResetPasswordRequest(BaseModel):

@@ -111,9 +111,10 @@ async def create_user(
 
     await service.enforce_limit(db, tenant_id, "max_users", await count_users(db, tenant_id), noun="user")
 
-    # Never trust a password an inviter typed for someone else — generate a
-    # strong random temporary one server-side and email it instead.
-    temp_password = secrets.token_urlsafe(12)
+    # The inviter may choose the password, to tell the person directly when email does not arrive; otherwise a strong
+    # random one is generated. Either way it is emailed too.
+    chosen = check_chosen_password(data.password)
+    temp_password = chosen or secrets.token_urlsafe(12)
 
     # A caller can pass an explicit role_id (picking a real Role); if it
     # didn't, fall back to resolving the free-text role string so the user
@@ -156,13 +157,19 @@ async def create_user(
     await db.commit()
     log.info("users.create.success", extra={"_extra_fields": {"user_id": str(user.id)}})
     tenant = await db.get(Tenant, tenant_id)
-    await send_invite_email(
-        to=user.email,
-        full_name=user.full_name,
-        tenant_name=tenant.name if tenant else str(tenant_id),
-        temp_password=temp_password,
-    )
-    return user_to_read(user)
+    try:
+        sent = await send_invite_email(
+            to=user.email,
+            full_name=user.full_name,
+            tenant_name=tenant.name if tenant else str(tenant_id),
+            temp_password=temp_password,
+        )
+    except Exception:  # noqa: BLE001 - the user exists; the inviter is told the email did not go
+        log.warning("users.create.email_failed", extra={"_extra_fields": {"user_id": str(user.id)}})
+        sent = False
+    read = user_to_read(user)
+    read.email_sent = bool(sent)
+    return read
 
 
 async def update_user(
@@ -389,6 +396,7 @@ async def admin_reset_password(
     user_id: uuid.UUID,
     actor: User,
     send_email: bool = True,
+    password: str | None = None,
 ) -> dict:
     """Administrator-issued password reset. The replacement is always
     generated server-side and delivered to the user's own inbox — it is never
@@ -400,7 +408,8 @@ async def admin_reset_password(
     if actor.id == user.id:
         raise ValidationError("Use Settings → Security to change your own password")
 
-    temp_password = secrets.token_urlsafe(12)
+    chosen = check_chosen_password(password)
+    temp_password = chosen or secrets.token_urlsafe(12)
     user.hashed_password = hash_password(temp_password)
     await UserRepository(db).save(user)
     await record_audit(
@@ -411,26 +420,42 @@ async def admin_reset_password(
         action="user.password_reset",
         entity_type="user",
         entity_id=str(user.id),
-        summary=f"Password reset for '{user.email}'",
+        summary=f"Password reset for '{user.email}'" + (" (password set by the administrator)" if chosen else ""),
     )
     await db.commit()
     log.info("users.admin_reset_password.success", extra={"_extra_fields": {"user_id": str(user.id)}})
 
+    sent = False
     if send_email:
         tenant = await db.get(Tenant, tenant_id)
-        await send_temp_password_email(
-            to=user.email,
-            full_name=user.full_name,
-            tenant_name=tenant.name if tenant else str(tenant_id),
-            temp_password=temp_password,
-            reset_by=actor.full_name or actor.email,
-        )
+        try:
+            sent = bool(await send_temp_password_email(
+                to=user.email,
+                full_name=user.full_name,
+                tenant_name=tenant.name if tenant else str(tenant_id),
+                temp_password=temp_password,
+                reset_by=actor.full_name or actor.email,
+            ))
+        except Exception:  # noqa: BLE001 - the password is already changed; the administrator is told the email did not go
+            log.warning("users.admin_reset_password.email_failed", extra={"_extra_fields": {"user_id": str(user.id)}})
     return {
         "user_id": str(user.id),
         "email": user.email,
         "full_name": user.full_name,
-        "emailed": send_email,
+        "emailed": sent,
+        "password_chosen": bool(chosen),
     }
+
+
+def check_chosen_password(password: str | None) -> str | None:
+    """A password an administrator chose for someone else: any value of at least 6 characters, without spaces at either end."""
+    if password is None or password == "":
+        return None
+    if len(password) < 6:
+        raise ValidationError("The password must be at least 6 characters")
+    if password != password.strip():
+        raise ValidationError("The password can't start or end with a space")
+    return password
 
 
 async def get_user_activity(

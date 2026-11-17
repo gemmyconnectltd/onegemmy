@@ -56,7 +56,17 @@ const ROLE_HELP: Record<string, string> = {
   admin: "Full access to everything, including users and billing. Give this sparingly.",
   "owner/ceo": "Full access to everything, including users and billing. Give this sparingly.",
 };
-const EMPTY_FORM = { full_name: "", email: "", phone: "", role: "viewer", branch_id: "", branch_ids: [] as string[], restrict_branches: false };
+const EMPTY_FORM = { full_name: "", email: "", phone: "", role: "viewer", branch_id: "", branch_ids: [] as string[], restrict_branches: false, password: "" };
+
+/** A random 10-character password that is easy to read out (no 0/O, 1/l/I). */
+const makePassword = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+};
+
+/** A password an owner chooses for someone else: at least 6 characters, no spaces at either end (the server checks the same). */
+const passwordProblem = (p: string) => !p ? null : p.length < 6 ? "The password must be at least 6 characters" : p !== p.trim() ? "The password can't start or end with a space" : null;
 
 export default function UsersPage() {
   const { brandColor } = useAppConfig();
@@ -92,6 +102,11 @@ export default function UsersPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [resetting, setResetting] = useState<ApiUser | null>(null);
+  const [credentials, setCredentials] = useState<{ name: string; email: string; password: string; emailed: boolean } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const showCredentials = (c: { name: string; email: string; password: string; emailed: boolean }) => { setCopied(false); setCredentials(c); };
+  const [reset, setReset] = useState<{ mode: "choose" | "email"; password: string; email: boolean; error: string | null }>({ mode: "choose", password: "", email: true, error: null });
 
   const canCreate = hasPermission("users:create");
   const canUpdate = hasPermission("users:update");
@@ -146,6 +161,7 @@ export default function UsersPage() {
       branch_id: u.branch_id ?? "",
       branch_ids: u.branch_ids ?? [],
       restrict_branches: u.branch_ids != null,
+      password: "",
     });
     setFormError(null);
   };
@@ -160,17 +176,27 @@ export default function UsersPage() {
       setFormError("Choose at least one branch for this person, or untick \"Restrict to assigned branches\".");
       return;
     }
+    const problem = passwordProblem(form.password);
+    if (problem) {
+      setFormError(problem);
+      return;
+    }
     try {
-      await createUser.mutateAsync({
+      const created = await createUser.mutateAsync({
         email: form.email.trim(),
         full_name: form.full_name.trim(),
         phone: form.phone.trim() || null,
         role: form.role,
         branch_id: form.branch_id || null,
         branch_ids: form.restrict_branches ? [...new Set([...form.branch_ids, ...(form.branch_id ? [form.branch_id] : [])])] : null,
+        password: form.password || null,
       });
       setShowAdd(false);
-      flash(`${form.full_name.trim()} was added. Check their email for the temporary password.`);
+      const name = form.full_name.trim();
+      const emailed = created.data?.email_sent !== false;
+      if (form.password) showCredentials({ name, email: form.email.trim(), password: form.password, emailed });
+      else flash(emailed ? `${name} was added. Check their email for the temporary password.`
+          : `${name} was added, but the email could not be sent. Use Reset Password to set a password and give it to them.`);
     } catch (err) {
       setFormError((err as { detail?: string })?.detail ?? "Could not add the user");
     }
@@ -228,19 +254,29 @@ export default function UsersPage() {
   };
 
   const handleResetPassword = (u: ApiUser) => {
-    confirm({
-      title: "Reset password",
-      message: `A new temporary password will be generated and emailed to ${u.email}. They will be asked to change it after signing in. Your existing password stops working immediately.`,
-      confirmLabel: "Reset & email",
-      onConfirm: async () => {
-        try {
-          await resetPassword.mutateAsync({ id: u.id, sendEmail: true });
-          flash(`Temporary password emailed to ${u.full_name}.`);
-        } catch (err) {
-          flash((err as { detail?: string })?.detail ?? "Password could not be reset");
-        }
-      },
-    });
+    setResetting(u);
+    setReset({ mode: "choose", password: "", email: true, error: null });
+  };
+
+  const submitReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetting || resetPassword.isPending) return;
+    const choosing = reset.mode === "choose";
+    const problem = choosing ? (reset.password ? passwordProblem(reset.password) : "Type the new password") : null;
+    if (problem) {
+      setReset({ ...reset, error: problem });
+      return;
+    }
+    try {
+      const done = await resetPassword.mutateAsync({ id: resetting.id, sendEmail: choosing ? reset.email : true, password: choosing ? reset.password : undefined });
+      const emailed = !!done.data?.emailed;
+      setResetting(null);
+      if (choosing) showCredentials({ name: resetting.full_name, email: resetting.email, password: reset.password, emailed });
+      else flash(emailed ? `A new password was emailed to ${resetting.full_name}.`
+          : `The password was reset, but the email could not be sent. Choose "Set it myself" to give ${resetting.full_name} a password directly.`);
+    } catch (err) {
+      setReset({ ...reset, error: (err as { detail?: string })?.detail ?? "Password could not be reset" });
+    }
   };
 
   const handleDelete = (u: ApiUser) => {
@@ -489,6 +525,54 @@ export default function UsersPage() {
           onCancel={() => setShowAdd(false)}
         />
       </Drawer>
+      <Drawer open={!!resetting} onClose={() => setResetting(null)} title="Reset password" description={resetting ? `${resetting.full_name} · ${resetting.email}` : undefined} size="sm">
+        {resetting && (
+          <form onSubmit={submitReset} className="p-5 space-y-4">
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-[12px] font-semibold text-foreground">New password</legend>
+              <label className="flex items-start gap-2 rounded-lg border border-border p-3 text-sm">
+                <input type="radio" name="reset-mode" className="mt-0.5" checked={reset.mode === "choose"} onChange={() => setReset({ ...reset, mode: "choose", error: null })} />
+                <span><span className="font-semibold">Set it myself</span><span className="block text-[12px] text-muted">Type a password and give it to them directly. Works even when email doesn&apos;t.</span></span>
+              </label>
+              <label className="flex items-start gap-2 rounded-lg border border-border p-3 text-sm">
+                <input type="radio" name="reset-mode" className="mt-0.5" checked={reset.mode === "email"} onChange={() => setReset({ ...reset, mode: "email", error: null })} />
+                <span><span className="font-semibold">Email a new password</span><span className="block text-[12px] text-muted">Pesaa makes one and emails it to {resetting.email}.</span></span>
+              </label>
+            </fieldset>
+            {reset.mode === "choose" && (
+              <>
+                <Field label="Password" required hint="At least 6 characters. You'll see it again after saving, to copy or show them.">
+                  <div className="flex gap-2">
+                    <Input autoFocus type="text" autoComplete="new-password" spellCheck={false} value={reset.password} onChange={(e) => setReset({ ...reset, password: e.target.value, error: null })} />
+                    <Button type="button" variant="outline" onClick={() => setReset({ ...reset, password: makePassword(), error: null })}>Generate</Button>
+                  </div>
+                </Field>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reset.email} onChange={(e) => setReset({ ...reset, email: e.target.checked })} />Also email it to them</label>
+              </>
+            )}
+            <p className="text-[12px] text-muted">Their current password stops working straight away.</p>
+            {reset.error && <p role="alert" className="text-[12px] font-semibold text-red-600">{reset.error}</p>}
+            <FormFooter submitLabel={reset.mode === "choose" ? "Set password" : "Reset & email"} onCancel={() => setResetting(null)} disabled={resetPassword.isPending || (reset.mode === "choose" && !reset.password)} />
+          </form>
+        )}
+      </Drawer>
+      <Drawer open={!!credentials} onClose={() => setCredentials(null)} title="Sign-in details" description={credentials?.name} size="sm">
+        {credentials && (
+          <div className="p-5 space-y-4">
+            <p className="text-sm">{credentials.emailed ? "These were also emailed to them." : "The email could not be sent. Give these details to them directly."}</p>
+            <dl className="space-y-3 rounded-lg border border-border bg-surface p-4">
+              <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">Email</dt><dd className="mt-0.5 break-all text-sm font-semibold">{credentials.email}</dd></div>
+              <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">Password</dt><dd className="mt-0.5 break-all font-mono text-base font-semibold">{credentials.password}</dd></div>
+              <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">Sign in at</dt><dd className="mt-0.5 break-all text-sm">{typeof window !== "undefined" ? `${window.location.origin}/login` : "/login"}</dd></div>
+            </dl>
+            <p className="text-[12px] text-muted">This is the only time the password is shown. Copy it now.</p>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={() => { void navigator.clipboard?.writeText(`Email: ${credentials.email}\nPassword: ${credentials.password}\nSign in: ${window.location.origin}/login`).then(() => setCopied(true)).catch(() => setCopied(false)); }}>{copied ? "Copied" : "Copy details"}</Button>
+              <Button variant="outline" onClick={() => setCredentials(null)}>Done</Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
       <Drawer open={!!editing} onClose={() => setEditing(null)} title="Edit User" description={editing?.full_name} size="md">
         <UserForm
           form={form}
@@ -538,7 +622,7 @@ function UserForm({
       <Field
         label="Email Address"
         required={!lockedEmail}
-        hint={lockedEmail ? "Email is the sign-in identity and can't be changed here." : "A temporary password is emailed to this address."}
+        hint={lockedEmail ? "Email is the sign-in identity and can't be changed here." : "They sign in with this email. The password is emailed here too."}
       >
         <Input
           type="email"
@@ -548,6 +632,14 @@ function UserForm({
           placeholder="user@example.com"
         />
       </Field>
+      {!lockedEmail && (
+        <Field label="Password" hint="Optional. Set one to give them directly (at least 6 characters). Leave empty and Pesaa creates one and emails it.">
+          <div className="flex gap-2">
+            <Input type="text" autoComplete="new-password" spellCheck={false} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Leave empty to email one" />
+            <Button type="button" variant="outline" onClick={() => setForm({ ...form, password: makePassword() })}>Generate</Button>
+          </div>
+        </Field>
+      )}
       <Field label="Phone Number" hint="The person's own number. The company main line is separate.">
         <Input
           type="tel"

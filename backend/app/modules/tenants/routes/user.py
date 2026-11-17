@@ -135,7 +135,7 @@ async def create_user(data: UserCreate, db: DbSession, current_user: CurrentUser
     user = await service.create_user(db, tenant_id, data, actor=current_user)
     return success_response(
         data=user.model_dump(),
-        message="User created successfully",
+        message="User created successfully" if user.email_sent else "User created, but the invitation email could not be sent",
         status_code=201,
     )
 
@@ -189,17 +189,18 @@ async def admin_reset_user_password(
     db: DbSession,
     current_user: CurrentUser,
 ):
-    """Generates a new password server-side and emails it to the user. The
-    value is never returned to the caller."""
+    """Sets the password the administrator chose, or generates one, and emails it to the user. A generated value is
+    never returned to the caller."""
     tenant_id = _require_tenant(current_user.tenant_id)
     result = await service.admin_reset_password(
-        db, tenant_id, user_id, current_user, send_email=data.send_email
+        db, tenant_id, user_id, current_user, send_email=data.send_email, password=data.password
     )
-    return success_response(
-        data=result,
-        message=(
-            "Password reset — a temporary password was emailed to the user"
-            if data.send_email
-            else "Password reset — the user must use 'Forgot password' to set a new one"
-        ),
-    )
+    if result["emailed"]:
+        message = "Password reset and emailed to the user"
+    elif result["password_chosen"]:
+        message = "Password changed. Give the new password to the user"
+    elif data.send_email:
+        message = "Password reset, but the email could not be sent. Set a password yourself and give it to the user"
+    else:
+        message = "Password reset — the user must use 'Forgot password' to set a new one"
+    return success_response(data=result, message=message)
