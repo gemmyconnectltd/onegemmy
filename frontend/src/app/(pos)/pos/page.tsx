@@ -25,7 +25,7 @@ import { saleAtLabel } from "@/components/pos/SaleDate";
 import { SALE_DATE_FOR_EVERYONE } from "@/components/pos/constants";
 import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
-import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate, useTaxPreview, useCreateQuotation } from "@/lib/api/hooks";
+import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useCurrentTenant, useVatRate, useTaxPreview, useCreateQuotation } from "@/lib/api/hooks";
 import { QuotationDetails } from "@/components/sales/QuotationDetails";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
@@ -126,8 +126,6 @@ export default function POSPage() {
     setCustomerName(match.name);
   }, [customers]);
   const [saleAt, setSaleAt] = useState<string | null>(null);
-  const team = useSalesTeam();
-  const [salespersonId, setSalespersonId] = useState("");
   const [notes, setNotes] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [cashGiven, setCashGiven] = useState("");
@@ -350,7 +348,6 @@ export default function POSPage() {
     try {
       const created = await createQuotation.mutateAsync({
         customer_id: customerId,
-        ...(salespersonId && user?.isSuperuser ? { salesperson_id: salespersonId } : {}),
         notes: notes.trim() || null,
         items: cart.map((i, index) => ({ product_id: i.product_id ?? null, variant_id: i.variant_id ?? null, product_name: i.name, sku: i.sku ?? null,
           unit_price: i.price, quantity: i.qty, discount: pricingInput.items[index].discount })),
@@ -423,7 +420,6 @@ export default function POSPage() {
         ...(discountSettings.data?.enabled ? { coupon_codes: pricingInput.coupon_codes, manual_discount: pricingInput.manual_discount, manual_discount_reason: discountReason || undefined, discount_approval_id: approvalId } : {}),
         customer_id: customerId,
         ...(saleAt ? { ordered_at: new Date(saleAt).toISOString() } : {}),
-        ...(salespersonId && user?.isSuperuser ? { salesperson_id: salespersonId } : {}),
         notes: `POS — ${checkout.kind === "split" ? "split" : checkout.kind === "credit" ? "credit" : payment}${customerName.trim() ? ` — ${customerName.trim()}` : ""}${notes.trim() ? ` | ${notes.trim()}` : ""}`,
         discount: 0,
         tax,
@@ -505,9 +501,6 @@ export default function POSPage() {
               onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
               saleAt={saleAt}
               onSaleAtChange={setSaleAt}
-              team={team.data ?? []}
-              salespersonId={salespersonId}
-              onSalespersonChange={user?.isSuperuser ? setSalespersonId : undefined}
               onNotesChange={setNotes}
               onUpdateQty={updateQty}
               onUpdateDiscount={updateDiscount}
