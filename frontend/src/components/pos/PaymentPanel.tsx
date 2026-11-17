@@ -255,6 +255,7 @@ export function PaymentPanel({
           );
         })}
       </div>
+      {!canCredit && <p className="-mt-1 text-[11px] text-muted">Partial payment and On credit need the &quot;Partial payment and credit sales&quot; permission. The owner can turn it on.</p>}
 
       {/* What is it paid with? (the method). Not needed when the whole sale is on credit. */}
       {arr !== "credit" && (

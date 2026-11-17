@@ -8,6 +8,7 @@ import { SignInDetails, makePassword, passwordProblem } from "./SignInDetails";
 import { useTeamUser, useUpdateTeamUser, useSetTeamStatus, useRemoveTeamUser, useResetUserPassword, useSetUserPassword, useTeamActivity } from "@/lib/api/hooks";
 import type { TeamUser } from "@/lib/api/admin";
 import EmployeePermissions from "./EmployeePermissions";
+import PosControls from "./PosControls";
 import EmployeeFeatureSwitches from "./EmployeeFeatureSwitches";
 import { TeamBranches, TeamChoice } from "./TeamFields";
 
@@ -16,8 +17,9 @@ export default function TeamUserEditor({tenantId,userId,onClose}:{tenantId:strin
   if(q.isLoading)return <PageLoader variant="compact"/>;
   if(q.isError||!q.data)return <p role="alert" className="p-4">Could not load this user. <Button variant="outline" onClick={()=>void q.refetch()}>Retry</Button></p>;
   const user=q.data;
-  return <div className="min-w-0 space-y-4 p-4"><div><h2 className="pesaa-card-title">{user.full_name}</h2><p className="break-all text-sm text-muted">{user.email}</p><p className="text-xs text-muted">{user.is_superuser?"Owner":user.role} · {user.is_active?"Active":"Inactive"}</p></div><nav aria-label="User management sections" className="flex overflow-x-auto border-b border-border">{[["profile","Profile & branches"],["permissions","Permissions"],["features","Features"],["activity","Activity"]].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} onClick={()=>setTab(key)} className={`min-h-11 shrink-0 border-b-2 px-3 text-sm font-semibold ${tab===key?"border-accent text-accent":"border-transparent text-muted"}`}>{label}</button>)}</nav>
+  return <div className="min-w-0 space-y-4 p-4"><div><h2 className="pesaa-card-title">{user.full_name}</h2><p className="break-all text-sm text-muted">{user.email}</p><p className="text-xs text-muted">{user.is_superuser?"Owner":user.role} · {user.is_active?"Active":"Inactive"}</p></div><nav aria-label="User management sections" className="flex overflow-x-auto border-b border-border">{[["profile","Profile & branches"],["pos","Point of sale"],["permissions","Permissions"],["features","Features"],["activity","Activity"]].map(([key,label])=><button type="button" key={key} aria-pressed={tab===key} onClick={()=>setTab(key)} className={`min-h-11 shrink-0 border-b-2 px-3 text-sm font-semibold ${tab===key?"border-accent text-accent":"border-transparent text-muted"}`}>{label}</button>)}</nav>
     {tab==="profile"&&<ProfileForm key={`${user.id}:${user.updated_at}`} tenantId={tenantId} user={user} onClose={onClose}/>}
+    {tab==="pos"&&<PosControls tenantId={tenantId} userId={userId}/>}
     {tab==="permissions"&&<EmployeePermissions tenantId={tenantId} userId={userId}/>}
     {tab==="features"&&<EmployeeFeatureSwitches tenantId={tenantId} userId={userId}/>}
     {tab==="activity"&&<UserActivity tenantId={tenantId} userId={userId}/>}
