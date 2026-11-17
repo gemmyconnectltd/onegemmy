@@ -24,7 +24,8 @@ import { saleAtLabel } from "@/components/pos/SaleDate";
 import { SALE_DATE_FOR_EVERYONE } from "@/components/pos/constants";
 import { CalendarClock, UserRound, UserPlus } from "lucide-react";
 import { saveSale } from "@/lib/invoices";
-import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate, useTaxPreview } from "@/lib/api/hooks";
+import { useCategories, useCatalogPrices, useDiscountSettings, useDiscountPrice, useRequestDiscountApproval, useProducts, useCustomers, useCreateOrder, useSalesTeam, useCurrentTenant, useVatRate, useTaxPreview, useCreateQuotation } from "@/lib/api/hooks";
+import { QuotationDetails } from "@/components/sales/QuotationDetails";
 import type { ApiProduct } from "@/lib/api";
 import { usePageTitle } from "@/lib/pageTitles";
 
@@ -140,6 +141,8 @@ export default function POSPage() {
   const [completedSale, setCompletedSale] = useState<SaleResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [saleError, setSaleError] = useState<string | null>(null);
+  const [quoteId, setQuoteId] = useState<string | null>(null);
+  const createQuotation = useCreateQuotation();
   const [review, setReview] = useState<Checkout | null>(null);
 
   // ── keyboard shortcut: / → focus search ─────────────────────────────────
@@ -337,6 +340,25 @@ export default function POSPage() {
     clearCart();
   };
 
+  // A quotation from the cart: the customer gets the list and prices (PDF, WhatsApp, email) before anything is sold. The cart stays,
+  // so the sale can still be charged now; later the quotation is accepted and converted in Sales → Quotations.
+  const saveQuote = async () => {
+    if (saleInFlight.current || cart.length === 0 || createQuotation.isPending) return;
+    setSaleError(null);
+    try {
+      const created = await createQuotation.mutateAsync({
+        customer_id: customerId,
+        ...(salespersonId && user?.isSuperuser ? { salesperson_id: salespersonId } : {}),
+        notes: notes.trim() || null,
+        items: cart.map((i, index) => ({ product_id: i.product_id ?? null, variant_id: i.variant_id ?? null, product_name: i.name, sku: i.sku ?? null,
+          unit_price: i.price, quantity: i.qty, discount: pricingInput.items[index].discount })),
+      });
+      setQuoteId(created.data.id);
+    } catch (cause) {
+      setSaleError(`The quotation could not be saved: ${(cause as { detail?: string })?.detail ?? (cause as Error)?.message ?? "please try again"}`);
+    }
+  };
+
   const resumeHeld = (id: string) => {
     if (saleInFlight.current) return;
     const held = heldOrders.find((h) => h.id === id);
@@ -490,6 +512,8 @@ export default function POSPage() {
               onRemoveItem={removeItem}
               onClear={clearCart}
               onHold={holdSale}
+              onQuote={hasPermission("orders:create") ? () => void saveQuote() : undefined}
+              quoting={createQuotation.isPending}
               showCashReceived={payment === "cash"}
               onUpdateCashReceived={updateItemCashReceived}
             />
@@ -552,6 +576,7 @@ export default function POSPage() {
         <ConfirmSaleDialog checkout={review} cart={cart.map((item, index) => ({ ...item, discount: Number(livePricing?.lines[index]?.discount ?? pricingInput.items[index].discount) }))} total={total} customerName={customerName} saleAt={saleAt} currencySymbol={currencySymbol} fmt={fmt} saving={saving || !!pricingBlocked}
           onCancel={() => setReview(null)} onConfirm={() => { const c = review; setReview(null); void completeSale(c); }} />
       )}
+      {quoteId && <QuotationDetails id={quoteId} onClose={() => setQuoteId(null)} />}
       {/* Receipt modal */}
       <Drawer open={!!completedSale} onClose={startNewSale} side="center" size="md">
         {completedSale && (

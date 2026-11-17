@@ -153,8 +153,8 @@ async def test_split_payment_is_one_sale_with_linked_payments_and_validates_refe
     try:
         async with _client(owner, tenant, branch) as c:
             missing = await c.post("/api/v1/tenants/sales/orders", json={**sale, "client_order_id": uuid.uuid4().hex, "payments": [
-                {"method": "cash", "amount": 6000}, {"method": "mobile", "amount": 4000}]})
-            assert missing.status_code == 422 and "reference" in missing.text  # an unverified mobile payment is not accepted
+                {"method": "cash", "amount": 6000}, {"method": "card", "amount": 4000}]})
+            assert missing.status_code == 422 and "reference" in missing.text  # a card payment still needs its approval number
             over = await c.post("/api/v1/tenants/sales/orders", json={**sale, "client_order_id": uuid.uuid4().hex, "payments": [
                 {"method": "cash", "amount": 9000}, {"method": "mobile", "amount": 4000, "reference": "MP1"}]})
             assert over.status_code == 422

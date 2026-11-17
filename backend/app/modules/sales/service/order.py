@@ -789,8 +789,9 @@ async def create_order(
         if data.status != "Completed":
             raise ValidationError("Payments can only be taken on a completed sale")
         for entry in data.payments:
-            if entry.method in ("mobile", "card", "bank") and not (entry.reference or "").strip():
-                name = {"mobile": "mobile money", "card": "card", "bank": "bank transfer"}[entry.method]
+            # Mobile money needs no reference; card and bank payments keep one to match the provider's record.
+            if entry.method in ("card", "bank") and not (entry.reference or "").strip():
+                name = {"card": "card", "bank": "bank transfer"}[entry.method]
                 raise ValidationError(f"Enter the transaction reference for the {name} payment, so it can be matched to the provider's record")
         entered = round(sum(entry.amount for entry in data.payments), 2)
         if entered > total + _PAID_EPSILON:

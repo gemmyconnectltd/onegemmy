@@ -180,3 +180,32 @@ async def test_a_seller_without_explicit_role_grants_can_check_the_cart_price(db
             assert priced.status_code != 403, priced.text
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_seller_can_save_the_cart_as_a_quotation_and_get_its_pdf(db, monkeypatch):
+    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    try:
+        async with client(ann) as c:
+            items = sale(2)["items"]
+            made = await c.post(f"{API}/sales/quotations", json={"items": items})
+            assert made.status_code in (200, 201), made.text
+            quote = made.json()["data"]
+            assert quote["status"] == "Draft" and quote["salesperson_id"] == str(ann.id)
+            pdf = await c.get(f"{API}/sales/quotations/{quote['id']}/quotation.pdf")
+            assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_mobile_money_payment_needs_no_reference(db, monkeypatch):
+    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    try:
+        async with client(owner) as c:
+            body = {**sale(1), "payments": [{"method": "mobile", "amount": 100}]}
+            body.pop("amount_tendered", None)
+            paid = await c.post(f"{API}/sales/orders", json=body)
+            assert paid.status_code == 201, paid.text
+    finally:
+        app.dependency_overrides.clear()

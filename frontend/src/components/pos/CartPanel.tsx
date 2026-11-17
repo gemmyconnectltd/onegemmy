@@ -43,6 +43,9 @@ interface CartPanelProps {
   onRemoveItem: (id: string) => void;
   onClear: () => void;
   onHold: () => void;
+  /** Save the cart as a quotation to share with the customer before they buy. */
+  onQuote?: () => void;
+  quoting?: boolean;
   /** Show a per-line "Received" input so cash can be recorded item-by-item. */
   showCashReceived?: boolean;
   onUpdateCashReceived?: (id: string, value: number) => void;
@@ -50,7 +53,7 @@ interface CartPanelProps {
 
 export function CartPanel({
   cart, customers, customerId, customerName, notes, currencySymbol, fmt,
-  onCustomerChange, saleAt, onSaleAtChange, team = [], salespersonId = "", onSalespersonChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold,
+  onCustomerChange, saleAt, onSaleAtChange, team = [], salespersonId = "", onSalespersonChange, onNotesChange, onUpdateQty, onRemoveItem, onClear, onHold, onQuote, quoting = false,
   showCashReceived, onUpdateCashReceived, onUpdatePrice, priceEditingDisabled, linePricing, lineVat,
 }: CartPanelProps) {
   const totalItems = cart.reduce((s, i) => s + i.qty, 0);
@@ -132,6 +135,7 @@ export function CartPanel({
         {totalItems > 0 && <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">{totalItems}</span>}
         <div className="ml-auto flex items-center gap-1">
           <button type="button" onClick={onHold} disabled={cart.length === 0} title="Park this sale and serve someone else" className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"><Pause size={12} aria-hidden /> Hold</button>
+          {onQuote && <button type="button" onClick={onQuote} disabled={cart.length === 0 || quoting} title="Save these products as a quotation to share with the customer" className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"><FileText size={12} aria-hidden /> {quoting ? "Saving…" : "Quote"}</button>}
           <button type="button" onClick={onClear} disabled={cart.length === 0} className="rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:opacity-40">Clear</button>
         </div>
       </div>

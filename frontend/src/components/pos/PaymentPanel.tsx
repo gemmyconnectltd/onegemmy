@@ -108,14 +108,15 @@ export function PaymentPanel({
   const overNonCash = single && tab !== "cash" && cashGiven !== "" && entered > total + 0.005;
   const debt = remaining > 0;
   const debtAccepted = arr !== "full"; // choosing Partial payment or On credit IS the explicit confirmation
-  const needsRef = (m: PaymentMethod) => m === "mobile" || m === "card" || m === "bank";
+  // Mobile money takes no reference; card and bank transfers keep theirs so they can be matched to the provider.
+  const needsRef = (m: PaymentMethod) => m === "card" || m === "bank";
   const refMissing = (single && needsRef(tab as PaymentMethod) && paid > 0 && !reference.trim()) || (tab === "split" && splitPayments.some((s) => needsRef(s.method) && !s.reference));
   const missingDebtFields = debt && (!hasCustomer || !dueDate || !canCredit);
   const why = cartCount === 0 || saving ? null
     : checkoutBlocked && !pricingPending ? blockedReason ?? "The price is still being checked."
     : over ? "The payments add up to more than the total."
     : overNonCash ? "Mobile money or card can't be more than the total."
-    : refMissing ? "Enter the transaction reference for the mobile money or card payment."
+    : refMissing ? "Enter the reference for the card or bank payment."
     : missingDebtFields ? (!canCredit ? "You don't have permission to sell on credit. Ask the owner, or take full payment." : !hasCustomer ? "Choose the customer who will owe the balance." : "Choose when the balance is due.")
     : debt && !debtAccepted ? "The amount is less than the total. Choose Partial payment or On credit, or take the full amount."
     : arr === "partial" && (!debt || paid <= 0) ? "Enter an amount between zero and the total for a partial payment."
@@ -185,7 +186,7 @@ export function PaymentPanel({
             {remaining > 0 && Number(s.amount || 0) === 0 && <button type="button" onClick={() => setSplit(s.id, { amount: String(remaining) })} className="shrink-0 rounded-md border border-border px-2 py-1.5 text-[11px] font-semibold text-accent hover:bg-surface">Rest</button>}
             {splits.length > 1 && <button type="button" aria-label={`Remove payment ${i + 1}`} onClick={() => setSplits((all) => all.filter((x) => x.id !== s.id))} className="shrink-0 rounded-md p-2 text-muted hover:bg-surface hover:text-red-600"><Trash2 size={14} /></button>}
           </div>
-          {needsRef(s.method) && <input aria-label={`Payment ${i + 1} reference`} value={s.reference} onChange={(e) => setSplit(s.id, { reference: e.target.value })} placeholder={s.method === "mobile" ? "Mobile money transaction ID" : s.method === "bank" ? "Bank transfer reference" : "Card approval number"} className={`w-full rounded-lg border bg-card px-2.5 py-1.5 text-[12px] outline-none ${Number(s.amount || 0) > 0 && !s.reference.trim() ? "border-red-300" : "border-border focus:border-accent"}`} />}
+          {needsRef(s.method) && <input aria-label={`Payment ${i + 1} reference`} value={s.reference} onChange={(e) => setSplit(s.id, { reference: e.target.value })} placeholder={s.method === "bank" ? "Bank transfer reference" : "Card approval number"} className={`w-full rounded-lg border bg-card px-2.5 py-1.5 text-[12px] outline-none ${Number(s.amount || 0) > 0 && !s.reference.trim() ? "border-red-300" : "border-border focus:border-accent"}`} />}
         </div>
       ))}
       {splits.length < 5 && <button type="button" onClick={() => setSplits((all) => [...all, { id: nextId.current++, method: "cash", amount: "", reference: "" }])} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-[12px] font-semibold text-accent hover:bg-surface"><Plus size={13} /> Add payment method</button>}
@@ -291,8 +292,8 @@ export function PaymentPanel({
                 </div>
               )}
               {needsRef(tab as PaymentMethod) && (
-                <input id="pos-ref" aria-label={tab === "mobile" ? "Mobile money transaction ID" : "Card approval number"} value={reference} onChange={(e) => setReference(e.target.value)}
-                  placeholder={tab === "mobile" ? "Mobile money transaction ID (required)" : "Card approval number (required)"}
+                <input id="pos-ref" aria-label="Card approval number" value={reference} onChange={(e) => setReference(e.target.value)}
+                  placeholder="Card approval number (required)"
                   className={`w-full rounded-lg border-2 bg-card px-3 py-2 text-[12.5px] outline-none ${refMissing ? "border-red-300 focus:border-red-400" : "border-border focus:border-accent"}`} />
               )}
             </>

@@ -21,7 +21,7 @@ export const QuotationBadge = ({ status }: { status: QuotationStatus }) => <span
 
 const fail = (cause: unknown) => (cause as { detail?: string })?.detail ?? (cause as Error)?.message ?? "That didn't work. Please try again.";
 
-export function QuotationDetails({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit: (q: ApiQuotation) => void }) {
+export function QuotationDetails({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit?: (q: ApiQuotation) => void }) {
   const { currencySymbol } = useAppConfig();
   const { hasPermission } = useAuth();
   const { data: q } = useQuotation(id);
@@ -57,7 +57,7 @@ export function QuotationDetails({ id, onClose, onEdit }: { id: string; onClose:
             <div className="ml-auto flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => void pdf(false)}><Download size={14} aria-hidden /> PDF</Button>
               <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => void pdf(true)}><Share2 size={14} aria-hidden /> Share</Button>
-              {q.status === "Draft" && canEdit && <Button variant="outline" size="sm" onClick={() => onEdit(q)}><Pencil size={14} aria-hidden /> Edit</Button>}
+              {q.status === "Draft" && canEdit && onEdit && <Button variant="outline" size="sm" onClick={() => onEdit(q)}><Pencil size={14} aria-hidden /> Edit</Button>}
               {q.status === "Draft" && canEdit && <Button size="sm" disabled={act.isPending} onClick={() => void run("send")}><Send size={14} aria-hidden /> Mark as sent</Button>}
               {q.status === "Sent" && canEdit && <><Button size="sm" disabled={act.isPending} onClick={() => void run("accept")}><Check size={14} aria-hidden /> Customer accepted</Button><Button variant="outline" size="sm" onClick={() => setRejecting(true)}><X size={14} aria-hidden /> Declined</Button></>}
               {q.status === "Accepted" && !q.converted_order_id && canEdit && <Button size="sm" disabled={act.isPending} onClick={() => void run("convert")}><ShoppingCart size={14} aria-hidden /> Convert to sale</Button>}
