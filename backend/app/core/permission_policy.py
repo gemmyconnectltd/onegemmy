@@ -15,8 +15,11 @@ OPERATIONAL_VIEW_EDIT = frozenset(
     f"{resource}:{action}" for resource in OPERATIONAL_RESOURCES for action in ("read", "update")
 )
 
-# Taking a sale includes adding the buyer: a till user may add one customer (not import many, not edit or delete others).
-CHECKOUT_CREATION = frozenset({"pos:create", "orders:create", "contacts:create"})
+# Everyone who can use the till gets every selling feature by default: a sale, adding or editing the buyer, partial payment and
+# credit, discounts at checkout and returns. Approving (credit over the limit, approving or voiding sales) stays a separate grant.
+CHECKOUT_CREATION = frozenset({
+    "pos:create", "orders:create", "contacts:create", "contacts:update", "credit:create", "discounts:apply", "returns:create",
+})
 
 
 def effective_permissions(assigned: Iterable[str], *, business_user: bool) -> list[str]:
@@ -42,4 +45,8 @@ def permissions_for_method(
         held.update(set(effective) & {"orders:update"})
     elif path.rstrip("/") == "/sales/customers":
         held.update(set(effective) & {"contacts:create"})
+    elif path.rstrip("/") == "/sales/returns":
+        held.update(set(effective) & {"returns:create"})
+    elif path.rstrip("/") == "/sales/discounts/approvals":
+        held.update(set(effective) & {"discounts:apply"})
     return sorted(held)

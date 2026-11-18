@@ -18,7 +18,7 @@ def test_existing_active_business_users_can_view_and_edit_operational_modules():
 
 def test_non_checkout_creation_delete_approval_and_administration_are_not_baseline_access():
     grants = effective_permissions([], business_user=True)
-    assert {name for name in grants if name.endswith(":create")} == {"orders:create", "pos:create", "contacts:create"}  # a till user can add the buyer
+    assert {name for name in grants if name.endswith(":create")} == {"orders:create", "pos:create", "contacts:create", "credit:create", "returns:create"}  # every till selling feature
     assert not any(name.endswith((":delete", ":approve")) for name in grants)
     for resource in ["users", "roles", "permissions", "billing", "tenants", "branches", "approvals", "credit"]:
         assert f"{resource}:read" not in grants
@@ -49,10 +49,13 @@ def test_checkout_creation_is_allowed_without_opening_other_post_actions():
     grants = effective_permissions([], business_user=True)
     checkout = permissions_for_method("POST", grants, [], path="/sales/orders")
     assert decide("sales", "POST", "/sales/orders", checkout)[0]
-    for path in ["/sales/orders/bulk", "/sales/orders/123/payments", "/sales/returns",
+    for path in ["/sales/orders/bulk", "/sales/orders/123/payments",
                  "/sales/orders/123/approve", "/sales/customers/bulk"]:
         held = permissions_for_method("POST", grants, [], path=path)
         assert not decide("sales", "POST", path, held)[0]
+    # every till user takes returns and asks for discount approval; approving stays a separate grant
+    for path in ["/sales/returns", "/sales/discounts/approvals"]:
+        assert decide("sales", "POST", path, permissions_for_method("POST", grants, [], path=path))[0]
     # adding the buyer is part of taking a sale: one customer at a time, never an import
     assert decide("sales", "POST", "/sales/customers", permissions_for_method("POST", grants, [], path="/sales/customers"))[0]
     for method, path in [("POST", "/sales/orders"), ("DELETE", "/sales/orders/123")]:

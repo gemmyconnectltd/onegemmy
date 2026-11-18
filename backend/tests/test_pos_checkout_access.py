@@ -55,7 +55,7 @@ async def test_empty_branch_manager_role_can_charge_once_but_not_import_refund_o
             assert retried.status_code == 201 and retried.json()["data"]["id"] == sale["id"]
             await db.refresh(product)
             assert product.stock == Decimal(8)
-            for path in ["/sales/orders/bulk", "/sales/returns", f"/sales/orders/{sale['id']}/approve"]:
+            for path in ["/sales/orders/bulk", f"/sales/orders/{sale['id']}/approve"]:
                 response = await client.post(f"/api/v1/tenants{path}", json={})
                 assert response.status_code == 403, (path, response.text)
             wrong_branch = await client.post("/api/v1/tenants/sales/orders", json={**body, "client_order_id": uuid.uuid4().hex},
@@ -176,7 +176,7 @@ async def test_split_payment_is_one_sale_with_linked_payments_and_validates_refe
 
 
 @pytest.mark.db
-async def test_selling_on_credit_needs_the_credit_permission(db, monkeypatch):
+async def test_every_till_user_can_sell_on_credit_by_default(db, monkeypatch):
     from app.modules.sales.models.customer import Customer
     tenant, branch, product, cashier, owner = await _till(db, monkeypatch)
     buyer = Customer(tenant_id=tenant.id, name="Buyer")
@@ -186,8 +186,8 @@ async def test_selling_on_credit_needs_the_credit_permission(db, monkeypatch):
               "items": [{"product_id": str(product.id), "product_name": "Thing", "unit_price": 1000, "quantity": 1}]}
     try:
         async with _client(cashier, tenant, branch) as c:
-            refused = await c.post("/api/v1/tenants/sales/orders", json={**credit, "client_order_id": uuid.uuid4().hex})
-            assert refused.status_code == 403 and "credit" in refused.text.lower()
+            cashier_sale = await c.post("/api/v1/tenants/sales/orders", json={**credit, "client_order_id": uuid.uuid4().hex})
+            assert cashier_sale.status_code == 201, cashier_sale.text
         async with _client(owner, tenant, branch) as c:
             allowed = await c.post("/api/v1/tenants/sales/orders", json={**credit, "client_order_id": uuid.uuid4().hex})
             assert allowed.status_code == 201, allowed.text
