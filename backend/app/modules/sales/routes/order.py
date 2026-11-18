@@ -236,6 +236,11 @@ class InvoiceEmail(BaseModel):
 @router.post("/sales/orders/{id}/invoice/email")
 async def email_order_invoice(id: uuid.UUID, data: InvoiceEmail, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
+    own = await service.own_sales_scope(db, current_user)
+    if own is not None:
+        sale = await service.get_order(db, current_user.tenant_id, id)
+        if own not in (sale.salesperson_id, sale.created_by):
+            raise ForbiddenError("You can only share your own sales")
     from app.modules.sales.service.invoice_share import email_invoice
     return success_response(data=await email_invoice(db, current_user.tenant_id, id, current_user, data.to, data.message, data.kind, data.paper), message="Invoice emailed")
 

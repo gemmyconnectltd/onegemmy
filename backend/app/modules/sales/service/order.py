@@ -643,7 +643,12 @@ async def policy_on(db: AsyncSession, tenant_id: uuid.UUID, key: str) -> bool:
 
 async def own_sales_scope(db: AsyncSession, user) -> uuid.UUID | None:
     """With the `own_sales_only` policy, anyone who cannot approve sales sees only the sales they are the salesperson on."""
-    if user.is_superuser or "orders:approve" in user.permissions_names:
+    if user.is_superuser:
+        return None
+    # Read the role inside the session's own context: loading the sale can expire the signed-in user, and reloading their role
+    # outside it crashed the request (a cashier opening their own sale or quotation got a server error).
+    names = await db.run_sync(lambda _session: user.permissions_names)
+    if "orders:approve" in names:
         return None
     return user.id if await policy_on(db, user.tenant_id, "own_sales_only") else None
 

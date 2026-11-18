@@ -45,6 +45,9 @@ def permissions_for_method(
         held.update(set(effective) & {"orders:update"})
     elif path.rstrip("/") == "/sales/customers":
         held.update(set(effective) & {"contacts:create"})
+    elif path.startswith("/sales/orders/") and path.rstrip("/").endswith("/invoice/email"):
+        # sharing a sale's invoice or receipt with the customer is part of serving them
+        held.update(set(effective) & {"orders:create", "pos:create"})
     elif path.rstrip("/") == "/sales/returns":
         held.update(set(effective) & {"returns:create"})
     elif path.rstrip("/") == "/sales/discounts/approvals":

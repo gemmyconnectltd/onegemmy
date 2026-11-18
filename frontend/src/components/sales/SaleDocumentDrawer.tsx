@@ -92,6 +92,6 @@ export function SaleDocumentById({ orderId, onClose, initialLayout }: { orderId:
   const query = useOrder(orderId);
   if (query.data) return <SaleDocumentDrawer order={query.data} onClose={onClose} initialLayout={initialLayout} />;
   return <Drawer open onClose={onClose} title="Invoice" size="lg"><div className="p-5">{query.error
-    ? <div className="space-y-3"><p role="alert" className="text-sm text-red-600">The invoice couldn&apos;t be opened. {query.error.message}</p><Button variant="outline" size="sm" onClick={() => void query.refetch()}>Try again</Button></div>
+    ? <div className="space-y-3"><p role="alert" className="text-sm text-red-600">The invoice couldn&apos;t be opened. {(query.error as { detail?: string }).detail ?? query.error.message}</p><Button variant="outline" size="sm" onClick={() => void query.refetch()}>Try again</Button></div>
     : <PageLoader variant="compact" />}</div></Drawer>;
 }

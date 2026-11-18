@@ -209,3 +209,21 @@ async def test_a_mobile_money_payment_needs_no_reference(db, monkeypatch):
             assert paid.status_code == 201, paid.text
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_a_seller_can_open_and_email_the_invoice_of_their_own_sale(db, monkeypatch):
+    from unittest.mock import AsyncMock
+    from app.modules.sales.service import invoice_share
+    monkeypatch.setattr(invoice_share, "email_invoice", AsyncMock(return_value={"sent_to": "buyer@example.com"}))
+    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    try:
+        async with client(ann) as c:
+            made = await c.post(f"{API}/sales/orders", json=sale(1))
+            oid = made.json()["data"]["id"]
+            assert (await c.get(f"{API}/sales/orders/{oid}")).status_code == 200
+            emailed = await c.post(f"{API}/sales/orders/{oid}/invoice/email", json={"to": "buyer@example.com"})
+            assert emailed.status_code == 200, emailed.text
+            assert (await c.post(f"{API}/sales/orders/{oid}/approve", json={})).status_code == 403
+    finally:
+        app.dependency_overrides.clear()
