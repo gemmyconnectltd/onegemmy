@@ -2,9 +2,9 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, History, Power, PowerOff } from "lucide-react";
+import { ChevronRight, History, SlidersHorizontal } from "lucide-react";
 import type { FeatureItemNode, FeatureTreeModule } from "@/lib/api/admin";
-import { useFeatureItemHistory, useFeatureTree, useUpdateFeatureItem } from "@/lib/api/hooks";
+import { useFeatureItemHistory, useFeatureTree } from "@/lib/api/hooks";
 import { fmtDateTime } from "@/lib/date";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -12,7 +12,6 @@ import { DataCard, SearchBox, thClass } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { EmptyState, ErrorState } from "@/components/ui/EmptyState";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { ReasonDialog } from "./ReasonDialog";
 
 type Row = { node: FeatureItemNode; depth: number; offVia: string | null };
 
@@ -30,15 +29,12 @@ function flatten(nodes: FeatureItemNode[], depth: number, offVia: string | null,
  *  one business at a time is on that business's Features tab. */
 export function FeatureTree({ focus }: { focus?: string }) {
   const query = useFeatureTree();
-  const update = useUpdateFeatureItem();
   const [q, setQ] = useState("");
   const focusModule = focus?.split(".")[0];
   const [open, setOpen] = useState<Record<string, boolean>>({});
   useEffect(() => {
     if (focus && query.data) document.getElementById(`part-${focus}`)?.scrollIntoView({ block: "center" });
   }, [focus, query.data]);
-  const [target, setTarget] = useState<FeatureItemNode | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<FeatureItemNode | null>(null);
   const needle = q.trim().toLowerCase();
   const modules = useMemo(() => (query.data ?? []).filter((m) => m.children.length > 0
@@ -48,17 +44,6 @@ export function FeatureTree({ focus }: { focus?: string }) {
   if (query.isError || !query.data) return <ErrorState message="Could not load submodules and features." onRetry={() => void query.refetch()} />;
 
   const isOpen = (m: FeatureTreeModule) => !!needle || (open[m.key] ?? m.key === focusModule);
-  const submit = async (reason: string) => {
-    if (!target) return;
-    setError(null);
-    try {
-      await update.mutateAsync({ key: target.key, data: { is_active: !target.is_active, reason, ...(target.is_active ? { confirm_key: target.key } : {}) } });
-      setTarget(null);
-    } catch (e: unknown) {
-      setError((e as { detail?: string })?.detail ?? (e as Error)?.message ?? "Could not save.");
-    }
-  };
-
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center gap-2">
       <SearchBox value={q} onChange={setQ} placeholder="Search submodules and features" />
@@ -89,7 +74,7 @@ export function FeatureTree({ focus }: { focus?: string }) {
             {isOpen(m) && flatten(m.children, 1, m.is_active ? null : m.name, needle).map(({ node, depth, offVia }) => <tr key={node.key} id={`part-${node.key}`} className={node.key === focus ? "bg-accent/5" : "hover:bg-surface/50"}>
               <td className="px-4 py-3">
                 <div style={{ paddingLeft: depth * 20 }}>
-                  <p className={node.level === "submodule" ? "font-semibold" : "font-medium"}>{node.name}</p>
+                  <Link href={`/features/${node.key}`} className={(node.level === "submodule" ? "font-semibold" : "font-medium") + " hover:text-accent"}>{node.name}</Link>
                   <p className="font-mono text-[11px] text-muted">{node.key}</p>
                 </div>
               </td>
@@ -104,9 +89,7 @@ export function FeatureTree({ focus }: { focus?: string }) {
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" size="sm" onClick={() => setHistoryFor(node)} aria-label={`History of ${node.name}`}><History size={13} /></Button>
-                  <Button variant={node.is_active ? "secondary" : "primary"} size="sm" onClick={() => { setError(null); setTarget(node); }}>
-                    {node.is_active ? <><PowerOff size={13} /> Switch off…</> : <><Power size={13} /> Switch on…</>}
-                  </Button>
+                  <Link href={`/features/${node.key}`}><Button variant="secondary" size="sm"><SlidersHorizontal size={13} /> Controls</Button></Link>
                 </div>
               </td>
             </tr>)}
@@ -114,16 +97,8 @@ export function FeatureTree({ focus }: { focus?: string }) {
         </tbody>
       </table>
     </DataCard>}
-    <p className="text-[12px] text-muted">Only optional parts of a module are listed. A switched-off part keeps every record readable and refuses new changes; the rest of the module keeps working. To restrict a part for one business, use <Link href="/features/access" className="font-semibold text-accent hover:underline">Access by business</Link>.</p>
+    <p className="text-[12px] text-muted">Only optional parts of a module are listed. Open a part’s controls to set its status and message, roll it out or run a beta, and decide who may create, edit, delete, approve, import or export. To restrict a part for one business, use <Link href="/features/access" className="font-semibold text-accent hover:underline">Access by business</Link>.</p>
 
-    {target && <ReasonDialog
-      title={target.is_active ? `Switch off ${target.name} for every business?` : `Switch ${target.name} back on?`}
-      message={target.is_active
-        ? `Every business loses the ability to create or change ${target.name.toLowerCase()}${target.level === "submodule" ? " and everything in it" : ""}. Existing records stay readable and nothing is deleted.`
-        : `Businesses whose module and plan allow it can use ${target.name} again straight away, unless Pesaa restricted it for them.`}
-      confirmLabel={target.is_active ? "Switch off" : "Switch on"} danger={target.is_active}
-      requireKey={target.is_active ? target.key : undefined} pending={update.isPending} error={error}
-      onSubmit={(reason) => void submit(reason)} onClose={() => setTarget(null)} />}
     {historyFor && <HistoryDrawer node={historyFor} onClose={() => setHistoryFor(null)} />}
   </div>;
 }

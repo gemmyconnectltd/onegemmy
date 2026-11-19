@@ -360,6 +360,21 @@ export interface FeatureChange {
   tenant_id: string | null; tenant_name: string | null; changes: Record<string, unknown> | null; at: string | null;
 }
 
+export type FeatureStatus = "active" | "inactive" | "coming_soon" | "beta" | "maintenance" | "deprecated";
+export type FeatureAction = "create" | "edit" | "delete" | "approve" | "import" | "export";
+export type ActionRule = "everyone" | "admins" | "off";
+export interface FeatureCohortMember { id: string; target_type: "tenant" | "branch" | "user"; target_id: string; tenant_id: string; tenant_name: string; label: string | null; at: string | null }
+/** Everything Pesaa controls for one module, submodule or feature. */
+export interface FeatureControl {
+  key: string; name: string; description: string | null; level: "module" | "submodule" | "feature"; module: string; parent: string | null;
+  catalogue_on: boolean; children: { key: string; name: string; level: string }[];
+  status: FeatureStatus; message: string | null; scheduled_status: FeatureStatus | null; scheduled_message: string | null; scheduled_at: string | null;
+  rollout_percent: number; kill_switch: boolean; kill_reason: string | null; actions: Record<FeatureAction, ActionRule>;
+  statuses: FeatureStatus[]; default_messages: Record<FeatureStatus, string>; cohort: FeatureCohortMember[];
+  history: { id: string; action: string; summary: string; actor: string | null; at: string | null }[];
+}
+export interface StatusChange { status: FeatureStatus; message?: string | null; when: "now" | "schedule"; at?: string; reason: string; confirm_key?: string }
+
 export interface FeatureFlag {
   key: string;
   name: string;
@@ -766,6 +781,21 @@ export const adminApi = {
     request<SingleResponse<FeatureDetail>>(`${B}/features/${encodeURIComponent(key)}/detail`),
   updateFeature: (key: string, data: FeaturePatch) =>
     request<SingleResponse<null>>(`${B}/features/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(data) }),
+  featureControl: (key: string) => request<SingleResponse<FeatureControl>>(`${B}/features/control/${encodeURIComponent(key)}`),
+  setFeatureStatus: (key: string, data: StatusChange) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/status`, { method: "PUT", body: JSON.stringify(data) }),
+  cancelFeatureSchedule: (key: string, reason: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/schedule/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+  setFeatureRollout: (key: string, rollout_percent: number, reason: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/rollout`, { method: "PUT", body: JSON.stringify({ rollout_percent, reason }) }),
+  setFeatureKill: (key: string, on: boolean, reason: string, confirm_key?: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/kill`, { method: "PUT", body: JSON.stringify({ on, reason, confirm_key }) }),
+  setFeatureActions: (key: string, actions: Partial<Record<FeatureAction, ActionRule>>, reason: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/actions`, { method: "PUT", body: JSON.stringify({ actions, reason }) }),
+  addFeatureCohort: (key: string, target_type: FeatureCohortMember["target_type"], target_id: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/cohort`, { method: "POST", body: JSON.stringify({ target_type, target_id }) }),
+  removeFeatureCohort: (key: string, memberId: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/cohort/${memberId}`, { method: "DELETE" }),
   featureChanges: (page = 1, pageSize = 25, scope = "all") =>
     request<PaginatedResponse<FeatureChange>>(`${B}/features/changes${qs({ page: String(page), page_size: String(pageSize), scope })}`),
   featureTree: () => request<SingleResponse<FeatureTreeModule[]>>(`${B}/features/tree`),

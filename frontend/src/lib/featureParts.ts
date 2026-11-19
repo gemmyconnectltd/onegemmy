@@ -44,3 +44,47 @@ export function readOnlyMessage(name: string, reason: "switched_off" | "restrict
     ? `${name} is paused by Pesaa right now. You can still open and look up your records, but you can't create or change them here.`
     : `${name} is restricted for your business. You can still open and look up your records, but you can't create or change them. Contact Pesaa support to have it restored.`;
 }
+
+/** Pesaa's controls for the signed-in person (only features that are not plain Active are listed). */
+export interface ControlState {
+  status: "active" | "inactive" | "coming_soon" | "beta" | "maintenance" | "deprecated";
+  visible: boolean; writable: boolean; message: string | null;
+  level: "none" | "info" | "warning" | "blocked"; blocked_actions: string[];
+}
+
+export interface PageNotice { name: string; message: string; tone: "info" | "warning" | "readonly"; blockedActions: string[] }
+
+const ACTION_WORDS: Record<string, string> = { create: "creating", edit: "editing", delete: "deleting", approve: "approving", import: "importing", export: "exporting" };
+
+/** The notice for a page: the part's controls and restriction first, then its module's. Most severe wins. */
+export function noticeFor(path: string, moduleKey: string | null, parts: Record<string, PartStatus> | undefined,
+  controls: Record<string, ControlState> | undefined): PageNotice | null {
+  const part = partForPath(path);
+  const restricted = readOnlyReason(path, parts);
+  const candidates: (PageNotice & { rank: number })[] = [];
+  for (const key of [part?.key, moduleKey]) {
+    const c = key ? controls?.[key] : undefined;
+    if (!c) continue;
+    const name = key === part?.key ? part!.name : (moduleKey ?? "").replace(/^./, (x) => x.toUpperCase());
+    const message = c.message ?? (c.visible ? `${name} is not taking changes right now.` : `${name} is not available for your business yet.`);
+    if (!c.writable) candidates.push({ name, message, tone: "readonly", blockedActions: [], rank: 3 });
+    else if (c.level === "warning") candidates.push({ name, message, tone: "warning", blockedActions: c.blocked_actions, rank: 2 });
+    else if (c.level === "info" && c.message) candidates.push({ name, message, tone: "info", blockedActions: c.blocked_actions, rank: 1 });
+    else if (c.blocked_actions.length) {
+      const words = c.blocked_actions.map((a) => ACTION_WORDS[a] ?? a);
+      candidates.push({ name, message: `In ${name}, ${words.join(", ")} ${words.length === 1 ? "is" : "are"} switched off or limited to administrators.`, tone: "warning", blockedActions: c.blocked_actions, rank: 0 });
+    }
+  }
+  if (restricted && part) candidates.push({ name: part.name, message: readOnlyMessage(part.name, restricted), tone: "readonly", blockedActions: [], rank: 3 });
+  candidates.sort((a, b) => b.rank - a.rank);
+  return candidates[0] ?? null;
+}
+
+/** For the module sidebar: hide parts that are not available yet, lock the read-only ones. */
+export function linkState(href: string, parts: Record<string, PartStatus> | undefined, controls: Record<string, ControlState> | undefined): "hidden" | "locked" | null {
+  const part = partForPath(href);
+  const c = part ? controls?.[part.key] : undefined;
+  if (c && !c.visible) return "hidden";
+  if ((c && !c.writable) || readOnlyReason(href, parts)) return "locked";
+  return null;
+}

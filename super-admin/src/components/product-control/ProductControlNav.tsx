@@ -69,7 +69,7 @@ function ModuleBranch({ module, pathname }: { module: FeatureTreeModule; pathnam
     </div>
     {open && parts.length > 0 && <ul className="mb-1 ml-8 border-l border-border">
       {parts.flatMap((p) => [p, ...p.children]).map((p) => <li key={p.key}>
-        <Link href={`/features/parts?focus=${encodeURIComponent(p.key)}`}
+        <Link href={`/features/${p.key}`} aria-current={pathname === `/features/${p.key}` ? "page" : undefined}
           className="flex items-center gap-2 py-1 pl-3 pr-4 text-[12.5px] text-muted hover:text-foreground">
           <StatusDot on={p.is_active} />
           <span className={cn("min-w-0 flex-1 truncate", p.level === "submodule" && "font-semibold text-foreground")}>{p.name}</span>
@@ -87,7 +87,7 @@ export function ProductControlNav() {
   const parts = modules.flatMap((m) => m.children);
   const counts: Record<string, number | undefined> = tree.data ? { "/features": modules.length, "/features/parts": countParts(parts) } : {};
   const pageActive = (href: string, exact?: boolean) => isActive(pathname, href, exact);
-  const onModulePage = modules.some((m) => pathname === `/features/${m.key}`);
+  const onModulePage = /^\/features\/[a-z_]+(\.[a-z_.]+)?$/.test(pathname) && !PRODUCT_CONTROL_PAGES.some((p) => p.href === pathname);
 
   return <>
     <div className="lg:hidden">

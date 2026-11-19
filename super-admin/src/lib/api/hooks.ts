@@ -193,6 +193,15 @@ export const useTenantLimits = (id: string | undefined, opts?: QueryOpts) =>
 export const useFeatureDirectory = (filters: Record<string, string> = {}, opts?: QueryOpts) => useQ(["admin", "features", "directory", filters], () => adminApi.featureDirectory(filters), (r) => r.data, opts);
 export const useFeatureDetail = (key: string, opts?: QueryOpts) => useQ(["admin", "features", "detail", key], () => adminApi.featureDetail(key), (r) => r.data, opts);
 export const useUpdateFeature = mutation(({ key, data }: { key: string; data: Parameters<typeof adminApi.updateFeature>[1] }) => adminApi.updateFeature(key, data), [["admin", "features"]]);
+export const useFeatureControl = (key: string, opts?: QueryOpts) => useQ(["admin", "features", "control", key], () => adminApi.featureControl(key), (r) => r.data, opts);
+const FEATURES = [["admin", "features"]];
+export const useSetFeatureStatus = mutation(({ key, data }: { key: string; data: Parameters<typeof adminApi.setFeatureStatus>[1] }) => adminApi.setFeatureStatus(key, data), FEATURES);
+export const useCancelFeatureSchedule = mutation(({ key, reason }: { key: string; reason: string }) => adminApi.cancelFeatureSchedule(key, reason), FEATURES);
+export const useSetFeatureRollout = mutation(({ key, percent, reason }: { key: string; percent: number; reason: string }) => adminApi.setFeatureRollout(key, percent, reason), FEATURES);
+export const useSetFeatureKill = mutation(({ key, on, reason, confirmKey }: { key: string; on: boolean; reason: string; confirmKey?: string }) => adminApi.setFeatureKill(key, on, reason, confirmKey), FEATURES);
+export const useSetFeatureActions = mutation(({ key, actions, reason }: { key: string; actions: Parameters<typeof adminApi.setFeatureActions>[1]; reason: string }) => adminApi.setFeatureActions(key, actions, reason), FEATURES);
+export const useAddFeatureCohort = mutation(({ key, type, id }: { key: string; type: Parameters<typeof adminApi.addFeatureCohort>[1]; id: string }) => adminApi.addFeatureCohort(key, type, id), FEATURES);
+export const useRemoveFeatureCohort = mutation(({ key, memberId }: { key: string; memberId: string }) => adminApi.removeFeatureCohort(key, memberId), FEATURES);
 export const useFeatureChanges = (page: number, pageSize: number, scope: string, opts?: QueryOpts) => useQ(["admin", "features", "changes", page, pageSize, scope], () => adminApi.featureChanges(page, pageSize, scope), (r) => r.data, opts);
 export const useFeatureTree = (opts?: QueryOpts) => useQ(["admin", "features", "tree"], () => adminApi.featureTree(), (r) => r.data, opts);
 export const useFeatureItemHistory = (key: string | null, opts?: QueryOpts) => useQ(["admin", "features", "item-history", key], () => adminApi.featureItemHistory(key!), (r) => r.data, { ...opts, enabled: !!key && (opts?.enabled ?? true) });

@@ -21,6 +21,14 @@ const KIND: Record<string, { label: string; tone: Tone }> = {
   "tenant.feature_item.restore": { label: "Restored", tone: "green" },
   "tenant.features.update": { label: "Module access", tone: "blue" },
   "tenant.features.reset": { label: "Restrictions cleared", tone: "blue" },
+  "feature.status": { label: "Status", tone: "violet" },
+  "feature.schedule_cancel": { label: "Schedule cancelled", tone: "slate" },
+  "feature.rollout": { label: "Rollout", tone: "blue" },
+  "feature.kill": { label: "Stopped", tone: "red" },
+  "feature.unkill": { label: "Restarted", tone: "green" },
+  "feature.actions": { label: "Actions", tone: "amber" },
+  "feature.cohort_add": { label: "Cohort +", tone: "violet" },
+  "feature.cohort_remove": { label: "Cohort −", tone: "slate" },
 };
 
 /** Every change to modules and their parts, platform-wide and per business, newest first. Read-only: the audit log can't be edited. */

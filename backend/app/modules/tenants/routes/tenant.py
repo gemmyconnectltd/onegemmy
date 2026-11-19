@@ -1,6 +1,7 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, Header, UploadFile
 from pydantic import BaseModel
 
 from app.core.deps import CurrentUser, DbSession, require_permission
@@ -67,11 +68,13 @@ async def get_current_tenant(db: DbSession, current_user: CurrentUser):
 
 
 @router.get("/me/entitlements")
-async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUser):
+async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUser,
+                                          x_branch_id: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
     """Effective feature flags + usage limits for the current tenant."""
     if current_user.tenant_id is None:
-        features, limits, modules, parts = {}, {}, {}, {}
+        features, limits, modules, parts, controls = {}, {}, {}, {}, {}
     else:
+        from app.modules.tenants.service.feature_control import controls_for
         from app.modules.tenants.service.feature_items import part_states
         modules = await service.resolve_modules(db, current_user.tenant_id)
         # Submodules and features Pesaa switched off or restricted: the ERP shows them read-only.
@@ -81,8 +84,13 @@ async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUs
         features = await service.get_effective_features(db, current_user.tenant_id)
         limits_data = await service.get_tenant_limits(db, current_user.tenant_id)
         limits = limits_data.model_dump()
+        # Pesaa's controls for this person: status messages, beta and rollout, kill switch, actions switched off.
+        controls = await controls_for(db, current_user, x_branch_id)
+        for key, c in controls.items():
+            if not c["visible"] and key in features:
+                features[key] = False  # Coming soon, or a beta or rollout this business is not part of yet
     return success_response(
-        data={"features": features, "modules": modules, "limits": limits, "parts": parts},
+        data={"features": features, "modules": modules, "limits": limits, "parts": parts, "controls": controls},
         message="Current company entitlements retrieved successfully",
     )
 

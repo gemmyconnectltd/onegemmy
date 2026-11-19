@@ -1,6 +1,6 @@
 import { request, getStoredToken, API_BASE } from "./client";
 import type { SingleResponse } from "./types";
-import type { PartStatus } from "@/lib/featureParts";
+import type { ControlState, PartStatus } from "@/lib/featureParts";
 
 /** enabled = usable; available = included in the plan but turned off by the business; not_included = the plan lacks it;
  *  restricted = Pesaa has switched it off for this business. */
@@ -30,6 +30,8 @@ export interface TenantEntitlements {
   modules?: Record<string, ModuleStatus>;
   /** Submodules and features inside modules; anything not "on" is read-only (absent on older servers). */
   parts?: Record<string, PartStatus>;
+  /** Pesaa's controls: status messages, beta and rollout, kill switch, actions switched off (absent on older servers). */
+  controls?: Record<string, ControlState>;
   limits: {
     max_users: number | null;
     max_branches: number | null;

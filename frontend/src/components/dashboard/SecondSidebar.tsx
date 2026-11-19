@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Lock, PanelTop, PanelLeft, PanelRight } from "lucide-react";
-import { readOnlyReason } from "@/lib/featureParts";
+import { linkState } from "@/lib/featureParts";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useAuth } from "@/lib/auth";
@@ -154,7 +154,7 @@ export function SecondSidebar({
           </button>
         );
       })
-    : (module ? sidebarModuleLinks(module, hasPermission, moduleAllowed, entitlements?.features) : []).map((item, index, list) => {
+    : (module ? sidebarModuleLinks(module, hasPermission, moduleAllowed, entitlements?.features) : []).filter((item) => linkState(item.href, entitlements?.parts, entitlements?.controls) !== "hidden").map((item, index, list) => {
         const isActive = isModuleLinkActive(pathname, item);
         const heading = showRail && item.group && item.group !== list[index - 1]?.group
           ? <span key={`group-${item.group}`} className="hidden lg:block px-4 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-muted">{item.group}</span>
@@ -174,7 +174,7 @@ export function SecondSidebar({
                 className={"flex-shrink-0" + (isTabBar ? " h-3.5 w-3.5 sm:h-4 sm:w-4" : "") + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
               />
               <span>{item.label ?? t(item.nameKey)}</span>
-              {readOnlyReason(item.href, entitlements?.parts) && <Lock size={12} aria-label="Read-only" className={"ml-auto flex-shrink-0" + (isActive && !isTabBar ? " text-white" : " text-muted")} />}
+              {linkState(item.href, entitlements?.parts, entitlements?.controls) === "locked" && <Lock size={12} aria-label="Read-only" className={"ml-auto flex-shrink-0" + (isActive && !isTabBar ? " text-white" : " text-muted")} />}
             </Link>
           </Fragment>
         );

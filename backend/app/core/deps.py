@@ -163,6 +163,29 @@ def require_permission(permission_name: str):
     return _check
 
 
+async def _check_feature_control(request: Request, db: DbSession, user: User, module: str) -> None:
+    """Pesaa's controls over the module and the part the path belongs to: status, schedule, beta and rollout,
+    kill switch and per-action rules (see service.feature_control). Reads are never refused here."""
+    if request.method in ("GET", "HEAD", "OPTIONS") and "export" not in request.url.path.rsplit("/", 1)[-1]:
+        return
+    from app.core.access import READ_ONLY_POSTS, tenant_path
+    from app.modules.tenants.service.feature_control import refusal
+
+    path = tenant_path(request.url.path)
+    if request.method == "POST" and READ_ONLY_POSTS.search(path):
+        return
+    try:
+        branch_id = uuid.UUID(request.headers["x-branch-id"]) if request.headers.get("x-branch-id") else None
+    except ValueError:
+        branch_id = None
+    why = await refusal(db, user, module, request.method, path, branch_id)
+    if why:
+        log.warning("features.control_refused", extra={"_extra_fields": {
+            "tenant_id": str(user.tenant_id), "module": module, "method": request.method, "path": request.url.path,
+        }})
+        raise ForbiddenError(why)
+
+
 async def _check_feature_item(request: Request, db: DbSession, user: User, module: str) -> None:
     """Inside a usable module, a submodule or feature Pesaa has switched off refuses new writes. Reads stay open so
     records can always be looked up and reconciled. Paths no feature covers cost no query."""
@@ -200,6 +223,7 @@ def require_feature(feature_key: str):
 
         status = await service.module_status(db, user.tenant_id, feature_key)
         if status == "enabled":
+            await _check_feature_control(request, db, user, feature_key)
             await _check_feature_item(request, db, user, feature_key)
             return user
         if status == "available" and request.method in ("GET", "HEAD", "OPTIONS"):

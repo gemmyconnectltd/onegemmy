@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -54,4 +55,41 @@ class TenantFeatureRestriction(UUIDPKMixin, TimestampMixin, Base):
         String(120), ForeignKey("module_features.key", ondelete="CASCADE"), nullable=False
     )
     reason: Mapped[str | None] = mapped_column(String(255))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class FeatureControl(UUIDPKMixin, TimestampMixin, Base):
+    """Pesaa's full control over one module or part (key of a ``feature_flags`` or ``module_features`` row): its status
+    and the message businesses see, a scheduled status change, rollout, kill switch and which actions are allowed.
+    No row means the defaults: active, everyone, nothing extra switched off. Rules live in ``service.feature_control``."""
+
+    __tablename__ = "feature_controls"
+
+    key: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    message: Mapped[str | None] = mapped_column(String(500))
+    scheduled_status: Mapped[str | None] = mapped_column(String(20))
+    scheduled_message: Mapped[str | None] = mapped_column(String(500))
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rollout_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    kill_switch: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    kill_reason: Mapped[str | None] = mapped_column(String(255))
+    # action -> "everyone" (default, role permissions decide) | "admins" (owners and administrators only) | "off"
+    actions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class FeatureCohortMember(UUIDPKMixin, TimestampMixin, Base):
+    """A business, branch or user that gets a Beta feature, or gets it ahead of a percentage rollout."""
+
+    __tablename__ = "feature_cohort"
+    __table_args__ = (UniqueConstraint("feature_key", "target_type", "target_id", name="uq_feature_cohort_target"),)
+
+    feature_key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    target_type: Mapped[str] = mapped_column(String(10), nullable=False)  # tenant | branch | user
+    target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    label: Mapped[str | None] = mapped_column(String(255))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

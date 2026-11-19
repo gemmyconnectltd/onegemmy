@@ -2,44 +2,78 @@
 
 import Link from "next/link";
 import { use, useState } from "react";
-import { Activity, Building2, CheckCircle2, Layers, Loader2, Save, ToggleRight } from "lucide-react";
-import { useFeatureDetail, useUpdateFeature } from "@/lib/api/hooks";
-import type { FeatureDetail } from "@/lib/api/admin";
+import { Activity, Building2, CheckCircle2, Layers, Loader2, OctagonX, Save, ToggleRight } from "lucide-react";
+import { useFeatureControl, useFeatureDetail, useUpdateFeature } from "@/lib/api/hooks";
+import type { FeatureControl, FeatureDetail } from "@/lib/api/admin";
 import { fmtDateTime } from "@/lib/date";
 import { Breadcrumbs, UsageCard } from "@/components/usage/UsageShared";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState, ErrorState } from "@/components/ui/EmptyState";
 import { Field, Input, Textarea } from "@/components/ui/Form";
 import { Metric } from "@/components/ui/Metric";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { TabStrip } from "@/components/ui/TabStrip";
+import { ActionsPanel } from "@/components/product-control/ActionsPanel";
+import { RolloutPanel } from "@/components/product-control/RolloutPanel";
+import { StatusPanel } from "@/components/product-control/StatusPanel";
+import { STATUS_META } from "@/components/product-control/status";
 
-type Tab = "overview" | "configuration" | "plans" | "dependencies" | "history";
-const TABS: { key: Tab; label: string }[] = [
-  { key: "overview", label: "Overview" }, { key: "configuration", label: "Configuration" }, { key: "plans", label: "Plans & businesses" },
-  { key: "dependencies", label: "Dependencies" }, { key: "history", label: "History" },
+type Tab = "status" | "rollout" | "actions" | "overview" | "configuration" | "plans" | "dependencies" | "history";
+const CONTROL_TABS: { key: Tab; label: string }[] = [
+  { key: "status", label: "Status & messages" }, { key: "rollout", label: "Rollout & beta" }, { key: "actions", label: "Actions & permissions" },
 ];
+const MODULE_TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "Usage" }, { key: "configuration", label: "Details" }, { key: "plans", label: "Plans & businesses" }, { key: "dependencies", label: "Dependencies" },
+];
+const LEVEL = { module: "Module", submodule: "Submodule", feature: "Feature" } as const;
 
-export default function FeatureDetailPage({ params }: { params: Promise<{ key: string }> }) {
-  const { key } = use(params);
-  const query = useFeatureDetail(key);
-  const [tab, setTab] = useState<Tab>("overview");
-  const f = query.data;
+/** Full control over one module, submodule or feature. Parts have the control tabs; modules also keep usage, plans and dependencies. */
+export default function FeatureControlPage({ params }: { params: Promise<{ key: string }> }) {
+  const { key: raw } = use(params);
+  const key = decodeURIComponent(raw);
+  const control = useFeatureControl(key);
+  const c = control.data;
+  const isModule = c?.level === "module";
+  const detail = useFeatureDetail(key, { enabled: isModule });
+  const [tab, setTab] = useState<Tab>("status");
+  const tabs = [...CONTROL_TABS, ...(isModule ? MODULE_TABS : []), { key: "history" as Tab, label: "History" }];
+  const crumbs = [{ label: "Modules", href: "/features" }, ...(c && !isModule ? [{ label: c.module.replace(/_/g, " ").replace(/^./, (x) => x.toUpperCase()), href: `/features/${c.module}` }] : []), { label: c?.name ?? key }];
+
   return <div className="space-y-5">
-    <div><Breadcrumbs items={[{ label: "Modules", href: "/features" }, { label: f?.name ?? key }]} />
-      <PageHeader title={f?.name ?? "Feature"} subtitle={f?.description ?? undefined} actions={f && <Badge tone={f.is_active ? "green" : "slate"} dot>{f.is_active ? "Active" : "Switched off"}</Badge>} /></div>
-    {query.isLoading ? <PageLoader variant="page" /> : query.isError || !f ? <ErrorState message="Could not load this feature." onRetry={() => void query.refetch()} /> : <>
-      <TabStrip label="Feature sections" items={TABS.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onSelect: () => setTab(t.key) }))} />
-      {tab === "overview" && <Overview f={f} />}
-      {tab === "configuration" && <Configuration key={f.key} f={f} />}
-      {tab === "plans" && <Plans f={f} />}
-      {tab === "dependencies" && <Dependencies f={f} />}
-      {tab === "history" && <History f={f} />}
+    <div><Breadcrumbs items={crumbs} />
+      <PageHeader title={c?.name ?? "Feature"} subtitle={c?.description ?? undefined}
+        actions={c && <div className="flex flex-wrap items-center gap-2"><Badge tone="slate">{LEVEL[c.level]}</Badge><Badge tone={STATUS_META[c.status].tone} dot>{STATUS_META[c.status].label}</Badge>{c.kill_switch && <Badge tone="red"><OctagonX size={11} /> Stopped</Badge>}</div>} /></div>
+    {control.isLoading ? <PageLoader variant="page" /> : control.isError || !c ? <ErrorState message="Could not load this feature." onRetry={() => void control.refetch()} /> : <>
+      <Summary c={c} />
+      <TabStrip label="Feature sections" items={tabs.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onSelect: () => setTab(t.key) }))} />
+      {tab === "status" && <StatusPanel key={`${c.status}|${c.message}|${c.scheduled_at}`} c={c} />}
+      {tab === "rollout" && <RolloutPanel key={`${c.rollout_percent}`} c={c} />}
+      {tab === "actions" && <ActionsPanel key={JSON.stringify(c.actions)} c={c} />}
+      {tab === "history" && <History c={c} />}
+      {isModule && tab !== "status" && tab !== "rollout" && tab !== "actions" && tab !== "history" && (detail.isLoading ? <PageLoader variant="compact" /> : !detail.data ? <ErrorState message="Could not load this module's details." onRetry={() => void detail.refetch()} /> : <>
+        {tab === "overview" && <Overview f={detail.data} />}
+        {tab === "configuration" && <Configuration key={detail.data.key} f={detail.data} />}
+        {tab === "plans" && <Plans f={detail.data} />}
+        {tab === "dependencies" && <Dependencies f={detail.data} />}
+      </>)}
     </>}
   </div>;
+}
+
+function Summary({ c }: { c: FeatureControl }) {
+  const off = Object.values(c.actions).filter((r) => r !== "everyone").length;
+  const items = [
+    { label: "Status", value: STATUS_META[c.status].label },
+    { label: "Scheduled", value: c.scheduled_status ? `${STATUS_META[c.scheduled_status].label} · ${c.scheduled_at ? fmtDateTime(c.scheduled_at) : ""}` : "Nothing" },
+    { label: "Rollout", value: c.status === "beta" ? "Cohort only" : `${c.rollout_percent}%` },
+    { label: "Cohort", value: String(c.cohort.length) },
+    { label: "Actions limited", value: String(off) },
+  ];
+  return <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{items.map((i) => <div key={i.label} className="rounded-xl border border-border bg-card px-4 py-3">
+    <dt className="text-[12px] text-muted">{i.label}</dt><dd className="mt-0.5 truncate text-sm font-semibold">{i.value}</dd>
+  </div>)}{c.children.length > 0 && <div className="col-span-full flex flex-wrap items-center gap-2 text-[12px] text-muted">Inside: {c.children.map((ch) => <Link key={ch.key} href={`/features/${ch.key}`} className="rounded-md bg-surface px-2 py-1 font-medium text-foreground hover:text-accent">{ch.name}</Link>)}</div>}</dl>;
 }
 
 function Overview({ f }: { f: FeatureDetail }) {
@@ -63,7 +97,6 @@ function Overview({ f }: { f: FeatureDetail }) {
 
 function Configuration({ f }: { f: FeatureDetail }) {
   const update = useUpdateFeature();
-  const { confirm, dialog } = useConfirmDialog();
   const [form, setForm] = useState({ name: f.name, description: f.description ?? "", default_enabled: f.default_enabled });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,15 +121,6 @@ function Configuration({ f }: { f: FeatureDetail }) {
         {error && <span role="alert" className="text-[12px] font-medium text-red-600">{error}</span>}
       </div>
     </UsageCard>
-    <UsageCard title={f.is_active ? "Switch off for the whole platform" : "Switch on for the whole platform"} subtitle="Affects every business. Nothing they have recorded is deleted.">
-      <div className="flex flex-wrap items-center justify-between gap-3 py-2">
-        <p className="max-w-xl text-[13px] text-muted">{f.is_active ? "Businesses lose access to this feature straight away, even if their plan includes it. Switch it back on and everything is as they left it." : "Businesses whose plan includes it regain access."}</p>
-        <Button variant={f.is_active ? "destructive" : "secondary"} onClick={() => f.is_active
-          ? confirm({ title: `Switch off ${f.name}?`, message: `${f.entitled_tenants} business${f.entitled_tenants === 1 ? "" : "es"} include this feature and will lose access immediately. Their data is kept.`, confirmLabel: "Switch off", danger: true, confirmText: f.key, onConfirm: () => void run({ is_active: false, confirm_key: f.key }) })
-          : void run({ is_active: true })}>{f.is_active ? "Switch off…" : "Switch on"}</Button>
-      </div>
-    </UsageCard>
-    {dialog}
   </div>;
 }
 
@@ -123,7 +147,7 @@ function Dependencies({ f }: { f: FeatureDetail }) {
   </div>;
 }
 
-function History({ f }: { f: FeatureDetail }) {
-  if (f.history.length === 0) return <EmptyState title="No changes recorded" description="Edits to this feature will appear here with who made them." />;
-  return <UsageCard title="Changes" subtitle="Most recent first"><ul className="divide-y divide-border">{f.history.map((h) => <li key={h.id} className="py-2.5 text-sm"><p className="font-medium">{h.summary}</p><p className="text-[12px] text-muted">{h.actor ?? "Unknown"} · {h.at ? fmtDateTime(h.at) : ""}</p></li>)}</ul></UsageCard>;
+function History({ c }: { c: FeatureControl }) {
+  if (c.history.length === 0) return <EmptyState title="No changes recorded" description="Status, rollout, cohort and action changes will appear here with who made them and why." />;
+  return <UsageCard title="Changes" subtitle="Most recent first"><ul className="divide-y divide-border">{c.history.map((h) => <li key={h.id} className="py-2.5 text-sm"><p className="font-medium">{h.summary}</p><p className="text-[12px] text-muted">{h.actor ?? "Unknown"} · {h.at ? fmtDateTime(h.at) : ""}</p></li>)}</ul></UsageCard>;
 }

@@ -8,6 +8,7 @@ Features are tied to code (routers, permissions), so the catalogue can be edited
 """
 import re
 import uuid
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
@@ -358,3 +359,280 @@ async def set_tenant_feature_item(tenant_id: uuid.UUID, key: str, data: TenantIt
         )
     await db.commit()
     return success_response(data=await tenant_items(db, tenant_id), message="Business feature updated")
+
+
+# ── Full control over every module and part ───────────────────────────────────────────────────────────────────────
+
+
+class StatusChange(BaseModel):
+    status: Literal["active", "inactive", "coming_soon", "beta", "maintenance", "deprecated"]
+    message: Text | None = Field(None, max_length=500)
+    when: Literal["now", "schedule"] = "now"
+    at: datetime | None = None  # with when="schedule"; stored in UTC
+    reason: Text = Field(..., min_length=3, max_length=255)
+    confirm_key: str | None = None
+
+
+class RolloutChange(BaseModel):
+    rollout_percent: int = Field(..., ge=0, le=100)
+    reason: Text = Field(..., min_length=3, max_length=255)
+
+
+class KillChange(BaseModel):
+    on: bool
+    reason: Text = Field(..., min_length=3, max_length=255)
+    confirm_key: str | None = None
+
+
+class ActionsChange(BaseModel):
+    actions: dict[Literal["create", "edit", "delete", "approve", "import", "export"], Literal["everyone", "admins", "off"]]
+    reason: Text = Field(..., min_length=3, max_length=255)
+
+
+class CohortAdd(BaseModel):
+    target_type: Literal["tenant", "branch", "user"]
+    target_id: uuid.UUID
+
+
+class Reason(BaseModel):
+    reason: Text = Field(..., min_length=3, max_length=255)
+
+
+async def _control_target(db: DbSession, key: str) -> dict:
+    """What the key is: a module, submodule or feature, with its name and place."""
+    from app.modules.tenants.models import ModuleFeature
+    flag = (await db.execute(select(FeatureFlag).where(FeatureFlag.key == key))).scalar_one_or_none()
+    if flag is not None:
+        return {"key": key, "name": flag.name, "description": flag.description, "level": "module", "module": key,
+                "parent": None, "catalogue_on": flag.is_active}
+    item = (await db.execute(select(ModuleFeature).where(ModuleFeature.key == key))).scalar_one_or_none()
+    if item is None:
+        raise NotFoundError("Feature not found")
+    return {"key": key, "name": item.name, "description": item.description, "level": item.level, "module": item.module_key,
+            "parent": item.parent_key, "catalogue_on": item.is_active}
+
+
+async def _control_row(db: DbSession, key: str, actor: uuid.UUID):
+    from app.modules.tenants.models import FeatureControl
+    row = (await db.execute(select(FeatureControl).where(FeatureControl.key == key).with_for_update())).scalar_one_or_none()
+    if row is None:
+        row = FeatureControl(key=key, status="active", rollout_percent=100, kill_switch=False, actions={})
+        db.add(row)
+    row.updated_by = actor
+    return row
+
+
+async def _sync_catalogue(db: DbSession, target: dict, status: str) -> None:
+    """Keep the old on/off switch in step. A part's switch follows its status; a module's is only switched back on,
+    because switching a module's catalogue entry off hides it from plans (Inactive is handled by the controls)."""
+    from app.modules.tenants.models import ModuleFeature
+    if target["level"] == "module":
+        if status != "inactive" and not target["catalogue_on"]:
+            (await db.execute(select(FeatureFlag).where(FeatureFlag.key == target["key"]))).scalar_one().is_active = True
+    else:
+        (await db.execute(select(ModuleFeature).where(ModuleFeature.key == target["key"]))).scalar_one().is_active = status != "inactive"
+
+
+def _snapshot(row) -> dict:
+    return {"status": row.status, "message": row.message, "scheduled_status": row.scheduled_status,
+            "scheduled_at": row.scheduled_at.isoformat() if row.scheduled_at else None, "rollout_percent": row.rollout_percent,
+            "kill_switch": row.kill_switch, "actions": dict(row.actions or {})}
+
+
+async def _audit(db: DbSession, admin, key: str, action: str, summary: str, before: dict | None, after: dict | None, reason: str | None):
+    await record_audit(db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email, action=action,
+                       entity_type="feature", entity_id=key, summary=summary + (f": {reason}" if reason else ""),
+                       changes={"before": before, "after": after, "reason": reason})
+
+
+async def _apply_due_schedule(db: DbSession, key: str) -> bool:
+    """Save a scheduled status whose time has come (the rules already obey it; this records it)."""
+    from datetime import UTC, datetime as dt
+    from app.modules.tenants.models import FeatureControl
+    row = (await db.execute(select(FeatureControl).where(FeatureControl.key == key).with_for_update())).scalar_one_or_none()
+    if row is None or not row.scheduled_status or not row.scheduled_at or row.scheduled_at > dt.now(UTC):
+        return False
+    before = _snapshot(row)
+    row.status, row.message = row.scheduled_status, row.scheduled_message
+    row.scheduled_status = row.scheduled_message = row.scheduled_at = None
+    await _sync_catalogue(db, await _control_target(db, key), row.status)
+    await record_audit(db, tenant_id=None, actor_user_id=None, actor_name="Schedule", action="feature.status",
+                       entity_type="feature", entity_id=key, summary=f"Scheduled status {row.status} applied",
+                       changes={"before": before, "after": _snapshot(row), "reason": "scheduled"})
+    await db.commit()
+    return True
+
+
+@router.get("/control/{key}")
+async def get_feature_control(key: str, db: DbSession, _: SuperUser):
+    """Everything Pesaa controls for one module or part, with its beta cohort and history."""
+    from app.modules.tenants.models import FeatureCohortMember, FeatureControl
+    from app.modules.tenants.service.feature_control import ACTIONS, DEFAULT_MESSAGES, STATUSES, to_control
+    await _apply_due_schedule(db, key)
+    target = await _control_target(db, key)
+    row = (await db.execute(select(FeatureControl).where(FeatureControl.key == key))).scalar_one_or_none()
+    c = to_control(key, target["name"], row, target["catalogue_on"])
+    members = (await db.execute(
+        select(FeatureCohortMember, Tenant.name).join(Tenant, Tenant.id == FeatureCohortMember.tenant_id)
+        .where(FeatureCohortMember.feature_key == key).order_by(FeatureCohortMember.created_at.desc())
+    )).all()
+    history = (await db.execute(
+        select(AuditLog).where(AuditLog.entity_type == "feature", AuditLog.entity_id == key).order_by(AuditLog.created_at.desc()).limit(50)
+    )).scalars().all()
+    children = []
+    if target["level"] != "feature":
+        from app.modules.tenants.models import ModuleFeature
+        column = ModuleFeature.module_key if target["level"] == "module" else ModuleFeature.parent_key
+        extra = (ModuleFeature.parent_key.is_(None),) if target["level"] == "module" else ()
+        children = [{"key": k, "name": n, "level": lvl} for k, n, lvl in (await db.execute(
+            select(ModuleFeature.key, ModuleFeature.name, ModuleFeature.level).where(column == key, *extra).order_by(ModuleFeature.sort_order)
+        )).all()]
+    return success_response(data={
+        **target, "children": children,
+        "status": c.status, "message": c.message, "scheduled_status": c.scheduled_status, "scheduled_message": c.scheduled_message,
+        "scheduled_at": c.scheduled_at.isoformat() if c.scheduled_at else None, "rollout_percent": c.rollout_percent,
+        "kill_switch": c.kill_switch, "kill_reason": row.kill_reason if row else None,
+        "actions": {a: c.actions.get(a, "everyone") for a in ACTIONS},
+        "statuses": list(STATUSES), "default_messages": {s: (DEFAULT_MESSAGES.get(s) or "").format(name=target["name"]) for s in STATUSES},
+        "cohort": [{"id": str(m.id), "target_type": m.target_type, "target_id": str(m.target_id), "tenant_id": str(m.tenant_id),
+                    "tenant_name": name, "label": m.label, "at": m.created_at.isoformat() if m.created_at else None} for m, name in members],
+        "history": [{"id": str(h.id), "action": h.action, "summary": h.summary, "actor": h.actor_name,
+                     "at": h.created_at.isoformat() if h.created_at else None} for h in history],
+    }, message="Feature control retrieved")
+
+
+@router.put("/control/{key}/status")
+async def set_feature_status(key: str, data: StatusChange, db: DbSession, admin: SuperUser):
+    """Change the status and the message businesses see, now or at a set time. Records are never touched."""
+    from datetime import UTC, datetime as dt
+    target = await _control_target(db, key)
+    row = await _control_row(db, key, admin.id)
+    await db.flush()
+    before = _snapshot(row)
+    message = data.message or None
+    if data.when == "schedule":
+        if data.at is None:
+            raise ValidationError("Pick the date and time for the change")
+        at = data.at if data.at.tzinfo else data.at.replace(tzinfo=UTC)
+        if at <= dt.now(UTC):
+            raise ValidationError("The scheduled time must be in the future")
+        row.scheduled_status, row.scheduled_message, row.scheduled_at = data.status, message, at
+        summary = f"{target['name']}: status {data.status} scheduled for {at.strftime('%d %b %Y %H:%M')} UTC"
+    else:
+        if data.status in ("inactive", "coming_soon") and data.status != row.status and data.confirm_key != key:
+            raise ValidationError(f"Type the key ({key}) to confirm: businesses lose the ability to make changes")
+        row.status, row.message = data.status, message
+        row.scheduled_status = row.scheduled_message = row.scheduled_at = None
+        await _sync_catalogue(db, target, data.status)
+        summary = f"{target['name']}: status set to {data.status}"
+    await db.flush()
+    await _audit(db, admin, key, "feature.status", summary, before, _snapshot(row), data.reason)
+    await db.commit()
+    return success_response(data=None, message="Status updated")
+
+
+@router.post("/control/{key}/schedule/cancel")
+async def cancel_feature_schedule(key: str, data: Reason, db: DbSession, admin: SuperUser):
+    target = await _control_target(db, key)
+    row = await _control_row(db, key, admin.id)
+    await db.flush()
+    if not row.scheduled_status:
+        raise ValidationError("Nothing is scheduled")
+    before = _snapshot(row)
+    row.scheduled_status = row.scheduled_message = row.scheduled_at = None
+    await _audit(db, admin, key, "feature.schedule_cancel", f"{target['name']}: scheduled change cancelled", before, _snapshot(row), data.reason)
+    await db.commit()
+    return success_response(data=None, message="Schedule cancelled")
+
+
+@router.put("/control/{key}/rollout")
+async def set_feature_rollout(key: str, data: RolloutChange, db: DbSession, admin: SuperUser):
+    """Share of businesses (stable, so a growing rollout keeps the same ones) that get it while Active or Deprecated.
+    Businesses, branches and users in the cohort always get it."""
+    target = await _control_target(db, key)
+    row = await _control_row(db, key, admin.id)
+    await db.flush()
+    before = _snapshot(row)
+    row.rollout_percent = data.rollout_percent
+    await _audit(db, admin, key, "feature.rollout", f"{target['name']}: rollout set to {data.rollout_percent}%", before, _snapshot(row), data.reason)
+    await db.commit()
+    return success_response(data=None, message="Rollout updated")
+
+
+@router.put("/control/{key}/kill")
+async def set_feature_kill_switch(key: str, data: KillChange, db: DbSession, admin: SuperUser):
+    """Stop all changes at once for every business, whatever the status. Records stay readable."""
+    target = await _control_target(db, key)
+    if data.on and data.confirm_key != key:
+        raise ValidationError(f"Type the key ({key}) to stop it for every business")
+    row = await _control_row(db, key, admin.id)
+    await db.flush()
+    before = _snapshot(row)
+    row.kill_switch, row.kill_reason = data.on, data.reason if data.on else None
+    await _audit(db, admin, key, "feature.kill" if data.on else "feature.unkill",
+                 f"{target['name']}: kill switch {'on' if data.on else 'off'}", before, _snapshot(row), data.reason)
+    await db.commit()
+    return success_response(data=None, message="Kill switch updated")
+
+
+@router.put("/control/{key}/actions")
+async def set_feature_actions(key: str, data: ActionsChange, db: DbSession, admin: SuperUser):
+    """Who may create, edit, delete, approve, import and export in this feature, on top of role permissions."""
+    target = await _control_target(db, key)
+    row = await _control_row(db, key, admin.id)
+    await db.flush()
+    before = _snapshot(row)
+    row.actions = {a: r for a, r in {**(row.actions or {}), **data.actions}.items() if r != "everyone"}
+    await _audit(db, admin, key, "feature.actions", f"{target['name']}: actions updated", before, _snapshot(row), data.reason)
+    await db.commit()
+    return success_response(data=None, message="Actions updated")
+
+
+@router.post("/control/{key}/cohort")
+async def add_feature_cohort(key: str, data: CohortAdd, db: DbSession, admin: SuperUser):
+    """Give a business, one branch or one user the feature while it is in Beta or rolling out."""
+    from app.modules.tenants.models import Branch, FeatureCohortMember, User
+    target = await _control_target(db, key)
+    if data.target_type == "tenant":
+        tenant = await db.get(Tenant, data.target_id)
+        if tenant is None:
+            raise NotFoundError("Business not found")
+        tenant_id, label = tenant.id, tenant.name
+    elif data.target_type == "branch":
+        branch = await db.get(Branch, data.target_id)
+        if branch is None:
+            raise NotFoundError("Branch not found")
+        tenant_id, label = branch.tenant_id, branch.name
+    else:
+        user = await db.get(User, data.target_id)
+        if user is None or user.tenant_id is None:
+            raise NotFoundError("User not found")
+        tenant_id, label = user.tenant_id, f"{user.full_name} ({user.email})"
+    exists = (await db.execute(select(FeatureCohortMember.id).where(
+        FeatureCohortMember.feature_key == key, FeatureCohortMember.target_type == data.target_type, FeatureCohortMember.target_id == data.target_id
+    ))).scalar_one_or_none()
+    if exists is not None:
+        raise ConflictError("Already in the cohort")
+    db.add(FeatureCohortMember(feature_key=key, target_type=data.target_type, target_id=data.target_id, tenant_id=tenant_id,
+                               label=label, created_by=admin.id))
+    await db.flush()
+    await _audit(db, admin, key, "feature.cohort_add", f"{target['name']}: {data.target_type} {label} added to the cohort", None,
+                 {"target_type": data.target_type, "target_id": str(data.target_id)}, None)
+    await db.commit()
+    return success_response(data=None, message="Added to the cohort")
+
+
+@router.delete("/control/{key}/cohort/{member_id}")
+async def remove_feature_cohort(key: str, member_id: uuid.UUID, db: DbSession, admin: SuperUser):
+    from sqlalchemy import delete
+    from app.modules.tenants.models import FeatureCohortMember
+    target = await _control_target(db, key)
+    member = (await db.execute(select(FeatureCohortMember).where(FeatureCohortMember.id == member_id, FeatureCohortMember.feature_key == key))).scalar_one_or_none()
+    if member is None:
+        raise NotFoundError("Not in the cohort")
+    label = member.label
+    await db.execute(delete(FeatureCohortMember).where(FeatureCohortMember.id == member_id))
+    await _audit(db, admin, key, "feature.cohort_remove", f"{target['name']}: {member.target_type} {label} removed from the cohort",
+                 {"target_type": member.target_type, "target_id": str(member.target_id)}, None, None)
+    await db.commit()
+    return success_response(data=None, message="Removed from the cohort")
