@@ -1,6 +1,6 @@
 from app.modules.tenants.models.branch import Branch
 from app.modules.tenants.models.department import Department
-from app.modules.tenants.models.feature import FeatureCohortMember, FeatureControl, FeatureFlag, ModuleFeature, TenantFeatureRestriction
+from app.modules.tenants.models.feature import FeatureActivity, FeatureCohortMember, FeatureControl, FeatureFlag, FeatureTenantOverride, ModuleFeature, TenantFeatureRestriction
 from app.modules.tenants.models.mixins import TenantScopedMixin
 from app.modules.tenants.models.permission import Permission, role_permissions
 from app.modules.tenants.models.role import Role
@@ -8,4 +8,4 @@ from app.modules.tenants.models.slug_alias import TenantSlugAlias
 from app.modules.tenants.models.tenant import Tenant
 from app.modules.tenants.models.user import User
 
-__all__ = ["Branch", "Department", "FeatureCohortMember", "FeatureControl", "FeatureFlag", "ModuleFeature", "Permission", "Role", "Tenant", "TenantFeatureRestriction", "TenantScopedMixin", "TenantSlugAlias", "User", "role_permissions"]
+__all__ = ["Branch", "Department", "FeatureActivity", "FeatureCohortMember", "FeatureControl", "FeatureFlag", "FeatureTenantOverride", "ModuleFeature", "Permission", "Role", "Tenant", "TenantFeatureRestriction", "TenantScopedMixin", "TenantSlugAlias", "User", "role_permissions"]

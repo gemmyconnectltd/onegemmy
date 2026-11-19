@@ -14,7 +14,8 @@ from app.modules.tenants.feature_tree import BY_KEY, TREE, chain, feature_for_pa
 from app.modules.tenants.models import ModuleFeature, Tenant
 from app.modules.tenants.service import feature_items
 
-MIGRATION = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "e6a1c9f4b702_module_feature_hierarchy.py"
+VERSIONS = Path(__file__).resolve().parent.parent / "alembic" / "versions"
+MIGRATIONS = [VERSIONS / "e6a1c9f4b702_module_feature_hierarchy.py", VERSIONS / "a3c8e5f1d907_feature_overrides_activity_more_parts.py"]
 
 
 def test_every_feature_path_is_a_real_tenant_route():
@@ -42,11 +43,13 @@ def test_paths_match_on_segment_boundaries_only():
     assert chain("inventory.serials") == ["inventory.serials", "inventory.traceability"]
 
 
-def test_migration_seeds_exactly_the_tree():
-    spec = importlib.util.spec_from_file_location("hierarchy_migration", MIGRATION)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    seeded = {(k, m, p, lvl, n) for k, m, p, lvl, n, _d, _s in mod.ROWS}
+def test_migrations_seed_exactly_the_tree():
+    seeded = set()
+    for path in MIGRATIONS:
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        seeded |= {(k, m, p, lvl, n) for k, m, p, lvl, n, _d, _s in mod.ROWS}
     assert seeded == {(n.key, n.module, n.parent, n.level, n.name) for n in TREE}
 
 

@@ -18,11 +18,15 @@ import { TabStrip } from "@/components/ui/TabStrip";
 import { ActionsPanel } from "@/components/product-control/ActionsPanel";
 import { RolloutPanel } from "@/components/product-control/RolloutPanel";
 import { StatusPanel } from "@/components/product-control/StatusPanel";
+import { SettingsPanel } from "@/components/product-control/SettingsPanel";
+import { ExceptionsPanel } from "@/components/product-control/ExceptionsPanel";
+import { UsagePanel } from "@/components/product-control/UsagePanel";
 import { STATUS_META } from "@/components/product-control/status";
 
-type Tab = "status" | "rollout" | "actions" | "overview" | "configuration" | "plans" | "dependencies" | "history";
+type Tab = "status" | "rollout" | "actions" | "settings" | "exceptions" | "usage" | "overview" | "configuration" | "plans" | "dependencies" | "history";
 const CONTROL_TABS: { key: Tab; label: string }[] = [
   { key: "status", label: "Status & messages" }, { key: "rollout", label: "Rollout & beta" }, { key: "actions", label: "Actions & permissions" },
+  { key: "settings", label: "Settings & limits" }, { key: "exceptions", label: "Exceptions" }, { key: "usage", label: "Usage & impact" },
 ];
 const MODULE_TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Usage" }, { key: "configuration", label: "Details" }, { key: "plans", label: "Plans & businesses" }, { key: "dependencies", label: "Dependencies" },
@@ -51,8 +55,11 @@ export default function FeatureControlPage({ params }: { params: Promise<{ key: 
       {tab === "status" && <StatusPanel key={`${c.status}|${c.message}|${c.scheduled_at}`} c={c} />}
       {tab === "rollout" && <RolloutPanel key={`${c.rollout_percent}`} c={c} />}
       {tab === "actions" && <ActionsPanel key={JSON.stringify(c.actions)} c={c} />}
+      {tab === "settings" && <SettingsPanel key={JSON.stringify([c.settings, c.included_plans, c.plan_daily_limits])} c={c} />}
+      {tab === "exceptions" && <ExceptionsPanel c={c} />}
+      {tab === "usage" && <UsagePanel c={c} />}
       {tab === "history" && <History c={c} />}
-      {isModule && tab !== "status" && tab !== "rollout" && tab !== "actions" && tab !== "history" && (detail.isLoading ? <PageLoader variant="compact" /> : !detail.data ? <ErrorState message="Could not load this module's details." onRetry={() => void detail.refetch()} /> : <>
+      {isModule && MODULE_TABS.some((t) => t.key === tab) && (detail.isLoading ? <PageLoader variant="compact" /> : !detail.data ? <ErrorState message="Could not load this module's details." onRetry={() => void detail.refetch()} /> : <>
         {tab === "overview" && <Overview f={detail.data} />}
         {tab === "configuration" && <Configuration key={detail.data.key} f={detail.data} />}
         {tab === "plans" && <Plans f={detail.data} />}
@@ -70,8 +77,9 @@ function Summary({ c }: { c: FeatureControl }) {
     { label: "Rollout", value: c.status === "beta" ? "Cohort only" : `${c.rollout_percent}%` },
     { label: "Cohort", value: String(c.cohort.length) },
     { label: "Actions limited", value: String(off) },
+    { label: "Exceptions", value: String(c.overrides.length) },
   ];
-  return <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{items.map((i) => <div key={i.label} className="rounded-xl border border-border bg-card px-4 py-3">
+  return <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{items.map((i) => <div key={i.label} className="rounded-xl border border-border bg-card px-4 py-3">
     <dt className="text-[12px] text-muted">{i.label}</dt><dd className="mt-0.5 truncate text-sm font-semibold">{i.value}</dd>
   </div>)}{c.children.length > 0 && <div className="col-span-full flex flex-wrap items-center gap-2 text-[12px] text-muted">Inside: {c.children.map((ch) => <Link key={ch.key} href={`/features/${ch.key}`} className="rounded-md bg-surface px-2 py-1 font-medium text-foreground hover:text-accent">{ch.name}</Link>)}</div>}</dl>;
 }

@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -76,6 +76,9 @@ class FeatureControl(UUIDPKMixin, TimestampMixin, Base):
     kill_reason: Mapped[str | None] = mapped_column(String(255))
     # action -> "everyone" (default, role permissions decide) | "admins" (owners and administrators only) | "off"
     actions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Settings and limits (see feature_control.SETTINGS), plus "plans" (plan ids that include a part) and
+    # "plan_daily_limits" ({plan_id: n}).
+    settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
 
@@ -93,3 +96,35 @@ class FeatureCohortMember(UUIDPKMixin, TimestampMixin, Base):
     )
     label: Mapped[str | None] = mapped_column(String(255))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class FeatureTenantOverride(UUIDPKMixin, TimestampMixin, Base):
+    """An exception for one business: its own status and message, action rules or settings for one module or part.
+    Empty fields inherit the platform control."""
+
+    __tablename__ = "feature_tenant_overrides"
+    __table_args__ = (UniqueConstraint("feature_key", "tenant_id", name="uq_feature_tenant_override"),)
+
+    feature_key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[str | None] = mapped_column(String(20))
+    message: Mapped[str | None] = mapped_column(String(500))
+    actions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    reason: Mapped[str | None] = mapped_column(String(255))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
+class FeatureActivity(Base):
+    """Accepted changes per business, feature, day and action: usage numbers for parts and daily limits.
+    Written in the request's own transaction, so a change that fails is not counted."""
+
+    __tablename__ = "feature_activity"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True)
+    feature_key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    action: Mapped[str] = mapped_column(String(10), primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

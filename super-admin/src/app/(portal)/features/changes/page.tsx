@@ -29,6 +29,9 @@ const KIND: Record<string, { label: string; tone: Tone }> = {
   "feature.actions": { label: "Actions", tone: "amber" },
   "feature.cohort_add": { label: "Cohort +", tone: "violet" },
   "feature.cohort_remove": { label: "Cohort −", tone: "slate" },
+  "feature.settings": { label: "Settings", tone: "blue" },
+  "feature.override": { label: "Exception", tone: "violet" },
+  "feature.override_remove": { label: "Exception removed", tone: "slate" },
 };
 
 /** Every change to modules and their parts, platform-wide and per business, newest first. Read-only: the audit log can't be edited. */

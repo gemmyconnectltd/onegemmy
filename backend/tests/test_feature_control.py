@@ -2,8 +2,13 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from app.modules.tenants.feature_tree import PART_DEPENDENCIES, TREE, part_dependents
 from app.modules.tenants.service.feature_control import (
-    Control, Who, bucket, check_action, classify, evaluate, request_keys, to_control,
+    Control, Who, bucket, check_action, classify, daily_limit, evaluate, merge, outside_hours, request_keys,
+    settings_for, to_control, upcoming,
 )
 
 T, B, U = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
@@ -97,3 +102,75 @@ def test_a_request_is_checked_against_its_module_and_every_part_above_it():
 def test_catalogue_switch_off_reads_as_inactive():
     assert to_control("hr.leave", "Leave", None, catalogue_on=False).status == "inactive"
     assert to_control("hr.leave", "Leave", None).status == "active"
+
+
+def test_a_business_exception_wins_and_empty_fields_inherit():
+    platform = c(status="active", actions={"delete": "off"}, settings={"daily_create_limit": 5})
+    mine = merge(platform, SimpleNamespace(status="maintenance", message=None, actions={"delete": "everyone"}, settings={"daily_create_limit": None}))
+    assert mine.status == "maintenance" and mine.overridden and mine.status_overridden
+    assert check_action(mine, "delete", WHO) is None  # opened for this business only
+    assert mine.setting("daily_create_limit") == 5  # inherited
+    assert merge(platform, None) is platform
+
+
+def test_a_business_status_exception_is_not_replaced_by_the_platform_schedule():
+    sched = c(scheduled_status="inactive", scheduled_at=NOW - timedelta(minutes=1))
+    mine = merge(sched, SimpleNamespace(status="active", message=None, actions={}, settings={}))
+    assert evaluate(mine, WHO, set(), NOW).writable
+    assert not evaluate(sched, WHO, set(), NOW).writable
+
+
+def test_actions_can_be_limited_to_named_roles():
+    rules = c(actions={"approve": {"roles": ["Branch manager", "accountant"]}})
+    assert check_action(rules, "approve", Who(tenant_id=T, role="accountant")) is None
+    assert check_action(rules, "approve", Who(tenant_id=T, role="Branch Manager")) is None
+    assert "limited to" in check_action(rules, "approve", Who(tenant_id=T, role="cashier"))
+    assert check_action(rules, "approve", Who(tenant_id=T, role="cashier", is_admin=True)) is None
+
+
+def test_a_part_outside_the_plan_is_hidden_unless_in_the_cohort():
+    plan, other = uuid.uuid4(), uuid.uuid4()
+    with patch("app.core.config.settings.ENFORCE_PLAN_ENTITLEMENTS", True):
+        only = c(settings={"plans": [str(plan)]})
+        assert evaluate(only, Who(tenant_id=T, plan_id=plan), set(), NOW).writable
+        d = evaluate(only, Who(tenant_id=T, plan_id=other), set(), NOW)
+        assert not d.visible and "not part of your plan" in d.message
+        assert evaluate(only, Who(tenant_id=T, plan_id=other), {("tenant", T)}, NOW).visible
+        assert evaluate(c(), Who(tenant_id=T, plan_id=other), set(), NOW).visible  # no list: every plan with the module
+
+
+def test_changes_only_inside_the_hours_in_the_business_time_zone():
+    hours = c(settings={"write_hours": "07:00-20:00", "timezone": "Africa/Kigali"})
+    assert outside_hours(hours, datetime(2026, 11, 19, 8, tzinfo=UTC)) is None  # 10:00 in Kigali
+    assert "07:00-20:00" in outside_hours(hours, datetime(2026, 11, 19, 19, tzinfo=UTC))  # 21:00 in Kigali
+    night = c(settings={"write_hours": "22:00-06:00"})
+    assert outside_hours(night, datetime(2026, 11, 19, 1, tzinfo=UTC)) is None  # wraps past midnight
+    assert outside_hours(c(), NOW) is None
+
+
+def test_daily_limit_per_plan_wins_over_the_general_one():
+    plan = uuid.uuid4()
+    limited = c(settings={"daily_create_limit": 10, "plan_daily_limits": {str(plan): 3}})
+    assert daily_limit(limited, Who(tenant_id=T, plan_id=plan)) == 3
+    assert daily_limit(limited, Who(tenant_id=T, plan_id=uuid.uuid4())) == 10
+    assert daily_limit(c(), WHO) is None
+
+
+def test_businesses_are_warned_before_a_scheduled_change():
+    soon = c(scheduled_status="maintenance", scheduled_at=NOW + timedelta(hours=3))
+    assert upcoming(soon, NOW)["status"] == "maintenance"
+    assert upcoming(c(scheduled_status="maintenance", scheduled_at=NOW + timedelta(days=3)), NOW) is None
+    assert upcoming(c(scheduled_status="maintenance", scheduled_at=NOW + timedelta(days=3), settings={"notice_hours": 96}), NOW) is not None
+
+
+def test_dependencies_point_at_real_parts_of_the_same_module():
+    keys = {n.key for n in TREE}
+    for part, needs in PART_DEPENDENCIES.items():
+        assert part in keys and all(n in keys and n.split(".")[0] == part.split(".")[0] for n in needs)
+    assert part_dependents("inventory.serials") == ["inventory.warranty"]
+
+
+def test_feature_specific_settings_are_listed_with_the_common_ones():
+    names = [s.name for s in settings_for("sales.returns")]
+    assert {"daily_create_limit", "write_hours", "return_window_days", "approval_above"} <= set(names)
+    assert "return_window_days" not in [s.name for s in settings_for("inventory.transfers")]

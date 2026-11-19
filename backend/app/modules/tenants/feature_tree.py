@@ -61,7 +61,35 @@ TREE: tuple[Node, ...] = (
     Node("hr.payroll", "hr", "Payroll", "Pay runs and payslips", paths=("/hr/payroll",)),
     Node("hr.recruitment", "hr", "Recruitment", "Applicants and hiring", paths=("/hr/applicants",)),
     Node("crm.campaigns", "crm", "Campaigns", "Customer campaigns and emails", paths=("/crm/campaigns", "/crm/emails")),
+    # Parts added with the full feature controls (migration f1b7d2e9a405). Expenses and Debt Management are served by the
+    # accounting router, so their parts sit under the accounting module.
+    Node("accounting.recurring_expenses", "accounting", "Recurring expenses", "Expenses that repeat on a schedule",
+         paths=("/expense-management/recurring",)),
+    Node("accounting.debt_reminders", "accounting", "Debt reminders & statements", "Remind customers and send statements",
+         paths=("/debts/receivable/remind", "/debts/receivable/statement")),
+    Node("services.staff_commissions", "services", "Staff commissions", "Commission for staff who deliver services",
+         paths=("/services/staff-commissions",)),
+    Node("manufacturing.boms", "manufacturing", "Bills of materials", "What each product is made of",
+         paths=("/manufacturing/boms",)),
+    Node("manufacturing.work_orders", "manufacturing", "Work orders", "Produce goods from a bill of materials",
+         paths=("/manufacturing/orders",)),
+    Node("discounts.coupons", "discounts", "Coupons", "Coupon codes customers can use", paths=("/sales/discounts/coupons",)),
+    Node("discounts.campaigns", "discounts", "Promotions", "Time-limited promotional campaigns",
+         paths=("/sales/discounts/campaigns",)),
+    Node("discounts.approvals", "discounts", "Discount approvals", "Ask a manager to approve a discount",
+         paths=("/sales/discounts/approvals",)),
 )
+
+# A part that cannot work while another one is off: it stops taking changes too, and the controls warn first.
+PART_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    "inventory.warranty": ("inventory.serials",),  # warranty is recorded against serial numbers
+    "manufacturing.work_orders": ("manufacturing.boms",),  # a work order produces from a bill of materials
+    "procurement.purchase_returns": ("procurement.supplier_bills",),  # refunds settle against the supplier's bill
+}
+
+
+def part_dependents(key: str) -> list[str]:
+    return sorted(k for k, needs in PART_DEPENDENCIES.items() if key in needs)
 
 BY_KEY: dict[str, Node] = {n.key: n for n in TREE}
 

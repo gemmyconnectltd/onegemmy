@@ -127,13 +127,28 @@ async def _snapshot_return_vat(db: AsyncSession, item: ReturnItem) -> None:
     item.tax_treatment, item.tax_rate, item.tax_amount = sold.tax_treatment, sold.tax_rate, tax_back
 
 
+async def _check_return_rules(db: AsyncSession, tenant_id: uuid.UUID, data: ReturnCreate, refund_amount) -> None:
+    """Pesaa's settings for Sales returns (Product control → Sales returns → Settings & limits)."""
+    from app.modules.tenants.service.feature_control import get_setting
+    window = await get_setting(db, "sales.returns", "return_window_days", tenant_id)
+    if window not in (None, "") and data.order_id:
+        order = await db.get(Order, data.order_id)
+        if order is not None and order.tenant_id == tenant_id and order.created_at is not None:
+            if (data.return_date - order.created_at.date()).days > int(window):
+                raise ValidationError(f"Returns are accepted within {int(window)} days of the sale.")
+    limit = await get_setting(db, "sales.returns", "approval_above", tenant_id)
+    if limit not in (None, "") and Decimal(str(refund_amount)) > Decimal(str(limit)) and data.status != "Pending":
+        raise ValidationError(f"Refunds above {limit} need approval: record the return as Pending so a manager approves it.")
+
+
 async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: ReturnCreate) -> ReturnRead:
     from app.modules.sales.repository import OrderRepository
     await OrderRepository(db).lock_financial_writes(tenant_id)
     await _check_quantities(db, tenant_id, data)
     repo = ReturnRepository(db)
-    return_number = await repo.next_return_number(tenant_id)
     refund_amount = sum(item.line_refund for item in data.items)
+    await _check_return_rules(db, tenant_id, data, refund_amount)
+    return_number = await repo.next_return_number(tenant_id)
 
     ret = Return(
         tenant_id=tenant_id,

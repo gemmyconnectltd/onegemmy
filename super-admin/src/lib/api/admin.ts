@@ -367,7 +367,7 @@ export interface FeatureChange {
 
 export type FeatureStatus = "active" | "inactive" | "coming_soon" | "beta" | "maintenance" | "deprecated";
 export type FeatureAction = "create" | "edit" | "delete" | "approve" | "import" | "export";
-export type ActionRule = "everyone" | "admins" | "off";
+export type ActionRule = "everyone" | "admins" | "off" | { roles: string[] };
 export interface FeatureCohortMember { id: string; target_type: "tenant" | "branch" | "user"; target_id: string; tenant_id: string; tenant_name: string; label: string | null; at: string | null }
 /** Everything Pesaa controls for one module, submodule or feature. */
 export interface FeatureControl {
@@ -377,6 +377,42 @@ export interface FeatureControl {
   rollout_percent: number; kill_switch: boolean; kill_reason: string | null; actions: Record<FeatureAction, ActionRule>;
   statuses: FeatureStatus[]; default_messages: Record<FeatureStatus, string>; cohort: FeatureCohortMember[];
   history: { id: string; action: string; summary: string; actor: string | null; at: string | null }[];
+  settings: Record<string, string | number | null>; setting_defs: SettingDef[];
+  plans: { id: string; name: string; status: string; has_module: boolean }[]; included_plans: string[]; plan_daily_limits: Record<string, number>;
+  needs: { key: string; name: string }[]; impact: FeatureImpact; usage: FeatureUsage; overrides: FeatureOverride[];
+}
+export interface SettingDef { name: string; label: string; kind: "int" | "number" | "hours" | "text"; default: string | number | null; help: string }
+export interface FeatureImpact {
+  entitled: number; switched_on: number; active_30d: number; records_in_module: number | null; cohort: number; exceptions: number;
+  dependents: { key: string; name: string }[]; parts_inside: number;
+}
+export interface FeatureUsage {
+  by_action: Record<string, number>; top_businesses: { id: string; name: string; changes: number }[];
+  last_14_days: { day: string; changes: number }[];
+}
+export interface FeatureOverride {
+  tenant_id: string; tenant_name: string; status: FeatureStatus | null; message: string | null;
+  actions: Partial<Record<FeatureAction, ActionRule>>; settings: Record<string, string | number | null>; reason: string | null; at: string | null;
+}
+export interface OverrideChange { status?: FeatureStatus | null; message?: string | null; actions?: Partial<Record<FeatureAction, ActionRule>>; settings?: Record<string, string | number | null>; reason: string }
+export interface SettingsChange { settings: Record<string, string | number | null>; plans?: string[]; plan_daily_limits?: Record<string, number | null>; reason: string }
+export interface BulkChange {
+  keys: string[]; op: "status" | "kill" | "unkill" | "actions" | "rollout"; status?: FeatureStatus; message?: string | null;
+  actions?: Partial<Record<FeatureAction, ActionRule>>; rollout_percent?: number; reason: string; confirm?: string;
+}
+export interface BulkPreview {
+  items: (FeatureImpact & { key: string; name: string; level: string })[]; total_entitled: number; total_active_30d: number;
+  needs_confirm: boolean; confirm_text: string | null;
+}
+export interface AccessRow {
+  key: string; name: string; level: "module" | "submodule" | "feature"; module: string; parent: string | null; module_state: string;
+  restricted: boolean; status: FeatureStatus; visible: boolean; writable: boolean; message: string | null; in_cohort: boolean; exception: boolean;
+  upcoming: { status: FeatureStatus; at: string; message: string | null } | null; result: "usable" | "read_only" | "blocked";
+  actions: Record<FeatureAction, boolean>; action_reasons: Partial<Record<FeatureAction, string>>;
+}
+export interface FeatureAccess {
+  tenant: { id: string; name: string }; user: { id: string; name: string; email: string; role: string } | null;
+  as: "user" | "member"; plan_id: string | null; rows: AccessRow[];
 }
 export interface StatusChange { status: FeatureStatus; message?: string | null; when: "now" | "schedule"; at?: string; reason: string; confirm_key?: string }
 
@@ -806,6 +842,16 @@ export const adminApi = {
     request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/cohort`, { method: "POST", body: JSON.stringify({ target_type, target_id }) }),
   removeFeatureCohort: (key: string, memberId: string) =>
     request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/cohort/${memberId}`, { method: "DELETE" }),
+  setFeatureSettings: (key: string, data: SettingsChange) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/settings`, { method: "PUT", body: JSON.stringify(data) }),
+  setFeatureOverride: (key: string, tenantId: string, data: OverrideChange) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/overrides/${tenantId}`, { method: "PUT", body: JSON.stringify(data) }),
+  removeFeatureOverride: (key: string, tenantId: string, reason: string) =>
+    request<SingleResponse<null>>(`${B}/features/control/${encodeURIComponent(key)}/overrides/${tenantId}/remove`, { method: "POST", body: JSON.stringify({ reason }) }),
+  previewBulkChange: (data: BulkChange) => request<SingleResponse<BulkPreview>>(`${B}/features/control/bulk/preview`, { method: "POST", body: JSON.stringify(data) }),
+  applyBulkChange: (data: BulkChange) => request<SingleResponse<{ applied: number }>>(`${B}/features/control/bulk/apply`, { method: "POST", body: JSON.stringify(data) }),
+  featureAccess: (tenantId: string, userId?: string) =>
+    request<SingleResponse<FeatureAccess>>(`${B}/features/access/${tenantId}${userId ? `?user_id=${userId}` : ""}`),
   featureChanges: (page = 1, pageSize = 25, scope = "all") =>
     request<PaginatedResponse<FeatureChange>>(`${B}/features/changes${qs({ page: String(page), page_size: String(pageSize), scope })}`),
   featureTree: () => request<SingleResponse<FeatureTreeModule[]>>(`${B}/features/tree`),

@@ -12,6 +12,7 @@ import { DataCard, SearchBox, thClass } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { EmptyState, ErrorState } from "@/components/ui/EmptyState";
 import { PageLoader } from "@/components/ui/PageLoader";
+import { BulkChangeDrawer } from "@/components/product-control/BulkChangeDrawer";
 
 type Row = { node: FeatureItemNode; depth: number; offVia: string | null };
 
@@ -36,6 +37,9 @@ export function FeatureTree({ focus }: { focus?: string }) {
     if (focus && query.data) document.getElementById(`part-${focus}`)?.scrollIntoView({ block: "center" });
   }, [focus, query.data]);
   const [historyFor, setHistoryFor] = useState<FeatureItemNode | null>(null);
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  const [bulk, setBulk] = useState(false);
+  const togglePick = (key: string, name: string) => setPicked((p) => { const n = { ...p }; if (n[key]) delete n[key]; else n[key] = name; return n; });
   const needle = q.trim().toLowerCase();
   const modules = useMemo(() => (query.data ?? []).filter((m) => m.children.length > 0
     && (!needle || `${m.name} ${m.key}`.toLowerCase().includes(needle) || m.children.some((c) => matches(c, needle)))), [query.data, needle]);
@@ -50,16 +54,21 @@ export function FeatureTree({ focus }: { focus?: string }) {
       <Button variant="secondary" size="sm" onClick={() => setOpen(Object.fromEntries(modules.map((m) => [m.key, true])))}>Expand all</Button>
       <Button variant="ghost" size="sm" onClick={() => setOpen(Object.fromEntries(modules.map((m) => [m.key, false])))}>Collapse all</Button>
     </div>
+    {Object.keys(picked).length > 0 && <div role="status" className="sticky top-16 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+      <span className="text-sm font-semibold">{Object.keys(picked).length} selected</span>
+      <div className="flex gap-2"><Button variant="ghost" size="sm" onClick={() => setPicked({})}>Clear</Button><Button size="sm" onClick={() => setBulk(true)}>Change together…</Button></div>
+    </div>}
     {modules.length === 0 ? <EmptyState title="Nothing matches" description="Try another name or key." /> : <DataCard label="Submodules and features">
       <table className="w-full min-w-[860px] text-left text-sm">
         <thead><tr className="border-b border-border">
-          <th scope="col" className={thClass}>Name and key</th><th scope="col" className={thClass}>Level</th>
+          <th scope="col" className={thClass}><span className="sr-only">Select</span></th><th scope="col" className={thClass}>Name and key</th><th scope="col" className={thClass}>Level</th>
           <th scope="col" className={thClass}>Platform status</th><th scope="col" className={thClass}>Covers</th>
           <th scope="col" className={`${thClass} text-right`}>Restricted for</th><th scope="col" className={thClass}><span className="sr-only">Actions</span></th>
         </tr></thead>
         <tbody className="divide-y divide-border">
           {modules.map((m) => <Fragment key={m.key}>
             <tr className="bg-surface/60">
+              <td className="w-10 px-4 py-2.5"><input type="checkbox" aria-label={`Select ${m.name}`} checked={!!picked[m.key]} onChange={() => togglePick(m.key, m.name)} /></td>
               <td colSpan={6} className="px-4 py-2.5">
                 <button type="button" onClick={() => setOpen({ ...open, [m.key]: !isOpen(m) })} aria-expanded={isOpen(m)}
                   className="flex items-center gap-2 text-left font-semibold">
@@ -72,6 +81,7 @@ export function FeatureTree({ focus }: { focus?: string }) {
               </td>
             </tr>
             {isOpen(m) && flatten(m.children, 1, m.is_active ? null : m.name, needle).map(({ node, depth, offVia }) => <tr key={node.key} id={`part-${node.key}`} className={node.key === focus ? "bg-accent/5" : "hover:bg-surface/50"}>
+              <td className="w-10 px-4 py-3"><input type="checkbox" aria-label={`Select ${node.name}`} checked={!!picked[node.key]} onChange={() => togglePick(node.key, node.name)} /></td>
               <td className="px-4 py-3">
                 <div style={{ paddingLeft: depth * 20 }}>
                   <Link href={`/features/${node.key}`} className={(node.level === "submodule" ? "font-semibold" : "font-medium") + " hover:text-accent"}>{node.name}</Link>
@@ -99,6 +109,7 @@ export function FeatureTree({ focus }: { focus?: string }) {
     </DataCard>}
     <p className="text-[12px] text-muted">Only optional parts of a module are listed. Open a part’s controls to set its status and message, roll it out or run a beta, and decide who may create, edit, delete, approve, import or export. To restrict a part for one business, use <Link href="/features/access" className="font-semibold text-accent hover:underline">Access by business</Link>.</p>
 
+    {bulk && <BulkChangeDrawer items={Object.entries(picked).map(([key, name]) => ({ key, name }))} onClose={() => setBulk(false)} onDone={() => { setBulk(false); setPicked({}); }} />}
     {historyFor && <HistoryDrawer node={historyFor} onClose={() => setHistoryFor(null)} />}
   </div>;
 }

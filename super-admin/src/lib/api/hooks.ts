@@ -204,6 +204,13 @@ export const useSetFeatureKill = mutation(({ key, on, reason, confirmKey }: { ke
 export const useSetFeatureActions = mutation(({ key, actions, reason }: { key: string; actions: Parameters<typeof adminApi.setFeatureActions>[1]; reason: string }) => adminApi.setFeatureActions(key, actions, reason), FEATURES);
 export const useAddFeatureCohort = mutation(({ key, type, id }: { key: string; type: Parameters<typeof adminApi.addFeatureCohort>[1]; id: string }) => adminApi.addFeatureCohort(key, type, id), FEATURES);
 export const useRemoveFeatureCohort = mutation(({ key, memberId }: { key: string; memberId: string }) => adminApi.removeFeatureCohort(key, memberId), FEATURES);
+export const useSetFeatureSettings = mutation(({ key, data }: { key: string; data: Parameters<typeof adminApi.setFeatureSettings>[1] }) => adminApi.setFeatureSettings(key, data), FEATURES);
+export const useSetFeatureOverride = mutation(({ key, tenantId, data }: { key: string; tenantId: string; data: Parameters<typeof adminApi.setFeatureOverride>[2] }) => adminApi.setFeatureOverride(key, tenantId, data), FEATURES);
+export const useRemoveFeatureOverride = mutation(({ key, tenantId, reason }: { key: string; tenantId: string; reason: string }) => adminApi.removeFeatureOverride(key, tenantId, reason), FEATURES);
+export const usePreviewBulkChange = mutation((data: Parameters<typeof adminApi.previewBulkChange>[0]) => adminApi.previewBulkChange(data), []);
+export const useApplyBulkChange = mutation((data: Parameters<typeof adminApi.applyBulkChange>[0]) => adminApi.applyBulkChange(data), FEATURES);
+export const useFeatureAccess = (tenantId: string | undefined, userId?: string, opts?: QueryOpts) =>
+  useQ(["admin", "features", "access", tenantId, userId ?? "member"], () => adminApi.featureAccess(tenantId!, userId), (r) => r.data, { ...opts, enabled: !!tenantId && (opts?.enabled ?? true) });
 export const useFeatureChanges = (page: number, pageSize: number, scope: string, opts?: QueryOpts) => useQ(["admin", "features", "changes", page, pageSize, scope], () => adminApi.featureChanges(page, pageSize, scope), (r) => r.data, opts);
 export const useFeatureTree = (opts?: QueryOpts) => useQ(["admin", "features", "tree"], () => adminApi.featureTree(), (r) => r.data, opts);
 export const useFeatureItemHistory = (key: string | null, opts?: QueryOpts) => useQ(["admin", "features", "item-history", key], () => adminApi.featureItemHistory(key!), (r) => r.data, { ...opts, enabled: !!key && (opts?.enabled ?? true) });

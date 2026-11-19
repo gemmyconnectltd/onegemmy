@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Textarea } from "@/components/ui/Form";
 import { STATUS_META, errorText } from "./status";
+import { ImpactNote } from "./RuleEditor";
 
 /** Status, the message businesses see, and an optional time for the change. */
 export function StatusPanel({ c }: { c: FeatureControl }) {
@@ -84,6 +85,7 @@ export function StatusPanel({ c }: { c: FeatureControl }) {
       message={dialog === "cancel" ? "The status stays as it is now." : STATUS_META[status].effect}
       confirmLabel={dialog === "cancel" ? "Cancel schedule" : when === "schedule" ? "Schedule" : "Apply"} danger={disruptive}
       requireKey={dialog === "save" && disruptive ? c.key : undefined} pending={save.isPending || cancel.isPending} error={error}
+      extra={dialog === "save" ? <ImpactNote impact={c.impact} /> : undefined}
       onSubmit={(r) => void submit(r)} onClose={() => setDialog(null)} />}
   </div>;
 }

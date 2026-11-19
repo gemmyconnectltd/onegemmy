@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { SearchBox } from "@/components/ui/DataTable";
 import { Field, Select } from "@/components/ui/Form";
 import { errorText } from "./status";
+import { ImpactNote } from "./RuleEditor";
 
 const TYPE_META: Record<FeatureCohortMember["target_type"], { label: string; icon: typeof Building2 }> = {
   tenant: { label: "Business", icon: Building2 },
@@ -70,6 +71,7 @@ export function RolloutPanel({ c }: { c: FeatureControl }) {
       message={dialog === "kill" ? (c.kill_switch ? "Businesses can make changes again, as their status, plan and roles allow." : "Nobody can create or change anything here until you restart it. In-progress records stay as they are and stay readable.") : "Businesses outside the share stop seeing it; their earlier records stay readable."}
       confirmLabel={dialog === "kill" ? (c.kill_switch ? "Restart" : "Stop now") : "Save"} danger={dialog === "kill" && !c.kill_switch}
       requireKey={dialog === "kill" && !c.kill_switch ? c.key : undefined} pending={kill.isPending || rollout.isPending} error={error}
+      extra={<ImpactNote impact={c.impact} />}
       onSubmit={(r) => void submit(r)} onClose={() => setDialog(null)} />}
   </div>;
 }

@@ -164,12 +164,13 @@ def require_permission(permission_name: str):
 
 
 async def _check_feature_control(request: Request, db: DbSession, user: User, module: str) -> None:
-    """Pesaa's controls over the module and the part the path belongs to: status, schedule, beta and rollout,
-    kill switch and per-action rules (see service.feature_control). Reads are never refused here."""
+    """Pesaa's controls over the module and the part the path belongs to: status, schedule, beta, rollout and plan,
+    kill switch, per-action and per-role rules, hours, daily limits and dependencies (see service.feature_control).
+    Reads are never refused here. An accepted change is counted in the request's own transaction."""
     if request.method in ("GET", "HEAD", "OPTIONS") and "export" not in request.url.path.rsplit("/", 1)[-1]:
         return
     from app.core.access import READ_ONLY_POSTS, tenant_path
-    from app.modules.tenants.service.feature_control import refusal
+    from app.modules.tenants.service.feature_control import judge, record
 
     path = tenant_path(request.url.path)
     if request.method == "POST" and READ_ONLY_POSTS.search(path):
@@ -178,7 +179,12 @@ async def _check_feature_control(request: Request, db: DbSession, user: User, mo
         branch_id = uuid.UUID(request.headers["x-branch-id"]) if request.headers.get("x-branch-id") else None
     except ValueError:
         branch_id = None
-    why = await refusal(db, user, module, request.method, path, branch_id)
+    verdict = await judge(db, user, module, request.method, path, branch_id)
+    if verdict.refused is None:
+        if verdict.record_key and verdict.action:
+            await record(db, user.tenant_id, verdict.record_key, verdict.action)
+        return
+    why = verdict.refused
     if why:
         log.warning("features.control_refused", extra={"_extra_fields": {
             "tenant_id": str(user.tenant_id), "module": module, "method": request.method, "path": request.url.path,
@@ -223,8 +229,8 @@ def require_feature(feature_key: str):
 
         status = await service.module_status(db, user.tenant_id, feature_key)
         if status == "enabled":
-            await _check_feature_control(request, db, user, feature_key)
-            await _check_feature_item(request, db, user, feature_key)
+            await _check_feature_item(request, db, user, feature_key)  # per-business restriction first, so a refused
+            await _check_feature_control(request, db, user, feature_key)  # change is never counted
             return user
         if status == "available" and request.method in ("GET", "HEAD", "OPTIONS"):
             return user
