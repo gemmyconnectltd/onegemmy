@@ -122,4 +122,11 @@ function HistoryDrawer({ node, onClose }: { node: FeatureItemNode; onClose: () =
   return <Drawer open onClose={onClose} side="right" size="lg" title={`History — ${node.name}`} description={node.key}>
     <div className="px-5 py-4">
       {query.isLoading ? <PageLoader variant="compact" /> : query.isError ? <ErrorState message="Could not load the history." onRetry={() => void query.refetch()} />
-        : (query.data ?? []).length === 0 ? <EmptyState
+        : (query.data ?? []).length === 0 ? <EmptyState title="No changes yet" description="Switches and restrictions will appear here with who made them and why." />
+        : <ul className="divide-y divide-border">{(query.data ?? []).map((h) => <li key={h.id} className="py-3 text-sm">
+            <p className="font-medium">{h.summary}</p>
+            <p className="text-[12px] text-muted">{h.actor ?? "Unknown"} · {h.at ? fmtDateTime(h.at) : ""}</p>
+          </li>)}</ul>}
+    </div>
+  </Drawer>;
+}

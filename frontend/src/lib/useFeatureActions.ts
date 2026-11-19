@@ -28,3 +28,18 @@ export function useFeatureActions(): { blocked: Set<FeatureActionKey>; reason: s
   const notice = blocked.size ? noticeFor(pathname, moduleKey, data?.parts, data?.controls) : null;
   return { blocked, reason: notice?.message ?? (blocked.size ? "This action is switched off here by Pesaa." : null) };
 }
+
+const METHOD_PARTS: Record<string, string> = { cash: "pos.cash", mobile: "pos.mobile_money", card: "pos.card" };
+
+/** Payment methods Pesaa has switched off (or not opened to this business) at the till. The server refuses them too. */
+export function useDisabledPayMethods(): Set<string> {
+  const { user } = useAuth();
+  const { data } = useMyEntitlements({ enabled: !!user?.tenantId });
+  const off = new Set<string>();
+  const group = data?.controls?.["pos.payments"];
+  for (const [method, key] of Object.entries(METHOD_PARTS)) {
+    const c = data?.controls?.[key];
+    if ((c && (!c.visible || !c.writable)) || (group && (!group.visible || !group.writable)) || data?.parts?.[key] === "restricted" || data?.parts?.[key] === "switched_off") off.add(method);
+  }
+  return off;
+}

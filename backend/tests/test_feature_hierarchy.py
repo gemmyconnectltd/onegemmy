@@ -20,8 +20,9 @@ MIGRATIONS = [VERSIONS / "e6a1c9f4b702_module_feature_hierarchy.py", VERSIONS / 
 
 
 def test_every_feature_path_is_a_real_tenant_route():
-    import app.main as main
-    routes = {tenant_path(r.path) for r in main.app.routes if getattr(r, "path", "").startswith("/api/v1/tenants")}
+    from app import main
+    # Module routers are nested groups in `app.routes`; the OpenAPI paths list every route flat.
+    routes = {tenant_path(path) for path in main.app.openapi()["paths"] if path.startswith("/api/v1/tenants")}
     for node in TREE:
         if node.virtual:  # recognised from the request body, not a route
             continue
