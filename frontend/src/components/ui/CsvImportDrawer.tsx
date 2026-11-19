@@ -1,4 +1,5 @@
 "use client";
+
 import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +12,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Input, Select } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth";
+import { useFeatureActions } from "@/lib/useFeatureActions";
 import { parseCsv, type ImportIssue } from "@/lib/importValues";
 import { autoMap, detectHeaderRow, groupIssues, groupSentence, inFileDuplicates, norm, rowValues, type ColumnMatch, type ImportField, type IssueGroup } from "@/lib/importEngine";
 import { importsApi, type ImportAi, type ImportModule, type RowCheck, type SheetPicture } from "@/lib/api/imports";
@@ -138,8 +140,13 @@ function writeWorkbook(filename: string, sheets: { name: string; rows: (string |
 }
 
 export function CsvImportDrawer<T>(props: CsvImportDrawerProps<T>) {
+  const controls = useFeatureActions();
   // Mounted only while open, so every import starts clean.
   if (!props.open) return null;
+  if (controls.blocked.has("import")) return <Drawer open onClose={props.onClose} side="right" size="md" title={props.title}
+    footer={<div className="flex justify-end"><Button onClick={props.onClose}>Close</Button></div>}>
+    <p role="status" className="px-5 py-4 text-sm text-muted">{controls.reason ?? "Importing is switched off here."}</p>
+  </Drawer>;
   return <ImportWorkspace {...props} />;
 }
 

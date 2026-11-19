@@ -50,6 +50,10 @@ export interface ControlState {
   status: "active" | "inactive" | "coming_soon" | "beta" | "maintenance" | "deprecated";
   visible: boolean; writable: boolean; message: string | null;
   level: "none" | "info" | "warning" | "blocked"; blocked_actions: string[];
+  /** A scheduled change businesses are warned about now. */
+  upcoming?: { status: ControlState["status"]; at: string; message: string | null } | null;
+  /** Hours when changes are accepted, e.g. "07:00-20:00". */
+  write_hours?: string | null;
 }
 
 export interface PageNotice { name: string; message: string; tone: "info" | "warning" | "readonly"; blockedActions: string[] }
@@ -70,9 +74,20 @@ export function noticeFor(path: string, moduleKey: string | null, parts: Record<
     if (!c.writable) candidates.push({ name, message, tone: "readonly", blockedActions: [], rank: 3 });
     else if (c.level === "warning") candidates.push({ name, message, tone: "warning", blockedActions: c.blocked_actions, rank: 2 });
     else if (c.level === "info" && c.message) candidates.push({ name, message, tone: "info", blockedActions: c.blocked_actions, rank: 1 });
-    else if (c.blocked_actions.length) {
+    else if (c.upcoming) {
+      const when = new Date(c.upcoming.at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      const label = { active: "back to normal", inactive: "switched off", coming_soon: "unavailable", beta: "beta only", maintenance: "under maintenance", deprecated: "retired" }[c.upcoming.status];
+      candidates.push({ name, message: `Heads up: ${name} will be ${label} from ${when}.${c.upcoming.message ? ` ${c.upcoming.message}` : ""}`, tone: "warning", blockedActions: c.blocked_actions, rank: 1.5 });
+    } else if (c.blocked_actions.length) {
       const words = c.blocked_actions.map((a) => ACTION_WORDS[a] ?? a);
       candidates.push({ name, message: `In ${name}, ${words.join(", ")} ${words.length === 1 ? "is" : "are"} switched off or limited to administrators.`, tone: "warning", blockedActions: c.blocked_actions, rank: 0 });
+    }
+  }
+  for (const key of [part?.key, moduleKey]) {
+    const c = key ? controls?.[key] : undefined;
+    if (c?.write_hours && c.writable) {
+      const name = key === part?.key ? part!.name : (moduleKey ?? "").replace(/^./, (x) => x.toUpperCase());
+      candidates.push({ name, message: `Changes in ${name} are accepted between ${c.write_hours}.`, tone: "info", blockedActions: [], rank: 0.5 });
     }
   }
   if (restricted && part) candidates.push({ name: part.name, message: readOnlyMessage(part.name, restricted), tone: "readonly", blockedActions: [], rank: 3 });

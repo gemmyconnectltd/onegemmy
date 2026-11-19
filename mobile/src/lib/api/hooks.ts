@@ -77,6 +77,10 @@ const CURRENT_TENANT = ["tenants", "me", "current"] as const;
 export const useCurrentTenant = (opts?: QueryOpts) =>
   useQ([...CURRENT_TENANT], () => tenantsApi.getCurrent(), (r) => r.data, opts);
 
+/** Pesaa's feature controls (status messages, read-only features, coming changes). Refreshed every minute. */
+export const useFeatureControls = (opts?: QueryOpts) =>
+  useQ(["tenants", "me", "entitlements"], () => tenantsApi.entitlements(), (r) => r.data.controls ?? {}, { refetchInterval: 60_000, ...opts });
+
 // Keep business configuration isolated when switching accounts.
 export const useTenantCurrency = (tenantId?: string | null) =>
   useQ(["tenants", "currency", tenantId], () => tenantsApi.getCurrent(), (r) => r.data,

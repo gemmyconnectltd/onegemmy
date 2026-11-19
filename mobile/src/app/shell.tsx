@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/mobile/BottomNav";
 import { MobilePosProvider } from "@/components/mobile/MobilePosProvider";
 import OfflineIndicator from "@/components/mobile/OfflineIndicator";
 import SyncBanner from "@/components/mobile/SyncBanner";
+import FeatureNotice from "@/components/mobile/FeatureNotice";
 import { useAuth } from "@/lib/auth";
 import { useWakeLock } from "@/hooks/useWakeLock";
 
@@ -38,6 +39,7 @@ export default function MobileShell({ children }: { children: ReactNode }) {
         <div className="w-full max-w-[430px] h-full flex flex-col bg-background overflow-hidden">
           <OfflineIndicator />
           <SyncBanner />
+          {!isLogin && <FeatureNotice />}
           <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
           {!isLogin && <BottomNav />}
         </div>
