@@ -36,6 +36,7 @@ from app.modules.tenants.schemas import (
     DepartmentCreate,
     FeatureOverrideUpdate,
     RoleCreate,
+    RoleUpdate,
     TenantCreate,
     TenantLimitsUpdate,
     TenantUpdate,
@@ -869,7 +870,10 @@ async def admin_list_tenant_departments(tenant_id: uuid.UUID, db: DbSession, _: 
 async def admin_list_tenant_roles(tenant_id: uuid.UUID, db: DbSession, _: SuperUser, page_params: PageQuery):
     roles = await service.list_roles(db, tenant_id, page_params.offset, page_params.limit)
     total = await service.count_roles(db, tenant_id)
-    return paginated_response(items=[r.model_dump() for r in roles], total=total,
+    from app.modules.tenants.service.role import role_counts
+    people, grants = await role_counts(db, tenant_id)
+    items = [{**r.model_dump(), "user_count": people.get(r.id, 0), "permission_count": grants.get(r.id, 0)} for r in roles]
+    return paginated_response(items=items, total=total,
                               page=page_params.page, page_size=page_params.page_size,
                               message="Tenant roles retrieved")
 
@@ -946,15 +950,51 @@ async def admin_delete_tenant_department(tenant_id: uuid.UUID, department_id: uu
     return success_response(message="Department deleted")
 
 
+class AdminRoleCreate(RoleCreate):
+    # Start the new role with the same permissions as this role (duplicate). Empty: the role starts with none.
+    copy_from_role_id: uuid.UUID | None = None
+
+
+async def _role_audit(db, admin, tenant_id: uuid.UUID, action: str, role_id, summary: str, changes: dict | None = None) -> None:
+    await record_audit(db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+                       action=action, entity_type="role", entity_id=str(role_id) if role_id else None, summary=summary, changes=changes)
+    await db.commit()
+
+
 @router.post("/tenants/{tenant_id}/roles", status_code=201)
-async def admin_create_tenant_role(tenant_id: uuid.UUID, data: RoleCreate, db: DbSession, _: SuperUser):
-    role = await service.create_role(db, tenant_id, data)
+async def admin_create_tenant_role(tenant_id: uuid.UUID, data: AdminRoleCreate, db: DbSession, admin: SuperUser):
+    role = await service.create_role(db, tenant_id, RoleCreate(name=data.name, description=data.description))
+    if data.copy_from_role_id:
+        from app.modules.tenants.service.role import copy_role_permissions
+        await copy_role_permissions(db, tenant_id, data.copy_from_role_id, role.id)
+    await _role_audit(db, admin, tenant_id, "role.create", role.id, f"Role {role.name} created" + (" as a copy" if data.copy_from_role_id else ""),
+                      data.model_dump(mode="json", exclude_none=True))
     return success_response(data=role.model_dump(), message="Role created", status_code=201)
 
 
+@router.patch("/tenants/{tenant_id}/roles/{role_id}")
+async def admin_update_tenant_role(tenant_id: uuid.UUID, role_id: uuid.UUID, data: RoleUpdate, db: DbSession, admin: SuperUser):
+    role = await service.update_role(db, tenant_id, role_id, data)
+    await _role_audit(db, admin, tenant_id, "role.update", role_id, f"Role {role.name} updated", data.model_dump(exclude_unset=True))
+    return success_response(data=role.model_dump(), message="Role updated")
+
+
+@router.post("/tenants/{tenant_id}/roles/restore-defaults")
+async def admin_restore_default_roles(tenant_id: uuid.UUID, db: DbSession, admin: SuperUser):
+    """Adds any standard role the business is missing. Never changes or removes a role it already has."""
+    before = await service.count_roles(db, tenant_id)
+    await service.seed_default_roles(db, tenant_id)
+    await db.commit()
+    added = await service.count_roles(db, tenant_id) - before
+    await _role_audit(db, admin, tenant_id, "role.restore_defaults", None, f"Standard roles restored ({added} added)")
+    return success_response(data={"added": added}, message=f"{added} standard role{'' if added == 1 else 's'} added" if added else "Every standard role is already there")
+
+
 @router.delete("/tenants/{tenant_id}/roles/{role_id}")
-async def admin_delete_tenant_role(tenant_id: uuid.UUID, role_id: uuid.UUID, db: DbSession, _: SuperUser):
+async def admin_delete_tenant_role(tenant_id: uuid.UUID, role_id: uuid.UUID, db: DbSession, admin: SuperUser):
+    role = await service.get_role(db, tenant_id, role_id)
     await service.delete_role(db, tenant_id, role_id)
+    await _role_audit(db, admin, tenant_id, "role.delete", role_id, f"Role {role.name} deleted")
     return success_response(message="Role deleted")
 
 

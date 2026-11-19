@@ -324,6 +324,30 @@ async def update_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID
     return RoleRead.model_validate(role)
 
 
+async def copy_role_permissions(db: AsyncSession, tenant_id: uuid.UUID, source_id: uuid.UUID, target_id: uuid.UUID) -> None:
+    """Give a role exactly the permissions another role of the same business has (used to duplicate a role)."""
+    repo = RoleRepository(db)
+    source = await repo.get_by_id_for_tenant(tenant_id, source_id)
+    target = await repo.get_by_id_for_tenant(tenant_id, target_id)
+    if source is None or target is None:
+        raise NotFoundError("Role not found")
+    target.permissions = list(source.permissions)
+    await db.commit()
+
+
+async def role_counts(db: AsyncSession, tenant_id: uuid.UUID) -> tuple[dict[uuid.UUID, int], dict[uuid.UUID, int]]:
+    """How many people hold each role, and how many permissions each role grants."""
+    from sqlalchemy import func
+
+    from app.modules.tenants.models import User, role_permissions
+    people = dict((await db.execute(
+        select(User.role_id, func.count()).where(User.tenant_id == tenant_id, User.role_id.isnot(None)).group_by(User.role_id))).all())
+    grants = dict((await db.execute(
+        select(role_permissions.c.role_id, func.count()).join(Role, Role.id == role_permissions.c.role_id)
+        .where(Role.tenant_id == tenant_id).group_by(role_permissions.c.role_id))).all())
+    return people, grants
+
+
 async def delete_role(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> None:
     role = await RoleRepository(db).get_by_id_for_tenant(tenant_id, role_id)
     if role is None:

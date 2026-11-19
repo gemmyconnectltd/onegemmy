@@ -307,6 +307,11 @@ export interface AdminRole {
   tenant_id: string;
   name: string;
   description: string | null;
+  /** Standard roles every business gets: they can't be renamed or deleted. */
+  built_in?: boolean;
+  department?: string | null;
+  user_count?: number;
+  permission_count?: number;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -759,10 +764,15 @@ export const adminApi = {
   deleteDepartment: (tenantId: string, departmentId: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/departments/${departmentId}`, { method: "DELETE" }),
 
+  /** All of a business's roles at once (a business has 55 standard roles, more than one 50-row page). */
   tenantRoles: (id: string, page = 1) =>
-    request<PaginatedResponse<AdminRole>>(`${B}/tenants/${id}/roles?page=${page}&page_size=50`),
-  createRole: (tenantId: string, data: { name: string; description?: string }) =>
+    request<PaginatedResponse<AdminRole>>(`${B}/tenants/${id}/roles?page=${page}&page_size=500`),
+  createRole: (tenantId: string, data: { name: string; description?: string; copy_from_role_id?: string | null }) =>
     request<SingleResponse<AdminRole>>(`${B}/tenants/${tenantId}/roles`, { method: "POST", body: JSON.stringify(data) }),
+  updateRole: (tenantId: string, roleId: string, data: { name?: string; description?: string | null }) =>
+    request<SingleResponse<AdminRole>>(`${B}/tenants/${tenantId}/roles/${roleId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  restoreDefaultRoles: (tenantId: string) =>
+    request<SingleResponse<{ added: number }>>(`${B}/tenants/${tenantId}/roles/restore-defaults`, { method: "POST" }),
   deleteRole: (tenantId: string, roleId: string) =>
     request<SingleResponse<unknown>>(`${B}/tenants/${tenantId}/roles/${roleId}`, { method: "DELETE" }),
 

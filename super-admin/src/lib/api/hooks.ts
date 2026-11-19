@@ -180,6 +180,8 @@ export const useDeleteDepartment = mutation(({ tenantId, departmentId }: { tenan
 
 export const useCreateRole = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createRole>[1] }) => adminApi.createRole(tenantId, data), [[...TENANTS]]);
 export const useDeleteRole = mutation(({ tenantId, roleId }: { tenantId: string; roleId: string }) => adminApi.deleteRole(tenantId, roleId), [[...TENANTS]]);
+export const useUpdateRole = mutation(({ tenantId, roleId, data }: { tenantId: string; roleId: string; data: Parameters<typeof adminApi.updateRole>[2] }) => adminApi.updateRole(tenantId, roleId, data), [[...TENANTS]]);
+export const useRestoreDefaultRoles = mutation(({ tenantId }: { tenantId: string }) => adminApi.restoreDefaultRoles(tenantId), [[...TENANTS]]);
 
 export const useCreateBranch = mutation(({ tenantId, data }: { tenantId: string; data: Parameters<typeof adminApi.createBranch>[1] }) => adminApi.createBranch(tenantId, data), [[...TENANTS]]);
 export const useDeleteBranch = mutation(({ tenantId, branchId }: { tenantId: string; branchId: string }) => adminApi.deleteBranch(tenantId, branchId), [[...TENANTS]]);

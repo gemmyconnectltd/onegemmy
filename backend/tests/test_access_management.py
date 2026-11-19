@@ -486,3 +486,36 @@ async def test_an_owner_can_choose_the_password_when_adding_or_resetting_a_user_
             assert not verify_password("kigali1", cashier.hashed_password)
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_platform_admin_manages_a_business_roles_create_copy_rename_restore_and_delete(db):
+    tenant, roles, *_ = await business(db, "RoleCrud")
+    admin = User(email=f"{uuid.uuid4()}@platform.test", full_name="Platform", hashed_password="x", role="superadmin", is_superuser=True, is_active=True)
+    db.add(admin)
+    await db.flush()
+    base = f"/api/v1/admin/tenants/{tenant.id}/roles"
+    try:
+        async with client(db, admin) as c:
+            listed = (await c.get(f"{base}?page_size=500")).json()["data"]["items"]
+            cashier_row = next(r for r in listed if r["name"] == "Cashier")
+            assert cashier_row["user_count"] == 1 and cashier_row["permission_count"] > 0 and cashier_row["built_in"]
+
+            copy = await c.post(base, json={"name": "Night cashier", "description": "Late shift", "copy_from_role_id": str(roles["Cashier"].id)})
+            assert copy.status_code == 201, copy.text
+            copy_id = copy.json()["data"]["id"]
+            copied = next(r for r in (await c.get(f"{base}?page_size=500")).json()["data"]["items"] if r["id"] == copy_id)
+            assert copied["permission_count"] == cashier_row["permission_count"] and copied["user_count"] == 0
+
+            renamed = await c.patch(f"{base}/{copy_id}", json={"name": "Evening cashier"})
+            assert renamed.status_code == 200 and renamed.json()["data"]["name"] == "Evening cashier"
+            assert (await c.patch(f"{base}/{roles['Cashier'].id}", json={"name": "Till"})).status_code == 409  # built-in names stay
+
+            assert (await c.delete(f"{base}/{roles['Cashier'].id}")).status_code == 409  # built-in, and someone holds it
+            assert (await c.delete(f"{base}/{copy_id}")).status_code == 200
+
+            await c.delete(f"{base}/{roles['Viewer'].id}")  # refused: built-in roles can't be deleted
+            restored = await c.post(f"{base}/restore-defaults")
+            assert restored.status_code == 200 and restored.json()["data"]["added"] == 0
+    finally:
+        app.dependency_overrides.clear()

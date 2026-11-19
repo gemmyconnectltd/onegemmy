@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, UserPlus, Loader2,
-  CheckCircle, XCircle, Building2, Layers, Shield,
+  CheckCircle, XCircle, Building2, Layers,
   Plus, Trash2, X, 
   AlertTriangle, Crown, Power,
 } from "lucide-react";
@@ -16,7 +16,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   useTenant, useTenantStats, useTenantUsers, useActivateTenant,
   useTenantDepartments, useCreateDepartment,
-  useDeleteDepartment, useTenantRoles, useCreateRole, useDeleteRole,
+  useDeleteDepartment, useTenantRoles,
   useTenantBranches, useCreateBranch, useDeleteBranch,
   useUpdateTenant, useTenantLimits, useTenantRecords,
 } from "@/lib/api/hooks";
@@ -29,7 +29,7 @@ import { useBulkSelection } from "@/lib/useBulkSelection";
 import FeaturesPanel from "./FeaturesPanel";
 import UserFeatureAccess from "./UserFeatureAccess";
 import InviteBusinessUser from "./InviteBusinessUser";
-import { RolePermissionManager } from "./EmployeePermissions";
+import { RolesManager } from "./RolesManager";
 import { Button } from "@/components/ui/Button";
 import { BusinessShell, SubTabs } from "@/components/business/BusinessShell";
 import { ControlCenter } from "@/components/business/ControlCenter";
@@ -80,19 +80,16 @@ function TenantDetailPageInner() {
   const [editForm, setEditForm] = useState<BusinessProfileDraft | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [showAddDept, setShowAddDept] = useState(false);
-  const [permissionRole,setPermissionRole] = useState<string | null>(null);
-  const [showAddRole, setShowAddRole] = useState(false);
   const [showAddBranch, setShowAddBranch] = useState(false);
 
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
-  const [roleForm, setRoleForm] = useState({ name: "", description: "" });
   const [branchForm, setBranchForm] = useState({ name: "", location: "" });
 
   const { data: tenant, isLoading: tenantLoading, isError: tenantError } = useTenant(id);
   const { data: stats } = useTenantStats(id);
   const { data: usersData, isError: usersError } = useTenantUsers(id);
   const { data: departmentsData, isError: deptsError } = useTenantDepartments(id);
-  const { data: rolesData, isError: rolesError } = useTenantRoles(id);
+  const { data: rolesData } = useTenantRoles(id);
   const { data: branchesData, isError: branchesError } = useTenantBranches(id);
   const { data: limits } = useTenantLimits(id);
   const audit = useTenantRecords(id, "activity");
@@ -112,13 +109,10 @@ function TenantDetailPageInner() {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const createDepartment = useCreateDepartment();
   const deleteDepartment = useDeleteDepartment();
-  const createRole = useCreateRole();
-  const deleteRole = useDeleteRole();
   const createBranch = useCreateBranch();
   const deleteBranch = useDeleteBranch();
 
   const bulkDepartments = useBulkSelection(departments.map((d) => d.id));
-  const bulkRoles = useBulkSelection(roles.map((r) => r.id));
   const bulkBranches = useBulkSelection(branches.map((b) => b.id));
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -133,21 +127,6 @@ function TenantDetailPageInner() {
         await Promise.allSettled(Array.from(bulkDepartments.selected).map((departmentId) => deleteDepartment.mutateAsync({ tenantId: id, departmentId })));
         setBulkDeleting(false);
         bulkDepartments.clear();
-      },
-    });
-  }
-
-  function confirmBulkDeleteRoles() {
-    confirm({
-      title: "Delete roles?",
-      message: `Delete ${bulkRoles.count} selected role${bulkRoles.count === 1 ? "" : "s"}?`,
-      confirmLabel: "Delete",
-      danger: true,
-      onConfirm: async () => {
-        setBulkDeleting(true);
-        await Promise.allSettled(Array.from(bulkRoles.selected).map((roleId) => deleteRole.mutateAsync({ tenantId: id, roleId })));
-        setBulkDeleting(false);
-        bulkRoles.clear();
       },
     });
   }
@@ -243,33 +222,6 @@ function TenantDetailPageInner() {
         deleteDepartment.mutate({ tenantId: id, departmentId: d.id }, {
           onSuccess: () => setNotice({ kind: "success", text: "Department deleted" }),
           onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete department" }),
-        });
-      },
-    });
-  };
-
-  const handleCreateRole = (e: React.FormEvent) => {
-    e.preventDefault();
-    createRole.mutate({ tenantId: id, data: roleForm }, {
-      onSuccess: () => {
-        setShowAddRole(false);
-        setRoleForm({ name: "", description: "" });
-        setNotice({ kind: "success", text: "Role created" });
-      },
-      onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to create role" }),
-    });
-  };
-
-  const handleRemoveRole = (r: { id: string; name: string }) => {
-    confirm({
-      title: "Delete role?",
-      message: `Delete role "${r.name}"?`,
-      confirmLabel: "Delete",
-      danger: true,
-      onConfirm: () => {
-        deleteRole.mutate({ tenantId: id, roleId: r.id }, {
-          onSuccess: () => setNotice({ kind: "success", text: "Role deleted" }),
-          onError: (err: unknown) => setNotice({ kind: "error", text: (err as { detail?: string })?.detail ?? "Failed to delete role" }),
         });
       },
     });
@@ -459,58 +411,7 @@ function TenantDetailPageInner() {
       )}
 
       {/* Roles panel */}
-      {tab === "users" && usersSub === "roles" && (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="text-sm font-bold text-foreground">Roles ({roles.length})</h2>
-            <button onClick={() => setShowAddRole(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline transition-colors">
-              <Plus size={13} /> Add
-            </button>
-          </div>
-          {rolesError && (
-            <div className="px-5 py-3 text-red-600 dark:text-red-400 text-sm bg-red-500/10 border-b border-red-500/20">Failed to load roles.</div>
-          )}
-          {roles.length === 0 ? (
-            <div className="py-12 text-center">
-              <Shield size={28} className="text-muted/30 mx-auto mb-2" />
-              <p className="text-sm text-muted">No roles yet</p>
-              <Button variant="primary" size="sm" onClick={() => setShowAddRole(true)}>
-                <Plus size={13} /> Add a role
-              </Button>
-            </div>
-          ) : (
-            <>
-              {bulkRoles.count > 0 && (
-                <div className="px-5 py-3 border-b border-border">
-                  <BulkActionBar count={bulkRoles.count} label="role" onDelete={confirmBulkDeleteRoles} onClear={bulkRoles.clear} deleting={bulkDeleting} />
-                </div>
-              )}
-            <div className="divide-y divide-border">
-              {roles.map((r) => (
-                <div key={r.id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 hover:bg-surface/40 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <input type="checkbox" checked={bulkRoles.selected.has(r.id)} onChange={() => bulkRoles.toggle(r.id)} className="w-4 h-4 rounded shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground capitalize">{r.name}</p>
-                      {r.description && <p className="text-[11px] text-muted mt-0.5 truncate">{r.description}</p>}
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => setPermissionRole(r.id)}>Permissions</Button>
-                  <Button variant="danger" size="sm"
-                    onClick={() => handleRemoveRole(r)}
-                    disabled={deleteRole.isPending && deleteRole.variables?.roleId === r.id}
-                  >
-                    {deleteRole.isPending && deleteRole.variables?.roleId === r.id
-                      ? <Loader2 size={13} className="animate-spin" />
-                      : <Trash2 size={13} />} Delete
-                  </Button>
-                </div>
-              ))}
-            </div>
-            </>
-          )}
-        </div>
-      )}
+      {tab === "users" && usersSub === "roles" && <RolesManager tenantId={id} tenantName={tenant.name} />}
 
       {/* Branches & warehouses panel */}
       {tab === "branches" && (
@@ -611,7 +512,6 @@ function TenantDetailPageInner() {
       </Drawer>}
       {/* Change plan drawer */}
       {/* Invite drawer */}
-      <Drawer open={!!permissionRole} onClose={() => setPermissionRole(null)} title="Role permissions" size="xl"><div className="p-4">{permissionRole && <RolePermissionManager tenantId={id} roleId={permissionRole}/>}</div></Drawer>
       <InviteBusinessUser tenantId={id} open={showInvite} onClose={() => setShowInvite(false)} />
 
       {/* Add department drawer */}
@@ -624,19 +524,6 @@ function TenantDetailPageInner() {
             <Input value={deptForm.description} onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })} placeholder="Optional" />
           </Field>
           <FormFooter submitLabel={createDepartment.isPending ? "Creating…" : "Add Department"} onCancel={() => setShowAddDept(false)} disabled={createDepartment.isPending} />
-        </form>
-      </Drawer>
-
-      {/* Add role drawer */}
-      <Drawer open={showAddRole} onClose={() => setShowAddRole(false)} title="Add Role" description={`Create a role in ${tenant.name}`}>
-        <form onSubmit={handleCreateRole} className="space-y-4 p-5">
-          <Field label="Name" required>
-            <Input required value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} placeholder="manager" />
-          </Field>
-          <Field label="Description">
-            <Input value={roleForm.description} onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })} placeholder="Optional" />
-          </Field>
-          <FormFooter submitLabel={createRole.isPending ? "Creating…" : "Add Role"} onCancel={() => setShowAddRole(false)} disabled={createRole.isPending} />
         </form>
       </Drawer>
 
