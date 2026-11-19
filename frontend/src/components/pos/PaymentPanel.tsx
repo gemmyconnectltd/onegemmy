@@ -9,6 +9,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import type { PaymentMethod } from "./types";
 import { useCustomerDebtSnapshot } from "@/lib/api/hooks";
 import { useCan } from "@/lib/can";
+import { useDisabledPayMethods } from "@/lib/useFeatureActions";
 
 /** What the cashier confirmed for this sale: the payments taken now and any balance left as a debt. */
 export interface Checkout {
@@ -149,6 +150,7 @@ export function PaymentPanel({
     onCashChange(String(Math.floor(total / 2)));
     setDialog("debt");
   };
+  const payOff = useDisabledPayMethods();
   const chooseMethod = (m: "cash" | "mobile" | "card" | "split") => {
     setMethod(m); setReference(""); setDialog(null);
     if (m === "split") { startSplit(); setDialog("split"); onCashChange(""); return; }
@@ -177,7 +179,7 @@ export function PaymentPanel({
         <div key={s.id} className="space-y-1.5 rounded-lg border border-border p-2">
           <div className="flex items-center gap-1.5">
             <select aria-label={`Payment ${i + 1} method`} value={s.method} onChange={(e) => setSplit(s.id, { method: e.target.value as PaymentMethod })} className="rounded-lg border border-border bg-card px-2 py-2 text-[12px] font-semibold outline-none focus:border-accent">
-              {METHODS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              {METHODS.filter((m) => !payOff.has(m.id)).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
             <div className="relative min-w-0 flex-1">
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] font-mono text-muted">{currencySymbol}</span>
@@ -261,7 +263,7 @@ export function PaymentPanel({
       {/* What is it paid with? (the method). Not needed when the whole sale is on credit. */}
       {arr !== "credit" && (
         <div role="group" aria-label="Payment method" className="grid grid-cols-4 gap-1">
-          {([["cash", "Cash", Banknote], ["mobile", "Mobile", Smartphone], ["card", "Card", CreditCard], ["split", "Split", SplitSquareHorizontal]] as const).map(([k, l, Icon]) => (
+          {([["cash", "Cash", Banknote], ["mobile", "Mobile", Smartphone], ["card", "Card", CreditCard], ["split", "Split", SplitSquareHorizontal]] as const).filter(([k]) => !payOff.has(k)).map(([k, l, Icon]) => (
             <button key={k} type="button" aria-pressed={method === k} onClick={() => chooseMethod(k)}
               className={`flex h-9 lg:h-10 items-center justify-center gap-1.5 rounded-xl border px-1 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${method === k ? "border-accent bg-accent text-white shadow-sm" : "border-border bg-card text-foreground/75 hover:border-accent/50 hover:bg-surface"}`}>
               <Icon size={14} strokeWidth={2.2} aria-hidden /><span className="truncate">{l}</span>

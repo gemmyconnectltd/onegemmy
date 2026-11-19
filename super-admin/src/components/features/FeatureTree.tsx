@@ -41,8 +41,7 @@ export function FeatureTree({ focus }: { focus?: string }) {
   const [bulk, setBulk] = useState(false);
   const togglePick = (key: string, name: string) => setPicked((p) => { const n = { ...p }; if (n[key]) delete n[key]; else n[key] = name; return n; });
   const needle = q.trim().toLowerCase();
-  const modules = useMemo(() => (query.data ?? []).filter((m) => m.children.length > 0
-    && (!needle || `${m.name} ${m.key}`.toLowerCase().includes(needle) || m.children.some((c) => matches(c, needle)))), [query.data, needle]);
+  const modules = useMemo(() => (query.data ?? []).filter((m) => (!needle || `${m.name} ${m.key}`.toLowerCase().includes(needle) || m.children.some((c) => matches(c, needle)))), [query.data, needle]);
 
   if (query.isLoading) return <PageLoader variant="compact" />;
   if (query.isError || !query.data) return <ErrorState message="Could not load submodules and features." onRetry={() => void query.refetch()} />;
@@ -78,8 +77,12 @@ export function FeatureTree({ focus }: { focus?: string }) {
                   <span className="text-[12px] font-normal text-muted">· {m.children.length} part{m.children.length === 1 ? "" : "s"}</span>
                   {!m.is_active && <Badge tone="slate" dot>Module switched off</Badge>}
                 </button>
+                <Link href={`/features/${m.key}`} className="ml-8 text-[12px] font-semibold text-accent hover:underline">Module controls</Link>
               </td>
             </tr>
+            {isOpen(m) && m.children.length === 0 && <tr><td />
+              <td colSpan={6} className="px-4 py-3 text-[13px] text-muted">No parts listed yet: this module is controlled as a whole. <Link href={`/features/${m.key}`} className="font-semibold text-accent hover:underline">Open its controls</Link></td>
+            </tr>}
             {isOpen(m) && flatten(m.children, 1, m.is_active ? null : m.name, needle).map(({ node, depth, offVia }) => <tr key={node.key} id={`part-${node.key}`} className={node.key === focus ? "bg-accent/5" : "hover:bg-surface/50"}>
               <td className="w-10 px-4 py-3"><input type="checkbox" aria-label={`Select ${node.name}`} checked={!!picked[node.key]} onChange={() => togglePick(node.key, node.name)} /></td>
               <td className="px-4 py-3">
@@ -119,11 +122,4 @@ function HistoryDrawer({ node, onClose }: { node: FeatureItemNode; onClose: () =
   return <Drawer open onClose={onClose} side="right" size="lg" title={`History — ${node.name}`} description={node.key}>
     <div className="px-5 py-4">
       {query.isLoading ? <PageLoader variant="compact" /> : query.isError ? <ErrorState message="Could not load the history." onRetry={() => void query.refetch()} />
-        : (query.data ?? []).length === 0 ? <EmptyState title="No changes yet" description="Switches and restrictions will appear here with who made them and why." />
-        : <ul className="divide-y divide-border">{(query.data ?? []).map((h) => <li key={h.id} className="py-3 text-sm">
-            <p className="font-medium">{h.summary}</p>
-            <p className="text-[12px] text-muted">{h.actor ?? "Unknown"} · {h.at ? fmtDateTime(h.at) : ""}</p>
-          </li>)}</ul>}
-    </div>
-  </Drawer>;
-}
+        : (query.data ?? []).length === 0 ? <EmptyState

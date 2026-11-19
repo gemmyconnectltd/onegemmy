@@ -19,6 +19,9 @@ class Node:
     description: str
     parent: str | None = None  # a submodule key
     paths: tuple[str, ...] = ()  # only features carry routes; a submodule switches all of its features
+    # Recognised from what a request sends rather than from its route (see sale_paths): the till's sales all go to
+    # POST /sales/orders, so its parts are told apart by the sale itself.
+    virtual: bool = False
 
     @property
     def level(self) -> str:
@@ -78,7 +81,34 @@ TREE: tuple[Node, ...] = (
          paths=("/sales/discounts/campaigns",)),
     Node("discounts.approvals", "discounts", "Discount approvals", "Ask a manager to approve a discount",
          paths=("/sales/discounts/approvals",)),
+    # Point of Sale: recognised from the sale (pricing_channel "pos"), see sale_paths.
+    Node("pos.payments", "pos", "Payment methods", "How customers can pay at the till"),
+    Node("pos.cash", "pos", "Cash", "Take cash at the till", "pos.payments", ("/pos/pay/cash",), virtual=True),
+    Node("pos.mobile_money", "pos", "Mobile Money", "Take mobile money at the till", "pos.payments", ("/pos/pay/mobile",), virtual=True),
+    Node("pos.card", "pos", "Card", "Take card payments at the till", "pos.payments", ("/pos/pay/card",), virtual=True),
+    Node("pos.manual_discounts", "pos", "Manual discounts", "Discounts the cashier types in at the till",
+         paths=("/pos/manual-discount",), virtual=True),
 )
+
+POS_SALE = "/pos/sale"  # the POS module itself
+METHOD_PATHS = {"cash": "/pos/pay/cash", "mobile": "/pos/pay/mobile", "mobile_money": "/pos/pay/mobile", "momo": "/pos/pay/mobile",
+                "card": "/pos/pay/card"}
+
+
+def sale_paths(body: object) -> list[str]:
+    """For a sale rung up at the till, the POS paths it touches: the module, each payment method used and a manual
+    discount. Empty for any other sale. ``body`` is the JSON sent to POST /sales/orders."""
+    if not isinstance(body, dict) or body.get("pricing_channel") != "pos":
+        return []
+    methods = [body.get("payment_method")] + [p.get("method") for p in body.get("payments") or [] if isinstance(p, dict)]
+    out = [POS_SALE]
+    for m in methods:
+        path = METHOD_PATHS.get(str(m or "").strip().lower())
+        if path and path not in out:
+            out.append(path)
+    if body.get("manual_discount"):
+        out.append("/pos/manual-discount")
+    return out
 
 # A part that cannot work while another one is off: it stops taking changes too, and the controls warn first.
 PART_DEPENDENCIES: dict[str, tuple[str, ...]] = {

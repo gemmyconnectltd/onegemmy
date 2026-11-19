@@ -15,13 +15,16 @@ from app.modules.tenants.models import ModuleFeature, Tenant
 from app.modules.tenants.service import feature_items
 
 VERSIONS = Path(__file__).resolve().parent.parent / "alembic" / "versions"
-MIGRATIONS = [VERSIONS / "e6a1c9f4b702_module_feature_hierarchy.py", VERSIONS / "a3c8e5f1d907_feature_overrides_activity_more_parts.py"]
+MIGRATIONS = [VERSIONS / "e6a1c9f4b702_module_feature_hierarchy.py", VERSIONS / "a3c8e5f1d907_feature_overrides_activity_more_parts.py",
+              VERSIONS / "b7d4f0a2c613_pos_feature_parts.py"]
 
 
 def test_every_feature_path_is_a_real_tenant_route():
     import app.main as main
     routes = {tenant_path(r.path) for r in main.app.routes if getattr(r, "path", "").startswith("/api/v1/tenants")}
     for node in TREE:
+        if node.virtual:  # recognised from the request body, not a route
+            continue
         for p in node.paths:
             assert any(r == p or r.startswith(p + "/") for r in routes), f"{node.key}: no route under {p}"
 
@@ -107,3 +110,14 @@ async def test_part_states_tell_the_erp_what_is_read_only(db):
     assert states["inventory.transfers"] == "on"
     assert states["hr.leave"] == "restricted" and states["hr.payroll"] == "on"
     assert states["sales.quotations"] == "module_off"
+
+
+def test_a_till_sale_is_recognised_with_its_payment_methods_and_manual_discount():
+    from app.modules.tenants.feature_tree import sale_paths
+    assert sale_paths({"pricing_channel": "sales_order", "payment_method": "cash"}) == []
+    assert sale_paths({"pricing_channel": "pos", "payment_method": "cash"}) == ["/pos/sale", "/pos/pay/cash"]
+    split = sale_paths({"pricing_channel": "pos", "payments": [{"method": "mobile"}, {"method": "card"}], "manual_discount": {"percent": 5}})
+    assert split == ["/pos/sale", "/pos/pay/mobile", "/pos/pay/card", "/pos/manual-discount"]
+    assert feature_for_path("pos", "/pos/pay/mobile") == "pos.mobile_money"
+    assert feature_for_path("pos", "/pos/sale") is None  # the module itself
+    assert sale_paths(None) == [] and sale_paths("x") == []

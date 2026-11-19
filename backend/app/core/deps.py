@@ -179,12 +179,28 @@ async def _check_feature_control(request: Request, db: DbSession, user: User, mo
         branch_id = uuid.UUID(request.headers["x-branch-id"]) if request.headers.get("x-branch-id") else None
     except ValueError:
         branch_id = None
-    verdict = await judge(db, user, module, request.method, path, branch_id)
-    if verdict.refused is None:
-        if verdict.record_key and verdict.action:
-            await record(db, user.tenant_id, verdict.record_key, verdict.action)
+    checks = [(module, path)]
+    if module == "sales" and request.method == "POST" and path.rstrip("/") == "/sales/orders":
+        # A till sale also answers to the POS module and to its parts (payment method, manual discount).
+        from app.modules.tenants.feature_tree import sale_paths
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001 — a body that is not JSON is the endpoint's own validation error
+            body = None
+        checks += [("pos", p) for p in sale_paths(body)]
+    accepted = []
+    why = None
+    for mod, p in checks:
+        verdict = await judge(db, user, mod, request.method, p, branch_id)
+        if verdict.refused:
+            why = verdict.refused
+            break
+        accepted.append(verdict)
+    if why is None:
+        for verdict in accepted:
+            if verdict.record_key and verdict.action:
+                await record(db, user.tenant_id, verdict.record_key, verdict.action)
         return
-    why = verdict.refused
     if why:
         log.warning("features.control_refused", extra={"_extra_fields": {
             "tenant_id": str(user.tenant_id), "module": module, "method": request.method, "path": request.url.path,

@@ -3,6 +3,21 @@
 import { AlertCircle, Banknote, CreditCard, Smartphone, Wallet } from "lucide-react";
 
 import type { PaymentMethod } from "./types";
+import { useAuth } from "@/lib/auth";
+import { useFeatureControls } from "@/lib/api/hooks";
+
+const METHOD_PARTS: Record<string, string> = { cash: "pos.cash", mobile: "pos.mobile_money", card: "pos.card" };
+
+/** Payment methods Pesaa has switched off at the till (the server refuses them too). */
+function useDisabledPayMethods(): Set<string> {
+  const { user } = useAuth();
+  const { data } = useFeatureControls({ enabled: !!user });
+  const group = data?.["pos.payments"];
+  return new Set(Object.entries(METHOD_PARTS).filter(([, key]) => {
+    const c = data?.[key] ?? group;
+    return !!c && (!c.visible || !c.writable);
+  }).map(([m]) => m));
+}
 
 const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { id: "cash",    label: "Cash",    icon: Banknote   },
@@ -50,6 +65,7 @@ export function PaymentPanel({
 }: PaymentPanelProps) {
   const chargeDisabled = cartCount === 0 || saving || cashShort;
   const amounts = quickAmounts(total);
+  const payOff = useDisabledPayMethods();
 
   return (
     <div className="bg-primary text-primary-foreground rounded-2xl p-3.5 shadow-lg shadow-primary/20 space-y-3">
@@ -80,7 +96,7 @@ export function PaymentPanel({
 
       {/* Payment method tabs */}
       <div className="grid grid-cols-3 gap-1.5">
-        {PAYMENT_METHODS.map((m) => {
+        {PAYMENT_METHODS.filter((m) => !payOff.has(m.id)).map((m) => {
           const active = payment === m.id;
           return (
             <button
