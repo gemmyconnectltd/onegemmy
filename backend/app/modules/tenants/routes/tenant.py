@@ -70,16 +70,19 @@ async def get_current_tenant(db: DbSession, current_user: CurrentUser):
 async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUser):
     """Effective feature flags + usage limits for the current tenant."""
     if current_user.tenant_id is None:
-        features, limits, modules = {}, {}, {}
+        features, limits, modules, parts = {}, {}, {}, {}
     else:
+        from app.modules.tenants.service.feature_items import part_states
         modules = await service.resolve_modules(db, current_user.tenant_id)
+        # Submodules and features Pesaa switched off or restricted: the ERP shows them read-only.
+        parts = await part_states(db, current_user.tenant_id, modules)
         # One rule for what the business can open (POS and Discounts need Sales; the Discounts page opens whenever its
         # module is on, so the business can switch discount management on from its Settings tab).
         features = await service.get_effective_features(db, current_user.tenant_id)
         limits_data = await service.get_tenant_limits(db, current_user.tenant_id)
         limits = limits_data.model_dump()
     return success_response(
-        data={"features": features, "modules": modules, "limits": limits},
+        data={"features": features, "modules": modules, "limits": limits, "parts": parts},
         message="Current company entitlements retrieved successfully",
     )
 

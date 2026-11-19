@@ -36,7 +36,7 @@ export default function FeatureDirectoryPage() {
   const choose = (key: keyof typeof seg, list: { value: string; count: number }[] | undefined) => <>{(list ?? []).map((o) => <option key={o.value} value={o.value}>{o.value} ({o.count})</option>)}{seg[key] && !(list ?? []).some((o) => o.value === seg[key]) && <option value={seg[key]}>{seg[key]} (0)</option>}</>;
 
   return <div className="space-y-5">
-    <PageHeader title="Features" subtitle="What PESAA offers, which plans include it and how much it is used. Each business chooses what to switch on inside its plan." />
+    <PageHeader title="Modules" subtitle="What PESAA offers, which plans include each module and how much it is used. Each business chooses what to switch on inside its plan." />
     {query.isLoading ? <PageLoader variant="page" /> : query.isError || !query.data ? <ErrorState message="Could not load the feature directory." onRetry={() => void query.refetch()} /> : <>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Metric label="Features" value={features.length} sub={`${features.filter((f) => f.is_active).length} active`} icon={Layers} />

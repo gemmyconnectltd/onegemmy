@@ -341,6 +341,25 @@ export interface FeatureHistoryEntry { id: string; action: string; summary: stri
 export interface FeatureDetail extends DirectoryFeature { overridden_off_tenants: number; deactivated_by_tenant: number; history: FeatureHistoryEntry[] }
 export interface FeaturePatch { name?: string; description?: string | null; default_enabled?: boolean; is_active?: boolean; confirm_key?: string }
 
+/** A submodule or feature inside a module. Switching one off keeps its records readable and refuses new writes. */
+export interface FeatureItemNode {
+  key: string; name: string; description: string | null; level: "submodule" | "feature"; is_active: boolean;
+  restricted_tenants: number; routes: string[]; children: FeatureItemNode[];
+}
+export interface FeatureTreeModule { key: string; name: string; description: string | null; is_active: boolean; children: FeatureItemNode[] }
+export interface FeatureItemPatch { name?: string; description?: string | null; is_active?: boolean; confirm_key?: string; reason?: string }
+export type FeatureItemStatus = "on" | "switched_off" | "restricted" | "module_off";
+export interface TenantFeatureItem {
+  key: string; module: string; parent: string | null; level: "submodule" | "feature"; name: string; description: string | null;
+  status: FeatureItemStatus; module_status: string | null; restricted: boolean; restricted_by_parent: boolean;
+  reason: string | null; restricted_at: string | null;
+}
+
+export interface FeatureChange {
+  id: string; action: string; summary: string; actor: string | null; target: string | null;
+  tenant_id: string | null; tenant_name: string | null; changes: Record<string, unknown> | null; at: string | null;
+}
+
 export interface FeatureFlag {
   key: string;
   name: string;
@@ -747,6 +766,15 @@ export const adminApi = {
     request<SingleResponse<FeatureDetail>>(`${B}/features/${encodeURIComponent(key)}/detail`),
   updateFeature: (key: string, data: FeaturePatch) =>
     request<SingleResponse<null>>(`${B}/features/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(data) }),
+  featureChanges: (page = 1, pageSize = 25, scope = "all") =>
+    request<PaginatedResponse<FeatureChange>>(`${B}/features/changes${qs({ page: String(page), page_size: String(pageSize), scope })}`),
+  featureTree: () => request<SingleResponse<FeatureTreeModule[]>>(`${B}/features/tree`),
+  featureItemHistory: (key: string) => request<SingleResponse<FeatureHistoryEntry[]>>(`${B}/features/items/${encodeURIComponent(key)}/history`),
+  updateFeatureItem: (key: string, data: FeatureItemPatch) =>
+    request<SingleResponse<null>>(`${B}/features/items/${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify(data) }),
+  tenantFeatureItems: (tenantId: string) => request<SingleResponse<TenantFeatureItem[]>>(`${B}/features/tenants/${tenantId}/items`),
+  setTenantFeatureItem: (tenantId: string, key: string, data: { restricted: boolean; reason?: string }) =>
+    request<SingleResponse<TenantFeatureItem[]>>(`${B}/features/tenants/${tenantId}/items/${encodeURIComponent(key)}`, { method: "PUT", body: JSON.stringify(data) }),
   tenantFeatures: (tenantId: string) =>
     request<SingleResponse<TenantFeatureState[]>>(`${B}/tenants/${tenantId}/features`),
   setTenantFeatures: (tenantId: string, data: { features: Record<string, boolean> }) =>

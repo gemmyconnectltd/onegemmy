@@ -29,7 +29,7 @@ export default function FeatureDetailPage({ params }: { params: Promise<{ key: s
   const [tab, setTab] = useState<Tab>("overview");
   const f = query.data;
   return <div className="space-y-5">
-    <div><Breadcrumbs items={[{ label: "Features", href: "/features" }, { label: f?.name ?? key }]} />
+    <div><Breadcrumbs items={[{ label: "Modules", href: "/features" }, { label: f?.name ?? key }]} />
       <PageHeader title={f?.name ?? "Feature"} subtitle={f?.description ?? undefined} actions={f && <Badge tone={f.is_active ? "green" : "slate"} dot>{f.is_active ? "Active" : "Switched off"}</Badge>} /></div>
     {query.isLoading ? <PageLoader variant="page" /> : query.isError || !f ? <ErrorState message="Could not load this feature." onRetry={() => void query.refetch()} /> : <>
       <TabStrip label="Feature sections" items={TABS.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onSelect: () => setTab(t.key) }))} />

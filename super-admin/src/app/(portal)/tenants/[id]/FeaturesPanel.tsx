@@ -15,6 +15,7 @@ import {
 import { Field, Input } from "@/components/ui/Form";
 import { Badge } from "@/components/ui/Badge";
 import { Toggle } from "@/components/ui/Toggle";
+import FeatureItemsPanel from "./FeatureItemsPanel";
 
 const LIMIT_FIELDS: { key: keyof TenantLimits; label: string; hint: string; placeholder: string }[] = [
   { key: "max_users", label: "Max Users", hint: "Total users allowed in the company", placeholder: "Unlimited" },
@@ -193,6 +194,8 @@ export default function FeaturesPanel({ tenantId }: { tenantId: string }) {
           </div>
         )}
       </div>
+
+      <FeatureItemsPanel tenantId={tenantId} />
 
       {/* Usage limits */}
       <form onSubmit={handleSaveLimits}>

@@ -8,7 +8,7 @@ Features are tied to code (routers, permissions), so the catalogue can be edited
 """
 import re
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field, StringConstraints
@@ -17,7 +17,7 @@ from sqlalchemy import func, select
 from app.core.config import settings
 from app.core.deps import DbSession, SuperUser
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.core.response import success_response
+from app.core.response import paginated_response, success_response
 from app.modules.admin.usage import MODULES
 from app.modules.audit.models import AuditLog
 from app.modules.audit.service import record_audit
@@ -219,3 +219,142 @@ async def update_feature(key: str, data: FeaturePatch, db: DbSession, admin: Sup
 async def _flag_active(db: DbSession, key: str) -> bool:
     row = (await db.execute(select(FeatureFlag.is_active).where(FeatureFlag.key == key))).scalar_one_or_none()
     return bool(row)
+
+
+# ── Submodules and features inside modules ──────────────────────────────────────────────────────────────────────────
+
+
+class FeatureItemPatch(BaseModel):
+    name: Text | None = Field(None, min_length=2, max_length=150)
+    description: Text | None = Field(None, max_length=255)
+    is_active: bool | None = None
+    confirm_key: str | None = None  # switching off for the whole platform needs the key typed back
+    reason: Text | None = Field(None, max_length=255)  # required when switching on or off
+
+
+class TenantItemChange(BaseModel):
+    restricted: bool
+    reason: Text | None = Field(None, max_length=255)
+
+
+@router.get("/tree")
+async def feature_tree(db: DbSession, _: SuperUser):
+    """Every module with its submodules and features nested under it, and how many businesses each one is restricted for."""
+    from app.modules.tenants.feature_tree import BY_KEY
+    from app.modules.tenants.models import ModuleFeature, TenantFeatureRestriction
+    from app.modules.tenants.service.feature_items import catalogue
+    modules = (await db.execute(select(FeatureFlag).order_by(FeatureFlag.module, FeatureFlag.key))).scalars().all()
+    items = await catalogue(db)
+    restricted = dict((await db.execute(
+        select(TenantFeatureRestriction.feature_key, func.count()).join(Tenant, Tenant.id == TenantFeatureRestriction.tenant_id)
+        .where(Tenant.archived_at.is_(None)).group_by(TenantFeatureRestriction.feature_key)
+    )).all())
+
+    def node(i: ModuleFeature) -> dict:
+        code = BY_KEY.get(i.key)
+        return {"key": i.key, "name": i.name, "description": i.description, "level": i.level, "is_active": i.is_active,
+                "restricted_tenants": int(restricted.get(i.key, 0)), "routes": list(code.paths) if code else [],
+                "children": [node(c) for c in items if c.parent_key == i.key]}
+
+    return success_response(data=[{
+        "key": m.key, "name": m.name, "description": m.description, "is_active": m.is_active,
+        "children": [node(i) for i in items if i.module_key == m.key and i.parent_key is None],
+    } for m in modules], message="Feature tree retrieved")
+
+
+CHANGE_ACTIONS = ("tenant.features.update", "tenant.features.reset")
+
+
+@router.get("/changes")
+async def feature_changes(db: DbSession, _: SuperUser, page: Annotated[int, Query(ge=1)] = 1,
+                          page_size: Annotated[int, Query(ge=1, le=100)] = 25,
+                          scope: Literal["all", "platform", "business"] = "all"):
+    """Every change to modules, submodules and features in one list: platform switches and per-business restrictions."""
+    from sqlalchemy import or_
+    conditions = [or_(AuditLog.entity_type == "feature", AuditLog.action.in_(CHANGE_ACTIONS))]
+    if scope == "platform":
+        conditions.append(AuditLog.tenant_id.is_(None))
+    elif scope == "business":
+        conditions.append(AuditLog.tenant_id.is_not(None))
+    total = (await db.execute(select(func.count()).select_from(AuditLog).where(*conditions))).scalar_one()
+    rows = (await db.execute(
+        select(AuditLog, Tenant.name).outerjoin(Tenant, Tenant.id == AuditLog.tenant_id).where(*conditions)
+        .order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    )).all()
+    items = [{"id": str(h.id), "action": h.action, "summary": h.summary, "actor": h.actor_name, "target": h.entity_id,
+              "tenant_id": str(h.tenant_id) if h.tenant_id else None, "tenant_name": name, "changes": h.changes,
+              "at": h.created_at.isoformat() if h.created_at else None} for h, name in rows]
+    return paginated_response(items, total, page, page_size, message="Feature changes retrieved")
+
+
+@router.get("/items/{key}/history")
+async def feature_item_history(key: str, db: DbSession, _: SuperUser):
+    from app.modules.tenants.service.feature_items import get_item
+    await get_item(db, key)
+    rows = (await db.execute(
+        select(AuditLog).where(AuditLog.entity_type == "feature", AuditLog.entity_id == key).order_by(AuditLog.created_at.desc()).limit(50)
+    )).scalars().all()
+    return success_response(data=[{"id": str(h.id), "action": h.action, "summary": h.summary, "actor": h.actor_name, "changes": h.changes,
+                                   "at": h.created_at.isoformat() if h.created_at else None} for h in rows], message="History retrieved")
+
+
+@router.patch("/items/{key}")
+async def update_feature_item(key: str, data: FeatureItemPatch, db: DbSession, admin: SuperUser):
+    """Rename, describe, or switch a submodule or feature on or off for every business. Records are never touched:
+    a switched-off feature stays readable and refuses new writes."""
+    from app.modules.tenants.service.feature_items import get_item
+    item = await get_item(db, key)
+    sent = data.model_fields_set - {"confirm_key", "reason"}
+    if not sent:
+        raise ValidationError("Nothing to change")
+    switching = "is_active" in sent and data.is_active is not None and data.is_active != item.is_active
+    if "is_active" in sent and data.is_active is None:
+        raise ValidationError("Is active cannot be empty")
+    if switching:
+        if not data.reason or len(data.reason) < 3:
+            raise ValidationError("Give a reason: it is saved in the audit log")
+        if data.is_active is False and data.confirm_key != key:
+            raise ValidationError(f"Type the feature key ({key}) to switch it off for the whole platform")
+    before = {k: getattr(item, k) for k in sent}
+    for field in sent:
+        value = getattr(data, field)
+        if field == "name" and not value:
+            raise ValidationError("Name cannot be empty")
+        setattr(item, field, value)
+    await db.flush()
+    action = ("feature.deactivate" if not item.is_active else "feature.activate") if switching else "feature.update"
+    label = "switched off for every business" if action == "feature.deactivate" else "switched back on" if action == "feature.activate" else "updated"
+    await record_audit(
+        db, tenant_id=None, actor_user_id=admin.id, actor_name=admin.full_name or admin.email, action=action,
+        entity_type="feature", entity_id=key, summary=f"{item.name} {label}" + (f": {data.reason}" if switching else ""),
+        changes={"before": before, "after": {k: getattr(item, k) for k in sent}, "reason": data.reason},
+    )
+    await db.commit()
+    return success_response(data=None, message="Feature updated")
+
+
+@router.get("/tenants/{tenant_id}/items")
+async def tenant_feature_items(tenant_id: uuid.UUID, db: DbSession, _: SuperUser):
+    from app.modules.tenants.service.feature_items import tenant_items
+    return success_response(data=await tenant_items(db, tenant_id), message="Business features retrieved")
+
+
+@router.put("/tenants/{tenant_id}/items/{key}")
+async def set_tenant_feature_item(tenant_id: uuid.UUID, key: str, data: TenantItemChange, db: DbSession, admin: SuperUser):
+    """Restrict or restore one submodule or feature for one business. Restricting a submodule covers every feature in it."""
+    from app.modules.tenants.service.feature_items import get_item, set_restriction, tenant_items
+    tenant = await db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise NotFoundError("Company not found")
+    item = await get_item(db, key)
+    changed = await set_restriction(db, tenant_id, key, data.restricted, data.reason, admin.id)
+    if changed:
+        await record_audit(
+            db, tenant_id=tenant_id, actor_user_id=admin.id, actor_name=admin.full_name or admin.email,
+            action="tenant.feature_item.restrict" if data.restricted else "tenant.feature_item.restore",
+            entity_type="feature", entity_id=key,
+            summary=f"{item.name} {'restricted' if data.restricted else 'restored'} for {tenant.name}" + (f": {data.reason}" if data.restricted else ""),
+            changes={"restricted": data.restricted, "reason": data.reason},
+        )
+    await db.commit()
+    return success_response(data=await tenant_items(db, tenant_id), message="Business feature updated")

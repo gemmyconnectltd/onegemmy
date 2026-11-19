@@ -163,6 +163,29 @@ def require_permission(permission_name: str):
     return _check
 
 
+async def _check_feature_item(request: Request, db: DbSession, user: User, module: str) -> None:
+    """Inside a usable module, a submodule or feature Pesaa has switched off refuses new writes. Reads stay open so
+    records can always be looked up and reconciled. Paths no feature covers cost no query."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    from app.core.access import READ_ONLY_POSTS, tenant_path
+    from app.modules.tenants.service.feature_items import SWITCHED_OFF, blocked_feature
+
+    path = tenant_path(request.url.path)
+    if request.method == "POST" and READ_ONLY_POSTS.search(path):
+        return
+    blocked = await blocked_feature(db, user.tenant_id, module, path)
+    if blocked is None:
+        return
+    why, name = blocked
+    log.warning("features.item_blocked", extra={"_extra_fields": {
+        "tenant_id": str(user.tenant_id), "module": module, "path": request.url.path, "why": why,
+    }})
+    if why == SWITCHED_OFF:
+        raise ForbiddenError(f"{name} is switched off by Pesaa right now. Your existing records are kept and can still be viewed.")
+    raise ForbiddenError(f"{name} is restricted for your business. Your existing records can still be viewed. Contact Pesaa support.")
+
+
 def require_feature(feature_key: str):
     """Gate a whole router (or route) behind a tenant feature flag.
 
@@ -176,7 +199,10 @@ def require_feature(feature_key: str):
         from app.modules.tenants import service
 
         status = await service.module_status(db, user.tenant_id, feature_key)
-        if status == "enabled" or (status == "available" and request.method in ("GET", "HEAD", "OPTIONS")):
+        if status == "enabled":
+            await _check_feature_item(request, db, user, feature_key)
+            return user
+        if status == "available" and request.method in ("GET", "HEAD", "OPTIONS"):
             return user
         label = feature_key.replace("_", " ").title()
         log.warning("features.forbidden_disabled", extra={"_extra_fields": {

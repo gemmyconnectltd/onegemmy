@@ -3,7 +3,8 @@
 import { Fragment, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { PanelTop, PanelLeft, PanelRight } from "lucide-react";
+import { Lock, PanelTop, PanelLeft, PanelRight } from "lucide-react";
+import { readOnlyReason } from "@/lib/featureParts";
 import { useAppConfig } from "@/lib/appConfig";
 
 import { useAuth } from "@/lib/auth";
@@ -173,6 +174,7 @@ export function SecondSidebar({
                 className={"flex-shrink-0" + (isTabBar ? " h-3.5 w-3.5 sm:h-4 sm:w-4" : "") + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
               />
               <span>{item.label ?? t(item.nameKey)}</span>
+              {readOnlyReason(item.href, entitlements?.parts) && <Lock size={12} aria-label="Read-only" className={"ml-auto flex-shrink-0" + (isActive && !isTabBar ? " text-white" : " text-muted")} />}
             </Link>
           </Fragment>
         );

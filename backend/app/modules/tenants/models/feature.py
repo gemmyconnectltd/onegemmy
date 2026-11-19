@@ -1,4 +1,7 @@
-from sqlalchemy import Boolean, String
+import uuid
+
+from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -16,3 +19,39 @@ class FeatureFlag(UUIDPKMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(String(255))
     default_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ModuleFeature(UUIDPKMixin, TimestampMixin, Base):
+    """A submodule or feature inside a module (``feature_flags`` row). Kept apart from ``feature_flags`` on purpose:
+    plans, billing and the business's own module switches only ever see modules. Which routes each entry covers is
+    code (``feature_tree.TREE``); this row holds what Pesaa can edit: name, description and the platform switch."""
+
+    __tablename__ = "module_features"
+
+    key: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
+    module_key: Mapped[str] = mapped_column(
+        String(100), ForeignKey("feature_flags.key", ondelete="CASCADE"), nullable=False, index=True
+    )
+    parent_key: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)  # a submodule's key, or None
+    level: Mapped[str] = mapped_column(String(20), nullable=False)  # "submodule" | "feature"
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255))
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class TenantFeatureRestriction(UUIDPKMixin, TimestampMixin, Base):
+    """Pesaa has switched one submodule or feature off for one business. One row per (business, key); removing the row
+    restores it. The business's records are never touched."""
+
+    __tablename__ = "tenant_feature_restrictions"
+    __table_args__ = (UniqueConstraint("tenant_id", "feature_key", name="uq_tenant_feature_restriction"),)
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    feature_key: Mapped[str] = mapped_column(
+        String(120), ForeignKey("module_features.key", ondelete="CASCADE"), nullable=False
+    )
+    reason: Mapped[str | None] = mapped_column(String(255))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
