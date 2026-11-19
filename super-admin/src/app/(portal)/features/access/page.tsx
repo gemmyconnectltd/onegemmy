@@ -73,7 +73,7 @@ export default function AccessByBusinessPage({ searchParams }: { searchParams: P
       </div>
       <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} /> Only show what is limited, has an exception or a coming change</label>
 
-      {access.isLoading ? <PageLoader variant="compact" /> : access.isError || !access.data ? <ErrorState message="Could not load this business's access." onRetry={() => void access.refetch()} />
+      {access.isLoading ? <PageLoader variant="compact" /> : access.isError || !access.data ? <ErrorState message={`Could not load this business's access. ${(access.error as { detail?: string } | null)?.detail ?? (access.error as Error | null)?.message ?? ""}`.trim()} onRetry={() => void access.refetch()} />
         : rows.length === 0 ? <EmptyState title="Nothing limited" description="Every module and part is usable for this business." />
         : <DataCard label="Access">
           <table className="w-full min-w-[1040px] text-left text-sm">

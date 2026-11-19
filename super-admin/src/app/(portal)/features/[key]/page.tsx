@@ -49,7 +49,7 @@ export default function FeatureControlPage({ params }: { params: Promise<{ key: 
     <div><Breadcrumbs items={crumbs} />
       <PageHeader title={c?.name ?? "Feature"} subtitle={c?.description ?? undefined}
         actions={c && <div className="flex flex-wrap items-center gap-2"><Badge tone="slate">{LEVEL[c.level]}</Badge><Badge tone={STATUS_META[c.status].tone} dot>{STATUS_META[c.status].label}</Badge>{c.kill_switch && <Badge tone="red"><OctagonX size={11} /> Stopped</Badge>}</div>} /></div>
-    {control.isLoading ? <PageLoader variant="page" /> : control.isError || !c ? <ErrorState message="Could not load this feature." onRetry={() => void control.refetch()} /> : <>
+    {control.isLoading ? <PageLoader variant="page" /> : control.isError || !c ? <ErrorState message={`Could not load this feature. ${(control.error as { detail?: string } | null)?.detail ?? (control.error as Error | null)?.message ?? ""}`.trim()} onRetry={() => void control.refetch()} /> : <>
       <Summary c={c} />
       <TabStrip label="Feature sections" items={tabs.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onSelect: () => setTab(t.key) }))} />
       {tab === "status" && <StatusPanel key={`${c.status}|${c.message}|${c.scheduled_at}`} c={c} />}
