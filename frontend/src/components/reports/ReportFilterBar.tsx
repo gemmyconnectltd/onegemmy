@@ -20,13 +20,13 @@ export function ReportFilterBar({ filters, update, hideCompare }: { filters: Rep
   const badCompare = filters.compare === "custom" && !!filters.compareFrom && !!filters.compareTo && filters.compareFrom > filters.compareTo;
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <PeriodFilter value={filters.period} onChange={(period) => update({ period })} label="Period" clearable={false} />
-        {!hideCompare && <Select aria-label="Compare with" value={filters.compare} onChange={(e) => update({ compare: e.target.value as CompareMode })} className="w-auto">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <PeriodFilter value={filters.period} onChange={(period) => update({ period })} label="Period" clearable={false} className="w-full sm:w-auto" />
+        {!hideCompare && <Select aria-label="Compare with" value={filters.compare} onChange={(e) => update({ compare: e.target.value as CompareMode })} className="w-full sm:w-auto">
           {COMPARE.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </Select>}
         {list.length > 1 && (
-          <Select aria-label="Branch" value={filters.branch ?? ""} onChange={(e) => update({ branch: e.target.value || undefined })} className="w-auto">
+          <Select aria-label="Branch" value={filters.branch ?? ""} onChange={(e) => update({ branch: e.target.value || undefined })} className="w-full sm:w-auto">
             <option value="">All branches</option>
             {list.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>

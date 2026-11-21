@@ -210,3 +210,7 @@ async def test_owner_daily_sheet_stock_value_deposit_and_bank_momo(db):
     yesterday = await daily_report(db, owner, today - timedelta(days=1), today - timedelta(days=1), main.id)
     assert yesterday["items"][0]["stock_value"] == D(30000)  # before today's sale
     assert date.fromisoformat(str(report["to_date"])) == today
+    period = await daily_report(db, owner, today - timedelta(days=6), today, None, by_branch=True)
+    lines = {r["branch"]: r for r in period["items"]}
+    assert set(lines) == {"Kigali", "Huye"}  # one line per branch for the whole period
+    assert lines["Kigali"]["sales"] == D(10000) and lines["Kigali"]["stock_value"] == D(24000)  # closing value on the last day

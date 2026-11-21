@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/money";
  * The owner's daily sheet: one line per branch (and per day when a range is shown) with stock value, sales, debt,
  * expense, deposit, Bank and MoMo, plus a totals line. On phones each branch becomes a labelled card.
  */
-export function DailySheet({ data, showDate }: { data: DailyReport; showDate?: boolean }) {
+export function DailySheet({ data, showDate, stockNote }: { data: DailyReport; showDate?: boolean; stockNote?: string }) {
   const money = (v: string | number) => formatMoney(Number(v), data.currency);
   const empty = (row: DailyReport["items"][number]) => dailyMetrics.every((m) => !Number(row[m]));
   return (
@@ -19,7 +19,7 @@ export function DailySheet({ data, showDate }: { data: DailyReport; showDate?: b
             <tr className="border-b border-border text-[12px] text-muted">
               {showDate && <th scope="col" className="px-4 py-2.5 text-left font-semibold">Date</th>}
               <th scope="col" className="px-4 py-2.5 text-left font-semibold">Branch</th>
-              {dailyMetrics.map((m) => <th key={m} scope="col" className="px-4 py-2.5 text-right font-semibold">{dailyLabels[m]}</th>)}
+              {dailyMetrics.map((m) => <th key={m} scope="col" className="px-4 py-2.5 text-right font-semibold" title={m === "stock_value" ? stockNote : undefined}>{dailyLabels[m]}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

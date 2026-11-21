@@ -45,7 +45,7 @@ function Aging({ totals, money }: { totals: DebtSummaryTotals; money: Money }) {
  * Overview "Everything at a glance": one block per area of the business, each linking to the tab with the details.
  * Every block reads the same server reports as its tab (same period and branch), so the numbers always agree.
  */
-export function OverviewGlance({ r, filters, money, ops, debts, cash, lead }: { r: PerformanceReport; filters: ReportFilters; money: Money; ops: Ops; debts: Debts; cash: Cash; lead?: ReactNode }) {
+export function OverviewGlance({ r, filters, period, money, ops, debts, cash, lead }: { r: PerformanceReport; filters: ReportFilters; period: string; money: Money; ops: Ops; debts: Debts; cash: Cash; lead?: ReactNode }) {
   const scope = { from: r.from_date, to: r.to_date, branch: filters.branch };
   const categories = useSalesBreakdown(scope, "category");
   const finance = useFinancialBreakdown(scope, { enabled: r.can_see_expenses });
@@ -60,24 +60,24 @@ export function OverviewGlance({ r, filters, money, ops, debts, cash, lead }: { 
       <h2 className="pesaa-section-title pt-1 text-foreground">Everything at a glance</h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {lead}
-        <Block title="Sales by category" sub="Selected period · revenue" href={link("/reports/sales")}>
+        <Block title="Sales by category" sub={`${period} · revenue`} href={link("/reports/sales")}>
           {categories.isLoading ? <Loading /> : categories.isError ? <Unavailable /> :
             <Bars money={money} empty="No sales in this period." rows={(categories.data?.rows ?? []).slice(0, 5).map((c) => ({ key: c.name, label: c.name, value: c.sales, sub: c.margin !== null ? `${c.margin}% margin` : undefined }))} />}
         </Block>
 
-        <Block title="Expenses by category" sub={finance.data?.pending_expenses ? `${finance.data.pending_expenses} waiting for approval` : "Selected period · approved"} href={r.can_see_expenses ? link("/reports/finance") : undefined}>
+        <Block title="Expenses by category" sub={finance.data?.pending_expenses ? `${finance.data.pending_expenses} waiting for approval` : `${period} · approved`} href={r.can_see_expenses ? link("/reports/finance") : undefined}>
           {!r.can_see_expenses ? <Unavailable /> : finance.isLoading ? <Loading /> : finance.isError ? <Unavailable /> :
             <Bars money={money} empty="No approved expenses in this period." rows={(finance.data?.by_category ?? []).slice(0, 5).map((c) => ({ key: c.name, label: c.name, value: c.amount, sub: `${c.share}% of expenses` }))} />}
         </Block>
 
-        <Block title="Stock value" sub="At cost · today" href={link("/reports/stock")}>
+        <Block title="Stock value" sub="Today · at cost" href={link("/reports/stock")}>
           {ops.isLoading ? <Loading /> : !inv ? <Unavailable /> : (
             <div>
               <Big>{money(inv.valuation)}</Big>
               <p className="mb-2 text-[12px] text-muted">{inv.products.toLocaleString()} active products</p>
               <Row label="Low stock" value={inv.low_stock} tone={inv.low_stock ? "warning" : undefined} />
               <Row label="Out of stock" value={inv.out_of_stock} tone={inv.out_of_stock ? "error" : undefined} />
-              <Row label="Not sold in this period" value={inv.slow_moving.length >= 10 ? "10+ products" : `${inv.slow_moving.length} products`} />
+              <Row label={`Not sold · ${period}`} value={inv.slow_moving.length >= 10 ? "10+ products" : `${inv.slow_moving.length} products`} />
             </div>
           )}
         </Block>
@@ -108,7 +108,7 @@ export function OverviewGlance({ r, filters, money, ops, debts, cash, lead }: { 
           )}
         </Block>
 
-        <Block title="Customers" sub="Selected period" href={link("/reports/customers")}>
+        <Block title="Customers" sub={period} href={link("/reports/customers")}>
           {ops.isLoading ? <Loading /> : !ops.data?.customers ? <Unavailable /> : (() => {
             const c = ops.data.customers;
             return (
@@ -124,7 +124,7 @@ export function OverviewGlance({ r, filters, money, ops, debts, cash, lead }: { 
           })()}
         </Block>
 
-        <Block title="Pipeline by stage" sub="CRM · open deals, business-wide" href={r.pipeline ? "/sales/deals" : undefined}>
+        <Block title="Pipeline by stage" sub="Today · CRM deals, all branches" href={r.pipeline ? "/sales/deals" : undefined}>
           {!r.pipeline ? <Unavailable /> : r.pipeline.length === 0 ? <Unavailable text="No deals in the pipeline yet." /> :
             r.pipeline.map((p) => <Row key={p.stage} label={`${p.stage} · ${p.deals} deal${p.deals === 1 ? "" : "s"}`} value={money(p.value)} />)}
         </Block>
@@ -132,10 +132,10 @@ export function OverviewGlance({ r, filters, money, ops, debts, cash, lead }: { 
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Block title="Top products" sub="Selected period" href={link("/reports/sales")}>
+        <Block title="Top products" sub={period} href={link("/reports/sales")}>
           <Bars money={money} empty="No products sold in this period." rows={r.top_products.map((p) => ({ key: p.name, label: p.name, value: p.revenue, sub: `${p.quantity.toLocaleString()} sold` }))} />
         </Block>
-        <Block title="Low stock" sub={inv ? `${inv.low_stock} to reorder` : undefined} href={link("/reports/stock")}>
+        <Block title="Low stock" sub={inv ? `Today · ${inv.low_stock} to reorder` : "Today"} href={link("/reports/stock")}>
           {ops.isLoading ? <Loading /> : !inv ? <Unavailable /> : inv.low.length === 0 ? <Unavailable text="Nothing is running low." /> :
             inv.low.slice(0, 6).map((p) => <Row key={p.name} label={p.name} value={p.stock <= 0 ? "Out" : `${p.stock} left`} tone={p.stock <= 0 ? "error" : "warning"} />)}
         </Block>

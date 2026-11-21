@@ -1,6 +1,6 @@
 """One SQL snapshot of posted branch activity; no client-side list aggregation."""
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import Date, cast, func, literal, or_, select, union_all
@@ -37,7 +37,8 @@ class DailyRepository:
 
     async def activity(self, tenant_id: uuid.UUID, branches: list[uuid.UUID] | None,
                        start: datetime, end: datetime, timezone: str,
-                       first: date, last: date, offset: int = 0, limit: int = 25) -> list[dict]:
+                       first: date, last: date, offset: int = 0, limit: int = 25, by_branch: bool = False) -> list[dict]:
+        """Per branch and day, or (by_branch) one line per branch for the whole period, dated its last day."""
         def event(model, at, metric, amount, status, join=None, calendar=False, extra=()):
             day = at if calendar else cast(func.timezone(timezone, at), Date)
             values = [amount if name == metric else literal(0) for name in METRICS]
@@ -70,6 +71,14 @@ class DailyRepository:
                   extra=(or_(*(func.lower(OrderPayment.payment_method).like(p) for p in MOMO_PATTERNS)),)),
         ]
         rows = union_all(*sources).cte("events")
+        if by_branch:
+            closing = last - timedelta(days=1)
+            stmt = select(rows.c.branch_id, *(func.sum(rows.c[name]).label(name) for name in METRICS)).group_by(rows.c.branch_id)
+            grouped = stmt.subquery()
+            stmt = select(grouped, func.count().over().label("row_count"), *(
+                func.sum(grouped.c[name]).over().label(f"total_{name}") for name in METRICS
+            )).order_by(grouped.c.sales.desc(), grouped.c.branch_id).offset(offset).limit(limit)
+            return [{**dict(row), "day": closing} for row in (await self.db.execute(stmt)).mappings()]
         stmt = select(rows.c.day, rows.c.branch_id, *(func.sum(rows.c[name]).label(name) for name in METRICS)).group_by(rows.c.day, rows.c.branch_id).order_by(rows.c.day.desc(), rows.c.branch_id)
         grouped = stmt.order_by(None).subquery()
         stmt = select(grouped, func.count().over().label("row_count"), *(

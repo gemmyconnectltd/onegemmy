@@ -40,7 +40,7 @@ export function Bars({ rows, money, empty }: { rows: { key: string; label: strin
 /** A small read-only table for report sections: first column is the name, the rest are right-aligned figures. */
 export function MiniTable({ head, rows, empty, label }: { head: string[]; rows: (string | number)[][]; empty: string; label?: string }) {
   if (!rows.length) return <p className="py-6 text-center text-sm text-muted">{empty}</p>;
-  return <TableScroll label={label}><table className="w-full min-w-[360px] text-left text-sm"><thead><tr className="border-b border-border text-[12px] text-muted">{head.map((h, i) => <th key={h} scope="col" className={`px-3 py-2 font-semibold ${i > 0 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+  return <TableScroll label={label} mobileLayout="cards"><table className="w-full min-w-[360px] text-left text-sm"><thead><tr className="border-b border-border text-[12px] text-muted">{head.map((h, i) => <th key={h} scope="col" className={`px-3 py-2 font-semibold ${i > 0 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
     <tbody className="divide-y divide-border">{rows.map((r, n) => <tr key={n}>{r.map((c, i) => <td key={i} className={`px-3 py-2 ${i === 0 ? "max-w-[240px] truncate font-medium text-foreground" : "text-right tabular-nums"}`}>{c}</td>)}</tr>)}</tbody></table></TableScroll>;
 }
 

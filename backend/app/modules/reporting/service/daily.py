@@ -23,7 +23,8 @@ DEFINITIONS = {
 
 
 async def daily_report(db: AsyncSession, user: User, start: date | None, end: date | None,
-                       branch_id: uuid.UUID | None, page: int = 1, page_size: int = 25) -> dict:
+                       branch_id: uuid.UUID | None, page: int = 1, page_size: int = 25, by_branch: bool = False) -> dict:
+    """by_branch: one line per branch for the whole period (stock value at the end of its last day) instead of one per day."""
     tenant_id = allow(user, "journal_entries")
     # This combined report contains stock, debt and expense information.
     for resource in ("stock", "accounts_receivable", "expenses"):
@@ -44,11 +45,11 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
         allowed = [branch_id]
     repo = DailyRepository(db)
     window = (datetime.combine(start, time.min, timezone), datetime.combine(end + timedelta(days=1), time.min, timezone))
-    rows = await repo.activity(tenant_id, allowed, *window, tenant.timezone, start, end + timedelta(days=1), (page - 1) * page_size, page_size)
+    rows = await repo.activity(tenant_id, allowed, *window, tenant.timezone, start, end + timedelta(days=1), (page - 1) * page_size, page_size, by_branch)
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     stock = await repo.stock_values(tenant_id, allowed, *window, tenant.timezone, days)
-    if start == end and page == 1:
-        # One day: list every branch in scope, like the owner's sheet, even a branch that sold nothing.
+    if (start == end or by_branch) and page == 1:
+        # One line per branch: list every branch in scope, like the owner's sheet, even a branch that sold nothing.
         from sqlalchemy import select
 
         from app.modules.tenants.models import Branch
@@ -59,7 +60,7 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
         totals_row = rows[0] if rows else {f"total_{m}": Decimal(0) for m in METRICS}
         for listed in (await db.execute(stmt)).scalars().all():
             if listed not in seen:
-                rows.append({"day": start, "branch_id": listed, **{m: Decimal(0) for m in METRICS},
+                rows.append({"day": end, "branch_id": listed, **{m: Decimal(0) for m in METRICS},
                              **{f"total_{m}": totals_row[f"total_{m}"] for m in METRICS}, "row_count": len(rows) + 1})
         for row in rows:
             row["row_count"] = len(rows)
@@ -77,7 +78,7 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
     return {"outstanding_debt_now": outstanding, "from_date": start, "to_date": end, "currency": tenant.currency,
             "timezone": tenant.timezone, "definitions": DEFINITIONS, "totals": totals,
             "metrics": ["stock_value", *METRICS],
-            "items": rows, "total": rows[0]["row_count"] if rows else 0,
+            "items": rows, "total": rows[0]["row_count"] if rows else 0, "by_branch": by_branch,
             "page": page, "page_size": page_size}
 
 

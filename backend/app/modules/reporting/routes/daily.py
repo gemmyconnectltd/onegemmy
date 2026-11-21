@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Response
 
@@ -18,9 +18,10 @@ router = APIRouter(tags=["Daily branch reports"], dependencies=[Depends(require_
 @router.get("/reports/daily-branches")
 async def daily(db: DbSession, current_user: CurrentUser, from_date: date | None = None,
                 to_date: date | None = None, branch_id: uuid.UUID | None = None,
-                page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100), by: Literal["day", "branch"] = "day",
                 active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
-    return success_response(data=await daily_report(db, current_user, from_date, to_date, branch_id or active, page, page_size))
+    """Per branch and day, or by=branch for one line per branch over the whole period."""
+    return success_response(data=await daily_report(db, current_user, from_date, to_date, branch_id or active, page, page_size, by == "branch"))
 
 
 @router.get("/reports/daily-branches/day")

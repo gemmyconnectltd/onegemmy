@@ -7,7 +7,7 @@ import { OverviewGlance } from "@/components/reports/OverviewGlance";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Kpi, Section } from "@/components/reports/parts";
 import { useDailyBranchReport, useDebtOverview, useFinancialOverview, useOperationsReport, usePerformance } from "@/lib/api/hooks";
-import { toISODate } from "@/lib/period";
+import { periodLabel } from "@/lib/period";
 import type { PerformanceReport } from "@/lib/api/reports";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 
 
 type Money = (n: number | null | undefined) => string;
+
+/** Calendar days a range covers (inclusive), or null when open-ended. */
+const periodDays = (r: { from?: string; to?: string }) => (r.from && r.to ? Math.round((new Date(`${r.to}T00:00:00`).getTime() - new Date(`${r.from}T00:00:00`).getTime()) / 86400000) + 1 : null);
 
 
 function Skeleton() {
@@ -49,6 +52,7 @@ function Body({ r, filters, money }: { r: PerformanceReport; filters: ReportFilt
   const c = r.current, cmp = r.comparison?.has_data ? r.comparison : null, ch = cmp?.changes ?? {};
   const compareLabel = cmp?.label;
   const link = (href: string) => withFilters(href, filters);
+  const period = periodLabel(filters.period);
   const scope = { from: r.from_date, to: r.to_date, branch: filters.branch };
   const ops = useOperationsReport(scope);
   const cash = useFinancialOverview(filters.branch ?? null);
@@ -82,14 +86,14 @@ function Body({ r, filters, money }: { r: PerformanceReport; filters: ReportFilt
         <Kpi label="Net profit" value={money(c.net_profit)} href={r.can_see_expenses ? link("/reports/finance") : undefined} percent={ch.net_profit?.percent} compareLabel={compareLabel} note={c.net_profit === null ? "Needs costs and expenses" : c.gross_margin !== null ? `${c.gross_margin}% gross margin` : undefined} />
         <Kpi label="Cash available" value={cash.data ? money(Number(cash.data.cash_balance)) : "—"} href={cash.data ? "/accounting/cash-bank" : undefined} note={cash.isError ? "No access" : "Today, all accounts"} />
         <Kpi label="Owed to you" value={receivable ? money(Number(receivable.outstanding)) : money(r.receivables)} href="/debts/receivables" note={overdue ? `${money(overdue)} overdue` : "Today"} />
-        <Kpi label="Customers" value={ops.data?.customers ? `${ops.data.customers.buying_customers.toLocaleString()} bought` : "—"} href={link("/reports/customers")} note={ops.data?.customers ? `${ops.data.customers.new_customers} new` : undefined} />
+        <Kpi label="Customers" value={ops.data?.customers ? `${ops.data.customers.buying_customers.toLocaleString()} bought` : "—"} href={link("/reports/customers")} note={ops.data?.customers ? `${ops.data.customers.new_customers} new · ${period}` : undefined} />
       </div>
 
-      <TodayByBranch branch={filters.branch} />
+      <BranchesForPeriod range={{ from: r.from_date, to: r.to_date }} branch={filters.branch} period={period} />
 
 
-      <OverviewGlance r={r} filters={filters} money={money} ops={ops} debts={debts} cash={cash} lead={
-      <Section title="Earnings this period" action={<Link href={link("/reports/finance")} className="text-[12px] font-semibold text-accent hover:underline">Details →</Link>}>
+      <OverviewGlance r={r} filters={filters} period={period} money={money} ops={ops} debts={debts} cash={cash} lead={
+      <Section title={`Earnings · ${period}`} action={<Link href={link("/reports/finance")} className="text-[12px] font-semibold text-accent hover:underline">Details →</Link>}>
         <dl className="divide-y divide-border text-[14px]">
           <div className="flex justify-between gap-3 py-2"><dt>Sales</dt><dd className="font-semibold tabular-nums">{money(c.sales)}</dd></div>
           <div className="flex justify-between gap-3 py-2"><dt className="text-muted">VAT</dt><dd className="tabular-nums text-muted">− {money(c.tax)}</dd></div>
@@ -105,24 +109,27 @@ function Body({ r, filters, money }: { r: PerformanceReport; filters: ReportFilt
       <details className="rounded-xl border border-border bg-card px-4 py-3 text-[13px]">
         <summary className="cursor-pointer font-semibold text-foreground">How these numbers are calculated</summary>
         <ul className="mt-2 space-y-1 text-muted">{Object.entries(r.definitions).map(([k, v]) => <li key={k}>{v}</li>)}
-          <li>Amounts are in your business currency ({r.currency}). Cash, money owed, stock and the pipeline are today&apos;s position; everything else follows the period you pick.</li></ul>
+          <li>Amounts are in your business currency ({r.currency}). Cash, money owed, stock value, low stock and the pipeline are today&apos;s position (marked &quot;Today&quot;); everything else follows the period you pick, including the branch table.</li></ul>
       </details>
     </>
   );
 }
 
-/** The owner's daily sheet for today, right on the overview: every branch's stock value, sales, debt, expense, deposit, Bank and MoMo. */
-function TodayByBranch({ branch }: { branch?: string }) {
-  const today = toISODate(new Date());
-  const q = useDailyBranchReport({ from_date: today, to_date: today, branch_id: branch }, 1);
+/** The owner's daily sheet for the chosen period, one line per branch: stock value at the end, sales, debt, expense, deposit, Bank and MoMo. */
+function BranchesForPeriod({ range, branch, period }: { range: { from: string; to: string }; branch?: string; period: string }) {
+  const days = periodDays(range);
+  const tooLong = days === null || days > 366;
+  const q = useDailyBranchReport({ from_date: range.from, to_date: range.to, branch_id: branch, by: "branch" }, 1, { enabled: !tooLong });
   if (q.isError) return null;  // no access to the daily report: the rest of the overview still shows
   return (
-    <section aria-labelledby="today-h" className="space-y-2">
+    <section aria-labelledby="branches-h" className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="today-h" className="pesaa-section-title text-foreground">Today by branch</h2>
+        <h2 id="branches-h" className="pesaa-section-title text-foreground">{period} by branch</h2>
         <Link href="/reports/daily" className="text-[13px] font-semibold text-accent hover:underline">Daily report →</Link>
       </div>
-      {q.isLoading || !q.data ? <div className="h-40 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading today's report" /> : <DailySheet data={q.data} />}
+      {tooLong ? <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted">Pick a period of up to one year to see each branch.</p>
+        : q.isLoading || !q.data ? <div className="h-40 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading branches" />
+        : <DailySheet data={q.data} stockNote={days === 1 ? "At the end of the day" : "At the end of the period"} />}
     </section>
   );
 }

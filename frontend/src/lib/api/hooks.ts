@@ -1012,7 +1012,7 @@ export const useExpenseReverse = mutation(({id, reason}: {id: string; reason: st
 export const useSaveExpenseCategory = mutation(({id, data}: {id?: string; data: Omit<ExpenseCategory, "id">}) => expenseWorkspaceApi.saveCategory(data, id), EXPENSE_INVALIDATE);
 export const useExpenseReceipt = mutation(({id, file}: {id: string; file: File}) => expenseWorkspaceApi.attach(id, file), EXPENSE_INVALIDATE);
 
-export const useDailyBranchReport = (filters: DailyFilters, page: number) => useQ(["daily-branches", filters, page], () => dailyReportsApi.get(filters, page), (res) => res.data, { placeholderData: undefined });
+export const useDailyBranchReport = (filters: DailyFilters, page: number, opts?: QueryOpts) => useQ(["daily-branches", filters, page], () => dailyReportsApi.get(filters, page), (res) => res.data, { placeholderData: undefined, ...opts });
 
 export const useCompanyRoles = (page: number) => useQ(["company-roles", page], () => companyRolesApi.list(page), (res) => res.data);
 export const useRolePermissions = (id: string | undefined) => useQ(["company-roles", id, "permissions"], () => companyRolesApi.permissions(id!), (res) => res.data, { enabled: !!id, placeholderData: undefined });

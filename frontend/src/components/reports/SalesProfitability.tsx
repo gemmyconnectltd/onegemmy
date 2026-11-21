@@ -4,7 +4,6 @@ import { ReportExport } from "@/components/reports/ReportExport";
 import { useState } from "react";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Kpi, Section } from "@/components/reports/parts";
-import { ExportButton } from "@/components/ui/ExportButton";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useSalesBreakdown } from "@/lib/api/hooks";
 import type { SalesDimension } from "@/lib/api/reports";
@@ -49,13 +48,12 @@ export function SalesProfitability() {
             <Kpi label="Returns refunded" value={money(t.returns)} />
             <Kpi label="Average order" value={money(t.average_order)} />
           </div>
-          <Section title={`Sales by ${col.column.toLowerCase()} · ${periodLabel(filters.period)}`}
-            action={<ExportButton label="Export" build={async () => ({ filename: `sales-by-${dimension}`, headers: [col.column, "Orders", "Quantity", "Sales", "Cost", "Gross profit", "Margin %"], rows: d.rows.map((r) => [r.name, r.orders, r.quantity, r.sales, r.cost, r.gross_profit, r.margin]) })} />}>
+          <Section title={`Sales by ${col.column.toLowerCase()} · ${periodLabel(filters.period)}`}>
             <div role="tablist" aria-label="Group sales by" className="no-scrollbar mb-3 flex gap-1 overflow-x-auto">
               {DIMENSIONS.map((x) => <button key={x.key} role="tab" aria-selected={dimension === x.key} onClick={() => setDimension(x.key)} className={cn("whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-semibold focus-visible:outline-2 focus-visible:outline-accent", dimension === x.key ? "border-accent bg-accent/10 text-accent" : "border-border text-muted hover:text-foreground")}>{x.label}</button>)}
             </div>
             {d.rows.length === 0 ? <p className="py-10 text-center text-sm text-muted">No sales in this period.</p> : (
-              <TableScroll><table className="w-full min-w-[640px] text-left text-sm">
+              <TableScroll mobileLayout="cards" label="Sales and profit"><table className="w-full min-w-[640px] text-left text-sm">
                 <thead><tr className="border-b border-border text-[12px] text-muted">{[col.column, "Orders", "Qty", "Sales", "Gross profit", "Margin"].map((h, i) => <th key={h} scope="col" className={cn("px-3 py-2.5 font-semibold", i > 0 && "text-right")}>{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-border">{d.rows.map((r) => (
                   <tr key={r.name} className="hover:bg-surface/50"><td className="max-w-[260px] truncate px-3 py-2.5 font-medium text-foreground">{r.name}</td>

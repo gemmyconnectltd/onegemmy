@@ -4,7 +4,6 @@ import { ReportExport } from "@/components/reports/ReportExport";
 import { useState } from "react";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Kpi, Section } from "@/components/reports/parts";
-import { ExportButton } from "@/components/ui/ExportButton";
 import { Select } from "@/components/ui/Form";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useSalesTeam, useSalespeopleReport } from "@/lib/api/hooks";
@@ -52,8 +51,7 @@ export function SalespeopleReport() {
             <Kpi label="Still owed" value={money(t.outstanding)} note="Not yet paid" />
           </div>
 
-          <Section title={`Salespeople · ${periodLabel(filters.period)}`}
-            action={<ExportButton label="Export" build={async () => ({ filename: "sales-by-salesperson", headers: ["Salesperson", "Sales", "Sales value", "Returns", "Net sales", "Collected", "Still owed", "Awaiting approval"], rows: d.people.map((p) => [p.salesperson, p.orders, p.sales, p.returns, p.net_sales, p.collected, p.outstanding, p.awaiting_approval.value]) })} />}>
+          <Section title={`Salespeople · ${periodLabel(filters.period)}`}>
             {d.people.length === 0 ? <p className="py-10 text-center text-sm text-muted">No sales in this period.</p> : (
               <TableScroll mobileLayout="cards" label="Salespeople"><table className="w-full min-w-[720px] text-left text-sm">
                 <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className={th}>Salesperson</th>{["Sales", "Returns", "Net sales", "Collected", "Still owed", "Awaiting approval"].map((h) => <th key={h} scope="col" className={cn(th, "text-right")}>{h}</th>)}</tr></thead>
@@ -80,8 +78,7 @@ export function SalespeopleReport() {
           )}
 
           {/* The list only answers "which sales make up this person's figures?", so it shows once a salesperson is picked. */}
-          {seller && <Section title="Sales behind these figures"
-            action={<ExportButton label="Export" build={async () => ({ filename: "salesperson-sales", headers: ["Sale", "Date", "Customer", "Salesperson", "Products", "Gross", "Discount", "Total", "Returns", "Collected", "Still owed", "Approval"], rows: (d.orders ?? []).map((o) => [o.order_number, o.date.slice(0, 10), o.customer ?? "Walk-in", o.salesperson ?? "", o.items.map((i) => `${i.name} × ${i.quantity}`).join("; "), o.gross, o.discount, o.total, o.returns, o.collected, o.outstanding, o.approval_status]) })} />}>
+          {seller && <Section title="Sales behind these figures">
             {(d.orders ?? []).length === 0 ? <p className="py-10 text-center text-sm text-muted">No sales match these filters.</p> : (
               <TableScroll mobileLayout="cards" label="Sales"><table className="w-full min-w-[820px] text-left text-sm">
                 <thead><tr className="border-b border-border text-[12px] text-muted"><th scope="col" className={th}>Sale</th><th scope="col" className={th}>Customer</th><th scope="col" className={th}>Salesperson</th><th scope="col" className={th}>Products</th>{["Total", "Returns", "Collected", "Still owed"].map((h) => <th key={h} scope="col" className={cn(th, "text-right")}>{h}</th>)}</tr></thead>

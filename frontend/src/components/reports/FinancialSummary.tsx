@@ -49,7 +49,7 @@ export function FinancialSummary() {
           </div>
           <Section title="Largest expenses">
             {d.largest.length === 0 ? <p className="py-6 text-center text-sm text-muted">No approved expenses in this period.</p> : (
-              <TableScroll><table className="w-full min-w-[420px] text-left text-sm"><thead><tr className="border-b border-border text-[12px] text-muted"><th className="px-3 py-2 font-semibold">Expense</th><th className="px-3 py-2 font-semibold">Category</th><th className="px-3 py-2 font-semibold">Date</th><th className="px-3 py-2 text-right font-semibold">Amount</th></tr></thead>
+              <TableScroll mobileLayout="cards" label="Largest expenses"><table className="w-full min-w-[420px] text-left text-sm"><thead><tr className="border-b border-border text-[12px] text-muted"><th className="px-3 py-2 font-semibold">Expense</th><th className="px-3 py-2 font-semibold">Category</th><th className="px-3 py-2 font-semibold">Date</th><th className="px-3 py-2 text-right font-semibold">Amount</th></tr></thead>
                 <tbody className="divide-y divide-border">{d.largest.map((e, i) => <tr key={i}><td className="max-w-[240px] truncate px-3 py-2 font-medium text-foreground">{e.title}</td><td className="px-3 py-2 text-muted">{e.category}</td><td className="px-3 py-2 text-muted">{e.date}</td><td className="px-3 py-2 text-right tabular-nums">{money(e.amount)}</td></tr>)}</tbody></table></TableScroll>
             )}
           </Section>
