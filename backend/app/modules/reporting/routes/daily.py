@@ -41,4 +41,4 @@ async def export(db: DbSession, current_user: CurrentUser, from_date: date | Non
     media = {"csv": "text/csv", "pdf": "application/pdf", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[format]
     return Response(export_report(report, format, tenant), media_type=media,
                     headers={"Content-Disposition": content_disposition(document_filename(
-                        tenant.name if tenant else None, "Daily Branch Activity", format, period=period_label(report["from_date"], report["to_date"])))})
+                        tenant.name if tenant else None, "Daily Report", format, period=period_label(report["from_date"], report["to_date"])))})

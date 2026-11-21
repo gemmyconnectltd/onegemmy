@@ -1,44 +1,70 @@
 "use client";
 import { useState } from "react";
-import { useDailyBranchReport, useMyBranches } from "@/lib/api/hooks";
-import { dailyMetrics, dailyReportsApi, type DailyFilters } from "@/lib/api/dailyReports";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DailySheet } from "@/components/reports/DailySheet";
+import { ReportExport } from "@/components/reports/ReportExport";
+import { Kpi } from "@/components/reports/parts";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/Form";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { TableScroll } from "@/components/ui/TableScroll";
+import { useDailyBranchReport, useMyBranches } from "@/lib/api/hooks";
+import { dailyLabels, dailyMetrics, dailyReportsApi, type DailyFilters } from "@/lib/api/dailyReports";
 import { formatMoney } from "@/lib/money";
+import { toISODate } from "@/lib/period";
 
-const labels = { sales: "Sales", customer_credit: "New credit", collections: "Collections / deposits", expenses: "Expenses", stock_in: "Purchased units", stock_out: "Sold units", production: "Produced units", materials_consumed: "Material units", wastage: "Wasted units" };
+const shift = (iso: string, days: number) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + days); return toISODate(d); };
+const longDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+/** The owner's daily report: per branch, the day's stock value, sales, debt, expense, deposit, Bank and MoMo. */
 export default function DailyReportsPage() {
-  const [filters, setFilters] = useState<DailyFilters>({});
+  const today = toISODate(new Date());
+  const [day, setDay] = useState(today);
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+  const [branch, setBranch] = useState<string | undefined>();
   const [page, setPage] = useState(1);
-  const [error, setError] = useState("");
-  const fmt = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 3 });
+  const filters: DailyFilters = { from_date: range?.from ?? day, to_date: range?.to ?? day, branch_id: branch };
   const report = useDailyBranchReport(filters, page);
   const branches = useMyBranches();
   const data = report.data;
-  const metrics = data?.metrics ?? dailyMetrics.slice(0, 6);
-  function change(next: DailyFilters) { setFilters(next); setPage(1); }
-  async function download(format: "csv" | "pdf") {
-    setError("");
-    try { await dailyReportsApi.export(filters, format); }
-    catch { setError("Could not export the report. Try again."); }
-  }
-  return <div className="space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-bold">Daily branch activity</h1><p className="text-sm text-muted">Posted sales, collections, credit and expenses in your business currency.</p></div><div className="flex gap-2"><Button variant="outline" disabled={!data} onClick={() => void download("csv")}>CSV</Button><Button variant="outline" disabled={!data} onClick={() => void download("pdf")}>PDF</Button></div></div>
-    <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-3">
-      <Field label="From date"><Input type="date" value={filters.from_date ?? ""} onChange={(e) => change({ ...filters, from_date: e.target.value || undefined })} /></Field>
-      <Field label="To date"><Input type="date" value={filters.to_date ?? ""} onChange={(e) => change({ ...filters, to_date: e.target.value || undefined })} /></Field>
-      <Field label="Branch"><Select value={filters.branch_id ?? ""} onChange={(e) => change({ ...filters, branch_id: e.target.value || undefined })}><option value="">Current selection / authorized branches</option>{branches.data?.items.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</Select></Field>
+
+
+  return <div className="min-w-0 space-y-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h1 className="pesaa-page-title text-foreground">Daily report</h1><p className="mt-0.5 text-sm text-muted">Each branch&apos;s day: stock value, sales, debt, expense, deposit, Bank and MoMo.</p></div>
+      <ReportExport onExport={(format) => dailyReportsApi.export(filters, format)} />
     </div>
-    {(error || report.error) && <p role="alert" className="text-sm text-red-600">{error || (report.error as Error).message || "Report unavailable. Check your permissions and branch access."}</p>}
+
+    <div className="flex flex-wrap items-end gap-3">
+      {range ? <>
+        <Field label="From"><Input type="date" max={range.to} value={range.from} onChange={(e) => { setRange({ ...range, from: e.target.value || range.from }); setPage(1); }} /></Field>
+        <Field label="To"><Input type="date" min={range.from} max={today} value={range.to} onChange={(e) => { setRange({ ...range, to: e.target.value || range.to }); setPage(1); }} /></Field>
+        <Button variant="ghost" onClick={() => { setRange(null); setPage(1); }}>One day</Button>
+      </> : <>
+        <div className="flex items-center rounded-lg border border-border bg-card" role="group" aria-label="Day">
+          <Button variant="ghost" size="icon" aria-label="Previous day" onClick={() => setDay(shift(day, -1))}><ChevronLeft size={16} /></Button>
+          <label className="px-1"><span className="sr-only">Day</span><input type="date" max={today} value={day} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-10 bg-transparent px-2 text-sm font-semibold text-foreground outline-none" /></label>
+          <Button variant="ghost" size="icon" aria-label="Next day" disabled={day >= today} onClick={() => setDay(shift(day, 1))}><ChevronRight size={16} /></Button>
+        </div>
+        {day !== today && <Button variant="ghost" onClick={() => setDay(today)}>Today</Button>}
+        <Button variant="ghost" onClick={() => { setRange({ from: shift(day, -6), to: day }); setPage(1); }}>Several days</Button>
+      </>}
+      {(branches.data?.items.length ?? 0) > 1 && (
+        <Select aria-label="Branch" className="w-auto" value={branch ?? ""} onChange={(e) => { setBranch(e.target.value || undefined); setPage(1); }}>
+          <option value="">All branches</option>{branches.data?.items.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </Select>
+      )}
+    </div>
+
+    {report.error && <p role="alert" className="text-sm text-red-600">{(report.error as Error).message || "Report unavailable. Check your permissions and branch access."}</p>}
     {report.isLoading ? <PageLoader variant="compact" /> : data && <>
-      <p className="text-sm text-muted">{data.from_date} – {data.to_date} · {data.currency} · {data.timezone}</p>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{dailyMetrics.slice(0, 4).map((key) => <div key={key} className="rounded-xl border border-border bg-card p-4"><p className="text-sm text-muted">{labels[key]}</p><p className="mt-1 text-lg font-semibold">{formatMoney(Number(data.totals[key]), data.currency)}</p></div>)}</div>
-      <p className="text-sm"><strong>Current customer debt: {formatMoney(Number(data.outstanding_debt_now), data.currency)}</strong><span className="text-muted"> · Outstanding now across the selected branches; the date filter does not change this balance.</span></p>
-      <div className="overflow-hidden rounded-xl border border-border bg-card"><TableScroll label="Daily branch activity"><table className="w-full min-w-[1000px] whitespace-nowrap"><thead><tr><th>Date</th><th>Branch</th>{metrics.map((key) => <th key={key}>{labels[key]}</th>)}</tr></thead><tbody>{data.items.map((row) => <tr key={`${row.day}-${row.branch_id}`}><td>{row.day}</td><td>{row.branch}</td>{metrics.map((key) => <td key={key}>{fmt(Number(row[key]))}</td>)}</tr>)}{!data.items.length && <tr><td colSpan={metrics.length + 2}>No posted activity for this period.</td></tr>}</tbody><tfoot><tr><th colSpan={2}>Period totals</th>{metrics.map((key) => <th key={key}>{fmt(Number(data.totals[key]))}</th>)}</tr></tfoot></table></TableScroll></div>
-      <div className="flex items-center justify-between text-sm text-muted"><span>{data.total} records · Page {page}</span><div className="flex gap-2"><Button variant="outline" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button><Button variant="outline" disabled={page * 25 >= data.total} onClick={() => setPage(page + 1)}>Next</Button></div></div>
-      <div className="space-y-2 rounded-xl border border-border bg-card p-4 text-sm text-muted">{Object.entries(data.definitions).map(([key, text]) => <p key={key}>{text}</p>)}</div>
+      <p className="text-sm text-muted">{range ? `${longDate(data.from_date)} to ${longDate(data.to_date)}` : longDate(data.from_date)} · amounts in {data.currency}</p>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+        {dailyMetrics.map((m) => <Kpi key={m} label={dailyLabels[m]} value={formatMoney(Number(data.totals[m]), data.currency)} note={m === "stock_value" ? (range ? "At the end of the last day" : "At the end of the day") : undefined} />)}
+      </div>
+      <DailySheet data={data} showDate={!!range} />
+      {data.total > 25 && <div className="flex items-center justify-between text-sm text-muted"><span>{data.total} lines · page {page}</span><div className="flex gap-2"><Button variant="secondary" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button><Button variant="secondary" disabled={page * 25 >= data.total} onClick={() => setPage(page + 1)}>Next</Button></div></div>}
+      <p className="text-sm"><strong>Customers owe you now: {formatMoney(Number(data.outstanding_debt_now), data.currency)}</strong><span className="text-muted"> · all unpaid sales today, whatever the date above.</span></p>
+      <details className="rounded-xl border border-border bg-card px-4 py-3 text-[13px]"><summary className="cursor-pointer font-semibold text-foreground">How these numbers are calculated</summary><ul className="mt-2 space-y-1 text-muted">{Object.values(data.definitions).map((t) => <li key={t}>{t}</li>)}</ul></details>
     </>}
   </div>;
 }

@@ -1,6 +1,4 @@
-import { Suspense } from "react";
-import { OperationsReport } from "@/components/reports/OperationsReport";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <Suspense fallback={null}><OperationsReport /></Suspense>;
-}
+// Operations was split into Stock, Customers and Purchases.
+export default function Page() { redirect("/reports/stock"); }

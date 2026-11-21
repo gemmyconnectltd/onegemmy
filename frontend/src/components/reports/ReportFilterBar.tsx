@@ -4,7 +4,7 @@ import { Field, Input, Select } from "@/components/ui/Form";
 import { PeriodFilter } from "@/components/ui/PeriodFilter";
 import { useMyBranches } from "@/lib/api/hooks";
 import type { CompareMode } from "@/lib/api/reports";
-import { periodLabel, toISODate } from "@/lib/period";
+import { toISODate } from "@/lib/period";
 import type { ReportFilters } from "@/lib/reportFilters";
 
 const COMPARE: { value: CompareMode; label: string }[] = [
@@ -13,7 +13,7 @@ const COMPARE: { value: CompareMode; label: string }[] = [
 ];
 
 /** The one filter bar for every report: period, comparison and branch. The choice is kept in the address and carried between reports. */
-export function ReportFilterBar({ filters, update, range, hideCompare }: { filters: ReportFilters; update: (patch: Partial<ReportFilters>) => void; range?: { from?: string; to?: string }; hideCompare?: boolean }) {
+export function ReportFilterBar({ filters, update, hideCompare }: { filters: ReportFilters; update: (patch: Partial<ReportFilters>) => void; range?: { from?: string; to?: string }; hideCompare?: boolean }) {
   const branches = useMyBranches();
   const list = branches.data?.items ?? [];
   const today = toISODate(new Date());
@@ -39,7 +39,6 @@ export function ReportFilterBar({ filters, update, range, hideCompare }: { filte
           {badCompare && <p role="alert" className="pb-2 text-[12px] font-medium text-red-600">The start date can&apos;t be after the end date.</p>}
         </div>
       )}
-      <p className="text-[12px] text-muted">Showing <strong className="text-foreground">{periodLabel(filters.period)}</strong>{range?.from && range?.to && filters.period.key !== "custom" ? ` (${range.from} to ${range.to})` : ""}. Dates follow your business timezone.</p>
     </div>
   );
 }

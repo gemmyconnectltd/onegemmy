@@ -62,7 +62,7 @@ mobile/src/
 
 The web app is a full dashboard ERP — the "big" experience (mobile is the fast/lean one). Requirements:
 
-- **Shell**: pages render inside the `(erp)/layout.tsx` shell — `Sidebar` (vertical/horizontal toggle, collapsible), `Topbar`, `ModuleLayout` for per-module secondary nav, `SupportFab`. New ERP pages go under `app/(erp)/<module>/…` and colocate inside that shell.
+- **Shell**: pages render inside the `(erp)/layout.tsx` shell — `Sidebar` (vertical/horizontal toggle, collapsible), `Topbar`, `ModuleLayout` for per-module navigation (a horizontal tab bar under the top bar), `SupportFab`. New ERP pages go under `app/(erp)/<module>/…` and colocate inside that shell.
 - **Desktop POS** (`(pos)/pos`, `/pos`): shared POS components (`ProductCard` vertical layout, `CartPanel`, `PaymentPanel`, `Receipt`) with local state; VAT math must match the mobile app (VAT-inclusive).
 - **Super-admin** (`(admin)/admin/…`): tenant/platform management, gated by `isSuperAdmin`.
 - **Auth screens** (`(auth)`): login/register/forgot-password, no sidebar; unauthenticated users are redirected to `/login`.

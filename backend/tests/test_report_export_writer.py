@@ -99,3 +99,24 @@ def test_every_accounting_report_has_its_own_layout_and_renders_with_and_without
             assert content.startswith(b"%PDF"), kind
             assert re.findall(rb"/Type /Page\b", content), kind
     pytest.importorskip("openpyxl")
+
+
+def test_report_tab_export_has_branded_sections_and_totals(tmp_path):
+    """Business reports exports: titled sections and bold total lines, in PDF, Excel and CSV from the same rows."""
+    from app.modules.reporting.service.export import col, heading, render
+    meta = {"from_date": "2026-11-01", "to_date": "2026-11-21", "currency": "RWF", "totals": {"Purchased": "1920000"}, "notes": ["Example note"],
+            "columns": [col("name", "Item"), col("orders", "Orders", "number"), col("amount", "Amount", "money")]}
+    rows = [heading("Top suppliers"), {"name": "Kigali Paper Supplies", "orders": 6, "amount": "820000"},
+            heading("Purchase orders by status"), {"name": "Received", "orders": 11, "amount": "1505000"},
+            {"name": "Total", "orders": 11, "amount": "1505000", "_total": True}]
+    pdf = render(meta, rows, "pdf", "purchases", TENANT, None)
+    assert pdf.startswith(b"%PDF-")
+    csv_text = render(meta, rows, "csv", "purchases", TENANT, "Kigali").decode("utf-8-sig")
+    assert "Purchases Report" in csv_text and "Top suppliers" in csv_text and "Kigali Paper Supplies" in csv_text and "Kigali" in csv_text
+    path = tmp_path / "purchases.xlsx"
+    path.write_bytes(render(meta, rows, "xlsx", "purchases", TENANT, None))
+    sheet = load_workbook(path).active
+    values = [c.value for c in sheet["A"]]
+    assert "Top suppliers" in values and "Purchase orders by status" in values
+    total_row = values.index("Total") + 1
+    assert sheet.cell(row=total_row, column=1).font.bold

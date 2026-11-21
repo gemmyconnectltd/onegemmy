@@ -12,10 +12,13 @@ from app.modules.tenants.models import Tenant, User
 from app.modules.tenants.repository import BranchRepository
 
 DEFINITIONS = {
-    "collections": "Deposits means customer payments applied to sales, counted once as collections. Collections and bank transfers are not added to sales revenue.",
-    "customer_credit": "New credit granted on this date, not the customer's current debt balance. Later repayments do not reduce credit granted.",
-    "manufacturing": "Production and material consumption use inventory units recorded when a production order completes; wastage is included in material consumption, not added a second time.",
-    "stock": "Stock in/out shows purchased/sold document quantities. It is not a branch stock balance. Historical restocks, wastage, returns, manufacturing and transfers are not included in these two totals.",
+    "stock_value": "Stock value is the closing stock at the end of the day (stock ledger up to that moment) at today's cost price.",
+    "sales": "Sales are completed sales, VAT included.",
+    "customer_credit": "Debt is new credit given on that day (sales not paid at the till), not the customer's whole balance.",
+    "expenses": "Expenses are approved expenses dated that day.",
+    "deposits": "Deposit is cash moved out of a cash account into a bank or mobile-money account with Accounting → Transfer.",
+    "bank": "Bank is customer payments received by bank transfer or card.",
+    "momo": "MoMo is customer payments received by mobile money (MTN MoMo, Airtel Money).",
 }
 
 
@@ -39,23 +42,41 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
         if await BranchRepository(db).get_by_id_for_tenant(tenant_id, branch_id) is None:
             raise ValidationError("Choose a branch belonging to this business")
         allowed = [branch_id]
-    from app.modules.tenants.service.feature import feature_enabled
-    include_production = (user.is_superuser or "work_orders:read" in user.permissions_names) and await feature_enabled(db, tenant_id, "manufacturing")
-    rows = await DailyRepository(db).activity(
-        tenant_id, allowed, datetime.combine(start, time.min, timezone),
-        datetime.combine(end + timedelta(days=1), time.min, timezone), tenant.timezone,
-        start, end + timedelta(days=1), (page - 1) * page_size, page_size, include_production,
-    )
+    repo = DailyRepository(db)
+    window = (datetime.combine(start, time.min, timezone), datetime.combine(end + timedelta(days=1), time.min, timezone))
+    rows = await repo.activity(tenant_id, allowed, *window, tenant.timezone, start, end + timedelta(days=1), (page - 1) * page_size, page_size)
+    days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    stock = await repo.stock_values(tenant_id, allowed, *window, tenant.timezone, days)
+    if start == end and page == 1:
+        # One day: list every branch in scope, like the owner's sheet, even a branch that sold nothing.
+        from sqlalchemy import select
+
+        from app.modules.tenants.models import Branch
+        stmt = select(Branch.id).where(Branch.tenant_id == tenant_id, Branch.status == "active").order_by(Branch.is_main.desc(), Branch.name)
+        if allowed is not None:
+            stmt = stmt.where(Branch.id.in_(allowed))
+        seen = {row["branch_id"] for row in rows}
+        totals_row = rows[0] if rows else {f"total_{m}": Decimal(0) for m in METRICS}
+        for listed in (await db.execute(stmt)).scalars().all():
+            if listed not in seen:
+                rows.append({"day": start, "branch_id": listed, **{m: Decimal(0) for m in METRICS},
+                             **{f"total_{m}": totals_row[f"total_{m}"] for m in METRICS}, "row_count": len(rows) + 1})
+        for row in rows:
+            row["row_count"] = len(rows)
+    for row in rows:
+        row["stock_value"] = stock.get((row["day"], row["branch_id"]), Decimal(0))
     # Names are bounded by the tenant's branch directory, rather than a lookup per row.
     ids = {row["branch_id"] for row in rows if row["branch_id"]}
     names = await BranchRepository(db).names_for_ids(tenant_id, ids)
     for row in rows:
         row["branch"] = names.get(row["branch_id"], "Unassigned (legacy records)")
     totals = {metric: rows[0][f"total_{metric}"] if rows else Decimal(0) for metric in METRICS}
-    outstanding = await DailyRepository(db).outstanding_debt(tenant_id, allowed)
+    # Stock value is a balance, not a flow: the total is the closing value on the last day, across the branches in scope.
+    totals["stock_value"] = sum((v for (day, _), v in stock.items() if day == end), Decimal(0))
+    outstanding = await repo.outstanding_debt(tenant_id, allowed)
     return {"outstanding_debt_now": outstanding, "from_date": start, "to_date": end, "currency": tenant.currency,
-            "timezone": tenant.timezone, "definitions": {key: value for key, value in DEFINITIONS.items() if key != "manufacturing" or include_production}, "totals": totals,
-            "metrics": list(METRICS if include_production else METRICS[:6]),
+            "timezone": tenant.timezone, "definitions": DEFINITIONS, "totals": totals,
+            "metrics": ["stock_value", *METRICS],
             "items": rows, "total": rows[0]["row_count"] if rows else 0,
             "page": page, "page_size": page_size}
 
@@ -70,13 +91,13 @@ async def daily_export_report(db: AsyncSession, user: User, start: date | None, 
             break
         report["items"].extend(batch["items"])
         page += 1
-    report["totals"] = {key: sum((Decimal(row[key]) for row in report["items"]), Decimal(0)) for key in METRICS}
+    report["totals"] = {**{key: sum((Decimal(row[key]) for row in report["items"]), Decimal(0)) for key in METRICS},
+                        "stock_value": report["totals"]["stock_value"]}
     return report
 
 
-LABELS = {"sales": ("Sales", "money"), "customer_credit": ("Credit granted", "money"), "collections": ("Collections", "money"),
-          "expenses": ("Expenses", "money"), "stock_in": ("Stock in (qty)", "number"), "stock_out": ("Stock out (qty)", "number"),
-          "production": ("Produced (qty)", "number"), "materials_consumed": ("Materials used (qty)", "number"), "wastage": ("Wastage (qty)", "number")}
+LABELS = {"stock_value": ("Stock value", "money"), "sales": ("Sales", "money"), "customer_credit": ("Debt", "money"),
+          "expenses": ("Expense", "money"), "deposits": ("Deposit", "money"), "bank": ("Bank", "money"), "momo": ("MoMo", "money")}
 
 
 def export_report(report: dict, format: str, tenant=None) -> bytes:
@@ -90,7 +111,7 @@ def export_report(report: dict, format: str, tenant=None) -> bytes:
     metrics = report.get("metrics", METRICS)
     columns = [{"key": "day", "label": "Date", "kind": "date"}, {"key": "branch", "label": "Branch", "kind": "text"}]
     columns += [{"key": m, "label": LABELS.get(m, (m.replace("_", " ").capitalize(), "money"))[0], "kind": LABELS.get(m, ("", "money"))[1]} for m in metrics]
-    meta = {"id": "daily-branches", "kind": "daily-branches", "title": "Daily Branch Activity", "business": (getattr(tenant, "name", None) or "Business"),
+    meta = {"id": "daily-branches", "kind": "daily-branches", "title": "Daily Report", "business": (getattr(tenant, "name", None) or "Business"),
             "currency": report["currency"], "branch": "Branches in scope", "from_date": str(report["from_date"]), "to_date": str(report["to_date"]),
             "as_of": str(report["to_date"]), "generated_at": datetime.now(UTC).isoformat(timespec="seconds"), "columns": columns,
             "totals": {**{f"Total {LABELS.get(m, (m, ''))[0].lower()}": report["totals"][m] for m in metrics},

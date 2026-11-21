@@ -52,3 +52,23 @@ async def salespeople_report(db: DbSession, current_user: CurrentUser, from_date
     data = await run(db, current_user, from_date, to_date, branch_id or active, salesperson_id=salesperson_id, customer_id=customer_id,
                      product_id=product_id, category_id=category_id, payment_status=payment_status)
     return success_response(data=data, message="Salesperson report retrieved")
+
+
+@router.get("/reports/export/{kind}")
+async def export_report_tab(kind: Literal["overview", "sales", "stock", "customers", "purchases", "finance", "team"], db: DbSession, current_user: CurrentUser,
+                            format: Literal["pdf", "xlsx", "csv"] = "pdf", from_date: date | None = None, to_date: date | None = None,
+                            branch_id: uuid.UUID | None = None, dimension: str = "category",
+                            active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+    """Any Business reports tab as a branded PDF, Excel or CSV document, with the same figures as the screen."""
+    from fastapi import Response
+
+    from app.core.filenames import content_disposition, document_filename, period_label
+    from app.modules.reporting.service.export import TITLES, build, render
+    from app.modules.tenants.repository import BranchRepository, TenantRepository
+    branch = branch_id or active
+    meta, rows = await build(db, current_user, kind, from_date, to_date, branch, dimension)
+    tenant = await TenantRepository(db).get(current_user.tenant_id)
+    branch_name = (await BranchRepository(db).names_for_ids(current_user.tenant_id, {branch})).get(branch) if branch else None
+    media = {"csv": "text/csv", "pdf": "application/pdf", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[format]
+    filename = document_filename(tenant.name if tenant else None, TITLES[kind], format, period=period_label(meta["from_date"], meta["to_date"]))
+    return Response(render(meta, rows, format, kind, tenant, branch_name), media_type=media, headers={"Content-Disposition": content_disposition(filename)})

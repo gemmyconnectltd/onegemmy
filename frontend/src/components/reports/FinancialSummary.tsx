@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportExport } from "@/components/reports/ReportExport";
 import Link from "next/link";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Bars, Kpi, Section } from "@/components/reports/parts";
@@ -24,9 +25,12 @@ export function FinancialSummary() {
   const d = q.data;
   return (
     <div className="min-w-0 space-y-5">
-      <div>
-        <h1 className="pesaa-page-title text-foreground">Financial reports</h1>
-        <p className="mt-0.5 text-sm text-muted">Where the money went in the period, and where to find the formal statements.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="pesaa-page-title text-foreground">Financial reports</h1>
+          <p className="mt-0.5 text-sm text-muted">Where the money went in the period, and where to find the formal statements.</p>
+        </div>
+        <ReportExport tab="finance" scope={{ from: range.from, to: range.to, branch: filters.branch }} />
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-8 text-center text-sm text-muted">Expense reports aren&apos;t available for your role or this business.</p>}

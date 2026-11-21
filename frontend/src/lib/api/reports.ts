@@ -1,4 +1,4 @@
-import { request, qs } from "./client";
+import { downloadFile, request, qs } from "./client";
 import type { SalespersonFilters, SalespersonReport } from "./sales";
 import type { SingleResponse } from "./types";
 
@@ -23,6 +23,8 @@ export interface PerformanceReport {
   by_payment: { method: string; sales: number; orders: number }[];
   receivables: number | null;
   stock: { low_stock: number; out_of_stock: number; valuation: number; products: number } | null;
+  /** Deals per CRM stage, business-wide; null without opportunity access. */
+  pipeline?: { stage: string; deals: number; value: number }[] | null;
   can_see_expenses: boolean;
 }
 export interface PerformanceQuery { from?: string; to?: string; branch?: string; compare: CompareMode; compareFrom?: string; compareTo?: string }
@@ -44,7 +46,13 @@ export interface FinancialReport {
 interface Scope { from?: string; to?: string; branch?: string }
 const scope = (q: Scope) => ({ from_date: q.from, to_date: q.to, branch_id: q.branch });
 
+export type ReportTab = "overview" | "sales" | "stock" | "customers" | "purchases" | "finance" | "team";
+export type ExportFormat = "pdf" | "xlsx" | "csv";
+
 export const reportsApi = {
+  /** A report tab as a branded document (business logo, contacts, TIN/VAT, brand colour): PDF, Excel or CSV. */
+  exportTab: (tab: ReportTab, q: Scope, format: ExportFormat, dimension?: SalesDimension) =>
+    downloadFile(`/tenants/reports/export/${tab}${qs({ ...scope(q), format, dimension })}`, `report-${tab}.${format}`),
   salespeople: (q: Scope, f: SalespersonFilters = {}) => request<SingleResponse<SalespersonReport>>(`/tenants/reports/salespeople${qs({ ...scope(q), ...f })}`),
   salesBreakdown: (q: Scope, dimension: SalesDimension) => request<SingleResponse<SalesBreakdown>>(`/tenants/reports/sales-breakdown${qs({ ...scope(q), dimension })}`),
   operations: (q: Scope) => request<SingleResponse<OperationsReport>>(`/tenants/reports/operations${qs(scope(q))}`),

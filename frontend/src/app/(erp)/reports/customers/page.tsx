@@ -1,4 +1,6 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { CustomersReport } from "@/components/reports/OperationsReport";
 
-// Working screens (add, edit, restock) are not reports. This address now opens the matching read-only report.
-export default function Page() { redirect("/reports/operations"); }
+export default function Page() {
+  return <Suspense fallback={null}><CustomersReport /></Suspense>;
+}

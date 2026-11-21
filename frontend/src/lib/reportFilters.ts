@@ -18,7 +18,7 @@ export function parseFilters(params: URLSearchParams): ReportFilters {
   let period: PeriodValue = DEFAULT_REPORT_PERIOD;
   if (key === "custom" && DATE.test(from) && DATE.test(to) && from <= to) period = { key: "custom", from, to };
   else if (PRESETS.has(key)) period = { key: key as PeriodKey };
-  const compare = (["none", "previous", "year", "custom"] as const).find((m) => m === params.get("compare")) ?? "none";
+  const compare = (["none", "previous", "year", "custom"] as const).find((m) => m === params.get("compare")) ?? "previous";  // reports compare with the previous period by default
   const cf = params.get("cfrom") ?? "", ct = params.get("cto") ?? "";
   const customOk = compare === "custom" && DATE.test(cf) && DATE.test(ct) && cf <= ct;
   return { period, compare: compare === "custom" && !customOk ? "none" : compare, compareFrom: customOk ? cf : undefined, compareTo: customOk ? ct : undefined, branch: params.get("branch") || undefined };
@@ -28,7 +28,7 @@ export function filtersToQuery(f: ReportFilters): string {
   const p = new URLSearchParams();
   p.set("period", f.period.key);
   if (f.period.key === "custom") { p.set("from", f.period.from ?? ""); p.set("to", f.period.to ?? ""); }
-  if (f.compare !== "none") p.set("compare", f.compare);
+  p.set("compare", f.compare);  // always written, so "No comparison" sticks on pages that compare by default
   if (f.compare === "custom") { p.set("cfrom", f.compareFrom ?? ""); p.set("cto", f.compareTo ?? ""); }
   if (f.branch) p.set("branch", f.branch);
   return p.toString();

@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportExport } from "@/components/reports/ReportExport";
 import { useState } from "react";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Kpi, Section } from "@/components/reports/parts";
@@ -28,9 +29,12 @@ export function SalesProfitability() {
   const d = q.data, t = d?.totals, col = DIMENSIONS.find((x) => x.key === dimension)!;
   return (
     <div className="min-w-0 space-y-5">
-      <div>
-        <h1 className="pesaa-page-title text-foreground">Sales &amp; profitability</h1>
-        <p className="mt-0.5 text-sm text-muted">What sold, to whom, and what it earned. Choose how to group the figures below.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="pesaa-page-title text-foreground">Sales &amp; profitability</h1>
+          <p className="mt-0.5 text-sm text-muted">What sold, to whom, and what it earned. Choose how to group the figures below.</p>
+        </div>
+        <ReportExport tab="sales" scope={{ from: range.from, to: range.to, branch: filters.branch }} dimension={dimension} />
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">Couldn&apos;t load the report. <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>}

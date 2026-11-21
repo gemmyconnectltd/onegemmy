@@ -20,6 +20,7 @@ from app.core.exceptions import ForbiddenError, ValidationError
 from app.modules.accounting.models.expense import Expense
 from app.modules.inventory.models.product import Product
 from app.modules.reporting.repository.daily import DailyRepository
+from app.modules.sales.models.deal import Deal
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_item import OrderItem
 from app.modules.sales.models.return_ import Return
@@ -202,6 +203,12 @@ class Report:
                                       .group_by(label).order_by(func.sum(SALES).desc()))).all()
         return [{"method": r[0], "sales": money(r[1]), "orders": int(r[2])} for r in rows]
 
+    async def pipeline(self) -> list[dict]:
+        """Open deals per CRM stage, today's position. Deals are not tied to a branch, so this is always business-wide."""
+        rows = (await self.db.execute(select(Deal.stage, func.count(Deal.id), func.coalesce(func.sum(Deal.value), 0))
+                                      .where(Deal.tenant_id == self.tenant.id).group_by(Deal.stage).order_by(func.sum(Deal.value).desc()))).all()
+        return [{"stage": r[0], "deals": int(r[1]), "value": money(r[2])} for r in rows]
+
     async def stock(self) -> dict:
         low = case((Product.stock <= Product.min_stock, 1), else_=0)
         out = case((Product.stock <= 0, 1), else_=0)
@@ -287,11 +294,12 @@ async def performance(db: AsyncSession, user: User, start: date | None, end: dat
     if user.is_superuser or "accounts_receivable:read" in user.permissions_names:
         receivables = money(await DailyRepository(db).outstanding_debt(tenant.id, branches))
     stock = await report.stock() if (user.is_superuser or "items:read" in user.permissions_names) and await feature_enabled(db, tenant.id, "inventory") else None
+    pipeline = await report.pipeline() if user.is_superuser or "opportunities:read" in user.permissions_names else None
     insights = build_insights(current, comparison["metrics"] if comparison and comparison["has_data"] else None, tenant.currency, by_branch, top, declining)
     return {
         "from_date": start, "to_date": end, "days": days, "grain": grain, "currency": tenant.currency, "timezone": tenant.timezone,
         "branch_id": str(branch_id) if branch_id else None, "definitions": DEFINITIONS,
         "current": current, "comparison": comparison, "series": series, "insights": insights,
         "top_products": top, "by_branch": by_branch, "by_payment": await report.by_payment(start, end),
-        "receivables": receivables, "stock": stock, "can_see_expenses": can_expenses,
+        "receivables": receivables, "stock": stock, "pipeline": pipeline, "can_see_expenses": can_expenses,
     }

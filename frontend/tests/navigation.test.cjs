@@ -114,14 +114,15 @@ test('Purchases and Inventory have operational overviews; other modules keep rep
   assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === '/procurement' && link.exact));
   assert.ok(nav.MODULE_NAV.inventory.some(link => link.href === '/inventory' && link.exact));
   for (const route of ['/procurement/orders', '/procurement/receipts', '/procurement/bills', '/procurement/returns']) assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === route));
-  assert.deepEqual(plain(nav.MODULE_NAV.reports.map(link => link.href)), ['/reports','/reports/sales','/reports/operations','/reports/finance']);
+  assert.deepEqual(plain(nav.MODULE_NAV.reports.map(link => link.href)), ['/reports','/reports/daily','/reports/salespeople','/reports/sales','/reports/finance','/reports/stock','/reports/purchases','/reports/customers']);
   assert.ok(nav.MODULE_NAV.sales.some(link => link.href === '/sales/deals'));
 });
 
 test('no page is listed twice: not across modules and not in both sidebars', () => {
   const second = Object.entries(nav.MODULE_NAV).flatMap(([module, links]) => links.map(link => ({module, href: link.href})));
   const hrefs = second.map(link => link.href);
-  assert.deepEqual(plain(hrefs.filter((href, index) => hrefs.indexOf(href) !== index)), []);
+  // One deliberate exception: the salesperson report is a Reports tab for owners and Sales → Team performance for staff, who cannot open Business reports.
+  assert.deepEqual(plain(hrefs.filter((href, index) => hrefs.indexOf(href) !== index && href !== '/reports/salespeople')), []);
   const primary = new Set(nav.PRIMARY_NAV_GROUPS.flatMap(group => group.items.map(item => item.href)));
   // The only overlap allowed is a module's own Overview, which is the page its main-sidebar link opens.
   const overlap = second.filter(link => primary.has(link.href) && !nav.MODULE_NAV[link.module].some(other => other.exact && other.href === link.href));

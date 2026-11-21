@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { cn } from "@/lib/utils";
 
 function Delta({ percent, inverse, label }: { percent: number | null | undefined; inverse?: boolean; label: string }) {
@@ -15,7 +16,7 @@ export function Kpi({ label, value, note, href, percent, inverse, compareLabel }
   const body = (
     <div className="h-full min-w-0 rounded-xl border border-border bg-card p-4 transition-colors group-hover:border-accent">
       <p className="text-[12px] font-medium text-muted">{label}</p>
-      <p className="mt-1 truncate text-xl font-bold tracking-tight text-foreground sm:text-[22px]" title={value}>{value}</p>
+      <p className="mt-1 break-words text-lg font-bold leading-tight tracking-tight tabular-nums text-foreground sm:text-xl" title={value}>{value}</p>
       <div className="mt-1 flex min-h-[18px] flex-wrap items-center gap-x-2 text-[12px] text-muted">{compareLabel && <Delta percent={percent} inverse={inverse} label={compareLabel} />}{note && <span>{note}</span>}</div>
     </div>
   );
@@ -35,3 +36,21 @@ export function Bars({ rows, money, empty }: { rows: { key: string; label: strin
   ))}</ul>;
 }
 
+
+/** A small read-only table for report sections: first column is the name, the rest are right-aligned figures. */
+export function MiniTable({ head, rows, empty, label }: { head: string[]; rows: (string | number)[][]; empty: string; label?: string }) {
+  if (!rows.length) return <p className="py-6 text-center text-sm text-muted">{empty}</p>;
+  return <TableScroll label={label}><table className="w-full min-w-[360px] text-left text-sm"><thead><tr className="border-b border-border text-[12px] text-muted">{head.map((h, i) => <th key={h} scope="col" className={`px-3 py-2 font-semibold ${i > 0 ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
+    <tbody className="divide-y divide-border">{rows.map((r, n) => <tr key={n}>{r.map((c, i) => <td key={i} className={`px-3 py-2 ${i === 0 ? "max-w-[240px] truncate font-medium text-foreground" : "text-right tabular-nums"}`}>{c}</td>)}</tr>)}</tbody></table></TableScroll>;
+}
+
+/** "Details" link at the top-right of an overview block; keeps the report filters. */
+export function DetailsLink({ href, label = "Details" }: { href: string; label?: string }) {
+  return <Link href={href} className="text-[12px] font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">{label} <span aria-hidden>→</span></Link>;
+}
+
+/** A label / value row used in overview blocks. */
+export function Row({ label, value, href, tone }: { label: React.ReactNode; value: React.ReactNode; href?: string; tone?: "warning" | "error" }) {
+  const v = <span className={cn("font-semibold tabular-nums", tone === "error" ? "text-red-600" : tone === "warning" ? "text-amber-700" : "text-foreground")}>{value}</span>;
+  return <div className="flex items-center justify-between gap-3 py-1.5 text-[13px]"><span className="min-w-0 truncate text-muted">{label}</span>{href ? <Link href={href} className="hover:underline">{v}</Link> : v}</div>;
+}

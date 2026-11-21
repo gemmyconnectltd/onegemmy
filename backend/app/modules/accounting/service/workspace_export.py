@@ -264,8 +264,36 @@ class ExportWriter:
             self._group[key] += Decimal(str(row.get(key) or 0))
         self._pdf_row([self._cell(c, row.get(c["key"])) for c in self.pcols])
 
+    def _heading(self, text: str) -> None:
+        """A section title inside one export (e.g. "Sales by branch"), in the brand colour on the PDF and bold in Excel/CSV."""
+        if self.fmt == "csv":
+            with open(self.path, "a", encoding="utf-8", newline="") as output:
+                csv.writer(output).writerows([[], [safe_text(text)]])
+        elif self.fmt == "xlsx":
+            from openpyxl.styles import Font
+            self.sheet.append([])
+            self.sheet.append([safe_text(text)])
+            self.sheet.cell(row=self.sheet.max_row, column=1).font = Font(bold=True, size=12)
+        else:
+            para = self._paragraph(text, style=ParagraphStyle("section", parent=self.bold, fontSize=10, leading=13, textColor=self.accent))
+            height = para.wrap(self.width - self.margin * 2, 100)[1]
+            if self.y - height - 40 < 42:
+                self._new_page()
+            self.y -= 10
+            para.drawOn(self.canvas, self.margin + 2, self.y - height)
+            self.y -= height + 4
+            self.canvas.setStrokeColor(colors.HexColor("#e5e7eb"))
+            self.canvas.line(self.margin, self.y, self.width - self.margin, self.y)
+
     def rows(self, rows: list[dict]):
+        """Rows of the table. A row with "_heading" starts a titled section; a row with "_total": True is a bold total line."""
         for row in rows:
+            if row.get("_heading"):
+                self._heading(str(row["_heading"]))
+                continue
+            if self.fmt == "pdf" and row.get("_total"):
+                self._pdf_row([self._cell(c, row.get(c["key"])) for c in self.pcols], bold=True, shade=colors.HexColor("#f8fafc"))
+                continue
             if self.fmt == "pdf":
                 if self.grouped:
                     self._ledger_row(row)
@@ -292,6 +320,10 @@ class ExportWriter:
             else:
                 self.sheet.append(values)
                 r = self.sheet.max_row
+                if row.get("_total"):
+                    from openpyxl.styles import Font
+                    for cell in self.sheet[r]:
+                        cell.font = Font(bold=True)
                 for i, (column, value) in enumerate(zip(self.columns, values, strict=True), start=1):
                     cell = self.sheet.cell(row=r, column=i)
                     if column["kind"] == "money":

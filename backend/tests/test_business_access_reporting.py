@@ -56,7 +56,8 @@ async def test_branch_assignment_isolation_and_consolidated_report(db):
     await db.flush()
     report = await daily_report(db, user, None, None, None)
     assert report["totals"]["sales"] == D(20)
-    assert report["totals"]["collections"] == 0
+    assert report["totals"]["bank"] == 0 and report["totals"]["momo"] == 0 and report["totals"]["deposits"] == 0
+    assert report["metrics"] == ["stock_value", "sales", "customer_credit", "expenses", "deposits", "bank", "momo"]
     assert report["currency"] == "USD" and report["timezone"] == "Africa/Kigali"
     scoped = await daily_report(db, user, None, None, a.id)
     assert scoped["totals"]["sales"] == D(10)
@@ -154,3 +155,58 @@ def test_document_membership_respects_multiple_branch_assignments():
     assert has_branch_restriction(user)
     assert branch_allowed(user, a) and branch_allowed(user, b)
     assert not branch_allowed(user, other) and not branch_allowed(user, None)
+
+
+@pytest.mark.db
+async def test_owner_daily_sheet_stock_value_deposit_and_bank_momo(db):
+    """The owner's sheet per branch: closing stock value, sales, debt, expense, deposit (cash banked), Bank and MoMo apart."""
+    from datetime import date, timedelta
+
+    from app.modules.accounting.models.account import Account
+    from app.modules.accounting.models.transaction import Transaction
+    from app.modules.accounting.models.transaction_line import TransactionLine
+    from app.modules.inventory.models.product import Product
+    from app.modules.inventory.models.warehouse import StockMovement, Warehouse
+    from app.modules.sales.models.order import Order
+    from app.modules.sales.models.order_payment import OrderPayment
+
+    tenant = Tenant(name="Depot", slug=uuid.uuid4().hex, currency="RWF", timezone="Africa/Kigali")
+    db.add(tenant)
+    await db.flush()
+    main, quiet = Branch(tenant_id=tenant.id, name="Kigali"), Branch(tenant_id=tenant.id, name="Huye")
+    db.add_all([main, quiet])
+    await db.flush()
+    owner = User(tenant_id=tenant.id, email=f"{uuid.uuid4()}@example.test", hashed_password="x", full_name="Owner", is_superuser=True)
+    store = Warehouse(tenant_id=tenant.id, code="KGL", name="Kigali shop", branch_id=main.id)
+    paper = Product(tenant_id=tenant.id, name="A4 paper", cost=D(3000), price=D(5000))
+    cash, bank = (Account(tenant_id=tenant.id, code=c, name=n, type="Assets", normal_balance="debit") for c, n in (("1000", "Cash"), ("1010", "Bank")))
+    db.add_all([owner, store, paper, cash, bank])
+    await db.flush()
+    now = datetime.now(UTC)
+    today = now.astimezone(__import__("zoneinfo").ZoneInfo("Africa/Kigali")).date()
+    db.add_all([StockMovement(tenant_id=tenant.id, warehouse_id=store.id, product_id=paper.id, quantity=D(10), movement_type="opening", created_at=now - timedelta(days=3)),
+                StockMovement(tenant_id=tenant.id, warehouse_id=store.id, product_id=paper.id, quantity=D(-2), movement_type="sale", created_at=now)])
+    sale = Order(tenant_id=tenant.id, order_number="ORD-1", branch_id=main.id, status="Completed", total=D(10000), ordered_at=now)
+    db.add(sale)
+    await db.flush()
+    db.add_all([OrderPayment(tenant_id=tenant.id, reference="P1", order_id=sale.id, branch_id=main.id, amount=D(4000), payment_method="mobile", paid_at=now),
+                OrderPayment(tenant_id=tenant.id, reference="P2", order_id=sale.id, branch_id=main.id, amount=D(1500), payment_method="card", paid_at=now),
+                OrderPayment(tenant_id=tenant.id, reference="P3", order_id=sale.id, branch_id=main.id, amount=D(4500), payment_method="cash", paid_at=now)])
+    banked = Transaction(tenant_id=tenant.id, reference="TR-1", type="cash_transfer", status="Posted", transaction_date=today, branch_id=main.id)
+    db.add(banked)
+    await db.flush()
+    db.add_all([TransactionLine(transaction_id=banked.id, account_id=cash.id, type="credit", amount=D(5000)),
+                TransactionLine(transaction_id=banked.id, account_id=bank.id, type="debit", amount=D(5000))])
+    await db.flush()
+
+    report = await daily_report(db, owner, today, today, None)
+    rows = {r["branch"]: r for r in report["items"]}
+    assert set(rows) == {"Kigali", "Huye"}  # one day lists every branch, even one that sold nothing
+    kigali = rows["Kigali"]
+    assert kigali["sales"] == D(10000) and kigali["momo"] == D(4000) and kigali["bank"] == D(1500) and kigali["deposits"] == D(5000)
+    assert kigali["stock_value"] == D(24000)  # 8 sheets left x 3,000
+    assert rows["Huye"]["sales"] == 0 and rows["Huye"]["stock_value"] == 0
+    assert report["totals"]["stock_value"] == D(24000)
+    yesterday = await daily_report(db, owner, today - timedelta(days=1), today - timedelta(days=1), main.id)
+    assert yesterday["items"][0]["stock_value"] == D(30000)  # before today's sale
+    assert date.fromisoformat(str(report["to_date"])) == today

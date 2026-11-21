@@ -1,6 +1,8 @@
 import { downloadFile, qs, request } from "./client";
 import type { SingleResponse } from "./types";
-export const dailyMetrics = ["sales", "customer_credit", "collections", "expenses", "stock_in", "stock_out", "production", "materials_consumed", "wastage"] as const;
+/** The owner's daily sheet, in the order the business reads it. */
+export const dailyMetrics = ["stock_value", "sales", "customer_credit", "expenses", "deposits", "bank", "momo"] as const;
+export const dailyLabels: Record<DailyMetric, string> = { stock_value: "Stock value", sales: "Sales", customer_credit: "Debt", expenses: "Expense", deposits: "Deposit", bank: "Bank", momo: "MoMo" };
 export type DailyMetric = typeof dailyMetrics[number];
 export interface DailyReport {
   outstanding_debt_now: string;
@@ -10,7 +12,8 @@ export interface DailyReport {
   totals: Record<DailyMetric, string>; definitions: Record<string, string>; total: number;
 }
 export interface DailyFilters { from_date?: string; to_date?: string; branch_id?: string; }
+
 export const dailyReportsApi = {
   get: (filters: DailyFilters, page: number) => request<SingleResponse<DailyReport>>(`/tenants/reports/daily-branches${qs({ ...filters, page, page_size: 25 })}`),
-  export: (filters: DailyFilters, format: "csv" | "pdf") => downloadFile(`/tenants/reports/daily-branches/export${qs({ ...filters, format })}`, `daily-branches.${format}`),
+  export: (filters: DailyFilters, format: "csv" | "pdf" | "xlsx") => downloadFile(`/tenants/reports/daily-branches/export${qs({ ...filters, format })}`, `daily-report.${format}`),
 };

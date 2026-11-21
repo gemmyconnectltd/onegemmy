@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportExport } from "@/components/reports/ReportExport";
 import { useState } from "react";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Kpi, Section } from "@/components/reports/parts";
@@ -27,9 +28,12 @@ export function SalespeopleReport() {
   const th = "px-3 py-2.5 font-medium";
   return (
     <div className="min-w-0 space-y-5">
-      <div>
-        <h1 className="pesaa-page-title text-foreground">Sales by salesperson</h1>
-        <p className="mt-0.5 text-sm text-muted">Who sold what, what was collected and what is still owed. Choose a person to see the sales behind their figures.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="pesaa-page-title text-foreground">Team performance</h1>
+          <p className="mt-0.5 text-sm text-muted">Who sold what, what was collected and what is still owed. Choose a person to see the sales behind their figures.</p>
+        </div>
+        <ReportExport tab="team" scope={{ from: range.from, to: range.to, branch: filters.branch }} />
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       <div className="flex flex-wrap gap-2">
@@ -75,7 +79,8 @@ export function SalespeopleReport() {
             </Section>
           )}
 
-          <Section title={seller ? "Sales behind these figures" : "Recent sales"}
+          {/* The list only answers "which sales make up this person's figures?", so it shows once a salesperson is picked. */}
+          {seller && <Section title="Sales behind these figures"
             action={<ExportButton label="Export" build={async () => ({ filename: "salesperson-sales", headers: ["Sale", "Date", "Customer", "Salesperson", "Products", "Gross", "Discount", "Total", "Returns", "Collected", "Still owed", "Approval"], rows: (d.orders ?? []).map((o) => [o.order_number, o.date.slice(0, 10), o.customer ?? "Walk-in", o.salesperson ?? "", o.items.map((i) => `${i.name} × ${i.quantity}`).join("; "), o.gross, o.discount, o.total, o.returns, o.collected, o.outstanding, o.approval_status]) })} />}>
             {(d.orders ?? []).length === 0 ? <p className="py-10 text-center text-sm text-muted">No sales match these filters.</p> : (
               <TableScroll mobileLayout="cards" label="Sales"><table className="w-full min-w-[820px] text-left text-sm">
@@ -91,7 +96,7 @@ export function SalespeopleReport() {
               </table></TableScroll>
             )}
             <p className="mt-3 text-[11px] text-muted">Up to the 200 most recent sales are listed. {d.definitions.sales} {d.definitions.collected} {d.definitions.awaiting_approval} Amounts are in {d.currency}.</p>
-          </Section>
+          </Section>}
         </>
       )}
     </div>

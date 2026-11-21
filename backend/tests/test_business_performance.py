@@ -90,3 +90,19 @@ async def test_rejects_backwards_ranges_and_missing_permission(db):
         await performance(db, person(tenant), date(2026, 4, 1), date(2026, 3, 1), None)
     with pytest.raises(ForbiddenError):
         await performance(db, person(tenant, permissions=()), date(2026, 3, 1), date(2026, 3, 31), None)
+
+
+async def test_pipeline_is_per_business_and_needs_opportunity_access(db):
+    from app.modules.sales.models.deal import Deal
+    tenant, main, _ = await business(db)
+    other, *_ = await business(db)
+    db.add_all([Deal(tenant_id=tenant.id, name="School print run", value=900, stage="Proposal"),
+                Deal(tenant_id=tenant.id, name="Hotel menus", value=300, stage="Proposal"),
+                Deal(tenant_id=tenant.id, name="Banners", value=200, stage="Leads"),
+                Deal(tenant_id=other.id, name="Not ours", value=5000, stage="Proposal")])
+    await db.flush()
+    await sale(db, tenant, main, date(2026, 3, 10), 1000, cost=400)
+    r = await performance(db, person(tenant, permissions=("orders:read", "opportunities:read")), date(2026, 3, 1), date(2026, 3, 31), None)
+    assert r["pipeline"] == [{"stage": "Proposal", "deals": 2, "value": 1200.0}, {"stage": "Leads", "deals": 1, "value": 200.0}]
+    hidden = await performance(db, person(tenant, permissions=("orders:read",)), date(2026, 3, 1), date(2026, 3, 31), None)
+    assert hidden["pipeline"] is None

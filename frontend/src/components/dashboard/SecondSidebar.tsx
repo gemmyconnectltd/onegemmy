@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Lock, PanelTop, PanelLeft, PanelRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, PanelTop, PanelLeft, PanelRight } from "lucide-react";
 import { linkState } from "@/lib/featureParts";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -82,6 +82,26 @@ export function SecondSidebar({
   const toggleLabel = `Switch to ${nextOrientation} navigation`;
   const ToggleIcon = orientation === "top" ? PanelLeft : orientation === "left" ? PanelTop : PanelRight;
 
+  // Tab bar on small screens: keep the current tab in view and show arrows when more tabs are hidden to either side.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    el.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    el.addEventListener("scroll", measure, { passive: true });
+    return () => { observer.disconnect(); el.removeEventListener("scroll", measure); };
+  }, [pathname, activeKey, measure]);
+  const nudge = (direction: -1 | 1) => scroller.current?.scrollBy({ left: direction * Math.max(160, (scroller.current?.clientWidth ?? 0) * 0.6), behavior: "smooth" });
+
   const showRail = orientation === "left";
   const isBig = orientation === "big";
   // Top and "big" orientations read as an underline tab bar — the pattern
@@ -92,7 +112,9 @@ export function SecondSidebar({
 
   const navClassName = showRail
     ? `flex items-center lg:flex-col lg:items-stretch w-full lg:w-52 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:sticky lg:top-14 lg:self-start lg:max-h-[calc(100vh-56px)]`
-    : `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-12 sm:top-14 z-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${isBig ? "h-10 gap-0.5 px-1.5 sm:h-12 sm:gap-1 sm:px-3" : "px-1.5 sm:px-3"}`;
+    : isBig
+      ? `flex items-center border-b border-border bg-card overflow-x-auto flex-shrink-0 sticky top-12 sm:top-14 z-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden h-10 gap-0.5 px-1.5 sm:h-12 sm:gap-1 sm:px-3`
+      : `relative flex items-stretch border-b border-border bg-card flex-shrink-0 sticky top-12 sm:top-14 z-10`;
 
   const railHeader = showRail && (showToggle || label || meta) && (
     <div className="hidden lg:flex items-center gap-2.5 min-h-[60px] px-4 py-3 flex-shrink-0 border-b border-border">
@@ -117,10 +139,11 @@ export function SecondSidebar({
 
   const linkClassName = (isActive: boolean) => {
     if (isTabBar) {
-      return `relative flex items-center gap-1.5 sm:gap-2 -mb-px ${isBig ? "px-2.5 py-2 sm:px-3.5 sm:py-2.5" : "px-2.5 py-2.5 sm:px-3.5 sm:py-3"} text-[12px] sm:text-[13px] font-semibold whitespace-nowrap flex-shrink-0 border-b-2 transition-colors ${
+      // Module tabs: plain words, green text and a 2px green underline on the active tab (no icons, no fill).
+      return `relative flex items-center gap-1.5 -mb-px ${isBig ? "px-3 py-2 sm:px-3.5 sm:py-2.5" : "min-h-11 px-2.5 py-2.5 sm:px-3.5 sm:py-3"} text-[13px] sm:text-[14px] whitespace-nowrap flex-shrink-0 border-b-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
         isActive
-          ? "text-accent border-accent"
-          : "text-muted border-transparent hover:text-foreground hover:border-border"
+          ? "font-semibold text-accent border-accent"
+          : "font-medium text-muted border-transparent hover:text-foreground hover:border-border"
       }`;
     }
     return `pesaa-nav-row flex items-center lg:w-full lg:px-4 gap-2.5 px-3 py-2.5 text-[13px] font-semibold whitespace-nowrap lg:whitespace-normal transition-colors flex-shrink-0 lg:flex-shrink ${
@@ -140,11 +163,7 @@ export function SecondSidebar({
             data-active={!isTabBar && isActive}
             className={linkClassName(isActive)}
           >
-            <item.icon
-              size={isTabBar ? 16 : 18}
-              strokeWidth={isActive ? 2.2 : 1.8}
-              className={"flex-shrink-0" + (isTabBar ? " h-3.5 w-3.5 sm:h-4 sm:w-4" : "") + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
-            />
+            {!isTabBar && <item.icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className={"flex-shrink-0" + (isActive ? " text-white" : " text-muted")} />}
             <span>{item.label}</span>
             {typeof item.count === "number" && (
               <span className={`ml-auto text-[11px] px-1.5 py-0.5 ${isActive && !isTabBar ? "bg-white/20 text-white" : "bg-surface text-muted"}`}>
@@ -168,11 +187,7 @@ export function SecondSidebar({
               data-active={!isTabBar && isActive}
               className={linkClassName(isActive)}
             >
-              <item.icon
-                size={isTabBar ? 16 : 18}
-                strokeWidth={isActive ? 2.2 : 1.8}
-                className={"flex-shrink-0" + (isTabBar ? " h-3.5 w-3.5 sm:h-4 sm:w-4" : "") + (isActive ? (isTabBar ? " text-accent" : " text-white") : " text-muted")}
-              />
+              {!isTabBar && <item.icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className={"flex-shrink-0" + (isActive ? " text-white" : " text-muted")} />}
               <span>{item.label ?? t(item.nameKey)}</span>
               {linkState(item.href, entitlements?.parts, entitlements?.controls) === "locked" && <Lock size={12} aria-label="Read-only" className={"ml-auto flex-shrink-0" + (isActive && !isTabBar ? " text-white" : " text-muted")} />}
             </Link>
@@ -196,7 +211,7 @@ export function SecondSidebar({
   );
 
   return (
-    <nav className={navClassName}>
+    <nav aria-label={label ?? (meta?.title ? `${meta.title} sections` : "Sections")} className={navClassName}>
       {isBig ? (
         <>
           {(label || module) && (
@@ -221,8 +236,12 @@ export function SecondSidebar({
         </>
       ) : (
         <>
-          {items}
-          <div className="ml-auto flex items-center flex-shrink-0">{toggleButton}</div>
+          {edges.left && <button type="button" onClick={() => nudge(-1)} aria-label="Show earlier tabs" className="absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-center border-r border-border bg-card text-muted shadow-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"><ChevronLeft size={16} aria-hidden /></button>}
+          <div ref={scroller} className="flex min-w-0 flex-1 items-stretch overflow-x-auto scroll-smooth px-1.5 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {items}
+          </div>
+          {edges.right && <button type="button" onClick={() => nudge(1)} aria-label="Show more tabs" className="absolute inset-y-0 right-0 z-10 flex w-9 items-center justify-center border-l border-border bg-card text-muted shadow-sm hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"><ChevronRight size={16} aria-hidden /></button>}
+          {toggleButton && <div className="flex items-center flex-shrink-0">{toggleButton}</div>}
         </>
       )}
     </nav>

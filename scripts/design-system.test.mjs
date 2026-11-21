@@ -48,6 +48,14 @@ test('sidebar contract is shared and solid without decorative effects', () => {
   }
 });
 
+test('module navigation is one horizontal tab bar, not a second sidebar', () => {
+  const layout = readFileSync(`${root}/frontend/src/components/dashboard/ModuleLayout.tsx`, 'utf8');
+  assert.match(layout, /<SecondSidebar[^>]*orientation="top"[^>]*showToggle=\{false\}/);
+  const nav = readFileSync(`${root}/frontend/src/components/dashboard/SecondSidebar.tsx`, 'utf8');
+  assert.ok(nav.includes('text-accent border-accent'), 'active module tab uses the primary colour and underline');
+  assert.ok(nav.includes('{!isTabBar && <item.icon'), 'module tabs show words only');
+});
+
 test('competing blue actions cannot return through links', () => {
   assert.equal(violations('<Link className="bg-blue-600">Create</Link>', 'frontend/src/app/example.tsx')['competing-action'], 1);
   assert.deepEqual(violations('<Link className="bg-primary">Create</Link>', 'frontend/src/app/example.tsx'), {});
