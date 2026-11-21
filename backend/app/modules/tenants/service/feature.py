@@ -42,12 +42,13 @@ DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "queue": ("services",),
     "pos": ("sales",),  # the till rings up sales orders, customers and returns
     "discounts": ("sales",),  # discounts price quotations, sales and returns
+    "reports": ("sales",),  # every business report is built on sales records
 }
 
-# POS and Discounts used to be part of Sales. Plans made before they were separated cover them wherever they cover Sales;
-# the frozen price history is not rewritten. Plans made from this date on list them like any other module.
-SPLIT_FROM_SALES = ("pos", "discounts")
+# POS, Discounts and Reports used to be part of Sales. Plans made before each was separated cover it wherever they cover
+# Sales; the frozen price history is not rewritten. Plans made from that date on list them like any other module.
 SPLIT_DATE = datetime(2026, 11, 10, tzinfo=UTC)
+SPLIT_FROM_SALES: dict[str, datetime] = {"pos": SPLIT_DATE, "discounts": SPLIT_DATE, "reports": datetime(2026, 11, 22, tzinfo=UTC)}
 
 ENABLED, AVAILABLE, NOT_INCLUDED, RESTRICTED = "enabled", "available", "not_included", "restricted"
 
@@ -74,13 +75,16 @@ async def resolve_modules(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, s
     enforce = settings.ENFORCE_PLAN_ENTITLEMENTS
     price_id = getattr(sub, "price_id", None)
     created = (await db.execute(select(BillingPrice.created_at).where(BillingPrice.id == price_id))).scalar_one_or_none() if price_id else None
-    legacy_bundle = bool(included and "sales" in included and created is not None and created < SPLIT_DATE)
+    covers_sales = bool(included and "sales" in included and created is not None)
+
+    def legacy_bundle(key: str) -> bool:  # an older plan that sold this module as part of Sales
+        return covers_sales and key in SPLIT_FROM_SALES and created < SPLIT_FROM_SALES[key]
     states: dict[str, str] = {}
     for f in flags:
         if not enforce:
             entitled, platform_off = True, overrides.get(f.key) is False  # no plan requirement: only Pesaa's restriction can close a module
         elif included is not None:
-            entitled, platform_off = f.key in included or (f.key in SPLIT_FROM_SALES and legacy_bundle), overrides.get(f.key, True) is False
+            entitled, platform_off = f.key in included or legacy_bundle(f.key), overrides.get(f.key, True) is False
         else:
             entitled, platform_off = bool(overrides.get(f.key, f.default_enabled)), False
         if not entitled:
@@ -103,6 +107,7 @@ async def get_effective_features(db: AsyncSession, tenant_id: uuid.UUID) -> dict
     # Settings tab. Whether discounts actually apply at the till and on sales is the business's own switch
     # (discount_settings.enabled), which the POS and the pricing engine check separately.
     features["discounts"] = sales and features.get("discounts", False)
+    features["reports"] = sales and features.get("reports", False)  # reports read sales records
     return features
 
 

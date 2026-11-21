@@ -19,7 +19,7 @@ def legacy_billing_dependencies(monkeypatch):
 
 
 FLAG_KEYS = ["inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing",
-    "services", "appointments", "queue", "pos", "discounts",
+    "services", "appointments", "queue", "pos", "discounts", "reports",
 ]
 
 

@@ -8,7 +8,7 @@ from app.core.deps import CurrentUser, DbSession, require_feature
 from app.core.response import success_response
 from app.modules.reporting.service.performance import performance
 
-router = APIRouter(tags=["Business performance"], dependencies=[Depends(require_feature("sales"))])
+router = APIRouter(tags=["Business performance"], dependencies=[Depends(require_feature(k)) for k in ("sales", "reports")])
 
 
 @router.get("/reports/performance")

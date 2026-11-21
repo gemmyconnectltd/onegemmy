@@ -16,7 +16,7 @@ from app.modules.tenants.service import feature_items
 
 VERSIONS = Path(__file__).resolve().parent.parent / "alembic" / "versions"
 MIGRATIONS = [VERSIONS / "e6a1c9f4b702_module_feature_hierarchy.py", VERSIONS / "a3c8e5f1d907_feature_overrides_activity_more_parts.py",
-              VERSIONS / "b7d4f0a2c613_pos_feature_parts.py"]
+              VERSIONS / "b7d4f0a2c613_pos_feature_parts.py", VERSIONS / "f6b2c8a1d430_reports_feature_parts.py"]
 
 
 def test_every_feature_path_is_a_real_tenant_route():
@@ -44,6 +44,8 @@ def test_paths_match_on_segment_boundaries_only():
     assert feature_for_path("inventory", "/inventory/transfers-report") is None
     assert feature_for_path("inventory", "/inventory/products") is None
     assert feature_for_path("sales", "/inventory/transfers") is None  # another module's guard never claims it
+    assert feature_for_path("reports", "/reports/performance") == "reports.overview"
+    assert feature_for_path("reports", "/reports/daily-branches/day") == "reports.daily"
     assert chain("inventory.serials") == ["inventory.serials", "inventory.traceability"]
 
 
@@ -111,6 +113,18 @@ async def test_part_states_tell_the_erp_what_is_read_only(db):
     assert states["inventory.transfers"] == "on"
     assert states["hr.leave"] == "restricted" and states["hr.payroll"] == "on"
     assert states["sales.quotations"] == "module_off"
+
+
+@pytest.mark.db
+async def test_a_report_tab_can_be_switched_off_or_restricted_for_one_business(db):
+    one, other = await _tenant(db), await _tenant(db)
+    modules = {"reports": "enabled"}
+    await db.execute(update(ModuleFeature).where(ModuleFeature.key == "reports.daily").values(is_active=False))
+    states = await feature_items.part_states(db, one.id, modules)
+    assert states["reports.daily"] == "switched_off" and states["reports.sales"] == "on"
+    await feature_items.set_restriction(db, one.id, "reports.sales", True, "Under review", None)
+    assert (await feature_items.part_states(db, one.id, modules))["reports.sales"] == "restricted"
+    assert (await feature_items.part_states(db, other.id, modules))["reports.sales"] == "on"
 
 
 def test_a_till_sale_is_recognised_with_its_payment_methods_and_manual_discount():

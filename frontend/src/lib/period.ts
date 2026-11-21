@@ -42,11 +42,16 @@ export function periodRange(value: PeriodValue, now: Date = new Date()): PeriodR
 
 const SHORT = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
+/** The actual dates behind a report, for headings that must match the figures rather than a preset's name. */
+export function dateRangeLabel(from?: string, to?: string): string {
+  if (from && to) return from === to ? SHORT(from) : `${SHORT(from)} – ${SHORT(to)}`;
+  return from ? `From ${SHORT(from)}` : to ? `Until ${SHORT(to)}` : "All time";
+}
+
 export function periodLabel(value: PeriodValue): string {
   if (value.key !== "custom") return PERIOD_PRESETS.find((p) => p.key === value.key)?.label ?? "All time";
   const { from, to } = periodRange(value);
-  if (from && to) return from === to ? SHORT(from) : `${SHORT(from)} – ${SHORT(to)}`;
-  return from ? `From ${SHORT(from)}` : to ? `Until ${SHORT(to)}` : "All time";
+  return dateRangeLabel(from, to);
 }
 
 /** Query-string parts for the API; empty for "all time". */

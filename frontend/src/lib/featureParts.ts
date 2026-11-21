@@ -25,11 +25,32 @@ const PAGE_PARTS: [string, string, string][] = [
   ["/hr/recruiting", "hr.recruitment", "Recruitment"],
   ["/crm/campaigns", "crm.campaigns", "Campaigns"],
   ["/crm/emails", "crm.campaigns", "Campaigns"],
+  // Business reports: each tab is its own part. Longest paths first; the bare /reports tab is Overview.
+  ["/reports/daily", "reports.daily", "Daily report"],
+  ["/reports/salespeople", "reports.team", "Team performance"],
+  ["/reports/sales-report", "reports.sales", "Sales"],
+  ["/reports/sales", "reports.sales", "Sales"],
+  ["/reports/accounting-overview", "reports.finance", "Finance"],
+  ["/reports/expenses-overview", "reports.finance", "Finance"],
+  ["/reports/debts-overview", "reports.finance", "Finance"],
+  ["/reports/finance", "reports.finance", "Finance"],
+  ["/reports/accounting", "reports.finance", "Finance"],
+  ["/reports/manufacturing-overview", "reports.stock", "Stock"],
+  ["/reports/procurement-overview", "reports.purchases", "Purchases"],
+  ["/reports/services-overview", "reports.stock", "Stock"],
+  ["/reports/inventory-overview", "reports.stock", "Stock"],
+  ["/reports/inventory-report", "reports.stock", "Stock"],
+  ["/reports/inventory", "reports.stock", "Stock"],
+  ["/reports/operations", "reports.stock", "Stock"],
+  ["/reports/stock", "reports.stock", "Stock"],
+  ["/reports/purchases", "reports.purchases", "Purchases"],
+  ["/reports/customers", "reports.customers", "Customers"],
+  ["/reports", "reports.overview", "Overview"],
 ];
 
-export function partForPath(path: string): { key: string; name: string } | null {
+export function partForPath(path: string): { key: string; name: string; module: string } | null {
   const hit = PAGE_PARTS.find(([prefix]) => path === prefix || path.startsWith(prefix + "/"));
-  return hit ? { key: hit[1], name: hit[2] } : null;
+  return hit ? { key: hit[1], name: hit[2], module: hit[1].split(".")[0] } : null;
 }
 
 /** "switched_off" | "restricted" when the page at `path` is read-only, else null. "module_off" is the module guard's job. */
@@ -100,6 +121,9 @@ export function linkState(href: string, parts: Record<string, PartStatus> | unde
   const part = partForPath(href);
   const c = part ? controls?.[part.key] : undefined;
   if (c && !c.visible) return "hidden";
+  // Reports only read records: a switched-off or restricted tab has nothing left to show, so remove it instead of
+  // leaving a locked link to a read-only notice.
+  if (part?.module === "reports" && ((c && !c.writable) || readOnlyReason(href, parts))) return "hidden";
   if ((c && !c.writable) || readOnlyReason(href, parts)) return "locked";
   return null;
 }

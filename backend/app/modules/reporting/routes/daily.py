@@ -10,9 +10,9 @@ from app.core.response import success_response
 from app.modules.reporting.service.daily import daily_export_report, daily_report, export_report
 from app.modules.reporting.service.day import day_report
 
-# The report combines sales, stock, debt and expense figures, so a business needs all three modules (read access survives a
+# The report combines sales, stock, debt and expense figures, so a business needs Reports and those three modules (read access survives a
 # module the business has turned off, as everywhere else).
-router = APIRouter(tags=["Daily branch reports"], dependencies=[Depends(require_feature(k)) for k in ("sales", "inventory", "accounting")])
+router = APIRouter(tags=["Daily branch reports"], dependencies=[Depends(require_feature(k)) for k in ("reports", "sales", "inventory", "accounting")])
 
 
 @router.get("/reports/daily-branches")

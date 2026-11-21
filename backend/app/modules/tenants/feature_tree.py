@@ -19,8 +19,9 @@ class Node:
     description: str
     parent: str | None = None  # a submodule key
     paths: tuple[str, ...] = ()  # only features carry routes; a submodule switches all of its features
-    # Recognised from what a request sends rather than from its route (see sale_paths): the till's sales all go to
-    # POST /sales/orders, so its parts are told apart by the sale itself.
+    # Recognised from what a request sends or which screen is open rather than from its route (see sale_paths): the
+    # till's sales all go to POST /sales/orders, and several report tabs share one API, so their parts are told apart
+    # there instead of by the route.
     virtual: bool = False
 
     @property
@@ -88,6 +89,19 @@ TREE: tuple[Node, ...] = (
     Node("pos.card", "pos", "Card", "Take card payments at the till", "pos.payments", ("/pos/pay/card",), virtual=True),
     Node("pos.manual_discounts", "pos", "Manual discounts", "Discounts the cashier types in at the till",
          paths=("/pos/manual-discount",), virtual=True),
+    # Business reports: each tab can be switched off on its own. Stock, purchases and customers share the operations
+    # API, so those three are told apart by the tab the person opened (virtual), like the till's payment methods.
+    Node("reports.overview", "reports", "Overview", "Business-wide performance for the chosen period",
+         paths=("/reports/performance",)),
+    Node("reports.daily", "reports", "Daily report", "Each branch's day: sales, stock, debt, expense and deposits",
+         paths=("/reports/daily-branches",)),
+    Node("reports.team", "reports", "Team performance", "Sales per salesperson", paths=("/reports/salespeople",)),
+    Node("reports.sales", "reports", "Sales report", "Sales broken down by product, customer and branch",
+         paths=("/reports/sales-breakdown",)),
+    Node("reports.finance", "reports", "Finance report", "Income, expenses and cash position", paths=("/reports/financial",)),
+    Node("reports.stock", "reports", "Stock report", "Stock valuation and movements", paths=("/reports/operations",), virtual=True),
+    Node("reports.purchases", "reports", "Purchases report", "Supplier spend and purchase orders", paths=("/reports/operations",), virtual=True),
+    Node("reports.customers", "reports", "Customers report", "Customer buying and new customers", paths=("/reports/operations",), virtual=True),
 )
 
 POS_SALE = "/pos/sale"  # the POS module itself

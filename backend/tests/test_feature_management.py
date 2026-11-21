@@ -37,7 +37,7 @@ async def business(db, **kw):
 
 
 def request(method):
-    return SimpleNamespace(method=method)
+    return SimpleNamespace(method=method, url=SimpleNamespace(path="/api/v1/tenants/sales/orders"), headers={})
 
 
 @pytest.mark.db
@@ -119,7 +119,7 @@ async def test_api_guard_blocks_writes_to_a_turned_off_module_but_keeps_history_
     tenant = await business(db)
     plan(monkeypatch, "inventory", "sales", "hr")
     await service.set_module_activation(db, tenant.id, "hr", False)
-    user = SimpleNamespace(tenant_id=tenant.id)
+    user = SimpleNamespace(tenant_id=tenant.id, id=uuid.uuid4())
     guard = require_feature("hr")
     assert await guard(request("GET"), db, user) is user
     with pytest.raises(ForbiddenError, match="turned off"):
@@ -166,7 +166,7 @@ async def test_only_real_business_dependencies_are_forced(db, monkeypatch):
     """Purchases and services work without accounting or sales, so turning those off must not be blocked."""
     from app.modules.tenants.service.feature import DEPENDENCIES
     assert DEPENDENCIES == {"manufacturing": ("inventory",), "procurement": ("inventory",), "appointments": ("services",), "queue": ("services",),
-                            "pos": ("sales",), "discounts": ("sales",)}
+                            "pos": ("sales",), "discounts": ("sales",), "reports": ("sales",)}
     tenant = await business(db)
     plan(monkeypatch, "inventory", "sales", "accounting", "procurement", "services")
     await service.set_module_activation(db, tenant.id, "accounting", False)
@@ -189,7 +189,7 @@ async def test_pesaa_restriction_and_the_business_choice_stay_separate(db, monke
     with pytest.raises(ForbiddenError, match="restricted"):
         await service.set_module_activation(db, tenant.id, "manufacturing", True)  # the business cannot override Pesaa
     with pytest.raises(ForbiddenError, match="restricted"):
-        await require_feature("manufacturing")(request("GET"), db, SimpleNamespace(tenant_id=tenant.id))
+        await require_feature("manufacturing")(request("GET"), db, SimpleNamespace(tenant_id=tenant.id, id=uuid.uuid4()))
     assert tenant.module_activation == {"manufacturing": False}  # untouched by the restriction
     after = {s.key: s for s in await service.reset_tenant_features(db, tenant.id)}["manufacturing"]
     assert (after.status, after.restricted, after.business_off) == ("available", False, True)  # their own choice is back
@@ -211,4 +211,4 @@ async def test_with_plan_entitlements_off_every_module_is_available_whatever_the
     await service.set_module_activation(db, tenant.id, "manufacturing", False)  # the business can still switch it off
     assert (await service.resolve_modules(db, tenant.id))["manufacturing"] == "available"
     assert (await service.get_effective_features(db, tenant.id))["repairs"] is True
-    assert await require_feature("repairs")(request("POST"), db, SimpleNamespace(tenant_id=tenant.id)) is not None
+    assert await require_feature("repairs")(request("POST"), db, SimpleNamespace(tenant_id=tenant.id, id=uuid.uuid4())) is not None

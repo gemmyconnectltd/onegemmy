@@ -78,3 +78,18 @@ def test_a_discount_manager_needs_discount_permissions_and_a_cashier_can_still_p
     assert not decide("discounts", "POST", "/sales/discounts/rules", ["pos:create", "orders:create"])[0]
     assert decide_read("discounts", "/sales/discounts/settings", ["pos:create"])[0]  # the till reads settings to show a cart
     assert not decide_read("discounts", "/sales/discounts/rules", ["invoices:read"])[0]
+
+
+async def test_reports_is_its_own_module_kept_by_older_plans_and_needs_sales(db, monkeypatch):
+    """Business reports was split from Sales on 22 Nov 2026: older plans keep it with Sales; newer plans sell it separately;
+    a business administrator can switch it off; it needs Sales."""
+    keys = {f.key: f for f in (await db.execute(select(FeatureFlag))).scalars().all()}
+    assert keys["reports"].name == "Business reports" and feature.DEPENDENCIES["reports"] == ("sales",)
+    _, got = await states(db, monkeypatch, ["sales"], price_created=datetime(2026, 11, 15, tzinfo=UTC))
+    assert got["reports"] == "enabled" and got["pos"] == "not_included"  # made after the POS split, before the Reports split
+    _, got = await states(db, monkeypatch, ["sales"], price_created=datetime(2027, 1, 1, tzinfo=UTC))
+    assert got["reports"] == "not_included"
+    tenant, _ = await states(db, monkeypatch, ["sales", "reports"], price_created=datetime(2027, 1, 1, tzinfo=UTC), activation={"reports": False})
+    assert not (await feature.get_effective_features(db, tenant.id))["reports"]
+    tenant, _ = await states(db, monkeypatch, ["reports"], price_created=datetime(2027, 1, 1, tzinfo=UTC))
+    assert not (await feature.get_effective_features(db, tenant.id))["reports"]  # no sales records to report on

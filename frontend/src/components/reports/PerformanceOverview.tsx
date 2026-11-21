@@ -7,7 +7,7 @@ import { OverviewGlance } from "@/components/reports/OverviewGlance";
 import { ReportFilterBar } from "@/components/reports/ReportFilterBar";
 import { Kpi, Section } from "@/components/reports/parts";
 import { useDailyBranchReport, useDebtOverview, useFinancialOverview, useOperationsReport, usePerformance } from "@/lib/api/hooks";
-import { periodLabel } from "@/lib/period";
+import { dateRangeLabel, periodLabel } from "@/lib/period";
 import type { PerformanceReport } from "@/lib/api/reports";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
@@ -89,7 +89,7 @@ function Body({ r, filters, money }: { r: PerformanceReport; filters: ReportFilt
         <Kpi label="Customers" value={ops.data?.customers ? `${ops.data.customers.buying_customers.toLocaleString()} bought` : "—"} href={link("/reports/customers")} note={ops.data?.customers ? `${ops.data.customers.new_customers} new · ${period}` : undefined} />
       </div>
 
-      <BranchesForPeriod range={{ from: r.from_date, to: r.to_date }} branch={filters.branch} period={period} />
+      <BranchesForPeriod range={{ from: r.from_date, to: r.to_date }} branch={filters.branch} />
 
 
       <OverviewGlance r={r} filters={filters} period={period} money={money} ops={ops} debts={debts} cash={cash} lead={
@@ -116,7 +116,7 @@ function Body({ r, filters, money }: { r: PerformanceReport; filters: ReportFilt
 }
 
 /** The owner's daily sheet for the chosen period, one line per branch: stock value at the end, sales, debt, expense, deposit, Bank and MoMo. */
-function BranchesForPeriod({ range, branch, period }: { range: { from: string; to: string }; branch?: string; period: string }) {
+function BranchesForPeriod({ range, branch }: { range: { from: string; to: string }; branch?: string }) {
   const days = periodDays(range);
   const tooLong = days === null || days > 366;
   const q = useDailyBranchReport({ from_date: range.from, to_date: range.to, branch_id: branch, by: "branch" }, 1, { enabled: !tooLong });
@@ -124,7 +124,7 @@ function BranchesForPeriod({ range, branch, period }: { range: { from: string; t
   return (
     <section aria-labelledby="branches-h" className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="branches-h" className="pesaa-section-title text-foreground">{period} by branch</h2>
+        <h2 id="branches-h" className="pesaa-section-title text-foreground">{dateRangeLabel(range.from, range.to)} by branch</h2>
         <Link href="/reports/daily" className="text-[13px] font-semibold text-accent hover:underline">Daily report →</Link>
       </div>
       {tooLong ? <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted">Pick a period of up to one year to see each branch.</p>
