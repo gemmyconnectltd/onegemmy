@@ -76,4 +76,4 @@ api_router.include_router(services_router, prefix="/tenants", dependencies=[Depe
 api_router.include_router(tenants_router)
 api_router.include_router(global_router)
 
-api_router.include_router(discounts_router, prefix="/tenants", dependencies=[Depends(require_feature("sales")), Depends(require_feature("discounts")), Depends(require_module_write("discounts"))])
+api_router.include_router(discounts_router, prefix="/tenants", dependencies=[Depends(require_module_write("discounts")), Depends(require_feature("sales")), Depends(require_feature("discounts"))])

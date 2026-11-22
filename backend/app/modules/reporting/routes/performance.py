@@ -4,11 +4,15 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header
 
+from app.core.access import require_module_write
 from app.core.deps import CurrentUser, DbSession, require_feature
 from app.core.response import success_response
 from app.modules.reporting.service.performance import performance
 
-router = APIRouter(tags=["Business performance"], dependencies=[Depends(require_feature(k)) for k in ("sales", "reports")])
+router = APIRouter(tags=["Business performance"], dependencies=[
+    Depends(require_module_write("reports")),
+    *[Depends(require_feature(k)) for k in ("sales", "reports")],
+])
 
 
 @router.get("/reports/performance")

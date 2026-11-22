@@ -27,9 +27,9 @@ from app.modules.accounting.repository.reporting import ReportingRepository
 from app.modules.audit.service import record_audit
 from app.modules.tenants.models import Permission, Role, Tenant, User
 from app.modules.tenants.service.role import (
-    _PERMISSION_ACTIONS,
     _PERMISSION_RESOURCES,
     _ROLE_NAME_ALIASES,
+    _permission_actions_for,
     default_role_permissions,
     ensure_permissions_seeded,
 )
@@ -39,7 +39,7 @@ def template_catalog(existing: list[Permission]) -> list[Permission]:
     """Build a preview of the complete catalog without inserting any records."""
     by_name = {p.name: p for p in existing}
     for resource in _PERMISSION_RESOURCES:
-        for action in _PERMISSION_ACTIONS:
+        for action in _permission_actions_for(resource):
             name = f"{resource}:{action}"
             if name not in by_name:
                 by_name[name] = Permission(name=name, resource=resource, action=action)

@@ -19,7 +19,7 @@ export function featureForPath(path: string): { key: string; name: string } | nu
 }
 
 /** What the signed-in person needs to open a page, read the way the menu reads it: a module they hold permissions in, and/or one
- *  named permission. Pages with no requirement (Overview, Reports, Business Settings, Support) return null. */
+ *  named permission. Pages with no requirement (Overview, Business Settings, Support) return null. */
 export function accessForPath(path: string): { name: string; module?: string; permission?: string; ownerOnly?: boolean } | null {
   const item = navItemForPath(path);
   if (!item) return null;

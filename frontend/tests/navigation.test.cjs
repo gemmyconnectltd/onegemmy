@@ -28,7 +28,7 @@ test('reuses feature, module and permission gates and never returns an empty gro
   assert.equal(names(nav.visiblePrimaryNavigation(enabledFeatures, () => true, () => true)).length, 21);
   assert.equal(names(nav.visiblePrimaryNavigation(enabledFeatures, () => true, () => true)).includes('Subscription & Billing'), false);
   const denied = nav.visiblePrimaryNavigation(undefined, () => false, () => false);
-  assert.deepEqual(plain(names(denied)), ['Overview','Business Reports','Help & Support']);
+  assert.deepEqual(plain(names(denied)), ['Overview','Help & Support']);
   assert.ok(denied.every(group => group.items.length > 0));
   const disabled = names(nav.visiblePrimaryNavigation({...enabledFeatures,services:false}, () => true, () => true));
   assert.equal(disabled.includes('Services'), false);
@@ -45,15 +45,18 @@ test('reuses feature, module and permission gates and never returns an empty gro
   const finance = names(nav.visiblePrimaryNavigation(enabledFeatures, module => module === 'accounting', p => p === 'journal_entries:read'));
   assert.ok(finance.includes('Accounting Reports'));
   assert.ok(!names(nav.visiblePrimaryNavigation(enabledFeatures, module => module === 'accounting', () => false)).includes('Accounting Reports'));
+  assert.ok(names(nav.visiblePrimaryNavigation(enabledFeatures, module => module === 'reports', p => p === 'reports:read')).includes('Business Reports'));
+  assert.ok(!names(nav.visiblePrimaryNavigation(enabledFeatures, () => true, () => false)).includes('Business Reports'));
+  assert.ok(!names(nav.visiblePrimaryNavigation({...enabledFeatures, reports:false}, () => true, () => true)).includes('Business Reports'));
   assert.equal(nav.isPrimaryActive('/accounting/reports', nav.PRIMARY_NAV_GROUPS.flatMap(g => g.items).find(i => i.name === 'Accounting')), false);
   const onlyUsers = names(nav.visiblePrimaryNavigation(undefined, () => false, p => p === 'users:read'));
-  assert.deepEqual(plain(onlyUsers), ['Overview','Business Reports','Team & Access','Help & Support']);
+  assert.deepEqual(plain(onlyUsers), ['Overview','Team & Access','Help & Support']);
 });
 test('a cashier-like user sees no finance, people or administration clutter', () => {
   const cashier = new Set(['sales','pos']);
   const groups = nav.visiblePrimaryNavigation({sales:true,pos:true}, module => cashier.has(module), () => false);
   const names = groups.flatMap(group => group.items.map(item => item.name));
-  assert.deepEqual(plain(names), ['Overview','Point of Sale','Sales','Business Reports','Help & Support']);
+  assert.deepEqual(plain(names), ['Overview','Point of Sale','Sales','Help & Support']);
   assert.equal(groups.some(group => group.label === 'Finance' || group.label === 'People'), false);
 });
 test('Administration items activate on their own page only, not their siblings', () => {
@@ -134,7 +137,7 @@ test('suppliers are managed under Purchases only', () => {
 });
 test('every module a menu item depends on is a real feature in the platform catalogue', () => {
   // Mirrors the feature_flags catalogue; a key missing from it would make the module unreachable for every business.
-  const catalogue = new Set(['accounting', 'appointments', 'crm', 'hr', 'inventory', 'manufacturing', 'procurement', 'queue', 'repairs', 'sales', 'services', 'discounts', 'pos']);
+  const catalogue = new Set(['accounting', 'appointments', 'crm', 'hr', 'inventory', 'manufacturing', 'procurement', 'queue', 'repairs', 'reports', 'sales', 'services', 'discounts', 'pos']);
   const used = nav.PRIMARY_NAV_GROUPS.flatMap(group => group.items).map(item => item.feature).filter(Boolean);
   assert.ok(used.length > 0);
   for (const key of used) assert.ok(catalogue.has(key), key);
@@ -143,14 +146,17 @@ test('every module a menu item depends on is a real feature in the platform cata
   function names(groups) { return groups.flatMap(group => group.items.map(item => item.name)); }
 });
 
-test('the Overview and Reports are for the business owner only', () => {
+test('the Overview is owner-only while Reports follows its own permission', () => {
   const names = groups => groups.flatMap(group => group.items.map(item => item.name));
   const everyone = names(nav.visiblePrimaryNavigation({sales:true}, () => true, () => true, false));
   assert.equal(everyone.includes('Overview'), false);
   assert.equal(everyone.includes('Business Reports'), false);
   assert.equal(everyone.includes('Sales'), true); // their own modules are unaffected
+  const granted = names(nav.visiblePrimaryNavigation({reports:true}, () => true, () => true, false));
+  assert.ok(granted.includes('Business Reports'));
   const owner = names(nav.visiblePrimaryNavigation(undefined, () => true, () => true, true));
-  assert.ok(owner.includes('Overview') && owner.includes('Business Reports'));
+  assert.ok(owner.includes('Overview'));
+  assert.equal(owner.includes('Business Reports'), false);
   // Someone who can only do HR lands on HR, never on the owner's Overview.
   const hrOnly = module => module === 'hr';
   assert.equal(nav.firstAllowedHref({hr:true}, hrOnly, () => false, false), '/hr');

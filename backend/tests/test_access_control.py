@@ -41,10 +41,15 @@ def test_decision_rule(module, method, path, held, allowed):
     assert access.decide(module, method, path, held)[0] is allowed
 
 
+def test_report_reads_need_the_reports_permission():
+    assert access.decide_read("reports", "/reports/performance", ["reports:read"])[0] is True
+    assert access.decide_read("reports", "/reports/performance", ["orders:read"])[0] is False
+
+
 def test_every_routed_module_has_a_resource_map():
     from app.api_router import api_router  # noqa: F401  (importing proves the guards are wired)
 
-    assert set(access.MODULE_RESOURCES) >= {"inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing", "services", "repairs"}
+    assert set(access.MODULE_RESOURCES) >= {"inventory", "sales", "accounting", "hr", "procurement", "crm", "manufacturing", "services", "repairs", "reports"}
 
 
 # ── HTTP: real tokens through the real dependencies ──────────────────────────

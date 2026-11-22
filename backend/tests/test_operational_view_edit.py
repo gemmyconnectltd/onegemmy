@@ -39,9 +39,9 @@ def test_platform_and_inactive_users_receive_no_baseline_and_assigned_grants_sur
 
 def test_policy_covers_the_catalogs_operational_resources():
     from app.core.permission_policy import OPERATIONAL_RESOURCES
-    from app.modules.tenants.service.role import _PERMISSION_RESOURCES
+    from app.modules.tenants.service.role import _EXPLICIT_RESOURCES, _PERMISSION_RESOURCES
     administration = {"tenants", "users", "roles", "permissions", "branches", "billing", "approvals", "credit", "discounts"}
-    assert set(_PERMISSION_RESOURCES) - administration == OPERATIONAL_RESOURCES
+    assert set(_PERMISSION_RESOURCES) - administration - _EXPLICIT_RESOURCES == OPERATIONAL_RESOURCES
 
 
 

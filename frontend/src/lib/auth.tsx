@@ -89,6 +89,7 @@ const MODULE_RESOURCES: Record<string, string[]> = {
   crm: ["leads", "accounts", "contacts", "opportunities", "activities", "campaigns", "tickets"],
   manufacturing: ["bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing"],
   services: ["services", "appointments", "queue"],
+  reports: ["reports"],
 };
 
 export interface AuthContextType {
@@ -327,6 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Admins and owners always see all modules
     const role = currentUser.role?.toLowerCase();
     if (role === "admin" || role === "owner") return true;
+    if (key === "reports") return currentUser.permissions.includes("reports:read");
     // Members see all modules
     if (role === "member") return true;
     // Viewers see all modules (read-only enforced at action level)

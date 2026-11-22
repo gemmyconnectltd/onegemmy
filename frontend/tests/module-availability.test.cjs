@@ -28,10 +28,11 @@ test('a page is tied to the module that controls it, including POS and the custo
   assert.equal(mod.featureForPath('/expenses/list').key, 'accounting');
   assert.equal(mod.featureForPath('/debts/receivables').key, 'accounting');
   assert.equal(mod.featureForPath('/manufacturing/bom').key, 'manufacturing');
+  assert.equal(mod.featureForPath('/reports/daily').key, 'reports');
 });
 
 test('pages every business has are never blocked by a module', () => {
-  for (const p of ['/dashboard', '/settings', '/settings/billing', '/support', '/reports', '/branches', '/settings/users']) assert.equal(mod.featureForPath(p), null, p);
+  for (const p of ['/dashboard', '/settings', '/settings/billing', '/support', '/branches', '/settings/users']) assert.equal(mod.featureForPath(p), null, p);
 });
 
 test('explains why a module is unavailable in plain words', () => {
@@ -65,7 +66,7 @@ test('a page is open only to people whose role gives them its module or permissi
   assert.deepEqual(plain(mod.accessForPath('/settings/billing')), { name: 'Subscription & Billing', permission: 'billing:read' });
   for (const open of ['/support', '/profile', '/settings/profile']) assert.equal(mod.accessForPath(open), null, open);
   for (const page of ['/settings', '/settings/financial', '/settings/security', '/settings/notifications', '/settings/appearance']) assert.deepEqual(plain(mod.accessForPath(page)), { name: 'Business Settings', permission: 'tenants:update' }, page);
-  assert.deepEqual(plain(mod.accessForPath('/dashboard')), { name: 'Overview', ownerOnly: true });  // the Overview and Reports are the owner's
-  assert.deepEqual(plain(mod.accessForPath('/reports/daily')), { name: 'Business Reports', ownerOnly: true });
+  assert.deepEqual(plain(mod.accessForPath('/dashboard')), { name: 'Overview', ownerOnly: true });  // the Overview is the owner's
+  assert.deepEqual(plain(mod.accessForPath('/reports/daily')), { name: 'Business Reports', module: 'reports', permission: 'reports:read' });
   assert.equal(mod.accessForPath('/somewhere/else'), null);
 });

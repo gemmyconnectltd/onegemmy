@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Response
 
+from app.core.access import require_module_write
 from app.core.deps import CurrentUser, DbSession, require_feature
 from app.core.filenames import content_disposition, document_filename, period_label
 from app.core.response import success_response
@@ -12,7 +13,10 @@ from app.modules.reporting.service.day import day_report
 
 # The report combines sales, stock, debt and expense figures, so a business needs Reports and those three modules (read access survives a
 # module the business has turned off, as everywhere else).
-router = APIRouter(tags=["Daily branch reports"], dependencies=[Depends(require_feature(k)) for k in ("reports", "sales", "inventory", "accounting")])
+router = APIRouter(tags=["Daily branch reports"], dependencies=[
+    Depends(require_module_write("reports")),
+    *[Depends(require_feature(k)) for k in ("reports", "sales", "inventory", "accounting")],
+])
 
 
 @router.get("/reports/daily-branches")

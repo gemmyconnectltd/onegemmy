@@ -214,3 +214,65 @@ async def test_owner_daily_sheet_stock_value_deposit_and_bank_momo(db):
     lines = {r["branch"]: r for r in period["items"]}
     assert set(lines) == {"Kigali", "Huye"}  # one line per branch for the whole period
     assert lines["Kigali"]["sales"] == D(10000) and lines["Kigali"]["stock_value"] == D(24000)  # closing value on the last day
+
+
+@pytest.mark.db
+async def test_reports_permission_is_explicit_and_per_user_switchable(db, monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy import select
+
+    from app.core.database import get_db
+    from app.core.deps import get_current_user
+    from app.main import app
+    from app.modules.tenants import service
+    from app.modules.tenants.models import Permission, Role
+    from app.modules.tenants.service import ensure_permissions_seeded
+    from app.modules.tenants.service.role import default_role_permissions
+
+    tenant = Tenant(name="Reports", slug=uuid.uuid4().hex)
+    db.add(tenant)
+    await db.flush()
+    catalog = await ensure_permissions_seeded(db)
+    names = {p.name for p in catalog}
+    assert "reports:read" in names
+    assert not any(name.startswith("reports:") and name != "reports:read" for name in names)
+    defaults = default_role_permissions(catalog)
+    assert "reports:read" not in {p.name for p in defaults["Member"]}
+    assert "reports:read" in {p.name for p in defaults["Operations Manager"]}
+    assert "reports:read" in {p.name for p in defaults["Admin"]}
+
+    reports_read = (await db.scalars(select(Permission).where(Permission.name == "reports:read"))).one()
+    granted = Role(tenant_id=tenant.id, name="Research", permissions=[reports_read])
+    manager = User(tenant_id=tenant.id, email=f"{uuid.uuid4()}@example.test", hashed_password="x", full_name="Manager", role_rel=granted)
+    clerk = User(tenant_id=tenant.id, email=f"{uuid.uuid4()}@example.test", hashed_password="x", full_name="Clerk", role="No reports")
+    db.add_all([granted, manager, clerk])
+    await db.flush()
+
+    current = manager
+
+    async def user():
+        return current
+
+    async def session():
+        yield db
+
+    async def module_status(_db, _tenant, key):
+        return "enabled"
+
+    monkeypatch.setattr(service, "module_status", module_status)
+    old = app.dependency_overrides.copy()
+    app.dependency_overrides[get_current_user] = user
+    app.dependency_overrides[get_db] = session
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 200
+            current = clerk
+            assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 403
+            current = manager
+            manager.disabled_modules = ["reports"]
+            assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 403
+            manager.disabled_modules = []
+            assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(old)

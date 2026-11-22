@@ -37,6 +37,7 @@ MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "manufacturing": ("bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "stock", "items"),
     "services": ("services", "appointments", "queue", "service_commissions"),
     "repairs": ("services", "orders", "items", "stock"),
+    "reports": ("reports",),
 }
 
 # Business entitlements are shared; employee switches are independent.

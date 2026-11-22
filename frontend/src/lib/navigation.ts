@@ -104,18 +104,18 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "stockCounts", label: "Stock counts", href: "/inventory/counts", icon: ClipboardCheck },
   ],
   reports: [
-    { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true },
-    { nameKey: "daily",      label: "Daily report",           href: "/reports/daily",      icon: CalendarDays },
-    { nameKey: "salespeople", label: "Team performance",      href: "/reports/salespeople", icon: Award },
-    { nameKey: "sales",      label: "Sales",                  href: "/reports/sales",      icon: TrendingUp,
+    { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true, requires: "reports:read" },
+    { nameKey: "daily",      label: "Daily report",           href: "/reports/daily",      icon: CalendarDays, requires: "reports:read" },
+    { nameKey: "salespeople", label: "Team performance",      href: "/reports/salespeople", icon: Award, requires: "reports:read" },
+    { nameKey: "sales",      label: "Sales",                  href: "/reports/sales",      icon: TrendingUp, requires: "reports:read",
       activeFor: ["/reports/sales-report"] },
-    { nameKey: "accounting", label: "Finance",                href: "/reports/finance",    icon: DollarSign, requires: "expenses:read", feature: "accounting",
+    { nameKey: "accounting", label: "Finance",                href: "/reports/finance",    icon: DollarSign, requires: "reports:read", feature: "accounting",
       activeFor: ["/reports/accounting", "/reports/accounting-overview", "/reports/expenses-overview", "/reports/debts-overview"] },
-    { nameKey: "stock",      label: "Stock",                  href: "/reports/stock",      icon: Package, requires: "items:read", feature: "inventory",
+    { nameKey: "stock",      label: "Stock",                  href: "/reports/stock",      icon: Package, requires: "reports:read", feature: "inventory",
       activeFor: ["/reports/operations", "/reports/inventory", "/reports/inventory-overview", "/reports/inventory-report", "/reports/manufacturing-overview", "/reports/services-overview"] },
-    { nameKey: "purchases",  label: "Purchases",              href: "/reports/purchases",  icon: Truck, requires: "purchase_orders:read", feature: "procurement",
+    { nameKey: "purchases",  label: "Purchases",              href: "/reports/purchases",  icon: Truck, requires: "reports:read", feature: "procurement",
       activeFor: ["/reports/procurement-overview"] },
-    { nameKey: "customers",  label: "Customers",              href: "/reports/customers",  icon: Users, requires: "contacts:read" },
+    { nameKey: "customers",  label: "Customers",              href: "/reports/customers",  icon: Users, requires: "reports:read" },
   ],
   // Settings has no second sidebar: its pages are in the main sidebar's Administration group and Business Settings has its own tabs.
   settings: [],
@@ -141,7 +141,7 @@ export type PrimaryNavItem = {
   permission?: string;
   /** Match only this exact path (plus `activeFor`) instead of everything beneath it. */
   exact?: boolean; activeFor?: string[];
-  /** Only the business owner sees it (the Overview and Reports show business-wide performance, not one person's work). */
+  /** Only the business owner sees it (the Overview shows business-wide performance, not one person's work). */
   ownerOnly?: boolean;
   /** Kept so the route and its tests stay valid, but not shown in any menu for now. */
   hidden?: boolean;
@@ -175,7 +175,7 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
     { name: "HR", href: "/hr", icon: UserCog, feature: "hr", module: "hr" },
   ] },
   { id: "insights", label: "Insights & Analytics", items: [
-    { name: "Business Reports", href: "/reports", icon: ChartColumnIncreasing, module: "reports", access: "", ownerOnly: true, tour: "reports" },
+    { name: "Business Reports", href: "/reports", icon: ChartColumnIncreasing, feature: "reports", module: "reports", permission: "reports:read", tour: "reports" },
     { name: "Accounting Reports", href: "/accounting/reports", icon: Landmark, feature: "accounting", access: "accounting", permission: "journal_entries:read", tour: "financial-reports" },
   ] },
   { id: "administration", label: "Administration", items: [

@@ -30,8 +30,20 @@ _PERMISSION_RESOURCES = [
     "discounts",
     # Customer credit control: credit:approve = approve credit sales over the daily limit and set that limit.
     "credit",
+    "reports",
 ]
 _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
+_READ_ONLY_RESOURCES = frozenset({"reports"})
+_EXPLICIT_RESOURCES = frozenset({"reports"})
+
+
+def _permission_actions_for(resource: str) -> tuple[str, ...]:
+    if resource in _READ_ONLY_RESOURCES:
+        return ("read",)
+    return (*_PERMISSION_ACTIONS, *(
+        ["activate", "apply", "promotions", "coupons", "analytics", "settings"]
+        if resource == "discounts" else []
+    ))
 
 # Owner/tenant-administration resources: managing the tenant record itself,
 # users, roles and permissions. The default "Member"/"Viewer" roles exclude
@@ -219,10 +231,10 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
         "invoices": ("read",), "accounts_receivable": ("read",), "returns": ("read",),
     }),
     # ── Administration, IT and compliance ──
-    "Operations Manager": ("Coordinates operations across sales, stock, purchasing and production. Approves operational requests; no finance books, HR or user management.", {
+    "Operations Manager": ("Coordinates operations across sales, stock, purchasing, production and business reports. Approves operational requests; no finance books, HR or user management.", {
         "orders": ("read", "update", "approve"), "returns": ("read", "approve"), "stock": ("read", "approve"), "purchase_orders": ("read", "approve"),
         "requisitions": ("read", "approve"), "work_orders": ("read", "approve"), "items": ("read",), "warehouses": ("read",), "goods_receipt": ("read",),
-        "contacts": ("read",), "services": ("read",), "tickets": ("read",),
+        "contacts": ("read",), "services": ("read",), "tickets": ("read",), "reports": ("read",),
     }),
     "Compliance Officer": ("Reviews records, policies and exceptions across the business. Read-only.", {
         "chart_of_accounts": ("read",), "journal_entries": ("read",), "banking": ("read",), "expenses": ("read",), "tax": ("read",), "accounts_payable": ("read",),
@@ -258,7 +270,7 @@ _ROLE_NAME_ALIASES = {**{name.lower(): name for name in FOCUSED_ROLES}, "storeke
 
 def default_role_permissions(permissions: list[Permission]) -> dict[str, list[Permission]]:
     """One source for seeding and explicitly restoring built-in role grants."""
-    operational = [p for p in permissions if p.resource not in _ADMIN_ONLY_RESOURCES]
+    operational = [p for p in permissions if p.resource not in _ADMIN_ONLY_RESOURCES | _EXPLICIT_RESOURCES]
     templates = {
         "Admin": permissions,
         "Member": [p for p in operational if p.action in {"create", "read", "update"}],
@@ -372,8 +384,7 @@ async def ensure_permissions_seeded(db: AsyncSession) -> list[Permission]:
     existing = (await db.execute(select(Permission))).scalars().all()
     existing_names = {p.name for p in existing}
     for resource in _PERMISSION_RESOURCES:
-        actions = _PERMISSION_ACTIONS + (["activate", "apply", "promotions", "coupons", "analytics", "settings"] if resource == "discounts" else [])
-        for action in actions:
+        for action in _permission_actions_for(resource):
             name = f"{resource}:{action}"
             if name not in existing_names:
                 db.add(Permission(name=name, resource=resource, action=action, description=f"Can {action} {resource}"))

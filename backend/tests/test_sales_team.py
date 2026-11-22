@@ -11,6 +11,7 @@ from app.main import app
 from app.modules.accounting.service.account import seed_default_accounts
 from app.modules.inventory.models.product import Product
 from app.modules.tenants.models import Branch, Role, Tenant, User
+from app.modules.tenants.service.role import ensure_permissions_seeded
 
 API = "/api/v1/tenants"
 
@@ -20,8 +21,10 @@ async def team(db, monkeypatch):
     tenant = Tenant(name="Team test", slug=uuid.uuid4().hex, currency="RWF", is_active=True, subscription_status="active", approval_rules={})
     db.add(tenant)
     await db.flush()
+    catalog = await ensure_permissions_seeded(db)
+    reports_read = next(permission for permission in catalog if permission.name == "reports:read")
     branch = Branch(tenant_id=tenant.id, name="Main", is_main=True)
-    role = Role(tenant_id=tenant.id, name="Salesperson", permissions=[])
+    role = Role(tenant_id=tenant.id, name="Salesperson", permissions=[reports_read])
     product = Product(tenant_id=tenant.id, name="Widget", price=100, cost=50, stock=100)
     db.add_all([branch, role, product])
     await db.flush()
@@ -56,7 +59,7 @@ async def team(db, monkeypatch):
 
 @pytest.mark.db
 async def test_sales_are_credited_to_the_chosen_salesperson_not_the_person_who_keyed_them(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(owner) as c:
             keyed_for_ann = await c.post(f"{API}/sales/orders", json=sale(2, salesperson_id=str(ann.id)))
@@ -76,7 +79,7 @@ async def test_sales_are_credited_to_the_chosen_salesperson_not_the_person_who_k
 
 @pytest.mark.db
 async def test_report_totals_per_salesperson_match_the_orders_and_keep_money_figures_apart(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(owner) as c:
             await c.post(f"{API}/sales/orders", json=sale(2, salesperson_id=str(ann.id)))
@@ -96,7 +99,7 @@ async def test_report_totals_per_salesperson_match_the_orders_and_keep_money_fig
 
 @pytest.mark.db
 async def test_correcting_the_salesperson_needs_authority_and_leaves_money_alone(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(owner) as c:
             order = (await c.post(f"{API}/sales/orders", json=sale(2, salesperson_id=str(ann.id)))).json()["data"]
@@ -137,7 +140,7 @@ async def test_own_sales_only_policy_is_off_by_default_and_scopes_a_salesperson_
 
 @pytest.mark.db
 async def test_sales_team_lists_active_people_for_the_picker_without_user_admin_access(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    tenant, ann, ben, _owner, client, _sale = await team(db, monkeypatch)
     ben.is_active = False
     await db.flush()
     try:
@@ -154,7 +157,7 @@ async def test_sales_team_lists_active_people_for_the_picker_without_user_admin_
 
 @pytest.mark.db
 async def test_only_the_business_owner_can_record_a_sale_for_another_salesperson(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(ann) as c:
             refused = await c.post(f"{API}/sales/orders", json=sale(1, salesperson_id=str(ben.id)))
@@ -171,7 +174,7 @@ async def test_only_the_business_owner_can_record_a_sale_for_another_salesperson
 
 @pytest.mark.db
 async def test_a_seller_without_explicit_role_grants_can_check_the_cart_price(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, _ben, _owner, client, _sale = await team(db, monkeypatch)
     try:
         async with client(ann) as c:
             body = {"items": [{"unit_price": 100, "quantity": 1}]}
@@ -184,7 +187,7 @@ async def test_a_seller_without_explicit_role_grants_can_check_the_cart_price(db
 
 @pytest.mark.db
 async def test_a_seller_can_save_the_cart_as_a_quotation_and_get_its_pdf(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, _ben, _owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(ann) as c:
             items = sale(2)["items"]
@@ -200,7 +203,7 @@ async def test_a_seller_can_save_the_cart_as_a_quotation_and_get_its_pdf(db, mon
 
 @pytest.mark.db
 async def test_a_mobile_money_payment_needs_no_reference(db, monkeypatch):
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, _ann, _ben, owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(owner) as c:
             body = {**sale(1), "payments": [{"method": "mobile", "amount": 100}]}
@@ -214,9 +217,10 @@ async def test_a_mobile_money_payment_needs_no_reference(db, monkeypatch):
 @pytest.mark.db
 async def test_a_seller_can_open_and_email_the_invoice_of_their_own_sale(db, monkeypatch):
     from unittest.mock import AsyncMock
+
     from app.modules.sales.service import invoice_share
     monkeypatch.setattr(invoice_share, "email_invoice", AsyncMock(return_value={"sent_to": "buyer@example.com"}))
-    tenant, ann, ben, owner, client, sale = await team(db, monkeypatch)
+    _tenant, ann, _ben, _owner, client, sale = await team(db, monkeypatch)
     try:
         async with client(ann) as c:
             made = await c.post(f"{API}/sales/orders", json=sale(1))
