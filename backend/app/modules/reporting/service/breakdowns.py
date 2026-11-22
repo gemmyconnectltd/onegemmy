@@ -62,8 +62,10 @@ async def sales_breakdown(db: AsyncSession, user: User, start: date | None, end:
     s, e = report.window(start, end)
     cost = OrderItem.cost_at_sale * OrderItem.quantity
     missing = func.count(OrderItem.id).filter(OrderItem.cost_at_sale.is_(None))
+    # Profit is measured on the line's share of sales without VAT, like the Earnings totals; cost has no VAT in it.
+    net_line = LINE * func.coalesce((Order.total - func.coalesce(Order.tax, 0)) / func.nullif(Order.total, 0), 1)
     base = select(func.coalesce(func.sum(LINE), 0), func.coalesce(func.sum(cost), 0), missing, func.coalesce(func.sum(OrderItem.quantity), 0),
-                  func.count(func.distinct(Order.id))).select_from(OrderItem).join(Order, Order.id == OrderItem.order_id)
+                  func.count(func.distinct(Order.id)), func.coalesce(func.sum(net_line), 0)).select_from(OrderItem).join(Order, Order.id == OrderItem.order_id)
     if dimension == "product":
         key, label = OrderItem.product_name, OrderItem.product_name
     elif dimension == "category":
@@ -84,18 +86,18 @@ async def sales_breakdown(db: AsyncSession, user: User, start: date | None, end:
     names = {}
     if dimension == "branch":
         from app.modules.tenants.repository import BranchRepository
-        names = await BranchRepository(db).names_for_ids(tenant.id, {r[5] for r in raw if r[5]})
+        names = await BranchRepository(db).names_for_ids(tenant.id, {r[6] for r in raw if r[6]})
     rows = []
     for r in raw:
-        revenue, cogs = money(r[0]), money(r[1])
-        profit = None if r[2] else round(revenue - cogs, 2)
-        name = names.get(r[5], "Not assigned to a branch") if dimension == "branch" else r[5]
+        revenue, cogs, net_revenue = money(r[0]), money(r[1]), money(r[5])
+        profit = None if r[2] else round(net_revenue - cogs, 2)
+        name = names.get(r[6], "Not assigned to a branch") if dimension == "branch" else r[6]
         rows.append({"name": name, "sales": revenue, "orders": int(r[4]), "quantity": float(r[3]), "cost": None if r[2] else cogs,
-                     "gross_profit": profit, "margin": round(profit / revenue * 100, 1) if profit is not None and revenue else None})
+                     "gross_profit": profit, "margin": round(profit / net_revenue * 100, 1) if profit is not None and net_revenue else None})
     del label
     return {"from_date": start, "to_date": end, "currency": tenant.currency, "dimension": dimension, "rows": rows,
             "totals": await report.metrics(start, end),
-            "note": "Item sales before order-level discounts and VAT. Profit is shown only where every sold item has a cost."}
+            "note": "Sales are item totals with VAT, before order-level discounts. Profit and margin use sales without VAT minus cost, and are shown only where every sold item has a cost."}
 
 
 async def operations(db: AsyncSession, user: User, start: date | None, end: date | None, branch_id: uuid.UUID | None) -> dict:

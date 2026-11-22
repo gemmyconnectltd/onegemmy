@@ -245,7 +245,9 @@ async def test_daily_report_falls_back_to_current_stock_without_a_warehouse_ledg
     assert "warehouse ledger has no movements" in report["definitions"]["stock_value"]
 
     by_branch = await daily_report(db, owner, today - timedelta(days=2), today, None, by_branch=True)
-    assert {r["branch"]: r["stock_value"] for r in by_branch["items"]} == {"Main": D(20), "Other": D(0)}
+    # One line per branch for the whole period: the main branch is not repeated for every day of the range.
+    assert sorted((r["branch"], r["stock_value"]) for r in by_branch["items"]) == [("Main", D(20)), ("Other", D(0))]
+    assert by_branch["total"] == 2
     assert by_branch["totals"]["stock_value"] == D(20)
     scoped = await daily_report(db, owner, today, today, other.id)
     assert scoped["totals"]["stock_value"] == 0

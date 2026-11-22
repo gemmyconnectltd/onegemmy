@@ -66,6 +66,26 @@ async def test_sales_by_product_category_and_customer_with_profit(db):
         await sales_breakdown(db, person(t, permissions=()), *march, None, "product")
 
 
+async def test_breakdown_profit_excludes_vat_like_the_earnings_totals(db):
+    # Sold at 1,180 with VAT (1,000 without) and cost 1,100: a loss, even though the VAT-inclusive price is above cost.
+    tenant = Tenant(name="VAT shop", slug=uuid.uuid4().hex, timezone="UTC", currency="RWF")
+    db.add(tenant)
+    await db.flush()
+    bag = Product(tenant_id=tenant.id, name="Bag", stock=5, cost=1100)
+    db.add(bag)
+    await db.flush()
+    order = Order(tenant_id=tenant.id, order_number="VAT-1", status="Completed", subtotal=1180, tax=180, total=1180,
+                  ordered_at=datetime(2026, 3, 5, 9, tzinfo=UTC))
+    db.add(order)
+    await db.flush()
+    db.add(OrderItem(order_id=order.id, product_id=bag.id, product_name="Bag", unit_price=1180, quantity=1, line_total=1180, cost_at_sale=1100))
+    await db.flush()
+    report = await sales_breakdown(db, person(tenant), date(2026, 3, 1), date(2026, 3, 31), None, "category")
+    row = report["rows"][0]
+    assert (row["sales"], row["gross_profit"], row["margin"]) == (1180, -100, -10.0)
+    assert report["totals"]["gross_profit"] == row["gross_profit"]
+
+
 async def test_operations_sections_follow_permissions(db):
     t = await shop(db)
     march = (date(2026, 3, 1), date(2026, 3, 31))

@@ -100,7 +100,7 @@ function Body({ r, filters, money }: { r: PerformanceReport; filters: ReportFilt
           <div className="flex justify-between gap-3 py-2"><dt className="text-muted">Cost of goods sold</dt><dd className="tabular-nums text-muted">{c.cost_of_goods === null ? "—" : `− ${money(c.cost_of_goods)}`}</dd></div>
           <div className="flex justify-between gap-3 py-2"><dt>Gross profit</dt><dd className="font-semibold tabular-nums">{money(c.gross_profit)}</dd></div>
           <div className="flex justify-between gap-3 py-2"><dt className="text-muted">Expenses</dt><dd className="tabular-nums text-muted">{r.can_see_expenses ? `− ${money(c.expenses)}` : "—"}</dd></div>
-          <div className="flex justify-between gap-3 py-2 text-[15px]"><dt className="font-semibold">Net profit</dt><dd className="font-bold tabular-nums text-accent">{money(c.net_profit)}</dd></div>
+          <div className="flex justify-between gap-3 py-2 text-[15px]"><dt className="font-semibold">Net profit</dt><dd className={cn("font-bold tabular-nums", c.net_profit !== null && c.net_profit < 0 ? "text-destructive" : "text-accent")}>{money(c.net_profit)}</dd></div>
         </dl>
         {c.returns > 0 && <p className="mt-2 text-[12px] text-muted">{money(c.returns)} refunded on returns (shown separately, not subtracted).</p>}
       </Section>

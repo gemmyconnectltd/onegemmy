@@ -70,7 +70,8 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
     if stock_source == "current_stock" and page == 1 and any(stock.get((day, main_branch_id), Decimal(0)) for day in days):
         totals_row = rows[0] if rows else {f"total_{m}": Decimal(0) for m in METRICS}
         seen_keys = {(row["day"], row["branch_id"]) for row in rows}
-        for day in days:
+        # By branch, the whole period is one line per branch dated its last day; otherwise one line per day.
+        for day in ([end] if by_branch else days):
             key = (day, main_branch_id)
             if key in seen_keys:
                 continue
