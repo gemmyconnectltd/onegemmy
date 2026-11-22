@@ -1,12 +1,15 @@
 // OneGemmy service worker
 // Strategy:
 //  - Navigations: network-first, falling back to cache (offline support).
-//  - Static assets (hashed JS/CSS/fonts/images): cache-first — these are
-//    content-hashed by Next.js, so they are immutable and safe to cache.
-//  - Everything else same-origin: stale-while-revalidate.
+//  - Build files under /_next/static/ (content-hashed, so immutable): cache-first.
+//  - Other static files (fonts, images, icons): cache-first.
+//  - Everything else — including Next.js page data (RSC / "flight" responses fetched during in-app navigation) — goes
+//    straight to the network and is never cached. Page data names the build's code files; serving an old copy after a
+//    deployment makes the app ask for files that no longer exist ("Failed to load chunk").
 // Cross-origin requests (e.g. the API on a different host) are left alone.
 
-const CACHE = "onegemmy-v1";
+// Bump on any change to this file: phones then drop the previous cache when the new worker activates.
+const CACHE = "onegemmy-v2";
 const STATIC_ASSET = /\.(js|css|woff2?|ttf|png|jpe?g|gif|svg|webp|avif|ico)$/;
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -26,6 +29,10 @@ function cachePut(event, request, response) {
   event.waitUntil(caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {}));
 }
 
+function isPageData(request, url) {
+  return request.headers.get("RSC") === "1" || request.headers.has("Next-Router-State-Tree") || url.searchParams.has("_rsc");
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -33,12 +40,15 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Navigations — network first, cached fallback.
+  // Page data and anything dynamic: always fresh from the network (the browser handles it; nothing cached here).
+  if (isPageData(request, url)) return;
+
+  // Navigations — network first, cached fallback for offline.
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((res) => {
-          cachePut(event, request, res);
+          if (res.ok) cachePut(event, request, res);
           return res;
         })
         .catch(() =>
@@ -48,8 +58,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets — cache first (immutable, hashed filenames).
-  if (STATIC_ASSET.test(url.pathname)) {
+  // Static files — cache first (hashed build files never change; a missing one is never cached).
+  if (url.pathname.startsWith("/_next/static/") || STATIC_ASSET.test(url.pathname)) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
@@ -60,19 +70,6 @@ self.addEventListener("fetch", (event) => {
           }),
       ),
     );
-    return;
   }
-
-  // Everything else — stale-while-revalidate.
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((res) => {
-          if (res.ok) cachePut(event, request, res);
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    }),
-  );
+  // Everything else: not intercepted, so the browser fetches it normally.
 });
