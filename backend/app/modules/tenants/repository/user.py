@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from app.core.repository import BaseRepository
 from app.modules.tenants.models import User
@@ -11,10 +11,11 @@ from app.modules.tenants.models.role import Role
 class UserRepository(BaseRepository[User]):
     model = User
 
+    # One query for the user with its tenant, role and branch (each a single row), one for the role's permissions.
     _with_role = (
-        selectinload(User.role_rel).selectinload(Role.permissions),
-        selectinload(User.tenant),
-        selectinload(User.branch_rel),
+        joinedload(User.role_rel).selectinload(Role.permissions),
+        joinedload(User.tenant),
+        joinedload(User.branch_rel),
     )
 
     def _filtered(

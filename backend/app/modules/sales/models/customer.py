@@ -29,9 +29,11 @@ class Customer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 
-    deals = relationship("Deal", back_populates="customer", lazy="selectin")
-    orders = relationship("Order", back_populates="customer", lazy="selectin")
-    returns = relationship("Return", back_populates="customer", lazy="selectin")
+    # A customer's history is never loaded with the customer: lists, pickers and every order/deal/return that embeds a
+    # customer would otherwise pull all of it. Figures come from SQL aggregates; load these explicitly if ever needed.
+    deals = relationship("Deal", back_populates="customer", lazy="select")
+    orders = relationship("Order", back_populates="customer", lazy="select")
+    returns = relationship("Return", back_populates="customer", lazy="select")
 
     __table_args__ = (
         Index("ix_sales_customers_tenant_id", "tenant_id"),

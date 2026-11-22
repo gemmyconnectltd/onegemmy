@@ -93,7 +93,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const setSidebarCollapsed = (v: boolean) => writeStored(COLLAPSED_KEY, v ? "1" : "0");
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, isLoading } = useAuth();
+  // The shell needs only a restored session. The person's current access and the business's modules load in parallel
+  // behind ModuleAvailabilityGuard, which keeps the content area (and only it) on a loader until both are known.
+  const { user, sessionLoading, accessPending } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -103,8 +105,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace("/login");
-  }, [isLoading, user, router]);
+    if (!sessionLoading && !user) router.replace("/login");
+  }, [sessionLoading, user, router]);
 
   // A default password is only for the first sign-in: send the person to choose their own.
   useEffect(() => {
@@ -113,7 +115,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const sidebarW = sidebarWidth(sidebarCollapsed);
 
-  if (isLoading || !user) return (
+  if (sessionLoading || !user) return (
     <div className="min-h-screen bg-surface flex items-center justify-center px-6">
       <PageLoader variant="screen" label={APP_NAME} sub="Signing you in" />
     </div>
@@ -139,7 +141,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <UnsavedChangesGuard />
       <ActivityTracker />
       <SupportFab />
-      <ProductTour steps={TOUR_STEPS} storageKey="onegemmy_tour_seen" />
+      {/* The tour points at sidebar links, which appear once the person's access is known. */}
+      {!accessPending && <ProductTour steps={TOUR_STEPS} storageKey="onegemmy_tour_seen" />}
     </div>
   );
 }

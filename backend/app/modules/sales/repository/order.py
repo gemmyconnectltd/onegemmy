@@ -4,7 +4,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import Integer, cast, func, or_, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import lazyload, selectinload
 
 from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
@@ -20,6 +20,18 @@ def _with_relations():
         selectinload(Order.salesperson),
         selectinload(Order.items).selectinload(OrderItem.product),
         selectinload(Order.payments).selectinload(OrderPayment.receiver),
+    ]
+
+
+def _list_relations():
+    """What a list row (`OrderRead`) shows: customer, salesperson, lines, payments and applied discounts. Returns and each
+    line's product, variant and return lines are not part of it, so they are left for the single-order flows that use them."""
+    return [
+        selectinload(Order.customer),
+        selectinload(Order.salesperson),
+        selectinload(Order.items).options(lazyload(OrderItem.product), lazyload(OrderItem.variant), lazyload(OrderItem.return_items)),
+        selectinload(Order.payments).selectinload(OrderPayment.receiver),
+        lazyload(Order.returns),
     ]
 
 
@@ -67,7 +79,7 @@ class OrderRepository(BaseRepository[Order]):
         archived: bool = False,
         salesperson_id: uuid.UUID | None = None,
     ) -> list[Order]:
-        stmt = select(Order).options(*_with_relations()).where(Order.tenant_id == tenant_id)
+        stmt = select(Order).options(*_list_relations()).where(Order.tenant_id == tenant_id)
         stmt = stmt.where(Order.archived_at.is_not(None) if archived else Order.archived_at.is_(None))
         if branch_id is not None:
             stmt = stmt.where(Order.branch_id == branch_id)

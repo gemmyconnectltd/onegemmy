@@ -55,6 +55,7 @@ class _FakeDB:
     def __init__(self, tenant):
         self.tenant = tenant
         self.rows = [_flag(k) for k in FLAG_KEYS]
+        self.info: dict = {}  # a real session's per-session scratch space (module states are remembered there)
 
     async def execute(self, stmt):
         return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: self.rows))

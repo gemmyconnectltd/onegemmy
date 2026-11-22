@@ -175,16 +175,17 @@ async def test_access_endpoints_need_permission_and_stay_inside_the_business(db,
 async def test_a_role_change_takes_effect_on_the_very_next_request(db, monkeypatch):
     """Access is read from the database on every request, never from the sign-in token, so revoking is immediate."""
     _, roles, owner, cashier, *_ = await business(db, "Revoke")
+    officer_id, cashier_role_id = str(roles["Inventory Officer"].id), str(roles["Cashier"].id)  # read before expire_all below
     plan(monkeypatch, "inventory", "sales")
     monkeypatch.setattr("app.modules.billing.worker.sync_usage", AsyncMock())  # usage billing is not what this test is about
     try:
         async with client(db, cashier) as till, client(db, owner) as admin:
             assert (await till.post(f"{API}/inventory/products", json={"name": "Widget", "price": 1})).status_code == 403
-            promoted = await admin.patch(f"{API}/users/{cashier.id}", json={"role_id": str(roles["Inventory Officer"].id)})
+            promoted = await admin.patch(f"{API}/users/{cashier.id}", json={"role_id": officer_id})
             assert promoted.status_code == 200, promoted.text
             db.expire_all()  # one test session stands in for each request's own session
             assert (await till.post(f"{API}/inventory/products", json={"name": "Widget", "price": 1})).status_code != 403
-            demoted = await admin.patch(f"{API}/users/{cashier.id}", json={"role_id": str(roles["Cashier"].id)})
+            demoted = await admin.patch(f"{API}/users/{cashier.id}", json={"role_id": cashier_role_id})
             assert demoted.status_code == 200
             db.expire_all()
             assert (await till.post(f"{API}/inventory/products", json={"name": "Widget", "price": 1})).status_code == 403

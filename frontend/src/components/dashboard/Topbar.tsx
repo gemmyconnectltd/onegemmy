@@ -43,7 +43,7 @@ function getBreadcrumb(pathname: string) {
 }
 
 export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: TopbarProps) {
-  const { user, hasModuleAccess } = useAuth();
+  const { user, hasModuleAccess, accessPending } = useAuth();
   const { data: entitlements } = useMyEntitlements({ enabled: !!user?.tenantId });
   const { translating, locale, setLocale, locales, theme, setTheme } = useAppConfig();
   const pathname = usePathname();
@@ -114,7 +114,7 @@ export function Topbar({ onToggleSidebar, sidebarExpanded, variant = "app" }: To
       <div className="hidden flex-1 lg:block" />
 
       {/* POS */}
-      {!admin && entitlements?.features.sales === true && hasModuleAccess("sales") && (
+      {!admin && !accessPending && entitlements?.features.sales === true && hasModuleAccess("sales") && (
         <Link
           href="/pos"
           aria-label="Open point of sale"

@@ -25,11 +25,13 @@ const serverSnapshot = () => false;
 export function Sidebar({ expanded, onExpandChange, collapsed, onCollapsedChange, variant = "app" }: SidebarProps) {
   const path = usePathname();
   const router = useRouter();
-  const { user, logout, hasModuleAccess, hasPermission, isSuperAdmin } = useAuth();
+  const { user, logout, hasModuleAccess, hasPermission, isSuperAdmin, accessPending } = useAuth();
   const { logoUrl } = useAppConfig();
   const admin = variant === "admin";
   const entitlements = useMyEntitlements({ enabled: !admin });
-  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : sidebarPrimaryNavigation(entitlements.data?.features, hasModuleAccess, hasPermission, isSuperAdmin());
+  // While the person's current access is being read, list no links rather than ones from the sign-in token's snapshot,
+  // which may include access that has since been removed. The shell renders immediately; the links follow.
+  const groups = admin ? [{items: ADMIN_NAV_ITEMS}] : accessPending ? [] : sidebarPrimaryNavigation(entitlements.data?.features, hasModuleAccess, hasPermission, isSuperAdmin());
   const mobileGroups = groups;
   const allItems = mobileGroups.flatMap(group => group.items);
   const primaryHrefs = ["/dashboard", "/sales", "/inventory", "/procurement"];

@@ -118,7 +118,9 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
         Index("ix_tenants_business_type", "business_type"),
     )
 
-    users = relationship("User", back_populates="tenant", lazy="selectin", passive_deletes=True)
-    roles = relationship("Role", back_populates="tenant", lazy="selectin", passive_deletes=True)
-    branches = relationship("Branch", back_populates="tenant", lazy="selectin", passive_deletes=True)
-    departments = relationship("Department", back_populates="tenant", lazy="selectin", passive_deletes=True)
+    # Never loaded with the tenant: the tenant row is read on every authenticated request (user.tenant), and loading these
+    # pulled in every user, role (with all its permissions), branch and department of the business each time.
+    users = relationship("User", back_populates="tenant", lazy="select", passive_deletes=True)
+    roles = relationship("Role", back_populates="tenant", lazy="select", passive_deletes=True)
+    branches = relationship("Branch", back_populates="tenant", lazy="select", passive_deletes=True)
+    departments = relationship("Department", back_populates="tenant", lazy="select", passive_deletes=True)

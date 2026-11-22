@@ -29,6 +29,12 @@ def plan(monkeypatch, *modules):
     return sub
 
 
+def next_request(db):
+    """Module states are remembered for one request (one session); a test reusing its session starts a new request here."""
+    from app.modules.tenants.service.feature import forget_modules
+    forget_modules(db)
+
+
 async def business(db, **kw):
     tenant = Tenant(name="Acme", slug=uuid.uuid4().hex, **kw)
     db.add(tenant)
@@ -99,9 +105,11 @@ async def test_downgrade_restricts_but_keeps_choices_and_upgrade_restores(db, mo
     plan(monkeypatch, "inventory", "hr")
     await service.set_module_activation(db, tenant.id, "hr", False)
     plan(monkeypatch, "inventory")  # downgrade drops HR
+    next_request(db)  # the stubbed plan bypasses the database, so start a new request as a real plan change would
     assert (await service.resolve_modules(db, tenant.id))["hr"] == "not_included"
     assert tenant.module_activation == {"hr": False}  # the business's own choice is remembered
     plan(monkeypatch, "inventory", "hr", "manufacturing")  # upgrade
+    next_request(db)
     states = await service.resolve_modules(db, tenant.id)
     assert states["hr"] == "available" and states["manufacturing"] == "enabled"
 

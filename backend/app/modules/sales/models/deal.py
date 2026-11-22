@@ -29,7 +29,7 @@ class Deal(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     customer = relationship("Customer", back_populates="deals", lazy="select")
     owner = relationship("User", foreign_keys=[owner_id], lazy="select")
-    orders = relationship("Order", back_populates="deal", lazy="selectin")
+    orders = relationship("Order", back_populates="deal", lazy="select")  # not part of DealRead; load explicitly if needed
 
     __table_args__ = (
         Index("ix_sales_deals_tenant_id", "tenant_id"),

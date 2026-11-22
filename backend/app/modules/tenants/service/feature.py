@@ -1,8 +1,9 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, object_session
 
 from app.core.config import settings
 from app.core.exceptions import NotFoundError
@@ -57,7 +58,49 @@ def dependents_of(key: str) -> list[str]:
     return sorted(k for k, needs in DEPENDENCIES.items() if key in needs)
 
 
+# Module states are worked out at most once per tenant per database session. A session lives for one request, so the
+# memo never outlives it and can never be seen by another request or tenant; a permission or plan change made by someone
+# else applies on the very next request. Anything that changes the inputs within the same session clears it (below).
+_MODULES_MEMO = "tenants.resolved_modules"
+_MODULE_INPUTS = ("Tenant", "FeatureFlag", "BillingSubscription", "BillingPrice")
+
+
+def forget_modules(session: Session | AsyncSession | None) -> None:
+    if session is not None:
+        session.info.pop(_MODULES_MEMO, None)
+
+
+@event.listens_for(Session, "after_flush")
+def _forget_on_flush(session: Session, _context) -> None:
+    if any(type(obj).__name__ in _MODULE_INPUTS for obj in (*session.new, *session.dirty, *session.deleted)):
+        forget_modules(session)
+
+
+@event.listens_for(Session, "after_rollback")
+def _forget_on_rollback(session: Session) -> None:
+    forget_modules(session)
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _forget_on_bulk_write(state) -> None:
+    if state.is_update or state.is_delete:  # e.g. update(Tenant)...: cheap to recompute, never worth being stale
+        forget_modules(state.session)
+
+
+@event.listens_for(Tenant.features, "set")
+@event.listens_for(Tenant.module_activation, "set")
+def _forget_on_tenant_change(target, value, oldvalue, initiator) -> None:
+    forget_modules(object_session(target))
+
+
 async def resolve_modules(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, str]:
+    memo = db.info.setdefault(_MODULES_MEMO, {})
+    if tenant_id not in memo:
+        memo[tenant_id] = await _resolve_modules(db, tenant_id)
+    return dict(memo[tenant_id])
+
+
+async def _resolve_modules(db: AsyncSession, tenant_id: uuid.UUID) -> dict[str, str]:
     """The one place a module's state for a business is decided, from three separate layers:
     the plan (entitlement), the platform's own override, and the business's own on/off choice.
     - not_included: the plan (or catalogue default, for a business with no plan) does not cover it.
@@ -229,8 +272,10 @@ async def reset_tenant_features(db: AsyncSession, tenant_id: uuid.UUID) -> list[
 
 
 async def get_tenant_limits(db: AsyncSession, tenant_id: uuid.UUID) -> TenantLimitsRead:
-    await _get_tenant(db, tenant_id)
-    return TenantLimitsRead(**{key: await get_effective_limit(db, tenant_id, key) for key in LIMIT_KEYS})
+    tenant = await _get_tenant(db, tenant_id)
+    from app.modules.billing.repository import BillingRepository
+    sub = await BillingRepository(db).subscription(tenant_id)  # read once for all four limits
+    return TenantLimitsRead(**{key: _effective_limit(tenant, sub, key) for key in LIMIT_KEYS})
 
 
 async def set_tenant_limits(
@@ -253,11 +298,14 @@ async def get_effective_limit(db: AsyncSession, tenant_id: uuid.UUID, key: str) 
     if key not in LIMIT_KEYS:
         return None
     tenant = await _get_tenant(db, tenant_id)
-    limits = tenant.limits or {}
-    value = limits.get(key)
-    override = value if isinstance(value, int) and value > 0 else None
     from app.modules.billing.repository import BillingRepository
-    sub = await BillingRepository(db).subscription(tenant_id)
+    return _effective_limit(tenant, await BillingRepository(db).subscription(tenant_id), key)
+
+
+def _effective_limit(tenant: Tenant, sub, key: str) -> int | None:
+    """The tighter of the business's own override and its plan's limit."""
+    value = (tenant.limits or {}).get(key)
+    override = value if isinstance(value, int) and value > 0 else None
     plan_limit = sub.terms.get(key) if sub is not None else None
     if override is not None and plan_limit is not None:
         return min(override, plan_limit)

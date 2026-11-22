@@ -23,6 +23,10 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 async def get_current_user(
     request: Request, db: DbSession, credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ) -> User:
+    # Each request starts with no module states remembered (they are memoised per request in the session). A new request
+    # normally has a new session anyway; this keeps that guarantee even if a session were ever reused across requests.
+    from app.modules.tenants.service.feature import forget_modules
+    forget_modules(db)
     payload = decode_token(credentials.credentials)
     if payload is None or payload.get("type") != "access":
         log.warning("auth.invalid_token")

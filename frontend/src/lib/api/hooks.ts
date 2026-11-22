@@ -21,6 +21,7 @@ import {
   useMutation,
   useQueryClient,
   keepPreviousData,
+  type QueryClient,
   type UseMutationOptions,
 } from "@tanstack/react-query";
 import {
@@ -547,6 +548,11 @@ const CURRENT_TENANT = ["tenants", "me", "current"] as const;
 
 export const useMyEntitlements = (opts?: QueryOpts) =>
   useQ([...ENTITLEMENTS], () => tenantsApi.entitlements(), (r) => r.data, { refetchInterval: 15_000, refetchOnWindowFocus: true, ...opts });
+
+/** Starts the entitlements request without subscribing to it, so it runs alongside the profile at sign-in instead of after
+ *  it. `useMyEntitlements` shares the same cache entry: it picks up the request in flight rather than sending another. */
+export const prefetchMyEntitlements = (client: QueryClient) =>
+  client.prefetchQuery({ queryKey: [...ENTITLEMENTS], queryFn: () => tenantsApi.entitlements() });
 
 const MODULES = ["tenants", "me", "modules"] as const;
 

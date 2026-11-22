@@ -35,7 +35,7 @@ class ProductSerial(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     product = relationship("Product", lazy="joined")
     variant = relationship("ProductVariant", lazy="joined")
-    warranty_claims = relationship("WarrantyClaim", back_populates="serial", lazy="selectin")
+    warranty_claims = relationship("WarrantyClaim", back_populates="serial", lazy="select")  # not part of SerialRead
 
     __table_args__ = (
         Index("ix_inventory_serials_tenant_product", "tenant_id", "product_id"),

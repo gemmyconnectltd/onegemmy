@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useMyProfile } from "./api/hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { prefetchMyEntitlements, useMyProfile } from "./api/hooks";
 import { currentSessionUser } from "./sessionAccess";
 import {
   authApi,
@@ -97,7 +98,12 @@ export interface AuthContextType {
   login: (email: string, password: string, tenantSlug?: string, rememberMe?: boolean) => Promise<{ ok: boolean; pendingActivation?: boolean; error?: string }>;
   register: (data: RegisterInput) => Promise<{ ok: boolean; pending?: boolean; error?: string }>;
   logout: () => void;
+  /** True until the session is restored AND the person's current access has been read. Gate content on this. */
   isLoading: boolean;
+  /** True only while the session itself is being restored (token or refresh). The app shell can render once this is false. */
+  sessionLoading: boolean;
+  /** True while the person's current role, permissions and branches are being read; `user` still holds the token's snapshot. */
+  accessPending: boolean;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasModuleAccess: (module: string) => boolean;
@@ -162,6 +168,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 0, refetchInterval: 15_000, refetchOnWindowFocus: true, retry: 1});
   const currentUser = useMemo(() => currentSessionUser(user, profile.data), [user, profile.data]);
   const checkingAccess = !!user?.tenantId && profile.isPending && !profile.isError;
+  // Entitlements depend only on the session, not on the profile: start them together so the content area waits for one
+  // round trip, not two in a row. The shell's useMyEntitlements reuses this request.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (user?.tenantId) void prefetchMyEntitlements(queryClient);
+  }, [user?.tenantId, queryClient]);
 
   // Register session expired handler so API client can trigger it
   useEffect(() => {
@@ -344,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     user: currentUser, login, register, logout, isLoading: isLoading || checkingAccess,
+    sessionLoading: isLoading, accessPending: checkingAccess,
     hasPermission, hasAnyPermission, hasModuleAccess,
     isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId,
   }), [currentUser, checkingAccess, login, register, logout, isLoading, hasPermission, hasAnyPermission, hasModuleAccess, isSuperAdmin, isAdmin, activeBranchId, setActiveBranchId]);
