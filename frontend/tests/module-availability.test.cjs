@@ -13,6 +13,7 @@ const load = (file, requires) => {
 };
 const nav = load('navigation.ts', name => { if (name !== 'lucide-react') throw Error(name); return new Proxy({}, { get: (_, key) => key }); });
 const mod = load('moduleAvailability.ts', name => { if (name === './navigation') return nav; throw Error(name); });
+const parts = load('featureParts.ts', name => { throw Error(name); });
 // Values built inside the vm sandbox have a different prototype; compare plain copies.
 const plain = value => JSON.parse(JSON.stringify(value));
 const link = (key, status) => ({ key, name: key[0].toUpperCase() + key.slice(1), status });
@@ -29,6 +30,8 @@ test('a page is tied to the module that controls it, including POS and the custo
   assert.equal(mod.featureForPath('/debts/receivables').key, 'accounting');
   assert.equal(mod.featureForPath('/manufacturing/bom').key, 'manufacturing');
   assert.equal(mod.featureForPath('/reports/daily').key, 'reports');
+  assert.equal(mod.featureForPath('/reports/branches/51fcb5bf-bbf1-4622-bb35-5759ae4c760f').key, 'reports');
+  assert.deepEqual(plain(parts.partForPath('/reports/branches/51fcb5bf-bbf1-4622-bb35-5759ae4c760f')), { key: 'reports.daily', name: 'Daily report', module: 'reports' });
 });
 
 test('pages every business has are never blocked by a module', () => {
@@ -68,5 +71,6 @@ test('a page is open only to people whose role gives them its module or permissi
   for (const page of ['/settings', '/settings/financial', '/settings/security', '/settings/notifications', '/settings/appearance']) assert.deepEqual(plain(mod.accessForPath(page)), { name: 'Business Settings', permission: 'tenants:update' }, page);
   assert.deepEqual(plain(mod.accessForPath('/dashboard')), { name: 'Overview', ownerOnly: true });  // the Overview is the owner's
   assert.deepEqual(plain(mod.accessForPath('/reports/daily')), { name: 'Business Reports', module: 'reports', permission: 'reports:read' });
+  assert.deepEqual(plain(mod.accessForPath('/reports/branches/51fcb5bf-bbf1-4622-bb35-5759ae4c760f')), { name: 'Business Reports', module: 'reports', permission: 'reports:read' });
   assert.equal(mod.accessForPath('/somewhere/else'), null);
 });

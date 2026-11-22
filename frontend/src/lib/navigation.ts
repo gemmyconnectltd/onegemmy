@@ -104,7 +104,7 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "stockCounts", label: "Stock counts", href: "/inventory/counts", icon: ClipboardCheck },
   ],
   reports: [
-    { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true, requires: "reports:read" },
+    { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true, activeFor: ["/reports/branches"], requires: "reports:read" },
     { nameKey: "daily",      label: "Daily report",           href: "/reports/daily",      icon: CalendarDays, requires: "reports:read" },
     { nameKey: "salespeople", label: "Team performance",      href: "/reports/salespeople", icon: Award, requires: "reports:read" },
     { nameKey: "sales",      label: "Sales",                  href: "/reports/sales",      icon: TrendingUp, requires: "reports:read",

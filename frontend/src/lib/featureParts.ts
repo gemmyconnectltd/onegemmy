@@ -26,6 +26,7 @@ const PAGE_PARTS: [string, string, string][] = [
   ["/crm/campaigns", "crm.campaigns", "Campaigns"],
   ["/crm/emails", "crm.campaigns", "Campaigns"],
   // Business reports: each tab is its own part. Longest paths first; the bare /reports tab is Overview.
+  ["/reports/branches", "reports.daily", "Daily report"],
   ["/reports/daily", "reports.daily", "Daily report"],
   ["/reports/salespeople", "reports.team", "Team performance"],
   ["/reports/sales-report", "reports.sales", "Sales"],

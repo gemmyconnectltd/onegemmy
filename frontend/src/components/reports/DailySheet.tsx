@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { TableWrap } from "@/components/ui/Table";
 import { dailyLabels, dailyMetrics, type DailyReport } from "@/lib/api/dailyReports";
 import { formatMoney } from "@/lib/money";
@@ -27,7 +28,11 @@ export function DailySheet({ data, showDate, stockNote }: { data: DailyReport; s
           {data.items.map((row) => (
             <tr key={`${row.day}-${row.branch_id}`} className={empty(row) ? "text-muted" : undefined}>
               {showDate && <td>{row.day}</td>}
-              <td className="font-semibold text-foreground">{row.branch}</td>
+              <td className="font-semibold text-foreground">
+                {row.branch_id
+                  ? <Link href={`/reports/branches/${row.branch_id}?${new URLSearchParams({ from: data.from_date, to: data.to_date }).toString()}`} className="hover:text-accent hover:underline">{row.branch}</Link>
+                  : row.branch}
+              </td>
               {dailyMetrics.map((m) => (
                 <td key={m} className={`text-right tabular-nums ${m === "sales" ? "font-semibold" : ""} ${m === "customer_credit" && Number(row[m]) > 0 ? "text-amber-700 dark:text-amber-400" : ""}`}>{money(row[m])}</td>
               ))}

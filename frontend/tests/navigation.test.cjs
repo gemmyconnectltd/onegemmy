@@ -118,6 +118,7 @@ test('Purchases and Inventory have operational overviews; other modules keep rep
   assert.ok(nav.MODULE_NAV.inventory.some(link => link.href === '/inventory' && link.exact));
   for (const route of ['/procurement/orders', '/procurement/receipts', '/procurement/bills', '/procurement/returns']) assert.ok(nav.MODULE_NAV.procurement.some(link => link.href === route));
   assert.deepEqual(plain(nav.MODULE_NAV.reports.map(link => link.href)), ['/reports','/reports/daily','/reports/salespeople','/reports/sales','/reports/finance','/reports/stock','/reports/purchases','/reports/customers']);
+  assert.equal(nav.isModuleLinkActive('/reports/branches/51fcb5bf-bbf1-4622-bb35-5759ae4c760f', nav.MODULE_NAV.reports[0]), true);
   assert.ok(nav.MODULE_NAV.sales.some(link => link.href === '/sales/deals'));
 });
 
