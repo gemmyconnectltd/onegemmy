@@ -12,7 +12,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permission_policy import effective_permissions
+from app.core.permission_policy import DEFAULT_VIEW_PERMISSIONS, effective_permissions
 from app.modules.tenants.models import Branch, FeatureFlag, Permission, Role, User
 from app.modules.tenants.service.feature import ENABLED, NOT_INCLUDED, resolve_modules
 
@@ -93,8 +93,9 @@ def module_access(granted: set[str], everything: bool, states: dict[str, str], n
     from app.core.access import MODULE_LABELS, MODULE_PARENTS
 
     out = []
+    baseline_reads = set(DEFAULT_VIEW_PERMISSIONS)
     for module, resources in _module_resources().items():
-        view = everything or any(f"{r}:read" in granted for r in resources)
+        view = everything or any(f"{r}:read" in granted | baseline_reads for r in resources)
         write = everything or any(f"{r}:{a}" in granted for r in resources for a in WRITE_ACTIONS)
         parent = MODULE_PARENTS.get(module)
         status = states.get(module, states.get(parent, NOT_INCLUDED))
@@ -219,7 +220,7 @@ async def module_detail(db: AsyncSession, tenant_id: uuid.UUID, key: str) -> dic
         holders[role_id] = holders.get(role_id, 0) + 1
     rows = []
     for r in roles:
-        granted = {p.name for p in r.permissions}
+        granted = {p.name for p in r.permissions} | set(DEFAULT_VIEW_PERMISSIONS)
         view = any(f"{res}:read" in granted for res in resources)
         change = any(f"{res}:{a}" in granted for res in resources for a in WRITE_ACTIONS)
         if view or change:

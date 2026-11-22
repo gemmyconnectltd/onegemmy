@@ -44,10 +44,13 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
             raise ValidationError("Choose a branch belonging to this business")
         allowed = [branch_id]
     repo = DailyRepository(db)
+    branch_repo = BranchRepository(db)
+    main = await branch_repo.get_main_for_tenant(tenant_id)
+    main_branch_id = main.id if main else None
     window = (datetime.combine(start, time.min, timezone), datetime.combine(end + timedelta(days=1), time.min, timezone))
     rows = await repo.activity(tenant_id, allowed, *window, tenant.timezone, start, end + timedelta(days=1), (page - 1) * page_size, page_size, by_branch)
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
-    stock = await repo.stock_values(tenant_id, allowed, *window, tenant.timezone, days)
+    stock, stock_source = await repo.stock_values(tenant_id, allowed, *window, tenant.timezone, days, main_branch_id)
     if (start == end or by_branch) and page == 1:
         # One line per branch: list every branch in scope, like the owner's sheet, even a branch that sold nothing.
         from sqlalchemy import select
@@ -64,19 +67,34 @@ async def daily_report(db: AsyncSession, user: User, start: date | None, end: da
                              **{f"total_{m}": totals_row[f"total_{m}"] for m in METRICS}, "row_count": len(rows) + 1})
         for row in rows:
             row["row_count"] = len(rows)
+    if stock_source == "current_stock" and page == 1 and any(stock.get((day, main_branch_id), Decimal(0)) for day in days):
+        totals_row = rows[0] if rows else {f"total_{m}": Decimal(0) for m in METRICS}
+        seen_keys = {(row["day"], row["branch_id"]) for row in rows}
+        for day in days:
+            key = (day, main_branch_id)
+            if key in seen_keys:
+                continue
+            rows.append({"day": day, "branch_id": main_branch_id, **{m: Decimal(0) for m in METRICS},
+                         **{f"total_{m}": totals_row[f"total_{m}"] for m in METRICS}, "row_count": len(rows) + 1})
+            seen_keys.add(key)
+        for row in rows:
+            row["row_count"] = len(rows)
     for row in rows:
         row["stock_value"] = stock.get((row["day"], row["branch_id"]), Decimal(0))
     # Names are bounded by the tenant's branch directory, rather than a lookup per row.
     ids = {row["branch_id"] for row in rows if row["branch_id"]}
-    names = await BranchRepository(db).names_for_ids(tenant_id, ids)
+    names = await branch_repo.names_for_ids(tenant_id, ids)
     for row in rows:
         row["branch"] = names.get(row["branch_id"], "Unassigned (legacy records)")
     totals = {metric: rows[0][f"total_{metric}"] if rows else Decimal(0) for metric in METRICS}
     # Stock value is a balance, not a flow: the total is the closing value on the last day, across the branches in scope.
     totals["stock_value"] = sum((v for (day, _), v in stock.items() if day == end), Decimal(0))
     outstanding = await repo.outstanding_debt(tenant_id, allowed)
+    definitions = dict(DEFINITIONS)
+    if stock_source == "current_stock":
+        definitions["stock_value"] += " The warehouse ledger has no movements, so current business-wide stock at cost is shown on the main branch."
     return {"outstanding_debt_now": outstanding, "from_date": start, "to_date": end, "currency": tenant.currency,
-            "timezone": tenant.timezone, "definitions": DEFINITIONS, "totals": totals,
+            "timezone": tenant.timezone, "definitions": definitions, "totals": totals,
             "metrics": ["stock_value", *METRICS],
             "items": rows, "total": rows[0]["row_count"] if rows else 0, "by_branch": by_branch,
             "page": page, "page_size": page_size}

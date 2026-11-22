@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access import MODULE_RESOURCES
 from app.core.exceptions import NotFoundError, ValidationError
+from app.core.permission_policy import BASELINE_PERMISSIONS
 from app.modules.billing.repository import BillingRepository
 from app.modules.tenants.models import User
 from app.modules.tenants.repository import UserRepository
@@ -76,7 +77,6 @@ async def invite_employee(db: AsyncSession, tenant_id: uuid.UUID, data, actor: U
 
 
 async def employee_permissions(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> dict:
-    from app.core.permission_policy import CHECKOUT_CREATION, OPERATIONAL_VIEW_EDIT
     from app.modules.admin.repository import role_holder_count
     from app.modules.tenants.repository import RoleRepository
     from app.modules.tenants.service.access import matrix, permission_catalog, role_access
@@ -96,7 +96,7 @@ async def employee_permissions(db: AsyncSession, tenant_id: uuid.UUID, user_id: 
         "role_users": await role_holder_count(db, tenant_id, role.id) if role else 0,
         "is_owner": user.is_superuser, "groups": groups,
         "permission_ids": [str(p.id) for p in role.permissions] if role else [],
-        "baseline": sorted(OPERATIONAL_VIEW_EDIT | CHECKOUT_CREATION),
+        "baseline": sorted(BASELINE_PERMISSIONS),
     }
 
 
@@ -154,7 +154,6 @@ async def save_employee_permissions(
 
 
 async def team_role_permissions(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID) -> dict:
-    from app.core.permission_policy import CHECKOUT_CREATION, OPERATIONAL_VIEW_EDIT
     from app.modules.tenants.repository import RoleRepository
     from app.modules.tenants.service.access import role_access
 
@@ -164,7 +163,7 @@ async def team_role_permissions(db: AsyncSession, tenant_id: uuid.UUID, role_id:
     result = await role_access(db, tenant_id, role)
     return {"role_id": str(role.id), "role_name": role.name, "role_users": result["role"]["users"],
             "is_owner": False, "permission_ids": [str(p.id) for p in role.permissions],
-            "groups": result["groups"], "baseline": sorted(OPERATIONAL_VIEW_EDIT | CHECKOUT_CREATION)}
+            "groups": result["groups"], "baseline": sorted(BASELINE_PERMISSIONS)}
 
 
 async def save_team_role_permissions(db: AsyncSession, tenant_id: uuid.UUID, role_id: uuid.UUID,

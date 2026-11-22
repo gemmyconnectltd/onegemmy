@@ -217,7 +217,71 @@ async def test_owner_daily_sheet_stock_value_deposit_and_bank_momo(db):
 
 
 @pytest.mark.db
-async def test_reports_permission_is_explicit_and_per_user_switchable(db, monkeypatch):
+async def test_daily_report_falls_back_to_current_stock_without_a_warehouse_ledger(db):
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
+
+    from app.modules.inventory.models.product import Product
+    from app.modules.sales.models.order import Order
+
+    tenant = Tenant(name="No warehouses", slug=uuid.uuid4().hex, currency="RWF", timezone="Africa/Kigali")
+    db.add(tenant)
+    await db.flush()
+    main, other = (Branch(tenant_id=tenant.id, name="Main", is_main=True), Branch(tenant_id=tenant.id, name="Other"))
+    owner = User(tenant_id=tenant.id, email=f"{uuid.uuid4()}@example.test", hashed_password="x", full_name="Owner", is_superuser=True)
+    product = Product(tenant_id=tenant.id, name="Cement", cost=D(4), price=D(10), stock=D(5))
+    db.add_all([main, other, owner, product])
+    await db.flush()
+    now = datetime.now(UTC)
+    db.add(Order(tenant_id=tenant.id, order_number="ORD-FALLBACK", branch_id=main.id, status="Completed", total=D(100), ordered_at=now))
+    await db.flush()
+    today = now.astimezone(ZoneInfo("Africa/Kigali")).date()
+
+    report = await daily_report(db, owner, today, today, None)
+    rows = {r["branch"]: r for r in report["items"]}
+    assert rows["Main"]["stock_value"] == D(20)
+    assert rows["Other"]["stock_value"] == 0
+    assert report["totals"]["stock_value"] == D(20)
+    assert "warehouse ledger has no movements" in report["definitions"]["stock_value"]
+
+    by_branch = await daily_report(db, owner, today - timedelta(days=2), today, None, by_branch=True)
+    assert {r["branch"]: r["stock_value"] for r in by_branch["items"]} == {"Main": D(20), "Other": D(0)}
+    assert by_branch["totals"]["stock_value"] == D(20)
+    scoped = await daily_report(db, owner, today, today, other.id)
+    assert scoped["totals"]["stock_value"] == 0
+
+
+@pytest.mark.db
+async def test_daily_report_attributes_unassigned_warehouse_stock_to_main_branch(db):
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
+
+    from app.modules.inventory.models.product import Product
+    from app.modules.inventory.models.warehouse import StockMovement, Warehouse
+
+    tenant = Tenant(name="Unassigned warehouse", slug=uuid.uuid4().hex, currency="RWF", timezone="Africa/Kigali")
+    db.add(tenant)
+    await db.flush()
+    main = Branch(tenant_id=tenant.id, name="Main", is_main=True)
+    owner = User(tenant_id=tenant.id, email=f"{uuid.uuid4()}@example.test", hashed_password="x", full_name="Owner", is_superuser=True)
+    warehouse = Warehouse(tenant_id=tenant.id, code="MAIN", name="Main warehouse", branch_id=None, is_default=True)
+    product = Product(tenant_id=tenant.id, name="Cement", cost=D(3), price=D(10), stock=D(99))
+    db.add_all([main, owner, warehouse, product])
+    await db.flush()
+    now = datetime.now(UTC)
+    db.add(StockMovement(tenant_id=tenant.id, warehouse_id=warehouse.id, product_id=product.id,
+                         quantity=D(2), movement_type="opening", created_at=now - timedelta(days=3)))
+    await db.flush()
+    today = now.astimezone(ZoneInfo("Africa/Kigali")).date()
+
+    report = await daily_report(db, owner, today, today, None)
+    assert report["items"][0]["stock_value"] == D(6)
+    assert report["totals"]["stock_value"] == D(6)
+    assert "No warehouse ledger exists" not in report["definitions"]["stock_value"]
+
+
+@pytest.mark.db
+async def test_reports_view_is_default_and_per_user_switchable(db, monkeypatch):
     from httpx import ASGITransport, AsyncClient
     from sqlalchemy import select
 
@@ -267,7 +331,7 @@ async def test_reports_permission_is_explicit_and_per_user_switchable(db, monkey
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 200
             current = clerk
-            assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 403
+            assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 200
             current = manager
             manager.disabled_modules = ["reports"]
             assert (await client.get("/api/v1/tenants/reports/performance")).status_code == 403

@@ -15,16 +15,21 @@ OPERATIONAL_VIEW_EDIT = frozenset(
     f"{resource}:{action}" for resource in OPERATIONAL_RESOURCES for action in ("read", "update")
 )
 
+# Every ERP feature that is turned on gives its screens' view permission by default. Writes stay role-based.
+MODULE_VIEW_RESOURCES = frozenset({*OPERATIONAL_RESOURCES, "discounts", "reports"})
+DEFAULT_VIEW_PERMISSIONS = frozenset(f"{resource}:read" for resource in MODULE_VIEW_RESOURCES)
+
 # Everyone who can use the till gets every selling feature by default: a sale, adding or editing the buyer, partial payment and
 # credit, discounts at checkout and returns. Approving (credit over the limit, approving or voiding sales) stays a separate grant.
 CHECKOUT_CREATION = frozenset({
     "pos:create", "orders:create", "contacts:create", "contacts:update", "credit:create", "discounts:apply", "returns:create",
 })
+BASELINE_PERMISSIONS = frozenset(OPERATIONAL_VIEW_EDIT | CHECKOUT_CREATION | DEFAULT_VIEW_PERMISSIONS)
 
 
 def effective_permissions(assigned: Iterable[str], *, business_user: bool) -> list[str]:
     """Never broaden platform, inactive or anonymous accounts through the business policy."""
-    return sorted(set(assigned) | ((OPERATIONAL_VIEW_EDIT | CHECKOUT_CREATION) if business_user else frozenset()))
+    return sorted(set(assigned) | (BASELINE_PERMISSIONS if business_user else frozenset()))
 
 
 def permissions_for_method(

@@ -10,9 +10,11 @@ def test_existing_active_business_users_can_view_and_edit_operational_modules():
     user = User(tenant_id=uuid.uuid4(), is_active=True, role="viewer", role_rel=None)
     grants = user.permissions_names
     for permission in ["items:read", "items:update", "orders:read", "orders:update",
-                       "purchase_orders:read", "purchase_orders:update", "employees:read"]:
+                       "purchase_orders:read", "purchase_orders:update", "employees:read",
+                       "discounts:read", "reports:read"]:
         assert permission in grants
     assert decide_read("inventory", "/inventory/products", grants)[0]
+    assert decide_read("reports", "/reports/performance", grants)[0]
     assert decide("inventory", "PATCH", "/inventory/products/any", grants)[0]
 
 
@@ -42,6 +44,14 @@ def test_policy_covers_the_catalogs_operational_resources():
     from app.modules.tenants.service.role import _EXPLICIT_RESOURCES, _PERMISSION_RESOURCES
     administration = {"tenants", "users", "roles", "permissions", "branches", "billing", "approvals", "credit", "discounts"}
     assert set(_PERMISSION_RESOURCES) - administration - _EXPLICIT_RESOURCES == OPERATIONAL_RESOURCES
+
+
+def test_default_view_covers_every_module_resource():
+    from app.core.access import MODULE_RESOURCES
+    from app.core.permission_policy import MODULE_VIEW_RESOURCES
+
+    module_resources = set().union(*MODULE_RESOURCES.values())
+    assert module_resources <= MODULE_VIEW_RESOURCES
 
 
 

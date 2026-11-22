@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import Date, cast, func, literal, or_, select, union_all
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounting.models.account import Account
@@ -11,6 +12,7 @@ from app.modules.accounting.models.expense import Expense
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
 from app.modules.inventory.models.product import Product
+from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.models.warehouse import StockMovement, Warehouse
 from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_payment import OrderPayment
@@ -87,19 +89,30 @@ class DailyRepository:
         return [dict(row) for row in (await self.db.execute(stmt)).mappings()]
 
     async def stock_values(self, tenant_id: uuid.UUID, branches: list[uuid.UUID] | None, start: datetime, end: datetime,
-                           timezone: str, days: list[date]) -> dict[tuple[date, uuid.UUID | None], Decimal]:
-        """Closing stock value per branch at the end of each day: the stock ledger up to that moment x today's cost price.
-        Movements are append-only, so replaying them gives the quantity at any point in time."""
+                           timezone: str, days: list[date], main_branch_id: uuid.UUID | None
+                           ) -> tuple[dict[tuple[date, uuid.UUID | None], Decimal], str]:
+        """Closing stock value per branch, from the append-only ledger; current stock at cost when no ledger exists.
+
+        Warehouse stock with no branch is attributed to the main branch: that is where `ensure_default_warehouse` puts it.
+        A business without warehouses has no historical ledger, so the best available figure is today's book stock at cost.
+        """
         value = StockMovement.quantity * func.coalesce(Product.cost, 0)
-        base = (select(Warehouse.branch_id, func.coalesce(func.sum(value), 0)).select_from(StockMovement)
+        branch_key = (func.coalesce(Warehouse.branch_id, literal(main_branch_id, type_=PGUUID(as_uuid=True)))
+                      if main_branch_id else Warehouse.branch_id)
+        base = (select(branch_key.label("branch_id"), func.coalesce(func.sum(value), 0)).select_from(StockMovement)
                 .join(Warehouse, Warehouse.id == StockMovement.warehouse_id).join(Product, Product.id == StockMovement.product_id)
                 .where(StockMovement.tenant_id == tenant_id))
         if branches is not None:
-            base = base.where(Warehouse.branch_id.in_(branches))
-        opening = {r[0]: Decimal(r[1]) for r in (await self.db.execute(base.where(StockMovement.created_at < start).group_by(Warehouse.branch_id))).all()}
+            base = base.where(branch_key.in_(branches))
+        opening = {r[0]: Decimal(r[1]) for r in (await self.db.execute(base.where(StockMovement.created_at < start).group_by(branch_key))).all()}
         local_day = cast(func.timezone(timezone, StockMovement.created_at), Date)
         changes = (await self.db.execute(base.add_columns(local_day).where(StockMovement.created_at >= start, StockMovement.created_at < end)
-                                         .group_by(Warehouse.branch_id, local_day))).all()
+                                         .group_by(branch_key, local_day))).all()
+        if not opening and not changes:
+            current = await self._current_stock_value(tenant_id)
+            if current and (branches is None or main_branch_id in branches):
+                return {(day, main_branch_id): current for day in days}, "current_stock"
+            return {}, "current_stock"
         by_day: dict[date, dict] = {}
         for branch_id, amount, day in changes:
             by_day.setdefault(day, {})[branch_id] = Decimal(amount)
@@ -109,4 +122,14 @@ class DailyRepository:
                 running[branch_id] = running.get(branch_id, Decimal(0)) + amount
             for branch_id, amount in running.items():
                 out[(day, branch_id)] = amount
-        return out
+        return out, "ledger"
+
+    async def _current_stock_value(self, tenant_id: uuid.UUID) -> Decimal:
+        """Current book value at cost, using the same product/variant rule as Inventory Valuation."""
+        plain = func.coalesce(func.sum(Product.stock * func.coalesce(Product.cost, 0)), 0)
+        plain_value = (await self.db.execute(select(plain).where(
+            Product.tenant_id == tenant_id, or_(Product.has_variants.is_(False), Product.has_variants.is_(None))))).scalar_one()
+        variants = func.coalesce(func.sum(ProductVariant.stock * func.coalesce(ProductVariant.cost, Product.cost, 0)), 0)
+        variant_value = (await self.db.execute(select(variants).join(Product, Product.id == ProductVariant.product_id).where(
+            Product.tenant_id == tenant_id, Product.has_variants.is_(True), ProductVariant.is_active.is_(True)))).scalar_one()
+        return Decimal(plain_value) + Decimal(variant_value)
