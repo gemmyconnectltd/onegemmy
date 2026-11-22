@@ -9,6 +9,7 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState } from "@/components/hr/State";
 import { SettingsCard } from "@/components/settings/parts";
+import { TableState } from "@/components/ui/TableState";
 
 const OWNER_ROLES = new Set(["owner", "owner/ceo"]);
 
@@ -124,7 +125,7 @@ export default function DataManagementSettingsPage() {
         </SettingsCard>
 
         <SettingsCard title="Your requests" description="Track reviews submitted by your business." icon={Clock3}>
-          {requests.isLoading && <PageLoader variant="compact" />}
+          {requests.isLoading && <TableState loading />}
           {requests.error && <ErrorState message={errorText(requests.error)} onRetry={() => void requests.refetch()} />}
           {requests.data?.items.length === 0 && <EmptyState message="No data review requests yet." />}
           <ul className="divide-y divide-border">

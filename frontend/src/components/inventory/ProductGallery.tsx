@@ -5,6 +5,7 @@ import { resolveUploadUrl } from "@/lib/api/client";
 import { useAddGalleryImage, useMakeMainImage, useProductGallery, useRemoveGalleryImage } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LoadError, Skeleton } from "@/components/ui/LoadState";
 
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
 const fail = (cause: unknown) => (cause as { detail?: string; message?: string })?.detail ?? (cause as { message?: string })?.message ?? "That didn't work. Please try again.";
@@ -39,7 +40,9 @@ export function ProductGallery({ productId, canEdit }: { productId: string; canE
           <Button variant="outline" size="sm" disabled={busy || gallery.length >= 8} onClick={() => input.current?.click()}><ImagePlus size={14} aria-hidden /> {add.isPending ? "Adding…" : "Add a picture"}</Button></>}
       </div>
       {problem && <p role="alert" className="mb-2 text-xs text-red-600">{problem}</p>}
-      <ul className="flex flex-wrap gap-3">
+      {q.isLoading && <Skeleton className="h-24 w-full" label="Loading pictures" />}
+      {q.isError && !q.data && <LoadError compact title="Could not load the pictures" error={q.error} onRetry={() => void q.refetch()} />}
+      {q.data && <ul className="flex flex-wrap gap-3">
         {q.data?.main && <li className="relative h-24 w-24 overflow-hidden rounded-lg border-2 border-accent" title="Main picture">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={resolveUploadUrl(q.data.main) ?? ""} alt="Main picture" className="h-full w-full object-cover" />
@@ -50,11 +53,11 @@ export function ProductGallery({ productId, canEdit }: { productId: string; canE
             <img src={resolveUploadUrl(g.url) ?? ""} alt={`Picture ${i + 1}`} className="h-full w-full object-cover" />
             {canEdit && <div className="absolute inset-x-0 bottom-0 flex justify-between gap-1 bg-black/60 p-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
               <button type="button" disabled={busy} aria-label={`Make picture ${i + 1} the main picture`} title="Make main" className="rounded p-1 text-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white" onClick={() => main.mutate({ id: productId, imageId: g.id }, { onError })}><Star size={14} /></button>
-              <button type="button" disabled={busy} aria-label={`Remove picture ${i + 1}`} title="Remove" className="rounded p-1 text-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white" onClick={() => confirm({ title: "Remove this picture?", message: "It is deleted from the product.", confirmLabel: "Remove", danger: true, onConfirm: () => remove.mutate({ id: productId, imageId: g.id }, { onError }) })}><Trash2 size={14} /></button>
+              <button type="button" disabled={busy} aria-label={`Remove picture ${i + 1}`} title="Remove" className="rounded p-1 text-white hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white" onClick={() => confirm({ title: "Remove this picture?", message: "It is deleted from the product.", confirmLabel: "Remove", danger: true, onConfirm: () => remove.mutateAsync({ id: productId, imageId: g.id }, { onError }) })}><Trash2 size={14} /></button>
             </div>}
           </li>))}
-      </ul>
-      {!q.data?.main && gallery.length === 0 && <p className="text-sm text-muted">No pictures yet.</p>}
+      </ul>}
+      {q.data && !q.data.main && gallery.length === 0 && <p className="text-sm text-muted">No pictures yet.</p>}
     </section>
   );
 }

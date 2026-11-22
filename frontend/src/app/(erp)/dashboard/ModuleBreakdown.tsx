@@ -55,6 +55,8 @@ export function ModuleBreakdown({
         colors={colors}
         tooltipStyle={c.tooltip}
         loading={expensesQ.isLoading}
+        error={expensesQ.isError && !expensesQ.data ? expensesQ.error : undefined}
+        onRetry={() => void expensesQ.refetch()}
         empty="No expenses recorded this period"
       />
       <BreakdownCard
@@ -74,6 +76,8 @@ export function ModuleBreakdown({
         colors={colors}
         tooltipStyle={c.tooltip}
         loading={dealsQ.isLoading}
+        error={dealsQ.isError && !dealsQ.data ? dealsQ.error : undefined}
+        onRetry={() => void dealsQ.refetch()}
         empty="No deals in the pipeline yet"
       />
     </div>

@@ -4,13 +4,15 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Ruler, Plus, Edit2, Trash2, Check, X, Sparkles } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useUnits, useCreateUnit, useUpdateUnit, useDeleteUnit } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ImportUnitsModal from "./ImportUnitsModal";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 export function UnitsManager({ embedded = false }: { embedded?: boolean }) {
   const { brandColor } = useAppConfig();
@@ -23,7 +25,9 @@ export function UnitsManager({ embedded = false }: { embedded?: boolean }) {
   const [editAbbr, setEditAbbr] = useState("");
   const [showImport, setShowImport] = useState(false);
 
-  const { data, isLoading } = useUnits();
+  const unitsQ = useUnits();
+  const { data, isLoading } = unitsQ;
+  const listFailed = unitsQ.isError && !data;
   const createUnit = useCreateUnit();
   const updateUnit = useUpdateUnit();
   const deleteUnit = useDeleteUnit();
@@ -69,11 +73,10 @@ export function UnitsManager({ embedded = false }: { embedded?: boolean }) {
       message: "Delete this unit? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteUnit.mutate(id),
+      onConfirm: () => deleteUnit.mutateAsync(id),
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
@@ -109,7 +112,9 @@ export function UnitsManager({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
-      <div className="bg-card border border-border">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? unitsQ.error : undefined} onRetry={() => void unitsQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(unitsQ)} className="bg-card border border-border">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2">
           <Ruler size={14} className="text-muted" />
           <p className="text-xs font-semibold text-muted">All Units</p>
@@ -178,7 +183,7 @@ export function UnitsManager({ embedded = false }: { embedded?: boolean }) {
             </div>
           )}
         </div>
-      </div>
+      </Refreshing>)}
 
       <ImportUnitsModal open={showImport} onClose={() => setShowImport(false)} />
     </div>

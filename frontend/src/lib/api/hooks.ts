@@ -54,6 +54,7 @@ import {
   warehousesApi, type WarehouseInput, type MovementFilters,
   dataManagementRequestsApi,
 } from "@/lib/api";
+import { withRequestSignal } from "./client";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,9 @@ function useQ<TResponse, TSelected, TKey extends unknown[]>(
 ) {
   return useQuery({
     queryKey: key,
-    queryFn,
+    // React Query's signal reaches request() so a query nobody needs any more (an earlier search term, a closed
+    // screen) is cancelled instead of finishing in the background.
+    queryFn: ({ signal }) => withRequestSignal(signal, queryFn),
     select,
     // Keeps the previous page's data on screen (instead of flashing to a
     // loading state) while a new query key — e.g. the next page, a search

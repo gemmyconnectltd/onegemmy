@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { AlertCircle, FileText, Loader2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, FileText, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Form";
 import { currencyDecimals } from "@/lib/money";
@@ -54,7 +54,7 @@ export function FormActions({ onCancel, submitLabel = "Save", busyLabel = "Savin
     <div className={`flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4 ${sticky ? "sticky bottom-0 z-10 -mx-1 bg-card/95 px-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur" : ""}`}>
       {children}
       {onCancel && <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>}
-      <Button type="submit" disabled={busy || disabled} aria-busy={busy}>{busy && <Loader2 size={14} className="animate-spin" aria-hidden />}{busy ? busyLabel : submitLabel}</Button>
+      <Button type="submit" disabled={disabled} loading={busy} loadingLabel={busyLabel}>{submitLabel}</Button>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { X, Search, Sparkles, CheckCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useServiceTemplates, useImportServices } from "@/lib/api/hooks";
 import type { ApiServiceTemplate } from "@/lib/api";
+import { TableState } from "@/components/ui/TableState";
 
 interface Props {
   open: boolean;
@@ -17,7 +18,8 @@ export default function ImportServiceTemplatesModal({ open, onClose, color }: Pr
   // Keyed per template so browsing between templates doesn't lose earlier picks.
   const [selections, setSelections] = useState<Record<string, Set<string>>>({});
 
-  const { data, isLoading } = useServiceTemplates({ enabled: open });
+  const templatesQ = useServiceTemplates({ enabled: open });
+  const { data, isLoading } = templatesQ;
   const importServices = useImportServices();
 
   useEffect(() => {
@@ -123,8 +125,8 @@ export default function ImportServiceTemplatesModal({ open, onClose, color }: Pr
 
         <div className="flex flex-1 min-h-0">
           <div className="w-72 flex-shrink-0 border-r border-border overflow-y-auto">
-            {isLoading ? (
-              <p className="text-sm text-muted p-5">Loading templates…</p>
+            {isLoading || (templatesQ.isError && !data) ? (
+              <div className="p-3"><TableState loading={isLoading} error={templatesQ.isError ? templatesQ.error : undefined} onRetry={() => void templatesQ.refetch()} rows={4} /></div>
             ) : filtered.length === 0 ? (
               <p className="text-sm text-muted p-5">No templates match your search.</p>
             ) : (

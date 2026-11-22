@@ -5,6 +5,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { DEFAULT_BRAND_COLOR } from "@/lib/config";
 import { useCurrentTenant, useUpdateMyTenant, useUploadMyTenantLogo } from "@/lib/api/hooks";
 import { Check, Moon, Sun, Upload, Loader2, Building2, X } from "lucide-react";
+import { LoadError } from "@/components/ui/LoadState";
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -13,7 +14,8 @@ export default function AppearancePage() {
     theme, setTheme, brandColor, setBrandColor, logoUrl, setLogoUrl, brandColorPresets,
     locale, setLocale, locales,
   } = useAppConfig();
-  const { data: tenant } = useCurrentTenant();
+  const tenantQ = useCurrentTenant();
+  const { data: tenant } = tenantQ;
   const updateTenant = useUpdateMyTenant();
   const uploadLogo = useUploadMyTenantLogo();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +49,8 @@ export default function AppearancePage() {
 
   return (
     <div className="grid items-start gap-4 xl:grid-cols-2">
+      {/* Saving needs the business record; without it the changes below could not be stored, so say so. */}
+      {tenantQ.isError && !tenant && <LoadError className="xl:col-span-2" compact title="Could not load your business settings, so changes can't be saved yet" error={tenantQ.error} onRetry={() => void tenantQ.refetch()} />}
       {error && (
         <div className="xl:col-span-2 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border border-red-200 bg-red-50 text-red-700 text-[13px] rounded-lg">
           {error}

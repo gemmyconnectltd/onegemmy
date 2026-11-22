@@ -4,7 +4,6 @@ import { useState } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Select, Textarea } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { Pagination } from "@/components/ui/Pagination";
 import { KIND_LABEL, type ApprovalRequest, type ApprovalStatus } from "@/lib/api/approvals";
 import { useApprovalSummary, useApprovals, useCancelApproval, useDecideApproval, useMyBranches } from "@/lib/api/hooks";
@@ -12,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { fmtDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { PendingSales } from "@/components/sales/PendingSales";
+import { TableState } from "@/components/ui/TableState";
 
 const TABS: { key: ApprovalStatus | "all"; label: string }[] = [{ key: "pending", label: "Waiting" }, { key: "approved", label: "Approved" }, { key: "rejected", label: "Rejected" }, { key: "all", label: "All" }];
 const TONE: Record<ApprovalStatus, string> = { pending: "bg-amber-500/10 text-amber-700 dark:text-amber-400", approved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400", rejected: "bg-red-500/10 text-red-700 dark:text-red-400", cancelled: "bg-surface text-muted border border-border" };
@@ -63,7 +63,7 @@ export default function ApprovalsPage() {
         </Select>
       </div>
       {problem && <p role="alert" className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-[13px] font-medium text-red-700 dark:text-red-400"><AlertTriangle size={14} aria-hidden />{problem}</p>}
-      {q.isLoading ? <PageLoader variant="compact" /> : q.isError ? (
+      {q.isLoading ? <TableState loading /> : q.isError ? (
         <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">{(q.error as { detail?: string } | null)?.detail ?? "The requests could not be loaded."} <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>
       ) : (q.data?.items.length ?? 0) === 0 ? (
         <p className="rounded-xl border border-border bg-card py-14 text-center text-sm text-muted">{tab === "pending" ? "Nothing is waiting for a decision." : "No requests here."}</p>

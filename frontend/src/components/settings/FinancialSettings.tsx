@@ -11,6 +11,7 @@ import { PageLoader } from "@/components/ui/PageLoader";
 import { useAppConfig } from "@/lib/appConfig";
 import { currencySymbolFor } from "@/lib/money";
 import { SettingRow, SettingsCard } from "@/components/settings/parts";
+import { LoadError } from "@/components/ui/LoadState";
 
 /**
  * Financial settings: the business's base (accounting) currency. (Exchange rates are deliberately not
@@ -27,7 +28,8 @@ export function FinancialSettings({ color }: { color: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  if (settingsQ.isLoading || !settingsQ.data) return <PageLoader variant="compact" />;
+  if (settingsQ.isError && !settingsQ.data) return <LoadError title="Could not load your currency settings" error={settingsQ.error} onRetry={() => void settingsQ.refetch()} />;
+  if (settingsQ.isLoading || !settingsQ.data) return <PageLoader variant="compact" label="Loading currency settings" />;
   const { base_currency: base, can_change: canChange, locked_reason: lockedReason } = settingsQ.data;
   const current = currencies.find((c) => c.code === base);
   const pick = selected ?? base;

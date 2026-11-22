@@ -14,6 +14,7 @@ import type { UserAccess } from "@/lib/api/access";
 import { branchLabel } from "@/lib/accessView";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { LoadError } from "@/components/ui/LoadState";
 
 const TABS = [
   { id: "overview", label: "Overview" }, { id: "features", label: "Feature access" }, { id: "roles", label: "Role" },
@@ -31,7 +32,7 @@ export default function UserAccessPage({ params }: { params: Promise<{ id: strin
   const canManage = hasPermission("users:update");
 
   if (query.isLoading) return <PageLoader variant="compact" />;
-  if (query.isError || !query.data) return <div className="py-12 text-center"><p role="alert" className="text-sm text-red-600">This person couldn&apos;t be found or you don&apos;t have access.</p><Link href="/settings/users" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">Back to Team &amp; Access</Link></div>;
+  if (query.isError || !query.data) return <div className="space-y-3 py-6 text-center"><LoadError title="This person couldn't be loaded" error={query.error ?? "They may have been removed, or you don't have access."} onRetry={query.isError ? () => void query.refetch() : undefined} /><Link href="/settings/users" className="inline-block text-sm font-semibold text-accent hover:underline">Back to Team &amp; Access</Link></div>;
   const a = query.data;
   const go = (t: TabId) => router.replace(`/settings/users/access/${id}?tab=${t}`, { scroll: false });
 

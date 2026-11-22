@@ -22,6 +22,8 @@ import {
 } from "@/lib/api/hooks";
 import type { DiscountFlags, DiscountRule } from "@/lib/api/discounts";
 import { OfferStatusBadge, RuleActionsMenu, STATUS_OPTIONS, TYPE_LABELS, appliesTo, channelsOf, displayStatus, ruleValue, validity } from "./shared";
+import { TableState } from "@/components/ui/TableState";
+import { LoadError, Skeleton } from "@/components/ui/LoadState";
 
 type Tab = "Overview" | "Discount Rules" | "Promotions" | "Coupons" | "Approvals" | "Analytics" | "Settings";
 
@@ -50,7 +52,7 @@ export function DiscountsWorkspace() {
     catch (e) { setNotice({ tone: "error", text: (e as { detail?: string })?.detail ?? (e instanceof Error ? e.message : "Couldn't save the change.") }); }
   }
   if (config.isLoading) return <PageLoader variant="page" />;
-  if (config.error) return <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600">{config.error.message}</p>;
+  if (config.error) return <LoadError title="Could not load discounts" error={config.error} onRetry={() => void config.refetch()} />;
   const createOptions = [
     can("discounts:create") && { label: "Discount rule", hint: "Price reduction on products, customers or the sale", href: "/sales/discounts/new" },
     c?.campaigns && can("discounts:promotions") && { label: "Promotion", hint: "A campaign that groups rules for a period", action: () => setDrawer("promotion") },
@@ -106,7 +108,7 @@ function OverviewTab({ run }: { run: Run }) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <section className="min-w-0 space-y-3">
         <div className="flex items-center justify-between"><h2 className="pesaa-section-title">Offers</h2><Link href="/sales/discounts?tab=Discount%20Rules" className="text-sm font-semibold text-accent hover:underline">All discount rules</Link></div>
-        {rules.isLoading ? <PageLoader variant="compact" /> : offers.length === 0 ? <EmptyOffers /> : <RulesTable rules={offers} run={run} status={status} />}
+        {rules.isLoading || (rules.error && !rules.data) ? <TableState loading={rules.isLoading} error={rules.error ?? undefined} onRetry={() => void rules.refetch()} /> : offers.length === 0 ? <EmptyOffers /> : <RulesTable rules={offers} run={run} status={status} />}
       </section>
       {can("discounts:analytics") && <aside className="h-fit rounded-xl border border-border bg-card">
         <h2 className="border-b border-border px-4 py-3 text-sm font-bold">Recent activity</h2>
@@ -176,7 +178,7 @@ function RulesTab({ run }: { run: Run }) {
       <span className="ml-auto text-xs text-muted">{total} rule{total === 1 ? "" : "s"}</span>
       {can("discounts:create") && <Link href="/sales/discounts/new"><Button size="sm"><Plus size={14} /> Discount rule</Button></Link>}
     </div>
-    {rules.isLoading ? <PageLoader variant="compact" /> : rules.error ? <p role="alert" className="text-sm text-red-600">{rules.error.message}</p>
+    {rules.isLoading || rules.error ? <TableState loading={rules.isLoading} error={rules.error ?? undefined} onRetry={() => void rules.refetch()} />
       : !rules.data?.items.length ? (filtered ? <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted">No rules match these filters.</p> : <EmptyOffers />)
       : <RulesTable rules={rules.data.items} run={run} status={status} />}
     <Pager page={page} total={total} onPage={setPage} />
@@ -203,7 +205,7 @@ function PromotionsTab({ run, onCreate }: { run: Run; onCreate: () => void }) {
       <div role="group" aria-label="Promotion status" className="flex gap-1 rounded-lg border border-border bg-surface p-1">{["", "Active", "Scheduled", "Paused", "Draft", "Archived"].map((s) => <button key={s || "all"} type="button" aria-pressed={filter === s} onClick={() => { setFilter(s); setPage(1); }} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${filter === s ? "bg-card text-foreground shadow-sm" : "text-muted hover:text-foreground"}`}>{s || "All"}</button>)}</div>
       {can("discounts:promotions") && <Button size="sm" className="ml-auto" onClick={onCreate}><Plus size={14} /> Promotion</Button>}
     </div>
-    {campaigns.isLoading ? <PageLoader variant="compact" /> : !items.length
+    {campaigns.isLoading || (campaigns.error && !campaigns.data) ? <TableState loading={campaigns.isLoading} error={campaigns.error ?? undefined} onRetry={() => void campaigns.refetch()} /> : !items.length
       ? <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center"><Megaphone size={26} className="mx-auto text-muted" /><p className="mt-3 text-sm font-semibold">{filter ? "No promotions with this status" : "No promotions yet"}</p><p className="mt-1 text-sm text-muted">A promotion groups discount rules under one campaign with its own dates.</p></div>
       : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{items.map((p) => <article key={p.id} className="flex flex-col rounded-xl border border-border bg-card p-4">
         <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="truncate text-sm font-bold">{p.name}</h3><p className="font-mono text-[11px] text-muted">{p.code}</p></div><OfferStatusBadge status={displayStatus(p)} /></div>
@@ -230,7 +232,7 @@ function CouponsTab({ run, onCreate }: { run: Run; onCreate: () => void }) {
   const head = "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-muted";
   return <section className="space-y-3">
     <div className="flex items-center justify-between"><p className="text-sm text-muted">Codes customers present at checkout. Each one belongs to a coupon discount rule.</p>{can("discounts:coupons") && <Button size="sm" onClick={onCreate}><Plus size={14} /> Coupon</Button>}</div>
-    {coupons.isLoading ? <PageLoader variant="compact" /> : !items.length
+    {coupons.isLoading || (coupons.error && !coupons.data) ? <TableState loading={coupons.isLoading} error={coupons.error ?? undefined} onRetry={() => void coupons.refetch()} /> : !items.length
       ? <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center"><Ticket size={26} className="mx-auto text-muted" /><p className="mt-3 text-sm font-semibold">No coupons yet</p><p className="mt-1 text-sm text-muted">Create a coupon discount rule first, then issue codes for it here.</p></div>
       : <TableWrap><table className="w-full min-w-[640px]"><thead><tr className="border-b border-border">{["Code", "Discount rule", "Used", "Valid until", "Status", ""].map((h, i) => <th key={i} className={`${head} ${h === "Used" ? "text-right" : ""}`}>{h}</th>)}</tr></thead>
         <tbody className="divide-y divide-border">{items.map((cp) => <tr key={cp.id}>
@@ -260,7 +262,7 @@ function AnalyticsTab() {
   const kinds = Object.entries(rows.reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.kind]: (acc[r.kind] ?? 0) + Number(r.amount) }), {}));
   return <section className="space-y-4">
     <div className="flex flex-wrap items-end gap-3"><Field label="From"><Input type="date" value={start} max={end || undefined} onChange={(e) => setStart(e.target.value)} /></Field><Field label="Until (not included)"><Input type="date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} /></Field></div>
-    {reversed ? <p role="alert" className="text-sm text-red-600">The end date must be after the start date.</p> : analytics.isLoading ? <PageLoader variant="compact" /> : analytics.error ? <p role="alert" className="text-sm text-red-600">{analytics.error.message}</p> : <>
+    {reversed ? <p role="alert" className="text-sm text-red-600">The end date must be after the start date.</p> : analytics.isLoading ? <Skeleton className="h-48" label="Loading discount results" /> : analytics.error ? <LoadError title="Could not load discount results" error={analytics.error} onRetry={() => void analytics.refetch()} /> : <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <StatCard label="Total discounts granted" value={money(total)} icon={Wallet} />
         <StatCard label="Discount applications" value={sales} icon={Receipt} hint="One sale can use several offers" />
@@ -323,7 +325,7 @@ function PromotionDrawer({ onClose, onDone }: { onClose: () => void; onDone: () 
     catch (err) { setError((err as { detail?: string })?.detail ?? (err instanceof Error ? err.message : "Couldn't save the promotion")); }
   };
   return <Drawer open onClose={onClose} title="New promotion" description="Saved as a draft. Link discount rules to it, then activate it." size="md"
-    footer={<form id="promotion-form" onSubmit={submit}><FormFooter submitLabel={save.isPending ? "Saving…" : "Save draft"} onCancel={onClose} disabled={save.isPending} /></form>}>
+    footer={<form id="promotion-form" onSubmit={submit}><FormFooter submitLabel={"Save draft"} busy={save.isPending} busyLabel="Saving…" onCancel={onClose} disabled={save.isPending} /></form>}>
     <div className="space-y-4 p-5">
       {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">{error}</p>}
       <Field label="Promotion name" required><Input form="promotion-form" name="name" required minLength={2} placeholder="Weekend promotion" /></Field>
@@ -351,7 +353,7 @@ function CouponDrawer({ onClose, onDone }: { onClose: () => void; onDone: () => 
   };
   const options = rules.data?.items.filter((r) => r.status !== "Archived") ?? [];
   return <Drawer open onClose={onClose} title="New coupon" description="Issue a code (or a batch of codes) for a coupon discount rule." size="md"
-    footer={<form id="coupon-form" onSubmit={submit}><FormFooter submitLabel={generate.isPending ? "Creating…" : "Create coupon"} onCancel={onClose} disabled={generate.isPending || !options.length} /></form>}>
+    footer={<form id="coupon-form" onSubmit={submit}><FormFooter submitLabel={"Create coupon"} busy={generate.isPending} busyLabel="Creating…" onCancel={onClose} disabled={generate.isPending || !options.length} /></form>}>
     <div className="space-y-4 p-5">
       {error && <p role="alert" className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600">{error}</p>}
       {!rules.isLoading && !options.length && <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted">Create a discount rule of type “Coupon” first; it sets what the code is worth.</p>}

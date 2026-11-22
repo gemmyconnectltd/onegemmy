@@ -31,15 +31,15 @@ export function BranchSettingsTab({ branch, staff }: { branch: ApiBranch; staff:
     title: active ? `Deactivate ${branch.name}?` : `Reactivate ${branch.name}?`,
     message: active ? deactivationNotes(branch, staff).join(" ") : "It becomes available for work again. Your plan's branch limit applies.",
     confirmLabel: active ? "Deactivate" : "Reactivate", danger: active,
-    onConfirm: () => void update.mutateAsync({ id: branch.id, data: { status: active ? "inactive" : "active" } }).then(() => setProblem(null)).catch((e: unknown) => setProblem(detail(e, "Couldn't change the status."))),
+    onConfirm: () => update.mutateAsync({ id: branch.id, data: { status: active ? "inactive" : "active" } }).then(() => setProblem(null)).catch((e: unknown) => setProblem(detail(e, "Couldn't change the status."))),
   });
   const makeMain = () => confirm({
     title: `Make ${branch.name} the main branch?`, message: "The main branch is where work lands when someone has no branch of their own. Only one branch can be the main one.", confirmLabel: "Make main branch",
-    onConfirm: () => void setMain.mutateAsync(branch.id).then(() => setProblem(null)).catch((e: unknown) => setProblem(detail(e, "Couldn't change the main branch."))),
+    onConfirm: () => setMain.mutateAsync(branch.id).then(() => setProblem(null)).catch((e: unknown) => setProblem(detail(e, "Couldn't change the main branch."))),
   });
   const del = () => confirm({
     title: `Delete ${branch.name}?`, message: "This can't be undone. A branch that has sales, expenses or transfers can't be deleted: deactivate it instead to keep its history.", confirmLabel: "Delete branch", danger: true,
-    onConfirm: () => void remove.mutateAsync(branch.id).then(() => router.replace("/branches")).catch((e: unknown) => setProblem(detail(e, "Couldn't delete this branch."))),
+    onConfirm: () => remove.mutateAsync(branch.id).then(() => router.replace("/branches")).catch((e: unknown) => setProblem(detail(e, "Couldn't delete this branch."))),
   });
 
   return (

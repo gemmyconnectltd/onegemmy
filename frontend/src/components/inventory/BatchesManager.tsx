@@ -6,12 +6,14 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, AlertTriangle, X } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { type InventoryBatch } from "@/lib/api";
 import { useBatches, useCreateBatch, useDeleteBatch } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 const EMPTY_FORM = {
   product_id: "", batch_number: "", quantity: "",
@@ -41,7 +43,9 @@ export function BatchesManager({ embedded = false }: { embedded?: boolean }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const { data, isLoading } = useBatches(undefined, expiringFilter, 1, 100, undefined, range);
+  const batchesQ = useBatches(undefined, expiringFilter, 1, 100, undefined, range);
+  const { data, isLoading } = batchesQ;
+  const listFailed = batchesQ.isError && !data;
   const createBatch = useCreateBatch();
   const deleteBatch = useDeleteBatch();
   const batches: InventoryBatch[] = data?.items ?? [];
@@ -88,7 +92,6 @@ export function BatchesManager({ embedded = false }: { embedded?: boolean }) {
   const expiredCount = batches.filter((b) => b.days_to_expiry !== null && b.days_to_expiry < 0).length;
   const soonCount = batches.filter((b) => b.days_to_expiry !== null && b.days_to_expiry >= 0 && b.days_to_expiry <= 30).length;
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -173,7 +176,9 @@ export function BatchesManager({ embedded = false }: { embedded?: boolean }) {
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? batchesQ.error : undefined} onRetry={() => void batchesQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(batchesQ)} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         {bulk.count > 0 && (
           <div className="px-4 py-3 border-b border-border">
             <BulkActionBar count={bulk.count} label="batch" pluralLabel="batches" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
@@ -233,7 +238,7 @@ export function BatchesManager({ embedded = false }: { embedded?: boolean }) {
             )}
           </tbody>
         </table></TableScroll></div>
-      </div>
+      </Refreshing>)}
     </div>
   );
 }

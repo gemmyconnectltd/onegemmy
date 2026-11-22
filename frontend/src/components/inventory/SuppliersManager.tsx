@@ -7,7 +7,6 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Truck, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Check, X, Upload } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useBulkCreateSuppliers } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
@@ -17,6 +16,9 @@ import { CsvImportDrawer, bulkOutcome } from "@/components/ui/CsvImportDrawer";
 import type { ImportIssue } from "@/lib/importValues";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 type SupplierForm = { name: string; email: string; phone: string; address: string; lead_time: string };
 const emptyForm = (): SupplierForm => ({ name: "", email: "", phone: "", address: "", lead_time: "" });
@@ -63,7 +65,9 @@ export function SuppliersManager() {
   // Reset to page 1 right where the search changes, not via an effect.
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
 
-  const { data, isLoading, isFetching } = useSuppliers(page, pageSize, debouncedSearch || undefined);
+  const suppliersQ = useSuppliers(page, pageSize, debouncedSearch || undefined);
+  const { data, isLoading } = suppliersQ;
+  const listFailed = suppliersQ.isError && !data;
   const createSupplier = useCreateSupplier();
   const updateSupplier = useUpdateSupplier();
   const deleteSupplier = useDeleteSupplier();
@@ -127,11 +131,10 @@ export function SuppliersManager() {
       message: "Delete this supplier? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteSupplier.mutate(id),
+      onConfirm: () => deleteSupplier.mutateAsync(id),
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
@@ -189,7 +192,9 @@ export function SuppliersManager() {
             <BulkActionBar count={bulk.count} label="supplier" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
           </div>
         )}
-        <div className={`divide-y divide-border transition-opacity ${isFetching ? "opacity-60" : ""}`}>
+        {(isLoading || listFailed) && <div className="p-4"><TableState loading={isLoading} error={listFailed ? suppliersQ.error : undefined} onRetry={() => void suppliersQ.refetch()} /></div>}
+        {!isLoading && !listFailed && (
+        <Refreshing busy={isRefreshing(suppliersQ)} className="divide-y divide-border">
           {suppliers.map((s) => (
             <div key={s.id} className="px-4 py-4 flex flex-wrap sm:flex-nowrap items-start gap-3 sm:gap-4 hover:bg-surface/40 transition-colors">
               <input
@@ -254,7 +259,7 @@ export function SuppliersManager() {
               <p className="text-sm text-muted">No suppliers found.</p>
             </div>
           )}
-        </div>
+        </Refreshing>)}
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="suppliers" color={INV_COLOR} />
       </div>
 

@@ -6,8 +6,8 @@ import { Plus } from "lucide-react";
 import type { ExchangeRate, ExchangeRateInput } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { fmtDateTime } from "@/lib/date";
+import { TableState } from "@/components/ui/TableState";
 
 interface CurrencyOption {
   code: string;
@@ -93,7 +93,7 @@ export function ExchangeRatesPanel({
       </form>
 
       {loading ? (
-        <PageLoader variant="compact" />
+        <TableState loading />
       ) : (rates?.length ?? 0) === 0 ? (
         <p className="rounded-lg bg-surface px-4 py-6 text-center text-[13px] text-muted">
           No exchange rates yet. Add one to start using a foreign currency.

@@ -3,7 +3,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { UserPlus, Trash2 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiApplicant } from "@/lib/api/hr";
 import { useApplicants, useCreateApplicant, useUpdateApplicant, useDeleteApplicant } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
@@ -12,6 +11,8 @@ import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { isPendingFor } from "@/lib/loadState";
+import { TableState } from "@/components/ui/TableState";
 
 const STAGES = ["Applied", "Screening", "Interview", "Offer", "Hired", "Rejected"];
 const FILTERS = ["All", ...STAGES];
@@ -56,6 +57,7 @@ export default function RecruitingPage() {
   };
 
   const advance = (a: ApiApplicant, next: string) => {
+    if (isPendingFor(updateApplicant, a.id)) return;
     updateApplicant.mutate({ id: a.id, data: { stage: next } }, {
       onError: () => setNotice("Could not update the applicant stage."),
     });
@@ -71,7 +73,7 @@ export default function RecruitingPage() {
       message: `Remove ${a.name}? This cannot be undone.`,
       confirmLabel: "Remove",
       danger: true,
-      onConfirm: () => deleteApplicant.mutate(a.id, { onError: () => setNotice("Could not remove the applicant.") }),
+      onConfirm: () => deleteApplicant.mutateAsync(a.id, { onError: () => setNotice("Could not remove the applicant.") }),
     });
   };
 
@@ -126,7 +128,7 @@ export default function RecruitingPage() {
       </div>
 
       {loading ? (
-        <PageLoader variant="compact" />
+        <TableState loading />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : applicants.length === 0 ? (
@@ -182,7 +184,9 @@ export default function RecruitingPage() {
                           <button
                             type="button"
                             onClick={() => advance(a, next)}
-                            className="text-xs font-semibold text-accent hover:bg-accent/10 px-2 py-1 rounded-md transition-colors"
+                            disabled={isPendingFor(updateApplicant, a.id)}
+                            aria-busy={isPendingFor(updateApplicant, a.id) || undefined}
+                            className="disabled:opacity-50 text-xs font-semibold text-accent hover:bg-accent/10 px-2 py-1 rounded-md transition-colors"
                           >
                             Move to {next} →
                           </button>
@@ -223,7 +227,7 @@ export default function RecruitingPage() {
               </Select>
             </Field>
           </div>
-          <FormFooter submitLabel={createApplicant.isPending ? "Saving…" : "Add Applicant"} onCancel={() => setShowForm(false)} disabled={createApplicant.isPending} />
+          <FormFooter submitLabel={"Add Applicant"} busy={createApplicant.isPending} busyLabel="Saving…" onCancel={() => setShowForm(false)} disabled={createApplicant.isPending} />
         </form>
       </Drawer>
     </div>

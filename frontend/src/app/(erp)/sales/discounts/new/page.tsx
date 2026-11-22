@@ -11,6 +11,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useCategories, useCustomers, useDiscountRule, useDiscountSettings, useDiscountStatus, useMyBranches, useProducts, useSaveDiscountRule } from "@/lib/api/hooks";
 import type { DiscountRule } from "@/lib/api/discounts";
 import { TYPE_LABELS } from "@/components/discounts/shared";
+import { LoadError } from "@/components/ui/LoadState";
 
 const STEPS = ["Basics", "Discount", "Applies to", "Conditions", "Review"] as const;
 const CHANNELS = [["pos", "Point of Sale"], ["sales_order", "Sales orders"], ["quotation", "Quotations"]] as const;
@@ -84,7 +85,7 @@ function RuleWizard() {
   const fromId = params.get("from") ?? "";
   const source = useDiscountRule(editId || fromId);
   if ((editId || fromId) && source.isLoading) return <PageLoader variant="page" />;
-  if ((editId || fromId) && (source.error || !source.data)) return <p role="alert" className="text-sm text-red-600">{source.error?.message ?? "Discount rule not found"}</p>;
+  if ((editId || fromId) && (source.error || !source.data)) return <LoadError title="Could not load this discount rule" error={source.error ?? "Discount rule not found"} onRetry={source.error ? () => void source.refetch() : undefined} />;
   return <WizardForm key={editId || fromId || "new"} editId={editId} alreadyActive={!!editId && source.data?.status === "Active"} initial={source.data ? fromRule(source.data, !editId) : EMPTY} />;
 }
 

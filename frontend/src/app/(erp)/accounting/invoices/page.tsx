@@ -10,7 +10,9 @@ import {
   BadgeCheck, Clock, FileText, TrendingUp, Plus,
   Download, MoreHorizontal, Loader2,
 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
+import { Refreshing, Skeleton } from "@/components/ui/LoadState";
+import { TableState } from "@/components/ui/TableState";
+import { isRefreshing, loadState } from "@/lib/loadState";
 import { useAppConfig } from "@/lib/appConfig";
 import { useOrders } from "@/lib/api/hooks";
 import type { ApiOrder, ApiOrderPayment } from "@/lib/api";
@@ -31,7 +33,9 @@ type PaymentFilter = "all" | "Paid" | "PartiallyPaid" | "Unpaid" | "Overdue";
 
 export default function InvoicesPage() {
   const { currencySymbol, brandColor } = useAppConfig();
-  const { data, isLoading } = useOrders(1, 200);
+  const ordersQ = useOrders(1, 200);
+  const { data, isLoading } = ordersQ;
+  const state = loadState(ordersQ);
   const orders = data?.items ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -127,7 +131,10 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats: placeholders while loading, and nothing (rather than zeros) when the invoices could not be loaded */}
+      {state === "loading" ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{stats.map((s) => <Skeleton key={s.label} className="h-[104px]" label={`Loading ${s.label}`} />)}</div>
+      ) : state !== "error" && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4">
@@ -142,6 +149,7 @@ export default function InvoicesPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -186,8 +194,8 @@ export default function InvoicesPage() {
       </div>
 
       {/* Table */}
-      {isLoading ? (
-        <PageLoader variant="compact" />
+      {isLoading || state === "error" ? (
+        <TableState loading={isLoading} error={state === "error" ? ordersQ.error : undefined} onRetry={() => void ordersQ.refetch()} />
       ) : filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-16 flex flex-col items-center justify-center text-center gap-3">
           <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: `${brandColor}15` }}>
@@ -197,7 +205,7 @@ export default function InvoicesPage() {
           <p className="text-[13px] text-muted">Try adjusting your filters or create a new invoice.</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+        <Refreshing busy={isRefreshing(ordersQ)} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
           <TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-border bg-surface/50">
@@ -291,7 +299,7 @@ export default function InvoicesPage() {
               Total: <span className="font-bold">{fmt(filtered.reduce((s, o) => s + orderBaseTotal(o), 0))}</span>
             </p>
           </div>
-        </div>
+        </Refreshing>
       )}
 
       {/* Invoice Detail Drawer */}

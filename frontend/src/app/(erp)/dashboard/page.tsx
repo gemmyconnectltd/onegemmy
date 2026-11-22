@@ -33,7 +33,8 @@ import {
   ResponsiveContainer,
   DonutChart,
 } from "@/components/charts/lazy";
-import { PageLoader } from "@/components/ui/PageLoader";
+import { LoadError, SectionState, Skeleton } from "@/components/ui/LoadState";
+import { combinedState, loadState } from "@/lib/loadState";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette, type ChartPalette } from "@/lib/chartColors";
@@ -782,15 +783,14 @@ export default function DashboardPage() {
   const products = useProducts(1, 200);
   const lowStockReport = useLowStockReport();
 
-  const loading = [
-    income,
-    cash,
-    customers,
-    targets,
-    orders,
-    allOrders,
-    products,
-  ].some((q) => q.isLoading);
+  // Each section loads and fails on its own: a slow or failed request never blanks the whole dashboard, and a failed
+  // money figure is shown as an error with a retry, never as zero.
+  const kpiState = combinedState([loadState(income), loadState(cash), loadState(customers)]);
+  const salesState = combinedState([loadState(allOrders), loadState(products)]);
+  const targetState = combinedState([loadState(income), loadState(targets)]);
+  const recentState = loadState(orders);
+  const retry = (...queries: { isError: boolean; refetch: () => unknown }[]) => () => queries.filter((q) => q.isError).forEach((q) => void q.refetch());
+  const kpiSkeleton = <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" label="Loading figures" />)}</div>;
 
   const sales = income.data?.total_revenue ?? 0;
   const expenses = income.data?.total_operating_expenses ?? 0;
@@ -855,10 +855,8 @@ export default function DashboardPage() {
         <DateRangeFilter value={selection} onChange={setSelection} />
       </div>
 
-      {loading ? (
-        <PageLoader />
-      ) : (
-        <>
+      <>
+          <SectionState state={kpiState} loading={kpiSkeleton} errorTitle="Could not load this period's figures" error={income.error ?? cash.error ?? customers.error} onRetry={retry(income, cash, customers)}>
           <KpiCards
             sales={sales}
             expenses={expenses}
@@ -872,7 +870,9 @@ export default function DashboardPage() {
             label={label}
             c={c}
           />
+          </SectionState>
 
+          <SectionState state={salesState} loading={<Skeleton className="h-64" label="Loading sales breakdown" />} errorTitle="Could not load the sales breakdown" error={allOrders.error ?? products.error} onRetry={retry(allOrders, products)}>
           <ModuleBreakdown
             salesData={categoryData}
             inventory={inventory}
@@ -881,8 +881,9 @@ export default function DashboardPage() {
             label={label}
             c={c}
           />
+          </SectionState>
 
-          {(lowStockReport.data?.total ?? lowStock.length) > 0 && (
+          {salesState === "ready" && (lowStockReport.data?.total ?? lowStock.length) > 0 && (
             <div className="flex items-center gap-2 px-1">
               <AlertTriangle
                 size={13}
@@ -930,20 +931,26 @@ export default function DashboardPage() {
           )}
 
           <div className="grid lg:grid-cols-3 gap-4">
-            <SalesChart
-              chart={chart}
-              title={`${label} Sales`}
-              sub="Revenue vs expenses"
-              c={c}
-            />
-            <TargetAndActions
-              sales={sales}
-              expenses={expenses}
-              profit={profit}
-              target={target}
-              label={label}
-              c={c}
-            />
+            <div className="lg:col-span-2">
+              <SectionState state={salesState} loading={<Skeleton className="h-72" label="Loading sales chart" />} errorTitle="Could not load the sales chart" error={allOrders.error ?? products.error} onRetry={retry(allOrders, products)}>
+                <SalesChart
+                  chart={chart}
+                  title={`${label} Sales`}
+                  sub="Revenue vs expenses"
+                  c={c}
+                />
+              </SectionState>
+            </div>
+            <SectionState state={targetState} loading={<Skeleton className="h-72" label="Loading target" />} errorTitle="Could not load the target" error={income.error ?? targets.error} onRetry={retry(income, targets)}>
+              <TargetAndActions
+                sales={sales}
+                expenses={expenses}
+                profit={profit}
+                target={target}
+                label={label}
+                c={c}
+              />
+            </SectionState>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-4">
@@ -961,7 +968,11 @@ export default function DashboardPage() {
                 </FeatureLink>
               </div>
               <div className="overflow-x-auto">
-                {recentOrders.length === 0 ? (
+                {recentState === "loading" ? (
+                  <div className="p-4"><Skeleton className="h-40" label="Loading recent sales" /></div>
+                ) : recentState === "error" ? (
+                  <div className="p-4"><LoadError compact title="Could not load recent sales" error={orders.error} onRetry={() => void orders.refetch()} /></div>
+                ) : recentOrders.length === 0 ? (
                   <p className="px-5 py-6 text-[12px] text-muted text-center">
                     No completed orders yet
                   </p>
@@ -1017,10 +1028,11 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
-            <SidePanel orders={allOrderItems} lowStock={lowStock} />
+            <SectionState state={salesState} loading={<Skeleton className="h-72" label="Loading activity" />} errorTitle="Could not load recent activity" error={allOrders.error ?? products.error} onRetry={retry(allOrders, products)}>
+              <SidePanel orders={allOrderItems} lowStock={lowStock} />
+            </SectionState>
           </div>
-        </>
-      )}
+      </>
     </div>
   );
 }

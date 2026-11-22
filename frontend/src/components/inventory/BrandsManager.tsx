@@ -4,12 +4,14 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Tag, Plus, Search, Edit2, Trash2, Check, X } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useBrands, useCreateBrand, useUpdateBrand, useDeleteBrand } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 export function BrandsManager({ embedded = false }: { embedded?: boolean }) {
   const { brandColor } = useAppConfig();
@@ -22,7 +24,9 @@ export function BrandsManager({ embedded = false }: { embedded?: boolean }) {
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
 
-  const { data, isLoading } = useBrands();
+  const brandsQ = useBrands();
+  const { data, isLoading } = brandsQ;
+  const listFailed = brandsQ.isError && !data;
   const createBrand = useCreateBrand();
   const updateBrand = useUpdateBrand();
   const deleteBrand = useDeleteBrand();
@@ -70,11 +74,10 @@ export function BrandsManager({ embedded = false }: { embedded?: boolean }) {
       message: "Delete this brand? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteBrand.mutate(id),
+      onConfirm: () => deleteBrand.mutateAsync(id),
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
@@ -105,7 +108,9 @@ export function BrandsManager({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
-      <div className="bg-card border border-border">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? brandsQ.error : undefined} onRetry={() => void brandsQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(brandsQ)} className="bg-card border border-border">
         <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
           <div className="relative flex-1 max-w-xs">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -181,7 +186,7 @@ export function BrandsManager({ embedded = false }: { embedded?: boolean }) {
         <div className="px-5 py-3 border-t border-border">
           <p className="text-xs text-muted">{brands.length} total brands</p>
         </div>
-      </div>
+      </Refreshing>)}
     </div>
   );
 }

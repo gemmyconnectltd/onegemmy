@@ -64,21 +64,26 @@ export function FormFooter({
   submitLabel = "Save",
   onCancel,
   disabled,
+  busy = false,
+  busyLabel = "Saving…",
   cancelLabel = "Cancel",
   color,
 }: {
   submitLabel?: string;
   onCancel: () => void;
   disabled?: boolean;
+  /** The submission is running: the submit button shows the shared spinner and `busyLabel`, and nothing can be resubmitted. */
+  busy?: boolean;
+  busyLabel?: string;
   cancelLabel?: string;
   color?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Button type="button" variant="secondary" onClick={(e) => { const dialog = e.currentTarget.closest<HTMLElement>('[role="dialog"]'); if (!dialog || (dialog.dataset.workspaceDirty !== "true" && !hasUnsavedChanges(dialog)) || window.confirm("Discard unsaved changes?")) onCancel(); }} className="flex-1">
+      <Button type="button" variant="secondary" disabled={busy} onClick={(e) => { const dialog = e.currentTarget.closest<HTMLElement>('[role="dialog"]'); if (!dialog || (dialog.dataset.workspaceDirty !== "true" && !hasUnsavedChanges(dialog)) || window.confirm("Discard unsaved changes?")) onCancel(); }} className="flex-1">
         {cancelLabel}
       </Button>
-      <Button type="submit" variant="primary" color={color} disabled={disabled} className="flex-1">
+      <Button type="submit" variant="primary" color={color} disabled={disabled} loading={busy} loadingLabel={busyLabel} className="flex-1">
         {submitLabel}
       </Button>
     </div>

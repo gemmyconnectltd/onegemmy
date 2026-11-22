@@ -1,8 +1,8 @@
 "use client";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { Package, AlertCircle, Layers, ClipboardList } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useProductionOrders, useBoms, useProducts } from "@/lib/api/hooks";
+import { TableState } from "@/components/ui/TableState";
 
 type MaterialUsage = {
   key: string;
@@ -17,6 +17,7 @@ export default function MaterialsPage() {
   const bomsQ = useBoms(1, 500);
   const productsQ = useProducts(1, 500);
   const loading = ordersQ.isLoading || bomsQ.isLoading || productsQ.isLoading;
+  const failedQ = [ordersQ, bomsQ, productsQ].find((q) => q.isError && !q.data);  // the table would be incomplete without all three
   const orders = ordersQ.data?.items ?? [];
   const boms = bomsQ.data?.items ?? [];
   const products = productsQ.data?.items ?? [];
@@ -82,8 +83,8 @@ export default function MaterialsPage() {
       )}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-        {loading ? (
-          <PageLoader variant="compact" />
+        {loading || failedQ ? (
+          <TableState loading={loading} error={failedQ?.error} onRetry={() => void failedQ?.refetch()} />
         ) : rows.length === 0 ? (
           <div className="py-20 text-center">
             <Package size={32} className="text-border mx-auto mb-3" />

@@ -48,7 +48,7 @@ export default function StockCountsPage() {
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE[c.status]}`}>{c.status}</span>
                 <Button size="sm" variant="outline" onClick={() => setOpen(open === c.id ? null : c.id)}>{open === c.id ? "Hide" : "Review"}</Button>
                 {c.status === "Submitted" && canApprove && <>
-                  <Button size="sm" disabled={decide.isPending} onClick={() => confirm({ title: `Approve ${c.count_number}?`, message: `Stock in ${c.warehouse} will be changed to the counted quantities for ${c.variance_lines} product${c.variance_lines === 1 ? "" : "s"}. This is recorded in the stock history.`, confirmLabel: "Approve and apply", onConfirm: () => decide.mutate({ id: c.id, approve: true }, { onError: (e) => setProblem((e as { detail?: string })?.detail ?? e.message) }) })}>Approve</Button>
+                  <Button size="sm" disabled={decide.isPending} onClick={() => confirm({ title: `Approve ${c.count_number}?`, message: `Stock in ${c.warehouse} will be changed to the counted quantities for ${c.variance_lines} product${c.variance_lines === 1 ? "" : "s"}. This is recorded in the stock history.`, confirmLabel: "Approve and apply", onConfirm: () => decide.mutateAsync({ id: c.id, approve: true }, { onError: (e) => setProblem((e as { detail?: string })?.detail ?? e.message) }) })}>Approve</Button>
                   <Button size="sm" variant="outline" onClick={() => setRejecting(c)}>Reject</Button>
                 </>}
               </div>

@@ -5,12 +5,16 @@ import { Sparkles, User } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { useAppointments, useCreateAppointment, useAllServices, useEmployees, useCustomers } from "@/lib/api/hooks";
+import { OptionsLoadError } from "@/components/ui/LoadState";
 
 export function NewAppointmentDrawer({ open, onClose, defaultDate, color }: { open: boolean; onClose: () => void; defaultDate: string; color: string }) {
-  const { data: services } = useAllServices();
-  const { data: empData } = useEmployees("Active");
+  const servicesQ = useAllServices();
+  const employeesQ = useEmployees("Active");
+  const customersQ = useCustomers(1, 200);
+  const { data: services } = servicesQ;
+  const { data: empData } = employeesQ;
   const employees = empData?.items ?? [];
-  const { data: custData } = useCustomers(1, 200);
+  const { data: custData } = customersQ;
   const createAppointment = useCreateAppointment();
 
   const [customerQuery, setCustomerQuery] = useState("");
@@ -80,6 +84,7 @@ export function NewAppointmentDrawer({ open, onClose, defaultDate, color }: { op
   return (
     <Drawer open={open} onClose={() => { onClose(); }} title="New Appointment" description="Book a service for a customer">
       <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <OptionsLoadError sources={[{ label: "services", query: servicesQ }, { label: "staff", query: employeesQ }, { label: "customers", query: customersQ }]} />
         {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
         <Field label="Customer" required>
@@ -138,7 +143,7 @@ export function NewAppointmentDrawer({ open, onClose, defaultDate, color }: { op
         </Field>
 
         <FormFooter
-          submitLabel={createAppointment.isPending ? "Booking…" : "Book Appointment"}
+          submitLabel={"Book Appointment"} busy={createAppointment.isPending} busyLabel="Booking…"
           onCancel={() => { reset(); onClose(); }}
           disabled={createAppointment.isPending || !customerName.trim() || serviceIds.length === 0}
           color={color}

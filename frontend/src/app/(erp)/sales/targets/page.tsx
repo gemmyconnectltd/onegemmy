@@ -4,7 +4,6 @@ import {
   Target, Plus, TrendingUp, CheckCircle2, AlertTriangle, XCircle,
   Edit2, Trash2, AlertCircle, Zap, Calendar,
 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useState, useMemo } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
@@ -15,6 +14,7 @@ import type { ApiTarget } from "@/lib/api";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 // ── Metric type presets — makes the form self-explanatory ─────────────────────
 const METRIC_TYPES = [
@@ -125,7 +125,7 @@ function QuickUpdateDrawer({
       {error && <p className="text-xs text-red-600">{error}</p>}
 
       <FormFooter
-        submitLabel={saving ? "Saving..." : "Update Progress"}
+        submitLabel={"Update Progress"} busy={saving} busyLabel="Saving…"
         onCancel={onClose}
         disabled={saving || value === ""}
         color={SAL}
@@ -142,14 +142,15 @@ export default function SalesTargetsPage() {
     unit === "currency" ? fmtMoney(v, currencySymbol) : v.toLocaleString();
 
   const [error, setError] = useState<string | null>(null);
-  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ApiTarget | null>(null);
   const [quickUpdate, setQuickUpdate] = useState<ApiTarget | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [periodFilter, setPeriodFilter] = useState("All");
 
-  const { data, isLoading: loading, error: loadError } = useTargets(1, 200);
+  const targetsQ = useTargets(1, 200);
+  const { data, isLoading: loading } = targetsQ;
+  const listFailed = targetsQ.isError && !data;  // shown where the targets would be, with a retry; figures read "—"
   // A target assigned to a person is measured against what that person actually sold this month, not a number typed in by hand.
   const thisMonth = useMemo(() => { const n = new Date(); const pad = (v: number) => String(v).padStart(2, "0"); return { from: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01`, to: `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}` }; }, []);
   const live = useSalespeopleReport(thisMonth, {}).data;
@@ -157,12 +158,6 @@ export default function SalesTargetsPage() {
     const actual = t.assigned_to ? live?.targets.find((x) => x.salesperson_id === t.assigned_to && x.name === t.name && x.period === t.period) : undefined;
     return actual ? { ...t, achieved_value: actual.actual } : t;
   }), [data, live]);
-
-  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load targets" : null;
-  if (loadErrorMessage !== shownLoadError) {
-    setShownLoadError(loadErrorMessage);
-    if (loadErrorMessage !== null) setError(loadErrorMessage);
-  }
 
   const createTarget = useCreateTarget();
   const updateTarget = useUpdateTarget();
@@ -259,7 +254,7 @@ export default function SalesTargetsPage() {
       message: "Delete this target? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteTarget.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete target") }),
+      onConfirm: () => deleteTarget.mutateAsync(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete target") }),
     });
   };
 
@@ -296,7 +291,7 @@ export default function SalesTargetsPage() {
             <div className="w-8 h-8 flex items-center justify-center mb-2" style={{ backgroundColor: `${s.color}10` }}>
               <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={loading ? undefined : String(s.value)}>{loading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={loading || listFailed ? undefined : String(s.value)}>{loading || listFailed ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -326,8 +321,8 @@ export default function SalesTargetsPage() {
       <BulkActionBar count={bulk.count} label="target" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
 
       {/* ── Cards ── */}
-      {loading ? (
-        <PageLoader variant="compact" />
+      {loading || listFailed ? (
+        <TableState loading={loading} error={listFailed ? targetsQ.error : undefined} onRetry={() => void targetsQ.refetch()} rows={3} />
       ) : displayed.length === 0 ? (
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <Target size={32} className="text-border mx-auto mb-3" />
@@ -527,7 +522,7 @@ export default function SalesTargetsPage() {
           </div>
 
           <FormFooter
-            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Target"}
+            submitLabel={editing ? "Save Changes" : "Add Target"} busy={saving} busyLabel="Saving…"
             onCancel={closeDrawer}
             disabled={!form.name || !form.target_value || !form.period || saving}
             color={SAL}

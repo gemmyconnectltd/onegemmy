@@ -14,6 +14,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { Button } from "@/components/ui/Button";
 import { SerialsManager } from "@/components/inventory/SerialsManager";
 import { BatchesManager } from "@/components/inventory/BatchesManager";
+import { TableState } from "@/components/ui/TableState";
 
 type StockTab = "levels" | "serials" | "batches";
 type StatusFilter = "all" | "low" | "out" | "ok";
@@ -155,11 +156,9 @@ function StockContent() {
           </div>
 
           {valuation.isLoading ? (
-            <PageLoader variant="compact" />
-          ) : valuation.error ? (
-            <p role="alert" className="p-5 text-sm text-red-600">
-              Could not load stock levels.
-            </p>
+            <TableState loading />
+          ) : valuation.error && !valuation.data ? (
+            <div className="p-4"><TableState error={valuation.error} onRetry={() => void valuation.refetch()} /></div>
           ) : (
             <>
               <div className="md:hidden">

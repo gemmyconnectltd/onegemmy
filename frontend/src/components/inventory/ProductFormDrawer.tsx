@@ -174,7 +174,7 @@ function SingleForm({ initial, onClose, onSubmit, color }: { initial?: ProductFo
       title={initial ? "Edit Product" : "Add Product"}
       description={initial ? `Update ${initial.name}` : "Create a new product in your inventory"}
       size="md"
-      footer={<form onSubmit={submit}><FormFooter submitLabel={submitting ? "Saving…" : initial ? "Save Changes" : "Add Product"} onCancel={onClose} disabled={!valid || submitting} color={color} /></form>}
+      footer={<form onSubmit={submit}><FormFooter submitLabel={initial ? "Save Changes" : "Add Product"} busy={submitting} busyLabel="Saving…" onCancel={onClose} disabled={!valid || submitting} color={color} /></form>}
     >
       <div className="p-5 space-y-4">
         {error && (

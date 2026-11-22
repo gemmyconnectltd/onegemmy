@@ -121,7 +121,7 @@ export function RecordPaymentDrawer({ order, onClose, color, fmt }: Props) {
         </Field>
 
         <FormFooter
-          submitLabel={recordPayment.isPending ? "Recording…" : "Record Payment"}
+          submitLabel={"Record Payment"} busy={recordPayment.isPending} busyLabel="Recording…"
           onCancel={close}
           disabled={recordPayment.isPending || !canSubmit}
           color={color}

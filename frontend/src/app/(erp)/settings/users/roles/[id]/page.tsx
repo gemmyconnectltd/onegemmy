@@ -13,6 +13,7 @@ import { useAssignRolePermissions, useDeleteCompanyRole, useRoleAccess, useUpdat
 import type { RoleAccess } from "@/lib/api/access";
 import { moduleUse } from "@/lib/accessView";
 import { useAuth } from "@/lib/auth";
+import { LoadError } from "@/components/ui/LoadState";
 
 const errorText = (e: unknown, fallback: string) => (e as { detail?: string })?.detail ?? (e as Error)?.message ?? fallback;
 
@@ -20,7 +21,7 @@ export default function RoleDetailPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const query = useRoleAccess(id);
   if (query.isLoading) return <PageLoader variant="compact" />;
-  if (query.isError || !query.data) return <div className="py-12 text-center"><p role="alert" className="text-sm text-red-600">This role couldn&apos;t be found or you don&apos;t have access.</p><Link href="/settings/users/roles" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">Back to roles</Link></div>;
+  if (query.isError || !query.data) return <div className="space-y-3 py-6 text-center"><LoadError title="This role couldn't be loaded" error={query.error ?? "It may have been removed, or you don't have access."} onRetry={query.isError ? () => void query.refetch() : undefined} /><Link href="/settings/users/roles" className="inline-block text-sm font-semibold text-accent hover:underline">Back to roles</Link></div>;
   return <RoleEditor data={query.data} />;
 }
 
@@ -56,7 +57,7 @@ function RoleEditor({ data }: { data: RoleAccess }) {
   };
   const del = () => confirm({
     title: `Delete ${role.name}?`, message: "The role is removed. Nobody holds it, so no one's access changes.", confirmLabel: "Delete role", danger: true,
-    onConfirm: () => void remove.mutateAsync(role.id).then(() => router.replace("/settings/users/roles")).catch((e: unknown) => setMessage({ ok: false, text: errorText(e, "Couldn't delete this role.") })),
+    onConfirm: () => remove.mutateAsync(role.id).then(() => router.replace("/settings/users/roles")).catch((e: unknown) => setMessage({ ok: false, text: errorText(e, "Couldn't delete this role.") })),
   });
 
   return (

@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertCircle, Inbox, SearchX } from "lucide-react";
+import { Inbox, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { LoadError } from "@/components/ui/LoadState";
 
 /** The one loading / error / empty look for a table's body. A failed request never reads as "no records", and an empty
  *  result under filters offers to clear them. Render it in place of the table; render the table when it returns null. */
@@ -17,17 +18,7 @@ export function TableState({ loading, error, onRetry, empty, filtered, onClearFi
       </div>
     );
   }
-  if (error) {
-    const detail = (error as { detail?: string })?.detail ?? (error as Error)?.message ?? "The records could not be loaded.";
-    return (
-      <div role="alert" className="flex flex-col items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-8 text-center">
-        <AlertCircle size={20} className="text-red-600" aria-hidden />
-        <p className="text-sm font-semibold text-red-700 dark:text-red-400">Could not load this list</p>
-        <p className="max-w-md text-xs text-muted">{detail}</p>
-        {onRetry && <Button variant="outline" size="sm" onClick={onRetry}>Try again</Button>}
-      </div>
-    );
-  }
+  if (error) return <LoadError error={error} onRetry={onRetry} title="Could not load this list" />;
   if (!empty) return null;
   const Icon = filtered ? SearchX : Inbox;
   return (

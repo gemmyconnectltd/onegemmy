@@ -15,6 +15,8 @@ import { useAccessSummary, useRoleSummaries, useUpdateCompanyUser } from "@/lib/
 import type { AccessRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { withBranch, withoutBranch } from "@/lib/branchView";
+import { LoadError } from "@/components/ui/LoadState";
+import { TableState } from "@/components/ui/TableState";
 
 /** A branch's people. Roles, permissions and branch scope stay in Team & Access: this lists who is assigned here and uses the same
  *  user update to assign or remove, so there is only one place the rules live. */
@@ -40,12 +42,13 @@ export function BranchStaffTab({ branchId, branchName }: { branchId: string; bra
       title: `Remove ${u.full_name} from ${branchName}?`,
       message: last ? "This is their only branch. They keep their account and role but can't work anywhere until you assign a branch again." : "They keep their other branches, their account and their role.",
       confirmLabel: "Remove", danger: true,
-      onConfirm: () => void update.mutateAsync({ id: u.id, data: withoutBranch(ids, branchId) }).then(() => setProblem(null)).catch((e: { detail?: string }) => setProblem(e?.detail ?? "Couldn't remove this person.")),
+      onConfirm: () => update.mutateAsync({ id: u.id, data: withoutBranch(ids, branchId) }).then(() => setProblem(null)).catch((e: { detail?: string }) => setProblem(e?.detail ?? "Couldn't remove this person.")),
     });
   };
 
   if (query.isLoading && !query.data) return <PageLoader variant="compact" />;
-  if (query.isError) return <p role="alert" className="py-8 text-center text-sm text-red-600">You don&apos;t have access to this branch&apos;s staff.</p>;
+  // Says what actually went wrong (no access, or the server could not be reached), with a retry.
+  if (query.isError && !query.data) return <LoadError title="Could not load this branch's staff" error={query.error} onRetry={() => void query.refetch()} />;
   const total = query.data?.total ?? 0;
   const noFilter = !search.trim() && !roleId && !status;
 
@@ -111,7 +114,7 @@ function AssignDrawer({ open, onClose, branchId, branchName }: { open: boolean; 
         <p className="text-[13px] text-muted">Pick someone who works in other branches. They keep those and gain this one.</p>
         <div className="relative"><Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden /><Input className="pl-9" aria-label="Search employees" placeholder="Search name or email" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         {error && <p role="alert" className="text-[12px] font-medium text-red-600">{error}</p>}
-        {q.isLoading ? <PageLoader variant="compact" /> : eligible.length === 0 ? <p className="py-6 text-center text-sm text-muted">No one else can be assigned here.{everywhere > 0 && ` ${everywhere} ${everywhere === 1 ? "person already works" : "people already work"} in every branch.`}</p> : (
+        {q.isLoading || (q.isError && !q.data) ? <TableState loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()} /> : eligible.length === 0 ? <p className="py-6 text-center text-sm text-muted">No one else can be assigned here.{everywhere > 0 && ` ${everywhere} ${everywhere === 1 ? "person already works" : "people already work"} in every branch.`}</p> : (
           <ul className="divide-y divide-border rounded-xl border border-border">{eligible.map((u) => <li key={u.id} className="flex items-center justify-between gap-3 px-3 py-2.5"><div className="min-w-0"><p className="truncate text-sm font-semibold">{u.full_name}</p><p className="truncate text-[12px] text-muted">{u.role ?? "No role"} · {u.branches.map((b) => b.name).join(", ") || "No branch"}</p></div><Button size="sm" disabled={update.isPending} onClick={() => void assign(u)}>Assign</Button></li>)}</ul>
         )}
       </div>

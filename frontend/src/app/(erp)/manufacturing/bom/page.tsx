@@ -3,7 +3,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 import { useState } from "react";
 import { Layers, Plus, Trash2, Edit2, Package, AlertCircle, X } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useBoms, useProducts, useCreateBom, useUpdateBom, useDeleteBom } from "@/lib/api/hooks";
 import type { ApiBom } from "@/lib/api/manufacturing";
 import { Drawer } from "@/components/ui/Drawer";
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 type ComponentRow = { id: string; product_id: string; quantity_required: number };
 type FormState = { name: string; product_id: string; notes: string; components: ComponentRow[] };
@@ -30,6 +30,7 @@ export default function BomPage() {
   const bomsQ = useBoms(1, 500);
   const productsQ = useProducts(1, 500);
   const loading = bomsQ.isLoading || productsQ.isLoading;
+  const listFailed = bomsQ.isError && !bomsQ.data;  // shown in place of the list, with a retry — never as "no records"
   const boms = bomsQ.data?.items ?? [];
   const products = productsQ.data?.items ?? [];
 
@@ -121,7 +122,7 @@ export default function BomPage() {
       message: `Delete "${bom.name}"? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteBom.mutate(bom.id, {
+      onConfirm: () => deleteBom.mutateAsync(bom.id, {
         onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete BOM"),
       }),
     });
@@ -165,8 +166,8 @@ export default function BomPage() {
       )}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-        {loading ? (
-          <PageLoader variant="compact" />
+        {loading || listFailed ? (
+          <TableState loading={loading} error={listFailed ? bomsQ.error : undefined} onRetry={() => void bomsQ.refetch()} />
         ) : boms.length === 0 ? (
           <div className="py-20 text-center">
             <Layers size={32} className="text-border mx-auto mb-3" />
@@ -286,7 +287,7 @@ export default function BomPage() {
           )}
 
           <FormFooter
-            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Create BOM"}
+            submitLabel={editing ? "Save Changes" : "Create BOM"} busy={saving} busyLabel="Saving…"
             onCancel={closeForm}
             disabled={saving || !form.name.trim()}
             color={COLOR}

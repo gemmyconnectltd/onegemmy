@@ -4,13 +4,18 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { CalendarDays, Plus, Search, MoreVertical, Clock } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { type ApiAppointment } from "@/lib/api";
 import { useAppointments, useUpdateAppointment, useEmployees } from "@/lib/api/hooks";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { Pagination } from "@/components/ui/Pagination";
 import { NewAppointmentDrawer } from "@/components/services/NewAppointmentDrawer";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
+import { ActionError } from "@/components/ui/LoadState";
+import { apiErrorMessage } from "@/lib/api/errors";
+import { isPendingFor } from "@/lib/loadState";
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Scheduled", confirmed: "Confirmed", checked_in: "Checked In",
@@ -56,12 +61,14 @@ export default function AppointmentsPage() {
   const dateFrom = `${date}T00:00:00`;
   const dateTo = `${date}T23:59:59`;
 
-  const { data, isLoading, isFetching } = useAppointments(page, pageSize, {
+  const appointmentsQ = useAppointments(page, pageSize, {
     dateFrom, dateTo,
     status: status === "all" ? undefined : status,
     employeeId: employeeId === "all" ? undefined : employeeId,
     search: debouncedSearch || undefined,
   });
+  const { data, isLoading } = appointmentsQ;
+  const listFailed = appointmentsQ.isError && !data;
   const { data: empData } = useEmployees("Active");
   const employees = empData?.items ?? [];
   const appointments = data?.items ?? [];
@@ -69,15 +76,18 @@ export default function AppointmentsPage() {
 
   const updateAppointment = useUpdateAppointment();
 
+  const [actionError, setActionError] = useState<string | null>(null);
   function transition(appt: ApiAppointment, newStatus: string) {
     setOpenMenu(null);
-    updateAppointment.mutate({ id: appt.id, data: { status: newStatus } });
+    if (isPendingFor(updateAppointment, appt.id)) return;
+    setActionError(null);
+    updateAppointment.mutate({ id: appt.id, data: { status: newStatus } }, { onError: (e) => setActionError(apiErrorMessage(e, "The appointment could not be updated.")) });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
+      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title text-foreground">Appointments</h1>
@@ -110,7 +120,9 @@ export default function AppointmentsPage() {
           <span className="text-xs text-muted ml-auto">{total} result{total === 1 ? "" : "s"}</span>
         </div>
 
-        <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
+        {(isLoading || listFailed) && <div className="p-4"><TableState loading={isLoading} error={listFailed ? appointmentsQ.error : undefined} onRetry={() => void appointmentsQ.refetch()} /></div>}
+        {!isLoading && !listFailed && (
+        <Refreshing busy={isRefreshing(appointmentsQ)} className="overflow-x-auto">
           <TableScroll mobileLayout="cards"><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
@@ -160,7 +172,7 @@ export default function AppointmentsPage() {
                           <div className="fixed inset-0 z-10" onClick={() => setOpenMenu(null)} />
                           <div className="absolute right-4 top-full mt-1 w-40 bg-card border border-border rounded-xl shadow-lg z-20 py-1.5 overflow-hidden">
                             {actions.map((act) => (
-                              <button key={act.status} onClick={() => transition(a, act.status)}
+                              <button key={act.status} disabled={isPendingFor(updateAppointment, a.id)} onClick={() => transition(a, act.status)}
                                 className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-surface transition-colors ${act.status === "cancelled" || act.status === "no_show" ? "text-red-600" : "text-foreground"}`}>
                                 {act.label}
                               </button>
@@ -185,7 +197,7 @@ export default function AppointmentsPage() {
               )}
             </tbody>
           </table></TableScroll>
-        </div>
+        </Refreshing>)}
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={() => {}} itemLabel="appointments" color={SVC_COLOR} />
       </div>
 

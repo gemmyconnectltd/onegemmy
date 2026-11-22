@@ -4,6 +4,7 @@ import { X, Search, Building2, CheckCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useDepartmentTemplates, useImportDepartments } from "@/lib/api/hooks";
 import type { ApiDepartmentTemplate } from "@/lib/api";
+import { TableState } from "@/components/ui/TableState";
 
 interface Props {
   open: boolean;
@@ -18,7 +19,8 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
   // Keyed per template so browsing between templates doesn't lose earlier picks.
   const [selections, setSelections] = useState<Record<string, Set<string>>>({});
 
-  const { data, isLoading } = useDepartmentTemplates({ enabled: open });
+  const templatesQ = useDepartmentTemplates({ enabled: open });
+  const { data, isLoading } = templatesQ;
   const importDepartments = useImportDepartments();
 
   useEffect(() => {
@@ -140,8 +142,8 @@ export default function ImportTemplatesModal({ open, onClose, color }: Props) {
 
         <div className="flex flex-1 min-h-0">
           <div className="w-72 flex-shrink-0 border-r border-border overflow-y-auto">
-            {isLoading ? (
-              <p className="text-sm text-muted p-5">Loading templates…</p>
+            {isLoading || (templatesQ.isError && !data) ? (
+              <div className="p-3"><TableState loading={isLoading} error={templatesQ.isError ? templatesQ.error : undefined} onRetry={() => void templatesQ.refetch()} rows={4} /></div>
             ) : filtered.length === 0 ? (
               <p className="text-sm text-muted p-5">No templates match your search.</p>
             ) : (

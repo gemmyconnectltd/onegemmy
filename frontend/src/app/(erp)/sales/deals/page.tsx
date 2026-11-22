@@ -2,7 +2,6 @@
 import { TableScroll } from "@/components/ui/TableScroll";
 import { fmtMoney } from "@/lib/config";
 import { Plus, Search, TrendingUp, ShoppingCart, Target, ArrowUpRight, Users, Edit2, Trash2, AlertCircle, Handshake } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useState } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { chartPalette } from "@/lib/chartColors";
@@ -15,6 +14,9 @@ import type { ApiDeal } from "@/lib/api";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 const STAGES = ["Leads", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
 
@@ -41,21 +43,17 @@ export default function SalesPage() {
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
 
   const [error, setError] = useState<string | null>(null);
-  const [shownLoadError, setShownLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("All");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<ApiDeal | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const { data, isLoading, error: loadError } = useDeals(1, 200);
+  const dealsQ = useDeals(1, 200);
+  const { data, isLoading } = dealsQ;
   const deals = data?.items ?? [];
-
-  const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load deals" : null;
-  if (loadErrorMessage !== shownLoadError) {
-    setShownLoadError(loadErrorMessage);
-    if (loadErrorMessage !== null) setError(loadErrorMessage);
-  }
+  // A failed load is shown where the deals would be (with a retry), and figures read "—" rather than zero.
+  const listFailed = dealsQ.isError && !data;
 
   const createDeal = useCreateDeal();
   const updateDeal = useUpdateDeal();
@@ -131,7 +129,7 @@ export default function SalesPage() {
       message: "Delete this deal? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteDeal.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete deal") }),
+      onConfirm: () => deleteDeal.mutateAsync(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete deal") }),
     });
   };
 
@@ -162,7 +160,7 @@ export default function SalesPage() {
               </div>
               {s.change && <span className="flex items-center gap-0.5 text-[11px] font-semibold text-emerald-600"><ArrowUpRight size={11} />live</span>}
             </div>
-            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={isLoading ? undefined : String(s.value)}>{isLoading ? "—" : s.value}</p>
+            <p className="text-lg sm:text-xl font-extrabold text-foreground tracking-tight truncate" title={isLoading || listFailed ? undefined : String(s.value)}>{isLoading || listFailed ? "—" : s.value}</p>
             <p className="text-[11px] text-muted mt-0.5 font-medium">{s.label}</p>
           </div>
         ))}
@@ -177,6 +175,8 @@ export default function SalesPage() {
           colors={breakdownColors(c)}
           tooltipStyle={c.tooltip}
           loading={isLoading}
+          error={listFailed ? dealsQ.error : undefined}
+          onRetry={() => void dealsQ.refetch()}
           empty="No deals in the pipeline yet"
         />
         <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -215,10 +215,10 @@ export default function SalesPage() {
           </div>
         )}
 
-        {isLoading ? (
-          <PageLoader variant="compact" />
+        {isLoading || listFailed ? (
+          <TableState loading={isLoading} error={listFailed ? dealsQ.error : undefined} onRetry={() => void dealsQ.refetch()} />
         ) : (
-          <TableScroll><table className="w-full min-w-[640px]">
+          <Refreshing busy={isRefreshing(dealsQ)}><TableScroll><table className="w-full min-w-[640px]">
             <thead>
               <tr className="text-left text-xs text-muted border-b border-border">
                 <th className="p-4 w-10">
@@ -263,9 +263,9 @@ export default function SalesPage() {
                 </tr>
               ))}
             </tbody>
-          </table></TableScroll>
+          </table></TableScroll></Refreshing>
         )}
-        {!isLoading && filtered.length === 0 && (
+        {!isLoading && !listFailed && filtered.length === 0 && (
           <div className="py-16 text-center">
             <Users size={32} className="text-border mx-auto mb-3" />
             <p className="text-sm font-semibold text-muted">No deals found</p>
@@ -300,7 +300,7 @@ export default function SalesPage() {
           <Field label="Notes">
             <Textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes..." />
           </Field>
-          <FormFooter submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Deal"} onCancel={closeDrawer} disabled={!form.name || !form.value || saving} color={SAL} />
+          <FormFooter submitLabel={editing ? "Save Changes" : "Add Deal"} busy={saving} busyLabel="Saving…" onCancel={closeDrawer} disabled={!form.name || !form.value || saving} color={SAL} />
         </form>
       </Drawer>
     </div>

@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, R
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { prefetchMyEntitlements, useMyProfile } from "./api/hooks";
+import { resetBranchScopedQueries } from "./api/queryClient";
 import { currentSessionUser } from "./sessionAccess";
 import {
   authApi,
@@ -300,10 +301,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setActiveBranchId = useCallback((branchId: string | null) => {
     setActiveBranchIdState(branchId);
     persistActiveBranchId(branchId);
-    // Every list/report screen is implicitly scoped by the active branch
-    // server-side now, so switching branches without invalidating cached
-    // queries would leave stale data from the previous branch on screen.
-    clearApiCache();
+    // Lists and reports are scoped to the active branch on the server: reset them so nothing from the previous branch is
+    // shown, while the person's profile and the sidebar stay (see lib/api/branchScope.ts).
+    resetBranchScopedQueries();
   }, []);
 
   const hasPermission = useCallback((permission: string): boolean => {

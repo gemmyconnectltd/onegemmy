@@ -5,10 +5,10 @@ import Link from "next/link";
 import { ExternalLink, LifeBuoy, Loader2, Mail, MessageCircle, Plus } from "lucide-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, FormFooter, Input, Select, Textarea } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from "@/lib/support";
 import { useCreateMyTicket, useMyTickets } from "@/lib/api/supportHooks";
 import { STATUS_STYLE } from "@/components/support/ticketStatus";
+import { TableState } from "@/components/ui/TableState";
 
 export default function HelpSupportPage() {
   const [page, setPage] = useState(1);
@@ -45,7 +45,7 @@ export default function HelpSupportPage() {
 
       <section className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="border-b border-border px-4 py-3"><h2 className="text-sm font-bold text-foreground">Your requests</h2></div>
-        {isLoading ? <PageLoader variant="compact" /> : isError ? (
+        {isLoading ? <TableState loading /> : isError ? (
           <p role="alert" className="p-4 text-sm text-red-600">Couldn&apos;t load your requests. <button onClick={() => void refetch()} className="font-semibold underline">Retry</button></p>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-1 px-4 py-12 text-center"><LifeBuoy size={28} className="text-muted/50" /><p className="text-sm font-semibold text-foreground">No requests yet</p><p className="text-[12px] text-muted">Create one and we&apos;ll reply here.</p></div>
@@ -72,7 +72,7 @@ export default function HelpSupportPage() {
           <Field label="Subject" required><Input value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} maxLength={200} placeholder="e.g. My sales report is empty" /></Field>
           <Field label="What's happening?" required><Textarea rows={6} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
           <Field label="How urgent is it?"><Select value={f.priority} onChange={(e) => setF({ ...f, priority: e.target.value as "low" | "normal" })}><option value="normal">Normal</option><option value="low">Low — a question</option></Select></Field>
-          <FormFooter submitLabel={create.isPending ? "Sending…" : "Send request"} onCancel={() => setOpen(false)} disabled={!valid || create.isPending} />
+          <FormFooter submitLabel={"Send request"} busy={create.isPending} busyLabel="Sending…" onCancel={() => setOpen(false)} disabled={!valid || create.isPending} />
           {create.isPending && <Loader2 size={14} className="animate-spin text-muted" />}
         </form>
       </Drawer>

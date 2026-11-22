@@ -98,7 +98,7 @@ function ReceiveLine({ line, index, onChange, onRemove }: { line: Line; index: n
   const products = useProducts(1, 25, useDeferredValue(search), true);
   return (
     <div className="grid grid-cols-[1fr_6rem_2rem] items-start gap-2">
-      <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching}
+      <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching} error={products.isError ? products.error : undefined} onRetry={() => void products.refetch()}
         items={(products.data?.items ?? []).filter((p) => !p.has_variants).map((p) => ({ id: p.id, label: p.name, hint: p.sku ?? undefined }))}
         onSelect={(id) => onChange({ productId: id, name: products.data?.items.find((p) => p.id === id)?.name ?? "" })} placeholder="Search products…" emptyText="No products without variants match" />
       <Input aria-label={`Quantity ${index + 1}`} inputMode="decimal" className="text-right tabular-nums" value={line.quantity} onChange={(e) => onChange({ quantity: e.target.value })} />

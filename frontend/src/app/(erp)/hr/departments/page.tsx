@@ -3,13 +3,15 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Building2, Plus, Search, Edit2, Trash2, Users, Check, X, Sparkles } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useDepartments, useCreateOwnDepartment, useUpdateOwnDepartment, useDeleteOwnDepartment } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ImportTemplatesModal from "./ImportTemplatesModal";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 const COLORS = [
   "bg-violet-100 text-violet-600", "bg-blue-100 text-blue-600",
@@ -31,7 +33,9 @@ export default function DepartmentsPage() {
   const [editDesc, setEditDesc] = useState("");
   const [showImport, setShowImport] = useState(false);
 
-  const { data, isLoading } = useDepartments();
+  const departmentsQ = useDepartments();
+  const { data, isLoading } = departmentsQ;
+  const listFailed = departmentsQ.isError && !data;
   const createDepartment = useCreateOwnDepartment();
   const updateDepartment = useUpdateOwnDepartment();
   const deleteDepartment = useDeleteOwnDepartment();
@@ -79,11 +83,9 @@ export default function DepartmentsPage() {
       message: "Delete this department? Employees in it will be unassigned, not deleted.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteDepartment.mutate(id),
+      onConfirm: () => deleteDepartment.mutateAsync(id),
     });
   }
-
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -146,7 +148,9 @@ export default function DepartmentsPage() {
 
       <BulkActionBar count={bulk.count} label="department" pluralLabel="departments" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? departmentsQ.error : undefined} onRetry={() => void departmentsQ.refetch()} rows={3} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(departmentsQ)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((d) => (
           <div key={d.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-all group ${bulk.selected.has(d.id) ? "border-accent" : "border-border hover:border-foreground/15"}`}>
             {editingId === d.id ? (
@@ -207,7 +211,7 @@ export default function DepartmentsPage() {
             <p className="text-sm font-semibold text-muted">No departments found</p>
           </div>
         )}
-      </div>
+      </Refreshing>)}
 
       <ImportTemplatesModal open={showImport} onClose={() => setShowImport(false)} color={HR_COLOR} />
     </div>

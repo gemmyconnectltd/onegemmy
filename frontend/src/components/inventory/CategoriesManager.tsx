@@ -4,13 +4,15 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Layers, Plus, Search, Edit2, Trash2, Package, Check, X, Sparkles } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import ImportTemplatesModal from "./ImportTemplatesModal";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 export type AttributeManagerProps = { embedded?: boolean };
 
@@ -34,7 +36,9 @@ export function CategoriesManager({ embedded = false }: AttributeManagerProps) {
   const [editDesc, setEditDesc] = useState("");
   const [showImport, setShowImport] = useState(false);
 
-  const { data, isLoading } = useCategories();
+  const categoriesQ = useCategories();
+  const { data, isLoading } = categoriesQ;
+  const listFailed = categoriesQ.isError && !data;
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
@@ -82,11 +86,10 @@ export function CategoriesManager({ embedded = false }: AttributeManagerProps) {
       message: "Delete this category? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteCategory.mutate(id),
+      onConfirm: () => deleteCategory.mutateAsync(id),
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -143,7 +146,9 @@ export function CategoriesManager({ embedded = false }: AttributeManagerProps) {
 
       <BulkActionBar count={bulk.count} label="category" pluralLabel="categories" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? categoriesQ.error : undefined} onRetry={() => void categoriesQ.refetch()} rows={3} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(categoriesQ)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((c) => (
           <div key={c.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-all group ${bulk.selected.has(c.id) ? "border-accent" : "border-border hover:border-foreground/15"}`}>
             {editingId === c.id ? (
@@ -202,7 +207,7 @@ export function CategoriesManager({ embedded = false }: AttributeManagerProps) {
             <p className="text-sm font-semibold text-muted">No categories found</p>
           </div>
         )}
-      </div>
+      </Refreshing>)}
 
       <ImportTemplatesModal open={showImport} onClose={() => setShowImport(false)} color={INV_COLOR} />
     </div>

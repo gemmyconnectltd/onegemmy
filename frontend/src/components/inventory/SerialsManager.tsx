@@ -4,13 +4,15 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Search, Trash2, X } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiSerial } from "@/lib/api";
 import { useSerials, useCreateSerials, useDeleteSerial } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 const STATUS_COLORS: Record<string, string> = {
   in_stock: "bg-emerald-100 text-emerald-700",
@@ -37,7 +39,9 @@ export function SerialsManager({ embedded = false }: { embedded?: boolean }) {
   const [bulk, setBulk] = useState<BulkRow[]>([newRow()]);
   const [result, setResult] = useState<string | null>(null);
 
-  const { data, isLoading } = useSerials(1, 100, undefined, status || undefined);
+  const serialsQ = useSerials(1, 100, undefined, status || undefined);
+  const { data, isLoading } = serialsQ;
+  const listFailed = serialsQ.isError && !data;
   const createSerials = useCreateSerials();
   const deleteSerial = useDeleteSerial();
   const serials = data?.items ?? [];
@@ -67,7 +71,7 @@ export function SerialsManager({ embedded = false }: { embedded?: boolean }) {
       message: "Delete this serial? Only unsold serials can be removed. This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteSerial.mutate(id),
+      onConfirm: () => deleteSerial.mutateAsync(id),
     });
   }
 
@@ -86,7 +90,6 @@ export function SerialsManager({ embedded = false }: { embedded?: boolean }) {
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -161,7 +164,9 @@ export function SerialsManager({ embedded = false }: { embedded?: boolean }) {
         </Select>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? serialsQ.error : undefined} onRetry={() => void serialsQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(serialsQ)} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         {bulkSel.count > 0 && (
           <div className="px-4 py-3 border-b border-border">
             <BulkActionBar count={bulkSel.count} label="serial" onDelete={confirmBulkDelete} onClear={bulkSel.clear} deleting={bulkDeleting} />
@@ -214,7 +219,7 @@ export function SerialsManager({ embedded = false }: { embedded?: boolean }) {
             )}
           </tbody>
         </table></TableScroll></div>
-      </div>
+      </Refreshing>)}
     </div>
   );
 }

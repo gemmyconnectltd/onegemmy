@@ -3,7 +3,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { CheckCircle, XCircle, Clock, Plus, Trash2 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiAttendance } from "@/lib/api/hr";
 import { useAttendance, useEmployees, useCreateAttendance, useDeleteAttendance } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
@@ -13,6 +12,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 const statusIcon: Record<string, React.ReactNode> = {
   Present: <CheckCircle size={14} className="text-emerald-500" />,
@@ -70,7 +70,7 @@ export default function AttendancePage() {
       message: "Delete this attendance record? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteAttendance.mutate(r.id, { onError: () => setNotice("Could not delete record.") }),
+      onConfirm: () => deleteAttendance.mutateAsync(r.id, { onError: () => setNotice("Could not delete record.") }),
     });
   };
 
@@ -129,7 +129,7 @@ export default function AttendancePage() {
       </div>
 
       {loading ? (
-        <PageLoader variant="compact" />
+        <TableState loading />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : records.length === 0 ? (
@@ -216,7 +216,7 @@ export default function AttendancePage() {
               <option value="Half Day">Half Day</option>
             </Select>
           </Field>
-          <FormFooter submitLabel={createAttendance.isPending ? "Saving…" : "Save Record"} onCancel={() => setShowForm(false)} disabled={createAttendance.isPending} />
+          <FormFooter submitLabel={"Save Record"} busy={createAttendance.isPending} busyLabel="Saving…" onCancel={() => setShowForm(false)} disabled={createAttendance.isPending} />
         </form>
       </Drawer>
     </div>

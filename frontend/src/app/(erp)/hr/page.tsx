@@ -3,7 +3,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Users, UserCheck, Clock, AlertTriangle, RefreshCw, Plus, Trash2 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiEmployee } from "@/lib/api/hr";
 import { useEmployees, useDepartments, useCreateEmployee, useDeleteEmployee } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
@@ -13,6 +12,7 @@ import { Field, Input, Select, FormFooter } from "@/components/ui/Form";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 const STATUS_COLORS: Record<string, string> = {
   Active: "bg-emerald-50 text-emerald-700",
@@ -106,7 +106,7 @@ export default function EmployeesPage() {
       message: `Delete ${emp.full_name}? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteEmployee.mutate(emp.id, { onError: () => setNotice("Could not delete employee.") }),
+      onConfirm: () => deleteEmployee.mutateAsync(emp.id, { onError: () => setNotice("Could not delete employee.") }),
     });
   };
 
@@ -178,7 +178,7 @@ export default function EmployeesPage() {
       </div>
 
       {loading ? (
-        <PageLoader variant="compact" />
+        <TableState loading />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : employees.length === 0 ? (
@@ -292,7 +292,7 @@ export default function EmployeesPage() {
           <Field label="Hire date">
             <Input type="date" value={form.hire_date} onChange={(e) => setForm({ ...form, hire_date: e.target.value })} />
           </Field>
-          <FormFooter submitLabel={createEmployee.isPending ? "Saving…" : "Add Employee"} onCancel={() => setShowForm(false)} disabled={createEmployee.isPending} />
+          <FormFooter submitLabel={"Add Employee"} busy={createEmployee.isPending} busyLabel="Saving…" onCancel={() => setShowForm(false)} disabled={createEmployee.isPending} />
         </form>
       </Drawer>
     </div>

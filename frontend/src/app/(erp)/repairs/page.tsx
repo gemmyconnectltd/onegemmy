@@ -3,12 +3,17 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Wrench, X, ChevronDown } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { type RepairJob } from "@/lib/api";
 import { useRepairJobs, useCreateRepairJob, useUpdateRepairJob, useDeleteRepairJob } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
+import { ActionError } from "@/components/ui/LoadState";
+import { apiErrorMessage } from "@/lib/api/errors";
+import { isPendingFor } from "@/lib/loadState";
 
 const STATUS_COLORS: Record<string, string> = {
   received:       "bg-blue-100 text-blue-700",
@@ -36,7 +41,9 @@ export default function RepairsPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<Record<string, string>>({});
 
-  const { data, isLoading } = useRepairJobs(statusFilter || undefined);
+  const jobsQ = useRepairJobs(statusFilter || undefined);
+  const { data, isLoading } = jobsQ;
+  const listFailed = jobsQ.isError && !data;
   const createJob = useCreateRepairJob();
   const updateJob = useUpdateRepairJob();
   const deleteJob = useDeleteRepairJob();
@@ -60,9 +67,16 @@ export default function RepairsPage() {
     setForm(EMPTY_FORM);
   }
 
+  const [actionError, setActionError] = useState<string | null>(null);
   async function handleStatusChange(id: string, status: string) {
+    setActionError(null);
     setEditStatus((s) => ({ ...s, [id]: status }));
-    await updateJob.mutateAsync({ id, data: { status } });
+    try {
+      await updateJob.mutateAsync({ id, data: { status } });
+    } catch (e) {
+      setEditStatus((s) => { const next = { ...s }; delete next[id]; return next; });  // back to the saved status
+      setActionError(apiErrorMessage(e, "The repair status could not be changed."));
+    }
   }
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
@@ -75,7 +89,7 @@ export default function RepairsPage() {
       message: "Delete this repair job? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteJob.mutate(id),
+      onConfirm: () => deleteJob.mutateAsync(id),
     });
   }
 
@@ -94,11 +108,11 @@ export default function RepairsPage() {
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
       {confirmDialog}
+      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title text-foreground">Repair Jobs</h1>
@@ -179,7 +193,9 @@ export default function RepairsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? jobsQ.error : undefined} onRetry={() => void jobsQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(jobsQ)} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         {bulk.count > 0 && (
           <div className="px-4 py-3 border-b border-border">
             <BulkActionBar count={bulk.count} label="job" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
@@ -218,7 +234,9 @@ export default function RepairsPage() {
                   <div className="relative inline-block">
                     <select
                       value={editStatus[job.id] ?? job.status}
-                      onChange={(e) => handleStatusChange(job.id, e.target.value)}
+                      onChange={(e) => void handleStatusChange(job.id, e.target.value)}
+                      disabled={isPendingFor(updateJob, job.id)}
+                      aria-busy={isPendingFor(updateJob, job.id) || undefined}
                       className={`appearance-none pl-2 pr-6 py-1 rounded-full text-xs font-semibold cursor-pointer outline-none ${STATUS_COLORS[editStatus[job.id] ?? job.status] ?? "bg-surface text-muted"}`}>
                       {STATUSES.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
                     </select>
@@ -240,7 +258,7 @@ export default function RepairsPage() {
             )}
           </tbody>
         </table></TableScroll></div>
-      </div>
+      </Refreshing>)}
     </div>
   );
 }

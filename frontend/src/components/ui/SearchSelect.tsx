@@ -4,14 +4,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api/errors";
 
 export interface SearchSelectItem { id: string; label: string; hint?: string }
 
 /** One searchable dropdown in place of a "search box + select + pager" stack. The parent owns the (server-side) search:
  *  it passes the query it searched with and the matching items, so existing hooks and pagination limits are reused. */
-export function SearchSelect({ label, value, selectedLabel, query, onQueryChange, items, loading, onSelect, placeholder = "Search…", emptyText = "No matches", footer, required, className }: {
+export function SearchSelect({ label, value, selectedLabel, query, onQueryChange, items, loading, error, onRetry, onSelect, placeholder = "Search…", emptyText = "No matches", footer, required, className }: {
   label: string; value: string; selectedLabel?: string; query: string; onQueryChange: (q: string) => void;
   items: SearchSelectItem[]; loading?: boolean; onSelect: (id: string) => void; placeholder?: string; emptyText?: string;
+  /** The search request failed: say so (with a retry) instead of "No matches". */
+  error?: unknown; onRetry?: () => void;
   footer?: React.ReactNode; required?: boolean; className?: string;
 }) {
   const id = useId();
@@ -76,7 +79,9 @@ export function SearchSelect({ label, value, selectedLabel, query, onQueryChange
               </li>
             ))}
           </ul>
-          {!loading && items.length === 0 && <p className="px-3 py-3 text-sm text-muted">{emptyText}</p>}
+          {!loading && items.length === 0 && (error
+            ? <p role="alert" className="px-3 py-3 text-sm text-red-600">{apiErrorMessage(error, "The search could not be completed.")}{onRetry && <> <button type="button" className="font-semibold underline" onClick={onRetry}>Try again</button></>}</p>
+            : <p className="px-3 py-3 text-sm text-muted">{emptyText}</p>)}
           {footer && <div className="border-t border-border px-3 py-2 text-xs">{footer}</div>}
         </div>,
         document.body,

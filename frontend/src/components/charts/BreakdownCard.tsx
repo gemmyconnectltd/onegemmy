@@ -3,6 +3,7 @@
 import type { ComponentType } from "react";
 
 import { DonutChart } from "@/components/charts/lazy";
+import { LoadError, Skeleton } from "@/components/ui/LoadState";
 import type { ChartPalette } from "@/lib/chartColors";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
@@ -30,7 +31,7 @@ export function breakdownColors(c: ChartPalette): string[] {
  * module's overview page, so they all look and behave the same way.
  */
 export function BreakdownCard({
-  title, sub, icon: Icon, data, colors, tooltipStyle, empty, loading,
+  title, sub, icon: Icon, data, colors, tooltipStyle, empty, loading, error, onRetry,
 }: {
   title: string;
   sub: string;
@@ -40,6 +41,9 @@ export function BreakdownCard({
   tooltipStyle: ChartPalette["tooltip"];
   empty: string;
   loading?: boolean;
+  /** The card's data failed to load: say so (with a retry) instead of showing the empty message. */
+  error?: unknown;
+  onRetry?: () => void;
 }) {
   const { currencySymbol } = useAppConfig();
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -54,7 +58,9 @@ export function BreakdownCard({
       </div>
       <div className="p-4 flex-1">
         {loading ? (
-          <p className="px-2 py-8 text-[12px] text-muted text-center">Loading…</p>
+          <Skeleton className="h-[84px]" label={`Loading ${title}`} />
+        ) : error ? (
+          <LoadError compact title={`Could not load ${title.toLowerCase()}`} error={error} onRetry={onRetry} />
         ) : total <= 0 ? (
           <p className="px-2 py-8 text-[12px] text-muted text-center">{empty}</p>
         ) : (

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "@/components/charts/lazy";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { Card, Stat } from "@/components/branches/parts";
 import { useBranchSales } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
@@ -12,6 +11,7 @@ import { chartPalette } from "@/lib/chartColors";
 import { growthText, presetRange, type PeriodPreset } from "@/lib/branchView";
 import { fmtMoney } from "@/lib/config";
 import { useWorkInBranch } from "@/lib/useWorkInBranch";
+import { TableState } from "@/components/ui/TableState";
 
 const PRESETS: { id: PeriodPreset; label: string }[] = [{ id: "today", label: "Today" }, { id: "week", label: "Last 7 days" }, { id: "month", label: "This month" }, { id: "custom", label: "Custom" }];
 const GROWTH_TONE = { up: "text-emerald-600", down: "text-red-600", flat: "text-muted", none: "text-muted" } as const;
@@ -40,7 +40,7 @@ export function BranchSalesTab({ branchId }: { branchId: string }) {
       </div>
       {preset === "custom" && !range && <p className="text-[13px] text-muted">Choose a start and an end date (the start can&apos;t be after the end).</p>}
 
-      {q.isLoading && range ? <PageLoader variant="compact" /> : q.isError ? (
+      {q.isLoading && range ? <TableState loading /> : q.isError ? (
         <p role="alert" className="rounded-xl border border-border bg-card py-12 text-center text-sm text-red-600">{(q.error as { status?: number } | null)?.status === 403 ? "You don't have access to sales for this branch, or the Sales module isn't on." : "Couldn't load sales for this branch."}</p>
       ) : d && (
         <>

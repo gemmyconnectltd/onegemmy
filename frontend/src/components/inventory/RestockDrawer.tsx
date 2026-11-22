@@ -81,7 +81,7 @@ export function RestockDrawer({ open, onClose, productName, currentStock, onSubm
       footer={
         <form onSubmit={handleSubmit}>
           <FormFooter
-            submitLabel={submitting ? "Saving…" : mode === "restock" ? "Add Stock" : "Apply Adjustment"}
+            submitLabel={mode === "restock" ? "Add Stock" : "Apply Adjustment"} busy={submitting} busyLabel="Saving…"
             onCancel={handleClose}
             disabled={!valid || submitting}
             color={color}

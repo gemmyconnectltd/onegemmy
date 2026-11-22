@@ -4,7 +4,6 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { UserCheck, Search, Settings2, Plus, Trash2, Sparkles } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +14,9 @@ import {
   useCreateEmployeeService, useUpdateEmployeeService, useDeleteEmployeeService,
 } from "@/lib/api/hooks";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
+import { apiErrorMessage } from "@/lib/api/errors";
+import { ActionError } from "@/components/ui/LoadState";
 
 const initials = (name: string) => name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
@@ -26,9 +28,12 @@ export default function StaffCommissionsPage() {
   const [search, setSearch] = useState("");
   const [managing, setManaging] = useState<ApiEmployee | null>(null);
 
-  const { data: empData, isLoading: empLoading } = useEmployees("Active");
-  const { data: allServices, isLoading: svcLoading } = useAllServices();
-  const { data: employeeServices, isLoading: esLoading } = useEmployeeServices();
+  const employeesQ = useEmployees("Active");
+  const servicesQ = useAllServices();
+  const assignmentsQ = useEmployeeServices();
+  const { data: empData, isLoading: empLoading } = employeesQ;
+  const { data: allServices, isLoading: svcLoading } = servicesQ;
+  const { data: employeeServices, isLoading: esLoading } = assignmentsQ;
 
   const employees = empData?.items ?? [];
   const services = allServices ?? [];
@@ -41,7 +46,8 @@ export default function StaffCommissionsPage() {
   }
 
   const loading = empLoading || svcLoading || esLoading;
-  if (loading) return <PageLoader />;
+  // Any of the three missing means the table would be wrong: show the failure (with a retry) instead.
+  const failedQ = [employeesQ, servicesQ, assignmentsQ].find((q) => q.isError && !q.data);
 
   return (
     <div className="space-y-6">
@@ -60,6 +66,8 @@ export default function StaffCommissionsPage() {
           <span className="text-xs text-muted ml-auto">{filtered.length} result{filtered.length === 1 ? "" : "s"}</span>
         </div>
 
+        {(loading || failedQ) && <div className="p-4"><TableState loading={loading} error={failedQ?.error} onRetry={() => void failedQ?.refetch()} /></div>}
+        {!loading && !failedQ && (
         <div className="overflow-x-auto">
           <TableScroll><table className="w-full min-w-160">
             <thead>
@@ -125,7 +133,7 @@ export default function StaffCommissionsPage() {
               )}
             </tbody>
           </table></TableScroll>
-        </div>
+        </div>)}
       </div>
 
       <ManageServicesDrawer
@@ -180,15 +188,17 @@ function ManageServicesDrawer({
       message: `Remove ${employee?.full_name} from ${assignment.service?.name}?`,
       confirmLabel: "Remove",
       danger: true,
-      onConfirm: () => deleteEmployeeService.mutate(assignment.id),
+      onConfirm: () => deleteEmployeeService.mutateAsync(assignment.id),
     });
   }
 
+  const [actionError, setActionError] = useState<string | null>(null);
   function handleCommissionChange(assignment: ApiEmployeeService, field: "commission_type" | "commission_value", value: string) {
+    setActionError(null);
     updateEmployeeService.mutate({
       id: assignment.id,
       data: field === "commission_type" ? { commission_type: value } : { commission_value: Number(value) || 0 },
-    });
+    }, { onError: (e) => setActionError(apiErrorMessage(e, "The commission could not be saved.")) });
   }
 
   return (
@@ -200,6 +210,7 @@ function ManageServicesDrawer({
     >
       {confirmDialog}
       <div className="p-5 space-y-3">
+        <ActionError message={actionError} onDismiss={() => setActionError(null)} />
         {assignments.length === 0 && (
           <p className="text-sm text-muted text-center py-6">Not assigned to any service yet.</p>
         )}

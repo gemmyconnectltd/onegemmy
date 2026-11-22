@@ -12,6 +12,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/Form";
 import { FormActions, FormErrorSummary, FormSection, FormRow } from "@/components/ui/FormKit";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { OptionsLoadError } from "@/components/ui/LoadState";
 
 type Line = { key: string; productId: string; variantId: string; name: string; sku: string | null; price: string; quantity: string; discount: string; product: ApiProduct | null };
 const blank = (key: string): Line => ({ key, productId: "", variantId: "", name: "", sku: null, price: "", quantity: "1", discount: "0", product: null });
@@ -78,11 +79,12 @@ export function QuotationEditor({ initial, onClose, onSaved }: { initial?: ApiQu
       {dialog}
       <form onSubmit={submit} className="space-y-4 p-4 sm:p-5">
         <FormErrorSummary errors={error} />
+        <OptionsLoadError sources={[{ label: "the sales team", query: team }, { label: "customers", query: customers }]} />
         <fieldset disabled={busy} className="space-y-4">
           <FormSection title="Quotation details" variant="plain">
             <Field label="Customer" hint="Leave empty for a walk-in quote.">
               <SearchSelect label="Customer" value={customer} selectedLabel={customerName || customers.data?.items.find((c) => c.id === customer)?.name} query={customerSearch} onQueryChange={setCustomerSearch}
-                loading={customers.isFetching} items={(customers.data?.items ?? []).map((c) => ({ id: c.id, label: c.name, hint: c.phone ?? undefined }))}
+                loading={customers.isFetching} error={customers.isError ? customers.error : undefined} onRetry={() => void customers.refetch()} items={(customers.data?.items ?? []).map((c) => ({ id: c.id, label: c.name, hint: c.phone ?? undefined }))}
                 onSelect={(id) => { setCustomer(id); setCustomerName(customers.data?.items.find((c) => c.id === id)?.name ?? ""); setDirty(true); }} placeholder="Search customers…" />
             </Field>
             <Field label="Salesperson" required>
@@ -137,7 +139,7 @@ function LineRow({ line, index, onChange, onRemove, symbol }: { line: Line; inde
     <div className="@container space-y-2 rounded-lg border border-border bg-surface/40 p-3">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching}
+          <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching} error={products.isError ? products.error : undefined} onRetry={() => void products.refetch()}
             items={(products.data?.items ?? []).map((p) => ({ id: p.id, label: p.name, hint: p.sku ?? undefined }))} onSelect={pick} placeholder="Search name, SKU or barcode…"
             footer={(products.data?.total ?? 0) > 25 ? <span className="text-muted">Showing the first 25. Keep typing to narrow the list.</span> : undefined} />
         </div>

@@ -1,11 +1,10 @@
+import { FILE_TIMEOUT_MS, REQUEST_TIMEOUT_MS, toApiError, type ApiError } from "./errors";
 import { clearApiQueryCache } from "./queryClient";
 
 // The backend now runs on a VPS, not Render — there's no fixed production
 // URL to fall back to here. NEXT_PUBLIC_API_URL must be set explicitly for
 // any real deployment; this default only covers local dev.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-
-const REQUEST_TIMEOUT_MS = 60_000;
 
 let _refreshPromise: Promise<string | null> | null = null;
 let _onSessionExpired: (() => void) | null = null;
@@ -14,14 +13,49 @@ export function setSessionExpiredHandler(fn: () => void) {
   _onSessionExpired = fn;
 }
 
+// React Query hands each query an AbortSignal; the query hooks set it here for the duration of the (synchronous) call that
+// starts the request, so `request()` can pick it up without every API function having to thread it through. A query
+// that is no longer needed (e.g. an earlier search term) is then cancelled instead of finishing in the background.
+let activeSignal: AbortSignal | undefined;
+export function withRequestSignal<T>(signal: AbortSignal | undefined, run: () => T): T {
+  const previous = activeSignal;
+  activeSignal = signal;
+  try {
+    return run();
+  } finally {
+    activeSignal = previous;
+  }
+}
+
+/** fetch with a timeout and optional cancellation. A timeout or network failure becomes an ApiError; a cancellation by
+ *  the caller is passed through untouched so React Query can recognise it and discard it silently. */
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+  const outer = options.signal ?? undefined;
+  let timedOut = false;
+  const id = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+  const forward = () => controller.abort();
+  if (outer) {
+    if (outer.aborted) controller.abort();
+    else outer.addEventListener("abort", forward, { once: true });
+  }
   try {
     return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (outer?.aborted && !timedOut) throw error;
+    throw toApiError(error, timedOut);
   } finally {
     clearTimeout(id);
+    outer?.removeEventListener("abort", forward);
   }
+}
+
+async function httpError(res: Response): Promise<ApiError> {
+  const body = await res.json().catch(() => ({ detail: res.statusText }));
+  const detail = Array.isArray(body.detail)
+    ? body.detail.map((e: { msg: string }) => e.msg).join(", ")
+    : body.detail || body.message || res.statusText;
+  return { status: res.status, detail: String(detail || `Request failed (${res.status})`), kind: "http" };
 }
 
 export function clearApiCache() {
@@ -125,6 +159,8 @@ async function tryRefreshToken(): Promise<string | null> {
 const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/token", "/auth/register", "/auth/refresh", "/auth/forgot-password", "/auth/reset-password", "/auth/change-password"];
 
 export async function request<T>(path: string, options: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  const signal = options.signal ?? activeSignal;  // captured before the first await
+  if (signal) options = { ...options, signal };
   const token = getStoredToken();
   const activeBranchId = getActiveBranchId();
   const headers: Record<string, string> = {
@@ -148,16 +184,10 @@ export async function request<T>(path: string, options: RequestInit = {}, timeou
     // Refresh failed — session expired
     clearStoredTokens();
     _onSessionExpired?.();
-    throw { status: 401, detail: "Session expired" };
+    throw { status: 401, detail: "Your session has expired. Please sign in again.", kind: "session" } satisfies ApiError;
   }
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    const detail = Array.isArray(body.detail)
-      ? body.detail.map((e: { msg: string }) => e.msg).join(", ")
-      : body.detail || body.message || res.statusText;
-    throw { status: res.status, detail };
-  }
+  if (!res.ok) throw await httpError(res);
   return res.json();
 }
 
@@ -191,11 +221,8 @@ export async function downloadFile(path: string, fallbackFilename: string): Prom
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
 
-  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, REQUEST_TIMEOUT_MS);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw { status: res.status, detail: body.detail || body.message || res.statusText };
-  }
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, FILE_TIMEOUT_MS);
+  if (!res.ok) throw await httpError(res);
 
   _triggerDownload(await res.blob(), _filenameFromDisposition(res, fallbackFilename));
 }
@@ -207,11 +234,8 @@ export async function fetchFile(path: string, fallbackFilename: string): Promise
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
-  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, REQUEST_TIMEOUT_MS);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw { status: res.status, detail: body.detail || body.message || res.statusText };
-  }
+  const res = await fetchWithTimeout(`${API_BASE}${path}`, { headers }, FILE_TIMEOUT_MS);
+  if (!res.ok) throw await httpError(res);
   return { blob: await res.blob(), filename: _filenameFromDisposition(res, fallbackFilename) };
 }
 
@@ -228,12 +252,9 @@ export async function downloadFilePost(path: string, body: object, fallbackFilen
   if (activeBranchId) headers["X-Branch-Id"] = activeBranchId;
 
   const res = await fetchWithTimeout(
-    `${API_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) }, REQUEST_TIMEOUT_MS,
+    `${API_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) }, FILE_TIMEOUT_MS,
   );
-  if (!res.ok) {
-    const resBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw { status: res.status, detail: resBody.detail || resBody.message || res.statusText };
-  }
+  if (!res.ok) throw await httpError(res);
 
   _triggerDownload(await res.blob(), _filenameFromDisposition(res, fallbackFilename));
 }

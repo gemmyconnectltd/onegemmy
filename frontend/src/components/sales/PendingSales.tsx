@@ -12,6 +12,7 @@ import { ReasonDialog } from "@/components/ui/ReasonDialog";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SaleDocumentDrawer } from "@/components/sales/SaleDocumentDrawer";
+import { LoadError } from "@/components/ui/LoadState";
 
 /** Sales waiting for a decision before they are paid or leave stock: the approver sees what was sold, by whom, and decides. */
 export function PendingSales() {
@@ -26,6 +27,8 @@ export function PendingSales() {
   const [problem, setProblem] = useState<string | null>(null);
   const money = (n: number) => fmtMoney(n, currencySymbol);
   const orders = q.data?.items ?? [];
+  // Sales held for approval must not silently disappear when the check itself fails.
+  if (q.isError && !q.data) return <LoadError compact title="Could not check for sales waiting for approval" error={q.error} onRetry={() => void q.refetch()} />;
   if (!orders.length) return null;
   const may = (o: ApiOrder) => (o.held_reason === "policy" ? hasPermission("orders:approve") : hasPermission("credit:approve"));
 
@@ -49,7 +52,7 @@ export function PendingSales() {
               <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-1.5">
                 <Button size="sm" variant="outline" aria-label={`Review ${o.order_number}`} onClick={() => setViewing(o)}><Eye size={13} aria-hidden /> Review</Button>
                 {may(o) && <>
-                  <Button size="sm" disabled={approve.isPending} onClick={() => confirm({ title: "Approve this sale?", message: `${o.order_number} will be completed: stock goes out and ${money(o.total)} is booked.`, confirmLabel: "Approve", onConfirm: () => approve.mutate({ id: o.id }, { onError: (e) => setProblem((e as { detail?: string })?.detail ?? e.message) }) })}>Approve</Button>
+                  <Button size="sm" disabled={approve.isPending} onClick={() => confirm({ title: "Approve this sale?", message: `${o.order_number} will be completed: stock goes out and ${money(o.total)} is booked.`, confirmLabel: "Approve", onConfirm: () => approve.mutateAsync({ id: o.id }, { onError: (e) => setProblem((e as { detail?: string })?.detail ?? e.message) }) })}>Approve</Button>
                   <Button size="sm" variant="outline" onClick={() => setRejecting(o)}>Reject</Button>
                 </>}
               </div></td>

@@ -1,4 +1,5 @@
 import { request, qs } from "./client";
+import { AI_TIMEOUT_MS } from "./errors";
 import type { SingleResponse } from "./types";
 
 export interface AiCard {
@@ -133,7 +134,8 @@ export interface AiAdminUsage {
 
 export const aiApi = {
   chat: (data: { message: string; module: string; conversation_id?: string }) =>
-    request<SingleResponse<AiReply>>("/ai/chat", { method: "POST", body: JSON.stringify(data) }),
+    // The assistant may take several model rounds before it answers: wait as long as the server may take.
+    request<SingleResponse<AiReply>>("/ai/chat", { method: "POST", body: JSON.stringify(data) }, AI_TIMEOUT_MS),
   status: () => request<SingleResponse<AiStatus>>("/ai/status"),
   insights: () => request<SingleResponse<AiInsight[]>>("/ai/insights"),
   confirmAction: (id: string) => request<SingleResponse<AiActionResult>>(`/ai/actions/${id}/confirm`, { method: "POST" }),

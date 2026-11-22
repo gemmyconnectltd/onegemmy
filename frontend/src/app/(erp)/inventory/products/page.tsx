@@ -37,6 +37,9 @@ import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 function margin(p: ApiProduct) { return p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0; }
 function variantStock(p: ApiProduct) {
@@ -136,7 +139,9 @@ function ProductsContent() {
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
   const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
-  const { data, isLoading, isFetching } = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range, undefined, vatFilter || undefined);
+  const productsQ = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range, undefined, vatFilter || undefined);
+  const { data, isLoading } = productsQ;
+  const listFailed = productsQ.isError && !data;
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -274,7 +279,6 @@ function ProductsContent() {
                       onDelete={canDelete ? () => setDeleteTarget(p) : undefined}
                     />);
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -373,6 +377,8 @@ function ProductsContent() {
           </div>
         )}
 
+        {(isLoading || listFailed) && <div className="p-4"><TableState loading={isLoading} error={listFailed ? productsQ.error : undefined} onRetry={() => void productsQ.refetch()} /></div>}
+        {!isLoading && !listFailed && (
         <div className="md:hidden" aria-label="Product cards">
           <label className="flex min-h-11 items-center gap-3 border-b border-border px-4 text-sm"><input type="checkbox" aria-label="Select all products" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} disabled={!products.length} />Select this page</label>
           <div className="grid gap-3 p-3 sm:grid-cols-2">
@@ -390,8 +396,9 @@ function ProductsContent() {
             </article>)}
             {!products.length && <p className="p-4 text-sm text-muted">No products found. Try another search or filter.</p>}
           </div>
-        </div>
-        <div className={`hidden md:block overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
+        </div>)}
+        {!isLoading && !listFailed && (
+        <Refreshing busy={isRefreshing(productsQ)} className="hidden md:block overflow-x-auto">
           <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
@@ -459,7 +466,7 @@ function ProductsContent() {
               )}
             </tbody>
           </table></TableScroll>
-          </div>
+        </Refreshing>)}
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="products" color={INV_COLOR} />
       </div>
 

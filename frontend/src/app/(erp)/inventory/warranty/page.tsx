@@ -4,10 +4,15 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Search } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiWarrantyClaim } from "@/lib/api";
 import { useWarrantyClaims, useCreateWarrantyClaim, useUpdateWarrantyClaim } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
+import { ActionError } from "@/components/ui/LoadState";
+import { apiErrorMessage } from "@/lib/api/errors";
+import { isPendingFor } from "@/lib/loadState";
 
 const STATUS_COLORS: Record<string, string> = {
   submitted: "bg-amber-100 text-amber-700",
@@ -27,7 +32,9 @@ export default function WarrantyPage() {
   const [issue, setIssue] = useState("");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useWarrantyClaims(1, 100, status || undefined);
+  const claimsQ = useWarrantyClaims(1, 100, status || undefined);
+  const { data, isLoading } = claimsQ;
+  const listFailed = claimsQ.isError && !data;
   const createClaim = useCreateWarrantyClaim();
   const updateClaim = useUpdateWarrantyClaim();
   const claims = data?.items ?? [];
@@ -45,14 +52,17 @@ export default function WarrantyPage() {
     } catch { /* ignore */ }
   }
 
+  const [actionError, setActionError] = useState<string | null>(null);
   async function handleStatus(id: string, next: string) {
-    try { await updateClaim.mutateAsync({ id, data: { status: next } }); } catch { /* ignore */ }
+    if (updateClaim.isPending) return;
+    setActionError(null);
+    try { await updateClaim.mutateAsync({ id, data: { status: next } }); } catch (e) { setActionError(apiErrorMessage(e, "The claim could not be updated.")); }
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
+      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title text-foreground">Warranty Claims</h1>
@@ -96,7 +106,9 @@ export default function WarrantyPage() {
         </Select>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? claimsQ.error : undefined} onRetry={() => void claimsQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(claimsQ)} className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
         <TableScroll mobileLayout="cards"><table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs text-muted border-b border-border">
@@ -126,7 +138,7 @@ export default function WarrantyPage() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   {c.status === "submitted" || c.status === "pending" ? (
-                    <Select value="" onChange={(e) => e.target.value && handleStatus(c.id, e.target.value)}>
+                    <Select value="" disabled={isPendingFor(updateClaim, c.id)} aria-busy={isPendingFor(updateClaim, c.id) || undefined} onChange={(e) => e.target.value && void handleStatus(c.id, e.target.value)}>
                       <option value="">Update…</option>
                       {NEXT_STATUSES.filter((s) => s !== "pending").map((s) => <option key={s} value={s}>{s}</option>)}
                     </Select>
@@ -143,7 +155,7 @@ export default function WarrantyPage() {
             )}
           </tbody>
         </table></TableScroll></div>
-      </div>
+      </Refreshing>)}
     </div>
   );
 }

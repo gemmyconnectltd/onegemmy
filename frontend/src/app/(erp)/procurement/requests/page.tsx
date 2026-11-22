@@ -6,7 +6,6 @@ import { CheckCircle2, ClipboardList, Plus, Search, Trash2, X } from "lucide-rea
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,6 +16,9 @@ import {
   useCreateRequisition, useApproveRequisition, useRejectRequisition, useDeleteRequisition,
 } from "@/lib/api/hooks";
 import type { Requisition } from "@/lib/api";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 type ReqStatus = "Pending" | "Approved" | "Rejected";
 const STATUS_STYLES: Record<ReqStatus, string> = {
@@ -34,7 +36,9 @@ export default function PurchaseRequestsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data, isLoading } = useRequisitions();
+  const requisitionsQ = useRequisitions();
+  const { data, isLoading } = requisitionsQ;
+  const listFailed = requisitionsQ.isError && !data;
   const { data: deptData } = useDepartments();
   const reqs = data?.items ?? [];
   const departments = deptData?.items ?? [];
@@ -99,7 +103,7 @@ export default function PurchaseRequestsPage() {
       title: "Approve Requisition",
       message: `Approve request for "${r.item_name}"?`,
       confirmLabel: "Approve",
-      onConfirm: () => approveReq.mutate(r.id),
+      onConfirm: () => approveReq.mutateAsync(r.id),
     });
   };
 
@@ -109,7 +113,7 @@ export default function PurchaseRequestsPage() {
       message: `Reject request for "${r.item_name}"?`,
       confirmLabel: "Reject",
       danger: true,
-      onConfirm: () => rejectReq.mutate(r.id),
+      onConfirm: () => rejectReq.mutateAsync(r.id),
     });
   };
 
@@ -119,13 +123,12 @@ export default function PurchaseRequestsPage() {
       message: `Delete request "${r.reference}"? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteReq.mutate(r.id),
+      onConfirm: () => deleteReq.mutateAsync(r.id),
     });
   };
 
   const pending = reqs.filter((r) => r.status === "Pending").length;
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-5">
@@ -170,7 +173,9 @@ export default function PurchaseRequestsPage() {
         <BulkActionBar count={bulk.count} label="request" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} />
       )}
 
-      <div className="bg-card border border-border overflow-x-auto">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? requisitionsQ.error : undefined} onRetry={() => void requisitionsQ.refetch()} rows={5} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(requisitionsQ)} className="bg-card border border-border overflow-x-auto">
         <TableScroll><table className="w-full min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
@@ -241,7 +246,7 @@ export default function PurchaseRequestsPage() {
             )}
           </tbody>
         </table></TableScroll>
-      </div>
+      </Refreshing>)}
 
       <p className="text-[13px] text-muted">{pending} request{pending === 1 ? "" : "s"} awaiting approval.</p>
 
@@ -253,7 +258,7 @@ export default function PurchaseRequestsPage() {
         side="right"
         footer={
           <form onSubmit={(e) => { e.preventDefault(); addReq(); }}>
-            <FormFooter submitLabel={createReq.isPending ? "Submitting…" : "Submit request"} onCancel={() => setShowModal(false)} disabled={createReq.isPending || !form.item_name.trim()} />
+            <FormFooter submitLabel={"Submit request"} busy={createReq.isPending} busyLabel="Submitting…" onCancel={() => setShowModal(false)} disabled={createReq.isPending || !form.item_name.trim()} />
           </form>
         }
       >

@@ -24,6 +24,7 @@ import {
 } from "@/lib/api/hooks";
 import type { ApiUser } from "@/lib/api";
 import { fmtDate, fmtDateTime } from "@/lib/date";
+import { TableState } from "@/components/ui/TableState";
 
 type Tab = "profile" | "activity";
 
@@ -86,7 +87,7 @@ export default function UsersPage() {
   const roleList = useRoleSummaries();
 
   const isActive = status === "all" ? undefined : status === "active";
-  const { data, isLoading, isError, isFetching, refetch } = useCompanyUsers({ page, pageSize, search, isActive, roleId: roleId || undefined });
+  const { data, isLoading, isError, isFetching, refetch, error: usersError } = useCompanyUsers({ page, pageSize, search, isActive, roleId: roleId || undefined });
 
   const createUser = useCreateCompanyUser();
   const updateUser = useUpdateCompanyUser();
@@ -299,16 +300,8 @@ export default function UsersPage() {
 
   // ── render ─────────────────────────────────────────────────────────────────
 
-  if (isLoading) return <PageLoader variant="page" />;
-
-  if (isError) {
-    return (
-      <div className="space-y-6">
-        <h1 className="pesaa-page-title text-foreground">Team &amp; Access</h1>
-        <ErrorState message="Could not load your team" onRetry={() => refetch()} />
-      </div>
-    );
-  }
+  // The title, search and filters show at once; only the list below waits for the team (or shows why it could not load).
+  const listFailed = isError && !data;
 
 
   return (
@@ -367,6 +360,8 @@ export default function UsersPage() {
         {isFetching && <span className="text-[11px] text-muted">Updating…</span>}
       </div>
 
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? usersError : undefined} onRetry={() => void refetch()} />}
+      {!isLoading && !listFailed && (
       <div className="space-y-3">
         {users.length > 0 && (
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -419,7 +414,7 @@ export default function UsersPage() {
             </button>
           </div>
         )}
-      </div>
+      </div>)}
 
       <Pagination
         page={page}

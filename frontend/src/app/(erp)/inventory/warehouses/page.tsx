@@ -9,6 +9,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { TableState } from "@/components/ui/TableState";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ReceiveStockDrawer, WarehouseEditor } from "@/components/inventory/WarehouseDrawers";
+import { isPendingFor } from "@/lib/loadState";
 
 const fail = (cause: unknown) => (cause as { detail?: string })?.detail ?? (cause as Error)?.message ?? "That didn't work. Please try again.";
 
@@ -24,7 +25,8 @@ export default function WarehousesPage() {
   const canManage = hasPermission("warehouses:create");
   const items = q.data?.items ?? [];
 
-  const run = (id: string, action: "activate" | "deactivate" | "make-default") => { setProblem(null); act.mutate({ id, action }, { onError: (e) => setProblem(fail(e)) }); };
+  // Returns the request so a confirm dialog shows its progress; the problem (if any) is shown on the page as before.
+  const run = (id: string, action: "activate" | "deactivate" | "make-default") => { setProblem(null); return act.mutateAsync({ id, action }).then(() => undefined, (e) => setProblem(fail(e))); };
 
   return (
     <div className="space-y-4">
@@ -59,10 +61,10 @@ export default function WarehousesPage() {
                   <td className="px-4 py-3"><div className="flex flex-wrap justify-end gap-1.5">
                     {canManage && w.is_active && <Button size="sm" variant="outline" onClick={() => setReceiving(w)}><PackagePlus size={13} aria-hidden /> Receive</Button>}
                     {canManage && <Button size="sm" variant="outline" onClick={() => setEditing(w)}>Edit</Button>}
-                    {canManage && w.is_active && !w.is_default && <Button size="sm" variant="outline" onClick={() => run(w.id, "make-default")}>Make default</Button>}
-                    {canManage && !w.is_default && <Button size="sm" variant="outline" onClick={() => w.is_active
+                    {canManage && w.is_active && !w.is_default && <Button size="sm" variant="outline" loading={isPendingFor(act, w.id) && act.variables?.action === "make-default"} disabled={isPendingFor(act, w.id)} onClick={() => void run(w.id, "make-default")}>Make default</Button>}
+                    {canManage && !w.is_default && <Button size="sm" variant="outline" loading={isPendingFor(act, w.id) && act.variables?.action === "activate"} disabled={isPendingFor(act, w.id)} onClick={() => w.is_active
                       ? confirm({ title: `Deactivate ${w.name}?`, message: "It stops receiving and giving out stock. This is only possible once it holds no stock and has no unfinished transfers or counts.", confirmLabel: "Deactivate", danger: true, onConfirm: () => run(w.id, "deactivate") })
-                      : run(w.id, "activate")}>{w.is_active ? "Deactivate" : "Activate"}</Button>}
+                      : void run(w.id, "activate")}>{w.is_active ? "Deactivate" : "Activate"}</Button>}
                   </div></td>
                 </tr>))}</tbody>
             </table>

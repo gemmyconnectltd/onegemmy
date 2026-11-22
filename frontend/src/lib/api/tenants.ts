@@ -1,4 +1,5 @@
-import { request, getStoredToken, API_BASE } from "./client";
+import { request } from "./client";
+import { FILE_TIMEOUT_MS } from "./errors";
 import type { SingleResponse } from "./types";
 import type { ControlState, PartStatus } from "@/lib/featureParts";
 
@@ -129,13 +130,9 @@ export const tenantsApi = {
   update: (id: string, data: TenantUpdateInput) =>
     request<SingleResponse<Tenant>>(`${T}/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   uploadLogo: (id: string, file: File) => {
-    const token = getStoredToken();
     const form = new FormData();
     form.append("file", file);
-    return fetch(`${API_BASE}${T}/${id}/logo`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    }).then((r) => r.json()) as Promise<SingleResponse<{ logo_url: string }>>;
+    // Through request(): a rejected upload now throws instead of resolving with the error body as if it had worked.
+    return request<SingleResponse<{ logo_url: string }>>(`${T}/${id}/logo`, { method: "POST", body: form }, FILE_TIMEOUT_MS);
   },
 };

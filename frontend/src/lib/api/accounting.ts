@@ -1,4 +1,4 @@
-import { request, getStoredToken, API_BASE, filenameFromDisposition } from "./client";
+import { request, downloadFile } from "./client";
 import type { SingleResponse, PaginatedResponse } from "./types";
 
 export interface AccountingAccount {
@@ -201,12 +201,11 @@ export const accountingApi = {
     request<SingleResponse<CashFlowStatement>>(`${BASE}/reports/cash-flow${qs({ from_date: fromDate, to_date: toDate })}`),
   generalLedger: (fromDate?: string, toDate?: string, accountId?: string) =>
     request<SingleResponse<GeneralLedger>>(`${BASE}/reports/general-ledger${qs({ from_date: fromDate, to_date: toDate, account_id: accountId })}`),
-  exportStatement: async (
+  exportStatement: (
     statement: "trial-balance" | "income-statement" | "balance-sheet" | "cash-flow" | "general-ledger",
     format: "csv" | "pdf",
     params: { fromDate?: string; toDate?: string; asOf?: string; accountId?: string } = {},
   ) => {
-    const token = getStoredToken();
     const query = qs({
       format,
       from_date: params.fromDate,
@@ -214,19 +213,8 @@ export const accountingApi = {
       as_of: params.asOf,
       account_id: params.accountId,
     });
-    const res = await fetch(`${API_BASE}${BASE}/reports/${statement}/export${query}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error("Export failed");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filenameFromDisposition(res, `${statement}.${format}`);  // the server names it after the business and period
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    // The server names the file after the business and period.
+    return downloadFile(`${BASE}/reports/${statement}/export${query}`, `${statement}.${format}`);
   },
 
   listAccounts: (type?: string) =>

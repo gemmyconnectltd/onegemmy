@@ -5,6 +5,7 @@ import { useChangeSalesperson, useSalesTeam } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Select, Textarea } from "@/components/ui/Form";
+import { OptionsLoadError } from "@/components/ui/LoadState";
 
 /** Re-credit a sale to another salesperson. Money and stock are untouched; the change and the reason go in the audit trail. */
 export function ChangeSalespersonDialog({ order, onClose }: { order: ApiOrder; onClose: () => void }) {
@@ -22,6 +23,7 @@ export function ChangeSalespersonDialog({ order, onClose }: { order: ApiOrder; o
   return (
     <Drawer open onClose={() => !change.isPending && onClose()} side="center" size="sm" title={`Change salesperson · ${order.order_number}`}>
       <div className="space-y-3 p-4">
+        <OptionsLoadError sources={[{ label: "the sales team", query: team }]} />
         <p className="text-sm text-muted">Currently credited to <span className="font-medium text-foreground">{order.salesperson_name ?? "nobody"}</span>. Only who gets the credit changes: money and stock stay as they are.</p>
         <Field label="Salesperson" required><Select value={person} onChange={(e) => setPerson(e.target.value)}>{!person && <option value="">Choose…</option>}{(team.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></Field>
         <Field label="Reason" required hint="Kept in the audit trail."><Textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>

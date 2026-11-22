@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { useUnitSuggestions, useImportUnits } from "@/lib/api/hooks";
+import { TableState } from "@/components/ui/TableState";
 
 interface Props {
   open: boolean;
@@ -15,7 +16,8 @@ export default function ImportUnitsModal({ open, onClose }: Props) {
   // avoiding a setState-in-effect just to seed selection once data arrives.
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useUnitSuggestions({ enabled: open });
+  const suggestionsQ = useUnitSuggestions({ enabled: open });
+  const { data, isLoading } = suggestionsQ;
   const importUnits = useImportUnits();
   const selected = (data?.suggested ?? []).filter((u) => !deselected.has(u.name));
 
@@ -50,16 +52,16 @@ export default function ImportUnitsModal({ open, onClose }: Props) {
       description="Pick the units of measure you want to add."
       footer={
         <div className="flex gap-2">
-          <Button onClick={handleImport} disabled={selected.length === 0 || importUnits.isPending}>
-            {importUnits.isPending ? "Importing…" : `Import ${selected.length || ""} Unit${selected.length === 1 ? "" : "s"}`.trim()}
+          <Button onClick={handleImport} disabled={selected.length === 0} loading={importUnits.isPending} loadingLabel="Importing…">
+            {`Import ${selected.length || ""} Unit${selected.length === 1 ? "" : "s"}`.trim()}
           </Button>
           <Button type="button" variant="secondary" onClick={close}>Cancel</Button>
         </div>
       }
     >
       <div className="p-5">
-        {isLoading ? (
-          <p className="text-sm text-muted">Loading suggestions…</p>
+        {isLoading || (suggestionsQ.isError && !data) ? (
+          <TableState loading={isLoading} error={suggestionsQ.isError ? suggestionsQ.error : undefined} onRetry={() => void suggestionsQ.refetch()} rows={4} />
         ) : !data || data.suggested.length === 0 ? (
           <div className="text-center py-8">
             <Sparkles size={28} className="text-border mx-auto mb-2" />

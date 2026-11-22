@@ -1,25 +1,14 @@
 "use client";
 
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { LoadError } from "@/components/ui/LoadState";
 
 export function EmptyState({ message }: { message: string }) {
   return <p className="text-sm text-muted py-12 text-center">{message}</p>;
 }
 
+/** Kept for its callers; renders the shared load-error block so every failed load looks and reads the same. */
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="bg-card border border-border rounded-xl py-12 px-6 text-center space-y-3">
-      <AlertTriangle size={22} className="mx-auto text-red-500" />
-      <p className="text-sm font-semibold text-foreground">{message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border bg-surface text-sm font-semibold text-foreground hover:bg-surface/70"
-      >
-        <RefreshCw size={14} /> Retry
-      </button>
-    </div>
-  );
+  return <LoadError title="Could not load this page" error={message} onRetry={onRetry} />;
 }
 
 export const STATUS_COLORS: Record<string, string> = {

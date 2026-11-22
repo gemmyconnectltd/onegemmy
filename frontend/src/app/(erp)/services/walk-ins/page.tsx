@@ -3,12 +3,18 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { ListChecks, Plus, Sparkles, Clock, UserCheck, Play, Check, X } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { type ApiQueueEntry } from "@/lib/api";
 import { useQueue, useUpdateQueueEntry, useEmployees } from "@/lib/api/hooks";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { NewWalkInDrawer } from "@/components/services/NewWalkInDrawer";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
+import { ActionError } from "@/components/ui/LoadState";
+import { apiErrorMessage } from "@/lib/api/errors";
+import { isPendingFor } from "@/lib/loadState";
+import { BusyIcon } from "@/components/ui/BusyIcon";
 
 const STATUS_TABS = [
   { key: "waiting", label: "Waiting" },
@@ -34,23 +40,34 @@ export default function WalkInsPage() {
 
   const [tab, setTab] = useState<(typeof STATUS_TABS)[number]["key"]>("waiting");
   const [showForm, setShowForm] = useState(false);
-  const { data: entries, isLoading } = useQueue(tab);
+  const queueQ = useQueue(tab);
+  const { data: entries, isLoading } = queueQ;
+  const listFailed = queueQ.isError && !entries;
   const { data: empData } = useEmployees("Active");
   const employees = empData?.items ?? [];
   const updateEntry = useUpdateQueueEntry();
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
 
+  const [actionError, setActionError] = useState<string | null>(null);
+  const failed = (e: unknown) => setActionError(apiErrorMessage(e, "The queue could not be updated."));
+  const busy = (entry: ApiQueueEntry) => isPendingFor(updateEntry, entry.id);
+
   function assignStaff(entry: ApiQueueEntry, employeeId: string) {
-    if (!employeeId) return;
-    updateEntry.mutate({ id: entry.id, data: { employee_id: employeeId } });
+    if (!employeeId || busy(entry)) return;
+    setActionError(null);
+    updateEntry.mutate({ id: entry.id, data: { employee_id: employeeId } }, { onError: failed });
   }
 
   function start(entry: ApiQueueEntry) {
-    updateEntry.mutate({ id: entry.id, data: { status: "in_service" } });
+    if (busy(entry)) return;
+    setActionError(null);
+    updateEntry.mutate({ id: entry.id, data: { status: "in_service" } }, { onError: failed });
   }
 
   function complete(entry: ApiQueueEntry) {
-    updateEntry.mutate({ id: entry.id, data: { status: "completed" } });
+    if (busy(entry)) return;
+    setActionError(null);
+    updateEntry.mutate({ id: entry.id, data: { status: "completed" } }, { onError: failed });
   }
 
   function remove(entry: ApiQueueEntry) {
@@ -59,17 +76,17 @@ export default function WalkInsPage() {
       message: `Remove ${entry.customer_name} from the queue?`,
       confirmLabel: "Remove",
       danger: true,
-      onConfirm: () => updateEntry.mutate({ id: entry.id, data: { status: "removed" } }),
+      onConfirm: () => updateEntry.mutateAsync({ id: entry.id, data: { status: "removed" } }),
     });
   }
 
   const list = entries ?? [];
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
       {confirmDialog}
+      <ActionError message={actionError} onDismiss={() => setActionError(null)} />
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title text-foreground">Walk-in Queue</h1>
@@ -90,7 +107,9 @@ export default function WalkInsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? queueQ.error : undefined} onRetry={() => void queueQ.refetch()} rows={3} />}
+      {!isLoading && !listFailed && (
+      <Refreshing busy={isRefreshing(queueQ)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {list.map((entry) => (
           <div key={entry.id} className="bg-card border border-border rounded-xl p-4 space-y-3 hover:shadow-md transition-all">
             <div className="flex items-start justify-between">
@@ -122,13 +141,13 @@ export default function WalkInsPage() {
                 </select>
               )}
               {tab === "assigned" && (
-                <button onClick={() => start(entry)} className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-white text-xs font-semibold" style={{ backgroundColor: SVC_COLOR }}>
-                  <Play size={12} /> Start
+                <button onClick={() => start(entry)} disabled={busy(entry)} aria-busy={busy(entry) || undefined} className="disabled:opacity-50 flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-white text-xs font-semibold" style={{ backgroundColor: SVC_COLOR }}>
+                  <BusyIcon busy={busy(entry)} icon={Play} size={12} /> Start
                 </button>
               )}
               {tab === "in_service" && (
-                <button onClick={() => complete(entry)} className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-white text-xs font-semibold" style={{ backgroundColor: SVC_COLOR }}>
-                  <Check size={12} /> Complete
+                <button onClick={() => complete(entry)} disabled={busy(entry)} aria-busy={busy(entry) || undefined} className="disabled:opacity-50 flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-white text-xs font-semibold" style={{ backgroundColor: SVC_COLOR }}>
+                  <BusyIcon busy={busy(entry)} icon={Check} size={12} /> Complete
                 </button>
               )}
               {tab !== "completed" && (
@@ -150,7 +169,7 @@ export default function WalkInsPage() {
             )}
           </div>
         )}
-      </div>
+      </Refreshing>)}
 
       <NewWalkInDrawer open={showForm} onClose={() => setShowForm(false)} color={SVC_COLOR} />
     </div>

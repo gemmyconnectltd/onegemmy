@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Form";
 import { FinancialError } from "@/components/accounting/FinancialShared";
 import { useExpenseContext } from "./ExpenseShared";
+import { isPendingFor } from "@/lib/loadState";
 
 /** Expense rules in one place: the limit under which expenses approve themselves, and the recurring expenses (rent, subscriptions). */
 export function ExpenseRules() {
@@ -28,7 +29,7 @@ export function ExpenseRules() {
       </section>
       <section className="space-y-2"><div className="flex items-center justify-between gap-2"><h3 className="text-xs font-semibold">Recurring expenses</h3>{can("create") && <Button size="sm" variant="outline" disabled={run.isPending} onClick={() => run.mutate(undefined, { onSuccess: r => setNote(r.data.created ? `${r.data.created} expense${r.data.created === 1 ? "" : "s"} created for approval.` : "Nothing is due.") })}>Create due expenses</Button>}</div>
         <p className="text-xs text-muted">Set one up with “Repeat” when you record an expense. Due ones are created as pending expenses for approval.</p>
-        {!recurring.data?.length ? <p className="text-xs text-muted">No recurring expenses yet.</p> : <ul className="divide-y divide-border rounded-lg border border-border">{recurring.data.map(r => <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs"><span className="min-w-0"><span className="block truncate font-medium">{r.title}</span><span className="text-muted">{money(Number(r.amount))} · {r.frequency} · next {r.next_date}{r.on_credit ? " · pay later" : ""}</span></span>{can("update") && <Button size="sm" variant="ghost" onClick={() => toggle.mutate(r.id)}>{r.is_active ? "Pause" : "Resume"}</Button>}</li>)}</ul>}
+        {!recurring.data?.length ? <p className="text-xs text-muted">No recurring expenses yet.</p> : <ul className="divide-y divide-border rounded-lg border border-border">{recurring.data.map(r => <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-xs"><span className="min-w-0"><span className="block truncate font-medium">{r.title}</span><span className="text-muted">{money(Number(r.amount))} · {r.frequency} · next {r.next_date}{r.on_credit ? " · pay later" : ""}</span></span>{can("update") && <Button size="sm" variant="ghost" loading={isPendingFor(toggle, r.id)} onClick={() => toggle.mutate(r.id)}>{r.is_active ? "Pause" : "Resume"}</Button>}</li>)}</ul>}
         <FinancialError error={recurring.error || run.error || toggle.error} />
       </section>
     </div>

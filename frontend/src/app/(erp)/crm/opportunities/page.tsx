@@ -5,7 +5,6 @@ import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, FormFooter, Input, Select, Textarea } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/lib/auth";
@@ -16,6 +15,7 @@ import {
 import type { ApiCrmOpportunity } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
+import { TableState } from "@/components/ui/TableState";
 
 const STAGES = ["Leads", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
 const EMPTY = { name: "", customer_id: "", value: "0", stage: "Leads", probability: "50", expected_close_date: "", notes: "" };
@@ -75,7 +75,7 @@ export default function OpportunitiesPage() {
       title: "Delete opportunity?",
       message: `Delete "${item.name}"? This removes the shared Sales deal record, but not its customer or orders.`,
       danger: true, confirmLabel: "Delete opportunity",
-      onConfirm: () => remove.mutate(item.id),
+      onConfirm: () => remove.mutateAsync(item.id),
     });
   }
 
@@ -103,7 +103,7 @@ export default function OpportunitiesPage() {
         </Select>
       </div>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {opportunities.isLoading ? <PageLoader variant="compact" /> : opportunities.isError ? (
+      {opportunities.isLoading ? <TableState loading /> : opportunities.isError ? (
         <p role="alert" className="text-sm text-red-600">Could not load opportunities. <Button variant="outline" onClick={() => void opportunities.refetch()}>Retry</Button></p>
       ) : (
         <>
@@ -160,7 +160,7 @@ export default function OpportunitiesPage() {
           </div>
           <Field label="Notes"><Textarea rows={4} maxLength={5000} value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })} /></Field>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={saving ? "Saving…" : "Save opportunity"} />
+          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={"Save opportunity"} busy={saving} busyLabel="Saving…" />
         </form>
       </Drawer>
     </section>

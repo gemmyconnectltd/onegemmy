@@ -5,7 +5,6 @@ import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, FormFooter, Input, Select } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +12,7 @@ import {
   useCreateCrmCampaign, useCrmCampaigns, useDeleteCrmCampaign, useUpdateCrmCampaign,
 } from "@/lib/api/hooks";
 import type { ApiCampaign } from "@/lib/api";
+import { TableState } from "@/components/ui/TableState";
 
 const EMPTY = { name: "", type: "Email", status: "Draft", start_date: "", target_count: "0", sent_count: "0", opened_count: "0" };
 const TYPES = ["Email", "SMS", "Social"];
@@ -69,7 +69,7 @@ export default function CampaignsPage() {
       title: "Delete campaign?",
       message: `Delete "${item.name}"? Email history linked to this campaign will no longer be grouped here.`,
       danger: true, confirmLabel: "Delete campaign",
-      onConfirm: () => remove.mutate(item.id, { onError: reason => setError(errorText(reason)) }),
+      onConfirm: () => remove.mutateAsync(item.id, { onError: reason => setError(errorText(reason)) }),
     });
   }
 
@@ -92,7 +92,7 @@ export default function CampaignsPage() {
         </Select>
       </div>
       {error && !open && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {campaigns.isLoading ? <PageLoader variant="compact" /> : campaigns.isError ? (
+      {campaigns.isLoading ? <TableState loading /> : campaigns.isError ? (
         <p role="alert" className="text-sm text-red-600">Could not load CRM campaigns. <Button variant="outline" onClick={() => void campaigns.refetch()}>Retry</Button></p>
       ) : (
         <>
@@ -138,7 +138,7 @@ export default function CampaignsPage() {
             <Field label="Opened count"><Input type="number" min="0" step="1" value={form.opened_count} onChange={event => setForm({ ...form, opened_count: event.target.value })} /></Field>
           </div>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={saving ? "Saving…" : "Save campaign"} />
+          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={"Save campaign"} busy={saving} busyLabel="Saving…" />
         </form>
       </Drawer>
     </section>

@@ -1,4 +1,5 @@
-import { request, getStoredToken, API_BASE, qs, filenameFromDisposition } from "./client";
+import { request, downloadFile, qs } from "./client";
+import { FILE_TIMEOUT_MS } from "./errors";
 import type { PaginatedResponse, SingleResponse } from "./types";
 import { periodParams, type PeriodRange } from "@/lib/period";
 export interface PictureImportResult {
@@ -159,33 +160,25 @@ export const inventoryApi = {
   restockProduct: (id: string, data: { qty: number; mode: string; reason?: string; notes?: string }) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products/${id}/restock`, { method: "POST", body: JSON.stringify(data) }),
   uploadProductImage: (id: string, file: File) => {
-    const token = getStoredToken();
     const form = new FormData();
     form.append("file", file);
-    return fetch(`${API_BASE}${BASE}/products/${id}/image`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    }).then((r) => r.json()) as Promise<SingleResponse<ApiProduct>>;
+    // Through request(): a rejected upload now throws instead of resolving with the error body as if it had worked.
+    return request<SingleResponse<ApiProduct>>(`${BASE}/products/${id}/image`, { method: "POST", body: form }, FILE_TIMEOUT_MS);
   },
 
   /** A ZIP of pictures named after each product's SKU or barcode. */
   importProductPictures: (file: File) => {
-    const token = getStoredToken();
     const form = new FormData();
     form.append("file", file);
-    return fetch(`${API_BASE}${BASE}/products/import-pictures`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form })
-      .then(async (r) => { const body = await r.json(); if (!r.ok) throw body; return body; }) as Promise<SingleResponse<PictureImportResult>>;
+    return request<SingleResponse<PictureImportResult>>(`${BASE}/products/import-pictures`, { method: "POST", body: form }, FILE_TIMEOUT_MS);
   },
 
   // Product gallery: extra pictures beside the main one
   productGallery: (id: string) => request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images`),
   addGalleryImage: (id: string, file: File) => {
-    const token = getStoredToken();
     const form = new FormData();
     form.append("file", file);
-    return fetch(`${API_BASE}${BASE}/products/${id}/images`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form })
-      .then(async (r) => { const body = await r.json(); if (!r.ok) throw body; return body; }) as Promise<SingleResponse<ProductGallery>>;
+    return request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images`, { method: "POST", body: form }, FILE_TIMEOUT_MS);
   },
   removeGalleryImage: (id: string, imageId: string) => request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images/${imageId}`, { method: "DELETE" }),
   makeMainImage: (id: string, imageId: string) => request<SingleResponse<ProductGallery>>(`${BASE}/products/${id}/images/${imageId}/make-main`, { method: "POST" }),
@@ -257,20 +250,6 @@ export const inventoryApi = {
   // Reports
   valuationReport: (page = 1, status = "all") =>
     request<SingleResponse<InventoryValuationReport>>(`${BASE}/reports/valuation${qs({ page, page_size: 50, status })}`),
-  exportValuationReport: async (format: "csv" | "pdf") => {
-    const token = getStoredToken();
-    const res = await fetch(`${API_BASE}${BASE}/reports/valuation/export?format=${format}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error("Export failed");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filenameFromDisposition(res, `inventory-valuation.${format}`);  // the server names it after the business and date
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  },
+  // The server names the file after the business and date; downloadFile adds the file timeout, session refresh and errors.
+  exportValuationReport: (format: "csv" | "pdf") => downloadFile(`${BASE}/reports/valuation/export?format=${format}`, `inventory-valuation.${format}`),
 };

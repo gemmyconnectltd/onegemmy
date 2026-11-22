@@ -5,7 +5,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { returnBaseRefund } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { RotateCcw, CheckCircle2, Clock, XCircle, Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useMemo, useState } from "react";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { PeriodFilter } from "@/components/ui/PeriodFilter";
@@ -21,6 +20,7 @@ import type { ApiReturn } from "@/lib/api";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 const STATUS_STYLE: Record<string, string> = {
   Approved: "bg-emerald-100 text-emerald-700",
@@ -53,6 +53,7 @@ export default function SalesReturnsPage() {
   const customersQ = useCustomers(1, 200);
   const ordersQ = useOrders(1, 200);
   const loading = returnsQ.isLoading || customersQ.isLoading || ordersQ.isLoading;
+  const listFailed = returnsQ.isError && !returnsQ.data;  // shown in place of the list, with a retry — never as "no records"
   const returns = returnsQ.data?.items ?? [];
   const customers = customersQ.data?.items ?? [];
   const orders = ordersQ.data?.items ?? [];
@@ -142,7 +143,7 @@ export default function SalesReturnsPage() {
       message: "Delete this return? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteReturn.mutate(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete return") }),
+      onConfirm: () => deleteReturn.mutateAsync(id, { onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete return") }),
     });
   };
 
@@ -193,8 +194,8 @@ export default function SalesReturnsPage() {
           </div>
         )}
 
-        {loading ? (
-          <PageLoader variant="compact" />
+        {loading || listFailed ? (
+          <TableState loading={loading} error={listFailed ? returnsQ.error : undefined} onRetry={() => void returnsQ.refetch()} />
         ) : (
           <TableScroll><table className="w-full min-w-[640px]">
             <thead>
@@ -309,7 +310,7 @@ export default function SalesReturnsPage() {
               </Select>
             </Field>
           </div>
-          <FormFooter submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Add Return"} onCancel={closeDrawer} disabled={!form.return_date || saving || overReturn || (!editing && picked.length === 0)} color={SAL} />
+          <FormFooter submitLabel={editing ? "Save Changes" : "Add Return"} busy={saving} busyLabel="Saving…" onCancel={closeDrawer} disabled={!form.return_date || saving || overReturn || (!editing && picked.length === 0)} color={SAL} />
         </form>
       </Drawer>
     </div>

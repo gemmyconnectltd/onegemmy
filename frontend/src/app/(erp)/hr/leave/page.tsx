@@ -3,7 +3,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiLeave } from "@/lib/api/hr";
 import { useLeave, useEmployees, useCreateLeave, useApproveLeave, useRejectLeave, useDeleteLeave } from "@/lib/api/hooks";
 import { Drawer } from "@/components/ui/Drawer";
@@ -13,6 +12,9 @@ import { useAppConfig } from "@/lib/appConfig";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { BusyIcon } from "@/components/ui/BusyIcon";
+import { isPendingFor } from "@/lib/loadState";
+import { TableState } from "@/components/ui/TableState";
 
 const LEAVE_TYPES = ["Annual", "Sick", "Maternity", "Study", "Unpaid"];
 const FILTERS = ["All", "Pending", "Approved", "Rejected"];
@@ -68,6 +70,7 @@ export default function LeavePage() {
 
   const act = (leave: ApiLeave, action: "approve" | "reject") => {
     const m = action === "approve" ? approveLeave : rejectLeave;
+    if (isPendingFor(approveLeave, leave.id) || isPendingFor(rejectLeave, leave.id)) return;  // decided once, not twice
     m.mutate(leave.id, { onError: () => setNotice("Could not update the request.") });
   };
 
@@ -81,7 +84,7 @@ export default function LeavePage() {
       message: "Delete this leave request? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteLeave.mutate(leave.id, { onError: () => setNotice("Could not delete the request.") }),
+      onConfirm: () => deleteLeave.mutateAsync(leave.id, { onError: () => setNotice("Could not delete the request.") }),
     });
   };
 
@@ -136,7 +139,7 @@ export default function LeavePage() {
       </div>
 
       {loading ? (
-        <PageLoader variant="compact" />
+        <TableState loading />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : leaves.length === 0 ? (
@@ -187,18 +190,22 @@ export default function LeavePage() {
                           <button
                             type="button"
                             onClick={() => act(l, "approve")}
-                            className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                            disabled={isPendingFor(approveLeave, l.id) || isPendingFor(rejectLeave, l.id)}
+                            aria-busy={isPendingFor(approveLeave, l.id) || undefined}
+                            className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                             aria-label="Approve"
                           >
-                            <Check size={14} />
+                            <BusyIcon busy={isPendingFor(approveLeave, l.id)} icon={Check} />
                           </button>
                           <button
                             type="button"
                             onClick={() => act(l, "reject")}
-                            className="w-7 h-7 rounded-md flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                            disabled={isPendingFor(approveLeave, l.id) || isPendingFor(rejectLeave, l.id)}
+                            aria-busy={isPendingFor(rejectLeave, l.id) || undefined}
+                            className="w-7 h-7 rounded-md flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                             aria-label="Reject"
                           >
-                            <X size={14} />
+                            <BusyIcon busy={isPendingFor(rejectLeave, l.id)} icon={X} />
                           </button>
                         </>
                       )}
@@ -241,7 +248,7 @@ export default function LeavePage() {
           <Field label="Reason">
             <Textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Optional note" rows={3} />
           </Field>
-          <FormFooter submitLabel={createLeave.isPending ? "Saving…" : "Submit Request"} onCancel={() => setShowForm(false)} disabled={createLeave.isPending} />
+          <FormFooter submitLabel={"Submit Request"} busy={createLeave.isPending} busyLabel="Saving…" onCancel={() => setShowForm(false)} disabled={createLeave.isPending} />
         </form>
       </Drawer>
     </div>

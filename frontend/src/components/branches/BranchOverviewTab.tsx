@@ -12,6 +12,7 @@ import { fmtMoney } from "@/lib/config";
 import { useAuth } from "@/lib/auth";
 import { useWorkInBranch } from "@/lib/useWorkInBranch";
 import { BranchEventList } from "@/components/branches/BranchActivityTab";
+import { TableState } from "@/components/ui/TableState";
 
 const Row = ({ label, value }: { label: string; value: React.ReactNode }) => <><dt className="text-muted">{label}</dt><dd className="min-w-0 break-words text-foreground">{value || "—"}</dd></>;
 
@@ -54,7 +55,7 @@ export function BranchOverviewTab({ branch, goTab }: { branch: ApiBranch; goTab:
         </Card>
       </div>
       <Card title="Recent activity" action={<button type="button" className="text-[12px] font-semibold text-accent hover:underline" onClick={() => goTab("activity")}>View all</button>}>
-        {activity.isLoading ? <PageLoader variant="compact" /> : activity.isError ? <p className="text-sm text-muted">Activity isn&apos;t available to you.</p> : <BranchEventList events={(activity.data ?? []).slice(0, 5)} />}
+        {activity.isLoading ? <TableState loading /> : activity.isError ? <p className="text-sm text-muted">Activity isn&apos;t available to you.</p> : <BranchEventList events={(activity.data ?? []).slice(0, 5)} />}
       </Card>
       <p className="text-[12px] text-muted">Looking for another place? <Link href="/branches" className="font-semibold text-accent hover:underline">All branches</Link></p>
     </div>

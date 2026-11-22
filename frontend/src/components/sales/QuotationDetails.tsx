@@ -12,6 +12,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { ReasonDialog } from "@/components/ui/ReasonDialog";
 import { FormErrorSummary } from "@/components/ui/FormKit";
+import { LoadError, Skeleton } from "@/components/ui/LoadState";
 
 export const QUOTATION_STYLE: Record<QuotationStatus, string> = {
   Draft: "bg-slate-100 text-slate-700", Sent: "bg-blue-100 text-blue-700", Accepted: "bg-emerald-100 text-emerald-700",
@@ -24,7 +25,8 @@ const fail = (cause: unknown) => (cause as { detail?: string })?.detail ?? (caus
 export function QuotationDetails({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit?: (q: ApiQuotation) => void }) {
   const { currencySymbol } = useAppConfig();
   const { hasPermission } = useAuth();
-  const { data: q } = useQuotation(id);
+  const quotationQ = useQuotation(id);
+  const { data: q } = quotationQ;
   const { data: activity } = useQuotationActivity(id);
   const act = useQuotationAction();
   const reject = useRejectQuotation();
@@ -48,7 +50,7 @@ export function QuotationDetails({ id, onClose, onEdit }: { id: string; onClose:
 
   return (
     <Drawer open onClose={onClose} size="xl" title={q ? `Quotation ${q.quote_number}` : "Quotation"} description={q ? `${q.customer?.name ?? "Walk-in customer"} · ${q.salesperson_name ?? "No salesperson"}` : undefined}>
-      {!q ? <p className="p-5 text-sm text-muted" role="status">Loading…</p> : (
+      {!q ? <div className="p-5">{quotationQ.isError ? <LoadError title="Could not load this quotation" error={quotationQ.error} onRetry={() => void quotationQ.refetch()} /> : <Skeleton className="h-64" label="Loading quotation" />}</div> : (
         <div className="space-y-4 p-4 sm:p-5">
           <FormErrorSummary errors={error} />
           <div className="flex flex-wrap items-center gap-2">

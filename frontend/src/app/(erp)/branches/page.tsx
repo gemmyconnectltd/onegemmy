@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input, Select } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { Pagination } from "@/components/ui/Pagination";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { BranchForm } from "@/components/branches/BranchForm";
@@ -19,6 +18,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { useAuth } from "@/lib/auth";
 import { presetRange, type PeriodPreset } from "@/lib/branchView";
 import { fmtMoney } from "@/lib/config";
+import { TableState } from "@/components/ui/TableState";
 
 const PRESETS: { id: PeriodPreset; label: string }[] = [{ id: "today", label: "Today" }, { id: "week", label: "Last 7 days" }, { id: "month", label: "This month" }, { id: "custom", label: "Custom" }];
 
@@ -54,7 +54,7 @@ export default function BranchesPage() {
       title: turnOff ? `Deactivate ${b.name}?` : `Reactivate ${b.name}?`,
       message: turnOff ? "It stops being available for new work. Its sales, transfers and expenses stay in your history. You can reactivate it any time." : "It becomes available for work again.",
       confirmLabel: turnOff ? "Deactivate" : "Reactivate", danger: turnOff,
-      onConfirm: () => void update.mutateAsync({ id: b.id, data: { status: turnOff ? "inactive" : "active" } }).then(() => setNotice(null)).catch((e: { detail?: string }) => setNotice(e?.detail ?? "Couldn't change the branch status.")),
+      onConfirm: () => update.mutateAsync({ id: b.id, data: { status: turnOff ? "inactive" : "active" } }).then(() => setNotice(null)).catch((e: { detail?: string }) => setNotice(e?.detail ?? "Couldn't change the branch status.")),
     });
   };
 
@@ -81,7 +81,7 @@ export default function BranchesPage() {
         {summary && <span className="text-[12px] text-muted">Sales shown for {summary.from_date} to {summary.to_date}</span>}
       </div>
 
-      {query.isLoading && !query.data ? <PageLoader variant="compact" /> : query.isError || !query.data ? (
+      {query.isLoading && !query.data ? <TableState loading /> : query.isError || !query.data ? (
         <div role="alert" className="rounded-xl border border-border bg-card py-12 text-center">
           <p className="text-sm text-red-600">{(query.error as { status?: number } | null)?.status === 403 ? "You don't have permission to view branches." : "Couldn't load your branches."}</p>
           <Button variant="outline" className="mt-3" onClick={() => void query.refetch()}>Try again</Button>

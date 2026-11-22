@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 const STATUS_COLORS: Record<string, string> = {
   pending:    "bg-amber-100 text-amber-700",
@@ -147,7 +148,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
       message: "Delete this transfer? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteTransfer.mutate(id),
+      onConfirm: () => deleteTransfer.mutateAsync(id),
     });
   }
 
@@ -166,7 +167,6 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
     });
   }
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -313,7 +313,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
               <div className="flex items-center gap-2">
                 {t.status === "pending" && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "in_transit")}>Dispatch</Button>}
                 {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "completed")}>{t.status === "pending" ? "Dispatch and receive" : "Mark received"}</Button>}
-                {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => confirm({ title: `Cancel ${t.transfer_number}?`, message: t.status === "in_transit" && t.from_warehouse_id ? "The stock on its way goes back to the source warehouse." : "Nothing will be moved.", confirmLabel: "Cancel transfer", danger: true, onConfirm: () => void handleStatus(t.id, "cancelled") })}>Cancel</Button>}
+                {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => confirm({ title: `Cancel ${t.transfer_number}?`, message: t.status === "in_transit" && t.from_warehouse_id ? "The stock on its way goes back to the source warehouse." : "Nothing will be moved.", confirmLabel: "Cancel transfer", danger: true, onConfirm: () => handleStatus(t.id, "cancelled") })}>Cancel</Button>}
                 <button onClick={() => handleDelete(t.id)}
                   className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-xs font-semibold">
                   <Trash2 size={14} /> Delete
@@ -338,10 +338,8 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
             </div>
           </div>
         ))}
-        {isError ? (
-          <div role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-6 text-center text-sm text-red-700 dark:text-red-400">
-            {(loadError as { detail?: string } | null)?.detail ?? "Transfers could not be loaded."} <button type="button" className="font-semibold underline" onClick={() => void refetch()}>Try again</button>
-          </div>
+        {isLoading || (isError && !data) ? (
+          <TableState loading={isLoading} error={isError ? loadError : undefined} onRetry={() => void refetch()} rows={3} />
         ) : filtered.length === 0 && (
           <div className="py-16 text-center bg-card border border-border rounded-xl">
             <ArrowLeftRight size={36} className="text-border mx-auto mb-3" />

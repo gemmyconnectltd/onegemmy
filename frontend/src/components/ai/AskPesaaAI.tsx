@@ -197,7 +197,7 @@ export function AskPesaaAI() {
             <div className="min-h-0 flex-1">
               <AiHistory items={conversations.data} loading={conversations.isLoading} activeId={conversationId} moduleLabel={moduleLabel}
                 onOpen={(id) => void openConversation(id)} onNew={newChat} onBack={() => setView("chat")}
-                onDelete={(id) => { deleteConv.mutate(id); if (id === conversationId) newChat(); }} />
+                onDelete={(id) => { if (deleteConv.isPending) return; deleteConv.mutate(id); if (id === conversationId) newChat(); }} />
             </div>
           ) : (
             <div ref={scroller} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }}

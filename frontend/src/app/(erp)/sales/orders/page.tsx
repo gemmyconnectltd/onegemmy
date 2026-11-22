@@ -40,6 +40,8 @@ import { CsvImportDrawer, bulkOutcome } from "@/components/ui/CsvImportDrawer";
 import { checkAmount, isIsoDate, type ImportIssue } from "@/lib/importValues";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { apiErrorMessage } from "@/lib/api/errors";
+import { isPendingFor } from "@/lib/loadState";
 
 const STATUS_STYLE: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
@@ -329,6 +331,7 @@ export default function SalesOrdersPage() {
   const customersQ = useCustomers(1, 200);
   const productsQ = useProducts(1, 500);
   const loading = ordersQ.isLoading || customersQ.isLoading || productsQ.isLoading;
+  const listFailed = ordersQ.isError && !ordersQ.data;  // shown in place of the list, with a retry — never as "no records"
   const orders = ordersQ.data?.items ?? [];
   // Derived from the live list (not a captured snapshot) so the drawer
   // reflects a payment recorded/reversed while it's open.
@@ -396,7 +399,7 @@ export default function SalesOrdersPage() {
       title: o.held_reason === "policy" ? "Approve this sale?" : "Approve this credit sale?",
       message: `${o.order_number} for ${o.customer?.name ?? "this customer"} will be completed: stock goes out and ${fmt(o.total)} is booked${o.held_reason === "policy" ? "." : ", with the unpaid balance as customer debt."}`,
       confirmLabel: "Approve",
-      onConfirm: () => approveOrder.mutate({ id: o.id }),
+      onConfirm: () => approveOrder.mutateAsync({ id: o.id }),
     });
   };
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -563,8 +566,8 @@ export default function SalesOrdersPage() {
           </div>
         )}
 
-        {loading ? (
-          <TableState loading />
+        {loading || listFailed ? (
+          <TableState loading={loading} error={listFailed ? ordersQ.error : undefined} onRetry={() => void ordersQ.refetch()} />
         ) : (
           <TableScroll className="hidden md:block"><table className={`w-full min-w-[64rem] transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
             <thead>
@@ -631,7 +634,7 @@ export default function SalesOrdersPage() {
                         <button onClick={() => openEdit(o)} aria-label="Edit sale" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
                         {canApproveSale && !showArchived && <button onClick={() => setReassigning(o)} aria-label="Change salesperson" title="Change salesperson" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><UserCog size={13} /></button>}
                         {o.status === "Completed" && !showArchived && <button onClick={() => setVoiding(o)} aria-label={isOwner ? "Void sale" : "Request void"} title={isOwner ? "Void sale" : "Ask for this sale to be voided"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-red-600 hover:bg-red-500/10 transition-colors"><Ban size={13} /></button>}
-                        {isOwner && <button onClick={() => (showArchived ? restoreOrder.mutate(o.id) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }) }))} aria-label={showArchived ? "Restore sale" : "Archive sale"} title={showArchived ? "Restore" : "Archive"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors">{showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>}
+                        {isOwner && <button disabled={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id)} aria-busy={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id) || undefined} onClick={() => (showArchived ? restoreOrder.mutate(o.id, { onError: (e) => setError(apiErrorMessage(e, "The sale could not be restored.")) }) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutateAsync({ id: o.id, reason: "Archived from Sales History" }) }))} aria-label={showArchived ? "Restore sale" : "Archive sale"} title={showArchived ? "Restore" : "Archive"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors">{showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>}
                       </div>
                     </td>
                   </tr>
@@ -640,7 +643,7 @@ export default function SalesOrdersPage() {
             </tbody>
           </table></TableScroll>
         )}
-        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items{o.salesperson_name ? ` · ${o.salesperson_name}` : ""}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" onClick={() => (showArchived ? restoreOrder.mutate(o.id) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canDecide(o) && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
+        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items{o.salesperson_name ? ` · ${o.salesperson_name}` : ""}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" loading={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id)} onClick={() => (showArchived ? restoreOrder.mutate(o.id, { onError: (e) => setError(apiErrorMessage(e, "The sale could not be restored.")) }) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canDecide(o) && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
         {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}
         {!loading && orders.length > 0 && (
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
@@ -780,7 +783,7 @@ export default function SalesOrdersPage() {
             <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
           </Field>
           <FormFooter
-            submitLabel={saving ? "Saving..." : editing ? "Save Changes" : "Record Sale"}
+            submitLabel={editing ? "Save Changes" : "Record Sale"} busy={saving} busyLabel="Saving…"
             onCancel={closeDrawer}
             disabled={saving || (!editing && items.every((i) => !i.product_name))}
             color={SAL}

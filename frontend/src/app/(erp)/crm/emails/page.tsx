@@ -5,7 +5,6 @@ import { Mail, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, FormFooter, Input, Select, Textarea } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +12,7 @@ import {
   useCreateCrmEmailLog, useCrmCampaigns, useCrmEmails, useDeleteCrmEmailLog, useUpdateCrmEmailLog,
 } from "@/lib/api/hooks";
 import type { ApiEmailLog } from "@/lib/api";
+import { TableState } from "@/components/ui/TableState";
 
 const EMPTY = { recipient: "", subject: "", body: "", status: "Draft", sent_at: "", campaign_id: "" };
 const STATUSES = ["Draft", "Sent", "Opened", "Bounced", "Failed"];
@@ -69,7 +69,7 @@ export default function EmailsPage() {
     confirm({
       title: "Delete email record?", message: `Delete the email record "${item.subject}" for ${item.recipient}?`,
       danger: true, confirmLabel: "Delete record",
-      onConfirm: () => remove.mutate(item.id, { onError: reason => setError(errorText(reason)) }),
+      onConfirm: () => remove.mutateAsync(item.id, { onError: reason => setError(errorText(reason)) }),
     });
   }
 
@@ -92,7 +92,7 @@ export default function EmailsPage() {
         </Select>
       </div>
       {error && !open && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {emails.isLoading ? <PageLoader variant="compact" /> : emails.isError ? (
+      {emails.isLoading ? <TableState loading /> : emails.isError ? (
         <p role="alert" className="text-sm text-red-600">Could not load CRM email records. <Button variant="outline" onClick={() => void emails.refetch()}>Retry</Button></p>
       ) : (
         <>
@@ -137,7 +137,7 @@ export default function EmailsPage() {
           <Field label="Sent at"><Input type="datetime-local" value={form.sent_at} onChange={event => setForm({ ...form, sent_at: event.target.value })} /></Field>
           <Field label="Email body"><Textarea rows={6} maxLength={10000} value={form.body} onChange={event => setForm({ ...form, body: event.target.value })} /></Field>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={saving ? "Saving…" : "Save email record"} />
+          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={"Save email record"} busy={saving} busyLabel="Saving…" />
         </form>
       </Drawer>
     </section>

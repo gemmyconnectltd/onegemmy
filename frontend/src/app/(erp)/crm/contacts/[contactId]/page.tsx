@@ -8,6 +8,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { CustomerProfileScreen } from "@/components/customers/CustomerProfile";
 import { useCrmActivities, useCrmContact } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
+import { TableState } from "@/components/ui/TableState";
 
 function activityDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : "—";
@@ -36,7 +37,7 @@ export default function CrmContactProfilePage() {
           <div><h2 className="pesaa-section-title">CRM activity</h2><p className="mt-1 text-sm text-muted">Recent calls, meetings, emails, notes and follow-ups for this contact.</p></div>
           <Link href="/crm/activities"><Button variant="outline">Manage activities</Button></Link>
         </div>
-        {activities.isLoading ? <PageLoader variant="compact" /> : activities.isError ? (
+        {activities.isLoading ? <TableState loading /> : activities.isError ? (
           <p role="alert" className="text-sm text-red-600">Could not load CRM activity. <Button variant="outline" onClick={() => void activities.refetch()}>Retry</Button></p>
         ) : (
           <TableScroll label="Recent contact activity" mobileLayout="cards">

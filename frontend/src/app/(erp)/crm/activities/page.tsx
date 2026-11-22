@@ -5,7 +5,6 @@ import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, FormFooter, Input, Select, Textarea } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +13,8 @@ import {
   useDeleteCrmActivity, useUpdateCrmActivity,
 } from "@/lib/api/hooks";
 import type { ApiCrmActivity } from "@/lib/api";
+import { isPendingFor } from "@/lib/loadState";
+import { TableState } from "@/components/ui/TableState";
 
 const EMPTY = { kind: "task", subject: "", description: "", status: "open", due_at: "", link_type: "contact", linked_id: "" };
 const errorText = (error: unknown) => (error as { detail?: string })?.detail ?? "Could not save this activity.";
@@ -76,7 +77,7 @@ export default function ActivitiesPage() {
     confirm({
       title: "Delete activity?", message: `Delete "${item.subject}" from the CRM timeline?`,
       danger: true, confirmLabel: "Delete activity",
-      onConfirm: () => remove.mutate(item.id, { onError: reason => setError(errorText(reason)) }),
+      onConfirm: () => remove.mutateAsync(item.id, { onError: reason => setError(errorText(reason)) }),
     });
   }
 
@@ -96,7 +97,7 @@ export default function ActivitiesPage() {
         </Select>
       </div>
       {error && !open && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {activities.isLoading ? <PageLoader variant="compact" /> : activities.isError ? (
+      {activities.isLoading ? <TableState loading /> : activities.isError ? (
         <p role="alert" className="text-sm text-red-600">Could not load CRM activities. <Button variant="outline" onClick={() => void activities.refetch()}>Retry</Button></p>
       ) : (
         <>
@@ -111,7 +112,7 @@ export default function ActivitiesPage() {
                     <td data-label="Due">{dateTime(item.due_at)}</td>
                     <td data-label="Status" className="capitalize">{item.status}</td>
                     {canManage && <td className="text-right whitespace-nowrap">
-                      {canUpdate && item.status === "open" && <Button size="sm" variant="outline" onClick={() => update.mutate({ id: item.id, data: { status: "done" } }, { onError: reason => setError(errorText(reason)) })}>Complete</Button>}
+                      {canUpdate && item.status === "open" && <Button size="sm" variant="outline" loading={isPendingFor(update, item.id)} onClick={() => update.mutate({ id: item.id, data: { status: "done" } }, { onError: reason => setError(errorText(reason)) })}>Complete</Button>}
                       {canUpdate && <Button size="sm" variant="outline" onClick={() => startEdit(item)}>Edit</Button>}
                       {canDelete && <Button size="sm" variant="ghost" onClick={() => confirmDelete(item)}>Delete</Button>}
                     </td>}
@@ -152,7 +153,7 @@ export default function ActivitiesPage() {
           <Field label="Due date"><Input type="datetime-local" value={form.due_at} onChange={event => setForm({ ...form, due_at: event.target.value })} /></Field>
           <Field label="Description"><Textarea rows={4} maxLength={5000} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></Field>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={saving ? "Saving…" : "Save activity"} />
+          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={"Save activity"} busy={saving} busyLabel="Saving…" />
         </form>
       </Drawer>
     </section>

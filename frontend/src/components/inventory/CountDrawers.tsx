@@ -70,7 +70,7 @@ function CountLineRow({ line, index, onChange, onRemove }: { line: Line; index: 
   return (
     <div className="grid grid-cols-[1fr_7rem_2rem] items-start gap-2">
       {line.name && line.productId ? <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">{line.name}</p> : (
-        <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching}
+        <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching} error={products.isError ? products.error : undefined} onRetry={() => void products.refetch()}
           items={(products.data?.items ?? []).filter((p) => !p.has_variants).map((p) => ({ id: p.id, label: p.name, hint: p.sku ?? undefined }))}
           onSelect={(id) => onChange({ productId: id, name: products.data?.items.find((p) => p.id === id)?.name ?? "" })} placeholder="Search products…" />
       )}

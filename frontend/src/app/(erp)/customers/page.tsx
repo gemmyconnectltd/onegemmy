@@ -19,7 +19,6 @@ import {
   Edit2, Trash2, AlertCircle, ShoppingCart, CheckCircle2,
   UserX, Building2, Upload,
 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useCustomers, useOrders, useCreateCustomer, useUpdateCustomer, useDeleteCustomer, useBulkCreateCustomers } from "@/lib/api/hooks";
 import type { ApiCustomer, ApiOrder } from "@/lib/api/sales";
 import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
@@ -35,6 +34,7 @@ import { CsvImportDrawer, bulkOutcome } from "@/components/ui/CsvImportDrawer";
 import type { ImportIssue } from "@/lib/importValues";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { TableState } from "@/components/ui/TableState";
 
 const CUSTOMER_CSV_HEADERS = ["name", "email", "phone", "address", "customerType"];
 
@@ -124,6 +124,7 @@ export default function CustomersPage() {
   // totals; it's independent of which page of customers is showing.
   const ordersQ = useOrders(1, 500);
   const loading = customersQ.isLoading || ordersQ.isLoading;
+  const listFailed = customersQ.isError && !customersQ.data;  // shown in place of the list, with a retry — never as "no records"
   const customers = useMemo(() => customersQ.data?.items ?? [], [customersQ.data]);
   const total = customersQ.data?.total ?? 0;
   const orders = useMemo(() => ordersQ.data?.items ?? [], [ordersQ.data]);
@@ -244,7 +245,7 @@ export default function CustomersPage() {
       confirmLabel: "Delete",
       danger: true,
       onConfirm: () => {
-        deleteCustomer.mutate(id, {
+        return deleteCustomer.mutateAsync(id, {
           onSuccess: () => { if (viewing?.id === id) setViewing(null); },
           onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete customer"),
         });
@@ -336,8 +337,8 @@ export default function CustomersPage() {
       </div>
 
       {/* Table */}
-      {loading ? (
-        <PageLoader variant="compact" />
+      {loading || listFailed ? (
+        <TableState loading={loading} error={listFailed ? customersQ.error : undefined} onRetry={() => void customersQ.refetch()} />
       ) : customers.length === 0 ? (
         <div className="py-20 text-center bg-card border border-border rounded-xl">
           <Users size={32} className="text-border mx-auto mb-3" />

@@ -11,6 +11,8 @@ import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
 import { useDiscountRule, useDiscountRuleHistory, useDiscountRuleUsage, useDiscountStatus } from "@/lib/api/hooks";
 import { OfferStatusBadge, TYPE_LABELS, appliesTo, channelsOf, displayStatus, ruleValue, validity } from "@/components/discounts/shared";
+import { LoadError } from "@/components/ui/LoadState";
+import { TableState } from "@/components/ui/TableState";
 
 type Tab = "Overview" | "Usage" | "History";
 
@@ -28,7 +30,7 @@ export default function DiscountRulePage() {
   const status = useDiscountStatus();
   const [error, setError] = useState<string | null>(null);
   if (rule.isLoading) return <PageLoader variant="page" />;
-  if (rule.error || !rule.data) return <p role="alert" className="text-sm text-red-600">{rule.error?.message ?? "Discount rule not found"}</p>;
+  if (rule.error || !rule.data) return <LoadError title="Could not load this discount rule" error={rule.error ?? "Discount rule not found"} onRetry={rule.error ? () => void rule.refetch() : undefined} />;
   const r = rule.data;
   const conditions = ((r.config ?? {}) as { conditions?: Record<string, number> }).conditions ?? {};
   const conditionLabels: Record<string, (v: number) => string> = {
@@ -68,14 +70,14 @@ export default function DiscountRulePage() {
         {Object.keys(conditions).length ? <ul className="divide-y divide-border">{Object.entries(conditions).map(([k, v]) => <li key={k} className="px-4 py-2.5 text-sm">{conditionLabels[k]?.(Number(v)) ?? `${k.replace(/_/g, " ")}: ${v}`}</li>)}</ul>
           : <p className="px-4 py-4 text-sm text-muted">No extra conditions: every eligible sale qualifies.</p>}</section>
     </div>}
-    {tab === "Usage" && (usage.isLoading ? <PageLoader variant="compact" /> : !usage.data?.items.length
+    {tab === "Usage" && (usage.isLoading || (usage.error && !usage.data) ? <TableState loading={usage.isLoading} error={usage.error ?? undefined} onRetry={() => void usage.refetch()} /> : !usage.data?.items.length
       ? <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted">This offer hasn&apos;t been applied to a sale yet.</p>
       : <><TableWrap><table className="w-full min-w-[640px]"><thead><tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-wide text-muted"><th className="px-4 py-3">Sale</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Customer</th><th className="px-4 py-3">Branch</th><th className="px-4 py-3">How</th><th className="px-4 py-3 text-right">Discount</th></tr></thead>
         <tbody className="divide-y divide-border">{usage.data.items.map((u) => <tr key={u.id}><td className="px-4 py-3 text-sm"><Link className="font-semibold hover:text-accent hover:underline" href={`/sales/orders/${u.order_id}`}>{u.order_number}</Link><p className="text-[11px] text-muted">{u.order_status}</p></td>
           <td className="px-4 py-3 text-sm text-muted">{new Date(u.date).toLocaleString()}</td><td className="px-4 py-3 text-sm">{u.customer ?? "—"}</td><td className="px-4 py-3 text-sm text-muted">{u.branch ?? "—"}</td>
           <td className="px-4 py-3 text-sm capitalize text-muted">{u.kind}{u.coupon_code ? ` (${u.coupon_code})` : ""}</td><td className="px-4 py-3 text-right text-sm font-semibold tabular-nums">{money(u.amount)}</td></tr>)}</tbody></table></TableWrap>
         {usage.data.total > 25 && <div className="flex justify-end gap-3"><Button size="sm" variant="secondary" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</Button><Button size="sm" variant="secondary" disabled={page * 25 >= usage.data.total} onClick={() => setPage((p) => p + 1)}>Next</Button></div>}</>)}
-    {tab === "History" && (history.isLoading ? <PageLoader variant="compact" /> : !history.data?.length
+    {tab === "History" && (history.isLoading || (history.error && !history.data) ? <TableState loading={history.isLoading} error={history.error ?? undefined} onRetry={() => void history.refetch()} /> : !history.data?.length
       ? <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted">No recorded changes yet.</p>
       : <ol className="divide-y divide-border rounded-xl border border-border bg-card">{history.data.map((h, i) => <li key={i} className="px-4 py-3"><p className="text-sm">{h.summary}</p><p className="text-[11px] text-muted">{h.action.replace("discount.", "").replace(/_/g, " ")} · {h.actor ?? "—"} · {new Date(h.at).toLocaleString()}</p></li>)}</ol>)}
   </div>;

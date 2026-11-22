@@ -3,12 +3,12 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Clock, User, Users } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { type ApiAppointment } from "@/lib/api";
 import { useAppointments, useEmployees } from "@/lib/api/hooks";
 import { NewAppointmentDrawer } from "@/components/services/NewAppointmentDrawer";
+import { TableState } from "@/components/ui/TableState";
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7am - 8pm
 
@@ -58,10 +58,12 @@ export default function CalendarPage() {
     return d;
   }, [rangeStart, view]);
 
-  const { data, isLoading } = useAppointments(1, 500, {
+  const appointmentsQ = useAppointments(1, 500, {
     dateFrom: `${toISODate(rangeStart)}T00:00:00`,
     dateTo: `${toISODate(new Date(rangeEnd.getTime() - 1))}T23:59:59`,
   });
+  const { data, isLoading } = appointmentsQ;
+  const listFailed = appointmentsQ.isError && !data;
   const appointments = useMemo(
     () => (data?.items ?? []).filter((a) => a.status !== "cancelled"),
     [data],
@@ -91,7 +93,6 @@ export default function CalendarPage() {
     return d;
   }), [rangeStart]);
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -137,7 +138,8 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {view === "day" ? (
+      {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? appointmentsQ.error : undefined} onRetry={() => void appointmentsQ.refetch()} />}
+      {!isLoading && !listFailed && (view === "day" ? (
         staffView ? (
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
             <div className="grid" style={{ gridTemplateColumns: `80px repeat(${Math.max(employees.length, 1)}, minmax(160px, 1fr))` }}>
@@ -197,7 +199,7 @@ export default function CalendarPage() {
             );
           })}
         </div>
-      )}
+      ))}
 
       <NewAppointmentDrawer open={showForm} onClose={() => setShowForm(false)} defaultDate={toISODate(anchor)} color={SVC_COLOR} />
 

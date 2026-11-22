@@ -4,7 +4,6 @@ import { useAppConfig } from "@/lib/appConfig";
 
 import { useState } from "react";
 import { Sparkles, Plus, Search, Edit2, Trash2, MoreVertical, Clock, Tags, Layers, Check, X, Upload } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { fmtMoney } from "@/lib/config";
 import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +20,9 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import ImportServiceTemplatesModal from "@/components/services/ImportServiceTemplatesModal";
+import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 interface ServiceFormValues {
   name: string;
@@ -80,7 +82,9 @@ export default function ServiceCatalogPage() {
 
   const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
   const categoryId = categoryFilter === "all" ? undefined : categoryFilter;
-  const { data, isLoading, isFetching } = useServices(page, pageSize, debouncedSearch || undefined, categoryId, isActive);
+  const servicesQ = useServices(page, pageSize, debouncedSearch || undefined, categoryId, isActive);
+  const { data, isLoading } = servicesQ;
+  const listFailed = servicesQ.isError && !data;
   const { data: categoriesData } = useServiceCategories();
   const { data: employeeServices } = useEmployeeServices();
   const categories = categoriesData?.items ?? [];
@@ -152,7 +156,6 @@ export default function ServiceCatalogPage() {
     setDeleteTarget(null);
   };
 
-  if (isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6">
@@ -207,7 +210,9 @@ export default function ServiceCatalogPage() {
           </div>
         )}
 
-        <div className={`overflow-x-auto transition-opacity ${isFetching ? "opacity-60" : ""}`}>
+        {(isLoading || listFailed) && <div className="p-4"><TableState loading={isLoading} error={listFailed ? servicesQ.error : undefined} onRetry={() => void servicesQ.refetch()} /></div>}
+        {!isLoading && !listFailed && (
+        <Refreshing busy={isRefreshing(servicesQ)} className="overflow-x-auto">
           <TableScroll mobileLayout="cards"><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border bg-surface/50 text-left">
@@ -302,7 +307,7 @@ export default function ServiceCatalogPage() {
               )}
             </tbody>
           </table></TableScroll>
-        </div>
+        </Refreshing>)}
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="services" color={SVC_COLOR} />
       </div>
 
@@ -350,7 +355,7 @@ export default function ServiceCatalogPage() {
             </div>
           </Field>
           <FormFooter
-            submitLabel={(createService.isPending || updateService.isPending) ? "Saving…" : editing ? "Save Changes" : "Add Service"}
+            submitLabel={editing ? "Save Changes" : "Add Service"} busy={createService.isPending || updateService.isPending} busyLabel="Saving…"
             onCancel={() => setShowForm(false)}
             disabled={createService.isPending || updateService.isPending || !formValues.name.trim()}
             color={SVC_COLOR}
@@ -390,7 +395,8 @@ export default function ServiceCatalogPage() {
 }
 
 function CategoriesDrawer({ open, onClose, color }: { open: boolean; onClose: () => void; color: string }) {
-  const { data, isLoading } = useServiceCategories();
+  const categoriesQ = useServiceCategories();
+  const { data, isLoading } = categoriesQ;
   const createCategory = useCreateServiceCategory();
   const updateCategory = useUpdateServiceCategory();
   const deleteCategory = useDeleteServiceCategory();
@@ -421,7 +427,7 @@ function CategoriesDrawer({ open, onClose, color }: { open: boolean; onClose: ()
       message: `Delete "${name}"? Services in this category will become uncategorized.`,
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteCategory.mutate(id),
+      onConfirm: () => deleteCategory.mutateAsync(id),
     });
   }
 
@@ -429,8 +435,8 @@ function CategoriesDrawer({ open, onClose, color }: { open: boolean; onClose: ()
     <Drawer open={open} onClose={onClose} title="Service Categories" description="Group services in your catalog">
       {confirmDialog}
       <div className="p-5 space-y-3">
-        {isLoading ? (
-          <p className="text-sm text-muted">Loading…</p>
+        {isLoading || (categoriesQ.isError && !data) ? (
+          <TableState loading={isLoading} error={categoriesQ.isError ? categoriesQ.error : undefined} onRetry={() => void categoriesQ.refetch()} rows={3} />
         ) : (
           <>
             {categories.map((c) => (

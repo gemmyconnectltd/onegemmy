@@ -7,7 +7,6 @@ import {
   Factory, Plus, Layers, CheckCircle2, Boxes, Trash2, AlertCircle,
   PlayCircle, Package, Calendar, X,
 } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { useProductionOrders, useProducts, useCreateProductionOrder, useCompleteProductionOrder, useDeleteProductionOrder } from "@/lib/api/hooks";
 import type { ApiProductionOrder } from "@/lib/api/manufacturing";
 import { Drawer } from "@/components/ui/Drawer";
@@ -16,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TableState } from "@/components/ui/TableState";
 
 const STATUS_OPTS = ["Draft", "Scheduled", "In Progress", "Completed", "Cancelled"];
 const statusBadge: Record<string, string> = {
@@ -42,6 +42,7 @@ export default function WorkOrdersPage() {
   const ordersQ = useProductionOrders(1, 500);
   const productsQ = useProducts(1, 500);
   const loading = ordersQ.isLoading || productsQ.isLoading;
+  const listFailed = ordersQ.isError && !ordersQ.data;  // shown in place of the list, with a retry — never as "no records"
   const orders = ordersQ.data?.items ?? [];
   const products = productsQ.data?.items ?? [];
 
@@ -138,7 +139,7 @@ export default function WorkOrdersPage() {
       title: "Complete Work Order",
       message: `Complete work order ${o.order_number}? This consumes ${o.items.length} component(s) from stock and adds ${o.quantity} × ${o.product_name ?? "product"} to stock.`,
       confirmLabel: "Complete",
-      onConfirm: () => completeOrder.mutate(o.id, {
+      onConfirm: () => completeOrder.mutateAsync(o.id, {
         onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to complete work order"),
       }),
     });
@@ -150,7 +151,7 @@ export default function WorkOrdersPage() {
       message: `Delete work order ${o.order_number}? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deleteOrder.mutate(o.id, {
+      onConfirm: () => deleteOrder.mutateAsync(o.id, {
         onError: (err: Error) => setError((err as { detail?: string })?.detail ?? "Failed to delete work order"),
       }),
     });
@@ -193,8 +194,8 @@ export default function WorkOrdersPage() {
       )}
 
       <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto">
-        {loading ? (
-          <PageLoader variant="compact" />
+        {loading || listFailed ? (
+          <TableState loading={loading} error={listFailed ? ordersQ.error : undefined} onRetry={() => void ordersQ.refetch()} />
         ) : displayed.length === 0 ? (
           <div className="py-20 text-center">
             <Factory size={32} className="text-border mx-auto mb-3" />
@@ -344,7 +345,7 @@ export default function WorkOrdersPage() {
           )}
 
           <FormFooter
-            submitLabel={saving ? "Creating..." : "Create Work Order"}
+            submitLabel={"Create Work Order"} busy={saving} busyLabel="Creating…"
             onCancel={closeDrawer}
             disabled={saving || !form.product_id}
             color={COLOR}

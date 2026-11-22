@@ -33,7 +33,7 @@ export function VatClassifyDrawer({ productIds, onClose, onDone }: { productIds:
 
   return (
     <Drawer open onClose={onClose} title="Set VAT treatment" description={`${productIds.length} selected ${noun}`} size="md"
-      footer={<form onSubmit={submit}><FormFooter submitLabel={classify.isPending ? "Saving…" : `Apply to ${productIds.length} ${noun}`} onCancel={onClose} disabled={!valid || classify.isPending} /></form>}>
+      footer={<form onSubmit={submit}><FormFooter submitLabel={`Apply to ${productIds.length} ${noun}`} busy={classify.isPending} busyLabel="Saving…" onCancel={onClose} disabled={!valid || classify.isPending} /></form>}>
       <div className="space-y-4 p-5">
         {error && <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3"><XCircle size={15} className="mt-0.5 flex-shrink-0 text-red-500" /><p className="text-sm font-medium text-red-700">{error}</p></div>}
         <Field label="Sales VAT treatment" required hint={PRODUCT_VAT_OPTIONS.find((o) => o.value === treatment)?.hint}>

@@ -6,7 +6,6 @@ import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, FormFooter, Input, Select, Textarea } from "@/components/ui/Form";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +16,7 @@ import {
   useUpdateCrmContact,
 } from "@/lib/api/hooks";
 import type { ApiCrmContact } from "@/lib/api";
+import { TableState } from "@/components/ui/TableState";
 
 const EMPTY = {
   name: "",
@@ -103,7 +103,7 @@ export default function ContactsPage() {
       confirmLabel: "Delete contact",
       onConfirm: () => {
         setMutationError("");
-        remove.mutate(contact.id, { onError: reason => setMutationError(messageOf(reason)) });
+        return remove.mutateAsync(contact.id, { onError: reason => setMutationError(messageOf(reason)) });
       },
     });
   }
@@ -135,7 +135,7 @@ export default function ContactsPage() {
       </div>
 
       {mutationError && <p role="alert" className="text-sm text-red-600">{mutationError}</p>}
-      {contacts.isLoading ? <PageLoader variant="compact" /> : contacts.isError ? (
+      {contacts.isLoading ? <TableState loading /> : contacts.isError ? (
         <p role="alert" className="text-sm text-red-600">Could not load CRM contacts. <Button variant="outline" onClick={() => void contacts.refetch()}>Retry</Button></p>
       ) : (
         <>
@@ -188,7 +188,7 @@ export default function ContactsPage() {
           <Field label="Phone"><Input type="tel" maxLength={50} value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} /></Field>
           <Field label="Address"><Textarea rows={3} value={form.address} onChange={event => setForm({ ...form, address: event.target.value })} /></Field>
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={saving ? "Saving…" : "Save contact"} />
+          <FormFooter onCancel={() => setOpen(false)} disabled={saving} submitLabel={"Save contact"} busy={saving} busyLabel="Saving…" />
         </form>
       </Drawer>
     </section>

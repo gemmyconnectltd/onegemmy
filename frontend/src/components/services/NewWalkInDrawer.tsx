@@ -6,12 +6,16 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/Form";
 import { useCreateQueueEntry, useAllServices, useEmployees, useCustomers } from "@/lib/api/hooks";
+import { OptionsLoadError } from "@/components/ui/LoadState";
 
 export function NewWalkInDrawer({ open, onClose, color }: { open: boolean; onClose: () => void; color: string }) {
-  const { data: services } = useAllServices();
-  const { data: empData } = useEmployees("Active");
+  const servicesQ = useAllServices();
+  const employeesQ = useEmployees("Active");
+  const customersQ = useCustomers(1, 200);
+  const { data: services } = servicesQ;
+  const { data: empData } = employeesQ;
   const employees = empData?.items ?? [];
-  const { data: custData } = useCustomers(1, 200);
+  const { data: custData } = customersQ;
   const createQueueEntry = useCreateQueueEntry();
 
   const [customerQuery, setCustomerQuery] = useState("");
@@ -53,6 +57,7 @@ export function NewWalkInDrawer({ open, onClose, color }: { open: boolean; onClo
   return (
     <Drawer open={open} onClose={() => { onClose(); }} title="New Walk-in" description="Add a customer to the queue">
       <div className="space-y-4 p-5">
+        <OptionsLoadError sources={[{ label: "services", query: servicesQ }, { label: "staff", query: employeesQ }, { label: "customers", query: customersQ }]} />
         {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
         <Field label="Customer" required>

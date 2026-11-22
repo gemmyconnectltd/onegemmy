@@ -86,7 +86,8 @@ export function AiActionCard({ action, onNavigate }: { action: AiAction; onNavig
               className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
               {confirm.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} {action.confirm_label}
             </button>
-            <button type="button" onClick={() => { cancel.mutate(action.id); setState("cancelled"); }} disabled={confirm.isPending}
+            {/* Shown as discarded only once the server agrees; a failed discard leaves the action pending. */}
+            <button type="button" onClick={() => cancel.mutate(action.id, { onSuccess: () => setState("cancelled") })} disabled={confirm.isPending || cancel.isPending} aria-busy={cancel.isPending || undefined}
               className="rounded-md px-2.5 py-1.5 text-[12px] font-medium text-muted hover:text-foreground">Discard</button>
           </>
         )}

@@ -13,6 +13,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { Back, Pill } from "@/components/users/AccessParts";
 import { useCompanyRoles, useCreateCompanyRole, useDeleteCompanyRole, useRoleSummaries, useSeedDefaultRoles } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
+import { LoadError } from "@/components/ui/LoadState";
 
 export default function RolesPage() {
   const router = useRouter();
@@ -40,11 +41,11 @@ export default function RolesPage() {
   };
   const del = (id: string, name: string) => confirm({
     title: `Delete ${name}?`, message: "The role is removed. Nobody holds it, so no one's access changes.", confirmLabel: "Delete role", danger: true,
-    onConfirm: () => void remove.mutateAsync(id).catch((e: unknown) => setError((e as { detail?: string })?.detail ?? "Couldn't delete this role.")),
+    onConfirm: () => remove.mutateAsync(id).catch((e: unknown) => setError((e as { detail?: string })?.detail ?? "Couldn't delete this role.")),
   });
 
   if (summaries.isLoading) return <PageLoader variant="compact" />;
-  if (summaries.isError || !summaries.data) return <p role="alert" className="py-8 text-center text-sm text-red-600">You don&apos;t have access to roles, or they couldn&apos;t be loaded.</p>;
+  if (summaries.isError || !summaries.data) return <LoadError title="Could not load roles" error={summaries.error ?? "You may not have access to roles."} onRetry={() => void summaries.refetch()} />;
 
   return (
     <div className="min-w-0 space-y-5">

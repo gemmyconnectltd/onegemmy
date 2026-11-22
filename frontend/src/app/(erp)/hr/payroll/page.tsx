@@ -3,7 +3,6 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { useState } from "react";
 import { DollarSign, Trash2, Check } from "lucide-react";
-import { PageLoader } from "@/components/ui/PageLoader";
 import type { ApiPayroll } from "@/lib/api/hr";
 import { usePayroll, useEmployees, useCreatePayroll, useMarkPaid, useDeletePayroll } from "@/lib/api/hooks";
 import { fmtMoney } from "@/lib/config";
@@ -14,6 +13,9 @@ import { EmptyState, ErrorState, StatusBadge } from "@/components/hr/State";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { BusyIcon } from "@/components/ui/BusyIcon";
+import { isPendingFor } from "@/lib/loadState";
+import { TableState } from "@/components/ui/TableState";
 
 export default function PayrollPage() {
   const { currencySymbol, brandColor } = useAppConfig();
@@ -60,6 +62,7 @@ export default function PayrollPage() {
   };
 
   const handleMarkPaid = (p: ApiPayroll) => {
+    if (markPaid.isPending) return;  // one payment at a time: a second click must never record it twice
     markPaid.mutate(p.id, { onError: () => setNotice("Could not mark as paid.") });
   };
 
@@ -73,7 +76,7 @@ export default function PayrollPage() {
       message: "Delete this payroll entry? This cannot be undone.",
       confirmLabel: "Delete",
       danger: true,
-      onConfirm: () => deletePayroll.mutate(p.id, { onError: () => setNotice("Could not delete the entry.") }),
+      onConfirm: () => deletePayroll.mutateAsync(p.id, { onError: () => setNotice("Could not delete the entry.") }),
     });
   };
 
@@ -126,7 +129,7 @@ export default function PayrollPage() {
       </div>
 
       {loading ? (
-        <PageLoader variant="compact" />
+        <TableState loading />
       ) : error ? (
         <ErrorState message={error} onRetry={refetch} />
       ) : entries.length === 0 ? (
@@ -176,10 +179,12 @@ export default function PayrollPage() {
                         <button
                           type="button"
                           onClick={() => handleMarkPaid(p)}
-                          className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                          disabled={isPendingFor(markPaid, p.id)}
+                          aria-busy={isPendingFor(markPaid, p.id) || undefined}
+                          className="w-7 h-7 rounded-md flex items-center justify-center bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                           aria-label="Mark paid"
                         >
-                          <Check size={14} />
+                          <BusyIcon busy={isPendingFor(markPaid, p.id)} icon={Check} />
                         </button>
                       )}
                       <button type="button" onClick={() => remove(p)} className="w-7 h-7 rounded-md flex items-center justify-center text-muted hover:text-red-500 hover:bg-red-50 transition-colors" aria-label="Delete">
@@ -221,7 +226,7 @@ export default function PayrollPage() {
           <p className="text-xs text-muted">
             Net pay: <span className="font-bold text-foreground">{fmt((Number(form.base_salary) || 0) + (Number(form.bonus) || 0) - (Number(form.deductions) || 0))}</span>
           </p>
-          <FormFooter submitLabel={createPayroll.isPending ? "Saving…" : "Add Entry"} onCancel={() => setShowForm(false)} disabled={createPayroll.isPending} />
+          <FormFooter submitLabel={"Add Entry"} busy={createPayroll.isPending} busyLabel="Saving…" onCancel={() => setShowForm(false)} disabled={createPayroll.isPending} />
         </form>
       </Drawer>
     </div>

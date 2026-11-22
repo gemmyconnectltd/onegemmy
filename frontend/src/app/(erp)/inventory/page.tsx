@@ -8,9 +8,10 @@ import { fmtMoney } from "@/lib/config";
 import { useCan } from "@/lib/can";
 import { useLowStockReport, useTransfers, useValuationReport } from "@/lib/api/hooks";
 import { Button } from "@/components/ui/Button";
-import { PageLoader } from "@/components/ui/PageLoader";
 import { TableWrap } from "@/components/ui/Table";
 import { fmtDate } from "@/lib/date";
+import { LoadError } from "@/components/ui/LoadState";
+import { TableState } from "@/components/ui/TableState";
 
 
 export default function InventoryOverviewPage() {
@@ -26,7 +27,7 @@ export default function InventoryOverviewPage() {
   const canAdd = can("items", "create");
   const canTransfer = can("stock", "create");
 
-  if (valuation.isLoading && !valuation.data) return <PageLoader variant="page" />;
+  const summaryLoading = valuation.isLoading && !valuation.data;  // the header and actions show at once; the figures follow
 
   return (
     <div className="space-y-6">
@@ -56,13 +57,12 @@ export default function InventoryOverviewPage() {
         </div>
       </div>
 
-      {valuation.error ? (
-        <p role="alert" className="rounded-xl border border-border bg-card p-4 text-sm text-red-600">
-          Could not load inventory summary. Try refreshing the page.
-        </p>
+      {valuation.error && !valuation.data ? (
+        <LoadError title="Could not load the inventory summary" error={valuation.error} onRetry={() => void valuation.refetch()} />
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard
+            loading={summaryLoading}
             href="/inventory/products"
             label={t("totalProducts")}
             value={summary?.product_count ?? 0}
@@ -70,6 +70,7 @@ export default function InventoryOverviewPage() {
             icon={Package}
           />
           <StatCard
+            loading={summaryLoading}
             href="/inventory/stock"
             label={t("stockValue")}
             value={fmt(summary?.cost_value ?? 0)}
@@ -77,6 +78,7 @@ export default function InventoryOverviewPage() {
             icon={Wallet}
           />
           <StatCard
+            loading={summaryLoading}
             href="/inventory/stock?status=low"
             label={t("lowStock")}
             value={summary?.low_stock_count ?? 0}
@@ -85,6 +87,7 @@ export default function InventoryOverviewPage() {
             icon={AlertTriangle}
           />
           <StatCard
+            loading={summaryLoading}
             href="/inventory/stock?status=out"
             label={t("outOfStock")}
             value={summary?.out_of_stock_count ?? 0}
@@ -93,6 +96,7 @@ export default function InventoryOverviewPage() {
             icon={PackageX}
           />
           <StatCard
+            loading={summaryLoading}
             href="/inventory/transfers?status=pending"
             label="Pending transfers"
             value={pendingTransfers.data?.total ?? 0}
@@ -112,7 +116,7 @@ export default function InventoryOverviewPage() {
             </Link>
           </div>
           {lowStock.isLoading ? (
-            <PageLoader variant="compact" />
+            <TableState loading />
           ) : lowStock.error ? (
             <p className="text-sm text-muted">Alerts unavailable right now.</p>
           ) : !(lowStock.data?.items.length) ? (
@@ -144,7 +148,7 @@ export default function InventoryOverviewPage() {
             </Link>
           </div>
           {recentTransfers.isLoading ? (
-            <PageLoader variant="compact" />
+            <TableState loading />
           ) : recentTransfers.error ? (
             <p className="text-sm text-muted">Transfers unavailable right now.</p>
           ) : !(recentTransfers.data?.items.length) ? (
