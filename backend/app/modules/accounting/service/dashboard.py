@@ -109,6 +109,24 @@ async def income(db: AsyncSession, user: User, page: int = 1, page_size: int = 2
     return encoded({**result, "page": page, "page_size": page_size, "from_date": start, "to_date": end, "currency": prefs["ledger_currency"]})
 
 
+async def revenue_summary(db: AsyncSession, user: User, start: date, end: date,
+                          active_branch: uuid.UUID | None = None) -> dict:
+    """Overview dashboard revenue: sales, other income (posted to any other Revenue account) and their total, for the
+    same period and branch scope as the dashboard's other figures (same permission and branch rule as the income
+    statement it sits beside). Total revenue equals the Income page's "Posted revenue" for the same dates and branch."""
+    from app.modules.accounting.service.transaction import sales_revenue_account_id
+    from app.modules.tenants.models import Tenant
+    tenant_id = allow(user, "journal_entries")
+    if start > end:
+        raise ValidationError("From date must be on or before to date")
+    branch_id = await resolve_branch(db, user, None, active_branch)
+    tenant = await db.get(Tenant, tenant_id)
+    result = await WorkspaceRepository(db).revenue_summary(tenant_id, branch_id, start, end, await sales_revenue_account_id(db, tenant_id),
+                                                           tenant.timezone if tenant else "UTC")
+    prefs = await preference(db, tenant_id)
+    return encoded({**result, "from_date": start, "to_date": end, "currency": prefs["ledger_currency"]})
+
+
 async def cash_position(db: AsyncSession, user: User, account_id: uuid.UUID,
                         active_branch: uuid.UUID | None = None) -> dict:
     from app.modules.accounting.service.operations import account

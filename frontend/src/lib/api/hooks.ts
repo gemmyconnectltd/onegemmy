@@ -315,6 +315,9 @@ export const useTrialBalance = (from?: string, to?: string, opts?: QueryOpts) =>
 
 export const useIncomeStatement = (from?: string, to?: string, opts?: QueryOpts) =>
   useQ([...REPORTS, "income-statement", from ?? "all", to ?? "all"], () => accountingApi.incomeStatement(from, to), (r) => r.data, opts);
+/** Overview dashboard revenue (sales, other income, total). Under REPORTS so posting or voiding a journal refreshes it. */
+export const useRevenueSummary = (from: string, to: string, opts?: QueryOpts) =>
+  useQ([...REPORTS, "revenue-summary", from, to], () => financialApi.revenueSummary(from, to), (r) => r.data, opts);
 
 export const useBalanceSheet = (asOf?: string, opts?: QueryOpts) =>
   useQ([...REPORTS, "balance-sheet", asOf ?? "all"], () => accountingApi.balanceSheet(asOf), (r) => r.data, opts);

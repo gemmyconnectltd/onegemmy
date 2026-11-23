@@ -104,18 +104,27 @@ class WorkspaceRepository(ReportingRepository):
             FixedAsset.tenant_id == tenant_id, FixedAsset.acquisition_transaction_id == transaction_id,
             FixedAsset.asset_account_id == account_id))).scalar_one()
 
-    async def income(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date,
-                     end: date, page: int, page_size: int, status: str | None = None) -> dict:
-        """Revenue-only amounts and full-period totals; never sum a truncated journal page."""
-        revenue = case((TransactionLine.type == "credit", TransactionLine.amount), else_=-TransactionLine.amount)
-        stmt = select(Transaction.id, Transaction.reference, Transaction.transaction_date, Transaction.description,
-                      Transaction.status, Transaction.type, func.sum(revenue).label("amount")) .select_from(Transaction).join(
+    @staticmethod
+    def _revenue_lines(tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date, end: date, *columns):
+        """The one revenue formula, shared by the Income page and the dashboard: net credits (credits − debits) on
+        Revenue-type accounts, by transaction date, optionally one branch. Revenue lines are posted net of VAT (VAT goes
+        to its own tax account), so the amounts exclude VAT. Callers choose their columns and status filter."""
+        stmt = select(*columns).select_from(Transaction).join(
             TransactionLine, TransactionLine.transaction_id == Transaction.id).join(Account, and_(
                 Account.id == TransactionLine.account_id, Account.tenant_id == tenant_id)).where(
                 Transaction.tenant_id == tenant_id, Account.type == "Revenue",
                 Transaction.transaction_date >= start, Transaction.transaction_date <= end)
         if branch_id:
             stmt = stmt.where(Transaction.branch_id == branch_id)
+        return stmt
+
+    REVENUE = case((TransactionLine.type == "credit", TransactionLine.amount), else_=-TransactionLine.amount)
+
+    async def income(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date,
+                     end: date, page: int, page_size: int, status: str | None = None) -> dict:
+        """Revenue-only amounts and full-period totals; never sum a truncated journal page."""
+        stmt = self._revenue_lines(tenant_id, branch_id, start, end, Transaction.id, Transaction.reference, Transaction.transaction_date,
+                                   Transaction.description, Transaction.status, Transaction.type, func.sum(self.REVENUE).label("amount"))
         grouped = stmt.group_by(Transaction.id).subquery()
         totals = (await self.db.execute(select(
             func.coalesce(func.sum(case((grouped.c.status == "Posted", grouped.c.amount), else_=0)), 0).label("posted"),
@@ -125,6 +134,32 @@ class WorkspaceRepository(ReportingRepository):
         total = (await self.db.execute(select(func.count()).select_from(grouped).where(*conditions))).scalar_one()
         rows = (await self.db.execute(select(grouped).where(*conditions).order_by(grouped.c.transaction_date.desc(), grouped.c.reference.desc()).offset((page-1)*page_size).limit(min(page_size, 100)))).mappings().all()
         return {"items": [dict(row) for row in rows], "total": total, "totals": dict(totals)}
+
+    async def revenue_summary(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date, end: date,
+                              sales_account_id: uuid.UUID | None, timezone: str) -> dict:
+        """Posted revenue for the dashboard, split into sales (the sales revenue account) and other income (every other
+        Revenue account), with other income per day and, for a single day, per local hour of posting. One query."""
+        hour = func.extract("hour", func.timezone(timezone, Transaction.created_at)).label("hour")
+        rows = (await self.db.execute(
+            self._revenue_lines(tenant_id, branch_id, start, end, Transaction.transaction_date.label("day"), hour,
+                                (Account.id == sales_account_id).label("is_sales") if sales_account_id else func.false().label("is_sales"),
+                                func.sum(self.REVENUE).label("amount"))
+            .where(Transaction.status == "Posted").group_by("day", "hour", "is_sales")
+        )).all()
+        sales = sum((Decimal(r.amount) for r in rows if r.is_sales), Decimal(0))
+        by_day: dict[date, Decimal] = {}
+        by_hour: dict[int, Decimal] = {}
+        for r in rows:
+            if r.is_sales:
+                continue
+            by_day[r.day] = by_day.get(r.day, Decimal(0)) + Decimal(r.amount)
+            by_hour[int(r.hour)] = by_hour.get(int(r.hour), Decimal(0)) + Decimal(r.amount)
+        other_income = sum(by_day.values(), Decimal(0))
+        return {
+            "sales_revenue": sales, "other_income": other_income, "total_revenue": sales + other_income,
+            "other_income_by_day": [{"date": d, "amount": a} for d, a in sorted(by_day.items())],
+            "other_income_by_hour": [{"hour": h, "amount": a} for h, a in sorted(by_hour.items())] if start == end else [],
+        }
 
     async def cash_position(self, tenant_id: uuid.UUID, account_id: uuid.UUID, branch_id: uuid.UUID | None, as_of: date) -> Decimal:
         signed = case((TransactionLine.type == "debit", TransactionLine.amount), else_=-TransactionLine.amount)

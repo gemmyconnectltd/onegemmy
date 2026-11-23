@@ -59,6 +59,7 @@ const BASE_STRINGS: Record<string, string> = {
   inventoryOverviewSub: "Monitor stock levels, value, and alerts across all products",
   totalProducts: "Total Products", skusTracked: "SKUs tracked",
   stockValue: "Stock Value", atCostPrice: "At cost price",
+  otherIncome: "Other Income", profit: "Profit",
   lowStock: "Low Stock", needReorder: "Need reorder",
   outOfStock: "Out of Stock", immediateAction: "Immediate action",
   stockHealth: "Stock Health", inStock: "In Stock",
@@ -129,7 +130,9 @@ export type NavOrientation = "top" | "left" | "big";
 const VALID_ORIENTATIONS: NavOrientation[] = ["top", "left", "big"];
 
 async function fetchTranslations(targetLang: string): Promise<Record<string, string>> {
-  const cacheKey = `translations_${targetLang}`;
+  // The key includes the number of strings, so a browser re-translates when new strings are added instead of keeping an
+  // older cached set that lacks them.
+  const cacheKey = `translations_${targetLang}_${Object.keys(BASE_STRINGS).length}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) return JSON.parse(cached);
 

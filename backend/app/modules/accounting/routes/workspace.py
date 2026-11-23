@@ -187,6 +187,12 @@ async def income(db: DbSession, current_user: CurrentUser, branch_id: ActiveBran
     return success_response(await dashboard.income(db, current_user, page.page, min(page.page_size, 100), from_date, to_date, status, branch_id))
 
 
+@router.get("/revenue-summary")
+async def revenue_summary(db: DbSession, current_user: CurrentUser, branch_id: ActiveBranchId, from_date: date, to_date: date):
+    """Sales, other income and total posted revenue for the Overview dashboard (same period and branch as its other figures)."""
+    return success_response(await dashboard.revenue_summary(db, current_user, from_date, to_date, branch_id))
+
+
 from app.modules.accounting.schemas.workspace import IncomeReceipt
 
 

@@ -251,6 +251,16 @@ async def _get_account_by_code(db: AsyncSession, tenant_id: uuid.UUID, code: str
     return acc.id
 
 
+# The revenue account that completed sales post to. TODO: read it from a configured default-account mapping once one
+# exists; until then every sale posts to 4000, so this is the one place that knows it.
+SALES_REVENUE_CODE = "4000"
+
+
+async def sales_revenue_account_id(db: AsyncSession, tenant_id: uuid.UUID) -> uuid.UUID | None:
+    """The account sales revenue is posted to, for reports that must separate sales from other income."""
+    return await _get_account_by_code(db, tenant_id, SALES_REVENUE_CODE)
+
+
 async def _posting_account(db: AsyncSession, tenant_id: uuid.UUID, code: str, purpose: str) -> uuid.UUID:
     """The account a system posting must use. A missing or deactivated account stops the whole business
     action with a message that says what to fix, instead of finishing the sale/expense with no journal."""
@@ -318,7 +328,7 @@ async def create_sale_transaction(
     if prior is not None:
         return prior
 
-    rev_id = await _posting_account(db, tenant_id, "4000", "Sales Revenue")
+    rev_id = await _posting_account(db, tenant_id, SALES_REVENUE_CODE, "Sales Revenue")
     ar_id = await _posting_account(db, tenant_id, "1100", "Accounts Receivable")
 
     paid = 0.0
@@ -772,7 +782,7 @@ async def backfill_sale_transactions(
     from app.modules.sales.models.order import Order
 
     ar_id = await _get_account_by_code(db, tenant_id, "1100")
-    rev_id = await _get_account_by_code(db, tenant_id, "4000")
+    rev_id = await _get_account_by_code(db, tenant_id, SALES_REVENUE_CODE)
     if not ar_id or not rev_id:
         return 0
 

@@ -17,6 +17,15 @@ export interface FinancialReport {
 export interface DomainPage { negative_accounts?: FinancialRow[]; negative_count?: number; items: FinancialRow[]; total: number; page: number; page_size: number; totals: Record<string, Money> }
 export type DomainKind = "cash" | "reconciliations" | "transfers" | "assets" | "payroll" | "tax" | "tax-payments" | "pending";
 export interface FinancialOverview { from_date: string; to_date: string; currency: string; revenue: Money; expenses: Money; net_profit: Money; cash_balance: Money; trend: { month: string; income: Money; expenses: Money; cash_change: Money }[]; journals: FinancialRow[] }
+/** Posted revenue for the Overview dashboard (money as decimal strings). total_revenue = sales_revenue + other_income and
+ *  equals the Income page's "Posted revenue" for the same dates and branch. */
+export interface RevenueSummary {
+  sales_revenue: string; other_income: string; total_revenue: string;
+  other_income_by_day: { date: string; amount: string }[];
+  /** Only for a single-day range: other income by local hour of posting. */
+  other_income_by_hour: { hour: number; amount: string }[];
+  from_date: string; to_date: string; currency: string;
+}
 export interface AccountPage { items: AccountingAccount[]; total: number; page: number; page_size: number }
 export interface AccountInput { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null; is_active?: boolean }
 const base = "/tenants/accounting/workspace";
@@ -27,6 +36,7 @@ export const financialApi = {
   income: (page: number, from?: string, to?: string, status?: string) => request<SingleResponse<DomainPage & { from_date: string; to_date: string; currency: string }>>(`${base}/income${query({ page, page_size: 25, from_date: from, to_date: to, status })}`),
   cashPosition: (id: string) => request<SingleResponse<FinancialRow>>(`${base}/cash-position/${id}`),
   overview: () => request<SingleResponse<FinancialOverview>>(base + "/overview"),
+  revenueSummary: (from: string, to: string) => request<SingleResponse<RevenueSummary>>(`${base}/revenue-summary${query({ from_date: from, to_date: to })}`),
   preferences: () => request<SingleResponse<{ fiscal_start_month: number; locked_through?: string | null; inventory_method: string; ledger_currency: string }>>(base + "/preferences"),
   savePeriodLock: (locked_through: string | null, reason: string) => request<SingleResponse<{ locked_through: string | null }>>(base + "/period-lock", { method: "PUT", body: JSON.stringify({ locked_through, reason }) }),
   savePreferences: (month: number) => request<SingleResponse<object>>(base + "/preferences", { method: "PATCH", body: JSON.stringify({ fiscal_start_month: month }) }),

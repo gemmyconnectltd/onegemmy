@@ -20,6 +20,7 @@ import {
   Clock,
   ChevronRight,
   Activity,
+  Coins,
   AlertTriangle,
   Landmark,
 } from "lucide-react";
@@ -47,10 +48,12 @@ import {
   useOrders,
   useTargets,
   useIncomeStatement,
+  useRevenueSummary,
   useCashFlow,
   type ApiProduct,
   type ApiOrder,
 } from "@/lib/api/hooks";
+import type { RevenueSummary } from "@/lib/api/financialWorkspace";
 import {
   isPresetKey,
   resolveSelection,
@@ -90,21 +93,24 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(h / 24)} days ago`;
 }
 
-type ChartPoint = { label: string; sales: number; expenses: number };
+type ChartPoint = { label: string; sales: number; otherIncome: number; expenses: number };
+/** Something that happened at a moment and adds to one chart series. Sales come from orders (as before); other income
+ *  from the revenue summary, already limited to the selected period and branch. */
+type ChartEntry = { at: Date; amount: number; kind: "sales" | "otherIncome" };
+
+const point = (label: string, entries: ChartEntry[], inBucket: (at: Date) => boolean): ChartPoint => {
+  const total = (kind: ChartEntry["kind"]) => entries.filter((e) => e.kind === kind && inBucket(e.at)).reduce((s, e) => s + e.amount, 0);
+  return { label, sales: total("sales"), otherIncome: total("otherIncome"), expenses: 0 };
+};
 
 /** Custom ranges and picked quarters: bucket the span itself — hours for one day, days up to two weeks, weeks up to ~two months, else months. */
-function buildRangeChart(orders: ApiOrder[], range: ResolvedRange): ChartPoint[] {
-  const orderDay = (o: ApiOrder) => toISO(new Date(o.ordered_at ?? o.created_at ?? ""));
-  const sum = (from: string, to: string) => orders.filter((o) => { const d = orderDay(o); return d >= from && d <= to; }).reduce((s, o) => s + orderBaseTotal(o), 0);
+function buildRangeChart(entries: ChartEntry[], range: ResolvedRange): ChartPoint[] {
   const days = daysInRange(range.from, range.to);
   const fmt = (iso: string) => parseISO(iso).toLocaleDateString("en", { day: "numeric", month: "short" });
+  const between = (from: string, to: string) => (at: Date) => { const d = toISO(at); return d >= from && d <= to; };
   if (days === 1) {
     const hours = [8, 10, 12, 14, 16, 18];
-    return hours.map((h, i) => ({
-      label: `${h % 12 || 12}${h < 12 ? "am" : "pm"}`,
-      sales: orders.filter((o) => { const dt = new Date(o.ordered_at ?? o.created_at ?? ""); return toISO(dt) === range.from && dt.getHours() >= h && dt.getHours() < (hours[i + 1] ?? 24); }).reduce((s, o) => s + orderBaseTotal(o), 0),
-      expenses: 0,
-    }));
+    return hours.map((h, i) => point(`${h % 12 || 12}${h < 12 ? "am" : "pm"}`, entries, (at) => toISO(at) === range.from && at.getHours() >= h && at.getHours() < (hours[i + 1] ?? 24)));
   }
   const out: ChartPoint[] = [];
   if (days <= 62) {
@@ -113,7 +119,7 @@ function buildRangeChart(orders: ApiOrder[], range: ResolvedRange): ChartPoint[]
       const start = toISO(d);
       const endD = new Date(d.getFullYear(), d.getMonth(), d.getDate() + step - 1);
       const end = toISO(endD) > range.to ? range.to : toISO(endD);
-      out.push({ label: fmt(start), sales: sum(start, end), expenses: 0 });
+      out.push(point(fmt(start), entries, between(start, end)));
     }
     return out;
   }
@@ -121,99 +127,49 @@ function buildRangeChart(orders: ApiOrder[], range: ResolvedRange): ChartPoint[]
   for (let d = new Date(parseISO(range.from).getFullYear(), parseISO(range.from).getMonth(), 1); d <= last; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
     const start = toISO(d) < range.from ? range.from : toISO(d);
     const monthEnd = toISO(new Date(d.getFullYear(), d.getMonth() + 1, 0));
-    out.push({ label: d.toLocaleDateString("en", { month: "short", ...(parseISO(range.from).getFullYear() !== last.getFullYear() ? { year: "2-digit" } : {}) }), sales: sum(start, monthEnd > range.to ? range.to : monthEnd), expenses: 0 });
+    out.push(point(d.toLocaleDateString("en", { month: "short", ...(parseISO(range.from).getFullYear() !== last.getFullYear() ? { year: "2-digit" } : {}) }), entries, between(start, monthEnd > range.to ? range.to : monthEnd)));
   }
   return out;
 }
 
-function buildChart(orders: ApiOrder[], range: ResolvedRange): ChartPoint[] {
-  if (!isPresetKey(range.key)) return buildRangeChart(orders, range);
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function buildChart(entries: ChartEntry[], range: ResolvedRange): ChartPoint[] {
+  if (!isPresetKey(range.key)) return buildRangeChart(entries, range);
   const period = range.key as Period;
   if (period === "today") {
-    const buckets = ["8am", "10am", "12pm", "2pm", "4pm", "6pm"];
     const hours = [8, 10, 12, 14, 16, 18];
-    return buckets.map((label, i) => ({
-      label,
-      sales: orders
-        .filter((o) => {
-          const h = new Date(o.ordered_at ?? o.created_at ?? "").getHours();
-          return h >= hours[i] && h < (hours[i + 1] ?? 24);
-        })
-        .reduce((s, o) => s + orderBaseTotal(o), 0),
-      expenses: 0,
-    }));
+    return ["8am", "10am", "12pm", "2pm", "4pm", "6pm"].map((label, i) => point(label, entries, (at) => at.getHours() >= hours[i] && at.getHours() < (hours[i + 1] ?? 24)));
   }
   if (period === "week") {
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    return days.map((label, i) => ({
-      label,
-      sales: orders
-        .filter((o) => {
-          const d = new Date(o.ordered_at ?? o.created_at ?? "");
-          return (d.getDay() + 6) % 7 === i;
-        })
-        .reduce((s, o) => s + orderBaseTotal(o), 0),
-      expenses: 0,
-    }));
+    return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label, i) => point(label, entries, (at) => (at.getDay() + 6) % 7 === i));
   }
   if (period === "month" || period === "last_month") {
-    return ["Wk 1", "Wk 2", "Wk 3", "Wk 4"].map((label, i) => ({
-      label,
-      sales: orders
-        .filter((o) => {
-          const d = new Date(o.ordered_at ?? o.created_at ?? "");
-          return Math.floor((d.getDate() - 1) / 7) === i;
-        })
-        .reduce((s, o) => s + orderBaseTotal(o), 0),
-      expenses: 0,
-    }));
+    return ["Wk 1", "Wk 2", "Wk 3", "Wk 4"].map((label, i) => point(label, entries, (at) => Math.floor((at.getDate() - 1) / 7) === i));
   }
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
   if (period === "quarter") {
     const startMonth = Math.floor(new Date().getMonth() / 3) * 3;
-    return [0, 1, 2].map((i) => {
-      const m = startMonth + i;
-      return {
-        label: months[m],
-        sales: orders
-          .filter(
-            (o) =>
-              new Date(o.ordered_at ?? o.created_at ?? "").getMonth() === m,
-          )
-          .reduce((s, o) => s + orderBaseTotal(o), 0),
-        expenses: 0,
-      };
-    });
+    return [0, 1, 2].map((i) => point(MONTHS[startMonth + i], entries, (at) => at.getMonth() === startMonth + i));
   }
   // year / year_YYYY — monthly
-  return months.map((label, i) => ({
-    label,
-    sales: orders
-      .filter(
-        (o) => new Date(o.ordered_at ?? o.created_at ?? "").getMonth() === i,
-      )
-      .reduce((s, o) => s + orderBaseTotal(o), 0),
-    expenses: 0,
-  }));
+  return MONTHS.map((label, i) => point(label, entries, (at) => at.getMonth() === i));
+}
+
+/** Other income as chart entries: by posting hour for a single day, otherwise by date (placed at midday). */
+function otherIncomeEntries(summary: RevenueSummary | undefined, range: ResolvedRange): ChartEntry[] {
+  if (!summary) return [];
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (range.from === range.to && summary.other_income_by_hour.length) {
+    return summary.other_income_by_hour.map((r) => ({ at: new Date(`${range.from}T${pad(r.hour)}:00:00`), amount: Number(r.amount), kind: "otherIncome" as const }));
+  }
+  return summary.other_income_by_day.map((r) => ({ at: new Date(`${r.date}T12:00:00`), amount: Number(r.amount), kind: "otherIncome" as const }));
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
 function KpiCards({
   sales,
+  otherIncome,
   expenses,
   profit,
   cash,
@@ -226,6 +182,7 @@ function KpiCards({
   c,
 }: {
   sales: number;
+  otherIncome: number;
   expenses: number;
   profit: number;
   cash: number;
@@ -237,7 +194,7 @@ function KpiCards({
   label: string;
   c: ChartPalette;
 }) {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, t } = useAppConfig();
   const kpis = [
     {
       label: `${label} Sales`,
@@ -272,6 +229,15 @@ function KpiCards({
       up: true,
     },
     {
+      // Posted income on revenue accounts other than sales (Accounting → Income). Shown even when it is zero.
+      label: `${label} ${t("otherIncome")}`,
+      value: fmtMoney(otherIncome, currencySymbol),
+      icon: Coins,
+      color: c.blue,
+      change: null,
+      up: otherIncome >= 0,
+    },
+    {
       label: "Customers",
       value: String(customers),
       icon: Users,
@@ -281,7 +247,7 @@ function KpiCards({
     },
   ];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
       {kpis.map((k) => (
         <div
           key={k.label}
@@ -323,12 +289,12 @@ function SalesChart({
   sub,
   c,
 }: {
-  chart: { label: string; sales: number; expenses: number }[];
+  chart: ChartPoint[];
   title: string;
   sub: string;
   c: ChartPalette;
 }) {
-  const { currencySymbol } = useAppConfig();
+  const { currencySymbol, t } = useAppConfig();
   return (
     <div className="lg:col-span-2 bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -338,8 +304,9 @@ function SalesChart({
         </div>
         <div className="flex items-center gap-4">
           {[
-            { color: c.income, label: "Sales" },
-            { color: c.expenses, label: "Expenses" },
+            { color: c.income, label: t("sales") },
+            { color: c.blue, label: t("otherIncome") },
+            { color: c.expenses, label: t("expenses") },
           ].map((l) => (
             <div key={l.label} className="flex items-center gap-1.5">
               <div
@@ -360,6 +327,10 @@ function SalesChart({
               <linearGradient id="gS" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={c.income} stopOpacity={0.18} />
                 <stop offset="95%" stopColor={c.income} stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gO" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={c.blue} stopOpacity={0.15} />
+                <stop offset="95%" stopColor={c.blue} stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gE" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={c.expenses} stopOpacity={0.12} />
@@ -387,7 +358,7 @@ function SalesChart({
               contentStyle={c.tooltip}
               formatter={(v, n) => [
                 fmtMoney(Number(v), currencySymbol),
-                n === "sales" ? "Sales" : "Expenses",
+                n === "sales" ? t("sales") : n === "otherIncome" ? t("otherIncome") : t("expenses"),
               ]}
             />
             <Area
@@ -398,6 +369,15 @@ function SalesChart({
               fill="url(#gS)"
               dot={false}
               activeDot={{ r: 4, fill: c.income, strokeWidth: 0 }}
+            />
+            <Area
+              type="monotone"
+              dataKey="otherIncome"
+              stroke={c.blue}
+              strokeWidth={2}
+              fill="url(#gO)"
+              dot={false}
+              activeDot={{ r: 4, fill: c.blue, strokeWidth: 0 }}
             />
             <Area
               type="monotone"
@@ -417,25 +397,29 @@ function SalesChart({
 
 function EarningsBreakdown({
   sales,
+  otherIncome,
   expenses,
   profit,
   label,
   c,
 }: {
   sales: number;
+  otherIncome: number;
   expenses: number;
   profit: number;
   label: string;
   c: ChartPalette;
 }) {
-  const { currencySymbol } = useAppConfig();
-  const hasData = sales > 0;
+  const { currencySymbol, t } = useAppConfig();
+  // Revenue is sales plus other income; the margin is profit on that whole revenue.
+  const totalRevenue = sales + otherIncome;
+  const hasData = totalRevenue > 0;
   const isLoss = profit < 0;
   const data = [
-    { name: "Profit", value: Math.max(0, profit) },
-    { name: "Expenses", value: Math.max(0, expenses) },
-  ].filter((d) => d.value > 0);
-  const margin = hasData ? Math.round((profit / sales) * 100) : 0;
+    { name: t("sales"), value: Math.max(0, sales) },
+    { name: t("otherIncome"), value: Math.max(0, otherIncome) },
+  ];
+  const margin = hasData ? Math.round((profit / totalRevenue) * 100) : 0;
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -449,7 +433,7 @@ function EarningsBreakdown({
       </div>
       {!hasData ? (
         <p className="px-4 py-6 text-[12px] text-muted text-center">
-          No sales data yet
+          No revenue yet
         </p>
       ) : (
         <div className="p-4 flex items-center gap-4">
@@ -457,7 +441,7 @@ function EarningsBreakdown({
             {data.length > 0 && (
               <DonutChart
                 data={data}
-                colors={[c.profit, c.expenses]}
+                colors={[c.income, c.blue]}
                 innerRadius={28}
                 outerRadius={44}
                 tooltipStyle={c.tooltip}
@@ -476,7 +460,14 @@ function EarningsBreakdown({
             </div>
           </div>
           <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex items-center gap-2">
+            {[{ color: c.income, name: t("sales"), value: sales }, { color: c.blue, name: t("otherIncome"), value: otherIncome }].map((row) => (
+              <div key={row.name} className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: row.color }} />
+                <span className="text-[12px] text-foreground/80 flex-1">{row.name}</span>
+                <span className="text-[11px] font-bold font-mono text-foreground">{fmtMoney(row.value, currencySymbol)}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-2 border-t border-border pt-2">
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: c.profit }}
@@ -517,6 +508,7 @@ function EarningsBreakdown({
 
 function TargetAndActions({
   sales,
+  otherIncome,
   expenses,
   profit,
   target,
@@ -524,6 +516,7 @@ function TargetAndActions({
   c,
 }: {
   sales: number;
+  otherIncome: number;
   expenses: number;
   profit: number;
   target: number;
@@ -595,6 +588,7 @@ function TargetAndActions({
       </div>
       <EarningsBreakdown
         sales={sales}
+        otherIncome={otherIncome}
         expenses={expenses}
         profit={profit}
         label={label}
@@ -775,6 +769,7 @@ export default function DashboardPage() {
   const range = resolveSelection(selection);
   const { from, to } = range;
   const income = useIncomeStatement(from, to);
+  const revenue = useRevenueSummary(from, to);
   const cash = useCashFlow(from, to);
   const customers = useCustomers(1, 1);
   const targets = useTargets(1, 100);
@@ -785,16 +780,20 @@ export default function DashboardPage() {
 
   // Each section loads and fails on its own: a slow or failed request never blanks the whole dashboard, and a failed
   // money figure is shown as an error with a retry, never as zero.
-  const kpiState = combinedState([loadState(income), loadState(cash), loadState(customers)]);
+  const kpiState = combinedState([loadState(income), loadState(revenue), loadState(cash), loadState(customers)]);
   const salesState = combinedState([loadState(allOrders), loadState(products)]);
-  const targetState = combinedState([loadState(income), loadState(targets)]);
+  const targetState = combinedState([loadState(income), loadState(revenue), loadState(targets)]);
   const recentState = loadState(orders);
   const retry = (...queries: { isError: boolean; refetch: () => unknown }[]) => () => queries.filter((q) => q.isError).forEach((q) => void q.refetch());
-  const kpiSkeleton = <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24" label="Loading figures" />)}</div>;
+  const kpiSkeleton = <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-24" label="Loading figures" />)}</div>;
 
-  const sales = income.data?.total_revenue ?? 0;
+  // Sales: posted revenue on the sales account; other income: posted revenue on every other revenue account (both net of
+  // VAT, from the same query as Accounting → Income "Posted revenue"). Profit = total revenue − cost of goods − expenses.
+  const sales = Number(revenue.data?.sales_revenue ?? 0);
+  const otherIncome = Number(revenue.data?.other_income ?? 0);
+  const totalRevenue = Number(revenue.data?.total_revenue ?? 0);
   const expenses = income.data?.total_operating_expenses ?? 0;
-  const profit = income.data?.net_income ?? 0;
+  const profit = totalRevenue - (income.data?.total_cogs ?? 0) - expenses - (income.data?.total_other_expenses ?? 0);
   const cashAmt = cash.data?.ending_cash ?? 0;
   const customersCount = customers.data?.total ?? 0;
   const periodLabel = range.label;
@@ -807,7 +806,10 @@ export default function DashboardPage() {
   const inventory = products.data?.items ?? [];
 
   const label = range.label;
-  const chart = buildChart(allOrderItems, range);
+  const chart = buildChart([
+    ...allOrderItems.map((o) => ({ at: new Date(o.ordered_at ?? o.created_at ?? ""), amount: orderBaseTotal(o), kind: "sales" as const })),
+    ...otherIncomeEntries(revenue.data, range),
+  ], range);
 
   const categoryMap = new Map<string, number>();
   for (const o of allOrderItems) {
@@ -856,9 +858,10 @@ export default function DashboardPage() {
       </div>
 
       <>
-          <SectionState state={kpiState} loading={kpiSkeleton} errorTitle="Could not load this period's figures" error={income.error ?? cash.error ?? customers.error} onRetry={retry(income, cash, customers)}>
+          <SectionState state={kpiState} loading={kpiSkeleton} errorTitle="Could not load this period's figures" error={income.error ?? revenue.error ?? cash.error ?? customers.error} onRetry={retry(income, revenue, cash, customers)}>
           <KpiCards
             sales={sales}
+            otherIncome={otherIncome}
             expenses={expenses}
             profit={profit}
             cash={cashAmt}
@@ -941,9 +944,10 @@ export default function DashboardPage() {
                 />
               </SectionState>
             </div>
-            <SectionState state={targetState} loading={<Skeleton className="h-72" label="Loading target" />} errorTitle="Could not load the target" error={income.error ?? targets.error} onRetry={retry(income, targets)}>
+            <SectionState state={targetState} loading={<Skeleton className="h-72" label="Loading target" />} errorTitle="Could not load the target" error={income.error ?? revenue.error ?? targets.error} onRetry={retry(income, revenue, targets)}>
               <TargetAndActions
                 sales={sales}
+                otherIncome={otherIncome}
                 expenses={expenses}
                 profit={profit}
                 target={target}
