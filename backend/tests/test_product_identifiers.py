@@ -20,9 +20,9 @@ def test_blank_sku_generates_unique_identifiers(monkeypatch, sku):
     monkeypatch.setattr(service, "Product", SimpleNamespace)
     tenant_id = uuid.uuid4()
     data = ProductCreate(name="Rice", sku=sku, barcode=" 001234 ", subcategory=" Rice ")
-    products = [service._product_with_sku(tenant_id, data.model_dump()) for _ in range(50)]
+    products = [service._product_with_sku(tenant_id, data.model_dump(), n) for n in range(1, 51)]
     assert len({p.sku for p in products}) == 50
-    assert all(p.sku == f"PRD-{p.id.hex.upper()}" for p in products)
+    assert [p.sku for p in products[:2]] == ["PRD-00001", "PRD-00002"]  # short and sequential
     assert all(p.tenant_id == tenant_id for p in products)
     assert products[0].barcode == "001234"
     assert products[0].subcategory == "Rice"
@@ -31,7 +31,7 @@ def test_blank_sku_generates_unique_identifiers(monkeypatch, sku):
 def test_manual_sku_is_preserved(monkeypatch):
     monkeypatch.setattr(service, "Product", SimpleNamespace)
     data = ProductCreate(name="Rice", sku=" RICE-001 ")
-    product = service._product_with_sku(uuid.uuid4(), data.model_dump())
+    product = service._product_with_sku(uuid.uuid4(), data.model_dump(), 7)
     assert product.sku == "RICE-001"
 
 
@@ -56,11 +56,12 @@ async def test_blank_sku_update_preserves_or_generates(monkeypatch, existing_sku
     )
     monkeypatch.setattr(service, "ProductRepository", lambda db: repo)
     monkeypatch.setattr(service, "ProductRead", SimpleNamespace(model_validate=lambda obj: obj))
+    monkeypatch.setattr(service, "_last_sku_number", AsyncMock(return_value=41))
     db = SimpleNamespace(commit=AsyncMock())
     result = await service.update_product(
         db, tenant_id, product_id, ProductUpdate(sku=" ", barcode="001234", subcategory="Rice")
     )
-    assert result.sku == (existing_sku or f"PRD-{product_id.hex.upper()}")
+    assert result.sku == (existing_sku or "PRD-00042")
     assert result.barcode == "001234"
     assert result.subcategory == "Rice"
     repo.get_by_id_for_tenant.assert_called_with(tenant_id, product_id)
@@ -90,6 +91,7 @@ async def test_failed_bulk_row_keeps_successful_products(monkeypatch):
     monkeypatch.setattr(service, "ProductRepository", lambda db: SimpleNamespace(save=save))
     monkeypatch.setattr(service, "_tenant_industry", AsyncMock(return_value=None))
     monkeypatch.setattr(service, "count_products", AsyncMock(return_value=10))
+    monkeypatch.setattr(service, "_last_sku_number", AsyncMock(return_value=0))
     limit = AsyncMock()
     monkeypatch.setattr("app.modules.tenants.service.enforce_limit", limit)
     monkeypatch.setattr(service, "BatchRepository", lambda db: SimpleNamespace(

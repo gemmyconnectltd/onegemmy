@@ -101,12 +101,18 @@ async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | N
     return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id, vat)
 
 
-def _product_with_sku(tenant_id: uuid.UUID, payload: dict[str, object]) -> Product:
-    """Use the product UUID for generated SKUs, including bulk imports."""
-    product_id = uuid.uuid4()
+async def _last_sku_number(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """The highest number among this business's generated SKUs (PRD-00001, PRD-00002, …); long hash SKUs from before are ignored."""
+    from sqlalchemy import Integer, cast, func, select
+    number = func.substring(Product.sku, r"^PRD-(\d{1,9})$")
+    return (await db.execute(select(func.max(cast(number, Integer))).where(Product.tenant_id == tenant_id))).scalar_one() or 0
+
+
+def _product_with_sku(tenant_id: uuid.UUID, payload: dict[str, object], number: int) -> Product:
+    """A product with the SKU it was given, or the next short sequential one (PRD-00042) when it had none."""
     if not payload.get("sku"):
-        payload["sku"] = f"PRD-{product_id.hex.upper()}"
-    return Product(id=product_id, tenant_id=tenant_id, **payload)
+        payload["sku"] = f"PRD-{number:05d}"
+    return Product(id=uuid.uuid4(), tenant_id=tenant_id, **payload)
 
 
 async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCreate, actor: User | None = None) -> ProductRead:
@@ -116,7 +122,7 @@ async def create_product(db: AsyncSession, tenant_id: uuid.UUID, data: ProductCr
     payload = data.model_dump()
     if not payload.get("image_url"):
         payload["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
-    obj = _product_with_sku(tenant_id, payload)
+    obj = _product_with_sku(tenant_id, payload, await _last_sku_number(db, tenant_id) + 1)
     _apply_vat_classification(obj, {k: v for k, v in payload.items() if k in VAT_FIELDS and v is not None}, actor)
     obj = await ProductRepository(db).save(obj)
     await record_product_change(db, obj, "product.created", {}, data.model_dump(), actor)
@@ -137,14 +143,17 @@ async def bulk_create_products(db: AsyncSession, tenant_id: uuid.UUID, data: Pro
     created = 0
     errors: list[str] = []
     ids: list[uuid.UUID | None] = []
+    next_sku = await _last_sku_number(db, tenant_id) + 1
     for item in data.items:
         try:
             async with db.begin_nested():
                 payload = item.model_dump(exclude={"batch_number", "expiry_date", "manufactured_date"})
                 if not payload.get("image_url"):
                     payload["image_url"] = default_image
-                obj = _product_with_sku(tenant_id, payload)
+                generated = not payload.get("sku")
+                obj = _product_with_sku(tenant_id, payload, next_sku)
                 obj = await repo.save(obj)
+                next_sku += 1 if generated else 0
                 await record_product_change(db, obj, "product.created", {}, payload, actor)
 
                 if item.batch_number:
@@ -185,7 +194,7 @@ async def update_product(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
     if "image_url" in updates and not updates["image_url"]:
         updates["image_url"] = default_product_image(await _tenant_industry(db, tenant_id))
     if "sku" in updates and not updates["sku"]:
-        updates["sku"] = obj.sku or f"PRD-{obj.id.hex.upper()}"
+        updates["sku"] = obj.sku or f"PRD-{await _last_sku_number(db, tenant_id) + 1:05d}"
     _apply_vat_classification(obj, updates, actor)
     before = {field: getattr(obj, field) for field in updates}
     for field, value in updates.items():

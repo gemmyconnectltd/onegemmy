@@ -120,7 +120,7 @@ function ProductsContent() {
   }, [search,statusFilter,page,pageSize,range.from,range.to,vatFilter]);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
   const [stockMode, setStockMode] = useState<"restock" | "adjust">("restock");
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(() => params.get("create") === "1");  // ?create=1 (Overview "Add product") opens the form
   const [formMode, setFormMode] = useState<"single" | "bulk">("single");
   const [editing, setEditing] = useState<ApiProduct | null>(null);
   const [formKey, setFormKey] = useState(0);
@@ -317,13 +317,14 @@ function ProductsContent() {
             { label: "Catalog value", value: fmt(summary.cost_value), hint: "At cost", href: "/inventory/stock", icon: Wallet },
             { label: "Low stock", value: String(summary.low_stock_count), hint: "Need reorder", href: "/inventory/stock?status=low", icon: AlertTriangle },
             { label: "Out of stock", value: String(summary.out_of_stock_count), hint: "Immediate action", href: "/inventory/stock?status=out", icon: PackageX },
-            { label: "Units on hand", value: String(summary.total_units), hint: "Business-wide", href: "/inventory/stock", icon: Package },
+            { label: "Units on hand", value: Number(summary.total_units).toLocaleString(), hint: "On hand", href: "/inventory/stock", icon: Package },
           ].map((card) => (
             <Link key={card.label} href={card.href} className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-accent/40">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-muted">{card.label}</p>
-                  <p className="mt-2 text-xl font-semibold tabular-nums">{card.value}</p>
+                  {/* Large amounts shrink or truncate as a whole number instead of wrapping between digits. */}
+                  <p title={card.value} className="mt-2 truncate whitespace-nowrap text-lg font-semibold tabular-nums sm:text-xl">{card.value}</p>
                   <p className="mt-1 text-xs text-muted">{card.hint}</p>
                 </div>
                 <span className="rounded-lg bg-accent/10 p-2.5 text-accent"><card.icon size={16} /></span>

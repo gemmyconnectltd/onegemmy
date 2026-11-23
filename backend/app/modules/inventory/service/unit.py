@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ConflictError, NotFoundError
 from app.modules.inventory.models.unit import Unit
 from app.modules.inventory.repository import UnitRepository
 from app.modules.inventory.schemas import (
@@ -54,7 +54,14 @@ async def count_units(db: AsyncSession, tenant_id: uuid.UUID) -> int:
     return await UnitRepository(db).count_for_tenant(tenant_id)
 
 
+async def _ensure_unique(db: AsyncSession, tenant_id: uuid.UUID, name: str, own_id: uuid.UUID | None = None) -> None:
+    """One unit per name in a business (case and spaces ignored); the database enforces it too."""
+    if any(u.name.strip().lower() == name.strip().lower() and u.id != own_id for u in await UnitRepository(db).list_all_for_tenant(tenant_id)):
+        raise ConflictError(f"A unit named '{name.strip()}' already exists")
+
+
 async def create_unit(db: AsyncSession, tenant_id: uuid.UUID, data: UnitCreate) -> UnitRead:
+    await _ensure_unique(db, tenant_id, data.name)
     obj = Unit(tenant_id=tenant_id, **data.model_dump())
     obj = await UnitRepository(db).save(obj)
     await db.commit()
@@ -65,7 +72,10 @@ async def update_unit(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, dat
     obj = await UnitRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Unit not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    if changes.get("name"):
+        await _ensure_unique(db, tenant_id, changes["name"], obj.id)
+    for field, value in changes.items():
         setattr(obj, field, value)
     obj = await UnitRepository(db).save(obj)
     await db.commit()

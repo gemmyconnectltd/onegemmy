@@ -48,7 +48,7 @@ export default function InventoryOverviewPage() {
             </Link>
           )}
           {canAdd && (
-            <Link href="/inventory/products">
+            <Link href="/inventory/products?create=1">
               <Button>
                 <Package size={15} /> Add product
               </Button>
@@ -111,7 +111,8 @@ export default function InventoryOverviewPage() {
         <section className="space-y-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="pesaa-card-title">Inventory alerts</h2>
-            <Link href="/inventory/stock?status=low" className="text-sm font-semibold text-accent hover:underline">
+            {/* The alerts list low AND out-of-stock items, so the link opens every status rather than low only. */}
+            <Link href="/inventory/stock" className="text-sm font-semibold text-accent hover:underline">
               View stock
             </Link>
           </div>

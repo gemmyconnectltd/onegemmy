@@ -44,7 +44,7 @@ export function WarehouseEditor({ initial, onClose }: { initial?: Warehouse; onC
         <fieldset disabled={busy} className="space-y-4">
           <FormSection title="Warehouse" variant="plain">
             <Field label="Name" required><Input required maxLength={150} value={name} onChange={(e) => t(setName)(e.target.value)} /></Field>
-            <Field label="Code" hint={initial ? "Unique in your business." : "Leave empty to use the next WH number."}><Input maxLength={30} value={code} onChange={(e) => t(setCode)(e.target.value)} placeholder="WH-002" /></Field>
+            <Field label="Code" hint={initial ? "Unique in your business." : "Leave empty to use the next WH number."}><Input maxLength={30} value={code} onChange={(e) => t(setCode)(e.target.value)} placeholder="Automatic (next WH number)" /></Field>
             <Field label="Branch" hint="The branch whose sales are taken from this warehouse."><Select value={branch} onChange={(e) => t(setBranch)(e.target.value)}><option value="">Not tied to a branch</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
             <Field label="Responsible manager"><Select value={manager} onChange={(e) => t(setManager)(e.target.value)}><option value="">Nobody yet</option>{team.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></Field>
             <FormRow><Field label="Address or location"><Input maxLength={500} value={address} onChange={(e) => t(setAddress)(e.target.value)} /></Field></FormRow>
