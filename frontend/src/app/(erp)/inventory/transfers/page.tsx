@@ -8,7 +8,8 @@ import { useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2, ArrowLeftRight, AlertCircle } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { type ApiProduct, type ApiStockTransfer } from "@/lib/api";
-import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts, useProduct, useWarehouses } from "@/lib/api/hooks";
+import { useTransfers, useTransferDestinations, useCreateTransfer, useUpdateTransfer, useDeleteTransfer, useMyBranches, useProducts, useProduct, useWarehouses, useStockByWarehouse } from "@/lib/api/hooks";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/useBulkSelection";
@@ -71,6 +72,13 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
   const transfers = data?.items ?? [];
   const branches = branchesData?.items ?? [];
   const products = initialProduct && !productsData?.items.some(p=>p.id===initialProduct.id) ? [initialProduct,...(productsData?.items??[])] : productsData?.items ?? [];
+  // With warehouses, what can be sent is what the FROM warehouse holds, not the business total.
+  const sourceStock = useStockByWarehouse(1, { warehouse_id: fromWarehouse }, { enabled: byWarehouse && !!fromWarehouse }, 100).data?.items;
+  const available = (productId: string, fallback: number) =>
+    byWarehouse ? (fromWarehouse ? sourceStock?.filter((r) => r.product_id === productId && !r.variant_id).reduce((n, r) => n + r.available, 0) ?? 0 : 0) : fallback;
+  const { user } = useAuth();
+  // Branch staff follow transfers and mark those into their branch received; starting, cancelling and deleting stay with company-wide users.
+  const branchLimited = !!(user?.branchIds?.length || user?.branchId) && !user?.isSuperuser;
 
   const filtered = transfers.filter((t) =>
     !search ||
@@ -89,7 +97,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
           variant_id: null,
           product_name: product?.name ?? "",
           sku: product?.sku ?? "",
-          available_stock: product ? Number(product.stock) : 0,
+          available_stock: product ? available(product.id, Number(product.stock)) : 0,
         }
       )
     );
@@ -99,7 +107,9 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
     setItems((rows) => rows.map((r, i) => i !== index ? r : { ...r, quantity: qty }));
   }
 
-  const validItems = items.filter((r) => r.product_id && r.quantity > 0);
+  // Re-read what each line may take whenever the source warehouse (or its stock) changes.
+  const rows = items.map((r) => r.product_id ? { ...r, available_stock: available(r.product_id, r.available_stock) } : r);
+  const validItems = rows.filter((r) => r.product_id && r.quantity > 0);
   const stockErrors = validItems.filter((r) => r.quantity > r.available_stock);
 
   async function handleAdd() {
@@ -139,7 +149,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
   }
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
-  const bulk = useBulkSelection(filtered.map((t) => t.id));
+  const bulk = useBulkSelection(filtered.filter((t) => t.status === "pending" && !branchLimited).map((t) => t.id));
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   function handleDelete(id: string) {
@@ -230,7 +240,7 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
           {/* Items */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted">Items</p>
-            {items.map((row, i) => {
+            {rows.map((row, i) => {
               const overStock = row.product_id && row.quantity > row.available_stock;
               return (
                 <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-2 items-start">
@@ -239,13 +249,13 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
                       <option value="">Select product…</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name}{p.sku ? ` (${p.sku})` : ""} — stock: {Number(p.stock)}
+                          {p.name}{p.sku ? ` (${p.sku})` : ""}{byWarehouse && !fromWarehouse ? "" : ` — available: ${available(p.id, Number(p.stock))}`}
                         </option>
                       ))}
                     </Select>
                     {overStock && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                        <AlertCircle size={11} /> Only {row.available_stock} in stock
+                        <AlertCircle size={11} /> Only {row.available_stock} available{byWarehouse ? " in the source warehouse" : ""}
                       </p>
                     )}
                   </div>
@@ -304,20 +314,22 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
           <div key={t.id} className={`bg-card border rounded-xl p-5 hover:shadow-md transition-shadow ${bulk.selected.has(t.id) ? "border-accent" : "border-border"}`}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-3">
-                <input type="checkbox" checked={bulk.selected.has(t.id)} onChange={() => bulk.toggle(t.id)} className="w-4 h-4 rounded" />
+                {t.status === "pending" && !branchLimited && <input type="checkbox" aria-label={`Select ${t.transfer_number}`} checked={bulk.selected.has(t.id)} onChange={() => bulk.toggle(t.id)} className="w-4 h-4 rounded" />}
                 <span className="font-mono text-sm font-bold text-foreground">{t.transfer_number}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[t.status] ?? "bg-surface text-muted"}`}>
                   {t.status.replace("_", " ")}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {t.status === "pending" && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "in_transit")}>Dispatch</Button>}
-                {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "completed")}>{t.status === "pending" ? "Dispatch and receive" : "Mark received"}</Button>}
-                {(t.status === "pending" || t.status === "in_transit") && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => confirm({ title: `Cancel ${t.transfer_number}?`, message: t.status === "in_transit" && t.from_warehouse_id ? "The stock on its way goes back to the source warehouse." : "Nothing will be moved.", confirmLabel: "Cancel transfer", danger: true, onConfirm: () => handleStatus(t.id, "cancelled") })}>Cancel</Button>}
-                <button onClick={() => handleDelete(t.id)}
+                {!branchLimited && t.status === "pending" && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "in_transit")}>Dispatch</Button>}
+                {!branchLimited && t.status === "pending" && <Button size="sm" disabled={updateTransfer.isPending} onClick={() => confirm({ title: `Dispatch and receive ${t.transfer_number}?`, message: `${t.items.map((it) => `${Number(it.quantity)} × ${it.product_name}`).join(", ")} move from ${t.from_warehouse_name ?? t.from_branch_name ?? "Main store"} to ${t.to_warehouse_name ?? t.to_branch_name ?? "Main store"} now, in one step. This can't be undone; a mistake is fixed with a transfer back.`, confirmLabel: "Dispatch and receive", onConfirm: () => handleStatus(t.id, "completed") })}>Dispatch and receive</Button>}
+                {t.status === "in_transit" && <Button size="sm" disabled={updateTransfer.isPending} onClick={() => void handleStatus(t.id, "completed")}>Mark received</Button>}
+                {!branchLimited && (t.status === "pending" || t.status === "in_transit") && <Button size="sm" variant="outline" disabled={updateTransfer.isPending} onClick={() => confirm({ title: `Cancel ${t.transfer_number}?`, message: t.status === "in_transit" && t.from_warehouse_id ? "The stock on its way goes back to the source warehouse." : "Nothing will be moved.", confirmLabel: "Cancel transfer", danger: true, onConfirm: () => handleStatus(t.id, "cancelled") })}>Cancel</Button>}
+                {/* History is never edited: only a transfer that never moved can be deleted. */}
+                {!branchLimited && t.status === "pending" && <button onClick={() => handleDelete(t.id)}
                   className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg bg-surface text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors text-xs font-semibold">
                   <Trash2 size={14} /> Delete
-                </button>
+                </button>}
               </div>
             </div>
             <div className="flex items-center gap-2 text-sm mb-3">

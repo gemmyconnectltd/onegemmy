@@ -9,7 +9,7 @@ export interface WarehouseList { enabled: boolean; items: Warehouse[] }
 export interface WarehouseInput { code?: string | null; name: string; branch_id?: string | null; manager_id?: string | null; address?: string | null; description?: string | null }
 export interface StockRow {
   warehouse_id: string; warehouse: string; warehouse_code: string; branch_id: string | null; product_id: string; variant_id: string | null; name: string; sku: string | null;
-  unit: string | null; on_hand: number; reserved: number; available: number; minimum: number; status: "ok" | "low" | "out"; last_movement: string | null;
+  unit: string | null; on_hand: number; reserved: number; available: number; /** dispatched to this warehouse, not received yet */ in_transit: number; minimum: number; status: "ok" | "low" | "out"; last_movement: string | null;
 }
 export interface StockMovementRow {
   id: string; created_at: string; warehouse_id: string; warehouse: string | null; product_id: string; variant_id: string | null; product: string | null; quantity: number;

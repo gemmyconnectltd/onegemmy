@@ -142,8 +142,9 @@ export const inventoryApi = {
   // Products
   /** Server-side low-stock report (every product at/below its own minimum) — the same rule Pesaa AI uses. */
   lowStockReport: () => request<SingleResponse<{ items: { id: string; name: string; stock: number; min_stock: number }[]; total: number }>>("/tenants/inventory/products/low-stock"),
-  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string, vat?: string) =>
-    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, vat, is_active: isActive === undefined ? undefined : String(isActive), ...periodParams(period) })}`),
+  /** `forSale`: stock as the till sees it (what the active branch's selling warehouse holds) instead of the business total. */
+  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string, vat?: string, forSale?: boolean) =>
+    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, vat, is_active: isActive === undefined ? undefined : String(isActive), for_sale: forSale ? "true" : undefined, ...periodParams(period) })}`),
   /** Products per VAT treatment ("not_reviewed" for those nobody has classified) and whether this person may classify. */
   vatSummary: () => request<SingleResponse<{ counts: Record<string, number>; can_classify: boolean }>>(`${BASE}/products/vat-summary`),
   classifyVat: (data: VatClassificationInput) =>

@@ -38,7 +38,7 @@ export default function StockByWarehousePage() {
           <div className="rounded-xl border border-border bg-card">
             <TableScroll mobileLayout="cards" label="Stock by warehouse">
               <table className="w-full min-w-[820px] text-left text-sm">
-                <thead className="text-xs text-muted"><tr><th className="px-4 py-2.5 font-medium">Product</th><th className="px-4 py-2.5 font-medium">Warehouse</th><th className="px-4 py-2.5 text-right font-medium">On hand</th><th className="px-4 py-2.5 text-right font-medium">Reserved</th><th className="px-4 py-2.5 text-right font-medium">Available</th><th className="px-4 py-2.5 font-medium">Unit</th><th className="px-4 py-2.5 font-medium">Last movement</th><th className="px-4 py-2.5 font-medium">Status</th></tr></thead>
+                <thead className="text-xs text-muted"><tr><th className="px-4 py-2.5 font-medium">Product</th><th className="px-4 py-2.5 font-medium">Warehouse</th><th className="px-4 py-2.5 text-right font-medium">On hand</th><th className="px-4 py-2.5 text-right font-medium">Reserved</th><th className="px-4 py-2.5 text-right font-medium">Available</th><th className="px-4 py-2.5 text-right font-medium" title="Dispatched to this warehouse and not received yet">In transit</th><th className="px-4 py-2.5 font-medium">Unit</th><th className="px-4 py-2.5 font-medium">Last movement</th><th className="px-4 py-2.5 font-medium">Status</th></tr></thead>
                 <tbody className="divide-y divide-border">{rows.map((r) => (
                   <tr key={`${r.warehouse_id}${r.product_id}${r.variant_id}`}>
                     <td className="px-4 py-3 font-medium">{r.name}{r.sku && <span className="block text-xs font-normal text-muted">{r.sku}</span>}</td>
@@ -46,6 +46,7 @@ export default function StockByWarehousePage() {
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">{r.on_hand.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-muted">{r.reserved.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{r.available.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-muted">{r.in_transit ? `+${r.in_transit.toLocaleString()}` : "—"}</td>
                     <td className="px-4 py-3">{r.unit ?? "—"}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">{r.last_movement ? fmtDateTime(r.last_movement) : "—"}</td>
                     <td className="px-4 py-3"><span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATE[r.status].cls}`}>{STATE[r.status].label}</span></td>

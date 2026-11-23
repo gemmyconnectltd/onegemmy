@@ -71,7 +71,7 @@ export default function POSPage() {
   const [search, setSearch] = useState("");
 
   // ── inventory ────────────────────────────────────────────────────────────
-  const { data: productData, isLoading, isPlaceholderData, isError, refetch } = useProducts(catalogPage, 40, search || undefined, true, undefined, undefined, selectedCategoryId);
+  const { data: productData, isLoading, isPlaceholderData, isError, refetch } = useProducts(catalogPage, 40, search || undefined, true, undefined, undefined, selectedCategoryId, undefined, true);  // stock of this branch's selling warehouse
   const loading = isLoading || isPlaceholderData;
   const error = isError ? "Products couldn't load. Check your internet connection and try again." : null;
   const products = useMemo(

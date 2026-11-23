@@ -109,8 +109,8 @@ const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
-export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string, vat?: string) =>
-  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId, vat ?? ""], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId, vat), (r) => r.data, opts);
+export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string, vat?: string, forSale?: boolean) =>
+  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId, vat ?? "", forSale ? "for-sale" : ""], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId, vat, forSale), (r) => r.data, opts);
 export const useProductVatSummary = () => useQ([...PRODUCTS, "vat-summary"], () => inventoryApi.vatSummary(), (r) => r.data);
 export const useClassifyProductVat = mutation(inventoryApi.classifyVat, [[...PRODUCTS]]);
 
@@ -1088,8 +1088,8 @@ export const useStockTransfer = (id: string) => useQ([...TRANSFERS_KEY, "one", i
 const WAREHOUSES = ["inventory", "warehouses"] as const;
 const STOCKLEDGER = [["inventory", "warehouses"], ["inventory", "stock-by-warehouse"], ["inventory", "movements"], ["inventory", "counts"], ["inventory", "transfers"], ["inventory", "products"]];
 export const useWarehouses = (opts?: QueryOpts) => useQ([...WAREHOUSES], () => warehousesApi.list(), (r) => r.data, opts);
-export const useStockByWarehouse = (page = 1, f: { warehouse_id?: string; search?: string; status?: string } = {}) =>
-  useQ(["inventory", "stock-by-warehouse", page, f], () => warehousesApi.stock(page, f), (r) => r.data);
+export const useStockByWarehouse = (page = 1, f: { warehouse_id?: string; search?: string; status?: string } = {}, opts?: QueryOpts, pageSize = 25) =>
+  useQ(["inventory", "stock-by-warehouse", page, f, pageSize], () => warehousesApi.stock(page, f, pageSize), (r) => r.data, opts);
 export const useStockMovements = (page = 1, f: MovementFilters = {}) => useQ(["inventory", "movements", page, f], () => warehousesApi.movements(page, f), (r) => r.data);
 export const useStockCounts = (page = 1, status?: string) => useQ(["inventory", "counts", page, status ?? "all"], () => warehousesApi.counts(page, status), (r) => r.data);
 export const useSetupWarehouses = mutation(() => warehousesApi.setup(), STOCKLEDGER);
