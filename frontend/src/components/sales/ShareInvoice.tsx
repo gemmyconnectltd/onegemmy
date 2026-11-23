@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Loader2, Mail, MessageCircle, Share2, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input, Textarea } from "@/components/ui/Form";
 import { salesApi } from "@/lib/api";
 import { saveFile } from "@/lib/api/client";
+import { apiErrorMessage } from "@/lib/api/errors";
 
 type Busy = "whatsapp" | "email" | "device" | "pdf" | null;
 
@@ -30,7 +31,7 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
   const [message, setMessage] = useState("");
 
   const close = () => { if (!busy) { setOpen(false); setEmailing(false); setError(""); setNote(""); } };
-  const failed = (cause: unknown) => setError((cause as { detail?: string })?.detail ?? "That didn't work. Please try again.");
+  const failed = (cause: unknown) => setError(apiErrorMessage(cause, "That didn't work. Please try again."));
   async function run(kind: Exclude<Busy, null>, work: () => Promise<void>) {
     if (busy) return;
     setBusy(kind); setError(""); setNote("");
@@ -44,14 +45,42 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
     const supported = typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
     return { file, blob, filename, supported };
   }
-  const deviceShare = () => run("device", async () => {
-    const { file, blob, filename, supported } = await sharableFile();
-    if (!supported) { saveFile(blob, filename); setNote("This browser can't send files to other apps, so the PDF was downloaded. Attach it from your downloads."); return; }
-    await navigator.share({ files: [file], title: `${Noun} ${orderNumber}`, text: `${Noun} ${orderNumber}` });
-  });
+  type Prepared = Awaited<ReturnType<typeof sharableFile>>;
+  // Browsers open the share menu only straight after a tap. Fetching the PDF first can take seconds, after which the
+  // browser refuses ("NotAllowedError"). So the PDF is prepared as soon as this panel opens, and a tap shares it at once.
+  const fileKey = `${document}:${paper}`;  // a different paper size is a different file
+  const [preparedFile, setPreparedFile] = useState<(Prepared & { key: string }) | null>(null);
+  const prepared = preparedFile?.key === fileKey ? preparedFile : null;
+  const preparing = useRef<{ key: string; promise: Promise<Prepared> } | null>(null);
+  const prepare = () => {
+    if (preparing.current?.key !== fileKey) {
+      const key = fileKey;
+      const promise = sharableFile().then((r) => { setPreparedFile({ ...r, key }); return r; }, (e) => { preparing.current = null; throw e; });
+      preparing.current = { key, promise };
+    }
+    return preparing.current.promise;
+  };
+  useEffect(() => {
+    if (open) void prepare().catch(() => {});  // a failure here is reported when the person actually shares
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, fileKey]);
+  /** Opens the share menu with the PDF. Returns false when it fell back or needs another tap. */
+  async function shareFile(title: string, text?: string): Promise<boolean> {
+    const ready = prepared ?? await prepare();
+    if (!ready.supported) { saveFile(ready.blob, ready.filename); setNote("This browser can't send files to other apps, so the PDF was downloaded. Attach it from your downloads."); return false; }
+    try {
+      await navigator.share({ files: [ready.file], title, ...(text ? { text } : {}) });
+      return true;
+    } catch (cause) {
+      if ((cause as Error)?.name === "NotAllowedError") { setNote(`The ${noun} is ready now. Tap again to open the share menu.`); return false; }
+      throw cause;
+    }
+  }
+  const deviceShare = () => run("device", async () => { await shareFile(`${Noun} ${orderNumber}`, `${Noun} ${orderNumber}`); });
   const whatsapp = () => run("whatsapp", async () => {
-    const { file, blob, filename, supported } = await sharableFile();
-    if (supported) { await navigator.share({ files: [file], title: `${Noun} ${orderNumber}` }); setNote("Choose WhatsApp in the menu that opened."); return; }
+    const ready = prepared ?? await prepare();
+    if (ready.supported) { if (await shareFile(`${Noun} ${orderNumber}`)) setNote("Choose WhatsApp in the menu that opened."); return; }
+    const { blob, filename } = ready;
     // No file sharing here (usually a computer): download the PDF and open WhatsApp with a short message to attach it to.
     saveFile(blob, filename);
     const digits = (customerPhone ?? "").replace(/\D/g, "");
