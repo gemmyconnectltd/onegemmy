@@ -35,6 +35,9 @@ test('duplicate generic buttons and page-specific table CSS fail', () => {
   assert.equal(violations('td { padding: 30px; }', 'frontend/src/app/page.css')['table-style'], 1);
   assert.equal(violations('--primary: var(--other-brand);', 'frontend/src/app/page.css')['local-primary-token'], 1);
   assert.equal(violations('font-family: "Comic Sans";', 'website/src/app/page.css')['font-family'], 1);
+  // The brand display font is approved for the public website only; the ERP and Super Admin keep Geist.
+  assert.equal(violations('font-family: "Comfortaa";', 'website/src/app/page.css')['font-family'], undefined);
+  assert.equal(violations('font-family: "Comfortaa";', 'frontend/src/app/page.css')['font-family'], 1);
 });
 
 test('sidebar contract is shared and solid without decorative effects', () => {

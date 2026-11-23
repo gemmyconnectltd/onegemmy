@@ -61,7 +61,7 @@ export default async function ImpactPage() {
       <PageHero eyebrow="Built for growing businesses" title={<>Small and Mid-Sized Businesses Drive the East African Economy</>} description={<>{`${siteConfig.name} is an early-stage company — we don't report figures or partnerships we haven't earned yet. Here's what we're prepared to commit to today.`}</>} image="/marketing/wholesale-owner.webp" imageAlt="Illustrative wholesale merchant managing his business" />
 
       {/* By the numbers — real product facts, not fabricated business claims */}
-      <section className="landing-section px-5 sm:px-8 border-y border-emerald-100 bg-[var(--primary-light)]">
+      <section className="landing-section px-5 sm:px-8 border-y border-emerald-100 bg-[var(--brand-mint)]">
         <div className="max-w-[1176px] mx-auto">
           <p className="text-center text-sm font-semibold text-[var(--primary)] uppercase tracking-wide mb-12">
             By the numbers

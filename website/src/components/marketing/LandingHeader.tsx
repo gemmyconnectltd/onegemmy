@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Globe, Menu, X } from "lucide-react";
-import { LogoMark } from "@/components/ui/LogoMark";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { MegaMenuContent, MegaMenuSection, ProductMenuFooter } from "./MegaMenu";
 import { marketingMenus, type MarketingMenu } from "@/lib/navigation";
 import { appUrl, siteConfig } from "@/lib/site";
 
 type Disclosure = MarketingMenu;
 function Brand({ onNavigate }: { onNavigate: () => void }) {
-  return <Link href="/" onClick={onNavigate} aria-label={`${siteConfig.name} home`} className="inline-flex shrink-0 items-center gap-2 rounded-lg text-foreground"><span className="flex h-8 w-8 items-center justify-center sm:h-9 sm:w-9 rounded-lg bg-primary text-white"><LogoMark size={25} strokeWidth={3.5} /></span><span className="text-xl font-bold tracking-tight sm:text-2xl">{siteConfig.name}</span></Link>;
+  return <Link href="/" onClick={onNavigate} aria-label={`${siteConfig.name} home`} className="inline-flex shrink-0 items-center rounded-lg"><BrandLogo height={32} priority className="h-7 w-auto sm:h-8" /></Link>;
 }
 export function LandingHeader() {
   const pathname = usePathname();

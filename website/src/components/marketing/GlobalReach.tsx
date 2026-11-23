@@ -28,7 +28,7 @@ export function GlobalReach({ compact = false, variant = "default" }: { compact?
   return (
     <section className={compact ? "border-y border-emerald-50 bg-[#fbfefc] px-5 py-9 sm:px-8" : "py-14 md:py-20 px-4 sm:px-6 lg:px-8 bg-background"}>
       <div className="max-w-5xl mx-auto text-center">
-        <p className={`${compact ? "text-[10px] mb-2" : "text-sm mb-3"} font-semibold text-[#16a34a] uppercase tracking-wide inline-flex items-center gap-2`}>
+        <p className={`${compact ? "text-[10px] mb-2" : "text-sm mb-3"} font-semibold text-primary uppercase tracking-wide inline-flex items-center gap-2`}>
           <Globe2 size={16} aria-hidden /> Our Global User Experience
         </p>
         <h2 className={`${compact ? "text-xl sm:text-2xl" : "text-3xl md:text-4xl"} font-bold text-foreground mb-3 text-balance`}>

@@ -44,6 +44,7 @@ Light: grid `#E8E4DE`, ticks `#B3B6B7`, tooltip text `#2B2118`, income `#10B981`
 ## Typography
 
 - **Font:** Geist (variable, `frontend/src/app/fonts/Geist-Variable.ttf`), Geist Mono for codes/references/money in the POS. A "Twemoji Country Flags" font is prepended only to render flag emoji.
+- **Public website headings:** Comfortaa (the official brand font; Light/Regular/Bold via `next/font`, token `--font-heading`). Website body text, forms and tables stay Geist. ERP and super-admin are Geist-only (enforced by the design checker).
 - **Scale (tokens):** page title 24px/600 (`pesaa-page-title`), section 18px/600 (`pesaa-section-title`), card 16px/600 (`pesaa-card-title`), body/button 14px/400–500, label 13px/500, table header/helper 12px.
 - **Phones (<768px):** inputs use 16px text to stop iOS zoom; buttons sm/default/lg = 28/36/40px (32/40/44px from 640px).
 
@@ -60,10 +61,15 @@ Light: grid `#E8E4DE`, ticks `#B3B6B7`, tooltip text `#2B2118`, income `#10B981`
 - Runtime theme: `frontend/src/lib/appConfig.tsx` (light/dark, tenant brand color, nav orientation `left | top | big`, locale, currency); same file exists in `super-admin/src/lib/appConfig.tsx`.
 - **Dark mode: yes** (ERP, POS and super-admin) via a `.dark` class; printable documents use `pesaa-paper` to stay white. Website is light only [not verified].
 
+## Official brand pack
+
+The source of truth for the Pesaa identity is the "Pesaa Logo" brand pack (16 vector logo variants, colour palette, font sheet, social covers). Colours: green `#16A34A` and navy `#0F172A` (the values in the vector artwork; the palette sheet shows the same colours rounded to `#17A34A` / `#10172A`), mint `#E2F4E9` (light brand tint), white. Brand font: Comfortaa. Brand line on the covers: "Manage smarter. Operate efficiently. Grow confidently."
+
 ## Logo and assets
 
-- Logo mark: inline SVG "P" monogram `frontend/src/components/ui/LogoMark.tsx` (same in super-admin), wordmark `components/ui/Logo.tsx`; uses `currentColor` on a brand-colored tile. Tenants can upload their own logo (shown in sidebar, receipts, invoices).
-- App icons: `frontend/public/icons/` (72–512px PNG + `icon.svg`), `src/app/favicon.ico`.
+- **Website (pesaa.io):** official logo files in `website/public/branding/` with descriptive names — `pesaa-logo-horizontal.svg` (full colour, light backgrounds), `pesaa-logo-horizontal-white.svg` (green/navy backgrounds), `pesaa-group-logo-horizontal.svg` (company lockup), `pesaa-mark.svg` / `pesaa-mark-white.svg` (star mark alone), `pesaa-social-card.jpg` (1200×630 link preview). Rendered only through `website/src/components/ui/BrandLogo.tsx` (horizontal logo, fixed proportions) and `LogoMark.tsx` (star mark). Favicon and app icons (`src/app/favicon.ico`, `public/icons/`) are generated from the official star mark. Website brand tokens in `website/src/app/globals.css`: `--brand-green` (= `--primary`), `--brand-navy`, `--brand-mint`, `--brand-white`.
+- **ERP and super-admin (not yet migrated):** still an inline SVG "P" monogram `frontend/src/components/ui/LogoMark.tsx` (same in super-admin), wordmark `components/ui/Logo.tsx`, using `currentColor` on a brand-colored tile. Tenants can upload their own logo (shown in sidebar, receipts, invoices).
+- ERP app icons: `frontend/public/icons/` (72–512px PNG + `icon.svg`), `src/app/favicon.ico`.
 - Website imagery: `website/public/marketing`, `screenshots`, `verticals`, `certifications`, `flags`.
 - Country flags: `frontend/public/flags/`.
 

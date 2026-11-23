@@ -1,39 +1,21 @@
 import Link from "next/link";
-import { LogoMark } from "./LogoMark";
+import { BrandLogo } from "./BrandLogo";
 import { siteConfig } from "@/lib/site";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
   /** Where clicking the logo navigates. Defaults to the marketing home page. */
   href?: string;
+  variant?: "color" | "white";
 }
 
-const containerSizes = {
-  sm: "w-8 h-8",
-  md: "w-10 h-10",
-  lg: "w-12 h-12",
-};
+const heights = { sm: 24, md: 30, lg: 36 };
 
-const textSizes = {
-  sm: "text-base",
-  md: "text-lg",
-  lg: "text-xl",
-};
-
-export function Logo({ size = "md", href = "/" }: LogoProps) {
+/** The official Pesaa logo as a home link. */
+export function Logo({ size = "md", href = "/", variant = "color" }: LogoProps) {
   return (
-    <Link href={href} className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg">
-      <div
-        className={`${containerSizes[size]} bg-accent rounded-xl flex items-center justify-center`}
-      >
-        <LogoMark className="text-white" size={size === "sm" ? 14 : size === "md" ? 18 : 22} />
-      </div>
-      <div>
-        <span className={`${textSizes[size]} font-bold block leading-none text-foreground`}>
-          {siteConfig.name}
-        </span>
-
-      </div>
+    <Link href={href} aria-label={`${siteConfig.name} home`} className="inline-flex items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+      <BrandLogo variant={variant} height={heights[size]} />
     </Link>
   );
 }

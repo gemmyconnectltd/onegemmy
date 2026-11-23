@@ -11,7 +11,8 @@ export function violations(source, file) {
     'competing-action': /<(?:button|a|Link)\b[^>]*className=(?:"[^"]*|\{`[^`]*)(?:bg-(?:green|emerald|purple|violet|blue|indigo)-\d{2,3})/gs,
     'custom-font': /font-\[(?!inherit)[^\]]*(?:family|serif|Arial|Roboto|Inter)[^\]]*\]/g,
     'table-style': /(?:^|\n)[^{}\n]*(?:\btable|\bth|\btd)\b[^{}\n]*\{/g,
-    'font-family': /font-family:\s*["'](?!Twemoji Country Flags|Geist)[^;]+/g,
+    // Comfortaa is the official brand display font, approved for the public website's headings only (Nov 2026).
+    'font-family': file.startsWith('website/') ? /font-family:\s*["'](?!Twemoji Country Flags|Geist|Comfortaa)[^;]+/g : /font-family:\s*["'](?!Twemoji Country Flags|Geist)[^;]+/g,
     'local-primary-token': /--(?:primary|accent)(?:-hover|-active|-light|-border)?:\s*[^;}]+/g,
   };
   if (!file.endsWith('.css')) delete rules['table-style'];

@@ -11,7 +11,7 @@ interface PageHeroProps {
 
 export function PageHero({ eyebrow, title, description, image, imageAlt = "" }: PageHeroProps) {
   return (
-    <section className="border-b border-border bg-gradient-to-b from-white to-[var(--primary-light)]">
+    <section className="border-b border-border bg-gradient-to-b from-white to-[var(--brand-mint)]">
       <div className={`landing-container landing-section ${image ? "grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]" : "text-center"}`}>
         <div className={image ? "" : "mx-auto max-w-3xl text-center"}>
           <p className={`landing-eyebrow ${image ? "" : "justify-center"}`}><span aria-hidden className="h-1.5 w-1.5 rounded-sm bg-current" />{eyebrow}</p>

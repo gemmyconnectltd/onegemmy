@@ -20,9 +20,15 @@ Light: page #F8FAFC, surface #FFFFFF, muted surface #F1F5F9, text #0F172A, secon
 
 Green denotes success/paid/completed/approved; red error/overdue/destructive; amber pending/warning/partial payment; gray draft/disabled. Status colors and chart categories are not action themes. Logos, customer branding, product images and captured screenshots retain their original content.
 
+## Official brand pack (Pesaa)
+
+The authoritative brand references are the "Pesaa Logo" pack (vector logos P1–P16, colour palette and font sheet). Green **#16A34A** and navy **#0F172A** are the colours in the official vector artwork (the palette sheet's #17A34A / #10172A are export rounding of the same colours); the light brand tint is mint **#E2F4E9**; white is the base. The website's copies of the logos are in `website/public/branding/` with descriptive names (`pesaa-logo-horizontal.svg`, `pesaa-logo-horizontal-white.svg`, `pesaa-group-logo-horizontal.svg`, `pesaa-mark.svg`, `pesaa-mark-white.svg`, `pesaa-social-card.jpg`), cropped to the artwork with original proportions. Render the logo through the website's `BrandLogo` / `LogoMark` components only: the full-colour logo on light backgrounds, the white logo on green or navy, never recoloured, stretched or redrawn. Website brand tokens: `--brand-green` (= `--primary`), `--brand-navy`, `--brand-mint`, `--brand-white`.
+
 ## Typography and spacing
 
 Retain **Geist**, already used by all three apps through Next font loading. It avoids another font dependency and preserves established metrics. The country-flags font only supplies regional indicator glyphs; mono is reserved for code/references.
+
+**Public website brand typography (approved Nov 2026):** the official brand pack names **Comfortaa** (Light, Regular, Bold) as the brand font. The public website (`website/`) uses it for headings (`h1`–`h3` and `.font-heading`, via the `--font-heading` token loaded with `next/font`); body text, forms and tables keep Geist for readability. The ERP and Super Admin are unchanged and stay Geist-only; the checker allows Comfortaa only under `website/`.
 
 | Role | Size | Weight |
 | --- | --- | --- |
