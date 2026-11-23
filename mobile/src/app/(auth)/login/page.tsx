@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Eye, EyeOff, Clock3, Loader2, Smartphone, Sparkles } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Clock3, Loader2, Sparkles } from "lucide-react";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 import { useAuth } from "@/lib/auth";
 
@@ -53,14 +54,10 @@ export default function MobileLoginPage() {
   return (
     <div className="min-h-full flex flex-col bg-surface">
       <div className="flex-1 flex flex-col justify-center px-6 py-10">
-        <div className="flex items-center gap-2.5 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
-            <Smartphone size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-foreground leading-tight">Pesaa</h1>
-            <p className="text-[11px] text-muted">Mobile Point of Sale</p>
-          </div>
+        <div className="mb-8">
+          <h1 className="sr-only">Pesaa</h1>
+          <BrandLogo height={34} priority />
+          <p className="mt-1.5 text-[11px] text-muted">Mobile Point of Sale</p>
         </div>
 
           {pendingActivation && (

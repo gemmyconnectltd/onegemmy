@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
-import { LogoMark } from "@/components/ui/LogoMark";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { useAuth } from "@/lib/auth";
 import { siteConfig } from "@/lib/config";
 
@@ -37,9 +37,9 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-12 bg-surface">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2.5 mb-8 justify-center">
-          <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center"><LogoMark size={20} className="text-white" strokeWidth={2.5} /></div>
-          <span className="text-lg font-bold text-foreground">{siteConfig.name} Admin</span>
+        <div className="flex items-center gap-3 mb-8 justify-center">
+          <BrandLogo height={32} priority />
+          <span className="border-l border-border pl-3 text-sm font-semibold text-muted">Admin</span>
         </div>
         <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-2 mb-1">

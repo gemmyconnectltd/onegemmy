@@ -3,7 +3,7 @@ import { SITE_URL } from "@/lib/links";
 import {
   ShoppingCart, Warehouse, HandCoins, UserCog, ShoppingBag, BarChart3,
 } from "lucide-react";
-import { LogoMark } from "@/components/ui/LogoMark";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { siteConfig } from "@/lib/config";
 
 // Positioned as percentages of their own scoped badge-zone box below — never
@@ -42,11 +42,8 @@ export function AuthBrandingPanel() {
 
       <div className="relative z-10 flex flex-col justify-between w-full p-12">
         <div>
-          <a href={SITE_URL} className="flex items-center gap-2.5 w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
-            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center">
-              <LogoMark className="text-white" size={20} />
-            </div>
-            <span className="text-xl font-bold text-white">{siteConfig.name}</span>
+          <a href={SITE_URL} aria-label={`${siteConfig.name} website`} className="flex items-center w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-lg">
+            <BrandLogo variant="white" height={34} priority />
           </a>
 
           {/* Floating capability badges — confined to this box's own

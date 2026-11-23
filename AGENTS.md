@@ -125,7 +125,7 @@ The same product must serve small shops AND large multi-branch businesses. Desig
 
 Before creating or modifying UI in website/, frontend/ or super-admin/:
 1. Read `docs/DESIGN_SYSTEM.md` from the repository root and inspect existing shared components.
-2. Use approved tokens, Geist typography (the public website uses Comfortaa for headings, from the official brand pack), spacing, buttons, tables, forms, navigation and layout patterns. Brand assets come from the official Pesaa brand pack; on the website use `BrandLogo`/`LogoMark` and the files in `website/public/branding/`, never a redrawn or recoloured logo.
+2. Use approved tokens, Geist typography (the public website uses Comfortaa for headings, from the official brand pack), spacing, buttons, tables, forms, navigation and layout patterns. Brand assets come from the official Pesaa brand pack; in every app use its `BrandLogo`/`LogoMark` and the files in its `public/branding/`, never a redrawn or recoloured logo.
 3. Reuse existing Button, table boundary/DataTable, Input, Select, domain Badge, Drawer/ConfirmDialog and layout components; do not create competing implementations.
 4. Use the configured primary green (#16A34A) default, with existing tenant theme overrides. Preserve semantic colors and company branding.
 5. Do not introduce competing action colors, new fonts, arbitrary typography or silent token changes.

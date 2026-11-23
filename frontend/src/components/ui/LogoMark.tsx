@@ -1,28 +1,18 @@
+import Image from "next/image";
+import { BRAND_MARKS } from "./BrandLogo";
+
 interface LogoMarkProps {
   size?: number;
   className?: string;
+  /** Accepted for existing callers; the official mark has no stroke. */
   strokeWidth?: number;
+  /** "white" (default) sits on the brand-coloured tile, which follows the business's own theme colour; "color" is the
+   *  two-tone mark for white backgrounds. */
+  variant?: keyof typeof BRAND_MARKS;
 }
 
-/** The Pesaa brand mark on its own — a bold "P" monogram, matching the
- *  favicon/app-icon design. Uses currentColor so it can sit on any
- *  background (the sidebar/login badge use the tenant's own accent color). */
-export function LogoMark({ size = 16, className, strokeWidth = 2.6 }: LogoMarkProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="M8 5v14" />
-      <path d="M8 5h5a3.5 3.5 0 0 1 0 7h-5" />
-    </svg>
-  );
+/** The official Pesaa star mark (brand pack artwork), square and never stretched. Decorative: the brand name is always
+ *  given next to it or by the surrounding link. */
+export function LogoMark({ size = 16, className, variant = "white" }: LogoMarkProps) {
+  return <Image src={BRAND_MARKS[variant]} alt="" aria-hidden="true" width={size} height={size} unoptimized className={className} />;
 }
