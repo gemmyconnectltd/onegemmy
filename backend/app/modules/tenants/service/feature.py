@@ -51,6 +51,16 @@ DEPENDENCIES: dict[str, tuple[str, ...]] = {
 SPLIT_DATE = datetime(2026, 11, 10, tzinfo=UTC)
 SPLIT_FROM_SALES: dict[str, datetime] = {"pos": SPLIT_DATE, "discounts": SPLIT_DATE, "reports": datetime(2026, 11, 22, tzinfo=UTC)}
 
+
+
+def plan_modules(modules: list[str] | None, priced_at: datetime | None) -> set[str]:
+    """The modules a plan price really covers: its own list, plus what it sold as part of Sales before each was separated."""
+    out = set(modules or [])
+    if "sales" in out and priced_at is not None:
+        out |= {key for key, split in SPLIT_FROM_SALES.items() if priced_at < split}
+    return out
+
+
 ENABLED, AVAILABLE, NOT_INCLUDED, RESTRICTED = "enabled", "available", "not_included", "restricted"
 
 

@@ -15,6 +15,7 @@ from app.core.rate_limit import rate_limit
 from app.core.response import success_response
 from app.modules.billing.models import BillingPlan, BillingPrice
 from app.modules.tenants.models.feature import FeatureFlag
+from app.modules.tenants.service.feature import plan_modules
 
 NAMESPACE = "public-pricing"
 router = APIRouter(prefix="/public", tags=["Public pricing"])
@@ -40,7 +41,8 @@ async def build_pricing(db: AsyncSession) -> dict[str, Any]:
     plans = (await db.execute(select(BillingPlan).where(BillingPlan.status == "active").order_by(BillingPlan.created_at))).scalars().all()
     rows = (await db.execute(select(BillingPrice).where(BillingPrice.plan_id.in_([p.id for p in plans])))).scalars().all() if plans else []
     current = {(r.plan_id, r.currency): r for r in rows if r.version == next(p.version for p in plans if p.id == r.plan_id)}
-    keys = {k for r in current.values() for k in (r.terms.get("modules") or [])}
+    covered = {key: plan_modules(r.terms.get("modules"), r.created_at) for key, r in current.items()}  # includes POS etc. sold within Sales
+    keys = {k for mods in covered.values() for k in mods}
     names = {f.key: f.name for f in (await db.execute(select(FeatureFlag).where(FeatureFlag.key.in_(keys)))).scalars().all()} if keys else {}
     out, currencies = [], set()
     for p in plans:
@@ -48,11 +50,11 @@ async def build_pricing(db: AsyncSession) -> dict[str, Any]:
         if not priced:
             continue
         currencies |= set(priced)
-        modules = sorted({k for r in priced.values() for k in (r.terms.get("modules") or [])})
+        modules = sorted({k for c in priced for k in covered[(p.id, c)]})
         out.append({
             "id": str(p.id), "name": p.name, "description": p.description,
             "prices": {c: _price(r.terms) for c, r in sorted(priced.items())},
-            "modules": [{"key": k, "name": names.get(k, k.replace("_", " ").title())} for k in modules],
+            "modules": sorted(({"key": k, "name": names.get(k, k.replace("_", " ").title())} for k in modules), key=lambda m: m["name"].lower()),
         })
     # Cheapest first, using each plan's lowest monthly price so mixed-currency catalogs still order sensibly.
     out.sort(key=lambda x: (min(v["monthly"] for v in x["prices"].values()), x["name"].lower()))
