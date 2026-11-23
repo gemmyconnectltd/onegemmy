@@ -776,7 +776,7 @@ async def test_expense_cases_reclassify_pay_later_refund_duplicates_limit_and_re
 
 
 @pytest.mark.db
-async def test_a_platform_admin_sets_a_default_password_and_the_user_must_change_it(db, monkeypatch):
+async def test_a_platform_admin_sets_a_password_and_the_user_signs_in_with_it(db, monkeypatch):
     from app.core.security import hash_password
     from app.modules.tenants.models import User
     tenant, branch, _product, cashier, _owner = await _till(db, monkeypatch)
@@ -796,7 +796,7 @@ async def test_a_platform_admin_sets_a_default_password_and_the_user_must_change
         async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False), base_url="http://t") as anonymous:
             login = await anonymous.post("/api/v1/auth/login", json={"email": cashier.email, "password": "Welcome2026", "tenant_slug": tenant.slug})
             assert login.status_code == 200, login.text
-            assert login.json()["data"]["user"]["must_change_password"] is True
+            assert login.json()["data"]["user"]["must_change_password"] is False  # not forced to choose another
             token = login.json()["data"]["access_token"]
             changed = await anonymous.post("/api/v1/tenants/users/change-password", json={"current_password": "Welcome2026", "new_password": "BrandNew2026"}, headers={"Authorization": f"Bearer {token}"})
             assert changed.status_code == 200, changed.text

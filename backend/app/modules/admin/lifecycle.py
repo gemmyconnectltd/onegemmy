@@ -225,13 +225,13 @@ async def send_recovery_link(tenant_id: uuid.UUID, user_id: uuid.UUID, db: DbSes
 
 class SetPasswordRequest(BaseModel):
     password: str = Field(min_length=6, max_length=128)
-    require_change: bool = True
+    require_change: bool = False  # accepted for older clients; users are never forced to change an admin-set password
 
 
 @router.post("/tenants/{tenant_id}/users/{user_id}/set-password")
 async def set_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, data: SetPasswordRequest, db: DbSession, admin: SuperUser):
-    """Give any user in any business a password you choose (a default for them to sign in with). By default they must choose their own
-    at the next sign-in. The password itself is never written to the audit log or returned."""
+    """Give any user in any business a password you choose. They sign in with it as it is; they are not made to change it.
+    The password itself is never written to the audit log or returned."""
     from app.core.security import hash_password
     from app.modules.tenants.service.user import check_chosen_password
     tenant = await get_tenant(db, tenant_id)
@@ -240,10 +240,10 @@ async def set_user_password(tenant_id: uuid.UUID, user_id: uuid.UUID, data: SetP
         raise NotFoundError("User not found in this business")
     check_chosen_password(data.password)
     user.hashed_password = hash_password(data.password)
-    user.must_change_password = data.require_change
-    await audit(db, admin, tenant, "user.set_password", f"Set a default password for '{user.email}'", {"user_id": str(user.id), "must_change": data.require_change})
+    user.must_change_password = False
+    await audit(db, admin, tenant, "user.set_password", f"Set a default password for '{user.email}'", {"user_id": str(user.id)})
     await db.commit()
-    return success_response(data={"email": user.email, "must_change_password": data.require_change}, message="Password set")
+    return success_response(data={"email": user.email, "must_change_password": False}, message="Password set")
 
 
 # ── Data export ───────────────────────────────────────────────────────────────

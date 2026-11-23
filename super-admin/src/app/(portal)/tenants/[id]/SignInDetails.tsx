@@ -13,7 +13,7 @@ export function makePassword() {
 export const passwordProblem = (p: string) => !p ? null : p.length < 6 ? "The password must be at least 6 characters" : p !== p.trim() ? "The password can't start or end with a space" : null;
 
 /** The person's email and password, shown once after they are set, to copy or read out. */
-export function SignInDetails({ email, password, emailed, mustChange }: { email: string; password: string; emailed: boolean | null; mustChange?: boolean }) {
+export function SignInDetails({ email, password, emailed }: { email: string; password: string; emailed: boolean | null }) {
   const [copied, setCopied] = useState(false);
   const loginUrl = `${siteConfig.appUrl}/login`;
   const copy = () => { void navigator.clipboard?.writeText(`Email: ${email}\nPassword: ${password}\nSign in: ${loginUrl}`).then(() => setCopied(true)).catch(() => setCopied(false)); };
@@ -25,7 +25,7 @@ export function SignInDetails({ email, password, emailed, mustChange }: { email:
         <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">Password</dt><dd className="mt-0.5 break-all font-mono text-base font-semibold">{password}</dd></div>
         <div><dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">Sign in at</dt><dd className="mt-0.5 break-all text-sm">{loginUrl}</dd></div>
       </dl>
-      <p className="text-xs text-muted">{mustChange ? "They will choose their own password at the next sign-in. " : ""}This is the only time the password is shown.</p>
+      <p className="text-xs text-muted">This is the only time the password is shown.</p>
       <Button type="button" onClick={copy}>{copied ? "Copied" : "Copy details"}</Button>
     </div>
   );

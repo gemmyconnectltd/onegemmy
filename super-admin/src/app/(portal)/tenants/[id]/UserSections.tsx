@@ -83,16 +83,15 @@ export function DangerZone({ tenantId, user, onRemoved }: { tenantId: string; us
 export function PasswordForm({ tenantId, user }: { tenantId: string; user: TeamUser }) {
   const setPassword = useSetUserPassword();
   const { confirm, dialog } = useConfirmDialog();
-  const [pw, setPw] = useState(""); const [mustChange, setMustChange] = useState(true); const [shown, setShown] = useState<{ password: string; mustChange: boolean } | null>(null);
+  const [pw, setPw] = useState(""); const [shown, setShown] = useState<string | null>(null);
   const problem = passwordProblem(pw);
   return (
-    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); confirm({ title: "Set this password?", message: `${user.email} will be able to sign in with the password you typed.${mustChange ? " They must choose their own at the next sign-in." : ""}`, confirmLabel: "Set password", onConfirm: () => { const chosen = pw, change = mustChange; setShown(null); setPassword.mutate({ tenantId, userId: user.id, password: chosen, requireChange: change }, { onSuccess: () => { setPw(""); setShown({ password: chosen, mustChange: change }); } }); } }); }}>
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); confirm({ title: "Set this password?", message: `${user.email} will be able to sign in with the password you typed.`, confirmLabel: "Set password", onConfirm: () => { const chosen = pw; setShown(null); setPassword.mutate({ tenantId, userId: user.id, password: chosen, requireChange: false }, { onSuccess: () => { setPw(""); setShown(chosen); } }); } }); }}>
       {dialog}
       <p className="text-xs text-muted">At least 6 characters. It is not emailed: after setting it you see the sign-in details once, to copy or tell them.</p>
       <Field label="Default password" hint={problem ?? undefined}><div className="flex gap-2"><Input type="text" autoComplete="new-password" spellCheck={false} maxLength={128} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="e.g. Welcome2026" /><Button type="button" variant="outline" onClick={() => setPw(makePassword())}>Generate</Button></div></Field>
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={mustChange} onChange={(e) => setMustChange(e.target.checked)} />They must choose their own password at the next sign-in</label>
       <Button type="submit" variant="outline" disabled={setPassword.isPending || !pw || !!problem}>{setPassword.isPending ? "Setting…" : "Set password"}</Button>
-      {setPassword.isSuccess && shown && <SignInDetails email={user.email} password={shown.password} emailed={null} mustChange={shown.mustChange} />}
+      {setPassword.isSuccess && shown && <SignInDetails email={user.email} password={shown} emailed={null} />}
       {setPassword.isError && <p role="alert" className="text-sm text-red-600">{setPassword.error.message}</p>}
     </form>
   );
