@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -15,6 +15,7 @@ import {
 import type { ApiCrmActivity } from "@/lib/api";
 import { isPendingFor } from "@/lib/loadState";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const EMPTY = { kind: "task", subject: "", description: "", status: "open", due_at: "", link_type: "contact", linked_id: "" };
 const errorText = (error: unknown) => (error as { detail?: string })?.detail ?? "Could not save this activity.";
@@ -35,7 +36,7 @@ export default function ActivitiesPage() {
   const [editing, setEditing] = useState<ApiCrmActivity | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
-  const deferredSearch = useDeferredValue(search.trim());
+  const deferredSearch = useDebouncedValue(search.trim());
   const activities = useCrmActivities(page, 25, { search: deferredSearch || undefined, status: (status || undefined) as ApiCrmActivity["status"] | undefined });
   const contacts = useCrmContacts(1, 25, contactSearch.trim() || undefined);
   const opportunities = useCrmOpportunities(1, 25, undefined, opportunitySearch.trim() || undefined);

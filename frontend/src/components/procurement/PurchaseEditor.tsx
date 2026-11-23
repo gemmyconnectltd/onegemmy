@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +17,7 @@ import { AccountPicker, FinancialError } from "@/components/accounting/Financial
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { FileDropzone } from "@/components/ui/FormKit";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 type Row = { isService: boolean; expenseAccount: string; taxRate: 0 | 18; id: string; product: ApiProduct | null; productId: string; name: string; sku: string | null; variantId: string; cost: string; quantity: string; updateCost: boolean; updatePrice: boolean; sellingPrice: string };
 const newRow = (id: string): Row => ({isService: false, expenseAccount: "", taxRate: 18, id, product: null, productId: "", name: "", sku: null, variantId: "", cost: "", quantity: "1", updateCost: false, updatePrice: false, sellingPrice: ""});
@@ -30,7 +31,7 @@ export function PurchaseEditor({ initial, onClose, onSaved, page = false }: { in
   const [supplier, setSupplier] = useState(initial?.supplier_id || "");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierPage, setSupplierPage] = useState(1);
-  const suppliers = useSuppliers(supplierPage, 25, useDeferredValue(supplierSearch));
+  const suppliers = useSuppliers(supplierPage, 25, useDebouncedValue(supplierSearch));
   const [expected, setExpected] = useState(initial?.expected_date || "");
   const [orderDate, setOrderDate] = useState(initial?.order_date || initial?.created_at?.slice(0, 10) || "");
   const [terms, setTerms] = useState(initial?.payment_terms_days == null ? "" : String(initial.payment_terms_days));
@@ -110,7 +111,7 @@ export function PurchaseEditor({ initial, onClose, onSaved, page = false }: { in
 function PurchaseRow({row, index, currency, catalogCurrency, money, canPrice, vatEnabled, onChange, onRemove}: {row: Row; index: number; currency: string; catalogCurrency: string; money: (value: string | number, code?: string) => string; canPrice: boolean; vatEnabled: boolean; onChange: (patch: Partial<Row>) => void; onRemove?: () => void}) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const products = useProducts(page, 25, useDeferredValue(search), true);
+  const products = useProducts(page, 25, useDebouncedValue(search), true);
   const selected = useProduct(row.productId || undefined, {enabled: !row.product && !!row.productId});
   const product = row.product || selected.data;
   const variant = product?.variants.find(item => item.id === row.variantId);

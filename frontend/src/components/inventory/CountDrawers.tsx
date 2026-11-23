@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { warehousesApi } from "@/lib/api";
 import { useProducts, useSubmitCount, useWarehouses } from "@/lib/api/hooks";
@@ -9,6 +9,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select } from "@/components/ui/Form";
 import { FormActions, FormErrorSummary } from "@/components/ui/FormKit";
 import { SearchSelect } from "@/components/ui/SearchSelect";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 type Line = { key: string; productId: string; variantId: string | null; name: string; counted: string };
 const fail = (cause: unknown) => (cause as { detail?: string })?.detail ?? (cause as Error)?.message ?? "That didn't work. Please try again.";
@@ -66,7 +67,7 @@ export function NewCountDrawer({ onClose }: { onClose: () => void }) {
 
 function CountLineRow({ line, index, onChange, onRemove }: { line: Line; index: number; onChange: (p: Partial<Line>) => void; onRemove: () => void }) {
   const [search, setSearch] = useState("");
-  const products = useProducts(1, 25, useDeferredValue(search), true);
+  const products = useProducts(1, 25, useDebouncedValue(search), true);
   return (
     <div className="grid grid-cols-[1fr_7rem_2rem] items-start gap-2">
       {line.name && line.productId ? <p className="rounded-lg border border-border bg-surface px-3 py-2 text-sm">{line.name}</p> : (

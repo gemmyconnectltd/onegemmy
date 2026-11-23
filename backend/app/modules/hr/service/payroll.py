@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -69,10 +70,16 @@ async def mark_paid(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> Pa
         raise NotFoundError("Payroll entry not found")
     if obj.status == "Paid":
         raise ValidationError("Payroll entry is already paid")
-    obj.status = "Paid"
-    obj.paid_at = datetime.now(UTC)
-    await repo.save(obj)
+    # One atomic, conditional write: of two clicks (or two people) arriving together, exactly one marks it paid.
+    claimed = await db.execute(
+        update(PayrollEntry).where(PayrollEntry.id == id, PayrollEntry.tenant_id == tenant_id, PayrollEntry.status != "Paid")
+        .values(status="Paid", paid_at=datetime.now(UTC)).execution_options(synchronize_session=False)
+    )
+    if claimed.rowcount != 1:
+        await db.rollback()
+        raise ValidationError("Payroll entry is already paid")
     await db.commit()
+    await db.refresh(obj)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return PayrollRead.model_validate(obj)
 

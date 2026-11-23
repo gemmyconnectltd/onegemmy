@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useDeferredValue, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Download } from "lucide-react";
@@ -22,6 +22,7 @@ import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FinancialError } from "@/components/accounting/FinancialShared";
 import { PurchaseHeader, PurchaseStatus, receivingStatus, usePurchasingScope } from "@/components/procurement/PurchaseShared";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 function PurchaseOrdersPageInner() {
   const params = useSearchParams(), router = useRouter();
@@ -30,11 +31,11 @@ function PurchaseOrdersPageInner() {
   const [status, setStatus] = useState(params.get("status") || ""), [search, setSearch] = useState(""), [page, setPage] = useState(1);
   const [period, setPeriod] = useState<PeriodValue>(ALL_TIME), [sort, setSort] = useState("created"), [direction, setDirection] = useState("desc");
   const [supplier, setSupplier] = useState(params.get("supplier_id") || ""), [supplierSearch, setSupplierSearch] = useState(""), [supplierPage, setSupplierPage] = useState(1);
-  const suppliers = useSuppliers(supplierPage, 25, useDeferredValue(supplierSearch));
+  const suppliers = useSuppliers(supplierPage, 25, useDebouncedValue(supplierSearch));
   const range = periodRange(period), from = range.from ?? "", to = range.to ?? "";
   const branches = useMyBranches();
   const branchName = (id?: string | null) => (id ? branches.data?.items?.find(branch => branch.id === id)?.name : undefined) || (id ? "—" : "Main branch");
-  const filters = {search: useDeferredValue(search), from_date: from, to_date: to, supplier_id: supplier, sort, direction};
+  const filters = {search: useDebouncedValue(search), from_date: from, to_date: to, supplier_id: supplier, sort, direction};
   const query = usePurchaseOrders(status || undefined, page, 25, undefined, filters, scope);
   const [error, setError] = useState<unknown>(null), [exporting, setExporting] = useState(false), [deleting, setDeleting] = useState(false);
   const remove = useDeletePurchaseOrder(), {confirm, dialog} = useConfirmDialog();
@@ -54,4 +55,4 @@ function PurchaseOrdersPageInner() {
   </div>;
 }
 
-export default function PurchaseOrdersPage() {return <Suspense fallback={<PageLoader />}><PurchaseOrdersPageInner /></Suspense>;}
+export default function PurchaseOrdersPage() {return <Suspense fallback={<PageLoader variant="page" />}><PurchaseOrdersPageInner /></Suspense>;}

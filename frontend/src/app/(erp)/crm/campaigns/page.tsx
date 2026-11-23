@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/hooks";
 import type { ApiCampaign } from "@/lib/api";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const EMPTY = { name: "", type: "Email", status: "Draft", start_date: "", target_count: "0", sent_count: "0", opened_count: "0" };
 const TYPES = ["Email", "SMS", "Social"];
@@ -32,7 +33,7 @@ export default function CampaignsPage() {
   const [editing, setEditing] = useState<ApiCampaign | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
-  const deferredSearch = useDeferredValue(search.trim());
+  const deferredSearch = useDebouncedValue(search.trim());
   const campaigns = useCrmCampaigns(page, 25, deferredSearch || undefined, status || undefined);
   const create = useCreateCrmCampaign();
   const update = useUpdateCrmCampaign();

@@ -1,5 +1,6 @@
 """The printed quotation: a business letterhead, the document box, the customer, priced lines with unit and VAT %, totals, the
 business's standing terms (bank details, validity) and signature lines."""
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from xml.sax.saxutils import escape as esc
@@ -153,4 +154,6 @@ async def generate_quotation_pdf(db: AsyncSession, tenant_id: uuid.UUID, quotati
     rate = float(await get_effective_vat_rate(db, tenant_id)) if await is_vat_enabled(db, tenant_id) else 0.0
     accent = brand_color(tenant)
     _register_fonts()
-    return document_filename(tenant.name, "Quotation", "pdf", reference=q.quote_number), _build(q, tenant, seller, units, rate, accent)
+    # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
+    content = await asyncio.to_thread(_build, q, tenant, seller, units, rate, accent)
+    return document_filename(tenant.name, "Quotation", "pdf", reference=q.quote_number), content

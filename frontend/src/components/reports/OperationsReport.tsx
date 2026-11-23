@@ -10,6 +10,7 @@ import type { OperationsReport as Ops } from "@/lib/api/reports";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
 import { useReportFilters } from "@/lib/reportFilters";
+import { Skeleton } from "@/components/ui/LoadState";
 
 /** Stock, Customers and Purchases share one server report (/reports/operations); each tab shows its own part of it. */
 function OpsPage({ tab, title, description, children }: { tab: "stock" | "customers" | "purchases"; title: string; description: ReactNode; children: (d: Ops, money: (n: number | null | undefined) => string) => ReactNode }) {
@@ -28,7 +29,7 @@ function OpsPage({ tab, title, description, children }: { tab: "stock" | "custom
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">Couldn&apos;t load the report. <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>}
-      {q.isLoading && <div className="h-64 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading report" />}
+      {q.isLoading && <Skeleton className="h-64" label="Loading report" />}
       {q.data && children(q.data, money)}
     </div>
   );

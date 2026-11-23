@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
@@ -17,6 +17,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FinancialError } from "@/components/accounting/FinancialShared";
 import { scaled } from "@/lib/purchaseAmounts";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 export default function PurchaseReturnsPage() {
   const scope = usePurchasingScope(), {hasPermission} = useAuth(), {currency} = useAppConfig();
@@ -26,8 +27,8 @@ export default function PurchaseReturnsPage() {
   const [refunding, setRefunding] = useState<PurchaseReturn | null>(null), [refundAmount, setRefundAmount] = useState(""), [refundMethod, setRefundMethod] = useState("Cash"), [refundRef, setRefundRef] = useState("");
   const refund = useRefundPurchaseReturn(), replace = useReplacePurchaseReturn();
   const [error, setError] = useState<unknown>(null); const submitting = useRef(false), reference = useRef("");
-  const query = usePurchaseReturns(undefined, page, useDeferredValue(search), scope);
-  const orders = usePurchaseOrders(orderStatus, orderPage, 25, {enabled: open}, {search: useDeferredValue(orderSearch)}, scope);
+  const query = usePurchaseReturns(undefined, page, useDebouncedValue(search), scope);
+  const orders = usePurchaseOrders(orderStatus, orderPage, 25, {enabled: open}, {search: useDebouncedValue(orderSearch)}, scope);
   const create = useCreatePurchaseReturn(), cancel = useDeletePurchaseReturn(), {confirm, dialog} = useConfirmDialog();
   const order = orders.data?.items.find(value => value.id === orderId), item = order?.items.find(value => value.id === itemId);
   async function submit(event: React.FormEvent) {

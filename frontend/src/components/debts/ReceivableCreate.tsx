@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useCreateOrder, useProducts, useSerials } from "@/lib/api/hooks";
@@ -14,6 +14,7 @@ import { DebtDrawer } from "./DebtDrawer";
 import { useDebtMoney } from "./DebtShared";
 import { ManualDebtForm } from "./ManualDebtForm";
 import { PartySearch, type Party } from "./PartySearch";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 type Line = { key: string; product: ApiProduct; variant: string; price: string; quantity: string; serials: string[] };
 export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string | null, manual?: boolean) => void }) {
@@ -25,7 +26,7 @@ export function ReceivableCreate({ onClose, onCreated }: { onClose: () => void; 
   const [customer, setCustomer] = useState<Party | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const products = useProducts(page, 25, useDeferredValue(search), true);
+  const products = useProducts(page, 25, useDebouncedValue(search), true);
   const [lines, setLines] = useState<Line[]>([]);
   const [paid, setPaid] = useState("0");
   const [due, setDue] = useState("");

@@ -7,6 +7,7 @@ import type { PerformanceReport } from "@/lib/api/reports";
 import { AGING_BUCKETS, type DebtSummaryTotals } from "@/lib/debts";
 import { withFilters, type ReportFilters } from "@/lib/reportFilters";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/LoadState";
 
 type Money = (n: number | null | undefined) => string;
 type Ops = ReturnType<typeof useOperationsReport>;
@@ -25,7 +26,7 @@ function Block({ title, sub, href, children, className }: { title: string; sub?:
   );
 }
 
-const Loading = () => <div className="h-28 animate-pulse rounded-lg bg-surface" aria-busy="true" aria-label="Loading" />;
+const Loading = () => <Skeleton className="h-28" label="Loading section" />;
 const Unavailable = ({ text = "Not available for your role." }: { text?: string }) => <p className="py-4 text-center text-[13px] text-muted">{text}</p>;
 const Big = ({ children }: { children: ReactNode }) => <p className="text-[22px] font-bold tabular-nums text-foreground">{children}</p>;
 

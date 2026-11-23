@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/Button";
 import { SerialsManager } from "@/components/inventory/SerialsManager";
 import { BatchesManager } from "@/components/inventory/BatchesManager";
 import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 type StockTab = "levels" | "serials" | "batches";
 type StatusFilter = "all" | "low" | "out" | "ok";
@@ -207,7 +209,7 @@ function StockContent() {
                 </div>
               </div>
 
-              <div className={`hidden md:block overflow-x-auto transition-opacity ${valuation.isFetching ? "opacity-60" : ""}`}>
+              <Refreshing busy={isRefreshing(valuation)} className="hidden md:block overflow-x-auto">
                 <TableScroll>
                   <table className="w-full min-w-160">
                     <thead>
@@ -269,7 +271,7 @@ function StockContent() {
                     </tbody>
                   </table>
                 </TableScroll>
-              </div>
+              </Refreshing>
 
               <Pagination
                 page={page}

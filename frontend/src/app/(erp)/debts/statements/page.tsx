@@ -1,3 +1,4 @@
 import { Suspense } from "react";
 import { DebtStatementScreen } from "@/components/debts/DebtStatement";
-export default function Page() { return <Suspense><DebtStatementScreen /></Suspense>; }
+import { PageLoader } from "@/components/ui/PageLoader";
+export default function Page() { return <Suspense fallback={<PageLoader variant="page" />}><DebtStatementScreen /></Suspense>; }

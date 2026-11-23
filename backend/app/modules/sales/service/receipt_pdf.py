@@ -6,6 +6,7 @@ exactly as long as the receipt. Figures come from the saved sale, never recalcul
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import uuid
 from datetime import UTC
@@ -168,5 +169,6 @@ async def generate_order_receipt_pdf(db: AsyncSession, tenant_id: uuid.UUID, ord
     if not cashier and order.created_by:
         user = await db.get(User, order.created_by)
         cashier = user.full_name if user and user.tenant_id == tenant_id else None
-    pdf = build_receipt(order, tenant, paper, cashier)
+    # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
+    pdf = await asyncio.to_thread(build_receipt, order, tenant, paper, cashier)
     return document_filename(tenant.name if tenant else None, "Receipt", "pdf", reference=order.order_number), pdf

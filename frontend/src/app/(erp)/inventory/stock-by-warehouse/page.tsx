@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { Search } from "lucide-react";
 import type { StockRow } from "@/lib/api";
 import { useStockByWarehouse, useWarehouses } from "@/lib/api/hooks";
@@ -8,6 +8,7 @@ import { Input, Select } from "@/components/ui/Form";
 import { Pagination } from "@/components/ui/Pagination";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const STATE: Record<StockRow["status"], { label: string; cls: string }> = {
   ok: { label: "In stock", cls: "bg-emerald-100 text-emerald-700" }, low: { label: "Low", cls: "bg-amber-100 text-amber-700" }, out: { label: "Out of stock", cls: "bg-red-100 text-red-700" },
@@ -19,7 +20,7 @@ export default function StockByWarehousePage() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const q = useStockByWarehouse(page, { warehouse_id: warehouse || undefined, status: status || undefined, search: useDeferredValue(search) || undefined });
+  const q = useStockByWarehouse(page, { warehouse_id: warehouse || undefined, status: status || undefined, search: useDebouncedValue(search) || undefined });
   const rows = q.data?.items ?? [];
   const filtered = !!(warehouse || status || search);
   const clear = () => { setWarehouse(""); setStatus(""); setSearch(""); setPage(1); };

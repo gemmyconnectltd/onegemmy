@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import date
 from typing import Annotated, Literal
@@ -44,6 +45,8 @@ async def export(db: DbSession, current_user: CurrentUser, from_date: date | Non
     from app.modules.tenants.repository import TenantRepository
     tenant = await TenantRepository(db).get(current_user.tenant_id)
     media = {"csv": "text/csv", "pdf": "application/pdf", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[format]
-    return Response(export_report(report, format, tenant), media_type=media,
+    # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
+    content = await asyncio.to_thread(export_report, report, format, tenant)
+    return Response(content, media_type=media,
                     headers={"Content-Disposition": content_disposition(document_filename(
                         tenant.name if tenant else None, "Daily Report", format, period=period_label(report["from_date"], report["to_date"])))})

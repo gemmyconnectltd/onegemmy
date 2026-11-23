@@ -1,6 +1,6 @@
 "use client";
 import { TableScroll } from "@/components/ui/TableScroll";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useExpenseCategories, useSaveExpenseCategory } from "@/lib/api/hooks";
 import type { ExpenseCategory } from "@/lib/api/expenseWorkspace";
@@ -10,6 +10,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { AccountPicker, FinancialError, FinancialPagination } from "@/components/accounting/FinancialShared";
 import { ExpenseDenied, ExpenseHeader, useExpenseContext } from "./ExpenseShared";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 export function ExpenseCategories() {
   const { scope } = useExpenseContext();
   return <Categories key={scope} />;
@@ -17,7 +18,7 @@ export function ExpenseCategories() {
 function Categories() {
   const { scope, can } = useExpenseContext();
   const [page, setPage] = useState(1), [search, setSearch] = useState("");
-  const deferred = useDeferredValue(search);
+  const deferred = useDebouncedValue(search);
   const query = useExpenseCategories(page, deferred, scope, can("read"));
   const [editing, setEditing] = useState<ExpenseCategory | "new" | null>(null);
   const save = useSaveExpenseCategory();

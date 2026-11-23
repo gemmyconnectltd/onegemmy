@@ -181,6 +181,17 @@ async def test_tool_loop_is_bounded(db):
     assert loop.calls <= settings.AI_MAX_TOOL_ROUNDS + 1 and reply.text
 
 
+async def test_a_question_nobody_is_waiting_for_stops_calling_the_model(db):
+    """The browser gave up (timeout or closed): no more model rounds are paid for after that."""
+    ctx = await make_ctx(db)
+    loop = Scripted(*[ProviderResult(tool_calls=[ToolCall(str(i), "sales_summary", {})]) for i in range(20)])
+
+    async def gone() -> bool:
+        return True
+    reply = await service.chat(db, ctx, message="How much did I sell this month?", module="general", conversation_id=None, provider=loop, cancelled=gone)
+    assert loop.calls == 1 and reply.degraded
+
+
 # ── provider failures ─────────────────────────────────────────────────────────
 
 async def test_provider_down_before_any_data_is_a_clean_503_and_is_logged(db):

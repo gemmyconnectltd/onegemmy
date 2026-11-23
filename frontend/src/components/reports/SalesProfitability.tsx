@@ -12,6 +12,7 @@ import { fmtMoney } from "@/lib/config";
 import { periodLabel } from "@/lib/period";
 import { useReportFilters } from "@/lib/reportFilters";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/LoadState";
 
 const DIMENSIONS: { key: SalesDimension; label: string; column: string }[] = [
   { key: "product", label: "Products", column: "Product" }, { key: "category", label: "Categories", column: "Category" },
@@ -37,7 +38,7 @@ export function SalesProfitability() {
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">Couldn&apos;t load the report. <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>}
-      {q.isLoading && <div className="h-64 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading report" />}
+      {q.isLoading && <Skeleton className="h-64" label="Loading report" />}
       {d && t && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">

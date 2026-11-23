@@ -42,6 +42,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { apiErrorMessage } from "@/lib/api/errors";
 import { isPendingFor } from "@/lib/loadState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 const STATUS_STYLE: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
@@ -569,7 +571,7 @@ export default function SalesOrdersPage() {
         {loading || listFailed ? (
           <TableState loading={loading} error={listFailed ? ordersQ.error : undefined} onRetry={() => void ordersQ.refetch()} />
         ) : (
-          <TableScroll className="hidden md:block"><table className={`w-full min-w-[64rem] transition-opacity ${ordersQ.isFetching ? "opacity-60" : ""}`}>
+          <TableScroll className="hidden md:block"><Refreshing busy={isRefreshing(ordersQ)}><table className="w-full min-w-[64rem]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
                 <th className="p-4 w-10">
@@ -641,7 +643,7 @@ export default function SalesOrdersPage() {
                 );
               })}
             </tbody>
-          </table></TableScroll>
+          </table></Refreshing></TableScroll>
         )}
         {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items{o.salesperson_name ? ` · ${o.salesperson_name}` : ""}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" loading={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id)} onClick={() => (showArchived ? restoreOrder.mutate(o.id, { onError: (e) => setError(apiErrorMessage(e, "The sale could not be restored.")) }) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canDecide(o) && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
         {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}

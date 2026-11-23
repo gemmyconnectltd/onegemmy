@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
@@ -58,11 +59,17 @@ async def _decide(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user_id
         raise NotFoundError("Requisition not found")
     if obj.status != "Pending":
         raise ValidationError(f"Cannot decide a requisition with status '{obj.status}'")
-    obj.status = status
-    obj.decided_by = user_id
-    obj.decided_at = datetime.now(UTC)
-    await repo.save(obj)
+    # One atomic, conditional write: a requisition is decided exactly once, even if two decisions arrive together.
+    decided = await db.execute(
+        update(PurchaseRequisition).where(PurchaseRequisition.id == id, PurchaseRequisition.tenant_id == tenant_id, PurchaseRequisition.status == "Pending")
+        .values(status=status, decided_by=user_id, decided_at=datetime.now(UTC)).execution_options(synchronize_session=False)
+    )
+    if decided.rowcount != 1:
+        await db.rollback()
+        await db.refresh(obj)
+        raise ValidationError(f"Cannot decide a requisition with status '{obj.status}'")
     await db.commit()
+    await db.refresh(obj)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return _to_read(obj)
 

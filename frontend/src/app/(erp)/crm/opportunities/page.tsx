@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -16,6 +16,7 @@ import type { ApiCrmOpportunity } from "@/lib/api";
 import { fmtMoney } from "@/lib/config";
 import { useAppConfig } from "@/lib/appConfig";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const STAGES = ["Leads", "Qualified", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
 const EMPTY = { name: "", customer_id: "", value: "0", stage: "Leads", probability: "50", expected_close_date: "", notes: "" };
@@ -36,7 +37,7 @@ export default function OpportunitiesPage() {
   const [editing, setEditing] = useState<ApiCrmOpportunity | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
-  const deferredSearch = useDeferredValue(search.trim());
+  const deferredSearch = useDebouncedValue(search.trim());
   const opportunities = useCrmOpportunities(page, 25, stage || undefined, deferredSearch || undefined);
   const contacts = useCrmContacts(1, 25, contactSearch.trim() || undefined);
   const create = useCreateCrmOpportunity();

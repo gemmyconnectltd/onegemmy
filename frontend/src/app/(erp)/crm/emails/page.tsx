@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Mail, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/hooks";
 import type { ApiEmailLog } from "@/lib/api";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const EMPTY = { recipient: "", subject: "", body: "", status: "Draft", sent_at: "", campaign_id: "" };
 const STATUSES = ["Draft", "Sent", "Opened", "Bounced", "Failed"];
@@ -32,7 +33,7 @@ export default function EmailsPage() {
   const [editing, setEditing] = useState<ApiEmailLog | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
-  const deferredSearch = useDeferredValue(search.trim());
+  const deferredSearch = useDebouncedValue(search.trim());
   const emails = useCrmEmails(page, 25, deferredSearch || undefined, status || undefined);
   const campaigns = useCrmCampaigns(1, 25);
   const create = useCreateCrmEmailLog();

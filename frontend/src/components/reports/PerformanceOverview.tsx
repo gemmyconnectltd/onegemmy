@@ -13,6 +13,7 @@ import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
 import { useReportFilters, withFilters, type ReportFilters } from "@/lib/reportFilters";
 import { cn } from "@/lib/utils";
+import { LoadError, Skeleton } from "@/components/ui/LoadState";
 
 
 type Money = (n: number | null | undefined) => string;
@@ -21,8 +22,9 @@ type Money = (n: number | null | undefined) => string;
 const periodDays = (r: { from?: string; to?: string }) => (r.from && r.to ? Math.round((new Date(`${r.to}T00:00:00`).getTime() - new Date(`${r.from}T00:00:00`).getTime()) / 86400000) + 1 : null);
 
 
-function Skeleton() {
-  return <div className="space-y-4" aria-busy="true" aria-label="Loading report"><div className="h-16 animate-pulse rounded-xl bg-surface" /><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }, (_, i) => <div key={i} className="h-[96px] animate-pulse rounded-xl bg-surface" />)}</div><div className="h-72 animate-pulse rounded-xl bg-surface" /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, i) => <div key={i} className="h-48 animate-pulse rounded-xl bg-surface" />)}</div></div>;
+/** The report's layout in placeholders, built from the shared Skeleton. */
+function ReportSkeleton() {
+  return <div className="space-y-4" aria-busy="true" aria-label="Loading report"><Skeleton className="h-16" label="Loading report" /><div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[96px]" label="Loading figure" />)}</div><Skeleton className="h-72" label="Loading chart" /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-48" label="Loading section" />)}</div></div>;
 }
 
 /** Business reports → Overview: everything about the business on one page, each block opening its detailed tab. */
@@ -41,7 +43,7 @@ export function PerformanceOverview() {
         <ReportExport tab="overview" scope={{ from: range.from, to: range.to, branch: filters.branch }} />
       </div>
       <ReportFilterBar filters={filters} update={update} range={range} />
-      {q.isLoading && <Skeleton />}
+      {q.isLoading && <ReportSkeleton />}
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">Couldn&apos;t load the report. <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>}
       {q.data && <Body r={q.data} filters={filters} money={money} />}
     </div>
@@ -120,7 +122,9 @@ function BranchesForPeriod({ range, branch }: { range: { from: string; to: strin
   const days = periodDays(range);
   const tooLong = days === null || days > 366;
   const q = useDailyBranchReport({ from_date: range.from, to_date: range.to, branch_id: branch, by: "branch" }, 1, { enabled: !tooLong });
-  if (q.isError) return null;  // no access to the daily report: the rest of the overview still shows
+  // No access to the daily report: leave the section out (the rest of the overview still shows). Any other failure is
+  // shown below with a retry, so a dropped connection is not mistaken for "no branches".
+  if (q.isError && (q.error as { status?: number } | null)?.status === 403) return null;
   return (
     <section aria-labelledby="branches-h" className="space-y-2">
       <div className="flex items-center justify-between gap-3">
@@ -128,7 +132,8 @@ function BranchesForPeriod({ range, branch }: { range: { from: string; to: strin
         <Link href="/reports/daily" className="text-[13px] font-semibold text-accent hover:underline">Daily report →</Link>
       </div>
       {tooLong ? <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted">Pick a period of up to one year to see each branch.</p>
-        : q.isLoading || !q.data ? <div className="h-40 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading branches" />
+        : q.isError && !q.data ? <LoadError title="Could not load the branch table" error={q.error} onRetry={() => void q.refetch()} />
+        : q.isLoading || !q.data ? <Skeleton className="h-40" label="Loading branches" />
         : <DailySheet data={q.data} stockNote={days === 1 ? "At the end of the day" : "At the end of the period"} />}
     </section>
   );

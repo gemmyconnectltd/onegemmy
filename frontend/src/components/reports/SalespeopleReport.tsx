@@ -12,6 +12,7 @@ import { fmtMoney } from "@/lib/config";
 import { periodLabel } from "@/lib/period";
 import { useReportFilters } from "@/lib/reportFilters";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/LoadState";
 
 const PAYMENT = [["", "Any payment status"], ["Paid", "Paid"], ["PartiallyPaid", "Partly paid"], ["Unpaid", "Unpaid"]] as const;
 
@@ -40,7 +41,7 @@ export function SalespeopleReport() {
         <Select aria-label="Payment status" className="w-auto" value={payment} onChange={(e) => setPayment(e.target.value)}>{PAYMENT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>
       </div>
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">Couldn&apos;t load the report. <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>}
-      {q.isLoading && <div className="h-64 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading report" />}
+      {q.isLoading && <Skeleton className="h-64" label="Loading report" />}
       {d && t && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">

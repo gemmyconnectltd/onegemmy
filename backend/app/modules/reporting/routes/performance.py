@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import date
 from typing import Annotated, Literal
@@ -75,4 +76,6 @@ async def export_report_tab(kind: Literal["overview", "sales", "stock", "custome
     branch_name = (await BranchRepository(db).names_for_ids(current_user.tenant_id, {branch})).get(branch) if branch else None
     media = {"csv": "text/csv", "pdf": "application/pdf", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[format]
     filename = document_filename(tenant.name if tenant else None, TITLES[kind], format, period=period_label(meta["from_date"], meta["to_date"]))
-    return Response(render(meta, rows, format, kind, tenant, branch_name), media_type=media, headers={"Content-Disposition": content_disposition(filename)})
+    # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
+    content = await asyncio.to_thread(render, meta, rows, format, kind, tenant, branch_name)
+    return Response(content, media_type=media, headers={"Content-Disposition": content_disposition(filename)})

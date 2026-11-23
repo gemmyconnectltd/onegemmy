@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 
 import { useCreateRecurringExpense, useExpenseCategories, useExpenseDetail, useExpenseReceipt, useSaveExpense, useSuppliers } from "@/lib/api/hooks";
@@ -12,6 +12,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { FinancialError } from "@/components/accounting/FinancialShared";
 import { EXPENSE_METHODS, useExpenseContext } from "./ExpenseShared";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 export function ExpenseEditor({ id, onClose, onSaved }: { id: string | null; onClose: () => void; onSaved: (id: string) => void }) {
   const { scope, can } = useExpenseContext();
@@ -26,9 +27,9 @@ function ExpenseForm({ initial, onClose, onSaved, onBusy }: { initial?: ExpenseR
   const { hasPermission } = useAuth();
   const [form, setForm] = useState({title: initial?.title || "", amount: initial ? String(initial.amount) : "", expense_date: initial?.expense_date || new Date().toISOString().slice(0, 10), category: initial?.category || "", payment_method: initial?.payment_method || "Cash", supplier_id: initial?.supplier_id || "", reference_number: initial?.reference_number || "", notes: initial?.notes || ""});
   const [categorySearch, setCategorySearch] = useState("");
-  const categoryQuery = useExpenseCategories(1, useDeferredValue(categorySearch), scope);
+  const categoryQuery = useExpenseCategories(1, useDebouncedValue(categorySearch), scope);
   const [supplierSearch, setSupplierSearch] = useState("");
-  const suppliers = useSuppliers(1, 25, useDeferredValue(supplierSearch), {enabled: hasPermission("vendors:read")});
+  const suppliers = useSuppliers(1, 25, useDebouncedValue(supplierSearch), {enabled: hasPermission("vendors:read")});
   const [file, setFile] = useState<File | null>(null);
   const [onCredit, setOnCredit] = useState(!!initial?.on_credit);
   const [repeat, setRepeat] = useState<"none" | "weekly" | "monthly">("none");

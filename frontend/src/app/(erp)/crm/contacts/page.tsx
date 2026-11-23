@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/hooks";
 import type { ApiCrmContact } from "@/lib/api";
 import { TableState } from "@/components/ui/TableState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const EMPTY = {
   name: "",
@@ -45,7 +46,7 @@ export default function ContactsPage() {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [mutationError, setMutationError] = useState("");
-  const deferredSearch = useDeferredValue(search.trim());
+  const deferredSearch = useDebouncedValue(search.trim());
   const contacts = useCrmContacts(page, 25, deferredSearch || undefined, kind || undefined);
   const create = useCreateCrmContact();
   const update = useUpdateCrmContact();

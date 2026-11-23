@@ -25,6 +25,7 @@ import {
 import type { ApiUser } from "@/lib/api";
 import { fmtDate, fmtDateTime } from "@/lib/date";
 import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
 
 type Tab = "profile" | "activity";
 
@@ -357,12 +358,11 @@ export default function UsersPage() {
           <option value="">Any role</option>
           {roleList.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </Select>
-        {isFetching && <span className="text-[11px] text-muted">Updating…</span>}
       </div>
 
       {(isLoading || listFailed) && <TableState loading={isLoading} error={listFailed ? usersError : undefined} onRetry={() => void refetch()} />}
       {!isLoading && !listFailed && (
-      <div className="space-y-3">
+      <Refreshing busy={isFetching && !isLoading} className="space-y-3">
         {users.length > 0 && (
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {users.map((u) => (
@@ -414,7 +414,7 @@ export default function UsersPage() {
             </button>
           </div>
         )}
-      </div>)}
+      </Refreshing>)}
 
       <Pagination
         page={page}

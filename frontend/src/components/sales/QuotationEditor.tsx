@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAppConfig } from "@/lib/appConfig";
@@ -13,6 +13,7 @@ import { FormActions, FormErrorSummary, FormSection, FormRow } from "@/component
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { OptionsLoadError } from "@/components/ui/LoadState";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 type Line = { key: string; productId: string; variantId: string; name: string; sku: string | null; price: string; quantity: string; discount: string; product: ApiProduct | null };
 const blank = (key: string): Line => ({ key, productId: "", variantId: "", name: "", sku: null, price: "", quantity: "1", discount: "0", product: null });
@@ -29,7 +30,7 @@ export function QuotationEditor({ initial, onClose, onSaved }: { initial?: ApiQu
   const [customer, setCustomer] = useState(initial?.customer_id ?? "");
   const [customerName, setCustomerName] = useState(initial?.customer?.name ?? "");
   const [customerSearch, setCustomerSearch] = useState("");
-  const customers = useCustomers(1, 25, useDeferredValue(customerSearch));
+  const customers = useCustomers(1, 25, useDebouncedValue(customerSearch));
   const [salesperson, setSalesperson] = useState(initial?.salesperson_id ?? user?.id ?? "");
   const [issue, setIssue] = useState(initial?.issue_date ?? isoDay(new Date()));
   const [expiry, setExpiry] = useState(initial?.expiry_date ?? inDays(7));
@@ -123,7 +124,7 @@ export function QuotationEditor({ initial, onClose, onSaved }: { initial?: ApiQu
 
 function LineRow({ line, index, onChange, onRemove, symbol }: { line: Line; index: number; onChange: (p: Partial<Line>) => void; onRemove?: () => void; symbol: string }) {
   const [search, setSearch] = useState("");
-  const products = useProducts(1, 25, useDeferredValue(search), true);
+  const products = useProducts(1, 25, useDebouncedValue(search), true);
   const variants = line.product?.variants?.filter((v) => v.is_active) ?? [];
   function pick(id: string) {
     const p = products.data?.items.find((x) => x.id === id);

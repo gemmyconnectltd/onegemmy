@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { Warehouse } from "@/lib/api";
 import { useCreateWarehouse, useMyBranches, useProducts, useReceiveStock, useSalesTeam, useUpdateWarehouse } from "@/lib/api/hooks";
@@ -8,6 +8,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea } from "@/components/ui/Form";
 import { FormActions, FormErrorSummary, FormSection, FormRow } from "@/components/ui/FormKit";
 import { SearchSelect } from "@/components/ui/SearchSelect";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const fail = (cause: unknown) => (cause as { detail?: string })?.detail ?? (cause as Error)?.message ?? "That didn't work. Please try again.";
 
@@ -95,7 +96,7 @@ export function ReceiveStockDrawer({ warehouse, onClose }: { warehouse: Warehous
 
 function ReceiveLine({ line, index, onChange, onRemove }: { line: Line; index: number; onChange: (p: Partial<Line>) => void; onRemove?: () => void }) {
   const [search, setSearch] = useState("");
-  const products = useProducts(1, 25, useDeferredValue(search), true);
+  const products = useProducts(1, 25, useDebouncedValue(search), true);
   return (
     <div className="grid grid-cols-[1fr_6rem_2rem] items-start gap-2">
       <SearchSelect label={`Product ${index + 1}`} value={line.productId} selectedLabel={line.name} query={search} onQueryChange={setSearch} loading={products.isFetching} error={products.isError ? products.error : undefined} onRetry={() => void products.refetch()}

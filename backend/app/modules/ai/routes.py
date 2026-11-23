@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -30,9 +30,10 @@ class AiSettingsUpdate(BaseModel):
 
 
 @router.post("/chat")
-async def chat(data: ChatRequest, db: DbSession, user: CurrentUser, branch_id: BranchId):
+async def chat(data: ChatRequest, request: Request, db: DbSession, user: CurrentUser, branch_id: BranchId):
     ctx = await service.build_context(db, user, branch_id)
-    reply = await service.chat(db, ctx, message=data.message.strip(), module=data.module, conversation_id=data.conversation_id)
+    reply = await service.chat(db, ctx, message=data.message.strip(), module=data.module, conversation_id=data.conversation_id,
+                               cancelled=request.is_disconnected)
     return success_response(data=reply.model_dump(mode="json"), message="Pesaa AI replied")
 
 

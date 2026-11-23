@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import uuid
@@ -336,7 +337,9 @@ async def export_valuation_report(db: AsyncSession, tenant_id: uuid.UUID, fmt: s
     period = period_label(None, datetime.now(UTC).date())
 
     if fmt == "csv":
-        return document_filename(tenant.name, "Inventory Valuation", "csv", period=period), _export_csv(report, tenant), "text/csv; charset=utf-8"
+        return document_filename(tenant.name, "Inventory Valuation", "csv", period=period), await asyncio.to_thread(_export_csv, report, tenant), "text/csv; charset=utf-8"
 
     _register_fonts()
-    return document_filename(tenant.name, "Inventory Valuation", "pdf", period=period), _build_pdf(report, tenant, _styles()), "application/pdf"
+    # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
+    content = await asyncio.to_thread(lambda: _build_pdf(report, tenant, _styles()))
+    return document_filename(tenant.name, "Inventory Valuation", "pdf", period=period), content, "application/pdf"

@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
@@ -69,11 +70,17 @@ async def set_leave_status(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID
         raise NotFoundError("Leave request not found")
     if obj.status != "Pending":
         raise ValidationError(f"Leave request is already {obj.status}")
-    obj.status = status
-    obj.approved_by = user_id
-    obj.approved_at = datetime.now(UTC)
-    await repo.save(obj)
+    # One atomic, conditional write: a request is decided exactly once, even if two decisions arrive together.
+    decided = await db.execute(
+        update(LeaveRequest).where(LeaveRequest.id == id, LeaveRequest.tenant_id == tenant_id, LeaveRequest.status == "Pending")
+        .values(status=status, approved_by=user_id, approved_at=datetime.now(UTC)).execution_options(synchronize_session=False)
+    )
+    if decided.rowcount != 1:
+        await db.rollback()
+        await db.refresh(obj)
+        raise ValidationError(f"Leave request is already {obj.status}")
     await db.commit()
+    await db.refresh(obj)
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return LeaveRead.model_validate(obj)
 

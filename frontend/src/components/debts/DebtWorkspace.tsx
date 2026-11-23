@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useDeferredValue, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useDebtDetail, useDebtEdit, useDebtOverview, useDebtPayment, useDebtRecords, useDebtRemind, useDebtVoid, useDebtWriteOff } from "@/lib/api/hooks";
@@ -17,6 +17,7 @@ import { ReceivableCreate } from "./ReceivableCreate";
 import { PayableCreate } from "./PayableCreate";
 import { DebtUpcoming } from "./DebtUpcoming";
 import type { DebtFilters, DebtKind, DebtRecord } from "./types";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const defaults: DebtFilters = { page: 1, search: "", status: "all", due_from: "", due_to: "" };
 const resource = (kind: DebtKind) => kind === "receivable" ? "accounts_receivable" : "accounts_payable";
@@ -51,7 +52,9 @@ function DebtList({ kind }: { kind: DebtKind }) {
   const canCreateSource = hasPermission(kind === "receivable" ? "orders:create" : "purchase_orders:create");
   // A customer profile links here with ?search=<name> so their open debts are listed straight away.
   const [filters, setFilters] = useState<DebtFilters>(() => ({ ...defaults, search: typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("search") ?? "" }));
-  const deferredFilters = useDeferredValue(filters);
+  // Typing in the search waits until the person pauses; the other filters apply at once.
+  const debouncedSearch = useDebouncedValue(filters.search);
+  const deferredFilters = useMemo(() => ({ ...filters, search: debouncedSearch }), [filters, debouncedSearch]);
   const query = useDebtRecords(kind, deferredFilters, activeBranchId, allowed, user?.tenantId);
   const [selected, setSelected] = useState<string | null>(null);
   const [historyPage, setHistoryPage] = useState(1);

@@ -9,6 +9,7 @@ import { useFinancialBreakdown } from "@/lib/api/hooks";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
 import { useReportFilters } from "@/lib/reportFilters";
+import { Skeleton } from "@/components/ui/LoadState";
 
 const FORMAL = [
   { href: "/accounting/reports", title: "Profit & loss, balance sheet, cash flow", text: "Formal statements from posted accounting entries." },
@@ -34,7 +35,7 @@ export function FinancialSummary() {
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-8 text-center text-sm text-muted">Expense reports aren&apos;t available for your role or this business.</p>}
-      {q.isLoading && <div className="h-64 animate-pulse rounded-xl bg-surface" aria-busy="true" aria-label="Loading report" />}
+      {q.isLoading && <Skeleton className="h-64" label="Loading report" />}
       {d && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

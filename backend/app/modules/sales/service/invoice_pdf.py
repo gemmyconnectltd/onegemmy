@@ -1,3 +1,4 @@
+import asyncio
 import io
 import re
 import uuid
@@ -398,6 +399,7 @@ async def generate_order_invoice_pdf(db: AsyncSession, tenant_id: uuid.UUID, ord
     order = await get_order(db, tenant_id, order_id)
     tenant = await _load_tenant(db, tenant_id)
     _register_fonts()
-    pdf_bytes = _build_pdf(order, tenant)
+    # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
+    pdf_bytes = await asyncio.to_thread(_build_pdf, order, tenant)
     filename = document_filename(tenant.name, "Invoice", "pdf", reference=order.order_number)
     return filename, pdf_bytes

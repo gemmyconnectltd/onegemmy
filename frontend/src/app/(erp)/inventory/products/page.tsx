@@ -540,4 +540,4 @@ async function countWorkbookPictures(file: File): Promise<number | null> {
   } catch { return null; }
 }
 
-export default function ProductsPage() { return <Suspense fallback={<PageLoader variant="page"/>}><ProductsContent/></Suspense>; }
+export default function ProductsPage() { return <Suspense fallback={<PageLoader variant="page" />}><ProductsContent/></Suspense>; }

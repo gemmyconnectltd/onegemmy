@@ -5,6 +5,7 @@ import re
 import time
 import uuid
 from collections import defaultdict, deque
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -248,7 +249,9 @@ async def delete_conversation(db: AsyncSession, ctx: ToolContext, conversation_i
 # ── the engine ────────────────────────────────────────────────────────────────
 
 async def chat(db: AsyncSession, ctx: ToolContext, *, message: str, module: str, conversation_id: uuid.UUID | None,
-               provider: AIProvider | None = None) -> AssistantReply:
+               provider: AIProvider | None = None, cancelled: Callable[[], Awaitable[bool]] | None = None) -> AssistantReply:
+    """`cancelled` reports whether the person is still waiting (the request is still connected). Between model rounds
+    the answer stops early if they have gone, instead of paying for model calls nobody will read."""
     provider = provider or get_provider()
     module = module if module in MODULES else "general"
     cfg = await get_ai_settings(db)
@@ -290,7 +293,10 @@ async def chat(db: AsyncSession, ctx: ToolContext, *, message: str, module: str,
     degraded = False
     error: str | None = None
     try:
-        for _ in range(settings.AI_MAX_TOOL_ROUNDS + 1):
+        for round_no in range(settings.AI_MAX_TOOL_ROUNDS + 1):
+            if round_no and cancelled is not None and await cancelled():
+                degraded = True
+                break
             res: ProviderResult = await provider.complete(messages, specs, max_tokens=settings.AI_MAX_OUTPUT_TOKENS)
             prompt_tok += res.prompt_tokens
             completion_tok += res.completion_tokens

@@ -35,6 +35,8 @@ import type { ImportIssue } from "@/lib/importValues";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { TableState } from "@/components/ui/TableState";
+import { Refreshing } from "@/components/ui/LoadState";
+import { isRefreshing } from "@/lib/loadState";
 
 const CUSTOMER_CSV_HEADERS = ["name", "email", "phone", "address", "customerType"];
 
@@ -355,7 +357,7 @@ export default function CustomersPage() {
           <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} />Select this page</label>
           {customers.map((c) => <article key={c.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><button className="text-left text-sm font-semibold text-accent" onClick={() => setViewing(c)}>{c.name}</button><p className="break-all text-sm text-muted">{c.email || c.phone || "No contact details"}</p><p className="text-xs capitalize text-muted">{c.customer_type} · {c.is_active ? "Active" : "Inactive"}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${c.name}`} checked={bulk.selected.has(c.id)} onChange={() => bulk.toggle(c.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Orders</dt><dd>{(ordersByCustomer[c.id] ?? []).length}</dd></div><div><dt className="text-xs text-muted">Total spent</dt><dd>{fmt(totalSpent(c.id))}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewing(c)}>View</Button><Button variant="outline" onClick={() => openEdit(c)}>Edit</Button><Button variant="destructive" onClick={() => handleDelete(c.id)}>Delete</Button></div></article>)}
         </div>
-        <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden"><div className={`overflow-x-auto transition-opacity ${customersQ.isFetching ? "opacity-60" : ""}`}>
+        <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden"><Refreshing busy={isRefreshing(customersQ)} className="overflow-x-auto">
           <TableScroll><table className="w-full min-w-160">
             <thead>
               <tr className="border-b border-border text-left">
@@ -433,7 +435,7 @@ export default function CustomersPage() {
                 );
               })}
             </tbody>
-          </table></TableScroll></div>
+          </table></TableScroll></Refreshing>
           <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="customers" color={COLOR} />
         </div>
         </div>

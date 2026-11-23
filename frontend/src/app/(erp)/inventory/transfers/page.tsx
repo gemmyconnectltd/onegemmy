@@ -361,4 +361,4 @@ function TransferFromProduct() {
   const initialStatus = ["pending", "in_transit", "completed", "cancelled"].includes(statusParam) ? statusParam : "";
   return <TransfersContent key={`${id||"all"}:${initialStatus}`} initialProduct={product.data} create={params.get("create")==="1"} initialStatus={initialStatus}/>;
 }
-export default function TransfersPage() { return <Suspense fallback={<PageLoader variant="page"/>}><TransferFromProduct/></Suspense>; }
+export default function TransfersPage() { return <Suspense fallback={<PageLoader variant="page" />}><TransferFromProduct/></Suspense>; }

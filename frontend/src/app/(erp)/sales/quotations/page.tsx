@@ -1,5 +1,5 @@
 "use client";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { FilePlus2, Search } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +13,7 @@ import { TableScroll } from "@/components/ui/TableScroll";
 import { TableState } from "@/components/ui/TableState";
 import { QuotationEditor } from "@/components/sales/QuotationEditor";
 import { QuotationBadge, QuotationDetails } from "@/components/sales/QuotationDetails";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const STATUSES: ("All" | QuotationStatus)[] = ["All", "Draft", "Sent", "Accepted", "Rejected", "Expired"];
 
@@ -26,7 +27,7 @@ export default function QuotationsPage() {
   const [editing, setEditing] = useState<ApiQuotation | "new" | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const team = useSalesTeam();
-  const q = useQuotations(page, { status: status === "All" ? undefined : status, search: useDeferredValue(search) || undefined, salesperson_id: seller || undefined });
+  const q = useQuotations(page, { status: status === "All" ? undefined : status, search: useDebouncedValue(search) || undefined, salesperson_id: seller || undefined });
   const items = q.data?.items ?? [];
   const filtered = status !== "All" || !!search || !!seller;
   const clear = () => { setStatus("All"); setSearch(""); setSeller(""); setPage(1); };
