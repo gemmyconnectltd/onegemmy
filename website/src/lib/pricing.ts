@@ -46,7 +46,17 @@ export function annualSaving(p: PlanPrice): number {
 
 export const hasAnnual = (pricing: PublicPricing, currency: string) => pricing.plans.some((p) => (p.prices[currency]?.annual ?? 0) > 0);
 
-const plural = (n: number, word: string) => `${n.toLocaleString("en")} ${word}${n === 1 ? "" : "s"}`;
+const PLURALS: Record<string, string> = { branch: "branches" };
+const plural = (n: number, word: string) => `${n.toLocaleString("en")} ${n === 1 ? word : PLURALS[word] ?? `${word}s`}`;
+
+/** How many users or branches a plan allows, worded by what it really costs: extras that are free are just part of the limit. */
+function allowance(included: number, max: number | null, extraMinor: number, word: string, currency: string): string {
+  const many = PLURALS[word] ?? `${word}s`;
+  const extra = extraMinor > 0 ? `, then ${formatPrice(extraMinor, currency)} per extra ${word} a month` : "";
+  if (max === null) return extraMinor > 0 ? `${plural(included, word)} included${extra}` : `Unlimited ${many}`;
+  if (max > included && extraMinor > 0) return `${plural(included, word)} included${extra}, up to ${max.toLocaleString("en")}`;
+  return `Up to ${plural(max, word)}`;
+}
 const storage = (mb: number) => (mb >= 1024 ? `${+(mb / 1024).toFixed(1)} GB` : `${mb} MB`);
 
 /** What a plan includes, straight from its entitlements. */
@@ -54,8 +64,8 @@ export function planFeatures(plan: PublicPlan, currency: string): string[] {
   const p = plan.prices[currency];
   if (!p) return [];
   const out: string[] = [];
-  out.push(p.maxUsers && p.maxUsers > p.includedUsers ? `${plural(p.includedUsers, "user")} included, up to ${p.maxUsers.toLocaleString("en")}` : p.maxUsers ? `Up to ${plural(p.maxUsers, "user")}` : `${plural(p.includedUsers, "user")} included`);
-  out.push(p.maxBranches && p.maxBranches > p.includedBranches ? `${plural(p.includedBranches, "branch")} included, up to ${p.maxBranches.toLocaleString("en")}` : p.maxBranches ? `Up to ${plural(p.maxBranches, "branch")}` : `${plural(p.includedBranches, "branch")} included`);
+  out.push(allowance(p.includedUsers, p.maxUsers || null, p.seatMonthly, "user", currency));
+  out.push(allowance(p.includedBranches, p.maxBranches || null, p.branchMonthly, "branch", currency));
   if (p.maxProducts) out.push(`Up to ${plural(p.maxProducts, "product")}`);
   if (p.maxStorageMb) out.push(`${storage(p.maxStorageMb)} storage`);
   if (p.trialDays) out.push(`${p.trialDays}-day free trial`);
