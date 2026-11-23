@@ -20,11 +20,25 @@ def _require_tenant(tenant_id) -> None:
 
 def _my_branches(user) -> list[uuid.UUID] | None:
     """The branches a restricted person may see transfers for; None means every branch."""
-    from app.core.branches import has_branch_restriction
-    if not has_branch_restriction(user):
-        return None
-    ids = user.branch_ids if user.branch_ids is not None else [user.branch_id]
-    return [uuid.UUID(str(i)) for i in ids if i]
+    from app.modules.inventory.service.branch_stock import restricted_branches
+    return restricted_branches(user)
+
+
+async def _warehouse_branches(db, tenant_id: uuid.UUID, *ids: uuid.UUID | None) -> list[uuid.UUID | None]:
+    from app.modules.inventory.models.warehouse import Warehouse
+    out = []
+    for wid in ids:
+        w = await db.get(Warehouse, wid) if wid else None
+        out.append(w.branch_id if w is not None and w.tenant_id == tenant_id else None)
+    return out
+
+
+async def _ends(db, tenant_id: uuid.UUID, obj) -> tuple[uuid.UUID | None, uuid.UUID | None]:
+    """(sending branch, receiving branch) of a transfer: its warehouses' branches, or the branch fields of older branch-only transfers."""
+    if obj.from_warehouse_id or obj.to_warehouse_id:
+        source, destination = await _warehouse_branches(db, tenant_id, obj.from_warehouse_id, obj.to_warehouse_id)
+        return source or obj.from_branch_id, destination or obj.to_branch_id
+    return obj.from_branch_id, obj.to_branch_id
 
 
 @router.get("/inventory/transfers/destinations")
@@ -55,9 +69,10 @@ async def list_transfers(db: DbSession, current_user: CurrentUser, page_params: 
 async def create_transfer(data: StockTransferCreate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     from app.core.branches import has_branch_restriction
-    if has_branch_restriction(current_user):
-        mine = {str(b) for b in (current_user.branch_ids if current_user.branch_ids is not None else [current_user.branch_id]) if b}
-        if str(data.from_branch_id) not in mine:
+    mine = _my_branches(current_user)
+    if mine is not None and has_branch_restriction(current_user):
+        source = (await _warehouse_branches(db, current_user.tenant_id, data.from_warehouse_id))[0] if data.from_warehouse_id else data.from_branch_id
+        if source not in mine:
             raise ForbiddenError("You can only send stock out of your own branch. Any branch can be the destination.")
     obj = await service.create_transfer(db, current_user.tenant_id, current_user.id, data)
     # A person without approval authority gets a request opened for the transfer; it can't be started until it is approved.
@@ -75,7 +90,7 @@ async def get_transfer(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     obj = await service.get_transfer(db, current_user.tenant_id, id)
     mine = _my_branches(current_user)
-    if mine is not None and not ({obj.from_branch_id, obj.to_branch_id} & set(mine)):
+    if mine is not None and not (set(await _ends(db, current_user.tenant_id, obj)) & set(mine)):
         raise ForbiddenError("This transfer does not involve your branches")
     return success_response(data=obj.model_dump(), message="Transfer retrieved successfully")
 
@@ -83,7 +98,17 @@ async def get_transfer(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
 @router.patch("/inventory/transfers/{id}")
 async def update_transfer(id: uuid.UUID, data: StockTransferUpdate, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    if data.status in ("in_transit", "completed"):
+    current = await service.get_transfer(db, current_user.tenant_id, id)
+    mine = _my_branches(current_user)
+    if mine is not None:
+        _source, destination = await _ends(db, current_user.tenant_id, current)
+        receiving = data.status == "completed" and current.status == "in_transit"
+        if not receiving:
+            raise ForbiddenError("You can mark transfers into your branch received. An owner approves and starts transfers.")
+        if destination not in mine:
+            raise ForbiddenError("Only the receiving branch can mark this transfer received")
+    # Starting a transfer needs approval; receiving one that is already on its way does not (its dispatch was approved).
+    if data.status in ("in_transit", "completed") and current.status == "pending":
         from app.modules.approvals.service import require_transfer_approval
         await require_transfer_approval(db, current_user, id)
     obj = await service.update_transfer(db, current_user.tenant_id, id, current_user.id, data)
@@ -92,6 +117,8 @@ async def update_transfer(id: uuid.UUID, data: StockTransferUpdate, db: DbSessio
 
 @router.delete("/inventory/transfers/{id}")
 async def delete_transfer(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
+    """Only a transfer that never moved (pending) can be deleted, by a company-wide user (inventory_access keeps branch staff out). History is
+    never edited: a dispatched or completed transfer is corrected with a transfer back."""
     _require_tenant(current_user.tenant_id)
     await service.delete_transfer(db, current_user.tenant_id, id)
     return success_response(message="Transfer deleted successfully")

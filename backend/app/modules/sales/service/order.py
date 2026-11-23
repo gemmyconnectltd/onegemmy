@@ -241,7 +241,35 @@ async def _bump_order_targets(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     )
 
 
-def _complete_sale_item(item: OrderItem, product_name: str, quantity: float, variant: ProductVariant | None, product: Product | None) -> float:
+class _SaleStock:
+    """Where a sale's stock comes from: the selling warehouse of the sale's branch (see inventory.service.branch_stock). Each line is checked
+    against what that warehouse holds, not the business total, so a branch can only sell what it has. Without warehouses it does nothing."""
+
+    def __init__(self, warehouse_id: uuid.UUID | None, on_hand: dict | None = None):
+        self.warehouse_id, self.on_hand, self.used = warehouse_id, on_hand or {}, {}
+
+    @classmethod
+    async def for_branch(cls, db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID | None) -> _SaleStock:
+        from app.modules.inventory.service.branch_stock import selling_warehouse, stock_in
+        warehouse = await selling_warehouse(db, tenant_id, branch_id)
+        if warehouse is None:
+            return cls(None)
+        await db.flush()  # stock put back earlier in this request (a corrected sale) is in the ledger before we read it
+        return cls(warehouse, await stock_in(db, tenant_id, {warehouse}))
+
+    def take(self, product: Product | None, variant: ProductVariant | None, quantity: float, name: str) -> None:
+        if self.warehouse_id is None or product is None:
+            return
+        key = (product.id, variant.id if variant else None)
+        have = self.on_hand.get(key, Decimal(0)) - self.used.get(key, Decimal(0))
+        want = Decimal(str(quantity))
+        if have < want:
+            raise ValidationError(f"Not enough '{name}' in this branch's stock: {float(have):g} available, {float(want):g} requested")
+        self.used[key] = self.used.get(key, Decimal(0)) + want
+
+
+def _complete_sale_item(item: OrderItem, product_name: str, quantity: float, variant: ProductVariant | None, product: Product | None,
+                        stock: _SaleStock | None = None) -> float:
     """Validates stock, decrements it, snapshots cost_at_sale on the line, and returns this line's COGS."""
     if variant and float(variant.stock) < quantity:
         raise ValidationError(
@@ -252,13 +280,16 @@ def _complete_sale_item(item: OrderItem, product_name: str, quantity: float, var
         raise ValidationError(
             f"Insufficient stock for '{product_name}': {product.stock} available, {quantity} requested"
         )
+    if stock is not None:
+        stock.take(product, variant, quantity, product_name)
+    warehouse_id = stock.warehouse_id if stock else None
     cost = float(variant.cost) if variant else (float(product.cost) if product else 0.0)
     item.cost_at_sale = cost
     if variant:
-        set_reason("sale", reference_type="order", reference_id=getattr(item, "order_id", None))
+        set_reason("sale", reference_type="order", reference_id=getattr(item, "order_id", None), warehouse_id=warehouse_id)
         variant.stock = max(0, float(variant.stock) - quantity)
     elif product:
-        set_reason("sale", reference_type="order", reference_id=getattr(item, "order_id", None))
+        set_reason("sale", reference_type="order", reference_id=getattr(item, "order_id", None), warehouse_id=warehouse_id)
         product.stock = max(0, float(product.stock) - quantity)
     return cost * quantity
 
@@ -424,7 +455,9 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
     method_code, paid_in_journal = (method_lines[0] if method_lines else (None, 0.0))
     method = {"1000": "cash", "1010": "bank", "1020": "mobile"}.get(method_code)
 
-    # Old lines out: stock back (serial-tracked items are not corrected this way).
+    # Old lines out: stock back (serial-tracked items are not corrected this way), into the warehouse the sale came from.
+    from app.modules.inventory.service.branch_stock import selling_warehouse
+    sale_warehouse = await selling_warehouse(db, tenant_id, obj.branch_id)
     old_items = list(obj.items)
     for old in old_items:
         product = await db.get(Product, old.product_id) if old.product_id else None
@@ -432,12 +465,13 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
             raise ValidationError(f"'{old.product_name}' is serial-tracked. Record a return for it instead of correcting the sale.")
         target = await db.get(ProductVariant, old.variant_id) if old.variant_id else product
         if target is not None:
-            set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale corrected")
+            set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale corrected", warehouse_id=sale_warehouse)
             target.stock = float(target.stock) + float(old.quantity)
     # New lines in: validate, take stock out, snapshot cost.
     await ProductRepository(db).lock_stock(tenant_id, {i.product_id for i in data.items if i.product_id}, {i.variant_id for i in data.items if i.variant_id})
     new_rows: list[OrderItem] = []
     cogs_total = 0.0
+    sale_stock = await _SaleStock.for_branch(db, tenant_id, obj.branch_id)
     for item_data in data.items:
         variant = product = None
         name, sku, attributes = item_data.product_name, item_data.sku, item_data.variant_attributes
@@ -461,7 +495,7 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
                         product_name=name, sku=sku, variant_attributes=attributes, unit_price=item_data.unit_price, quantity=item_data.quantity,
                         discount=item_data.discount, line_total=item_data.line_total)
         snapshot_tax(row, vat_lines.lines[len(new_rows)])
-        cogs_total += _complete_sale_item(row, name, item_data.quantity, variant, product)
+        cogs_total += _complete_sale_item(row, name, item_data.quantity, variant, product, sale_stock)
         new_rows.append(row)
 
     before = {"total": old_total, "subtotal": float(obj.subtotal), "discount": float(obj.discount), "customer_id": str(obj.customer_id) if obj.customer_id else None,
@@ -546,10 +580,12 @@ async def void_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user
     references = []
     for journal in live:
         references.append((await reverse_journal(db, tenant_id, user_id, journal, f"sale voided: {reason}", posting_date=day)).reference)
+    from app.modules.inventory.service.branch_stock import selling_warehouse
+    sale_warehouse = await selling_warehouse(db, tenant_id, obj.branch_id)  # the stock goes back where the sale took it from
     for item in items:
         target = await db.get(ProductVariant, item.variant_id) if item.variant_id else (await db.get(Product, item.product_id) if item.product_id else None)
         if target is not None:
-            set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale voided")
+            set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale voided", warehouse_id=sale_warehouse)
             target.stock = float(target.stock) + float(item.quantity)
     for record in (await db.execute(select(TaxCalculation).where(TaxCalculation.tenant_id == tenant_id, TaxCalculation.reference_type == "sale", TaxCalculation.reference_id == str(obj.id)))).scalars().all():
         record.status = "Void"
@@ -877,6 +913,7 @@ async def create_order(
             {item.variant_id for item in data.items if item.variant_id})
     created_items = []
     cogs_total = 0.0
+    sale_stock = await _SaleStock.for_branch(db, tenant_id, resolved_branch_id) if completing else None
     for item_data in data.items:
         variant = None
         product = None
@@ -936,7 +973,7 @@ async def create_order(
 
         # deduct stock + snapshot cost + post COGS when order is Completed
         if completing:
-            cogs_total += _complete_sale_item(item, product_name, item_data.quantity, variant, product)
+            cogs_total += _complete_sale_item(item, product_name, item_data.quantity, variant, product, sale_stock)
 
             await _assign_serials(
                 db,
@@ -1057,8 +1094,9 @@ async def _finalize_completed_sale(
         {item.product_id for item in obj.items if item.product_id},
         {item.variant_id for item in obj.items if item.variant_id})
     cogs_total = 0.0
+    sale_stock = await _SaleStock.for_branch(db, tenant_id, obj.branch_id)
     for item in obj.items:
-        cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product)
+        cogs_total += _complete_sale_item(item, item.product_name, float(item.quantity), item.variant, item.product, sale_stock)
         await _assign_serials(db, tenant_id, item.product,
             [uuid.UUID(id) for id in item.requested_serial_ids] if item.requested_serial_ids else None,
             float(item.quantity), item.id)

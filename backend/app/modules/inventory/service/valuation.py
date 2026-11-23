@@ -27,8 +27,13 @@ def _margin_pct(margin: float, retail_value: float) -> float | None:
     return round(margin / retail_value * 100, 1)
 
 
-async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> InventoryValuationReport:
+async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item: dict | None = None) -> InventoryValuationReport:
+    """Stock value per product. `stock_by_item` ({(product, variant): qty}) replaces the business-wide quantities, for someone who only
+    sees some warehouses; the products themselves are never changed."""
     products = await ProductRepository(db).valuation_products(tenant_id)
+
+    def qty(product_id, variant_id, fallback) -> Decimal:
+        return stock_by_item.get((product_id, variant_id), Decimal(0)) if stock_by_item is not None else Decimal(str(fallback or 0))
 
     lines: list[ValuationLine] = []
     by_cat: dict[str, dict] = {}
@@ -43,7 +48,7 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> Invento
                 variant_count += 1
                 cost = Decimal(str(v.cost or 0))
                 price = Decimal(str(v.price or 0))
-                stock = Decimal(str(v.stock or 0))
+                stock = qty(product.id, v.id, v.stock)
                 cost_value = (cost * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                 retail_value = (price * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                 margin = round(retail_value - cost_value, 2)
@@ -69,7 +74,7 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID) -> Invento
         else:
             cost = Decimal(str(product.cost or 0))
             price = Decimal(str(product.price or 0))
-            stock = Decimal(str(product.stock or 0))
+            stock = qty(product.id, None, product.stock)
             cost_value = (cost * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             retail_value = (price * stock).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             margin = round(retail_value - cost_value, 2)

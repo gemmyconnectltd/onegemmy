@@ -151,13 +151,30 @@ async def make_default(db: AsyncSession, tenant_id: uuid.UUID, user: User, id: u
 
 # ── Stock by warehouse ───────────────────────────────────────────────────────
 
+async def in_transit(db: AsyncSession, tenant_id: uuid.UUID) -> dict[tuple[uuid.UUID, uuid.UUID, uuid.UUID | None], Decimal]:
+    """{(destination warehouse, product, variant): quantity} dispatched and not yet received: out of the source, not in the destination yet."""
+    from app.modules.inventory.models.transfer import StockTransferItem
+    rows = (await db.execute(select(StockTransfer.to_warehouse_id, StockTransferItem.product_id, StockTransferItem.variant_id, func.sum(StockTransferItem.quantity))
+                             .join(StockTransferItem, StockTransferItem.transfer_id == StockTransfer.id)
+                             .where(StockTransfer.tenant_id == tenant_id, StockTransfer.status == "in_transit", StockTransfer.to_warehouse_id.isnot(None),
+                                    StockTransferItem.product_id.isnot(None))
+                             .group_by(StockTransfer.to_warehouse_id, StockTransferItem.product_id, StockTransferItem.variant_id))).all()
+    return {(w, p, v): _dec(q) for w, p, v, q in rows}
+
+
 async def stock_rows(db: AsyncSession, tenant_id: uuid.UUID, *, warehouse_id: uuid.UUID | None, branch_id: uuid.UUID | None, search: str | None,
-                     status: str | None, offset: int, limit: int) -> tuple[list[dict], int]:
-    """One row per product (and variant) per warehouse: on hand, available, unit, last movement and a stock status. Nothing is reserved separately, so available equals on hand."""
+                     status: str | None, offset: int, limit: int, allowed: set[uuid.UUID] | None = None) -> tuple[list[dict], int]:
+    """One row per product (and variant) per warehouse: on hand, available, on its way in, unit, last movement and a stock status. Nothing is
+    reserved separately, so available equals on hand. `allowed` limits the rows to the warehouses one person may see."""
     bal = {k: v for k, v in (await balances(db, tenant_id, warehouse_id)).items() if v != 0}
+    transit = {k: v for k, v in (await in_transit(db, tenant_id)).items() if warehouse_id is None or k[0] == warehouse_id}
+    for key in transit:
+        bal.setdefault(key, ZERO)  # stock on its way to a warehouse shows there even before any has arrived
     if branch_id:
         in_branch = set((await db.execute(select(Warehouse.id).where(Warehouse.tenant_id == tenant_id, Warehouse.branch_id == branch_id))).scalars())
         bal = {k: v for k, v in bal.items() if k[0] in in_branch}
+    if allowed is not None:
+        bal = {k: v for k, v in bal.items() if k[0] in allowed}
     if not bal:
         return [], 0
     pids = {k[1] for k in bal}
@@ -180,18 +197,21 @@ async def stock_rows(db: AsyncSession, tenant_id: uuid.UUID, *, warehouse_id: uu
             continue
         minimum = _dec(variant.min_stock if variant else product.min_stock)
         state = "out" if qty <= 0 else "low" if qty <= minimum else "ok"
+        coming = transit.get((w, p, v), ZERO)
         if status and status != state:
             continue
         out.append({"warehouse_id": w, "warehouse": wh[w].name, "warehouse_code": wh[w].code, "branch_id": wh[w].branch_id, "product_id": p, "variant_id": v, "name": name, "sku": sku or None,
-                    "unit": (product.unit.abbreviation or product.unit.name) if product.unit else None, "on_hand": _q(qty), "reserved": 0.0, "available": _q(qty),
+                    "unit": (product.unit.abbreviation or product.unit.name) if product.unit else None, "on_hand": _q(qty), "reserved": 0.0, "available": _q(qty), "in_transit": _q(coming),
                     "minimum": _q(minimum), "status": state, "last_movement": last.get((w, p, v))})
     out.sort(key=lambda r: (r["name"].lower(), r["warehouse"]))
     return out[offset:offset + limit], len(out)
 
 
 async def movements(db: AsyncSession, tenant_id: uuid.UUID, *, warehouse_id: uuid.UUID | None, product_id: uuid.UUID | None, movement_type: str | None,
-                    start: date | None, end: date | None, offset: int, limit: int) -> tuple[list[dict], int]:
+                    start: date | None, end: date | None, offset: int, limit: int, allowed: set[uuid.UUID] | None = None) -> tuple[list[dict], int]:
     stmt = select(StockMovement).where(StockMovement.tenant_id == tenant_id)
+    if allowed is not None:
+        stmt = stmt.where(StockMovement.warehouse_id.in_(allowed or {None}))
     if warehouse_id:
         stmt = stmt.where(StockMovement.warehouse_id == warehouse_id)
     if product_id:
@@ -351,8 +371,10 @@ async def decide_count(db: AsyncSession, tenant_id: uuid.UUID, user: User, id: u
     return _count_read(await _count(db, tenant_id, id))
 
 
-async def list_counts(db: AsyncSession, tenant_id: uuid.UUID, *, status: str | None, offset: int, limit: int) -> tuple[list[dict], int]:
+async def list_counts(db: AsyncSession, tenant_id: uuid.UUID, *, status: str | None, offset: int, limit: int, allowed: set[uuid.UUID] | None = None) -> tuple[list[dict], int]:
     stmt = select(StockCount).where(StockCount.tenant_id == tenant_id)
+    if allowed is not None:
+        stmt = stmt.where(StockCount.warehouse_id.in_(allowed or {None}))
     if status:
         stmt = stmt.where(StockCount.status == status)
     total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()

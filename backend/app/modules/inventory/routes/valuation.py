@@ -11,11 +11,18 @@ from app.modules.inventory import service
 router = APIRouter(tags=["Inventory - Reports"])
 
 
+async def scoped_stock(db, user) -> dict | None:
+    """The stock of the warehouses this person may see, or None for the business-wide figures."""
+    from app.modules.inventory.service import branch_stock
+    warehouses = await branch_stock.visible_warehouses(db, user)
+    return None if warehouses is None else await branch_stock.stock_in(db, user.tenant_id, warehouses)
+
+
 @router.get("/inventory/reports/valuation")
 async def inventory_valuation(db: DbSession, current_user: CurrentUser, pagination: PageQuery, status: str = Query("all", pattern="^(all|low|out|ok)$")):
     if current_user.tenant_id is None:
         raise ValidationError("This account has no tenant. Log in as a tenant user.")
-    report = await service.inventory_valuation(db, current_user.tenant_id)
+    report = await service.inventory_valuation(db, current_user.tenant_id, await scoped_stock(db, current_user))
     lines = [line for line in report.lines if status == "all" or line.status == status]
     payload = report.model_dump()
     payload.update(total=len(lines), page=pagination.page, page_size=min(pagination.limit, 100))

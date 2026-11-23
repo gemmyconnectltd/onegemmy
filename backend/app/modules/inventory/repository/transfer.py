@@ -8,6 +8,14 @@ from app.core.repository import BaseRepository
 from app.modules.inventory.models.transfer import StockTransfer
 
 
+def _involves(branches: list[uuid.UUID]):
+    """Transfers into or out of these branches: by the branch of either warehouse, or the branch fields of older branch-only transfers."""
+    from app.modules.inventory.models.warehouse import Warehouse
+    theirs = select(Warehouse.id).where(Warehouse.branch_id.in_(branches))
+    return or_(StockTransfer.from_branch_id.in_(branches), StockTransfer.to_branch_id.in_(branches),
+               StockTransfer.from_warehouse_id.in_(theirs), StockTransfer.to_warehouse_id.in_(theirs))
+
+
 class TransferRepository(BaseRepository[StockTransfer]):
     model = StockTransfer
 
@@ -34,7 +42,7 @@ class TransferRepository(BaseRepository[StockTransfer]):
         if status:
             stmt = stmt.where(StockTransfer.status == status)
         if branches is not None:
-            stmt = stmt.where(or_(StockTransfer.from_branch_id.in_(branches), StockTransfer.to_branch_id.in_(branches)))
+            stmt = stmt.where(_involves(branches))
         if period:
             stmt = period.apply(stmt, StockTransfer.created_at)
         stmt = stmt.order_by(StockTransfer.created_at.desc()).offset(offset).limit(limit)
@@ -46,7 +54,7 @@ class TransferRepository(BaseRepository[StockTransfer]):
         if status:
             stmt = stmt.where(StockTransfer.status == status)
         if branches is not None:
-            stmt = stmt.where(or_(StockTransfer.from_branch_id.in_(branches), StockTransfer.to_branch_id.in_(branches)))
+            stmt = stmt.where(_involves(branches))
         if period:
             stmt = period.apply(stmt, StockTransfer.created_at)
         result = await self.db.execute(stmt)

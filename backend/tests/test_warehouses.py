@@ -72,8 +72,7 @@ async def test_setup_receive_sale_and_transfer_keep_every_warehouse_and_the_tota
             assert (await c.patch(f"{INV}/transfers/{t['id']}", json={"status": "completed"})).status_code == 422  # a repeat moves nothing more
             assert await on_hand(c, second["id"], product.id) == 50
             too_many = {**body, "items": [{"product_id": str(product.id), "product_name": "Widget", "quantity": 500}]}
-            big = (await c.post(f"{INV}/transfers", json=too_many)).json()["data"]
-            assert (await c.patch(f"{INV}/transfers/{big['id']}", json={"status": "in_transit"})).status_code == 422
+            assert (await c.post(f"{INV}/transfers", json=too_many)).status_code == 422  # more than the source holds is refused when created
             same = await c.post(f"{INV}/transfers", json={**body, "to_warehouse_id": main["id"]})
             assert same.status_code == 422
 

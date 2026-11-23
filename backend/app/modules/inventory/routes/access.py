@@ -12,12 +12,14 @@ async def inventory_access(request: Request, user: CurrentUser) -> None:
     # an approval, so company-wide stock is never moved on their say-so. Everything else about transfers stays with company-wide users.
     starts_transfer = request.method == "POST" and path.rstrip("/").endswith("/inventory/transfers")
     reads_transfer = request.method == "GET" and "/transfers" in path  # the routes narrow these to the person's own branches
-    if "/transfers" in path and has_branch_restriction(user) and not starts_transfer and not reads_transfer:
+    # They may also mark a transfer RECEIVED at their own branch; the route allows only that, and only for the receiving branch.
+    receives_transfer = request.method == "PATCH" and "/inventory/transfers/" in path
+    if "/transfers" in path and has_branch_restriction(user) and not starts_transfer and not reads_transfer and not receives_transfer:
         raise ForbiddenError("You can request and follow transfers for your branches. An owner approves and completes them.")
     action = {"GET": "read", "POST": "create", "PATCH": "update", "PUT": "update",
               "DELETE": "delete"}.get(request.method, "read")
     stock_operation = any(part in path for part in ("/restock", "/transfers", "/reports/valuation", "/low-stock"))
-    if stock_operation and request.method != "GET" and has_branch_restriction(user) and not starts_transfer:
+    if stock_operation and request.method != "GET" and has_branch_restriction(user) and not starts_transfer and not receives_transfer:
         raise ForbiddenError("Direct stock corrections use company-wide balances. Ask an owner with company-wide access to make this correction.")
     resource = "stock" if stock_operation else "items"
     await require_permission(f"{resource}:{action}")(user)

@@ -108,6 +108,8 @@ def _pending_changes(session: Session) -> list[tuple[Key, uuid.UUID, Decimal]]:
             tenant = session.execute(select(Product.tenant_id).where(Product.id == obj.product_id)).scalar_one()
             changes.append(((obj.product_id, obj.id), tenant, delta))
     for obj in list(session.new):  # a product created with stock opens with that stock
+        if isinstance(obj, (Product, ProductVariant)) and obj.id is None:
+            obj.id = uuid.uuid4()  # its movement needs the id now; the primary key default would only fill it in later in this flush
         if isinstance(obj, Product) and _dec(obj.stock) != 0:
             changes.append(((obj.id, None), obj.tenant_id, _dec(obj.stock)))
         elif isinstance(obj, ProductVariant) and _dec(obj.stock) != 0:
@@ -138,12 +140,14 @@ def record_changes(session: Session, flush_context, instances) -> None:
     if not changes:
         return
     reason = stock_context.current_reason.get()
+    # A product or variant created with stock starts with an opening balance, not "goods received" with no document behind it.
+    created = {(o.id, None) if isinstance(o, Product) else (o.product_id, o.id) for o in session.new if isinstance(o, (Product, ProductVariant))}
     pending: dict[tuple[uuid.UUID, Key], Decimal] = defaultdict(lambda: ZERO)  # taken out earlier in this same flush
     for key, tenant_id, delta in changes:
         chosen, others = _pick_warehouse(session, tenant_id, reason)
         if chosen is None:
             continue  # this business does not use warehouses
-        mtype = reason.movement_type if reason else ("receipt" if delta > 0 else "adjustment")
+        mtype = reason.movement_type if reason else ("opening" if key in created and delta > 0 else "receipt" if delta > 0 else "adjustment")
         base = {"reference_type": reason.reference_type if reason else None, "reference_id": reason.reference_id if reason else None,
                 "reference_number": reason.reference_number if reason else None, "note": reason.note if reason else None}
         if delta > 0:

@@ -55,6 +55,12 @@ async def create_transfer(
         raise ValidationError("Source and destination must be different places")
     if not data.items:
         raise ValidationError("A transfer needs at least one item")
+    if by_warehouse:
+        await _check_source_stock(db, tenant_id, data)
+        from app.modules.inventory.models.warehouse import Warehouse
+        # The branch fields follow the warehouses, so branch lists, reports and older screens see the transfer too.
+        data.from_branch_id = (await db.get(Warehouse, data.from_warehouse_id)).branch_id
+        data.to_branch_id = (await db.get(Warehouse, data.to_warehouse_id)).branch_id
     repo = TransferRepository(db)
     transfer = StockTransfer(
         tenant_id=tenant_id,
@@ -95,6 +101,20 @@ async def _check_warehouses(db: AsyncSession, tenant_id: uuid.UUID, data: StockT
         w = await db.get(Warehouse, wid)
         if w is None or w.tenant_id != tenant_id or not w.is_active:
             raise ValidationError("Choose active warehouses of this business")
+
+
+async def _check_source_stock(db: AsyncSession, tenant_id: uuid.UUID, data: StockTransferCreate) -> None:
+    """A transfer can't ask for more than its source warehouse holds. Checked again at dispatch, as stock can change in between."""
+    from decimal import Decimal
+
+    from app.modules.inventory.service.branch_stock import stock_in
+    have = await stock_in(db, tenant_id, {data.from_warehouse_id})
+    wanted: dict[tuple, Decimal] = {}
+    for item in data.items:
+        key = (item.product_id, item.variant_id)
+        wanted[key] = wanted.get(key, Decimal(0)) + Decimal(str(item.quantity))
+        if wanted[key] > have.get(key, Decimal(0)):
+            raise ValidationError(f"Not enough '{item.product_name}' in the source warehouse (on hand {float(have.get(key, 0)):g}, requested {float(wanted[key]):g})")
 
 
 async def _ledger(db: AsyncSession, tenant_id: uuid.UUID, obj: StockTransfer, user_id: uuid.UUID | None, *, dispatch: bool, receive: bool, undo: bool = False) -> None:

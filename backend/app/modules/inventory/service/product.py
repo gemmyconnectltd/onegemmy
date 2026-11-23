@@ -275,8 +275,11 @@ def _suggested(min_stock: float, stock: float) -> float:
     return round(min_stock - stock, 3)
 
 
-async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID) -> LowStockReport:
-    """Products and variants at/below their reorder point, with suggested order qty."""
+async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item: dict | None = None) -> LowStockReport:
+    """Products and variants at/below their reorder point, with suggested order qty. `stock_by_item` ({(product, variant): qty}) judges
+    them by the warehouses one person sees instead of the business total."""
+    if stock_by_item is not None:
+        return _low_stock_from(await ProductRepository(db).valuation_products(tenant_id), stock_by_item)
     product_repo = ProductRepository(db)
     variant_repo = VariantRepository(db)
     products = await product_repo.list_low_stock(tenant_id, 0, 500)
@@ -304,6 +307,21 @@ async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID) -> LowStockRe
     lines.sort(key=lambda l: l.name)
     total = await product_repo.count_low_stock(tenant_id) + await variant_repo.count_low_stock_for_tenant(tenant_id)
     return LowStockReport(items=lines[:500], total=total)
+
+
+def _low_stock_from(products, stock_by_item: dict) -> LowStockReport:
+    lines: list[LowStockLine] = []
+    for p in products:
+        rows = [(v, v.id, v.min_stock, v.sku or p.sku, v.barcode) for v in p.variants if v.is_active] if p.has_variants else [(None, None, p.min_stock, p.sku, p.barcode)]
+        for v, vid, minimum, sku, barcode in rows:
+            have, floor = float(stock_by_item.get((p.id, vid), 0)), float(minimum or 0)
+            if have > floor:
+                continue
+            name = f"{p.name} · {', '.join(f'{k}: {val}' for k, val in (v.attributes or {}).items())}" if v is not None else p.name
+            lines.append(LowStockLine(id=vid or p.id, kind="variant" if v is not None else "product", product_id=p.id, variant_id=vid, name=name, sku=sku,
+                                      barcode=barcode, stock=have, min_stock=floor, suggested_qty=_suggested(floor, have)))
+    lines.sort(key=lambda l: l.name)
+    return LowStockReport(items=lines[:500], total=len(lines))
 
 
 async def record_product_change(db: AsyncSession, product: Product, action: str,

@@ -30,6 +30,19 @@ def _require(user, permission: str) -> None:
         raise ForbiddenError(f"Permission required: {permission}")
 
 
+async def _visible(db, user) -> set[uuid.UUID] | None:
+    """Warehouses a branch-limited person may see (their branches', plus the default their sales come from); None for everyone else."""
+    from app.modules.inventory.service.branch_stock import visible_warehouses
+    return await visible_warehouses(db, user)
+
+
+async def _require_visible(db, user, warehouse_id: uuid.UUID | None) -> set[uuid.UUID] | None:
+    allowed = await _visible(db, user)
+    if allowed is not None and warehouse_id is not None and warehouse_id not in allowed:
+        raise ForbiddenError("This warehouse is not in your branches")
+    return allowed
+
+
 class WarehouseIn(BaseModel):
     code: str | None = Field(default=None, max_length=30)
     name: str = Field(min_length=1, max_length=150)
@@ -78,7 +91,11 @@ class DecisionIn(BaseModel):
 
 @router.get("/inventory/warehouses")
 async def list_warehouses(db: DbSession, user: CurrentUser):
-    return success_response(data=await svc.list_warehouses(db, _tenant(user)), message="Warehouses retrieved")
+    data = await svc.list_warehouses(db, _tenant(user))
+    allowed = await _visible(db, user)
+    if allowed is not None:
+        data["items"] = [w for w in data["items"] if w["id"] in allowed]
+    return success_response(data=data, message="Warehouses retrieved")
 
 
 @router.post("/inventory/warehouses/setup")
@@ -121,13 +138,15 @@ async def make_default(id: uuid.UUID, db: DbSession, user: CurrentUser):
 @router.post("/inventory/warehouses/{id}/receive")
 async def receive(id: uuid.UUID, data: ReceiptIn, db: DbSession, user: CurrentUser):
     _require(user, "stock:create")
+    await _require_visible(db, user, id)
     return success_response(data=await svc.receive_stock(db, _tenant(user), user, id, [line.model_dump() for line in data.lines], data.note, data.reference), message="Stock received", status_code=201)
 
 
 @router.get("/inventory/stock-by-warehouse")
 async def stock_by_warehouse(db: DbSession, user: CurrentUser, page: PageQuery, warehouse_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None,
                              search: str | None = Query(None, max_length=100), status: str | None = Query(None, pattern="^(ok|low|out)$")):
-    rows, total = await svc.stock_rows(db, _tenant(user), warehouse_id=warehouse_id, branch_id=branch_id, search=search, status=status, offset=page.offset, limit=page.limit)
+    allowed = await _require_visible(db, user, warehouse_id)
+    rows, total = await svc.stock_rows(db, _tenant(user), warehouse_id=warehouse_id, branch_id=branch_id, search=search, status=status, offset=page.offset, limit=page.limit, allowed=allowed)
     return paginated_response(items=rows, total=total, page=page.page, page_size=page.page_size, message="Stock retrieved")
 
 
@@ -136,35 +155,41 @@ async def stock_movements(db: DbSession, user: CurrentUser, page: PageQuery, war
                           movement_type: str | None = Query(None), from_date: date | None = None, to_date: date | None = None):
     if movement_type and movement_type not in MOVEMENT_TYPES:
         raise ValidationError("Unknown movement type")
-    rows, total = await svc.movements(db, _tenant(user), warehouse_id=warehouse_id, product_id=product_id, movement_type=movement_type, start=from_date, end=to_date, offset=page.offset, limit=page.limit)
+    allowed = await _require_visible(db, user, warehouse_id)
+    rows, total = await svc.movements(db, _tenant(user), warehouse_id=warehouse_id, product_id=product_id, movement_type=movement_type, start=from_date, end=to_date, offset=page.offset, limit=page.limit, allowed=allowed)
     return paginated_response(items=rows, total=total, page=page.page, page_size=page.page_size, message="Movements retrieved")
 
 
 @router.get("/inventory/stock-counts")
 async def list_counts(db: DbSession, user: CurrentUser, page: PageQuery, status: str | None = Query(None, pattern="^(Submitted|Approved|Rejected)$")):
-    rows, total = await svc.list_counts(db, _tenant(user), status=status, offset=page.offset, limit=page.limit)
+    rows, total = await svc.list_counts(db, _tenant(user), status=status, offset=page.offset, limit=page.limit, allowed=await _visible(db, user))
     return paginated_response(items=rows, total=total, page=page.page, page_size=page.page_size, message="Stock counts retrieved")
 
 
 @router.post("/inventory/stock-counts")
 async def submit_count(data: CountIn, db: DbSession, user: CurrentUser):
     _require(user, "stock:create")
+    await _require_visible(db, user, data.warehouse_id)
     result = await svc.submit_count(db, _tenant(user), user, data.warehouse_id, [line.model_dump() for line in data.lines], data.note, _assigned(user, "stock:approve"))
     return success_response(data=result, message="Stock count submitted", status_code=201)
 
 
 @router.get("/inventory/stock-counts/{id}")
 async def get_count(id: uuid.UUID, db: DbSession, user: CurrentUser):
-    return success_response(data=await svc.get_count(db, _tenant(user), id), message="Stock count retrieved")
+    count = await svc.get_count(db, _tenant(user), id)
+    await _require_visible(db, user, uuid.UUID(str(count["warehouse_id"])))
+    return success_response(data=count, message="Stock count retrieved")
 
 
 @router.post("/inventory/stock-counts/{id}/approve")
 async def approve_count(id: uuid.UUID, db: DbSession, user: CurrentUser, data: DecisionIn | None = None):
     _require(user, "stock:approve")
+    await _require_visible(db, user, uuid.UUID(str((await svc.get_count(db, _tenant(user), id))["warehouse_id"])))
     return success_response(data=await svc.decide_count(db, _tenant(user), user, id, True, data.note if data else None), message="Count approved and applied")
 
 
 @router.post("/inventory/stock-counts/{id}/reject")
 async def reject_count(id: uuid.UUID, data: DecisionIn, db: DbSession, user: CurrentUser):
     _require(user, "stock:approve")
+    await _require_visible(db, user, uuid.UUID(str((await svc.get_count(db, _tenant(user), id))["warehouse_id"])))
     return success_response(data=await svc.decide_count(db, _tenant(user), user, id, False, data.note), message="Count rejected")

@@ -29,13 +29,28 @@ router = APIRouter(tags=["Inventory - Products"])
 
 
 @router.get("/inventory/products")
-async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery,
+async def list_products(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery, active_branch: ActiveBranchId,
                         search: str | None = None, is_active: bool | None = None, category_id: uuid.UUID | None = None,
-                        vat: Literal["standard", "zero_rated", "exempt", "out_of_scope", "not_reviewed"] | None = None):
+                        vat: Literal["standard", "zero_rated", "exempt", "out_of_scope", "not_reviewed"] | None = None,
+                        for_sale: bool = Query(False, description="Stock as the till sees it: what the selling warehouse of the active branch holds")):
     _require_tenant(current_user.tenant_id)
     items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period, category_id, vat)
+    await _scope_stock(db, current_user, items, active_branch if for_sale else None, for_sale)
     total = await service.count_products(db, current_user.tenant_id, search, is_active, period, category_id, vat)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Products retrieved successfully")
+
+
+async def _scope_stock(db, user, items, branch_id, for_sale: bool) -> None:
+    """With warehouses switched on, show stock where this person works: the till sees its selling warehouse, branch staff see their
+    branches' warehouses, and everyone else keeps the business total."""
+    from app.modules.inventory.service import branch_stock
+    if for_sale:
+        warehouse = await branch_stock.selling_warehouse(db, user.tenant_id, branch_id or (user.branch_id if branch_stock.restricted_branches(user) else None))
+        warehouses = {warehouse} if warehouse else None
+    else:
+        warehouses = await branch_stock.visible_warehouses(db, user)
+    if warehouses is not None:
+        branch_stock.apply_stock(items, await branch_stock.stock_in(db, user.tenant_id, warehouses))
 
 
 @router.get("/inventory/products/vat-summary")
@@ -58,7 +73,8 @@ async def classify_products_vat(data: VatClassification, db: DbSession, current_
 @router.get("/inventory/products/low-stock")
 async def low_stock_report(db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
-    report = await service.low_stock_report(db, current_user.tenant_id)
+    from app.modules.inventory.routes.valuation import scoped_stock
+    report = await service.low_stock_report(db, current_user.tenant_id, await scoped_stock(db, current_user))
     return success_response(data=report.model_dump(), message="Low stock report retrieved successfully")
 
 
