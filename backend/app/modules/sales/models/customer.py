@@ -1,10 +1,10 @@
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Index, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -29,6 +29,12 @@ class Customer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
 
     credit_daily_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 
+    # Customer relationship: free tags for grouping, a birthday for wishes, and the current agreement to be contacted per channel
+    # ({"sms": "granted", "email": "revoked"}; missing = not asked). Its history is in messaging_consents.
+    tags: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
+    contact_consent: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+
     # A customer's history is never loaded with the customer: lists, pickers and every order/deal/return that embeds a
     # customer would otherwise pull all of it. Figures come from SQL aggregates; load these explicitly if ever needed.
     deals = relationship("Deal", back_populates="customer", lazy="select")
@@ -38,4 +44,5 @@ class Customer(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_sales_customers_tenant_id", "tenant_id"),
         Index("uq_sales_customers_tenant_email", "tenant_id", "email", unique=True, postgresql_where="email IS NOT NULL"),
+        Index("ix_sales_customers_tags", "tags", postgresql_using="gin"),
     )

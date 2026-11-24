@@ -127,6 +127,20 @@ class Settings(BaseSettings):
     OPENWA_WEBHOOK_TARGET: str = ""
     SUPPORT_BACKGROUND: bool = True  # WhatsApp health + email sync loop (still a no-op until configured)
 
+    # Businesses messaging their own customers (app/modules/messaging). Unset providers = that channel is "not set up".
+    MESSAGING_BACKGROUND: bool = True  # run the delivery + automations worker in this process
+    # Outside production, messages only go to these phone numbers / emails (comma-separated); everyone else is skipped, so a local or
+    # staging copy of real customer data can never text or email real people.
+    MESSAGING_TEST_RECIPIENTS: str = ""
+    MESSAGING_DEFAULT_COUNTRY_CODE: str = "250"  # local numbers like 078… become +25078…
+    AFRICASTALKING_USERNAME: str = ""  # "sandbox" for the Africa's Talking sandbox
+    AFRICASTALKING_API_KEY: str = ""
+    AFRICASTALKING_SENDER_ID: str = ""  # approved alphanumeric sender or short code; empty = the provider's default
+    WHATSAPP_CLOUD_TOKEN: str = ""  # WhatsApp Cloud API (Meta) permanent access token
+    WHATSAPP_CLOUD_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_CLOUD_VERIFY_TOKEN: str = ""  # echoed back when Meta verifies the webhook
+    WHATSAPP_CLOUD_APP_SECRET: str = ""  # checks X-Hub-Signature-256 on incoming webhooks
+
     # Where the public marketing-site contact form is delivered.
     CONTACT_INBOX: str = "robertniyitanga3@gmail.com"
     FRONTEND_URL: str = "http://localhost:3000"

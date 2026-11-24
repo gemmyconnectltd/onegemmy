@@ -78,6 +78,7 @@ from app.modules.tenants.models import (  # noqa: F401
 # CRM last: Activity refers to Customer and Deal by name, and the inventory import above configures every mapper registered so far.
 from app.modules.crm.models import Activity, Campaign, EmailLog  # noqa: F401
 from app.modules.marketing import models as marketing_models  # noqa: F401
+from app.modules.messaging import models as messaging_models  # noqa: F401
 from app.modules.admin import models as admin_models  # noqa: F401
 from app.modules.admin.data_management import models as data_management_models  # noqa: F401
 from app.modules.traffic.models import ErpActivity, WebsiteVisit  # noqa: F401
