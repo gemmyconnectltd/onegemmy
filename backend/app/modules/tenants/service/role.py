@@ -36,7 +36,8 @@ _PERMISSION_RESOURCES = [
 ]
 _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 _READ_ONLY_RESOURCES = frozenset({"reports"})
-_EXPLICIT_RESOURCES = frozenset({"reports"})
+# Granted on purpose only: never part of the everyone-can-view/edit baseline or the generic Member/Viewer templates.
+_EXPLICIT_RESOURCES = frozenset({"reports", "branch_prices"})
 
 
 def _permission_actions_for(resource: str) -> tuple[str, ...]:
@@ -282,7 +283,8 @@ def default_role_permissions(permissions: list[Permission]) -> dict[str, list[Pe
         "Viewer": [p for p in operational if p.action == "read"],
         "Owner/CEO": permissions,
         "General Manager": [p for p in permissions if p.resource not in {"roles", "permissions", "billing", "tenants"}],
-        "Branch Manager": [p for p in operational if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}],
+        "Branch Manager": [p for p in operational if p.resource not in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "branches"}]
+                          + [p for p in permissions if p.name == "branch_prices:manage"],  # their own branch only (checked by the route)
         "Factory Manager": [p for p in permissions if p.resource in {"bom", "routing", "mrp", "work_orders", "shop_floor", "quality", "costing", "stock", "items", "warehouses"}],
     }
     for name, (_, grants) in FOCUSED_ROLES.items():

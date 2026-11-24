@@ -26,7 +26,7 @@ MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "sales": ("orders", "pos", "invoices", "returns", "pricing", "contacts", "accounts", "leads", "opportunities", "activities"),
     "pos": ("pos",),
     "discounts": ("discounts",),
-    "inventory": ("items", "warehouses", "stock", "pricing", "returns", "branch_prices"),
+    "inventory": ("items", "warehouses", "stock", "pricing", "returns"),
     "accounting": ("invoices", "chart_of_accounts", "journal_entries", "accounts_payable", "accounts_receivable", "banking", "fixed_assets",
                    "budgeting", "tax", "expenses", "payroll"),
     "expenses": ("expenses",),
