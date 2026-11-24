@@ -1,7 +1,9 @@
 """Batch, cart-aware POS catalogue previews using the checkout pricing engine."""
 
+import uuid
 from dataclasses import replace
 from datetime import timedelta
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,12 +102,18 @@ async def catalog_prices(db: AsyncSession, user: User, data: CatalogPriceIn, bra
     )
     if ids != set(products):
         raise NotFoundError("A catalogue product was not found in this business")
+    # Branch prices: the till's catalogue shows what this branch charges (the sale is priced the same way on the server).
+    from app.modules.inventory.service.branch_pricing import branch_prices
+    branch_price = await branch_prices(db, tenant_id, branch if isinstance(branch, uuid.UUID) else None, ids)
+
+    def price_of(product: Product) -> Decimal:
+        return engine.D(branch_price.get(product.id, product.price)) if not product.has_variants else engine.D(product.price)
     sample = data.cart or PriceIn(
         items=[
             PriceItem(
                 product_id=ref.product_id,
                 variant_id=ref.variant_id,
-                unit_price=engine.D(products[ref.product_id].price),
+                unit_price=price_of(products[ref.product_id]),
                 quantity=1,
             )
             for ref in data.products
@@ -141,7 +149,7 @@ async def catalog_prices(db: AsyncSession, user: User, data: CatalogPriceIn, bra
         variant = variants.get(ref.variant_id) if ref.variant_id else None
         if ref.variant_id and (not variant or variant.product_id != ref.product_id):
             raise NotFoundError("A catalogue variant was not found in this business")
-        catalog_price = engine.D(variant.price if variant else product.price)
+        catalog_price = engine.D(variant.price) if variant else price_of(product)
         cost = engine.D(variant.cost if variant else product.cost)
         candidate = engine.Line(
             "catalog",

@@ -17,7 +17,7 @@ from app.modules.tenants.models import Branch, FeatureFlag, Permission, Role, Us
 from app.modules.tenants.service.feature import ENABLED, NOT_INCLUDED, resolve_modules
 
 ACTION_LABELS = {"read": "View", "create": "Create", "update": "Update", "delete": "Delete", "approve": "Approve"}
-ACTION_ORDER = ("read", "create", "update", "delete", "approve", "activate", "apply", "promotions", "coupons", "analytics", "settings")
+ACTION_ORDER = ("read", "create", "update", "delete", "approve", "activate", "apply", "promotions", "coupons", "analytics", "settings", "manage")
 WRITE_ACTIONS = ("create", "update", "delete", "approve")
 BUSINESS = "business"  # resources that belong to no ERP module (people, roles, branches, billing ...)
 
@@ -51,6 +51,7 @@ _ACTION_LABELS = {
     ("credit", "update"): "Change credit limit",
     ("discounts", "apply"): "Apply at checkout", ("discounts", "activate"): "Turn rules on/off", ("discounts", "promotions"): "Manage promotions",
     ("discounts", "coupons"): "Manage coupons", ("discounts", "analytics"): "View reports", ("discounts", "settings"): "Discount settings",
+    ("branch_prices", "manage"): "Manage branch prices",
 }
 # Resources that belong to no module's access list but are used inside one: shown there, where people look for them.
 _SHOWN_UNDER = {"credit": "sales"}

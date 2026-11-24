@@ -6,8 +6,16 @@ from app.core.deps import CurrentUser, require_permission
 from app.core.exceptions import ForbiddenError
 
 
+def _branch_prices(path: str) -> bool:
+    """Branch-price screens and switch: guarded by their own rules in routes/branch_pricing.py (branch_prices:manage, own branches,
+    owner-only switch), not by the generic item permissions."""
+    return "/inventory/branch-prices" in path or "/inventory/branch-pricing/" in path or (path.rstrip("/").endswith("/branches") and "/inventory/products/" in path)
+
+
 async def inventory_access(request: Request, user: CurrentUser) -> None:
     path = request.url.path
+    if _branch_prices(path):
+        return
     # A person limited to some branches may START a transfer that involves their branch (the route checks that): it always waits for
     # an approval, so company-wide stock is never moved on their say-so. Everything else about transfers stays with company-wide users.
     starts_transfer = request.method == "POST" and path.rstrip("/").endswith("/inventory/transfers")

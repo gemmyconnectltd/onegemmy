@@ -34,10 +34,22 @@ async def list_products(db: DbSession, current_user: CurrentUser, page_params: P
                         vat: Literal["standard", "zero_rated", "exempt", "out_of_scope", "not_reviewed"] | None = None,
                         for_sale: bool = Query(False, description="Stock as the till sees it: what the selling warehouse of the active branch holds")):
     _require_tenant(current_user.tenant_id)
-    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period, category_id, vat)
+    sale_branch = await _sale_branch(db, current_user, active_branch) if for_sale else None
+    items = await service.list_products(db, current_user.tenant_id, page_params.offset, page_params.limit, search, is_active, period, category_id, vat,
+                                        sale_branch)
     await _scope_stock(db, current_user, items, active_branch if for_sale else None, for_sale)
-    total = await service.count_products(db, current_user.tenant_id, search, is_active, period, category_id, vat)
+    if sale_branch is not None:
+        from app.modules.inventory.service import branch_pricing
+        await branch_pricing.apply_prices(db, current_user.tenant_id, sale_branch, items)
+    total = await service.count_products(db, current_user.tenant_id, search, is_active, period, category_id, vat, sale_branch)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Products retrieved successfully")
+
+
+async def _sale_branch(db, user, active_branch) -> uuid.UUID | None:
+    """The branch the till sells in, when the business uses branch prices (its products and prices depend on it)."""
+    from app.modules.inventory.service import branch_pricing, branch_stock
+    branch = active_branch or (user.branch_id if branch_stock.restricted_branches(user) else None)
+    return branch if branch is not None and await branch_pricing.is_enabled(db, user.tenant_id) else None
 
 
 async def _scope_stock(db, user, items, branch_id, for_sale: bool) -> None:
@@ -79,9 +91,19 @@ async def low_stock_report(db: DbSession, current_user: CurrentUser):
 
 
 @router.get("/inventory/products/barcode/{code}")
-async def get_product_by_barcode(code: str, db: DbSession, current_user: CurrentUser):
+async def get_product_by_barcode(code: str, db: DbSession, current_user: CurrentUser, active_branch: ActiveBranchId):
     _require_tenant(current_user.tenant_id)
     obj = await service.get_product_by_barcode(db, current_user.tenant_id, code)
+    # Branch prices: a scan in a branch that doesn't sell the product finds nothing there; one that does gets that branch's price.
+    branch = await _sale_branch(db, current_user, active_branch)
+    if branch is not None:
+        from app.core.exceptions import NotFoundError
+        from app.modules.inventory.service import branch_pricing
+        product_id = getattr(obj, "product_id", None) or obj.id
+        if await branch_pricing.hidden_products(db, current_user.tenant_id, branch, {product_id}):
+            raise NotFoundError("Not sold in this branch")
+        if getattr(obj, "product_id", None) is None:
+            await branch_pricing.apply_prices(db, current_user.tenant_id, branch, [obj])
     return success_response(data=obj.model_dump(), message="Product retrieved successfully")
 
 

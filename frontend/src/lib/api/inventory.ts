@@ -69,7 +69,37 @@ export interface ApiProduct {
   tax_code?: string | null;
   vat_reason?: string | null;
   vat_reviewed_at?: string | null;
+  /** Branch prices (the till's list only): `price` is then this branch's price and `default_price` the product's own. */
+  default_price?: number | null;
+  branch_price?: boolean;
 }
+
+/** How one branch sells a product (businesses with branch prices switched on by Pesaa). `price` null = the default. */
+export interface ApiBranchSetting {
+  branch_id: string;
+  branch_name: string;
+  is_main: boolean;
+  is_available: boolean;
+  price: number | null;
+  effective_price: number;
+  updated_at: string | null;
+  /** Whether this person may change this branch (branch_prices:manage, and it is one of their branches). */
+  editable: boolean;
+}
+export interface ApiProductBranches {
+  product_id: string; name: string; default_price: number; cost: number; has_variants: boolean; currency: string; branches: ApiBranchSetting[];
+}
+export interface BranchSettingInput { branch_id: string; is_available: boolean; price: number | null; keep_price?: boolean }
+/** Is branch pricing on, may this person switch it (the owner, when Pesaa allows) or change prices, and in which branches. */
+export interface BranchPricingStatus { enabled: boolean; self_service: boolean; can_toggle: boolean; can_manage: boolean; editable_branch_ids: string[] }
+export interface ApiBranchPriceRow {
+  id: string; name: string; sku: string | null; default_price: number; cost: number; has_variants: boolean; branches: ApiBranchSetting[];
+}
+export interface ApiBranchPriceList {
+  items: ApiBranchPriceRow[]; total: number; page: number; page_size: number;
+  summary: { products: number; with_own_price: number; hidden_somewhere: number; currency: string; branches: { id: string; name: string; is_main: boolean; editable: boolean }[] };
+}
+export type BranchPriceShow = "all" | "differences" | "hidden";
 
 export interface ApiCategory { id: string; name: string; description: string | null; }
 
@@ -156,6 +186,19 @@ export const inventoryApi = {
   getProduct: (id: string) => request<SingleResponse<ApiProduct>>(`/tenants/inventory/products/${id}`),
   updateProduct: (id: string, data: object) =>
     request<SingleResponse<ApiProduct>>(`${BASE}/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  productBranches: (id: string) =>
+    request<SingleResponse<ApiProductBranches>>(`${BASE}/products/${id}/branches`),
+  updateProductBranches: (id: string, branches: BranchSettingInput[]) =>
+    request<SingleResponse<ApiProductBranches>>(`${BASE}/products/${id}/branches`, { method: "PUT", body: JSON.stringify({ branches }) }),
+  branchPrices: (page: number, pageSize: number, search: string | undefined, show: BranchPriceShow, categoryId?: string) =>
+    request<SingleResponse<ApiBranchPriceList>>(`${BASE}/branch-prices${qs({ page, page_size: pageSize, search, show, category_id: categoryId })}`),
+  branchPricingStatus: () => request<SingleResponse<BranchPricingStatus>>(`${BASE}/branch-pricing/status`),
+  switchBranchPricing: (enabled: boolean) =>
+    request<SingleResponse<BranchPricingStatus>>(`${BASE}/branch-pricing/status`, { method: "PUT", body: JSON.stringify({ enabled }) }),
+  setBranchVisibility: (data: { product_ids: string[]; branch_id: string; visible: boolean }) =>
+    request<SingleResponse<{ changed: number }>>(`${BASE}/branch-prices/visibility`, { method: "PUT", body: JSON.stringify(data) }),
+  updateBranchPrices: (changes: (BranchSettingInput & { product_id: string })[]) =>
+    request<SingleResponse<{ changed: number }>>(`${BASE}/branch-prices`, { method: "PUT", body: JSON.stringify({ changes }) }),
   deleteProduct: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/products/${id}`, { method: "DELETE" }),
   restockProduct: (id: string, data: { qty: number; mode: string; reason?: string; notes?: string }) =>

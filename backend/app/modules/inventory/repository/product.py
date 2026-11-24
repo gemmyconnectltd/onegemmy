@@ -75,6 +75,7 @@ class ProductRepository(BaseRepository[Product]):
     async def list_for_tenant(
         self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None, is_active: bool | None = None,
         period: DatePeriod | None = None, category_id: uuid.UUID | None = None, vat: str | None = None,
+        available_in: uuid.UUID | None = None,
     ) -> list[Product]:
         stmt = (
             select(Product)
@@ -90,6 +91,9 @@ class ProductRepository(BaseRepository[Product]):
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like), Product.variants.any(or_(ProductVariant.sku.ilike(like), ProductVariant.barcode.ilike(like)))))
         if is_active is not None:
             stmt = stmt.where(Product.is_active == is_active)
+        if available_in is not None:  # branch prices: leave out products hidden in this branch
+            from app.modules.inventory.service.branch_pricing import not_hidden_at
+            stmt = stmt.where(not_hidden_at(tenant_id, available_in))
         if period:
             stmt = period.apply(stmt, Product.created_at)
         stmt = stmt.order_by(Product.name, Product.id).offset(offset).limit(limit)
@@ -97,7 +101,7 @@ class ProductRepository(BaseRepository[Product]):
         return list(result.scalars().all())
 
     async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
-                               vat: str | None = None) -> int:
+                               vat: str | None = None, available_in: uuid.UUID | None = None) -> int:
         stmt = select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id)
         if category_id is not None:
             stmt = stmt.where(Product.category_id == category_id)
@@ -108,6 +112,9 @@ class ProductRepository(BaseRepository[Product]):
             stmt = stmt.where(or_(Product.name.ilike(like), Product.sku.ilike(like), Product.barcode.ilike(like), Product.variants.any(or_(ProductVariant.sku.ilike(like), ProductVariant.barcode.ilike(like)))))
         if is_active is not None:
             stmt = stmt.where(Product.is_active == is_active)
+        if available_in is not None:  # branch prices: leave out products hidden in this branch
+            from app.modules.inventory.service.branch_pricing import not_hidden_at
+            stmt = stmt.where(not_hidden_at(tenant_id, available_in))
         if period:
             stmt = period.apply(stmt, Product.created_at)
         result = await self.db.execute(stmt)

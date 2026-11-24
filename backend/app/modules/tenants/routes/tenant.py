@@ -89,6 +89,10 @@ async def get_current_tenant_entitlements(db: DbSession, current_user: CurrentUs
         for key, c in controls.items():
             if not c["visible"] and key in features:
                 features[key] = False  # Coming soon, or a beta or rollout this business is not part of yet
+        # Not a module: a per-business switch Pesaa turns on (branch prices). It rides along so the ERP shows its screens
+        # only to businesses that have it.
+        from app.modules.inventory.service.branch_pricing import is_enabled as branch_pricing_on
+        features["branch_pricing"] = bool(features.get("inventory")) and await branch_pricing_on(db, current_user.tenant_id)
     return success_response(
         data={"features": features, "modules": modules, "limits": limits, "parts": parts, "controls": controls},
         message="Current company entitlements retrieved successfully",
@@ -140,6 +144,8 @@ async def update_tenant(
     _require_own_tenant(current_user, tenant_id)
     if {"subscription_plan", "subscription_status", "is_active"} & data.model_fields_set:
         raise ForbiddenError("Subscription and activation changes require platform administration")
+    if {"branch_pricing", "branch_pricing_self_service"} & data.model_fields_set:
+        raise ForbiddenError("Switch branch prices on or off in Business Settings → Sales & pricing.")
     # The daily credit limit is the General Manager/CEO's call: only someone holding credit:approve (or the
     # platform superuser) may set or clear it. Everything else in this PATCH keeps its existing rules.
     if "credit_daily_limit" in data.model_fields_set and not (

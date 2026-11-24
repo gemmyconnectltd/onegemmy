@@ -31,6 +31,8 @@ _PERMISSION_RESOURCES = [
     # Customer credit control: credit:approve = approve credit sales over the daily limit and set that limit.
     "credit",
     "reports",
+    # Branch prices: branch_prices:manage = set a product's price or hide it per branch (only in one's own branches when limited to some).
+    "branch_prices",
 ]
 _PERMISSION_ACTIONS = ["create", "read", "update", "delete", "approve"]
 _READ_ONLY_RESOURCES = frozenset({"reports"})
@@ -40,6 +42,8 @@ _EXPLICIT_RESOURCES = frozenset({"reports"})
 def _permission_actions_for(resource: str) -> tuple[str, ...]:
     if resource in _READ_ONLY_RESOURCES:
         return ("read",)
+    if resource == "branch_prices":
+        return ("manage",)
     return (*_PERMISSION_ACTIONS, *(
         ["activate", "apply", "promotions", "coupons", "analytics", "settings"]
         if resource == "discounts" else []
@@ -136,6 +140,7 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
     "Store Manager": ("Runs one store: sales, returns, stock and receiving, and the staff on the till. No finance books or HR.", {
         "orders": (*_CRUD, "approve"), "pos": _CRUD, "invoices": ("read",), "returns": (*_CRUD, "approve"), "pricing": ("read",), "items": ("read",),
         "stock": _CRUD, "warehouses": ("read",), "goods_receipt": _CRUD, "contacts": _CRUD, "requisitions": ("create", "read"),
+        "branch_prices": ("manage",),
     }),
     "Cashier Supervisor": ("Supervises the tills: cashiers' sales, refunds and day-end checks. Approves returns and refunds.", {
         "pos": _CRUD, "orders": _CRUD, "returns": (*_CRUD, "approve"), "invoices": ("read",), "items": ("read",), "stock": ("read",), "contacts": _CRUD,
@@ -158,7 +163,7 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
     }),
     "Inventory Manager": ("Owns inventory control: products, stock policy, counts and adjustments. Approves stock changes; no finance.", {
         "items": (*_CRUD, "approve"), "stock": (*_CRUD, "approve"), "warehouses": _CRUD, "pricing": ("read", "update"), "goods_receipt": ("read",),
-        "purchase_orders": ("read",), "returns": ("read",),
+        "purchase_orders": ("read",), "returns": ("read",), "branch_prices": ("manage",),
     }),
     "Stock Controller": ("Watches stock accuracy, movements and discrepancies and raises adjustments for approval.", {
         "stock": _CRUD, "items": ("read",), "warehouses": ("read",), "goods_receipt": ("read",), "returns": ("read",),

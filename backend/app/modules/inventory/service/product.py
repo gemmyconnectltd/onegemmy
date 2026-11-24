@@ -77,8 +77,9 @@ def _apply_vat_classification(obj: Product, payload: dict, actor: User | None) -
 
 async def list_products(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20,
                         search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
-                        vat: str | None = None) -> list[ProductRead]:
-    items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period, category_id, vat)
+                        vat: str | None = None, available_in: uuid.UUID | None = None) -> list[ProductRead]:
+    items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period, category_id, vat,
+                                                        available_in)
     return [ProductRead.model_validate(i) for i in items]
 
 
@@ -97,8 +98,8 @@ async def get_product_by_barcode(db: AsyncSession, tenant_id: uuid.UUID, barcode
 
 
 async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
-                         vat: str | None = None) -> int:
-    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id, vat)
+                         vat: str | None = None, available_in: uuid.UUID | None = None) -> int:
+    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id, vat, available_in)
 
 
 async def _last_sku_number(db: AsyncSession, tenant_id: uuid.UUID) -> int:

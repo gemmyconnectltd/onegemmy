@@ -77,6 +77,9 @@ class TenantUpdate(TimezoneModel):
     vat_registered_from: date | None = None
     vat_pricing_mode: Literal["inclusive", "exclusive"] | None = None
     multi_branch: bool | None = None
+    # Platform administration only (the business's own PATCH refuses it): branch prices and hiding products per branch.
+    branch_pricing: bool | None = None
+    branch_pricing_self_service: bool | None = None  # platform administration only
     # Needs credit:approve (GM/CEO) — enforced in the route.
     credit_daily_limit: Decimal | None = Field(default=None, ge=0)
     # Approval rules are the owner's call: enforced in the route (tenants:update plus approvals:approve).
@@ -122,6 +125,8 @@ class TenantRead(BaseModel):
     vat_registered_from: date | None = None
     vat_pricing_mode: str = "inclusive"
     multi_branch: bool = False
+    branch_pricing: bool = False
+    branch_pricing_self_service: bool = True
     credit_daily_limit: Decimal | None = None
     debt_limit_per_client: Decimal | None = None
     approval_rules: dict[str, bool] = {}

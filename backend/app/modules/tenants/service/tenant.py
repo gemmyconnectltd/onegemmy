@@ -62,6 +62,8 @@ async def update_tenant(db: AsyncSession, tenant_id: uuid.UUID, data: TenantUpda
         raise ValidationError("Choose an IANA timezone; it cannot be empty")
     if tenant.archived_at is not None and updates.get("is_active") is True:
         raise ValidationError("Archived businesses cannot be activated")
+    if "branch_pricing" in updates and updates["branch_pricing"] is None:
+        raise ValidationError("Branch prices must be switched on or off")
     if any(key in updates and not updates[key] for key in ("name", "slug")):
         raise ValidationError("Business name and slug cannot be empty")
     if {"subscription_plan", "subscription_status"} & updates.keys():

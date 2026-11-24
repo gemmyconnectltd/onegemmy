@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text, false
+from sqlalchemy import Boolean, Date, DateTime, Index, Numeric, String, Text, false, true
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -94,6 +94,12 @@ class Tenant(UUIDPKMixin, TimestampMixin, Base):
     # Whether this tenant operates multiple branches. Controls branch-related
     # UI visibility on the tenant's own dashboard.
     multi_branch: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Pesaa switches this on for a business that sells at different prices per branch or hides products in some
+    # branches (inventory_product_branch_settings). Off for everyone else, who never see those screens.
+    branch_pricing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    # Whether the business's owner may switch branch prices on and off themselves (Business Settings). Pesaa can turn this
+    # off; the platform switch above always works.
+    branch_pricing_self_service: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
 
     # Per-tenant feature overrides, e.g. {"hr": false, "pos": true}.
     # Effective value = catalog default merged with these overrides.

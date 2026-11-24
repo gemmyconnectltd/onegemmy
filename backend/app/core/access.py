@@ -26,7 +26,7 @@ MODULE_RESOURCES: dict[str, tuple[str, ...]] = {
     "sales": ("orders", "pos", "invoices", "returns", "pricing", "contacts", "accounts", "leads", "opportunities", "activities"),
     "pos": ("pos",),
     "discounts": ("discounts",),
-    "inventory": ("items", "warehouses", "stock", "pricing", "returns"),
+    "inventory": ("items", "warehouses", "stock", "pricing", "returns", "branch_prices"),
     "accounting": ("invoices", "chart_of_accounts", "journal_entries", "accounts_payable", "accounts_receivable", "banking", "fixed_assets",
                    "budgeting", "tax", "expenses", "payroll"),
     "expenses": ("expenses",),
@@ -83,6 +83,11 @@ EXACT: list[tuple[str, re.Pattern[str], tuple[str, ...]]] = [
     ("POST", re.compile(r"^/procurement/purchase-returns"), ("purchase_orders:update",)),
     ("DELETE", re.compile(r"^/procurement/purchase-returns"), ("purchase_orders:delete",)),
     ("POST", re.compile(r"^/sales/orders/[^/]+/void-request$"), ("orders:update",)),  # asking is open to anyone who can edit sales; deciding is not
+    # Branch prices: managing them is its own permission (the route also limits branch staff to their branches; switching the
+    # feature on or off is the owner's alone).
+    ("PUT", re.compile(r"^/inventory/branch-prices(/visibility)?$"), ("branch_prices:manage",)),
+    ("PUT", re.compile(r"^/inventory/products/[^/]+/branches$"), ("branch_prices:manage",)),
+    ("PUT", re.compile(r"^/inventory/branch-pricing/status$"), ("tenants:update",)),
     ("POST", re.compile(r"^/sales/customers(/bulk)?$"), ("contacts:create",)),
     ("POST", re.compile(r"^/sales/customers/[^/]+/status$"), ("contacts:update",)),
     ("PATCH", re.compile(r"^/sales/customers/[^/]+$"), ("contacts:update",)),

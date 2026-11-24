@@ -102,6 +102,8 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "stockByWarehouse", label: "Stock by warehouse", href: "/inventory/stock-by-warehouse", icon: Layers },
     { nameKey: "stockMovements", label: "Stock movements", href: "/inventory/movements", icon: ArrowLeftRight },
     { nameKey: "stockCounts", label: "Stock counts", href: "/inventory/counts", icon: ClipboardCheck },
+    // Only for businesses Pesaa switched branch prices on for (entitlements feature "branch_pricing").
+    { nameKey: "branchPrices", label: "Branch prices", href: "/inventory/branch-prices", icon: Tag, feature: "branch_pricing", requires: "branch_prices:manage" },
   ],
   reports: [
     { nameKey: "overview",   label: "Overview",               href: "/reports",            icon: LayoutDashboard, exact: true, activeFor: ["/reports/branches"], requires: "reports:read" },
@@ -184,7 +186,7 @@ export const PRIMARY_NAV_GROUPS: PrimaryNavGroup[] = [
     { name: "Branch Management", href: "/branches", icon: Building2, permission: "branches:read", tour: "branches" },
     { name: "Subscription & Billing", href: "/settings/billing", icon: CreditCard, permission: "billing:read", tour: "billing", hidden: true },
     { name: "Business Settings", href: "/settings", icon: Settings, permission: "tenants:update", exact: true, tour: "settings",
-      activeFor: ["/settings/financial", "/settings/security", "/settings/notifications", "/settings/appearance"] },
+      activeFor: ["/settings/financial", "/settings/sales-pricing", "/settings/security", "/settings/notifications", "/settings/appearance"] },
     { name: "Help & Support", href: "/support", icon: LifeBuoy },
   ] },
 ];

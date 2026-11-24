@@ -1,4 +1,5 @@
 from app.modules.inventory.models.batch import InventoryBatch
+from app.modules.inventory.models.branch_setting import ProductBranchSetting
 from app.modules.inventory.models.brand import Brand
 from app.modules.inventory.models.category import Category
 from app.modules.inventory.models.product import Product
@@ -20,6 +21,7 @@ __all__ = [
     "Category",
     "InventoryBatch",
     "Product",
+    "ProductBranchSetting",
     "ProductImage",
     "ProductSerial",
     "ProductVariant",

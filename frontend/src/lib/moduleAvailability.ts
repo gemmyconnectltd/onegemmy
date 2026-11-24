@@ -11,7 +11,7 @@ export function navItemForPath(path: string) {
 
 /** The module (feature key and display name) whose availability controls a page, or null for pages every business has. */
 export function featureForPath(path: string): { key: string; name: string } | null {
-  const child = MODULE_NAV.services.find((link) => path === link.href || path.startsWith(link.href + "/"));
+  const child = [...MODULE_NAV.services, ...MODULE_NAV.inventory].find((link) => link.feature && (path === link.href || path.startsWith(link.href + "/")));
   if (child?.feature) return { key: child.feature, name: child.label || child.nameKey };
   const item = navItemForPath(path);
   if (!item?.feature) return null;

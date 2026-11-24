@@ -93,7 +93,7 @@ class ProductHistoryRepository:
             return or_(model.product_id == product_id, model.variant_id.in_(variants))
 
         audit_category = case(
-            (AuditLog.action == "product.price", "prices"),
+            (AuditLog.action.in_(["product.price", "product.branch_price"]), "prices"),
             (AuditLog.action.in_(["product.adjusted", "product.restocked"]), "movements"),
             else_="updates",
         )

@@ -228,6 +228,9 @@ class ProductRead(BaseModel):
     variants: list[VariantRead] = []
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Set only on the till's list for a business with branch prices: price is then this branch's price.
+    default_price: float | None = None
+    branch_price: bool = False
 
 
 class VatClassification(BaseModel):

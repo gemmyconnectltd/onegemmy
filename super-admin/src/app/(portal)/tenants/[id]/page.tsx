@@ -195,6 +195,26 @@ function TenantDetailPageInner() {
     });
   };
 
+  const toggleBranchPricing = () => {
+    if (!tenant) return;
+    const next = !tenant.branch_pricing;
+    setNotice(null);
+    updateTenant.mutate({ id, data: { branch_pricing: next } }, {
+      onSuccess: () => setNotice({ kind: "success", text: `Branch prices ${next ? "switched on" : "switched off"} for ${tenant.name}. ${next ? "Inventory now shows a Branch prices tab." : "Every branch sells at the default price again; saved branch prices are kept."}` }),
+      onError: () => setNotice({ kind: "error", text: "Branch prices could not be changed. Try again." }),
+    });
+  };
+
+  const toggleBranchPricingSelfService = () => {
+    if (!tenant) return;
+    const next = !(tenant.branch_pricing_self_service ?? true);
+    setNotice(null);
+    updateTenant.mutate({ id, data: { branch_pricing_self_service: next } }, {
+      onSuccess: () => setNotice({ kind: "success", text: next ? `${tenant.name}'s owner can now switch branch prices on and off in Business Settings.` : `Only Pesaa can switch branch prices for ${tenant.name} now; the owner's switch is hidden.` }),
+      onError: () => setNotice({ kind: "error", text: "Could not change who manages branch prices. Try again." }),
+    });
+  };
+
   const openInvite = () => {
     setNotice(null);
     setShowInvite(true);
@@ -301,6 +321,14 @@ function TenantDetailPageInner() {
       <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
         <Toggle checked={tenant.multi_branch ?? false} onChange={toggleMultiBranch} disabled={updateTenant.isPending} size="sm" label={tenant.multi_branch ? `Disable multi-branch for ${tenant.name}` : `Enable multi-branch for ${tenant.name}`} />
         <span className="text-sm font-medium text-foreground">Multi-branch {tenant.multi_branch ? "on" : "off"}</span>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2" title="Different selling prices per branch, and hiding products in branches that don't sell them">
+        <Toggle checked={tenant.branch_pricing ?? false} onChange={toggleBranchPricing} disabled={updateTenant.isPending} size="sm" label={tenant.branch_pricing ? `Switch off branch prices for ${tenant.name}` : `Switch on branch prices for ${tenant.name}`} />
+        <span className="text-sm font-medium text-foreground">Branch prices {tenant.branch_pricing ? "on" : "off"}</span>
+      </div>
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2" title="Whether the business owner may switch branch prices on and off themselves in Business Settings">
+        <Toggle checked={tenant.branch_pricing_self_service ?? true} onChange={toggleBranchPricingSelfService} disabled={updateTenant.isPending} size="sm" label={(tenant.branch_pricing_self_service ?? true) ? `Stop ${tenant.name} managing branch prices` : `Allow ${tenant.name} to manage branch prices`} />
+        <span className="text-sm font-medium text-foreground">Allow business to manage branch prices</span>
       </div>
       <div className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
         <Toggle checked={tenant.is_active} onChange={toggleStatus} loading={acting} size="sm" label={tenant.is_active ? `Suspend ${tenant.name}` : `${tenant.subscription_status === "pending" ? "Approve" : "Activate"} ${tenant.name}`} />

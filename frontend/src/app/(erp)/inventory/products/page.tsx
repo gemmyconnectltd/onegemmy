@@ -31,8 +31,9 @@ import { type ApiProduct } from "@/lib/api";
 import type { ImportOutcome, ImportRowMeta } from "@/components/ui/CsvImportDrawer";
 import { importsApi } from "@/lib/api/imports";
 import { ImportPicturesDrawer } from "@/components/inventory/ImportPicturesDrawer";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate } from "@/lib/api/hooks";
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate, useBranchPricingStatus, useMyEntitlements } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { BranchVisibilityDrawer } from "@/components/inventory/BranchVisibilityDrawer";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Pagination } from "@/components/ui/Pagination";
@@ -120,6 +121,9 @@ function ProductsContent() {
   }, [search,statusFilter,page,pageSize,range.from,range.to,vatFilter]);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
   const [stockMode, setStockMode] = useState<"restock" | "adjust">("restock");
+  // Branch prices: bulk hide/show in a branch, offered while the business has them on and this person may change a branch.
+  const branchStatus = useBranchPricingStatus({ enabled: useMyEntitlements().data?.features?.branch_pricing === true });
+  const [branchVisibility, setBranchVisibility] = useState<boolean | null>(null);
   const [showForm, setShowForm] = useState(() => params.get("create") === "1");  // ?create=1 (Overview "Add product") opens the form
   const [formMode, setFormMode] = useState<"single" | "bulk">("single");
   const [editing, setEditing] = useState<ApiProduct | null>(null);
@@ -283,6 +287,7 @@ function ProductsContent() {
   return (
     <div className="space-y-6">
       {confirmDialog}
+      {branchVisibility !== null && <BranchVisibilityDrawer productIds={Array.from(bulk.selected)} visible={branchVisibility} onClose={() => setBranchVisibility(null)} onDone={() => { setBranchVisibility(null); bulk.clear(); }} />}
       {classifyOpen && <VatClassifyDrawer productIds={Array.from(bulk.selected)} onClose={() => setClassifyOpen(false)} onDone={() => { setClassifyOpen(false); bulk.clear(); }} />}
       {statusError && <p role="alert" className="rounded-xl border border-border bg-card p-4 text-sm text-red-600">{statusError}</p>}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
@@ -374,6 +379,10 @@ function ProductsContent() {
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-0 flex-1"><BulkActionBar count={bulk.count} label="product" onDelete={confirmBulkDelete} onClear={bulk.clear} deleting={bulkDeleting} /></div>
               {canClassifyVat && <Button variant="outline" size="sm" onClick={() => setClassifyOpen(true)}>Set VAT treatment</Button>}
+              {branchStatus.data?.enabled && (branchStatus.data.editable_branch_ids.length ?? 0) > 0 && <>
+                <Button variant="outline" size="sm" onClick={() => setBranchVisibility(false)}>Hide in branch…</Button>
+                <Button variant="outline" size="sm" onClick={() => setBranchVisibility(true)}>Show in branch…</Button>
+              </>}
             </div>
           </div>
         )}

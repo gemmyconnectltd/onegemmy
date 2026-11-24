@@ -67,6 +67,8 @@ export interface Tenant {
   vat_registered_from?: string | null;
   vat_pricing_mode?: "inclusive" | "exclusive";
   multi_branch: boolean;
+  /** Pesaa-only switch (branch prices and hiding products per branch). */
+  branch_pricing?: boolean;
   /** Most NEW credit one customer can be granted per day, in the base currency. null = no limit. */
   credit_daily_limit?: number | string | null;
   /** The most one client may owe before a new debt needs approval (base currency). null = no limit. */

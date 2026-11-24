@@ -88,8 +88,13 @@ test('second sidebar has a title for every module and groups long lists', () => 
     '/inventory/stock-by-warehouse',
     '/inventory/movements',
     '/inventory/counts',
+    '/inventory/branch-prices',
   ]);
   assert.ok(nav.MODULE_NAV.inventory[0].exact);
+  // Branch prices is a per-business switch: shown only when the business has it.
+  const inventoryTabs = features => plain(nav.visibleModuleLinks('inventory', () => true, features).map(link => link.href));
+  assert.ok(!inventoryTabs({ inventory: true }).includes('/inventory/branch-prices'));
+  assert.ok(inventoryTabs({ inventory: true, branch_pricing: true }).includes('/inventory/branch-prices'));
   assert.deepEqual(plain(nav.MODULE_NAV.inventory.filter(link => link.group).map(link => link.group)), []);
 });
 test('both sidebar surfaces use the same expense, debt and accounting module links', () => {

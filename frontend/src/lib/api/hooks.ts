@@ -31,7 +31,7 @@ import {
   usersApi,
   serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi, queueApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
-  type ApiProduct, type ApiVariant, type ApiVariantListItem,
+  type ApiProduct, type ApiVariant, type ApiVariantListItem, type BranchSettingInput, type BranchPriceShow,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
   type ApiCustomer, type ApiDeal, type ApiOrder, type ApiOrderPayment, type ApiReturn, type ApiTarget,
@@ -151,6 +151,18 @@ export const useBulkCreateProducts = mutation((items: object[]) => inventoryApi.
 export const useUpdateProduct = mutation(({ id, data }: { id: string; data: object }) => inventoryApi.updateProduct(id, data), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
 export const useDeleteProduct = mutation((id: string) => inventoryApi.deleteProduct(id), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"]]);
 export const useRestockProduct = mutation(({ id, data }: { id: string; data: { qty: number; mode: string; reason?: string; notes?: string } }) => inventoryApi.restockProduct(id, data), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
+// Branch prices (only businesses Pesaa switched it on for; everyone else gets 403 and never sees the screens).
+const BRANCH_PRICES = ["inventory", "branch-prices"] as const;
+export const useProductBranches = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...PRODUCTS, id, "branches"], () => inventoryApi.productBranches(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useUpdateProductBranches = mutation(({ id, branches }: { id: string; branches: BranchSettingInput[] }) => inventoryApi.updateProductBranches(id, branches), [[...PRODUCTS], [...BRANCH_PRICES]]);
+export const useBranchPrices = (page: number, pageSize: number, search: string | undefined, show: BranchPriceShow, categoryId?: string, opts?: QueryOpts) =>
+  useQ([...BRANCH_PRICES, page, pageSize, search ?? "", show, categoryId ?? ""], () => inventoryApi.branchPrices(page, pageSize, search, show, categoryId), (r) => r.data, opts);
+export const useBranchPricingStatus = (opts?: QueryOpts) => useQ([...BRANCH_PRICES, "status"], () => inventoryApi.branchPricingStatus(), (r) => r.data, opts);
+// Switching it changes the menu (entitlements), the till's prices and every branch-price screen.
+export const useSwitchBranchPricing = mutation((enabled: boolean) => inventoryApi.switchBranchPricing(enabled), [[...BRANCH_PRICES], [...PRODUCTS], ["tenants", "me"]]);
+export const useSetBranchVisibility = mutation(inventoryApi.setBranchVisibility, [[...PRODUCTS], [...BRANCH_PRICES]]);
+export const useUpdateBranchPrices = mutation((changes: (BranchSettingInput & { product_id: string })[]) => inventoryApi.updateBranchPrices(changes), [[...PRODUCTS], [...BRANCH_PRICES]]);
 export const useProductGallery = (id: string | undefined, opts?: QueryOpts) =>
   useQ([...PRODUCTS, id, "gallery"], () => inventoryApi.productGallery(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
 export const useImportProductPictures = mutation((file: File) => inventoryApi.importProductPictures(file), [[...PRODUCTS]]);

@@ -26,6 +26,10 @@ export interface AdminTenant {
   currency: string;
   vat_enabled: boolean;
   multi_branch: boolean;
+  /** Pesaa-only switch: different prices per branch and hiding products in some branches. */
+  branch_pricing?: boolean;
+  /** Whether the business's owner may switch branch prices on and off themselves (default true). */
+  branch_pricing_self_service?: boolean;
   logo_url: string | null;
   website: string | null;
   phone: string | null;

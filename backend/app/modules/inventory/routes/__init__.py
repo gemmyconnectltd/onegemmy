@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.modules.inventory.routes.access import inventory_access
 from app.modules.inventory.routes.batch import router as batch_router
+from app.modules.inventory.routes.branch_pricing import router as branch_pricing_router
 from app.modules.inventory.routes.brand import router as brand_router
 from app.modules.inventory.routes.category import router as category_router
 from app.modules.inventory.routes.product import router as product_router
@@ -20,6 +21,7 @@ inventory_router.include_router(category_router)
 inventory_router.include_router(brand_router)
 inventory_router.include_router(unit_router)
 inventory_router.include_router(supplier_router)
+inventory_router.include_router(branch_pricing_router)  # before products: /products/{id}/branches
 inventory_router.include_router(product_router)
 inventory_router.include_router(variant_router)
 inventory_router.include_router(serial_router)

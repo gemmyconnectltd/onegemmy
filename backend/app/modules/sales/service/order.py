@@ -467,7 +467,8 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
         if target is not None:
             set_reason("customer_return", reference_type="order", reference_id=obj.id, note="Sale corrected", warehouse_id=sale_warehouse)
             target.stock = float(target.stock) + float(old.quantity)
-    # New lines in: validate, take stock out, snapshot cost.
+    # New lines in: validate, take stock out, snapshot cost. A product hidden in the sale's branch can't be added.
+    await _refuse_hidden_products(db, tenant_id, obj.branch_id, data.items)
     await ProductRepository(db).lock_stock(tenant_id, {i.product_id for i in data.items if i.product_id}, {i.variant_id for i in data.items if i.variant_id})
     new_rows: list[OrderItem] = []
     cogs_total = 0.0
@@ -738,6 +739,44 @@ async def change_salesperson(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UU
     return _to_order_read(await OrderRepository(db).get_by_id_for_tenant(tenant_id, id))
 
 
+async def _refuse_hidden_products(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, items) -> None:
+    """Branch prices: a product hidden in this branch can't be sold there, on any sale path. No query unless the business uses them."""
+    from app.modules.inventory.service.branch_pricing import is_enabled, refuse_hidden
+    if branch_id is None or not await is_enabled(db, tenant_id):
+        return
+    product_ids = {i.product_id for i in items if i.product_id}
+    variant_ids = {i.variant_id for i in items if i.variant_id}
+    if variant_ids:
+        product_ids |= set((await db.execute(select(ProductVariant.product_id).where(ProductVariant.id.in_(variant_ids)))).scalars().all())
+    await refuse_hidden(db, tenant_id, branch_id, product_ids)
+
+
+async def _server_prices(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, data: OrderCreate,
+                         currency_code: str, base_ccy: str, fx_rate) -> OrderCreate:
+    """Branch prices: the price of each product line is the server's, never the one sent: this branch's price when it has one,
+    otherwise the product's default. Variants keep their own prices. Nothing changes for a business without branch prices."""
+    from app.modules.inventory.service.branch_pricing import branch_prices, is_enabled
+    if branch_id is None or not await is_enabled(db, tenant_id):
+        return data
+    ids = {i.product_id for i in data.items if i.product_id and not i.variant_id}
+    if not ids:
+        return data
+    defaults = {p.id: Decimal(str(p.price)) for p in (await db.execute(select(Product).where(Product.tenant_id == tenant_id, Product.id.in_(ids)))).scalars()}
+    own = await branch_prices(db, tenant_id, branch_id, ids)
+    rate = Decimal(str(fx_rate or 1)) if currency_code != base_ccy else Decimal(1)
+    items = []
+    for item in data.items:
+        base = own.get(item.product_id, defaults.get(item.product_id)) if item.product_id and not item.variant_id else None
+        if base is None:
+            items.append(item)
+            continue
+        price = float((base / rate).quantize(Decimal("0.01")))
+        if price * item.quantity < item.discount:
+            raise ValidationError(f"The discount on '{item.product_name}' is more than its price in this branch")
+        items.append(item.model_copy(update={"unit_price": price, "line_total": round(price * item.quantity - item.discount, 2)}))
+    return data.model_copy(update={"items": items})
+
+
 async def create_order(
     db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, data: OrderCreate,
     active_branch_id: uuid.UUID | None = None,
@@ -781,6 +820,11 @@ async def create_order(
     currency_code, fx_rate, base_ccy = await resolve_document_currency(
         db, tenant_id, data.currency_code, data.exchange_rate, at=effective_at,
     )
+    # Branch prices: refuse products hidden in this branch, and price each line on the server (a converted quotation keeps its quoted price).
+    sale_branch = await _resolve_order_branch_id(db, tenant_id, active_branch_id, data.branch_id)
+    await _refuse_hidden_products(db, tenant_id, sale_branch, data.items)
+    if not preserve_quotation_prices:
+        data = await _server_prices(db, tenant_id, sale_branch, data, currency_code, base_ccy, fx_rate)
 
     from app.modules.discounts import settings as discount_settings
     from app.modules.discounts.schemas import PriceIn, PriceItem
@@ -1090,6 +1134,7 @@ async def _finalize_completed_sale(
     """Everything that makes an open order a real sale — stock out, COGS, targets, the sale ledger entry, VAT
     and the checkout payment row. Shared by "status flipped to Completed" (update_order) and by approving a
     held credit sale, so there is exactly one place that posts a sale."""
+    await _refuse_hidden_products(db, tenant_id, obj.branch_id, obj.items)  # completing a held or open sale
     await ProductRepository(db).lock_stock(tenant_id,
         {item.product_id for item in obj.items if item.product_id},
         {item.variant_id for item in obj.items if item.variant_id})
