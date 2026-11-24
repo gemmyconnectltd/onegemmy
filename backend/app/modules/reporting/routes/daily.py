@@ -9,6 +9,7 @@ from app.core.access import require_module_write
 from app.core.deps import CurrentUser, DbSession, require_feature
 from app.core.filenames import content_disposition, document_filename, period_label
 from app.core.response import success_response
+from app.modules.reporting.routes.performance import report_branch
 from app.modules.reporting.service.daily import daily_export_report, daily_report, export_report
 from app.modules.reporting.service.day import day_report
 
@@ -24,24 +25,24 @@ router = APIRouter(tags=["Daily branch reports"], dependencies=[
 async def daily(db: DbSession, current_user: CurrentUser, from_date: date | None = None,
                 to_date: date | None = None, branch_id: uuid.UUID | None = None,
                 page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100), by: Literal["day", "branch"] = "day",
-                active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     """Per branch and day, or by=branch for one line per branch over the whole period."""
-    return success_response(data=await daily_report(db, current_user, from_date, to_date, branch_id or active, page, page_size, by == "branch"))
+    return success_response(data=await daily_report(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches), page, page_size, by == "branch"))
 
 
 @router.get("/reports/daily-branches/day")
 async def day(db: DbSession, current_user: CurrentUser, day: date | None = None, branch_id: uuid.UUID | None = None,
-              active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+              active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     """One day for one branch (or all the person's branches): sales per item, debt, deposits, stock movement and expenses."""
-    return success_response(data=await day_report(db, current_user, day, branch_id or active), message="Day report retrieved")
+    return success_response(data=await day_report(db, current_user, day, report_branch(branch_id, active, all_branches)), message="Day report retrieved")
 
 
 @router.get("/reports/daily-branches/export")
 async def export(db: DbSession, current_user: CurrentUser, from_date: date | None = None,
                  to_date: date | None = None, branch_id: uuid.UUID | None = None,
                  format: str = Query("csv", pattern="^(csv|pdf|xlsx)$"),
-                 active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
-    report = await daily_export_report(db, current_user, from_date, to_date, branch_id or active)
+                 active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
+    report = await daily_export_report(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches))
     from app.modules.tenants.repository import TenantRepository
     tenant = await TenantRepository(db).get(current_user.tenant_id)
     media = {"csv": "text/csv", "pdf": "application/pdf", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}[format]

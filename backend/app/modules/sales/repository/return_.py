@@ -26,8 +26,17 @@ class ReturnRepository(BaseRepository[Return]):
         )
         return result.scalar_one_or_none()
 
-    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, period=None) -> list[Return]:
-        stmt = select(Return).options(*_with_relations()).where(Return.tenant_id == tenant_id)
+    @staticmethod
+    def _in_branches(stmt, branches):
+        """Returns of sales made in these branches (None = every return)."""
+        if branches is None:
+            return stmt
+        from app.modules.sales.models.order import Order
+        return stmt.where(Return.order_id.in_(select(Order.id).where(Order.branch_id.in_(branches))))
+
+    async def list_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, period=None,
+                              branches: list[uuid.UUID] | None = None) -> list[Return]:
+        stmt = self._in_branches(select(Return).options(*_with_relations()).where(Return.tenant_id == tenant_id), branches)
         if status:
             stmt = stmt.where(Return.status == status)
         if period is not None:
@@ -36,8 +45,8 @@ class ReturnRepository(BaseRepository[Return]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, period=None) -> int:
-        stmt = select(func.count()).select_from(Return).where(Return.tenant_id == tenant_id)
+    async def count_for_tenant(self, tenant_id: uuid.UUID, status: str | None = None, period=None, branches: list[uuid.UUID] | None = None) -> int:
+        stmt = self._in_branches(select(func.count()).select_from(Return).where(Return.tenant_id == tenant_id), branches)
         if status:
             stmt = stmt.where(Return.status == status)
         if period is not None:

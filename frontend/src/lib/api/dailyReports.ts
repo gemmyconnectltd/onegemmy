@@ -15,6 +15,6 @@ export interface DailyReport {
 export interface DailyFilters { from_date?: string; to_date?: string; branch_id?: string; by?: "day" | "branch" }
 
 export const dailyReportsApi = {
-  get: (filters: DailyFilters, page: number) => request<SingleResponse<DailyReport>>(`/tenants/reports/daily-branches${qs({ ...filters, page, page_size: 25 })}`),
-  export: (filters: DailyFilters, format: "csv" | "pdf" | "xlsx") => downloadFile(`/tenants/reports/daily-branches/export${qs({ ...filters, format })}`, `daily-report.${format}`),
+  get: (filters: DailyFilters, page: number) => request<SingleResponse<DailyReport>>(`/tenants/reports/daily-branches${qs({ ...filters, all_branches: filters.branch_id ? undefined : "true", page, page_size: 25 })}`),
+  export: (filters: DailyFilters, format: "csv" | "pdf" | "xlsx") => downloadFile(`/tenants/reports/daily-branches/export${qs({ ...filters, all_branches: filters.branch_id ? undefined : "true", format })}`, `daily-report.${format}`),
 };

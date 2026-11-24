@@ -16,13 +16,14 @@ import { Skeleton } from "@/components/ui/LoadState";
 
 const PAYMENT = [["", "Any payment status"], ["Paid", "Paid"], ["PartiallyPaid", "Partly paid"], ["Unpaid", "Unpaid"]] as const;
 
-export function SalespeopleReport() {
+/** `source="sales"`: the Sales tab's copy, read from the Sales API so it works without Business Reports access (no report export). */
+export function SalespeopleReport({ source = "reports" }: { source?: "reports" | "sales" }) {
   const { filters, range, update } = useReportFilters();
   const { currencySymbol } = useAppConfig();
   const [seller, setSeller] = useState("");
   const [payment, setPayment] = useState("");
   const team = useSalesTeam();
-  const q = useSalespeopleReport({ from: range.from, to: range.to, branch: filters.branch }, { salesperson_id: seller || undefined, payment_status: payment || undefined });
+  const q = useSalespeopleReport({ from: range.from, to: range.to, branch: filters.branch }, { salesperson_id: seller || undefined, payment_status: payment || undefined }, source);
   const money = (n: number | null | undefined) => fmtMoney(n ?? 0, currencySymbol);
   const d = q.data, t = d?.totals;
   const th = "px-3 py-2.5 font-medium";
@@ -33,7 +34,7 @@ export function SalespeopleReport() {
           <h1 className="pesaa-page-title text-foreground">Team performance</h1>
           <p className="mt-0.5 text-sm text-muted">Who sold what, what was collected and what is still owed. Choose a person to see the sales behind their figures.</p>
         </div>
-        <ReportExport tab="team" scope={{ from: range.from, to: range.to, branch: filters.branch }} />
+        {source === "reports" && <ReportExport tab="team" scope={{ from: range.from, to: range.to, branch: filters.branch }} />}
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       <div className="flex flex-wrap gap-2">

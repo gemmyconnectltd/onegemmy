@@ -714,8 +714,8 @@ export const useTransfers = (page = 1, pageSize = 100, status?: string, opts?: Q
 export const usePerformance = (q: PerformanceQuery, opts?: QueryOpts) =>
   useQ(["reports", "performance", q.from ?? "", q.to ?? "", q.branch ?? "", q.compare, q.compareFrom ?? "", q.compareTo ?? ""], () => reportsApi.performance(q), (r) => r.data, opts);
 
-export const useSalespeopleReport = (q: { from?: string; to?: string; branch?: string }, f: SalespersonFilters = {}) =>
-  useQ(["reports", "salespeople", q.from ?? "", q.to ?? "", q.branch ?? "", f], () => reportsApi.salespeople(q, f), (r) => r.data);
+export const useSalespeopleReport = (q: { from?: string; to?: string; branch?: string }, f: SalespersonFilters = {}, source: "reports" | "sales" = "reports") =>
+  useQ(["reports", "salespeople", source, q.from ?? "", q.to ?? "", q.branch ?? "", f], () => source === "sales" ? reportsApi.salesTeamPerformance(q, f) : reportsApi.salespeople(q, f), (r) => r.data);
 
 export const useSalesBreakdown = (q: { from?: string; to?: string; branch?: string }, dimension: SalesDimension) =>
   useQ(["reports", "sales", dimension, q.from ?? "", q.to ?? "", q.branch ?? ""], () => reportsApi.salesBreakdown(q, dimension), (r) => r.data);

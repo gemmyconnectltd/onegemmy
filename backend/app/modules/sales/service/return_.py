@@ -55,13 +55,14 @@ async def _restock_return_item(db: AsyncSession, item: ReturnItem) -> None:
     await _restock(db, product_id, variant_id, item.quantity)
 
 
-async def list_returns(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, period=None) -> list[ReturnRead]:
-    items = await ReturnRepository(db).list_for_tenant(tenant_id, status, offset, limit, period)
+async def list_returns(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, period=None,
+                       branches: list[uuid.UUID] | None = None) -> list[ReturnRead]:
+    items = await ReturnRepository(db).list_for_tenant(tenant_id, status, offset, limit, period, branches)
     return [ReturnRead.model_validate(i) for i in items]
 
 
-async def count_returns(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, period=None) -> int:
-    return await ReturnRepository(db).count_for_tenant(tenant_id, status, period)
+async def count_returns(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, period=None, branches: list[uuid.UUID] | None = None) -> int:
+    return await ReturnRepository(db).count_for_tenant(tenant_id, status, period, branches)
 
 
 async def get_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> ReturnRead:

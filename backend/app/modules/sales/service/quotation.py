@@ -147,7 +147,7 @@ async def get_quotation(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -
 
 
 async def list_quotations(db: AsyncSession, tenant_id: uuid.UUID, *, status: str | None, search: str | None, salesperson_id: uuid.UUID | None,
-                          customer_id: uuid.UUID | None, offset: int, limit: int) -> tuple[list[QuotationRead], int]:
+                          customer_id: uuid.UUID | None, offset: int, limit: int, branches: list[uuid.UUID] | None = None) -> tuple[list[QuotationRead], int]:
     # Offers past their expiry date are shown as Expired, so bring them up to date first.
     await db.execute(Quotation.__table__.update().where(Quotation.tenant_id == tenant_id, Quotation.status == "Sent", Quotation.expiry_date < _today()).values(status="Expired"))
     stmt = select(Quotation).where(Quotation.tenant_id == tenant_id)
@@ -157,6 +157,8 @@ async def list_quotations(db: AsyncSession, tenant_id: uuid.UUID, *, status: str
         stmt = stmt.where(Quotation.salesperson_id == salesperson_id)
     if customer_id:
         stmt = stmt.where(Quotation.customer_id == customer_id)
+    if branches is not None:  # the workspace branch, or the person's own branches
+        stmt = stmt.where(Quotation.branch_id.in_(branches))
     if search:
         stmt = stmt.where(Quotation.quote_number.ilike(f"%{search}%"))
     total = (await db.execute(select(func.count()).select_from(stmt.subquery()))).scalar_one()

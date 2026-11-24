@@ -28,13 +28,18 @@ async def _own_only(db, user, q) -> None:
     own = await service.own_sales_scope(db, user)
     if own is not None and own not in (q.salesperson_id, q.created_by):
         raise ForbiddenError("You can only open your own quotations")
+    from app.core.branches import visible_branches
+    mine = visible_branches(user, None)  # staff limited to some branches open only quotations made there
+    if mine is not None and q.branch_id not in mine:
+        raise ForbiddenError("This quotation belongs to another branch")
 
 
 @router.get("/sales/quotations")
-async def list_quotations(db: DbSession, user: CurrentUser, page: PageQuery, status: str | None = Query(None), search: str | None = Query(None),
-                          salesperson_id: uuid.UUID | None = Query(None), customer_id: uuid.UUID | None = Query(None)):
+async def list_quotations(db: DbSession, user: CurrentUser, page: PageQuery, active: ActiveBranchId, status: str | None = Query(None),
+                          search: str | None = Query(None), salesperson_id: uuid.UUID | None = Query(None), customer_id: uuid.UUID | None = Query(None)):
+    from app.core.branches import visible_branches
     items, total = await quotes.list_quotations(db, user.tenant_id, status=status, search=search, salesperson_id=await _scope(db, user, salesperson_id),
-                                                customer_id=customer_id, offset=page.offset, limit=page.limit)
+                                                customer_id=customer_id, offset=page.offset, limit=page.limit, branches=visible_branches(user, active))
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page.page, page_size=page.page_size, message="Quotations retrieved")
 
 

@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 from urllib.parse import quote
@@ -79,6 +80,20 @@ async def sales_team(db: DbSession, current_user: CurrentUser):
     if own is not None:
         stmt = stmt.where(User.id == own)
     return success_response(data=[{"id": r.id, "name": r.full_name} for r in (await db.execute(stmt)).all()], message="Sales team retrieved")
+
+
+@router.get("/sales/team-performance")
+async def sales_team_performance(db: DbSession, current_user: CurrentUser, active: ActiveBranchId, from_date: date | None = None,
+                                 to_date: date | None = None, branch_id: uuid.UUID | None = None, salesperson_id: uuid.UUID | None = None,
+                                 payment_status: str | None = None, all_branches: bool = False):
+    """Sales → Team performance: the same figures as Business Reports → Team performance, for people who work in Sales without
+    access to Business Reports. Needs orders:read; branch staff see their own branches, and without team access you see yourself."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.reporting.routes.performance import report_branch
+    from app.modules.reporting.service.salespeople import salespeople_report
+    data = await salespeople_report(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches),
+                                    salesperson_id=salesperson_id, payment_status=payment_status)
+    return success_response(data=data, message="Team performance retrieved")
 
 
 @router.get("/sales/orders")

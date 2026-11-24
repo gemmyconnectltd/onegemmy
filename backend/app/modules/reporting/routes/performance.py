@@ -10,6 +10,14 @@ from app.core.deps import CurrentUser, DbSession, require_feature
 from app.core.response import success_response
 from app.modules.reporting.service.performance import performance
 
+
+def report_branch(branch_id, active, all_branches: bool):
+    """The branch a report covers. "All branches" chosen on the page (all_branches=true) means every branch this person may see,
+    and must not fall back to the workspace branch sent in X-Branch-Id; otherwise the branch chosen, or the workspace branch.
+    Branch-limited people still only ever see their own branches (the report services check that)."""
+    return branch_id if branch_id else (None if all_branches else active)
+
+
 router = APIRouter(tags=["Business performance"], dependencies=[
     Depends(require_module_write("reports")),
     *[Depends(require_feature(k)) for k in ("sales", "reports")],
@@ -20,41 +28,41 @@ router = APIRouter(tags=["Business performance"], dependencies=[
 async def business_performance(db: DbSession, current_user: CurrentUser, from_date: date | None = None, to_date: date | None = None,
                                branch_id: uuid.UUID | None = None, compare: Literal["none", "previous", "year", "custom"] = "none",
                                compare_from: date | None = None, compare_to: date | None = None,
-                               active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                               active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     """KPIs, trend, breakdowns and insights for any period, optionally compared with another period."""
-    data = await performance(db, current_user, from_date, to_date, branch_id or active, compare, compare_from, compare_to)
+    data = await performance(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches), compare, compare_from, compare_to)
     return success_response(data=data, message="Business performance retrieved")
 
 
 @router.get("/reports/sales-breakdown")
 async def sales_breakdown_report(db: DbSession, current_user: CurrentUser, dimension: str = "product", from_date: date | None = None, to_date: date | None = None,
-                                 branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                                 branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     from app.modules.reporting.service.breakdowns import sales_breakdown
-    return success_response(data=await sales_breakdown(db, current_user, from_date, to_date, branch_id or active, dimension), message="Sales breakdown retrieved")
+    return success_response(data=await sales_breakdown(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches), dimension), message="Sales breakdown retrieved")
 
 
 @router.get("/reports/operations")
 async def operations_report(db: DbSession, current_user: CurrentUser, from_date: date | None = None, to_date: date | None = None,
-                            branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                            branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     from app.modules.reporting.service.breakdowns import operations
-    return success_response(data=await operations(db, current_user, from_date, to_date, branch_id or active), message="Operations report retrieved")
+    return success_response(data=await operations(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches)), message="Operations report retrieved")
 
 
 @router.get("/reports/financial")
 async def financial_report(db: DbSession, current_user: CurrentUser, from_date: date | None = None, to_date: date | None = None,
-                           branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                           branch_id: uuid.UUID | None = None, active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     from app.modules.reporting.service.breakdowns import financial
-    return success_response(data=await financial(db, current_user, from_date, to_date, branch_id or active), message="Financial report retrieved")
+    return success_response(data=await financial(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches)), message="Financial report retrieved")
 
 
 @router.get("/reports/salespeople")
 async def salespeople_report(db: DbSession, current_user: CurrentUser, from_date: date | None = None, to_date: date | None = None,
                              branch_id: uuid.UUID | None = None, salesperson_id: uuid.UUID | None = None, customer_id: uuid.UUID | None = None,
                              product_id: uuid.UUID | None = None, category_id: uuid.UUID | None = None, payment_status: str | None = None,
-                             active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                             active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     """Sales per salesperson with the orders behind every figure. Without team access you only see yourself."""
     from app.modules.reporting.service.salespeople import salespeople_report as run
-    data = await run(db, current_user, from_date, to_date, branch_id or active, salesperson_id=salesperson_id, customer_id=customer_id,
+    data = await run(db, current_user, from_date, to_date, report_branch(branch_id, active, all_branches), salesperson_id=salesperson_id, customer_id=customer_id,
                      product_id=product_id, category_id=category_id, payment_status=payment_status)
     return success_response(data=data, message="Salesperson report retrieved")
 
@@ -63,14 +71,14 @@ async def salespeople_report(db: DbSession, current_user: CurrentUser, from_date
 async def export_report_tab(kind: Literal["overview", "sales", "stock", "customers", "purchases", "finance", "team"], db: DbSession, current_user: CurrentUser,
                             format: Literal["pdf", "xlsx", "csv"] = "pdf", from_date: date | None = None, to_date: date | None = None,
                             branch_id: uuid.UUID | None = None, dimension: str = "category",
-                            active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None):
+                            active: Annotated[uuid.UUID | None, Header(alias="X-Branch-Id")] = None, all_branches: bool = False):
     """Any Business reports tab as a branded PDF, Excel or CSV document, with the same figures as the screen."""
     from fastapi import Response
 
     from app.core.filenames import content_disposition, document_filename, period_label
     from app.modules.reporting.service.export import TITLES, build, render
     from app.modules.tenants.repository import BranchRepository, TenantRepository
-    branch = branch_id or active
+    branch = report_branch(branch_id, active, all_branches)
     meta, rows = await build(db, current_user, kind, from_date, to_date, branch, dimension)
     tenant = await TenantRepository(db).get(current_user.tenant_id)
     branch_name = (await BranchRepository(db).names_for_ids(current_user.tenant_id, {branch})).get(branch) if branch else None

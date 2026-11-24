@@ -2,7 +2,8 @@ import uuid
 
 from fastapi import APIRouter, Query
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.branches import visible_branches
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ValidationError
 from app.core.pagination import PageQuery
 from app.core.period import PeriodQuery
@@ -19,10 +20,13 @@ def _require_tenant(tenant_id) -> None:
 
 
 @router.get("/sales/returns")
-async def list_returns(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery, status: str | None = Query(None)):
+async def list_returns(db: DbSession, current_user: CurrentUser, page_params: PageQuery, period: PeriodQuery, active: ActiveBranchId,
+                       status: str | None = Query(None)):
+    """Returns of sales made in the workspace branch (or the person's own branches), like Sales History."""
     _require_tenant(current_user.tenant_id)
-    items = await service.list_returns(db, current_user.tenant_id, status, page_params.offset, page_params.limit, period)
-    total = await service.count_returns(db, current_user.tenant_id, status, period)
+    branches = visible_branches(current_user, active)
+    items = await service.list_returns(db, current_user.tenant_id, status, page_params.offset, page_params.limit, period, branches)
+    total = await service.count_returns(db, current_user.tenant_id, status, period, branches)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Returns retrieved successfully")
 
 
@@ -37,6 +41,15 @@ async def create_return(data: ReturnCreate, db: DbSession, current_user: Current
 async def get_return(id: uuid.UUID, db: DbSession, current_user: CurrentUser):
     _require_tenant(current_user.tenant_id)
     obj = await service.get_return(db, current_user.tenant_id, id)
+    mine = visible_branches(current_user, None)  # staff limited to some branches open only returns of sales made there
+    if mine is not None:
+        from sqlalchemy import select
+
+        from app.core.exceptions import NotFoundError
+        from app.modules.sales.models.order import Order
+        branch = (await db.execute(select(Order.branch_id).where(Order.id == obj.order_id))).scalar_one_or_none() if obj.order_id else None
+        if branch not in mine:
+            raise NotFoundError("Return not found")
     return success_response(data=obj.model_dump(), message="Return retrieved successfully")
 
 

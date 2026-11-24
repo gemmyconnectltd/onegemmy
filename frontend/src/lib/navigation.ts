@@ -51,7 +51,7 @@ export const MODULE_NAV: Record<ModuleKey, NavConfigItem[]> = {
     { nameKey: "quotations", label: "Quotations", href: "/sales/quotations", icon: ClipboardList },
     { nameKey: "returns",   href: "/sales/returns",   icon: RotateCcw },
     { nameKey: "targets",   href: "/sales/targets",   icon: Target },
-    { nameKey: "teamPerformance", label: "Team performance", href: "/reports/salespeople", icon: Users },
+    { nameKey: "teamPerformance", label: "Team performance", href: "/sales/team-performance", icon: Users, requires: "orders:read" },
   ],
   accounting: ACCOUNTING_NAV.map(item => ({ ...item, nameKey: item.label, label: item.label })),
   debts: DEBT_NAV.map(item => ({ ...item, nameKey: item.label, label: item.label })),

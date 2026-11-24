@@ -44,7 +44,8 @@ export interface FinancialReport {
   largest: { title: string; category: string; date: string; amount: number }[]; receivables: number | null; metrics: PerformanceMetrics;
 }
 interface Scope { from?: string; to?: string; branch?: string }
-const scope = (q: Scope) => ({ from_date: q.from, to_date: q.to, branch_id: q.branch });
+// No branch chosen = "All branches": say so, or the server falls back to the workspace branch sent in X-Branch-Id.
+const scope = (q: Scope) => ({ from_date: q.from, to_date: q.to, branch_id: q.branch, all_branches: q.branch ? undefined : "true" });
 
 export type ReportTab = "overview" | "sales" | "stock" | "customers" | "purchases" | "finance" | "team";
 export type ExportFormat = "pdf" | "xlsx" | "csv";
@@ -54,9 +55,11 @@ export const reportsApi = {
   exportTab: (tab: ReportTab, q: Scope, format: ExportFormat, dimension?: SalesDimension) =>
     downloadFile(`/tenants/reports/export/${tab}${qs({ ...scope(q), format, dimension })}`, `report-${tab}.${format}`),
   salespeople: (q: Scope, f: SalespersonFilters = {}) => request<SingleResponse<SalespersonReport>>(`/tenants/reports/salespeople${qs({ ...scope(q), ...f })}`),
+  /** The same figures from Sales → Team performance, for people who work in Sales without Business Reports access. */
+  salesTeamPerformance: (q: Scope, f: SalespersonFilters = {}) => request<SingleResponse<SalespersonReport>>(`/tenants/sales/team-performance${qs({ ...scope(q), ...f })}`),
   salesBreakdown: (q: Scope, dimension: SalesDimension) => request<SingleResponse<SalesBreakdown>>(`/tenants/reports/sales-breakdown${qs({ ...scope(q), dimension })}`),
   operations: (q: Scope) => request<SingleResponse<OperationsReport>>(`/tenants/reports/operations${qs(scope(q))}`),
   financial: (q: Scope) => request<SingleResponse<FinancialReport>>(`/tenants/reports/financial${qs(scope(q))}`),
   performance: (q: PerformanceQuery) =>
-    request<SingleResponse<PerformanceReport>>(`/tenants/reports/performance${qs({ from_date: q.from, to_date: q.to, branch_id: q.branch, compare: q.compare, compare_from: q.compareFrom, compare_to: q.compareTo })}`),
+    request<SingleResponse<PerformanceReport>>(`/tenants/reports/performance${qs({ from_date: q.from, to_date: q.to, branch_id: q.branch, all_branches: q.branch ? undefined : "true", compare: q.compare, compare_from: q.compareFrom, compare_to: q.compareTo })}`),
 };
