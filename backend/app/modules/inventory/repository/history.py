@@ -512,7 +512,8 @@ class ProductHistoryRepository:
             if kind == "adjustment":
                 filtered = filtered.where(
                     all_rows.c.type == "product_event",
-                    all_rows.c.details["action"].astext.in_(
+                    # details is built with jsonb_build_object, so it has no JSON type here: read the key with ->>.
+                    all_rows.c.details.op("->>")("action").in_(
                         ["product.adjusted", "product.restocked"]
                     ),
                 )

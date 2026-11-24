@@ -187,6 +187,9 @@ async def test_audit_before_after_and_atomic_adjustments(db, sample):
     assert all(r.actor_user_id == owner.id for r in records)
     await db.refresh(p)
     assert p.stock == 12
+    # The Adjustments tab: only restocks and adjustments, and it must not fail.
+    adjustments = await product_history(db, owner, p.id, DatePeriod(), kind="adjustment")
+    assert {i["details"]["action"] for i in adjustments["items"]} == {"product.adjusted", "product.restocked"}
 
 
 @pytest.mark.db
