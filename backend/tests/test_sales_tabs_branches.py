@@ -89,3 +89,44 @@ async def test_sales_team_performance_works_without_report_access(db, monkeypatc
             assert [p["salesperson"] for p in r.json()["data"]["people"]] == ["QA-Manager ju"]  # only their branch
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_branch_staff_without_receivables_get_a_clear_refusal_not_a_server_error(db, monkeypatch):
+    """A branch-limited seller without accounts_receivable:create used to crash the payment request (500): the permission check read
+    a role that had been expired earlier in the request. It must be a clear 403."""
+    tenant, _ann, _ben, _owner, client, sale = await team(db, monkeypatch)
+    ju = Branch(tenant_id=tenant.id, name="QA-ju")
+    catalog = {p.name: p for p in await ensure_permissions_seeded(db)}
+    role = Role(tenant_id=tenant.id, name="QA-Seller", permissions=[catalog[n] for n in ("orders:create", "orders:read", "pos:create", "pos:read", "contacts:create")])
+    db.add_all([ju, role])
+    await db.flush()
+    seller = User(tenant_id=tenant.id, full_name="QA-Seller ju", email=f"{uuid.uuid4().hex}@example.test", hashed_password="x", is_active=True,
+                  is_superuser=False, role="sales manager", role_id=role.id, branch_id=ju.id)
+    db.add(seller)
+    await db.flush()
+    try:
+        async with client(seller) as c:
+            customer = (await c.post(f"{API}/sales/customers", json={"name": "QA-Aline", "phone": f"07{uuid.uuid4().int % 10**8:08d}", "tin": "123456789", "source": "pos"})).json()["data"]
+            made = await c.post(f"{API}/sales/orders", json=sale(60, amount_paid=4000, amount_tendered=4000, customer_id=customer["id"],
+                                                                  due_date=(datetime.now(UTC).date().replace(day=28)).isoformat()))
+            assert made.status_code == 201, made.text
+            paid = await c.post(f"{API}/sales/orders/{made.json()['data']['id']}/payments",
+                                json={"amount": 2000, "payment_method": "cash", "paid_at": f"{datetime.now(UTC).date()}T00:00:00", "client_payment_id": uuid.uuid4().hex})
+            assert paid.status_code == 403 and "accounts_receivable:create" in paid.json()["message"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.db
+async def test_permissions_survive_the_role_being_expired_mid_request(db, monkeypatch):
+    """The signed-in user's role permissions are captured once; reading them after the role was expired must not hit the database
+    from a sync property (that raised MissingGreenlet and became a 500 on the payment screen)."""
+    from app.modules.tenants.service.user import get_user_by_id_raw
+    tenant, ann, _ben, _owner, _client, _sale = await team(db, monkeypatch)
+    user = await get_user_by_id_raw(db, tenant.id, ann.id)
+    user.remember_permissions()
+    before = sorted(user.permissions_names)
+    db.expire(user, ["role_rel"])
+    assert sorted(user.permissions_names) == before and "reports:read" in user.role_permissions_names
+    app.dependency_overrides.clear()

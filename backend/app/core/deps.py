@@ -52,6 +52,9 @@ async def get_current_user(
         log.warning("auth.suspended_tenant", extra={"_extra_fields": {"user_id": user_id, "tenant_id": tenant_id}})
         raise UnauthorizedError("This account has been suspended")
 
+    # Capture the role's permission names now, while they are loaded: later work in this request (a commit, a refresh) can
+    # expire the relationship, and the permission checks read it from a sync property.
+    user.remember_permissions()
     if user.tenant_id is not None:
         from app.modules.billing.access import enforce_write
         await enforce_write(db, user.tenant_id, request.url.path, request.method)

@@ -62,9 +62,18 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     @property
     def role_permissions_names(self) -> list[str]:
         """Explicit stored grants, used for actions outside baseline view/edit access."""
+        # Captured once when the signed-in user is loaded (deps.get_current_user): a later commit or refresh in the same request
+        # can expire the role relationship, and reading it again from a sync property would fail with MissingGreenlet (a 500).
+        cached = self.__dict__.get("_role_permission_names")
+        if cached is not None:
+            return list(cached)
         if self.role_rel and self.role_rel.permissions:
             return [p.name for p in self.role_rel.permissions]
         return []
+
+    def remember_permissions(self) -> None:
+        """Keep this user's role permission names for the rest of the request (call while the role is loaded)."""
+        self.__dict__["_role_permission_names"] = tuple(p.name for p in self.role_rel.permissions) if self.role_rel else ()
 
     @property
     def permissions_names(self) -> list[str]:
