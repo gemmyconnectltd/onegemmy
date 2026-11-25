@@ -311,7 +311,12 @@ async def profit_summary(ctx: ToolContext, a: PeriodArgs) -> dict[str, Any]:
                        ctx, period=(s, e), how="Needs completed sales and approved expenses in the period.", links=[])
     net_sales = sales - refunds
     gross = net_sales - cogs
-    net = gross - expenses
+    # Other income by the one P&L rule (accounting/service/pnl_sections.py), when the person may see Accounting journals.
+    other = Decimal(0)
+    if ctx.can("journal_entries:read"):
+        from app.modules.accounting.service.pnl_sections import other_income
+        other = to_decimal((await other_income(ctx.db, ctx.tenant_id, [ctx.branch_id] if ctx.branch_id else None, s, e))["total"])
+    net = gross - expenses + other
     prev_n, prev_sales = await _sales_between(ctx, ps, pe)
     prev_net = prev_sales - await _refunds_between(ctx, ps, pe) - await _expenses_between(ctx, ps, pe)
     note = None
@@ -320,16 +325,17 @@ async def profit_summary(ctx: ToolContext, a: PeriodArgs) -> dict[str, Any]:
                 if missing < lines else
                 "None of the items sold have a purchase cost saved, so I can't work out a reliable profit. Add costs to your products to get one.")
     headline = (f"For {_label(a.period)} ({s} to {e}) your sales were {format_money(sales, cur)}, "
-                f"refunds {format_money(refunds, cur)}, cost of the goods sold {format_money(cogs, cur)} and expenses {format_money(expenses, cur)}. "
+                f"refunds {format_money(refunds, cur)}, cost of the goods sold {format_money(cogs, cur)} and expenses {format_money(expenses, cur)}"
+                + (f", with other income of {format_money(other, cur)}. " if other else ". ") +
                 f"That leaves a profit of {format_money(net, cur)}.")
     if prev_n and prev_net != 0:
         headline += " " + _trend(net, prev_net, "the period before")
     return _result("profit_summary", headline, ctx, period=(s, e), branch_scoped=True, note=note, heading="Profit", tone="positive" if net > 0 else "attention",
-                   how="Sales minus approved refunds, minus what the sold goods cost you, minus approved expenses. Sales include VAT; expenses are not split by branch.",
+                   how="Sales minus approved refunds, minus what the sold goods cost you, minus approved expenses, plus other income recorded in Accounting. Sales include VAT; expenses are not split by branch.",
                    links=[{"label": "Open Reports", "href": "/reports"}],
                    cards=[_card("Sales", format_money(sales, cur)), _card("Gross profit", format_money(gross, cur)),
                           _card("Net profit", format_money(net, cur), "positive" if net > 0 else "critical")],
-                   metrics={"sales": str(sales), "refunds": str(refunds), "cogs": str(cogs), "expenses": str(expenses), "net_profit": str(net)})
+                   metrics={"sales": str(sales), "refunds": str(refunds), "cogs": str(cogs), "expenses": str(expenses), "other_income": str(other), "net_profit": str(net)})
 
 
 @tool("inventory_value", "Current stock value at cost and at selling price, plus the products holding the most value.",

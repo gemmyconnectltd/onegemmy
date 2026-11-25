@@ -19,6 +19,7 @@ from app.modules.accounting.schemas.report import (
     TrialBalance,
     TrialBalanceLine,
 )
+from app.modules.accounting.service import pnl_sections
 
 # Only POSTED transactions affect financial statements.
 STATUS_POSTED = "Posted"
@@ -26,10 +27,9 @@ STATUS_POSTED = "Posted"
 # Account code ranges used for statement classification. Codes are strings like "1000".
 NON_CURRENT_ASSET_PREFIXES = ("15", "16", "17", "18")
 NON_CURRENT_LIABILITY_PREFIXES = ("22", "23", "24")
-COGS_PREFIX = "50"          # 5000-5099 → Cost of Goods Sold
-SERVICE_REVENUE_PREFIX = "41"  # 4100-4199 → Service Revenue (the rest of 40xx is goods)
-OTHER_EXPENSE_PREFIX = "59"  # 5900-5999 → Other (non-operating) expenses
-OTHER_INCOME_PREFIX = "49"  # 4900-4999 → Other (non-operating) income
+# Which P&L section each account goes in is decided in ONE place, service/pnl_sections.py (the account's own classification,
+# else its code range).
+SERVICE_REVENUE_PREFIX = "41"  # within sales: 4100-4199 is service revenue (the rest is goods)
 CASH_PREFIX = "10"          # 1000-1099 → Cash & cash equivalents
 
 
@@ -96,18 +96,11 @@ async def income_statement(db: AsyncSession, tenant_id: uuid.UUID, from_date: da
         if round(bucket["balance"], 2) == 0:
             continue
         line = StatementLine(code=acc.code, name=acc.name, amount=bucket["balance"])
-        if acc.type == "Revenue":
-            if acc.code.startswith(OTHER_INCOME_PREFIX):
-                other_income.append(line)
-            else:
-                revenue_accounts.append(line)
-        elif acc.type == "Expense":
-            if acc.code.startswith(COGS_PREFIX):
-                cogs_accounts.append(line)
-            elif acc.code.startswith(OTHER_EXPENSE_PREFIX):
-                other_expense_accounts.append(line)
-            else:
-                operating_expense_accounts.append(line)
+        bucket_for = {pnl_sections.SALES: revenue_accounts, pnl_sections.OTHER_INCOME: other_income, pnl_sections.COGS: cogs_accounts,
+                      pnl_sections.OPERATING: operating_expense_accounts, pnl_sections.OTHER_EXPENSE: other_expense_accounts}
+        target = bucket_for.get(pnl_sections.of(acc))
+        if target is not None:
+            target.append(line)
 
     revenue_accounts.sort(key=lambda l: l.code)
     other_income.sort(key=lambda l: l.code)

@@ -38,10 +38,11 @@ export function FinancialSummary() {
       {q.isLoading && <Skeleton className="h-64" label="Loading report" />}
       {d && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi label="Approved expenses" value={money(d.expenses_total)} href={`/expenses/list?from=${d.from_date}&to=${d.to_date}`} />
             <Kpi label="Waiting for approval" value={String(d.pending_expenses)} note="not counted above" />
-            <Kpi label="Net profit" value={money(d.metrics.net_profit)} note={d.metrics.net_profit === null ? "Needs costs on sold items" : undefined} />
+            {d.metrics.other_income !== null && <Kpi label="Other income" value={money(d.metrics.other_income)} href="/accounting/income" note="Not from sales; in net profit" />}
+            <Kpi label="Net profit" value={money(d.metrics.net_profit)} note={d.metrics.net_profit === null ? "Needs costs on sold items" : "Matches the Overview dashboard"} />
             {d.receivables !== null && <Kpi label="Owed to you now" value={money(d.receivables)} href="/debts/receivables" />}
           </div>
           <div className="grid gap-4 lg:grid-cols-2">

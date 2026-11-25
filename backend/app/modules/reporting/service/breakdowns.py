@@ -50,8 +50,10 @@ async def _setup(db: AsyncSession, user: User, start: date | None, end: date | N
         start = first.astimezone(zone).date() if first else end
     if start > end:
         raise ValidationError("The start date must not be after the end date")
-    can_expenses = can(user, "expenses:read") and await feature_enabled(db, tenant.id, "accounting")
-    return tenant, branches, start, end, Report(db, tenant, branches, can_expenses)
+    accounting = await feature_enabled(db, tenant.id, "accounting")
+    can_expenses = can(user, "expenses:read") and accounting
+    can_other_income = can(user, "journal_entries:read") and accounting
+    return tenant, branches, start, end, Report(db, tenant, branches, can_expenses, can_other_income)
 
 
 async def sales_breakdown(db: AsyncSession, user: User, start: date | None, end: date | None, branch_id: uuid.UUID | None,

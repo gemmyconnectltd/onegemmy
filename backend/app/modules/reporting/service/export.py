@@ -50,9 +50,11 @@ async def build(db: AsyncSession, user: User, kind: Kind, start: date | None, en
                 {"name": "Cost of goods sold", "amount": c["cost_of_goods"], "note": "" if c["cost_of_goods"] is not None else "Some sold items have no cost"},
                 {"name": "Gross profit", "amount": c["gross_profit"], "note": f'{c["gross_margin"]}% margin' if c["gross_margin"] is not None else ""},
                 {"name": "Expenses", "amount": c["expenses"], "note": change("expenses") if r["can_see_expenses"] else "No access"},
+                {"name": "Other income", "amount": c["other_income"], "note": change("other_income") if r["can_see_other_income"] else "No access to Accounting journals"},
                 {"name": "Net profit", "amount": c["net_profit"], "note": change("net_profit"), "_total": True},
                 {"name": "Returns refunded", "amount": c["returns"]},
-                heading("Sales by branch"), *({"name": b["name"], "amount": b["sales"], "count": b["orders"]} for b in r["by_branch"]),
+                heading("Sales by branch"), *({"name": b["name"], "amount": b["sales"], "count": b["orders"],
+                                               "note": f'Other income {b["other_income"]:,.2f}' if b.get("other_income") else ""} for b in r["by_branch"]),
                 heading("Sales by payment method"), *({"name": p["method"], "amount": p["sales"], "count": p["orders"]} for p in r["by_payment"]),
                 heading("Top-selling products"), *({"name": p["name"], "amount": p["revenue"], "count": p["quantity"]} for p in r["top_products"])]
         position = [{"name": "Customers owe you (today)", "amount": r["receivables"]}] if r["receivables"] is not None else []
@@ -112,6 +114,7 @@ async def build(db: AsyncSession, user: User, kind: Kind, start: date | None, en
         rows = [heading("Profit and loss"),
                 {"name": "Net sales (no VAT)", "amount": m["net_sales"]}, {"name": "Cost of goods sold", "amount": m["cost_of_goods"]},
                 {"name": "Gross profit", "amount": m["gross_profit"]}, {"name": "Approved expenses", "amount": m["expenses"]},
+                {"name": "Other income", "amount": m["other_income"]},
                 {"name": "Net profit", "amount": m["net_profit"], "_total": True},
                 heading("Expenses by category"), *({"name": c["name"], "detail": f'{c["share"]}% of expenses', "count": c["count"], "amount": c["amount"]} for c in r["by_category"]),
                 heading("Expenses by branch"), *({"name": b["name"], "amount": b["amount"]} for b in r["by_branch"]),

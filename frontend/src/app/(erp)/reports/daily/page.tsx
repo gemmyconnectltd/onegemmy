@@ -58,7 +58,7 @@ export default function DailyReportsPage() {
     {report.error && <p role="alert" className="text-sm text-red-600">{(report.error as Error).message || "Report unavailable. Check your permissions and branch access."}</p>}
     {report.isLoading ? <PageLoader variant="compact" /> : data && <>
       <p className="text-sm text-muted">{range ? `${longDate(data.from_date)} to ${longDate(data.to_date)}` : longDate(data.from_date)} · amounts in {data.currency}</p>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {dailyMetrics.map((m) => <Kpi key={m} label={dailyLabels[m]} value={formatMoney(Number(data.totals[m]), data.currency)} note={m === "stock_value" ? (range ? "At the end of the last day" : "At the end of the day") : undefined} />)}
       </div>
       <DailySheet data={data} showDate={!!range} />

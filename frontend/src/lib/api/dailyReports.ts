@@ -1,8 +1,10 @@
 import { downloadFile, qs, request } from "./client";
 import type { SingleResponse } from "./types";
 /** The owner's daily sheet, in the order the business reads it. */
-export const dailyMetrics = ["stock_value", "sales", "customer_credit", "expenses", "deposits", "bank", "momo"] as const;
-export const dailyLabels: Record<DailyMetric, string> = { stock_value: "Stock value", sales: "Sales", customer_credit: "Debt", expenses: "Expense", deposits: "Deposit", bank: "Bank", momo: "MoMo" };
+// Other income is income recorded in Accounting that is not from sales; Bank and MoMo stay customer payments for sales only,
+// so the same money is never counted twice on one line (definitions come from the server with each report).
+export const dailyMetrics = ["stock_value", "sales", "other_income", "customer_credit", "expenses", "deposits", "bank", "momo"] as const;
+export const dailyLabels: Record<DailyMetric, string> = { stock_value: "Stock value", sales: "Sales", other_income: "Other income", customer_credit: "Debt", expenses: "Expense", deposits: "Deposit", bank: "Bank", momo: "MoMo" };
 export type DailyMetric = typeof dailyMetrics[number];
 export interface DailyReport {
   outstanding_debt_now: string;

@@ -6,8 +6,8 @@ import { dailyLabels, dailyMetrics, type DailyReport } from "@/lib/api/dailyRepo
 import { formatMoney } from "@/lib/money";
 
 /**
- * The owner's daily sheet: one line per branch (and per day when a range is shown) with stock value, sales, debt,
- * expense, deposit, Bank and MoMo, plus a totals line. Like every report table, all columns stay available in the
+ * The owner's daily sheet: one line per branch (and per day when a range is shown) with stock value, sales, other income,
+ * debt, expense, deposit, Bank and MoMo (customer payments for sales only), plus a totals line. Like every report table, all columns stay available in the
  * shared scrolling table boundary on phones.
  */
 export function DailySheet({ data, showDate, stockNote }: { data: DailyReport; showDate?: boolean; stockNote?: string }) {
@@ -16,7 +16,7 @@ export function DailySheet({ data, showDate, stockNote }: { data: DailyReport; s
   const columns = dailyMetrics.length + (showDate ? 2 : 1);
   return (
     <TableWrap>
-      <table className="w-full min-w-[960px] whitespace-nowrap text-left text-sm">
+      <table className="w-full min-w-[1080px] whitespace-nowrap text-left text-sm">
         <thead>
           <tr className="border-b border-border text-muted">
             {showDate && <th scope="col" className="font-semibold">Date</th>}

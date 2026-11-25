@@ -5,7 +5,10 @@ exchange rate), so currencies are never added together raw.
 Definitions (also returned to the UI):
 - Sales: completed orders in the period, VAT included. Net sales exclude VAT. Revenue is not cash received.
 - Gross profit: net sales minus the cost recorded on each item when it was sold. It is shown only when every sold item has a cost.
-- Expenses: approved expenses dated in the period. Net profit = gross profit - expenses, shown only when both are known.
+- Expenses: approved expenses dated in the period.
+- Other income: income posted in Accounting to other-income accounts (rent received, interest, commissions, grants), by the
+  one P&L rule in accounting/service/pnl_sections.py. Net profit = gross profit - expenses + other income, shown only when
+  gross profit and expenses are known; it then equals the Overview dashboard's profit for the same period and branch.
 - Returns: approved returns dated in the period, shown separately and not netted into profit.
 """
 import uuid
@@ -32,7 +35,8 @@ DEFINITIONS = {
     "sales": "Completed sales in the period, VAT included. Revenue is what was sold, not the cash received.",
     "gross_profit": "Net sales (without VAT) minus the cost recorded when each item was sold. Shown only when every sold item has a cost.",
     "expenses": "Approved expenses dated in the period.",
-    "net_profit": "Gross profit minus approved expenses. Shown only when both are known.",
+    "other_income": "Income recorded in Accounting that is not from sales (rent received, interest, commissions, grants). Needs access to Accounting journals.",
+    "net_profit": "Gross profit minus approved expenses, plus other income. Shown only when gross profit and expenses are known; it matches the Overview dashboard's profit.",
     "returns": "Approved returns dated in the period. They are shown separately and not subtracted from profit.",
 }
 
@@ -112,9 +116,20 @@ def _orders(stmt, tenant_id, branches, start_dt, end_dt):
 class Report:
     """One report run: the same filters applied to every figure, so the numbers always agree with each other."""
 
-    def __init__(self, db: AsyncSession, tenant: Tenant, branches: list[uuid.UUID] | None, can_expenses: bool):
+    def __init__(self, db: AsyncSession, tenant: Tenant, branches: list[uuid.UUID] | None, can_expenses: bool, can_other_income: bool = False):
         self.db, self.tenant, self.branches, self.can_expenses = db, tenant, branches, can_expenses
+        self.can_other_income = can_other_income
         self.zone = ZoneInfo(tenant.timezone)
+        self._other: dict[tuple[date, date], dict] = {}
+
+    async def other_income(self, start: date, end: date) -> dict | None:
+        """Posted other income in the period (total, per branch, per day and branch), or None without access to journals."""
+        if not self.can_other_income:
+            return None
+        if (start, end) not in self._other:
+            from app.modules.accounting.service.pnl_sections import other_income
+            self._other[(start, end)] = await other_income(self.db, self.tenant.id, self.branches, start, end)
+        return self._other[(start, end)]
 
     def window(self, start: date, end: date) -> tuple[datetime, datetime]:
         return datetime.combine(start, time.min, self.zone), datetime.combine(end + timedelta(days=1), time.min, self.zone)
@@ -144,6 +159,8 @@ class Report:
             self.tenant.id, self.branches, s, e))).one()
         cogs, missing = money(cost[0]), int(cost[1])
         expenses = await self.expenses_total(start, end)
+        other = await self.other_income(start, end)
+        other_income = money(other["total"]) if other is not None else None
         net_sales = round(sales - tax, 2)
         gross = round(net_sales - cogs, 2) if orders and not missing else None
         return {
@@ -151,8 +168,8 @@ class Report:
             "average_order": money(sales / orders) if orders else None,
             "cost_of_goods": cogs if orders and not missing else None, "items_missing_cost": missing,
             "gross_profit": gross, "gross_margin": round(gross / net_sales * 100, 1) if gross is not None and net_sales else None,
-            "expenses": expenses, "returns": await self.returns_total(start, end),
-            "net_profit": round(gross - expenses, 2) if gross is not None and expenses is not None else None,
+            "expenses": expenses, "returns": await self.returns_total(start, end), "other_income": other_income,
+            "net_profit": round(gross - expenses + (other_income or 0.0), 2) if gross is not None and expenses is not None else None,
         }
 
     async def series(self, start: date, end: date, grain: str, profit_known: bool) -> list[dict]:
@@ -170,13 +187,19 @@ class Report:
             if self.branches is not None:
                 stmt = stmt.where(Expense.branch_id.in_(self.branches))
             spend = {r[0]: money(r[1]) for r in (await self.db.execute(stmt.group_by(eday))).all()}
+        other: dict[date, float] = {}
+        income = await self.other_income(start, end)
+        for (day_, _branch), value in (income["by_day"] if income else {}).items():
+            key = bucket_start(day_, grain)
+            other[key] = round(other.get(key, 0.0) + money(value), 2)
         out, cursor = [], bucket_start(start, grain)
         while cursor <= end:
             r = sales.get(cursor)
             rev, tax, count = (money(r[1]), money(r[2]), int(r[3])) if r else (0.0, 0.0, 0)
             expense = spend.get(cursor, 0.0) if self.can_expenses else None
-            out.append({"date": cursor.isoformat(), "sales": rev, "orders": count, "expenses": expense,
-                        "profit": round(rev - tax - cogs.get(cursor, 0.0) - (expense or 0.0), 2) if profit_known and expense is not None else None})
+            extra = other.get(cursor, 0.0)
+            out.append({"date": cursor.isoformat(), "sales": rev, "orders": count, "expenses": expense, "other_income": extra if income else None,
+                        "profit": round(rev - tax - cogs.get(cursor, 0.0) - (expense or 0.0) + extra, 2) if profit_known and expense is not None else None})
             cursor = next_bucket(cursor, grain)
         return out
 
@@ -193,8 +216,16 @@ class Report:
         s, e = self.window(start, end)
         rows = (await self.db.execute(_orders(select(Order.branch_id, func.coalesce(func.sum(SALES), 0), func.count(Order.id)), self.tenant.id, self.branches, s, e)
                                       .group_by(Order.branch_id).order_by(func.sum(SALES).desc()))).all()
-        names = await BranchRepository(self.db).names_for_ids(self.tenant.id, {r[0] for r in rows if r[0]})
-        return [{"id": str(r[0]) if r[0] else None, "name": names.get(r[0], "Not assigned to a branch"), "sales": money(r[1]), "orders": int(r[2])} for r in rows]
+        income = await self.other_income(start, end)
+        other = income["by_branch"] if income else {}
+        ids = {r[0] for r in rows} | {b for b, v in other.items() if v}
+        names = await BranchRepository(self.db).names_for_ids(self.tenant.id, {b for b in ids if b})
+        out = [{"id": str(r[0]) if r[0] else None, "name": names.get(r[0], "Not assigned to a branch"), "sales": money(r[1]), "orders": int(r[2]),
+                "other_income": money(other.get(r[0], 0)) if income else None} for r in rows]
+        # a branch with other income but no sales in the period still gets its row
+        out += [{"id": str(b) if b else None, "name": names.get(b, "Not assigned to a branch"), "sales": 0.0, "orders": 0, "other_income": money(v)}
+                for b, v in other.items() if v and b not in {r[0] for r in rows}]
+        return out
 
     async def by_payment(self, start: date, end: date) -> list[dict]:
         s, e = self.window(start, end)
@@ -260,8 +291,10 @@ async def performance(db: AsyncSession, user: User, start: date | None, end: dat
         start = first.astimezone(zone).date() if first else end
     if start > end:
         raise ValidationError("The start date must not be after the end date")
-    can_expenses = (user.is_superuser or "expenses:read" in user.permissions_names) and await feature_enabled(db, tenant.id, "accounting")
-    report = Report(db, tenant, branches, can_expenses)
+    accounting = await feature_enabled(db, tenant.id, "accounting")
+    can_expenses = (user.is_superuser or "expenses:read" in user.permissions_names) and accounting
+    can_other_income = (user.is_superuser or "journal_entries:read" in user.permissions_names) and accounting
+    report = Report(db, tenant, branches, can_expenses, can_other_income)
     days = (end - start).days + 1
     grain = grain_for(days)
     current = await report.metrics(start, end)
@@ -277,10 +310,10 @@ async def performance(db: AsyncSession, user: User, start: date | None, end: dat
         else:
             c_start, c_end = previous_period(start, end) if compare == "previous" else same_period_last_year(start, end)
         prev = await report.metrics(c_start, c_end)
-        has_data = bool(prev["orders"] or prev["expenses"] or prev["returns"])
+        has_data = bool(prev["orders"] or prev["expenses"] or prev["returns"] or prev["other_income"])
         comparison = {"mode": compare, "from_date": c_start, "to_date": c_end, "label": _label(c_start, c_end), "has_data": has_data, "metrics": prev if has_data else None,
                       "changes": {k: {"change": round(current[k] - prev[k], 2), "percent": pct_change(current[k], prev[k])}
-                                  for k in ("sales", "net_sales", "orders", "expenses", "gross_profit", "net_profit", "average_order", "returns")
+                                  for k in ("sales", "net_sales", "orders", "expenses", "other_income", "gross_profit", "net_profit", "average_order", "returns")
                                   if has_data and current.get(k) is not None and prev.get(k) is not None} if has_data else {}}
 
     top = await report.top_products(start, end)
@@ -302,4 +335,5 @@ async def performance(db: AsyncSession, user: User, start: date | None, end: dat
         "current": current, "comparison": comparison, "series": series, "insights": insights,
         "top_products": top, "by_branch": by_branch, "by_payment": await report.by_payment(start, end),
         "receivables": receivables, "stock": stock, "pipeline": pipeline, "can_see_expenses": can_expenses,
+        "can_see_other_income": can_other_income,
     }

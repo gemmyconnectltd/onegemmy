@@ -135,14 +135,14 @@ class WorkspaceRepository(ReportingRepository):
         rows = (await self.db.execute(select(grouped).where(*conditions).order_by(grouped.c.transaction_date.desc(), grouped.c.reference.desc()).offset((page-1)*page_size).limit(min(page_size, 100)))).mappings().all()
         return {"items": [dict(row) for row in rows], "total": total, "totals": dict(totals)}
 
-    async def revenue_summary(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date, end: date,
-                              sales_account_id: uuid.UUID | None, timezone: str) -> dict:
-        """Posted revenue for the dashboard, split into sales (the sales revenue account) and other income (every other
-        Revenue account), with other income per day and, for a single day, per local hour of posting. One query."""
+    async def revenue_summary(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date, end: date, timezone: str) -> dict:
+        """Posted revenue for the dashboard, split into sales and other income by the one P&L rule (service/pnl_sections.py,
+        the same split as the income statement), with other income per day and, for a single day, per local hour. One query."""
+        from app.modules.accounting.service.pnl_sections import SALES, section_sql
         hour = func.extract("hour", func.timezone(timezone, Transaction.created_at)).label("hour")
         rows = (await self.db.execute(
             self._revenue_lines(tenant_id, branch_id, start, end, Transaction.transaction_date.label("day"), hour,
-                                (Account.id == sales_account_id).label("is_sales") if sales_account_id else func.false().label("is_sales"),
+                                (section_sql(Account) == SALES).label("is_sales"),
                                 func.sum(self.REVENUE).label("amount"))
             .where(Transaction.status == "Posted").group_by("day", "hour", "is_sales")
         )).all()

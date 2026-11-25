@@ -22,6 +22,9 @@ class Account(UUIDPKMixin, TenantScopedMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     group_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Profit-and-loss section (service/pnl_sections.py): sales | other_income for Revenue; cogs | operating | other_expense for
+    # Expense. None falls back to the code range. Reporting only: changing it never touches a journal.
+    pnl_section: Mapped[str | None] = mapped_column(String(20), nullable=True)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounting_accounts.id", ondelete="RESTRICT"), nullable=True)
 
     transaction_lines = relationship("TransactionLine", back_populates="account", lazy="noload")

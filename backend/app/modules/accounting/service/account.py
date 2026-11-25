@@ -6,6 +6,7 @@ from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.modules.accounting.models.account import Account
 from app.modules.accounting.repository import AccountRepository
 from app.modules.accounting.schemas import AccountCreate, AccountRead, AccountUpdate
+from app.modules.accounting.service import pnl_sections
 from app.modules.audit.service import record_audit
 
 # Default chart of accounts seeded per tenant on first use
@@ -53,7 +54,9 @@ async def seed_default_accounts(db: AsyncSession, tenant_id: uuid.UUID) -> None:
     for code, name, type_, normal_balance in DEFAULT_ACCOUNTS:
         existing = await repo.get_by_code(tenant_id, code)
         if not existing:
-            obj = Account(tenant_id=tenant_id, code=code, name=name, type=type_, normal_balance=normal_balance)
+            # Revenue and Expense defaults are classified outright (4910 Other Income as other income, 5900 as other expense…)
+            obj = Account(tenant_id=tenant_id, code=code, name=name, type=type_, normal_balance=normal_balance,
+                          pnl_section=pnl_sections.section(type_, code, None))
             await repo.save(obj)
     await db.commit()
 
@@ -81,6 +84,7 @@ async def create_account(db: AsyncSession, tenant_id: uuid.UUID, data: AccountCr
     from app.modules.accounting.repository.reporting import ReportingRepository
     await ReportingRepository(db).lock_tenant(tenant_id)
     await validate_parent(db, tenant_id, data.parent_id, data.type)
+    pnl_sections.validate(data.type, data.pnl_section)
     repo = AccountRepository(db)
     existing = await repo.get_by_code(tenant_id, data.code)
     if existing:
@@ -111,11 +115,18 @@ async def update_account(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, 
         raise ValidationError("Posted accounts cannot be regrouped, reparented or deactivated; create a new account")
     if "parent_id" in updates:
         await validate_parent(db, tenant_id, updates["parent_id"], obj.type, id)
+    # The P&L section may change on a posted account too: it only moves the account between report sections.
+    section_change = None
+    if "pnl_section" in updates:
+        pnl_sections.validate(obj.type, updates["pnl_section"])
+        before, after = pnl_sections.of(obj), pnl_sections.section(obj.type, obj.code, updates["pnl_section"])
+        if before != after:
+            section_change = f" (reported as {pnl_sections.LABELS.get(after, after)}, was {pnl_sections.LABELS.get(before, before)})"
     for field, value in updates.items():
         setattr(obj, field, value)
     await repo.save(obj)
     if actor is not None:
-        await record_audit(db, tenant_id=tenant_id, actor_user_id=actor.id, action="account.update", entity_type="account", entity_id=str(obj.id), summary=f"Updated chart account {obj.code}")
+        await record_audit(db, tenant_id=tenant_id, actor_user_id=actor.id, action="account.update", entity_type="account", entity_id=str(obj.id), summary=f"Updated chart account {obj.code}{section_change or ''}")
     await db.commit()
     obj = await repo.get_by_id_for_tenant(tenant_id, id)
     return AccountRead.model_validate(obj)

@@ -270,7 +270,8 @@ async def save_category(
         account = await db.get(Account, data.account_id)
         if account is None or account.tenant_id != tenant or account.type != "Expense" or not account.is_active:
             raise ValidationError("Choose an active expense account for this category")
-        if account.code.startswith("50"):
+        from app.modules.accounting.service.pnl_sections import COGS, of
+        if of(account) == COGS:
             raise ValidationError("Cost of goods sold accounts are posted by sales, not by expenses; choose another expense account")
     obj.name, obj.description, obj.is_active, obj.account_id = name, data.description, data.is_active, data.account_id
     db.add(obj)

@@ -461,36 +461,36 @@ function EarningsBreakdown({
           </div>
           <div className="flex-1 min-w-0 space-y-2">
             {[{ color: c.income, name: t("sales"), value: sales }, { color: c.blue, name: t("otherIncome"), value: otherIncome }].map((row) => (
-              <div key={row.name} className="flex items-center gap-2">
+              <div key={row.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: row.color }} />
-                <span className="text-[12px] text-foreground/80 flex-1">{row.name}</span>
-                <span className="text-[11px] font-bold font-mono text-foreground">{fmtMoney(row.value, currencySymbol)}</span>
+                <span className="flex-1 whitespace-nowrap text-[12px] text-foreground/80">{row.name}</span>
+                <span className="ml-auto whitespace-nowrap text-[11px] font-bold font-mono text-foreground">{fmtMoney(row.value, currencySymbol)}</span>
               </div>
             ))}
-            <div className="flex items-center gap-2 border-t border-border pt-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-t border-border pt-2">
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: c.profit }}
               />
-              <span className="text-[12px] text-foreground/80 flex-1">
+              <span className="flex-1 whitespace-nowrap text-[12px] text-foreground/80">
                 Profit
               </span>
               <span
-                className="text-[11px] font-bold font-mono"
+                className="ml-auto whitespace-nowrap text-[11px] font-bold font-mono"
                 style={{ color: isLoss ? "#ef4444" : c.profit }}
               >
                 {fmtMoney(profit, currencySymbol)}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span
                 className="w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: c.expenses }}
               />
-              <span className="text-[12px] text-foreground/80 flex-1">
+              <span className="flex-1 whitespace-nowrap text-[12px] text-foreground/80">
                 Expenses
               </span>
-              <span className="text-[11px] font-bold font-mono text-muted">
+              <span className="ml-auto whitespace-nowrap text-[11px] font-bold font-mono text-muted">
                 {fmtMoney(expenses, currencySymbol)}
               </span>
             </div>
@@ -787,8 +787,9 @@ export default function DashboardPage() {
   const retry = (...queries: { isError: boolean; refetch: () => unknown }[]) => () => queries.filter((q) => q.isError).forEach((q) => void q.refetch());
   const kpiSkeleton = <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-24" label="Loading figures" />)}</div>;
 
-  // Sales: posted revenue on the sales account; other income: posted revenue on every other revenue account (both net of
-  // VAT, from the same query as Accounting → Income "Posted revenue"). Profit = total revenue − cost of goods − expenses.
+  // Sales and other income are split by the one P&L rule (an account's own classification in the Chart of Accounts, else its
+  // code range), the same as the Income Statement; both net of VAT, from the same query as Accounting → Income "Posted
+  // revenue". Profit = total revenue − cost of goods − expenses − other expenses (= the Income Statement's net profit).
   const sales = Number(revenue.data?.sales_revenue ?? 0);
   const otherIncome = Number(revenue.data?.other_income ?? 0);
   const totalRevenue = Number(revenue.data?.total_revenue ?? 0);

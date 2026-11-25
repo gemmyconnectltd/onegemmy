@@ -17,8 +17,9 @@ DEFINITIONS = {
     "customer_credit": "Debt is new credit given on that day (sales not paid at the till), not the customer's whole balance.",
     "expenses": "Expenses are approved expenses dated that day.",
     "deposits": "Deposit is cash moved out of a cash account into a bank or mobile-money account with Accounting → Transfer.",
-    "bank": "Bank is customer payments received by bank transfer or card.",
-    "momo": "MoMo is customer payments received by mobile money (MTN MoMo, Airtel Money).",
+    "other_income": "Other income is income recorded in Accounting that is not from sales (rent received, interest, commissions, grants), on the entry's date and branch.",
+    "bank": "Bank is customer payments for sales received by bank transfer or card. Other income paid into the bank is shown under Other income, not here.",
+    "momo": "MoMo is customer payments for sales received by mobile money (MTN MoMo, Airtel Money). Other income received by MoMo is shown under Other income, not here.",
 }
 
 
@@ -116,7 +117,7 @@ async def daily_export_report(db: AsyncSession, user: User, start: date | None, 
     return report
 
 
-LABELS = {"stock_value": ("Stock value", "money"), "sales": ("Sales", "money"), "customer_credit": ("Debt", "money"),
+LABELS = {"stock_value": ("Stock value", "money"), "sales": ("Sales", "money"), "other_income": ("Other income", "money"), "customer_credit": ("Debt", "money"),
           "expenses": ("Expense", "money"), "deposits": ("Deposit", "money"), "bank": ("Bank", "money"), "momo": ("MoMo", "money")}
 
 

@@ -27,7 +27,7 @@ export interface RevenueSummary {
   from_date: string; to_date: string; currency: string;
 }
 export interface AccountPage { items: AccountingAccount[]; total: number; page: number; page_size: number }
-export interface AccountInput { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null; is_active?: boolean }
+export interface AccountInput { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null; is_active?: boolean; pnl_section?: string | null }
 const base = "/tenants/accounting/workspace";
 function query(values: Record<string, string | number | boolean | undefined>) { const q = new URLSearchParams(); Object.entries(values).forEach(([k, v]) => { if (v !== undefined && v !== "") q.set(k, String(v)); }); return q.size ? `?${q}` : ""; }
 const post = <T>(path: string, data: object) => request<SingleResponse<T>>(base + path, { method: "POST", body: JSON.stringify(data) });

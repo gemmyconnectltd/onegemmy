@@ -12,7 +12,12 @@ export interface AccountingAccount {
   parent_id?: string | null;
   description: string | null;
   is_active: boolean;
+  /** Profit-and-loss section chosen for the account (null: reported by its code range, shown in reported_section). */
+  pnl_section?: PnlSection | null;
+  reported_section?: PnlSection | null;
 }
+
+export type PnlSection = "sales" | "other_income" | "cogs" | "operating" | "other_expense";
 
 export interface AccountingExpense {
   id: string;
@@ -219,9 +224,9 @@ export const accountingApi = {
 
   listAccounts: (type?: string) =>
     request<PaginatedResponse<AccountingAccount>>(`${BASE}/accounts${qs({ type })}`),
-  createAccount: (data: { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null }) =>
+  createAccount: (data: { code: string; name: string; type: string; normal_balance: string; description?: string | null; group_name?: string | null; parent_id?: string | null; pnl_section?: string | null }) =>
     request<SingleResponse<AccountingAccount>>(`${BASE}/accounts`, { method: "POST", body: JSON.stringify(data) }),
-  updateAccount: (id: string, data: Partial<Pick<AccountingAccount, "name" | "description" | "is_active" | "group_name" | "parent_id">>) =>
+  updateAccount: (id: string, data: Partial<Pick<AccountingAccount, "name" | "description" | "is_active" | "group_name" | "parent_id" | "pnl_section">>) =>
     request<SingleResponse<AccountingAccount>>(`${BASE}/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteAccount: (id: string) =>
     request<SingleResponse<unknown>>(`${BASE}/accounts/${id}`, { method: "DELETE" }),

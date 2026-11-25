@@ -352,7 +352,7 @@ export const useTransactions = (type?: string, status?: string, opts?: QueryOpts
   useQ([...TRANSACTIONS, type ?? "all", status ?? "all"], () => accountingApi.listTransactions(type, status), (r) => r.data, opts);
 
 export const useCreateAccount = mutation((d: Parameters<typeof accountingApi.createAccount>[0]) => accountingApi.createAccount(d), [[...ACCOUNTS], [...REPORTS]]);
-export const useUpdateAccount = mutation(({ id, data }: { id: string; data: Parameters<typeof accountingApi.updateAccount>[1] }) => accountingApi.updateAccount(id, data), [[...ACCOUNTS], [...REPORTS]]);
+export const useUpdateAccount = mutation(({ id, data }: { id: string; data: Parameters<typeof accountingApi.updateAccount>[1] }) => accountingApi.updateAccount(id, data), [[...ACCOUNTS], [...REPORTS], ["reports"], ["daily-branches"]]);
 export const useDeleteAccount = mutation((id: string) => accountingApi.deleteAccount(id), [[...ACCOUNTS], [...REPORTS]]);
 export const useSeedAccounts = mutation(() => accountingApi.seedAccounts(), [[...ACCOUNTS], [...REPORTS]]);
 

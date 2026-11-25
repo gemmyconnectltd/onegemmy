@@ -8,9 +8,11 @@ export interface PerformanceMetrics {
   sales: number; net_sales: number; tax: number; discount: number; orders: number; average_order: number | null;
   cost_of_goods: number | null; items_missing_cost: number; gross_profit: number | null; gross_margin: number | null;
   expenses: number | null; returns: number; net_profit: number | null;
+  /** Income recorded in Accounting that is not from sales; null without access to Accounting journals. Included in net_profit. */
+  other_income: number | null;
 }
 export interface MetricChange { change: number; percent: number | null }
-export interface SeriesPoint { date: string; sales: number; orders: number; expenses: number | null; profit: number | null }
+export interface SeriesPoint { date: string; sales: number; orders: number; expenses: number | null; other_income?: number | null; profit: number | null }
 export interface Insight { tone: "positive" | "negative" | "neutral"; text: string; href?: string }
 export interface PerformanceReport {
   from_date: string; to_date: string; days: number; grain: "day" | "week" | "month" | "year"; currency: string; timezone: string; branch_id: string | null;
@@ -19,13 +21,14 @@ export interface PerformanceReport {
   comparison: { mode: CompareMode; from_date: string; to_date: string; label: string; has_data: boolean; metrics: PerformanceMetrics | null; changes: Record<string, MetricChange> } | null;
   series: SeriesPoint[]; insights: Insight[];
   top_products: { name: string; revenue: number; quantity: number }[];
-  by_branch: { id: string | null; name: string; sales: number; orders: number }[];
+  by_branch: { id: string | null; name: string; sales: number; orders: number; other_income?: number | null }[];
   by_payment: { method: string; sales: number; orders: number }[];
   receivables: number | null;
   stock: { low_stock: number; out_of_stock: number; valuation: number; products: number } | null;
   /** Deals per CRM stage, business-wide; null without opportunity access. */
   pipeline?: { stage: string; deals: number; value: number }[] | null;
   can_see_expenses: boolean;
+  can_see_other_income?: boolean;
 }
 export interface PerformanceQuery { from?: string; to?: string; branch?: string; compare: CompareMode; compareFrom?: string; compareTo?: string }
 

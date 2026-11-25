@@ -53,13 +53,14 @@ class ReportingRepository(BaseRepository[FinancialSnapshot]):
         debit = func.coalesce(func.sum(case((TransactionLine.type == "debit", TransactionLine.amount), else_=0)), 0)
         credit = func.coalesce(func.sum(case((TransactionLine.type == "credit", TransactionLine.amount), else_=0)), 0)
         stmt = self.ledger(tenant_id, from_date, to_date, branch_id).with_only_columns(
-            Account.id, Account.code, Account.name, Account.type, Account.normal_balance,
+            Account.id, Account.code, Account.name, Account.type, Account.normal_balance, Account.pnl_section,
             debit.label("debit_total"), credit.label("credit_total"),
         ).group_by(Account.id).order_by(Account.code)
         rows = (await self.db.execute(stmt)).all()
         result = {}
         for row in rows:
-            account = SimpleNamespace(id=row.id, code=row.code, name=row.name, type=row.type, normal_balance=row.normal_balance)
+            account = SimpleNamespace(id=row.id, code=row.code, name=row.name, type=row.type, normal_balance=row.normal_balance,
+                                      pnl_section=row.pnl_section)
             debit_total, credit_total = Decimal(row.debit_total), Decimal(row.credit_total)
             result[row.id] = {"account": account, "debit_total": debit_total, "credit_total": credit_total,
                               "balance": debit_total - credit_total if row.type in {"Assets", "Expense"} else credit_total - debit_total}

@@ -57,7 +57,7 @@ async def test_branch_assignment_isolation_and_consolidated_report(db):
     report = await daily_report(db, user, None, None, None)
     assert report["totals"]["sales"] == D(20)
     assert report["totals"]["bank"] == 0 and report["totals"]["momo"] == 0 and report["totals"]["deposits"] == 0
-    assert report["metrics"] == ["stock_value", "sales", "customer_credit", "expenses", "deposits", "bank", "momo"]
+    assert report["metrics"] == ["stock_value", "sales", "other_income", "customer_credit", "expenses", "deposits", "bank", "momo"]
     assert report["currency"] == "USD" and report["timezone"] == "Africa/Kigali"
     scoped = await daily_report(db, user, None, None, a.id)
     assert scoped["totals"]["sales"] == D(10)

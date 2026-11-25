@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import Date, cast, func, literal, or_, select, union_all
+from sqlalchemy import Date, case, cast, func, literal, or_, select, union_all
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.modules.accounting.models.account import Account
 from app.modules.accounting.models.expense import Expense
 from app.modules.accounting.models.transaction import Transaction
 from app.modules.accounting.models.transaction_line import TransactionLine
+from app.modules.accounting.service.pnl_sections import OTHER_INCOME, section_sql
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
 from app.modules.inventory.models.warehouse import StockMovement, Warehouse
@@ -18,7 +19,7 @@ from app.modules.sales.models.order import Order
 from app.modules.sales.models.order_payment import OrderPayment
 
 # The owner's daily sheet: per branch and day. Stock value is a closing balance and is added separately (stock_values).
-METRICS = ("sales", "customer_credit", "expenses", "deposits", "bank", "momo")
+METRICS = ("sales", "other_income", "customer_credit", "expenses", "deposits", "bank", "momo")
 # How a customer payment's method is read: cash stays out; mobile money (MTN MoMo, Airtel Money, ...) is MoMo; any other
 # non-cash method (bank transfer, card, cheque) lands in the bank.
 CASH_METHODS = ("cash",)
@@ -65,6 +66,12 @@ class DailyRepository:
                   (TransactionLine, TransactionLine.transaction_id == Transaction.id), calendar=True,
                   extra=(Transaction.type == "cash_transfer", TransactionLine.type == "credit",
                          TransactionLine.account_id.in_(select(Account.id).where(Account.tenant_id == tenant_id, Account.code.like("100%"))))),
+            # Other income: net credits posted to other-income accounts (the one P&L rule, accounting/service/pnl_sections.py),
+            # by the entry's date and branch. Its money is NOT also counted in Bank/MoMo, which are customer payments for sales.
+            event(Transaction, Transaction.transaction_date, "other_income",
+                  case((TransactionLine.type == "credit", TransactionLine.amount), else_=-TransactionLine.amount), Transaction.status == "Posted",
+                  (TransactionLine, TransactionLine.transaction_id == Transaction.id), calendar=True,
+                  extra=(TransactionLine.account_id.in_(select(Account.id).where(Account.tenant_id == tenant_id, section_sql(Account) == OTHER_INCOME)),)),
             # Bank and MoMo: customer payments received by bank transfer or card, and by mobile money, kept apart.
             event(OrderPayment, OrderPayment.paid_at, "bank", paid, OrderPayment.status == "Completed",
                   extra=(OrderPayment.payment_method.is_not(None), func.lower(OrderPayment.payment_method).not_in(CASH_METHODS),

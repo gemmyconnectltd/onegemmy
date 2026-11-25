@@ -1,6 +1,6 @@
-"""Other income on the Overview dashboard: posted revenue on any Revenue account other than the sales account, net of
-VAT, for the same period and branch as the rest of the dashboard, and always equal (with sales) to the Income page's
-"Posted revenue"."""
+"""Other income on the Overview dashboard: posted revenue on other-income accounts (the one P&L rule in
+accounting/service/pnl_sections.py, the same split as the income statement), net of VAT, for the same period and branch as
+the rest of the dashboard, and always equal (with sales) to the Income page's "Posted revenue"."""
 import uuid
 from datetime import date
 from decimal import Decimal
