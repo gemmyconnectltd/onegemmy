@@ -285,7 +285,8 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
         widths.append(pdfmetrics.stringWidth(text, FONT_BOLD, 7) + 19)
     pill_row = _box([cells], widths)
     pill_row.hAlign = "RIGHT"
-    right = [[Paragraph(esc(label.upper()), s["title"])], [Paragraph(esc(order.order_number), s["number"])], [Spacer(1, 2 * mm)], [pill_row]]
+    # the sale's order number is the invoice number
+    right = [[Paragraph(esc(label.upper()), s["title"])], [Paragraph(f'<font name="{FONT}" size="8" color="{MUTED.hexval().replace("0x", "#")}">{esc(label)} no.</font>&nbsp;&nbsp;{esc(order.order_number)}', s["number"])], [Spacer(1, 2 * mm)], [pill_row]]
     flow.append(_box([[_box(left, [CONTENT_W * 0.6]), _box(right, [CONTENT_W * 0.4], [("ALIGN", (0, 0), (-1, -1), "RIGHT")])]],
                      [CONTENT_W * 0.6, CONTENT_W * 0.4]))
     flow.append(Spacer(1, 6 * mm))

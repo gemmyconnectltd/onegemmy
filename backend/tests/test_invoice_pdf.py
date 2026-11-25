@@ -66,7 +66,7 @@ def credit_sale():
 
 def test_paid_walk_in_cash_sale():
     t = text(_build_pdf(paid_walk_in(), TENANT))
-    assert "INVOICE" in t and "QA-ORD-0001" in t and "Walk-in customer" in t and "PAID" in t
+    assert "INVOICE" in t and "Invoice no." in t and "QA-ORD-0001" in t and "Walk-in customer" in t and "PAID" in t
     assert "Balance due" in t and "Prices include VAT." in t
     assert "Thank you for shopping with QA-Kigali Print House!" in t and t.count("Pesaa") == 1  # only "Powered by Pesaa"
     assert "Due date" not in t  # nothing is owed

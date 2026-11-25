@@ -157,7 +157,7 @@ export function InvoiceDocument({ order, tenant, onReversePayment }: {
           </div>
           <div className="sm:text-right">
             <p className="text-3xl font-light uppercase tracking-[0.18em] text-foreground">Invoice</p>
-            <p className="mt-1 font-mono text-sm text-foreground">{order.order_number}</p>
+            <p className="mt-1 text-sm"><span className="text-xs text-muted">Invoice no.</span>{" "}<span className="font-mono font-semibold text-foreground">{order.order_number}</span></p>
             <div className="mt-2 flex flex-wrap gap-1.5 sm:justify-end">
               {statusPills(order).map((p) => <span key={p.label} className="pesaa-badge bg-foreground uppercase text-card">{p.label}</span>)}
             </div>
