@@ -77,10 +77,11 @@ FOCUSED_ROLES: dict[str, tuple[str, dict[str, tuple[str, ...]]]] = {
         "requisitions": ("create", "read"), "purchase_orders": ("read",), "goods_receipt": _CRUD,
     }),
     # ── Sales and customers ──
-    "Sales Manager": ("Runs sales: orders, returns approval, pricing, customers and the pipeline. No finance books, no HR.", {
+    "Sales Manager": ("Runs sales: orders, returns approval, pricing, customers, the pipeline and customer payments. No finance books, no HR.", {
         "orders": (*_CRUD, "approve"), "pos": _CRUD, "invoices": _CRUD, "returns": (*_CRUD, "approve"), "pricing": ("read", "update"),
         "items": ("read",), "stock": ("read",), "contacts": _CRUD, "accounts": _CRUD, "leads": _CRUD, "opportunities": (*_CRUD, "approve"),
-        "activities": _CRUD, "campaigns": _CRUD, "tickets": ("read",), "accounts_receivable": ("read",),
+        "activities": _CRUD, "campaigns": _CRUD, "tickets": ("read",),
+        "accounts_receivable": ("create", "read"),  # records customer payments on credit sales; reversing stays with finance
     }),
     "Sales Representative": ("Sells and looks after customers and their leads. Can't approve, price or see finance.", {
         "orders": _CRUD, "pos": _CRUD, "invoices": ("read",), "returns": ("read",), "pricing": ("read",), "items": ("read",), "stock": ("read",),
