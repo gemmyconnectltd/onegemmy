@@ -26,6 +26,7 @@ export interface NavConfigItem {
 export const ACCOUNTING_NAV = [
   { href: "/accounting/accounts", label: "Chart of Accounts", icon: BookOpen, group: "Books", requires: "chart_of_accounts:read" },
   { href: "/accounting/ledger", label: "General Ledger", icon: ListOrdered, group: "Books", requires: "journal_entries:read" },
+  { href: "/accounting/income", label: "Income", icon: TrendingUp, group: "Money in and out", requires: "journal_entries:read" },
   { href: "/accounting/receivables", label: "Accounts Receivable", icon: Users, group: "Money in and out", requires: "accounts_receivable:read" },
   { href: "/accounting/payables", label: "Accounts Payable", icon: Truck, group: "Money in and out", requires: "accounts_payable:read" },
   { href: "/accounting/cash-bank", label: "Cash & Bank", icon: Landmark, group: "Money in and out", requires: "banking:read" },
