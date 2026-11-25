@@ -1,9 +1,9 @@
 import { TableScroll } from "@/components/ui/TableScroll";
 import {
-  BadgeCheck, Clock, FileText, AlertCircle, Mail, Phone, MapPin, Globe, CreditCard, CalendarClock,
+  BadgeCheck, Clock, FileText, AlertCircle, CalendarClock,
 } from "lucide-react";
 import { resolveUploadUrl } from "@/lib/api/client";
-import { fmtDateTime } from "@/lib/date";
+import { formatMoney } from "@/lib/money";
 import { customerNote } from "@/lib/orders";
 import type { ApiOrder, Tenant } from "@/lib/api";
 
@@ -53,257 +53,237 @@ export function PaymentStatusBadge({ paymentStatus, isOverdue }: { paymentStatus
   );
 }
 
-/** Diagonal stamp overlay — "Paid" is keyed off payment_status (has the
- *  money actually come in), not the order's fulfillment status, so a
- *  Completed-but-unpaid credit sale is never mis-stamped. "Void" still
- *  reflects fulfillment status: the sale itself was cancelled. */
-function InvoiceStamp({ status, paymentStatus }: { status: string; paymentStatus: string }) {
-  if (status === "Cancelled") {
-    return (
-      <div className="absolute top-6 right-6 border-[3px] rounded-lg px-4 py-1.5 font-extrabold text-[20px] tracking-[0.15em] uppercase select-none pointer-events-none"
-        style={{ color: "#dc2626", borderColor: "#dc2626", transform: "rotate(-10deg)", opacity: 0.45 }}>
-        Void
-      </div>
-    );
-  }
-  if (paymentStatus !== "Paid") return null;
-  return (
-    <div className="absolute top-6 right-6 border-[3px] rounded-lg px-4 py-1.5 font-extrabold text-[20px] tracking-[0.15em] uppercase select-none pointer-events-none"
-      style={{ color: "#059669", borderColor: "#059669", transform: "rotate(-10deg)", opacity: 0.45 }}>
-      Paid
-    </div>
-  );
+// ── The A4 invoice ("D4" layout): the same document as the server PDF (sales/service/invoice_pdf.py), so print, download and
+// share all match. Issued by the business: its logo, name and details, printed in black only, closing like the receipt.
+// Empty fields leave no line.
+
+const TREATMENT: Record<string, string> = { standard: "Standard", zero_rated: "Zero-rated", exempt: "Exempt", out_of_scope: "Out of scope" };
+const METHOD: Record<string, string> = { cash: "Cash", mobile: "Mobile money", momo: "Mobile money", mobile_money: "Mobile money", card: "Card", bank: "Bank transfer", bank_transfer: "Bank transfer", credit: "On credit", split: "Split" };
+const method = (v?: string | null) => (v ? METHOD[v.toLowerCase()] ?? v : "");
+const day = (v?: string | null) => (v ? new Date(v.length === 10 ? `${v}T00:00:00` : v).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "");
+const initials = (name?: string | null) => (name ?? "").split(/\W+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "•";
+
+/** The business's contact lines, in the same order as the PDF (core/brand_pdf.business_contact_lines). */
+function contactLines(t?: Tenant): string[] {
+  if (!t) return [];
+  const lines: string[] = [];
+  if (t.address) lines.push(t.address);
+  if (t.city || t.country) lines.push([t.city, t.country].filter(Boolean).join(", "));
+  if (t.phone) lines.push(`Tel: ${t.phone}`);
+  if (t.email) lines.push(`Email: ${t.email}`);
+  if (t.website) lines.push(t.website);
+  const ids = [t.tin ? `TIN: ${t.tin}` : "", t.vat_enabled && t.vat_number ? `VAT No: ${t.vat_number}` : ""].filter(Boolean);
+  if (ids.length) lines.push(ids.join(" · "));
+  return lines;
 }
 
-/** The invoice/order document — business branding, bill-to, line items,
- *  totals. Shared by every place an order needs to be shown or printed as an
- *  invoice: Accounting > Invoices, Sales > Orders, and anywhere else that
- *  adds this view later, so branding only has to be built once. */
-export function InvoiceDocument({ order, tenant, brandColor, fmt, onReversePayment }: {
-  order: ApiOrder; tenant: Tenant | undefined; brandColor: string; fmt: (v: number) => string;
-  /** Optional — only the interactive on-screen instance should pass this,
-   * not the print portal's. Rendered inside a `print:hidden` wrapper either
-   * way, so a printed invoice never shows an action button regardless. */
+/** One status: void, not yet a sale, or how far it is paid (plus Overdue). */
+function statusPills(o: ApiOrder): { label: string; tone: "success" | "warning" | "error" | "neutral" }[] {  // tone kept for meaning; the invoice shows every pill in black
+  if (o.status === "Cancelled") return [{ label: "Void", tone: "error" }];
+  if (o.status !== "Completed") return [{ label: o.status, tone: "neutral" }];
+  const paid = o.payment_status === "Paid" ? { label: "Paid", tone: "success" as const } : o.payment_status === "PartiallyPaid" ? { label: "Partially paid", tone: "warning" as const } : { label: "Unpaid", tone: "error" as const };
+  return o.is_overdue ? [paid, { label: "Overdue", tone: "error" }] : [paid];
+}
+
+function taxLabel(treatment?: string | null, rate?: number | null): string {
+  if (treatment === "standard") return `${Number(rate ?? 0)}%`;
+  if (treatment === "zero_rated") return "0%";
+  return TREATMENT[treatment ?? ""] && treatment !== "standard" ? TREATMENT[treatment!] : "";
+}
+
+/** Net amount and VAT per treatment, from what was frozen on each line when it was priced. */
+function vatSummary(o: ApiOrder): { name: string; net: number; vat: number | null }[] {
+  const groups = new Map<string, { treatment: string; rate: number; net: number; vat: number }>();
+  for (const i of o.items) {
+    if (!i.tax_treatment || !TREATMENT[i.tax_treatment] || i.taxable_base == null) continue;
+    const key = `${i.tax_treatment}:${Number(i.tax_rate ?? 0)}`;
+    const g = groups.get(key) ?? { treatment: i.tax_treatment, rate: Number(i.tax_rate ?? 0), net: 0, vat: 0 };
+    g.net += Number(i.taxable_base); g.vat += Number(i.tax_amount ?? 0);
+    groups.set(key, g);
+  }
+  const order = ["standard", "zero_rated", "exempt", "out_of_scope"];
+  return [...groups.values()].sort((a, b) => order.indexOf(a.treatment) - order.indexOf(b.treatment)).map((g) => ({
+    name: g.treatment === "standard" ? `Standard ${g.rate}%` : g.treatment === "zero_rated" ? "Zero-rated 0%" : TREATMENT[g.treatment],
+    net: g.net, vat: g.treatment === "exempt" ? null : g.vat,
+  }));
+}
+
+/** The invoice/order document: shared by every place an order is shown or printed as an invoice (Accounting > Invoices, Sales). */
+export function InvoiceDocument({ order, tenant, onReversePayment }: {
+  order: ApiOrder; tenant: Tenant | undefined;
+  /** Kept for callers; the invoice is printed in black only, like the PDF. */
+  brandColor: string;
+  /** Kept for callers; amounts are shown in the order's own currency with its code, like the PDF. */
+  fmt: (v: number) => string;
+  /** Optional — only the interactive on-screen instance should pass this, not the print portal's. The button is print:hidden. */
   onReversePayment?: (paymentId: string) => void;
 }) {
-  const businessLocation = [tenant?.address, tenant?.city, tenant?.country].filter(Boolean).join(", ");
+  const base = tenant?.currency || "USD";
+  const currency = order.currency_code || base;
+  const m = (v: number | string | null | undefined) => formatMoney(Number(v ?? 0), currency, { showCode: true });
+  const name = tenant?.name || "";
+  const showDiscount = order.items.some((i) => Number(i.discount) > 0);
+  const showTax = order.items.some((i) => !!i.tax_treatment && !!TREATMENT[i.tax_treatment]);
+  const inclusive = (tenant?.vat_pricing_mode ?? "inclusive") === "inclusive";
+  const vat = vatSummary(order);
+  const owing = order.status === "Completed" && Number(order.outstanding_balance) > 0;
+  const terms = (tenant?.quotation_terms ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const showPayment = order.payments.length > 0 || owing || terms.length > 0;
+  const note = customerNote(order.notes);
+  const meta = [
+    ["Issue date", day(order.ordered_at)],
+    ["Due date", owing && order.due_date ? day(order.due_date) : ""],
+    ["Currency", currency],
+    ["Payment", method(order.payment_method)],
+    ["Served by", order.salesperson_name ?? ""],
+  ].filter(([, v]) => v);
+  const totalRow = (k: string, v: string) => <div key={k} className="flex justify-between gap-4 py-1"><span className="text-muted">{k}</span><span className="tabular-nums text-foreground">{v}</span></div>;
+  const caption = "text-[10px] font-semibold uppercase tracking-wider";
 
   return (
-    <div className="pesaa-paper flex flex-col h-full">
-      {/* Branded header — the tenant's color and logo, full-bleed */}
-      <div className="relative overflow-hidden px-7 py-7 flex-shrink-0" style={{ backgroundColor: brandColor }}>
-        {/* Soft decorative circle, purely visual */}
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
-        <div className="relative flex flex-col gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            {tenant?.logo_url ? (
+    // Print the brand rule, status pills and tints as they look on screen (browsers drop background colours by default).
+    <div className="pesaa-paper flex h-full flex-col text-foreground" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+      <div className="h-1 shrink-0 bg-foreground" />
+      <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8 print:overflow-visible">
+        {/* Header: the business on the left; INVOICE, number and status on the right */}
+        <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            {tenant?.logo_url
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={resolveUploadUrl(tenant.logo_url) ?? undefined}
-                alt={tenant.name}
-                className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border-2 border-white/40 bg-white"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/15 border-2 border-white/40 text-white font-extrabold text-2xl">
-                {(tenant?.name ?? "?").charAt(0).toUpperCase()}
+              ? <img src={resolveUploadUrl(tenant.logo_url) ?? undefined} alt={name} className="h-14 max-w-[9rem] object-contain object-left" />
+              : <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-foreground text-xl font-semibold text-card" aria-hidden>{initials(name)}</div>}
+            <p className="mt-3 text-xl font-bold leading-tight text-foreground">{name}</p>
+            <div className="mt-1 space-y-0.5 text-xs text-muted">{contactLines(tenant).map((l) => <p key={l}>{l}</p>)}</div>
+          </div>
+          <div className="sm:text-right">
+            <p className="text-3xl font-light uppercase tracking-[0.18em] text-foreground">Invoice</p>
+            <p className="mt-1 font-mono text-sm text-foreground">{order.order_number}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5 sm:justify-end">
+              {statusPills(order).map((p) => <span key={p.label} className="pesaa-badge bg-foreground uppercase text-card">{p.label}</span>)}
+            </div>
+          </div>
+        </header>
+
+        <hr className="my-6 border-border" />
+
+        {/* Bill to, and the invoice facts */}
+        <section className="flex flex-col gap-5 sm:flex-row sm:justify-between">
+          <div className="min-w-0">
+            <p className={`${caption} text-foreground`}>Bill to</p>
+            {order.customer ? <>
+              <p className="mt-1.5 text-sm font-bold text-foreground">{order.customer.name}</p>
+              <div className="mt-0.5 space-y-0.5 text-xs text-muted">
+                {order.customer.address && <p>{order.customer.address}</p>}
+                {(order.customer.phone || order.customer.email) && <p>{[order.customer.phone, order.customer.email].filter(Boolean).join(" · ")}</p>}
+                {order.customer.tin && <p>TIN {order.customer.tin}</p>}
               </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-[19px] font-extrabold text-white leading-tight truncate">{tenant?.name ?? "Your Business"}</p>
-              <div className="mt-1.5 space-y-0.5">
-                {businessLocation && (
-                  <p className="flex items-center gap-1.5 text-[12px] text-white/80"><MapPin size={11} className="flex-shrink-0" /> {businessLocation}</p>
-                )}
-                <div className="flex items-center gap-3 flex-wrap">
-                  {tenant?.phone && (
-                    <p className="flex items-center gap-1.5 text-[12px] text-white/80"><Phone size={11} className="flex-shrink-0" /> {tenant.phone}</p>
-                  )}
-                  {tenant?.email && (
-                    <p className="flex items-center gap-1.5 text-[12px] text-white/80"><Mail size={11} className="flex-shrink-0" /> {tenant.email}</p>
-                  )}
-                  {tenant?.website && (
-                    <p className="flex items-center gap-1.5 text-[12px] text-white/80"><Globe size={11} className="flex-shrink-0" /> {tenant.website}</p>
-                  )}
-                </div>
-                {tenant?.tin && <p className="text-[12px] font-semibold text-white/90">TIN: {tenant.tin}</p>}
-              </div>
-            </div>
+            </> : <p className="mt-1.5 text-sm font-bold text-foreground">Walk-in customer</p>}
           </div>
-          <div className="flex-shrink-0">
-            <p className="text-[12px] font-bold uppercase tracking-[0.2em] text-white/70">Invoice</p>
-            <p className="text-[22px] font-extrabold text-white font-mono mt-0.5 leading-tight">{order.order_number}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <StatusBadge status={order.status} />
-              {order.status === "Completed" && <PaymentStatusBadge paymentStatus={order.payment_status} isOverdue={order.is_overdue} />}
-            </div>
-          </div>
-        </div>
-      </div>
+          {meta.length > 0 && (
+            <dl className="w-full text-xs sm:w-60">
+              {meta.map(([k, v]) => <div key={k} className="flex justify-between gap-4 border-b border-border py-1.5 last:border-0"><dt className="text-muted">{k}</dt><dd className="text-right font-semibold text-foreground">{v}</dd></div>)}
+            </dl>
+          )}
+        </section>
 
-      <div className="relative flex-1 flex flex-col overflow-hidden">
-        <InvoiceStamp status={order.status} paymentStatus={order.payment_status} />
-
-        {/* Bill to / dates */}
-        <div className="px-7 py-5 border-b border-border">
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wide mb-1.5" style={{ color: brandColor }}>Bill To</p>
-              <p className="text-[14px] font-bold text-foreground">{order.customer?.name ?? "Walk-in customer"}</p>
-              {order.customer?.email && (
-                <p className="flex items-center gap-1.5 text-[12px] text-muted mt-1"><Mail size={11} className="flex-shrink-0" /> {order.customer.email}</p>
-              )}
-              {order.customer?.phone && (
-                <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><Phone size={11} className="flex-shrink-0" /> {order.customer.phone}</p>
-              )}
-              {order.customer?.address && (
-                <p className="flex items-center gap-1.5 text-[12px] text-muted mt-0.5"><MapPin size={11} className="flex-shrink-0" /> {order.customer.address}</p>
-              )}
-              {order.customer?.tin && <p className="mt-0.5 text-[12px] font-semibold text-foreground">TIN: {order.customer.tin}</p>}
-            </div>
-            <div>
-              <p className="text-[11px] text-muted uppercase tracking-wide mb-1.5">Date Issued</p>
-              <p className="text-[13px] font-semibold text-foreground">{fmtDateTime(order.ordered_at)}</p>
-              {order.payment_method && (
-                <p className="flex items-center justify-start gap-1.5 text-[12px] text-muted mt-2">
-                  <CreditCard size={11} className="flex-shrink-0" /> {order.payment_method}
-                </p>
-              )}
-              {order.due_date && order.outstanding_balance > 0 && (
-                <p className="flex items-center justify-start gap-1.5 text-[12px] text-muted mt-1">
-                  <CalendarClock size={11} className="flex-shrink-0" /> Due {new Date(order.due_date).toLocaleDateString()}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Line items */}
-        <div className="flex-1 overflow-y-auto">
-          <TableScroll><table className="w-full min-w-[640px]">
+        {/* Line items: Discount and Tax columns only when some line has them */}
+        <div className="mt-7">
+          <TableScroll><table className="w-full min-w-[560px] text-sm">
             <thead>
-              <tr style={{ backgroundColor: `${brandColor}12` }}>
-                <th className="px-7 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide" style={{ color: brandColor }}>Item</th>
-                <th className="px-5 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide" style={{ color: brandColor }}>Qty</th>
-                <th className="px-5 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide" style={{ color: brandColor }}>Unit Price</th>
-                <th className="px-7 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide" style={{ color: brandColor }}>Total</th>
+              <tr className="border-b border-border bg-surface text-[10px] uppercase tracking-wider text-muted">
+                <th className="w-8 px-2 py-2 text-center font-semibold">#</th>
+                <th className="px-2 py-2 text-left font-semibold">Description</th>
+                <th className="px-2 py-2 text-right font-semibold">Qty</th>
+                <th className="px-2 py-2 text-right font-semibold">Unit price</th>
+                {showDiscount && <th className="px-2 py-2 text-right font-semibold">Discount</th>}
+                {showTax && <th className="px-2 py-2 text-center font-semibold">Tax</th>}
+                <th className="px-2 py-2 text-right font-semibold">Line total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {order.items.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-7 py-3">
-                    <p className="text-[13px] font-medium text-foreground">{item.product_name}</p>
-                    {item.sku && <p className="text-[11px] text-muted font-mono">{item.sku}</p>}
-                  </td>
-                  <td className="px-5 py-3 text-left text-[13px] text-muted">{item.quantity}</td>
-                  <td className="px-5 py-3 text-left text-[13px] text-muted tabular-nums">{fmt(item.unit_price)}</td>
-                  <td className="px-7 py-3 text-left text-[13px] font-semibold text-foreground tabular-nums">{fmt(item.line_total)}</td>
+              {order.items.map((item, n) => (
+                <tr key={item.id} className="align-top">
+                  <td className="px-2 py-2.5 text-center text-xs text-muted">{n + 1}</td>
+                  <td className="px-2 py-2.5"><p className="text-foreground">{item.product_name}</p>{item.sku && <p className="font-mono text-[11px] text-muted">{item.sku}</p>}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{Number(item.quantity)}</td>
+                  <td className="px-2 py-2.5 text-right tabular-nums">{m(item.unit_price)}</td>
+                  {showDiscount && <td className="px-2 py-2.5 text-right tabular-nums text-muted">{Number(item.discount) > 0 ? m(item.discount) : "—"}</td>}
+                  {showTax && <td className="px-2 py-2.5 text-center text-xs">{taxLabel(item.tax_treatment, item.tax_rate) || "—"}</td>}
+                  <td className="px-2 py-2.5 text-right font-semibold tabular-nums">{m(item.line_total)}</td>
                 </tr>
               ))}
             </tbody>
           </table></TableScroll>
-
-          {/* Totals */}
-          <div className="px-7 py-5 flex justify-start">
-            <div className="w-full max-w-[280px] space-y-2">
-              <div className="flex justify-between text-[13px] text-muted">
-                <span>Subtotal</span><span className="tabular-nums">{fmt(order.subtotal)}</span>
-              </div>
-              {order.discount > 0 && (
-                <div className="flex justify-between text-[13px] text-emerald-600">
-                  <span>Discount</span><span className="tabular-nums">-{fmt(order.discount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-[13px] text-muted">
-                <span>Tax</span><span className="tabular-nums">{fmt(order.tax)}</span>
-              </div>
-              <div
-                className="flex justify-between items-center text-[15px] font-extrabold rounded-lg px-3.5 py-2.5 mt-2"
-                style={{ backgroundColor: `${brandColor}14`, color: brandColor }}
-              >
-                <span>Total</span><span className="tabular-nums">{fmt(order.total)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment summary — deliberately separate from the sale-value
-              totals above: this is money actually received vs. what's
-              still outstanding, not another way of stating the total. */}
-          {order.status === "Completed" && (
-            <div className="px-7 pb-5">
-              <div className="w-full max-w-[280px] ml-auto space-y-2 border border-border rounded-lg p-3.5">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-muted mb-1">Payment Summary</p>
-                <div className="flex justify-between text-[13px] text-muted">
-                  <span>Total Paid</span><span className="tabular-nums font-semibold text-foreground">{fmt(order.amount_paid)}</span>
-                </div>
-                <div className="flex justify-between text-[13px] text-muted">
-                  <span>Outstanding</span>
-                  <span className={`tabular-nums font-semibold ${order.outstanding_balance > 0 ? "text-amber-600" : "text-foreground"}`}>{fmt(order.outstanding_balance)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-1.5 border-t border-border">
-                  <span className="text-[12px] font-bold text-foreground">Status</span>
-                  <PaymentStatusBadge paymentStatus={order.payment_status} isOverdue={order.is_overdue} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Payment history */}
-          {order.payments.length > 0 && (
-            <div className="px-7 pb-6 border-t border-border pt-4">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted mb-2">Payment History</p>
-              <div className="space-y-2">
-                {order.payments.map((p) => (
-                  <div key={p.id} className={`flex items-center justify-between gap-3 text-[12px] rounded-lg px-3 py-2 ${p.status === "Reversed" ? "bg-red-50" : "bg-surface"}`}>
-                    <div className="min-w-0">
-                      <p className={`font-semibold ${p.status === "Reversed" ? "text-red-500 line-through" : "text-foreground"}`}>{fmtDateTime(p.paid_at)}</p>
-                      <p className="text-muted">
-                        {p.payment_method ?? "—"}{p.reference_number ? ` · Ref: ${p.reference_number}` : ""}{p.received_by_name ? ` · ${p.received_by_name}` : ""}
-                      </p>
-                      {p.status === "Reversed" && <p className="text-red-500">Reversed{p.reversal_reason ? `: ${p.reversal_reason}` : ""}</p>}
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`font-bold tabular-nums ${p.status === "Reversed" ? "text-red-400 line-through" : "text-foreground"}`}>{fmt(p.amount)}</span>
-                      {p.status === "Completed" && onReversePayment && (
-                        <button
-                          type="button"
-                          onClick={() => onReversePayment(p.id)}
-                          className="print:hidden text-[11px] font-semibold text-red-500 hover:underline"
-                        >
-                          Reverse
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {customerNote(order.notes) && (
-            <div className="px-7 py-4 border-t border-border">
-              <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Notes</p>
-              <p className="text-[13px] text-foreground/70">{customerNote(order.notes)}</p>
-            </div>
-          )}
+          {showTax && <p className="mt-1.5 text-[11px] text-muted">{inclusive ? "Prices include VAT." : "Prices exclude VAT; VAT is added in the totals."}</p>}
         </div>
 
-        {/* Branded footer */}
-        <div className="flex-shrink-0 border-t border-border">
-          <div className="h-1" style={{ backgroundColor: brandColor }} />
-          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-7 py-4 text-left">
-            <div>
-              <p className="text-[12px] font-bold text-foreground">Thank you for your business{tenant?.name ? ` — ${tenant.name}` : ""}!</p>
-              {(tenant?.website || tenant?.phone) && (
-                <p className="text-[11px] text-muted mt-1">
-                  {[tenant?.website, tenant?.phone].filter(Boolean).join(" · ")}
-                </p>
-              )}
-            </div>
-            <p className="text-[10.5px] tracking-wide text-muted">Powered by <strong className="font-semibold text-foreground">Pesaa</strong></p>
+        {/* Left: VAT summary and payment information. Right: totals. */}
+        <section className="mt-7 grid gap-7 sm:grid-cols-[minmax(0,1fr)_17.5rem]">
+          <div className="min-w-0 space-y-5">
+            {vat.length > 0 && (Number(order.tax) > 0 || vat.length > 1) && (
+              <div>
+                <p className={`${caption} text-muted`}>VAT summary</p>
+                <table className="mt-1.5 w-full text-xs">
+                  <thead><tr className="border-b border-border text-muted"><th className="py-1 text-left font-normal">Tax rate</th><th className="py-1 text-right font-normal">Net amount</th><th className="py-1 text-right font-normal">VAT</th></tr></thead>
+                  <tbody>{vat.map((r) => <tr key={r.name}><td className="py-1 text-foreground">{r.name}</td><td className="py-1 text-right tabular-nums">{m(r.net)}</td><td className="py-1 text-right tabular-nums">{r.vat == null ? "—" : m(r.vat)}</td></tr>)}</tbody>
+                </table>
+              </div>
+            )}
+            {showPayment && (
+              <div className="rounded-lg bg-surface p-4 text-xs">
+                <p className={`${caption} text-muted`}>Payment information</p>
+                <div className="mt-2 space-y-1.5">
+                  {order.payments.map((p) => {
+                    const reversed = p.status === "Reversed";
+                    const bits = [day(p.paid_at), method(p.payment_method), p.reference_number ? `ref. ${p.reference_number}` : ""].filter(Boolean).join(" · ");
+                    return (
+                      <div key={p.id} className={`flex items-start justify-between gap-3 ${reversed ? "print:hidden" : ""}`}>
+                        <p className={reversed ? "text-muted line-through" : "text-foreground"}>Received {m(p.amount)}{bits ? ` · ${bits}` : ""}{reversed ? ` — reversed${p.reversal_reason ? `: ${p.reversal_reason}` : ""}` : ""}</p>
+                        {!reversed && p.status === "Completed" && onReversePayment && (
+                          <button type="button" onClick={() => onReversePayment(p.id)} className="shrink-0 font-semibold text-destructive hover:underline print:hidden">Reverse</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {owing && <p className="text-foreground">Please quote <strong>{order.order_number}</strong> as the payment reference.</p>}
+                  {terms.map((l, n) => <p key={n} className="text-foreground">{l}</p>)}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+
+          <div className="text-sm">
+            {totalRow("Subtotal", m(order.subtotal))}
+            {Number(order.discount) > 0 && totalRow("Discount", `− ${m(order.discount)}`)}
+            {(Number(order.tax) > 0 || showTax) && <>
+              {totalRow("Amount excl. VAT", m(Number(order.total) - Number(order.tax)))}
+              {totalRow(inclusive ? "VAT (included)" : "VAT", m(order.tax))}
+            </>}
+            <div className="mt-1 flex items-center justify-between gap-4 border-t-2 border-foreground py-3">
+              <span className="font-semibold">Grand total</span><span className="text-lg font-bold tabular-nums">{m(order.total)}</span>
+            </div>
+            {currency !== base && order.base_total != null && order.exchange_rate != null && <>
+              {totalRow(`In ${base}`, formatMoney(Number(order.base_total), base, { showCode: true }))}
+              {totalRow("Exchange rate", `1 ${currency} = ${formatMoney(Number(order.exchange_rate), base, { showCode: true })}`)}
+            </>}
+            {order.status === "Completed" && <>
+              <div className="border-t border-border pt-1">{totalRow("Amount paid", Number(order.amount_paid) ? `− ${m(order.amount_paid)}` : m(0))}</div>
+              <div className="mt-1 flex items-center justify-between gap-4 rounded-b-lg bg-surface px-3 py-2.5">
+                <span className="font-semibold">Balance due</span><span className="text-base font-bold tabular-nums text-foreground">{m(order.outstanding_balance)}</span>
+              </div>
+            </>}
+          </div>
+        </section>
+
+        {note && <div className="mt-7"><p className={`${caption} text-muted`}>Notes</p><p className="mt-1 text-sm text-foreground">{note}</p></div>}
+        {/* The same closing as the receipt (ReceiptDocument) */}
+        <footer className="mt-7 border-t border-dashed border-border pt-3 text-center">
+          <p className="text-[13px] font-semibold text-foreground">Thank you for shopping with {tenant?.name?.trim() || "us"}!</p>
+          <p className="mt-0.5 text-[11px] text-muted">We look forward to seeing you again.</p>
+          <p className="mt-3 border-t border-dashed border-border pt-2 text-[10px] tracking-wide text-muted">Powered by <strong className="font-semibold text-foreground">Pesaa</strong></p>
+        </footer>
       </div>
+
     </div>
   );
 }
