@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "@/lib/auth";
 import { ShareInvoice } from "@/components/sales/ShareInvoice";
 import { TableScroll } from "@/components/ui/TableScroll";
 
@@ -41,6 +42,7 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const { hasPermission } = useAuth();
   const [recordingPaymentFor, setRecordingPaymentFor] = useState<ApiOrder | null>(null);
   const [reversingPayment, setReversingPayment] = useState<ApiOrderPayment | null>(null);
   const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
@@ -305,7 +307,7 @@ export default function InvoicesPage() {
       {/* Invoice Detail Drawer */}
       {viewing && <SaleDocumentDrawer order={viewing} onClose={() => setViewingId(null)}
         onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)}
-        extraActions={viewing.status === "Completed" && viewing.outstanding_balance > 0 ? <Button color={brandColor} onClick={() => setRecordingPaymentFor(viewing)}><BadgeCheck size={15} /> Record Payment</Button> : undefined} />}
+        extraActions={hasPermission("accounts_receivable:create") && viewing.status === "Completed" && viewing.outstanding_balance > 0 ? <Button color={brandColor} onClick={() => setRecordingPaymentFor(viewing)}><BadgeCheck size={15} /> Record Payment</Button> : undefined} />}
 
       <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={brandColor} fmt={fmt} />
       <ReversePaymentDrawer payment={reversingPayment} onClose={() => setReversingPayment(null)} fmt={fmt} />

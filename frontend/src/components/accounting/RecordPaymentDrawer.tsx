@@ -1,5 +1,6 @@
 "use client";
 
+import { apiErrorMessage } from "@/lib/api/errors";
 import { useState } from "react";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, Textarea, FormFooter } from "@/components/ui/Form";
@@ -59,7 +60,8 @@ export function RecordPaymentDrawer({ order, onClose, color, fmt }: Props) {
       });
       close();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not record this payment.");
+      // Show the server's reason (e.g. a missing permission or a closed period), not a generic failure.
+      setError(apiErrorMessage(err, "Could not record this payment. Try again."));
     }
   }
 

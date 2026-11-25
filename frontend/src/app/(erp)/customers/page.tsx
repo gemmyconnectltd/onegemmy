@@ -515,7 +515,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="text-right flex-shrink-0 flex items-center gap-2">
                         <span className="text-[13px] font-bold text-amber-600 tabular-nums font-mono">{fmt(o.outstanding_balance)}</span>
-                        <Button size="sm" color={COLOR} onClick={() => setRecordingPaymentFor(o)}>Record</Button>
+                        {hasPermission("accounts_receivable:create") && <Button size="sm" color={COLOR} onClick={() => setRecordingPaymentFor(o)}>Record</Button>}
                       </div>
                     </div>
                   ))}
