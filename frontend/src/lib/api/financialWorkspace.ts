@@ -21,8 +21,10 @@ export interface FinancialOverview { from_date: string; to_date: string; currenc
  *  equals the Income page's "Posted revenue" for the same dates and branch. */
 export interface RevenueSummary {
   sales_revenue: string; other_income: string; total_revenue: string;
+  sales_by_day: { date: string; amount: string }[];
   other_income_by_day: { date: string; amount: string }[];
-  /** Only for a single-day range: other income by local hour of posting. */
+  /** Only for a single-day range: by local hour of posting. */
+  sales_by_hour: { hour: number; amount: string }[];
   other_income_by_hour: { hour: number; amount: string }[];
   from_date: string; to_date: string; currency: string;
 }

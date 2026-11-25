@@ -137,7 +137,7 @@ class WorkspaceRepository(ReportingRepository):
 
     async def revenue_summary(self, tenant_id: uuid.UUID, branch_id: uuid.UUID | None, start: date, end: date, timezone: str) -> dict:
         """Posted revenue for the dashboard, split into sales and other income by the one P&L rule (service/pnl_sections.py,
-        the same split as the income statement), with other income per day and, for a single day, per local hour. One query."""
+        the same split as the income statement), with each per day and, for a single day, per local hour. One query."""
         from app.modules.accounting.service.pnl_sections import SALES, section_sql
         hour = func.extract("hour", func.timezone(timezone, Transaction.created_at)).label("hour")
         rows = (await self.db.execute(
@@ -146,19 +146,20 @@ class WorkspaceRepository(ReportingRepository):
                                 func.sum(self.REVENUE).label("amount"))
             .where(Transaction.status == "Posted").group_by("day", "hour", "is_sales")
         )).all()
-        sales = sum((Decimal(r.amount) for r in rows if r.is_sales), Decimal(0))
-        by_day: dict[date, Decimal] = {}
-        by_hour: dict[int, Decimal] = {}
+        # Per day and (one-day ranges) per local hour, for each series, so the dashboard chart adds up to the cards exactly.
+        by_day: dict[bool, dict[date, Decimal]] = {True: {}, False: {}}
+        by_hour: dict[bool, dict[int, Decimal]] = {True: {}, False: {}}
         for r in rows:
-            if r.is_sales:
-                continue
-            by_day[r.day] = by_day.get(r.day, Decimal(0)) + Decimal(r.amount)
-            by_hour[int(r.hour)] = by_hour.get(int(r.hour), Decimal(0)) + Decimal(r.amount)
-        other_income = sum(by_day.values(), Decimal(0))
+            kind, value = bool(r.is_sales), Decimal(r.amount)
+            by_day[kind][r.day] = by_day[kind].get(r.day, Decimal(0)) + value
+            by_hour[kind][int(r.hour)] = by_hour[kind].get(int(r.hour), Decimal(0)) + value
+        sales, other_income = sum(by_day[True].values(), Decimal(0)), sum(by_day[False].values(), Decimal(0))
+        days = lambda kind: [{"date": d, "amount": a} for d, a in sorted(by_day[kind].items())]
+        hours = lambda kind: [{"hour": h, "amount": a} for h, a in sorted(by_hour[kind].items())] if start == end else []
         return {
             "sales_revenue": sales, "other_income": other_income, "total_revenue": sales + other_income,
-            "other_income_by_day": [{"date": d, "amount": a} for d, a in sorted(by_day.items())],
-            "other_income_by_hour": [{"hour": h, "amount": a} for h, a in sorted(by_hour.items())] if start == end else [],
+            "sales_by_day": days(True), "sales_by_hour": hours(True),
+            "other_income_by_day": days(False), "other_income_by_hour": hours(False),
         }
 
     async def cash_position(self, tenant_id: uuid.UUID, account_id: uuid.UUID, branch_id: uuid.UUID | None, as_of: date) -> Decimal:

@@ -2,7 +2,6 @@
 import { FeatureLink } from "@/components/dashboard/FeatureLink";
 import { TableScroll } from "@/components/ui/TableScroll";
 
-import { orderBaseDiscount, orderBaseOutstanding, orderBasePaid, orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 
 import { useState } from "react";
 import {
@@ -94,8 +93,9 @@ function relativeTime(dateStr: string | null): string {
 }
 
 type ChartPoint = { label: string; sales: number; otherIncome: number; expenses: number };
-/** Something that happened at a moment and adds to one chart series. Sales come from orders (as before); other income
- *  from the revenue summary, already limited to the selected period and branch. */
+/** Something that happened at a moment and adds to one chart series. Both series come from the revenue summary (posted
+ *  revenue net of VAT, the same query as the Sales and Other Income cards), already limited to the period and branch, so
+ *  the chart always adds up to the cards. */
 type ChartEntry = { at: Date; amount: number; kind: "sales" | "otherIncome" };
 
 const point = (label: string, entries: ChartEntry[], inBucket: (at: Date) => boolean): ChartPoint => {
@@ -134,7 +134,9 @@ function buildRangeChart(entries: ChartEntry[], range: ResolvedRange): ChartPoin
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function buildChart(entries: ChartEntry[], range: ResolvedRange): ChartPoint[] {
+function buildChart(all: ChartEntry[], range: ResolvedRange): ChartPoint[] {
+  // Buckets below match on weekday, day of month or month only, so keep strictly to the selected dates first.
+  const entries = all.filter((e) => { const d = toISO(e.at); return d >= range.from && d <= range.to; });
   if (!isPresetKey(range.key)) return buildRangeChart(entries, range);
   const period = range.key as Period;
   if (period === "today") {
@@ -155,14 +157,16 @@ function buildChart(entries: ChartEntry[], range: ResolvedRange): ChartPoint[] {
   return MONTHS.map((label, i) => point(label, entries, (at) => at.getMonth() === i));
 }
 
-/** Other income as chart entries: by posting hour for a single day, otherwise by date (placed at midday). */
-function otherIncomeEntries(summary: RevenueSummary | undefined, range: ResolvedRange): ChartEntry[] {
+/** One revenue series as chart entries: by posting hour for a single day, otherwise by date (placed at midday). */
+function revenueEntries(summary: RevenueSummary | undefined, range: ResolvedRange, kind: ChartEntry["kind"]): ChartEntry[] {
   if (!summary) return [];
   const pad = (n: number) => String(n).padStart(2, "0");
-  if (range.from === range.to && summary.other_income_by_hour.length) {
-    return summary.other_income_by_hour.map((r) => ({ at: new Date(`${range.from}T${pad(r.hour)}:00:00`), amount: Number(r.amount), kind: "otherIncome" as const }));
+  const byHour = (kind === "sales" ? summary.sales_by_hour : summary.other_income_by_hour) ?? [];
+  const byDay = (kind === "sales" ? summary.sales_by_day : summary.other_income_by_day) ?? [];
+  if (range.from === range.to && byHour.length) {
+    return byHour.map((r) => ({ at: new Date(`${range.from}T${pad(r.hour)}:00:00`), amount: Number(r.amount), kind }));
   }
-  return summary.other_income_by_day.map((r) => ({ at: new Date(`${r.date}T12:00:00`), amount: Number(r.amount), kind: "otherIncome" as const }));
+  return byDay.map((r) => ({ at: new Date(`${r.date}T12:00:00`), amount: Number(r.amount), kind }));
 }
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -807,10 +811,7 @@ export default function DashboardPage() {
   const inventory = products.data?.items ?? [];
 
   const label = range.label;
-  const chart = buildChart([
-    ...allOrderItems.map((o) => ({ at: new Date(o.ordered_at ?? o.created_at ?? ""), amount: orderBaseTotal(o), kind: "sales" as const })),
-    ...otherIncomeEntries(revenue.data, range),
-  ], range);
+  const chart = buildChart([...revenueEntries(revenue.data, range, "sales"), ...revenueEntries(revenue.data, range, "otherIncome")], range);
 
   const categoryMap = new Map<string, number>();
   for (const o of allOrderItems) {
