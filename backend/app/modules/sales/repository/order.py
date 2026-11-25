@@ -135,6 +135,8 @@ class OrderRepository(BaseRepository[Order]):
         return result.scalar_one_or_none()
 
     async def next_order_number(self, tenant_id: uuid.UUID) -> str:
+        # A sale's number is its invoice number: INV-0001, INV-0002… (quotations have their own QUO- numbers). Older sales
+        # keep the ORD- number they were issued with; both prefixes are 4 characters, so the counter carries on from either.
         # MAX of the existing numeric suffix, not COUNT(*) — COUNT undercounts
         # (and collides with a still-existing higher number) as soon as any
         # order has ever been deleted for this tenant.
@@ -143,7 +145,7 @@ class OrderRepository(BaseRepository[Order]):
             .where(Order.tenant_id == tenant_id)
         )
         current_max = result.scalar_one() or 0
-        return f"ORD-{str(current_max + 1).zfill(4)}"
+        return f"INV-{str(current_max + 1).zfill(4)}"
 
     async def lock_financial_writes(self, tenant_id: uuid.UUID) -> None:
         # One transaction lock orders idempotency, numbering, policy checks and decisions.

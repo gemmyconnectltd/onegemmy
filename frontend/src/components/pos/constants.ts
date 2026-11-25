@@ -11,7 +11,7 @@ export const TAX_RATE = 0.18;
 
 export function generateOrderId() {
   const stamp = Date.now().toString(36).toUpperCase().slice(-6);
-  return `ORD-${stamp}`;
+  return `INV-${stamp}`;
 }
 
 export function timeLabel() {
