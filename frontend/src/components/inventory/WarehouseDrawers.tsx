@@ -15,7 +15,7 @@ const fail = (cause: unknown) => (cause as { detail?: string })?.detail ?? (caus
 /** Create or edit a warehouse. The code is optional on a new one: the next free WH-number is used. */
 export function WarehouseEditor({ initial, onClose }: { initial?: Warehouse; onClose: () => void }) {
   const branches = useMyBranches().data?.items ?? [];
-  const team = useSalesTeam().data ?? [];
+  const team = (useSalesTeam().data ?? []).filter((m) => m.active !== false);
   const create = useCreateWarehouse();
   const update = useUpdateWarehouse();
   const [name, setName] = useState(initial?.name ?? "");

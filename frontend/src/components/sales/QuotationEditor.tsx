@@ -91,7 +91,7 @@ export function QuotationEditor({ initial, onClose, onSaved }: { initial?: ApiQu
             <Field label="Salesperson" required>
               <Select value={salesperson} onChange={(e) => touch(setSalesperson)(e.target.value)} required>
                 {!team.data?.some((m) => m.id === salesperson) && salesperson && <option value={salesperson}>{initial?.salesperson_name ?? "Me"}</option>}
-                {(team.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                {(team.data ?? []).filter((m) => m.active !== false).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </Select>
             </Field>
             <Field label="Issue date" required><Input type="date" required value={issue} onChange={(e) => touch(setIssue)(e.target.value)} /></Field>

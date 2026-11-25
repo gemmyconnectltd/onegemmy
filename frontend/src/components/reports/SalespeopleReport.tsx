@@ -23,6 +23,7 @@ export function SalespeopleReport({ source = "reports" }: { source?: "reports" |
   const [seller, setSeller] = useState("");
   const [payment, setPayment] = useState("");
   const team = useSalesTeam();
+  const sellers = (team.data ?? []).filter((m) => (m.sales ?? 0) > 0);  // only people who have sold
   const q = useSalespeopleReport({ from: range.from, to: range.to, branch: filters.branch }, { salesperson_id: seller || undefined, payment_status: payment || undefined }, source);
   const money = (n: number | null | undefined) => fmtMoney(n ?? 0, currencySymbol);
   const d = q.data, t = d?.totals;
@@ -38,7 +39,7 @@ export function SalespeopleReport({ source = "reports" }: { source?: "reports" |
       </div>
       <ReportFilterBar filters={{ ...filters, compare: "none" }} update={update} range={range} hideCompare />
       <div className="flex flex-wrap gap-2">
-        {(team.data?.length ?? 0) > 1 && <Select aria-label="Salesperson" className="w-auto" value={seller} onChange={(e) => setSeller(e.target.value)}><option value="">All salespeople</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>}
+        {sellers.length > 1 && <Select aria-label="Salesperson" className="w-auto" value={seller} onChange={(e) => setSeller(e.target.value)}><option value="">All salespeople</option>{sellers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>}
         <Select aria-label="Payment status" className="w-auto" value={payment} onChange={(e) => setPayment(e.target.value)}>{PAYMENT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>
       </div>
       {q.isError && <p role="alert" className="rounded-xl border border-border bg-card py-10 text-center text-sm text-red-600">Couldn&apos;t load the report. <button className="font-semibold underline" onClick={() => void q.refetch()}>Try again</button></p>}

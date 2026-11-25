@@ -72,14 +72,25 @@ async def tax_preview(data: TaxPreviewIn, db: DbSession, current_user: CurrentUs
 async def sales_team(db: DbSession, current_user: CurrentUser):
     """Active people who can be named as the salesperson on a sale (names only: it needs no access to user administration)."""
     _require_tenant(current_user.tenant_id)
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
+    from app.modules.sales.models.order import Order
     from app.modules.tenants.models import User
     own = await service.own_sales_scope(db, current_user)
-    stmt = select(User.id, User.full_name).where(User.tenant_id == current_user.tenant_id, User.is_active.is_(True)).order_by(User.full_name)
+    # How many sales each person is credited with, so filters can offer only people who actually sold (inactive ones too: their
+    # past sales still exist). Two people with the same name are told apart by their email.
+    counts = dict((await db.execute(select(Order.salesperson_id, func.count()).where(
+        Order.tenant_id == current_user.tenant_id, Order.salesperson_id.isnot(None), Order.archived_at.is_(None)).group_by(Order.salesperson_id))).all())
+    stmt = select(User.id, User.full_name, User.email, User.is_active).where(
+        User.tenant_id == current_user.tenant_id, (User.is_active.is_(True)) | (User.id.in_(list(counts) or [None]))).order_by(User.full_name)
     if own is not None:
         stmt = stmt.where(User.id == own)
-    return success_response(data=[{"id": r.id, "name": r.full_name} for r in (await db.execute(stmt)).all()], message="Sales team retrieved")
+    rows = (await db.execute(stmt)).all()
+    names = [r.full_name for r in rows]
+    return success_response(data=[{
+        "id": r.id, "name": r.full_name if names.count(r.full_name) == 1 else f"{r.full_name} ({r.email})",
+        "sales": counts.get(r.id, 0), "active": r.is_active,
+    } for r in rows], message="Sales team retrieved")
 
 
 @router.get("/sales/team-performance")
@@ -101,12 +112,27 @@ async def list_orders(
     db: DbSession, current_user: CurrentUser, page_params: PageQuery, active_branch_id: ActiveBranchId, period: PeriodQuery,
     status: str | None = Query(None), search: str | None = Query(None),
     payment_status: str | None = Query(None), archived: bool = Query(False), salesperson_id: uuid.UUID | None = Query(None),
+    payment_method: str | None = Query(None, max_length=20),
 ):
     _require_tenant(current_user.tenant_id)
     salesperson_id = await service.own_sales_scope(db, current_user) or salesperson_id
-    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id, period, archived, salesperson_id)
-    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id, period, archived, salesperson_id)
+    items = await service.list_orders(db, current_user.tenant_id, status, page_params.offset, page_params.limit, search, payment_status, active_branch_id, period, archived,
+                                      salesperson_id, payment_method)
+    total = await service.count_orders(db, current_user.tenant_id, status, search, payment_status, active_branch_id, period, archived, salesperson_id, payment_method)
     return paginated_response(items=[i.model_dump() for i in items], total=total, page=page_params.page, page_size=page_params.page_size, message="Orders retrieved successfully")
+
+
+@router.get("/sales/orders/summary")
+async def orders_summary(db: DbSession, current_user: CurrentUser, active_branch_id: ActiveBranchId, period: PeriodQuery,
+                         search: str | None = Query(None), salesperson_id: uuid.UUID | None = Query(None), payment_method: str | None = Query(None, max_length=20)):
+    """Sales History cards and tab counts for the whole filter (not just the page): sales, collected, outstanding, overdue, average
+    (with the previous period of the same length), VAT, and how many sales are in each status. Same branch and own-sales rules as the list."""
+    _require_tenant(current_user.tenant_id)
+    from app.modules.sales.service.order_summary import order_summary
+    salesperson_id = await service.own_sales_scope(db, current_user) or salesperson_id
+    data = await order_summary(db, current_user.tenant_id, search=search, branch_id=active_branch_id, period=period if period.active else None,
+                               salesperson_id=salesperson_id, payment_method=payment_method)
+    return success_response(data=data, message="Sales summary retrieved")
 
 
 @router.post("/sales/orders")

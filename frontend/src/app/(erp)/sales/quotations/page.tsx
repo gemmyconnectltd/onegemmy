@@ -27,6 +27,7 @@ export default function QuotationsPage() {
   const [editing, setEditing] = useState<ApiQuotation | "new" | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const team = useSalesTeam();
+  const sellers = (team.data ?? []).filter((m) => (m.sales ?? 0) > 0);  // only people who have sold
   const q = useQuotations(page, { status: status === "All" ? undefined : status, search: useDebouncedValue(search) || undefined, salesperson_id: seller || undefined });
   const items = q.data?.items ?? [];
   const filtered = status !== "All" || !!search || !!seller;
@@ -42,7 +43,7 @@ export default function QuotationsPage() {
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Status" className="flex flex-wrap gap-1">{STATUSES.map((s) => <button key={s} role="tab" aria-selected={status === s} onClick={() => { setStatus(s); setPage(1); }} className={`h-8 rounded-md px-3 text-xs font-medium ${status === s ? "bg-accent text-white" : "bg-surface text-muted hover:text-foreground"}`}>{s}</button>)}</div>
         <div className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden /><Input aria-label="Search quotations" className="pl-8" placeholder="Search by number" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /></div>
-        {(team.data?.length ?? 0) > 1 && <Select aria-label="Salesperson" className="w-auto" value={seller} onChange={(e) => { setSeller(e.target.value); setPage(1); }}><option value="">All salespeople</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>}
+        {sellers.length > 1 && <Select aria-label="Salesperson" className="w-auto" value={seller} onChange={(e) => { setSeller(e.target.value); setPage(1); }}><option value="">All salespeople</option>{sellers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select>}
       </div>
 
       {q.isLoading || q.error || items.length === 0 ? (

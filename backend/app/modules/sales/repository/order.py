@@ -35,6 +35,30 @@ def _list_relations():
     ]
 
 
+def apply_filters(stmt, tenant_id: uuid.UUID, *, status: str | None = None, search: str | None = None, payment_status: str | None = None,
+                  branch_id: uuid.UUID | None = None, period: DatePeriod | None = None, archived: bool = False,
+                  salesperson_id: uuid.UUID | None = None, payment_method: str | None = None):
+    """The Sales History filters, shared by the list, its count and its summary so they always describe the same sales."""
+    stmt = stmt.where(Order.tenant_id == tenant_id, Order.archived_at.is_not(None) if archived else Order.archived_at.is_(None))
+    if branch_id is not None:
+        stmt = stmt.where(Order.branch_id == branch_id)
+    if salesperson_id is not None:
+        stmt = stmt.where(Order.salesperson_id == salesperson_id)
+    if status:
+        stmt = stmt.where(Order.status == status)
+    if payment_method:
+        stmt = stmt.where(func.lower(Order.payment_method) == payment_method.lower())
+    if search:
+        like = f"%{search}%"
+        stmt = stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
+            or_(Order.order_number.ilike(like), Customer.name.ilike(like), Customer.phone.ilike(like))
+        )
+    stmt = _payment_status_filter(stmt, payment_status, datetime.now(UTC).date())
+    if period:
+        stmt = period.apply(stmt, Order.ordered_at)
+    return stmt
+
+
 def _payment_status_filter(stmt, payment_status: str | None, today: date):
     if payment_status == "Unpaid":
         return stmt.where(Order.amount_paid <= 0)
@@ -78,23 +102,10 @@ class OrderRepository(BaseRepository[Order]):
         period: DatePeriod | None = None,
         archived: bool = False,
         salesperson_id: uuid.UUID | None = None,
+        payment_method: str | None = None,
     ) -> list[Order]:
-        stmt = select(Order).options(*_list_relations()).where(Order.tenant_id == tenant_id)
-        stmt = stmt.where(Order.archived_at.is_not(None) if archived else Order.archived_at.is_(None))
-        if branch_id is not None:
-            stmt = stmt.where(Order.branch_id == branch_id)
-        if salesperson_id is not None:
-            stmt = stmt.where(Order.salesperson_id == salesperson_id)
-        if status:
-            stmt = stmt.where(Order.status == status)
-        if search:
-            like = f"%{search}%"
-            stmt = stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
-                or_(Order.order_number.ilike(like), Customer.name.ilike(like))
-            )
-        stmt = _payment_status_filter(stmt, payment_status, datetime.now(UTC).date())
-        if period:
-            stmt = period.apply(stmt, Order.ordered_at)
+        stmt = apply_filters(select(Order).options(*_list_relations()), tenant_id, status=status, search=search, payment_status=payment_status,
+                             branch_id=branch_id, period=period, archived=archived, salesperson_id=salesperson_id, payment_method=payment_method)
         stmt = stmt.order_by(Order.ordered_at.desc()).offset(offset).limit(limit).execution_options(populate_existing=True)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -109,23 +120,10 @@ class OrderRepository(BaseRepository[Order]):
         period: DatePeriod | None = None,
         archived: bool = False,
         salesperson_id: uuid.UUID | None = None,
+        payment_method: str | None = None,
     ) -> int:
-        stmt = select(func.count()).select_from(Order).where(Order.tenant_id == tenant_id)
-        stmt = stmt.where(Order.archived_at.is_not(None) if archived else Order.archived_at.is_(None))
-        if branch_id is not None:
-            stmt = stmt.where(Order.branch_id == branch_id)
-        if salesperson_id is not None:
-            stmt = stmt.where(Order.salesperson_id == salesperson_id)
-        if status:
-            stmt = stmt.where(Order.status == status)
-        if search:
-            like = f"%{search}%"
-            stmt = stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
-                or_(Order.order_number.ilike(like), Customer.name.ilike(like))
-            )
-        stmt = _payment_status_filter(stmt, payment_status, datetime.now(UTC).date())
-        if period:
-            stmt = period.apply(stmt, Order.ordered_at)
+        stmt = apply_filters(select(func.count()).select_from(Order), tenant_id, status=status, search=search, payment_status=payment_status,
+                             branch_id=branch_id, period=period, archived=archived, salesperson_id=salesperson_id, payment_method=payment_method)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

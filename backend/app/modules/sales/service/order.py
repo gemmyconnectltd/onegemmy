@@ -359,18 +359,19 @@ async def _record_vat(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUI
 async def list_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50,
     search: str | None = None, payment_status: str | None = None, branch_id: uuid.UUID | None = None,
-    period: DatePeriod | None = None, archived: bool = False, salesperson_id: uuid.UUID | None = None,
+    period: DatePeriod | None = None, archived: bool = False, salesperson_id: uuid.UUID | None = None, payment_method: str | None = None,
 ) -> list[OrderRead]:
-    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period, archived, salesperson_id)
+    items = await OrderRepository(db).list_for_tenant(tenant_id, status, offset, limit, search, payment_status, branch_id, period, archived, salesperson_id,
+                                                      payment_method)
     return [_to_order_read(i) for i in items]
 
 
 async def count_orders(
     db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, search: str | None = None,
     payment_status: str | None = None, branch_id: uuid.UUID | None = None, period: DatePeriod | None = None, archived: bool = False,
-    salesperson_id: uuid.UUID | None = None,
+    salesperson_id: uuid.UUID | None = None, payment_method: str | None = None,
 ) -> int:
-    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period, archived, salesperson_id)
+    return await OrderRepository(db).count_for_tenant(tenant_id, status, search, payment_status, branch_id, period, archived, salesperson_id, payment_method)
 
 
 async def _change_sale_date(db: AsyncSession, tenant_id: uuid.UUID, obj: Order, new_at: datetime, user_id: uuid.UUID | None, user_name: str | None) -> None:

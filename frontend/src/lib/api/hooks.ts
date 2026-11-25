@@ -212,8 +212,10 @@ export const useSetCustomerStatus = mutation(({ id, status }: { id: string; stat
 export const useDeals = (page = 1, pageSize = 100, stage?: string, opts?: QueryOpts) =>
   useQ([...DEALS, page, pageSize, stage ?? "all"], () => salesApi.listDeals(page, pageSize, stage), (r) => r.data, opts);
 
-export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange, archived = false, salespersonId?: string) =>
-  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period), archived ? "archived" : "live", salespersonId ?? ""], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period, archived, salespersonId), (r) => r.data, opts);
+export const useOrders = (page = 1, pageSize = 100, status?: string, search?: string, paymentStatus?: string, opts?: QueryOpts, period?: PeriodRange, archived = false, salespersonId?: string, paymentMethod?: string) =>
+  useQ([...ORDERS, page, pageSize, status ?? "all", search ?? "", paymentStatus ?? "all", periodKey(period), archived ? "archived" : "live", salespersonId ?? "", paymentMethod ?? ""], () => salesApi.listOrders(page, pageSize, status, search, paymentStatus, period, archived, salespersonId, paymentMethod), (r) => r.data, opts);
+export const useOrdersSummary = (f: { search?: string; period?: PeriodRange; salespersonId?: string; paymentMethod?: string }) =>
+  useQ([...ORDERS, "summary", f.search ?? "", periodKey(f.period), f.salespersonId ?? "", f.paymentMethod ?? ""], () => salesApi.ordersSummary(f), (r) => r.data);
 
 export const useOrderPayments = (orderId: string | undefined, opts?: QueryOpts) =>
   useQ([...ORDERS, orderId, "payments"], () => salesApi.listOrderPayments(orderId!), (r) => r.data, { ...opts, enabled: !!orderId && (opts?.enabled ?? true) });

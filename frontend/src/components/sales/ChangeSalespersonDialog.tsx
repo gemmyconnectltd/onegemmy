@@ -25,7 +25,7 @@ export function ChangeSalespersonDialog({ order, onClose }: { order: ApiOrder; o
       <div className="space-y-3 p-4">
         <OptionsLoadError sources={[{ label: "the sales team", query: team }]} />
         <p className="text-sm text-muted">Currently credited to <span className="font-medium text-foreground">{order.salesperson_name ?? "nobody"}</span>. Only who gets the credit changes: money and stock stay as they are.</p>
-        <Field label="Salesperson" required><Select value={person} onChange={(e) => setPerson(e.target.value)}>{!person && <option value="">Choose…</option>}{(team.data ?? []).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></Field>
+        <Field label="Salesperson" required><Select value={person} onChange={(e) => setPerson(e.target.value)}>{!person && <option value="">Choose…</option>}{(team.data ?? []).filter((m) => m.active !== false).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></Field>
         <Field label="Reason" required hint="Kept in the audit trail."><Textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
         {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
         <div className="flex justify-end gap-2"><Button variant="outline" disabled={change.isPending} onClick={onClose}>Cancel</Button><Button disabled={change.isPending || same || !person || reason.trim().length < 3} onClick={() => void save()}>{change.isPending ? "Saving…" : "Change salesperson"}</Button></div>

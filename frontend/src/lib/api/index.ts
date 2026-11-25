@@ -23,7 +23,7 @@ export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCatego
 export { inventoryApi } from "./inventory";
 
 // Sales
-export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiOrderPayment, ApiReturnItem, ApiReturn, ApiTarget, ApiQuotation, QuotationInput, QuotationItem, QuotationStatus, QuotationActivity, TeamMember, SalespersonReport, SalespersonRow, SalespersonOrder, SalespersonTarget, SalespersonFilters } from "./sales";
+export type { ApiCustomer, ApiDeal, ApiOrderItem, ApiOrder, ApiSalesSummary, ApiOrderPayment, ApiReturnItem, ApiReturn, ApiTarget, ApiQuotation, QuotationInput, QuotationItem, QuotationStatus, QuotationActivity, TeamMember, SalespersonReport, SalespersonRow, SalespersonOrder, SalespersonTarget, SalespersonFilters } from "./sales";
 export { salesApi } from "./sales";
 export type { ApiCrmActivity, ApiCrmContact, ApiCrmOpportunity, ApiCampaign, ApiEmailLog, CrmActivityFilters } from "./crm";
 export { crmApi } from "./crm";

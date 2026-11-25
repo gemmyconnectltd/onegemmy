@@ -41,7 +41,8 @@ export interface QuotationInput {
   items: { product_id?: string | null; variant_id?: string | null; product_name: string; sku?: string | null; unit_price: number; quantity: number; discount?: number }[];
 }
 export interface QuotationActivity { action: string; summary: string; by: string | null; at: string | null; details: Record<string, unknown> | null }
-export interface TeamMember { id: string; name: string }
+/** `sales`: how many sales they are credited with; `active`: can still sign in (people who left keep their past sales). */
+export interface TeamMember { id: string; name: string; sales?: number; active?: boolean }
 export interface SalespersonRow {
   salesperson_id: string | null; salesperson: string; orders: number; sales: number; returns: number; net_sales: number; collected: number; outstanding: number;
   awaiting_approval: { orders: number; value: number };
@@ -118,6 +119,13 @@ export interface ApiOrderPayment {
   base_amount?: number | null;
   applied_amount?: number | null;
   base_applied_amount?: number | null;
+}
+
+export interface ApiSalesSummary {
+  sales: number; count: number; tax: number; net: number; collected: number; collected_share: number | null;
+  outstanding: number; outstanding_count: number; overdue_count: number; average: number;
+  previous_average: number | null; previous_sales: number | null;
+  counts: { all: number; completed: number; pending: number; awaiting_approval: number; cancelled: number; unpaid: number; partly_paid: number; overdue: number; archived: number };
 }
 
 export interface ApiOrder {
@@ -266,8 +274,11 @@ export const salesApi = {
     request<SingleResponse<null>>(`${BASE}/deals/${id}`, { method: "DELETE" }),
 
   // Orders
-  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange, archived?: boolean, salespersonId?: string) =>
-    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, archived: archived ? "true" : undefined, salesperson_id: salespersonId, ...periodParams(period) })}`),
+  listOrders: (page = 1, pageSize = 20, status?: string, search?: string, paymentStatus?: string, period?: PeriodRange, archived?: boolean, salespersonId?: string, paymentMethod?: string) =>
+    request<PaginatedResponse<ApiOrder>>(`${BASE}/orders${qs({ page, page_size: pageSize, status, search, payment_status: paymentStatus, archived: archived ? "true" : undefined, salesperson_id: salespersonId, payment_method: paymentMethod, ...periodParams(period) })}`),
+  /** Sales History cards and tab counts for the whole filter (base currency, completed sales for the money). */
+  ordersSummary: (f: { search?: string; period?: PeriodRange; salespersonId?: string; paymentMethod?: string }) =>
+    request<SingleResponse<ApiSalesSummary>>(`${BASE}/orders/summary${qs({ search: f.search, salesperson_id: f.salespersonId, payment_method: f.paymentMethod, ...periodParams(f.period) })}`),
   voidOrder: (id: string, reason: string) =>
     request<SingleResponse<ApiOrder>>(`${BASE}/orders/${id}/void`, { method: "POST", body: JSON.stringify({ reason }) }),
   requestVoid: (id: string, reason: string) =>

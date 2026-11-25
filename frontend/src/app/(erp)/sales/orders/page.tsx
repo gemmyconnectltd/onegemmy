@@ -1,5 +1,4 @@
 "use client";
-import { StatCard } from "@/components/ui/StatCard";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { fetchEvery } from "@/lib/exportTable";
 import { salesApi } from "@/lib/api/sales";
@@ -8,27 +7,23 @@ import { PeriodFilter } from "@/components/ui/PeriodFilter";
 import { ALL_TIME, periodFromQuery, periodLabel, periodRange, type PeriodValue } from "@/lib/period";
 import { TableScroll } from "@/components/ui/TableScroll";
 
-import { orderBaseTax, orderBaseTotal } from "@/lib/baseMoney";
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
-import {
-  Plus, Search, ShoppingCart, CheckCircle2, Clock, XCircle,
-  Eye, Edit2, AlertCircle, ChevronDown, Upload,
-  Archive, ArchiveRestore, Ban,
-  UserCog,
-} from "lucide-react";
+import { Plus, Search, AlertCircle, ChevronDown, Upload, XCircle, ShoppingCart, Wallet, Clock, TrendingUp, SlidersHorizontal, X } from "lucide-react";
+import { StatCard } from "@/components/ui/StatCard";
 import { TableState } from "@/components/ui/TableState";
 import { ReasonDialog } from "@/components/ui/ReasonDialog";
 import { ChangeSalespersonDialog } from "@/components/sales/ChangeSalespersonDialog";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
 import { Button } from "@/components/ui/Button";
-import { useOrders, useSalesTeam, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useVoidOrder, useRequestVoid, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
+import { useMyBranches, useOrdersSummary, useOrders, useSalesTeam, useCustomers, useProducts, useCreateOrder, useUpdateOrder, useApproveOrder, useRejectOrder, useCorrectOrder, useVoidOrder, useRequestVoid, useArchiveOrder, useRestoreOrder, useBulkCreateOrders } from "@/lib/api/hooks";
 import { useAuth } from "@/lib/auth";
-import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiVariant } from "@/lib/api";
-import { PaymentStatusBadge } from "@/components/accounting/InvoiceDocument";
+import type { ApiOrder, ApiOrderPayment, ApiProduct, ApiSalesSummary, ApiVariant } from "@/lib/api";
+import { SaleDetailPanel, SaleStateBadge, paidWith } from "@/components/sales/SaleDetailPanel";
+import { BranchFilter } from "@/components/accounting/FinancialShared";
 import { SaleDocumentDrawer } from "@/components/sales/SaleDocumentDrawer";
 import { RecordPaymentDrawer } from "@/components/accounting/RecordPaymentDrawer";
 import { ReversePaymentDrawer } from "@/components/accounting/ReversePaymentDrawer";
@@ -44,17 +39,6 @@ import { apiErrorMessage } from "@/lib/api/errors";
 import { isPendingFor } from "@/lib/loadState";
 import { Refreshing } from "@/components/ui/LoadState";
 import { isRefreshing } from "@/lib/loadState";
-
-const STATUS_STYLE: Record<string, string> = {
-  Completed: "bg-emerald-100 text-emerald-700",
-  Pending:   "bg-amber-100 text-amber-700",
-  Cancelled: "bg-red-100 text-red-600",
-  "Awaiting Approval": "bg-violet-100 text-violet-700",
-  Rejected:  "bg-red-100 text-red-600",
-};
-const STATUS_ICON: Record<string, React.ElementType> = {
-  Completed: CheckCircle2, Pending: Clock, Cancelled: XCircle, "Awaiting Approval": Clock, Rejected: XCircle,
-};
 
 type ItemRow = {
   rowId: string;            // stable key for the editor row
@@ -287,6 +271,57 @@ function ProductPicker({
   );
 }
 
+// Status tabs: what each one asks the server for. Counts come from the summary.
+type TabKey = "All" | "Unpaid" | "PartlyPaid" | "Overdue" | "Awaiting Approval" | "Pending" | "Cancelled" | "Archived";
+const TABS: { key: TabKey; label: string; status?: string; payment?: string; count: keyof ApiSalesSummary["counts"] }[] = [
+  { key: "All", label: "All", count: "all" },
+  { key: "Unpaid", label: "Unpaid", status: "Completed", payment: "Unpaid", count: "unpaid" },
+  { key: "PartlyPaid", label: "Partly paid", status: "Completed", payment: "PartiallyPaid", count: "partly_paid" },
+  { key: "Overdue", label: "Overdue", status: "Completed", payment: "Overdue", count: "overdue" },
+  { key: "Awaiting Approval", label: "Pending approval", status: "Awaiting Approval", count: "awaiting_approval" },
+  { key: "Pending", label: "Pending", status: "Pending", count: "pending" },
+  { key: "Cancelled", label: "Voided", status: "Cancelled", count: "cancelled" },
+  { key: "Archived", label: "Archived", count: "archived" },
+];
+const CARD_PLACEHOLDERS = [["Sales", ShoppingCart], ["Collected", Wallet], ["Outstanding", Clock], ["Average sale", TrendingUp]].map(([label, icon]) => ({ label: label as string, value: "", sub: undefined as string | undefined, icon: icon as typeof ShoppingCart, warn: false }));
+const METHODS = [["", "Payment method: All"], ["cash", "Cash"], ["mobile", "Mobile money"], ["card", "Card"], ["bank", "Bank transfer"], ["credit", "On credit"]] as const;
+
+/** "More filters": the less-used filters in a small panel, with how many are active on the button. Closes on outside click / Escape. */
+function MoreFilters({ active, children }: { active: number; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <Button variant="outline" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((v) => !v)}>
+        <SlidersHorizontal size={14} /> More filters{active > 0 && <span className="ml-1 rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">{active}</span>}
+      </Button>
+      {open && (
+        <div role="dialog" aria-label="More filters" className="absolute right-0 top-full z-30 mt-1 w-72 space-y-3 rounded-xl border border-border bg-card p-4 shadow-lg">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Desktop (≥1280px): the selected sale sits beside the list; smaller screens open it in a drawer. */
+const WIDE = "(min-width: 1280px)";
+function useWideScreen() {
+  return useSyncExternalStore(
+    (change) => { const m = window.matchMedia(WIDE); m.addEventListener("change", change); return () => m.removeEventListener("change", change); },
+    () => window.matchMedia(WIDE).matches,
+    () => false,
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SalesOrdersPage() {
   const { currencySymbol, brandColor } = useAppConfig();
@@ -300,9 +335,10 @@ export default function SalesOrdersPage() {
   const { user: authUser } = useAuth();
   // Owners and administrators run the books: only they archive/restore a sale or move its date. Nobody deletes a sale.
   const isOwner = !!authUser?.isSuperuser || ["admin", "owner", "owner/ceo"].includes((authUser?.role ?? "").toLowerCase());
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState<TabKey>("All");
   const [sellerFilter, setSellerFilter] = useState("");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
+  const [methodFilter, setMethodFilter] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [showAdd, setShowAdd] = useState(false);
@@ -316,18 +352,37 @@ export default function SalesOrdersPage() {
 
   // Reset to page 1 right where a filter changes, not via an effect.
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
-  const onStatusFilterChange = (s: string) => { setStatusFilter(s); setPage(1); };
-  const onPaymentStatusFilterChange = (s: string) => { setPaymentStatusFilter(s); setPage(1); };
+  const onStatusFilterChange = (s: TabKey) => { setStatusFilter(s); setPage(1); };
   const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
   const range = useMemo(() => periodRange(period), [period]);
   // Opened from a report number: show the sales behind it for the same dates.
-  useEffect(() => { const linked = periodFromQuery(window.location.search); if (linked) queueMicrotask(() => setPeriod(linked)); }, []);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const linked = periodFromQuery(window.location.search);
+    queueMicrotask(() => {
+      if (linked) setPeriod(linked);
+      const status = q.get("status");
+      if (status && TABS.some((t) => t.key === status)) setStatusFilter(status as TabKey);
+      if (q.get("seller")) setSellerFilter(q.get("seller")!);
+      if (q.get("method")) setMethodFilter(q.get("method")!);
+      if (q.get("q")) setSearch(q.get("q")!);
+    });
+  }, []);
+  // Keep the chosen filters in the address so a refresh or a shared link opens the same view.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const set = (k: string, v: string) => { if (v) q.set(k, v); else q.delete(k); };
+    set("status", statusFilter === "All" ? "" : statusFilter); set("seller", sellerFilter); set("method", methodFilter); set("q", debouncedSearch.trim());
+    const next = `${window.location.pathname}${q.toString() ? `?${q}` : ""}`;
+    if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", next);
+  }, [statusFilter, sellerFilter, methodFilter, debouncedSearch]);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
-  const filtersActive = statusFilter !== "All" || sellerFilter !== "" || paymentStatusFilter !== "All" || period.key !== "all" || search.trim() !== "";
-  const clearFilters = () => { setStatusFilter("All"); setSellerFilter(""); setPaymentStatusFilter("All"); setPeriod(ALL_TIME); setSearch(""); setPage(1); };
+  const filtersActive = statusFilter !== "All" || sellerFilter !== "" || methodFilter !== "" || period.key !== "all" || search.trim() !== "";
+  const clearFilters = () => { setStatusFilter("All"); setSellerFilter(""); setMethodFilter(""); setPeriod(ALL_TIME); setSearch(""); setPage(1); };
 
   const showArchived = statusFilter === "Archived";
-  const ordersQ = useOrders(page, pageSize, statusFilter === "All" || showArchived ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, undefined, range, showArchived, sellerFilter || undefined);
+  const tab = TABS.find((t) => t.key === statusFilter) ?? TABS[0];
+  const ordersQ = useOrders(page, pageSize, tab.status, debouncedSearch || undefined, tab.payment, undefined, range, showArchived, sellerFilter || undefined, methodFilter || undefined);
   // Customer/product pickers for the create/edit form need the full lists, not
   // the current table page — kept as their own, separately-paginated fetches.
   const customersQ = useCustomers(1, 200);
@@ -338,22 +393,17 @@ export default function SalesOrdersPage() {
   // Derived from the live list (not a captured snapshot) so the drawer
   // reflects a payment recorded/reversed while it's open.
   const viewing = orders.find((o) => o.id === viewingId) ?? null;
+  const selected = orders.find((o) => o.id === selectedId) ?? null;
+  const branchesQ = useMyBranches();
+  const branchName = (id: string | null) => branchesQ.data?.items.find((b) => b.id === id)?.name ?? null;
   const total = ordersQ.data?.total ?? 0;
   const customers = customersQ.data?.items ?? [];
   const products = productsQ.data?.items ?? [];
 
-  // Stat cards summarise the whole tenant, not just the current filtered page:
-  // cheap page_size=1 calls read `.total` for the status breakdown, and a
-  // capped fetch of Completed orders (same pattern the dashboard uses) feeds
-  // the revenue/VAT sums.
-  const totalOrdersQ = useOrders(1, 1, undefined, undefined, undefined, undefined, range);
-  const completedCountQ = useOrders(1, 1, "Completed", undefined, undefined, undefined, range);
-  const pendingCountQ = useOrders(1, 1, "Pending", undefined, undefined, undefined, range);
-  const revenueQ = useOrders(1, 500, "Completed", undefined, undefined, undefined, range);
-  const statsLoading = totalOrdersQ.isLoading || completedCountQ.isLoading || pendingCountQ.isLoading || revenueQ.isLoading;
-  const revenueOrders = revenueQ.data?.items ?? [];
-  const revenue = revenueOrders.reduce((s, o) => s + orderBaseTotal(o), 0);
-  const totalVAT = revenueOrders.reduce((s, o) => s + orderBaseTax(o), 0);
+  // Cards and tab counts cover the whole filter (every page), computed by the server in the base currency.
+  const summaryQ = useOrdersSummary({ search: debouncedSearch || undefined, period: range, salespersonId: sellerFilter || undefined, paymentMethod: methodFilter || undefined });
+  const summary = summaryQ.data;
+  const statsLoading = summaryQ.isLoading;
 
   const loadError = ordersQ.error ?? customersQ.error ?? productsQ.error;
   const loadErrorMessage = loadError ? (loadError as { detail?: string })?.detail ?? "Failed to load sales" : null;
@@ -374,12 +424,14 @@ export default function SalesOrdersPage() {
   const bulkCreateOrders = useBulkCreateOrders();
   const saving = createOrder.isPending || updateOrder.isPending || correctOrder.isPending;
 
-  const stats = [
-    { label: "Total Sales", value: String(totalOrdersQ.data?.total ?? 0),    icon: ShoppingCart, color: SAL },
-    { label: "Completed",    value: String(completedCountQ.data?.total ?? 0), icon: CheckCircle2, color: "#10b981" },
-    { label: "Pending",      value: String(pendingCountQ.data?.total ?? 0),   icon: Clock,        color: "#f59e0b" },
-    { label: "Revenue",      value: fmt(revenue),                            icon: ShoppingCart, color: "#3b82f6" },
-  ];
+  const periodName = period.key === "all" ? "All time" : periodLabel(period);
+  const averageChange = summary?.previous_average ? Math.round(((summary.average - summary.previous_average) / summary.previous_average) * 100) : null;
+  const cards = summary ? [
+    { label: `Sales · ${periodName}`, value: fmt(summary.sales), sub: `${summary.count} sale${summary.count === 1 ? "" : "s"}`, icon: ShoppingCart },
+    { label: "Collected", value: fmt(summary.collected), sub: summary.collected_share == null ? "No sales yet" : `${summary.collected_share}% of sales`, icon: Wallet },
+    { label: "Outstanding", value: fmt(summary.outstanding), sub: `${summary.outstanding_count} sale${summary.outstanding_count === 1 ? "" : "s"} · ${summary.overdue_count} overdue`, warn: summary.outstanding > 0, icon: Clock },
+    { label: "Average sale", value: fmt(summary.average), sub: averageChange == null ? "Per completed sale" : `${averageChange >= 0 ? "↑" : "↓"} ${Math.abs(averageChange)}% vs previous period`, icon: TrendingUp },
+  ] : [];
 
   const bulk = useBulkSelection(orders.map((o) => o.id));
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
@@ -387,9 +439,13 @@ export default function SalesOrdersPage() {
   const { hasPermission } = useAuth();
   const canApproveCredit = hasPermission("credit:approve");
   const canApproveSale = hasPermission("orders:approve");
+  // Taking a payment against a sale is an accounts-receivable action; only offer it to people who may do it (the server checks too).
+  const canRecordPayment = hasPermission("accounts_receivable:create");
   // A sale held by the business's approve-every-sale rule needs sale approval; one held for credit needs credit approval.
   const canDecide = (o: ApiOrder) => (o.held_reason === "policy" ? canApproveSale : canApproveCredit);
   const team = useSalesTeam();
+  const sellers = (team.data ?? []).filter((m) => (m.sales ?? 0) > 0);  // the filter offers only people who have sold
+  const activeTeam = (team.data ?? []).filter((m) => m.active !== false);  // who can be credited with a new sale
   const [rejectingSale, setRejectingSale] = useState<ApiOrder | null>(null);
   const [reassigning, setReassigning] = useState<ApiOrder | null>(null);
   const approveOrder = useApproveOrder();
@@ -498,167 +554,171 @@ export default function SalesOrdersPage() {
     }
   };
 
+  // What the selected sale's panel can do: the same actions the table row used to offer.
+  const actionsFor = (o: ApiOrder) => [
+    ...(o.status === "Awaiting Approval" && canDecide(o) ? [{ label: "Approve sale", onSelect: () => decideCredit(o, "approve"), disabled: decideBusy }, { label: "Reject sale", onSelect: () => decideCredit(o, "reject"), danger: true, disabled: decideBusy }] : []),
+    { label: o.status === "Completed" && isOwner ? "Correct sale" : "Edit sale", onSelect: () => openEdit(o) },
+    ...(canApproveSale && !showArchived ? [{ label: "Change salesperson", onSelect: () => setReassigning(o) }] : []),
+    ...(o.status === "Completed" && !showArchived ? [{ label: isOwner ? "Void sale" : "Request void", onSelect: () => setVoiding(o), danger: true }] : []),
+    ...(isOwner ? [{ label: showArchived ? "Restore sale" : "Archive sale", disabled: isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id),
+      onSelect: () => (showArchived ? restoreOrder.mutate(o.id, { onError: (e) => setError(apiErrorMessage(e, "The sale could not be restored.")) }) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutateAsync({ id: o.id, reason: "Archived from Sales History" }) })) }] : []),
+  ];
+  const panel = selected && (
+    <SaleDetailPanel order={selected} branchName={branchName(selected.branch_id)} fmt={fmt} onClose={() => setSelectedId(null)}
+      onRecordPayment={canRecordPayment && selected.status === "Completed" && selected.outstanding_balance > 0 ? () => setRecordingPaymentFor(selected) : undefined}
+      onOpenInvoice={() => setViewingId(selected.id)} onSend={() => setViewingId(selected.id)} more={actionsFor(selected)} />
+  );
+  const first = total ? (page - 1) * pageSize + 1 : 0;
+  const chips = [
+    ...(search.trim() ? [{ key: "q", label: "Search", value: `"${search.trim()}"`, clear: () => onSearchChange("") }] : []),
+    ...(period.key !== "all" ? [{ key: "period", label: "Period", value: periodLabel(period), clear: () => onPeriodChange(ALL_TIME) }] : []),
+    ...(statusFilter !== "All" ? [{ key: "status", label: "Status", value: tab.label, clear: () => onStatusFilterChange("All") }] : []),
+    ...(sellerFilter ? [{ key: "seller", label: "Salesperson", value: sellers.find((m) => m.id === sellerFilter)?.name ?? "Selected", clear: () => { setSellerFilter(""); setPage(1); } }] : []),
+    ...(methodFilter ? [{ key: "method", label: "Paid with", value: METHODS.find(([v]) => v === methodFilter)?.[1] ?? methodFilter, clear: () => { setMethodFilter(""); setPage(1); } }] : []),
+  ];
+  const wide = useWideScreen();
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {confirmDialog}
-      <div className="flex items-center justify-between pesaa-responsive-toolbar">
+      <div className="flex items-start justify-between gap-3 pesaa-responsive-toolbar">
         <div>
           <h1 className="pesaa-page-title text-foreground">Sales History</h1>
-          <p className="text-sm text-muted mt-0.5">{total} total sale{total === 1 ? "" : "s"}</p>
+          <p className="text-sm text-muted mt-0.5">Every sale is also its invoice. Record payments, print receipts and follow up on balances.</p>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton build={async () => {
-            const sales = await fetchEvery((p, s) => salesApi.listOrders(p, s, statusFilter === "All" ? undefined : statusFilter, debouncedSearch || undefined, paymentStatusFilter === "All" ? undefined : paymentStatusFilter, range, false, sellerFilter || undefined), 500);
+            const sales = await fetchEvery((p, s) => salesApi.listOrders(p, s, tab.status, debouncedSearch || undefined, tab.payment, range, showArchived, sellerFilter || undefined, methodFilter || undefined), 500);
             // One row per item, the same layout the Import template uses, so the file can be imported back.
             const rows = sales.flatMap((o) => (o.items.length ? o.items : [null]).map((i) => [o.order_number, o.customer?.name ?? "", o.ordered_at ?? "", o.status, o.payment_method ?? "", o.notes ?? "", i?.sku ?? "", i?.quantity ?? "", i?.unit_price ?? ""]));
             return { filename: "sales", headers: ORDER_CSV_HEADERS, rows };
           }} />
           <Button variant="secondary" onClick={() => setShowImport(true)}><Upload size={15} /> Import</Button>
-          <Link href="/pos"><Button color={SAL}><Plus size={15} /> New Sale</Button></Link>
+          <Link href="/pos"><Button><Plus size={15} /> New sale</Button></Link>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle size={15} /> {error}
           <button className="ml-auto text-xs underline" onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((s) => <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} color={s.color} loading={statsLoading} />)}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(cards.length ? cards : CARD_PLACEHOLDERS).map((c) => <StatCard key={c.label} label={c.label} value={c.value} hint={c.sub} icon={c.icon} tone={c.warn ? "warning" : "default"} loading={statsLoading} />)}
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div role="tablist" aria-label="Sale status" className="no-scrollbar flex overflow-x-auto border-b border-border px-2">
-          {["All", "Completed", "Pending", "Awaiting Approval", "Cancelled", ...(isOwner ? ["Archived"] : [])].map((s) => (
-            <button key={s} role="tab" aria-selected={statusFilter === s} onClick={() => onStatusFilterChange(s)}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-[13px] sm:px-3.5 font-semibold focus-visible:outline-2 focus-visible:outline-accent ${statusFilter === s ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground"}`}>{s}</button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-          <div className="relative w-full sm:w-auto sm:min-w-[200px] sm:flex-1 sm:max-w-xs">
+      <div className={`grid items-start gap-4 ${selected && wide ? "grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
+      <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        {/* One line, broadest first: find a sale, then when, where and what state. Who sold it and how it was paid are one click away. */}
+        <div className={`flex flex-wrap items-center gap-2 border-b border-border p-3 ${selected && wide ? "" : "lg:flex-nowrap"}`}>
+          <div className="relative w-full lg:w-auto lg:min-w-[12rem] lg:flex-1">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
-            <Input className="pl-9" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Search reference or customer" aria-label="Search sales" />
+            <Input className="pl-9" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Order #, customer or phone" aria-label="Search sales" />
           </div>
-          <PeriodFilter value={period} onChange={onPeriodChange} label="Sale date" className="min-w-0 flex-1 sm:flex-none" />
-          {(team.data?.length ?? 0) > 1 && (
-            <Select aria-label="Salesperson" value={sellerFilter} onChange={(e) => { setSellerFilter(e.target.value); setPage(1); }} className="min-w-0 flex-1 sm:w-auto sm:flex-none">
-              <option value="">All salespeople</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </Select>
-          )}
-          <Select aria-label="Payment status" value={paymentStatusFilter} onChange={(e) => onPaymentStatusFilterChange(e.target.value)} className="min-w-0 flex-1 sm:w-auto sm:flex-none">
-            <option value="All">All payments</option>
-            <option value="Paid">Paid</option>
-            <option value="PartiallyPaid">Partially paid</option>
-            <option value="Unpaid">Unpaid</option>
-            <option value="Overdue">Overdue</option>
+          <PeriodFilter value={period} onChange={onPeriodChange} label="Period" className="min-w-0 flex-1 sm:flex-none lg:shrink-0" />
+          {!authUser?.branchId && <div className="min-w-0 flex-1 sm:w-44 sm:flex-none lg:w-40 lg:shrink-0"><BranchFilter /></div>}
+          <Select aria-label="Status" value={statusFilter} onChange={(e) => onStatusFilterChange(e.target.value as TabKey)} className="min-w-0 flex-1 sm:w-auto sm:flex-none lg:max-w-[13rem] lg:shrink-0">
+            {TABS.filter((t) => t.key !== "Archived" || isOwner).map((t) => {
+              const n = summary?.counts[t.count];
+              return <option key={t.key} value={t.key}>{t.key === "All" ? "Status: All" : t.label}{n != null ? ` (${n})` : ""}</option>;
+            })}
           </Select>
-          {filtersActive && <button type="button" onClick={clearFilters} className="ml-auto text-[13px] font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">Clear filters</button>}
+          <MoreFilters active={(sellerFilter ? 1 : 0) + (methodFilter ? 1 : 0)}>
+            {sellers.length > 0 && <Field label="Salesperson">
+              <Select aria-label="Salesperson" value={sellerFilter} onChange={(e) => { setSellerFilter(e.target.value); setPage(1); }}>
+                <option value="">Everyone</option>{sellers.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.sales})</option>)}
+              </Select>
+            </Field>}
+            <Field label="Paid with">
+              <Select aria-label="Payment method" value={methodFilter} onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }}>
+                {METHODS.map(([v, l]) => <option key={v} value={v}>{v ? l : "Any method"}</option>)}
+              </Select>
+            </Field>
+          </MoreFilters>
         </div>
-        {(period.key !== "all" || filtersActive) && (
-          <p role="status" className="border-b border-border bg-surface/50 px-4 py-2 text-[12px] text-muted">
-            Showing <strong className="text-foreground">{total}</strong> sale{total === 1 ? "" : "s"}{period.key !== "all" && <> from <strong className="text-foreground">{periodLabel(period)}</strong></>}. The totals above follow the same dates.
-          </p>
+        {/* What is applied, each removable on its own; "Clear all" resets everything. */}
+        {chips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+            {chips.map((c) => (
+              <span key={c.key} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface py-0.5 pl-2.5 pr-1 text-xs">
+                <span className="text-muted">{c.label}:</span><span className="font-semibold text-foreground">{c.value}</span>
+                <button type="button" onClick={c.clear} aria-label={`Remove filter ${c.label}`} className="flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-card hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent"><X size={12} /></button>
+              </span>
+            ))}
+            <button type="button" onClick={clearFilters} className="ml-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">Clear all</button>
+            <span className="ml-auto text-xs text-muted">{total} sale{total === 1 ? "" : "s"} match</span>
+          </div>
         )}
 
-        {bulk.count > 0 && (
-          <div className="p-4 border-b border-border">
-            {isOwner && <BulkActionBar count={bulk.count} label="sale" onDelete={confirmBulkArchive} onClear={bulk.clear} deleting={bulkDeleting} kind={showArchived ? "restore" : "archive"} />}
+        {bulk.count > 0 && isOwner && (
+          <div className="border-b border-border p-3">
+            <BulkActionBar count={bulk.count} label="sale" onDelete={confirmBulkArchive} onClear={bulk.clear} deleting={bulkDeleting} kind={showArchived ? "restore" : "archive"} />
           </div>
         )}
 
         {loading || listFailed ? (
           <TableState loading={loading} error={listFailed ? ordersQ.error : undefined} onRetry={() => void ordersQ.refetch()} />
         ) : (
-          <TableScroll className="hidden md:block"><Refreshing busy={isRefreshing(ordersQ)}><table className="w-full min-w-[64rem]">
+          <TableScroll className="hidden md:block"><Refreshing busy={isRefreshing(ordersQ)}><table className="w-full min-w-[48rem]">
             <thead>
               <tr className="border-b border-border text-left text-xs text-muted">
-                <th className="p-4 w-10">
-                  <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={orders.length === 0} />
+                <th className="w-10 p-4">
+                  <input type="checkbox" aria-label="Select all sales on this page" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="h-4 w-4 rounded" disabled={orders.length === 0} />
                 </th>
-                <th className="p-4 font-semibold whitespace-nowrap">Sale Reference</th>
-                <th className="p-4 font-semibold min-w-36">Customer</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Order</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Date</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Customer</th>
                 <th className="p-4 font-semibold whitespace-nowrap">Salesperson</th>
-                <th className="p-4 font-semibold">Items</th>
-                <th className="p-4 font-semibold">Date</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold text-right whitespace-nowrap">VAT</th>
-                <th className="p-4 font-semibold text-right">Total</th>
-                <th className="p-4 font-semibold text-right">Balance</th>
-                <th className="p-4 font-semibold whitespace-nowrap">Due Date</th>
-                <th className="p-4 font-semibold">Payment</th>
-                <th className="p-4" />
+                <th className="p-4 font-semibold whitespace-nowrap">Paid with</th>
+                <th className="p-4 text-right font-semibold">Total</th>
+                <th className="p-4 font-semibold whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {orders.map((o) => {
-                const Icon = STATUS_ICON[o.status] ?? Clock;
+                const on = o.id === selectedId;
                 return (
-                  <tr key={o.id} className="hover:bg-surface/50 transition-colors group">
-                    <td className="p-4">
-                      <input type="checkbox" checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} className="w-4 h-4 rounded" />
+                  <tr key={o.id} onClick={() => setSelectedId(on ? null : o.id)} aria-selected={on}
+                    className={`cursor-pointer transition-colors ${on ? "bg-accent/5" : "hover:bg-surface/60"}`}>
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} className="h-4 w-4 rounded" />
                     </td>
-                    <td className="p-4 text-sm font-mono font-bold whitespace-nowrap" style={{ color: SAL }}>{o.order_number}</td>
-                    <td className="p-4 text-sm font-medium text-foreground min-w-36">{o.customer?.name ?? <span className="italic text-muted">Walk-in</span>}</td>
-                    <td className="p-4 text-sm whitespace-nowrap">{o.salesperson_name ?? <span className="text-muted">—</span>}</td>
-                    <td className="p-4 text-sm text-muted whitespace-nowrap">{o.items.length} item{o.items.length !== 1 ? "s" : ""}</td>
-                    <td className="p-4 text-sm text-muted whitespace-nowrap">{fmtDateTime(o.ordered_at)}</td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[o.status] ?? "bg-slate-100 text-slate-600"}`}>
-                        <Icon size={11} /> {o.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right text-sm tabular-nums whitespace-nowrap" style={{ color: "#6366f1" }}>{fmt(o.tax)}</td>
-                    <td className="p-4 text-right text-sm font-bold text-foreground tabular-nums whitespace-nowrap">{fmt(o.total)}</td>
-                    <td className="p-4 text-right text-sm tabular-nums whitespace-nowrap">
-                      {o.status === "Completed" ? (
-                        <span className={o.outstanding_balance > 0 ? "font-semibold text-amber-600" : "text-muted"}>{fmt(o.outstanding_balance)}</span>
-                      ) : <span className="text-muted">—</span>}
-                    </td>
-                    <td className="p-4 text-sm whitespace-nowrap">
-                      {o.due_date && o.outstanding_balance > 0 ? (
-                        <span className={o.is_overdue ? "font-semibold text-red-600" : "text-muted"}>{new Date(o.due_date).toLocaleDateString()}</span>
-                      ) : <span className="text-muted">—</span>}
-                    </td>
-                    <td className="p-4">
-                      {o.status === "Completed" && <PaymentStatusBadge paymentStatus={o.payment_status} isOverdue={o.is_overdue} />}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setViewingId(o.id)} aria-label="View sale" title="View" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Eye size={13} /></button>
-                        {o.status === "Awaiting Approval" && canDecide(o) && (
-                          <>
-                            <button onClick={() => decideCredit(o, "approve")} disabled={decideBusy} aria-label="Approve sale" title="Approve" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 disabled:opacity-50">Approve</button>
-                            <button onClick={() => decideCredit(o, "reject")} disabled={decideBusy} aria-label="Reject sale" title="Reject" className="h-7 px-2 rounded-md text-[11px] font-semibold bg-red-500/10 text-red-600 hover:bg-red-500/20 disabled:opacity-50">Reject</button>
-                          </>
-                        )}
-                        <button onClick={() => openEdit(o)} aria-label="Edit sale" title="Edit" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><Edit2 size={13} /></button>
-                        {canApproveSale && !showArchived && <button onClick={() => setReassigning(o)} aria-label="Change salesperson" title="Change salesperson" className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors"><UserCog size={13} /></button>}
-                        {o.status === "Completed" && !showArchived && <button onClick={() => setVoiding(o)} aria-label={isOwner ? "Void sale" : "Request void"} title={isOwner ? "Void sale" : "Ask for this sale to be voided"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-red-600 hover:bg-red-500/10 transition-colors"><Ban size={13} /></button>}
-                        {isOwner && <button disabled={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id)} aria-busy={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id) || undefined} onClick={() => (showArchived ? restoreOrder.mutate(o.id, { onError: (e) => setError(apiErrorMessage(e, "The sale could not be restored.")) }) : confirm({ title: "Archive this sale?", message: `${o.order_number} leaves Sales History but stays in the books and reports. You can restore it from the Archived tab.`, confirmLabel: "Archive", onConfirm: () => archiveOrder.mutateAsync({ id: o.id, reason: "Archived from Sales History" }) }))} aria-label={showArchived ? "Restore sale" : "Archive sale"} title={showArchived ? "Restore" : "Archive"} className="w-7 h-7 rounded-md flex items-center justify-center bg-surface text-muted hover:text-accent hover:bg-accent/10 transition-colors">{showArchived ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>}
-                      </div>
-                    </td>
+                    <td className="whitespace-nowrap p-4"><button type="button" onClick={(e) => { e.stopPropagation(); setSelectedId(o.id); }} className="font-mono text-sm font-bold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">{o.order_number}</button></td>
+                    <td className="whitespace-nowrap p-4 text-sm text-muted">{fmtDateTime(o.ordered_at)}</td>
+                    <td className="max-w-[14rem] truncate p-4 text-sm font-medium text-foreground">{o.customer?.name ?? <span className="font-normal text-muted">Walk-in customer</span>}</td>
+                    <td className="whitespace-nowrap p-4 text-sm">{o.salesperson_name ?? <span className="text-muted">—</span>}</td>
+                    <td className="whitespace-nowrap p-4 text-sm text-muted">{paidWith(o)}</td>
+                    <td className="whitespace-nowrap p-4 text-right text-sm font-bold tabular-nums text-foreground">{fmt(o.total)}</td>
+                    <td className="whitespace-nowrap p-4"><SaleStateBadge order={o} /></td>
                   </tr>
                 );
               })}
             </tbody>
           </table></Refreshing></TableScroll>
         )}
-        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-all text-sm font-semibold">{o.order_number}</h2><p className="text-sm text-muted">{o.customer?.name || "Walk-in"}</p><p className="text-xs text-muted">{o.status} · {o.items.length} items{o.salesperson_name ? ` · ${o.salesperson_name}` : ""}</p></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><dl className="my-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Total</dt><dd className="font-semibold">{fmt(o.total)}</dd></div><div><dt className="text-xs text-muted">Outstanding</dt><dd>{fmt(o.outstanding_balance)}</dd></div></dl><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setViewingId(o.id)}>View sale</Button><Button variant="outline" onClick={() => openEdit(o)}>Edit</Button>{o.status === "Completed" && !showArchived && <Button variant="outline" onClick={() => setVoiding(o)}>{isOwner ? "Void" : "Request void"}</Button>}{isOwner && <Button variant="outline" loading={isPendingFor(restoreOrder, o.id) || isPendingFor(archiveOrder, o.id)} onClick={() => (showArchived ? restoreOrder.mutate(o.id, { onError: (e) => setError(apiErrorMessage(e, "The sale could not be restored.")) }) : archiveOrder.mutate({ id: o.id, reason: "Archived from Sales History" }))}>{showArchived ? "Restore" : "Archive"}</Button>}{o.status === "Awaiting Approval" && canDecide(o) && <><Button disabled={decideBusy} onClick={() => decideCredit(o, "approve")}>Approve</Button><Button variant="destructive" disabled={decideBusy} onClick={() => decideCredit(o, "reject")}>Reject</Button></>}</div></article>)}</div>}
+        {!loading && orders.length > 0 && <div className="space-y-3 p-3 md:hidden" aria-label="Sale cards"><label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={bulk.allSelected} onChange={bulk.toggleAll} />Select this page</label>{orders.map((o) => <article key={o.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><button type="button" className="min-w-0 text-left" onClick={() => setSelectedId(o.id)}><h2 className="break-all font-mono text-sm font-semibold text-accent">{o.order_number}</h2><p className="text-sm">{o.customer?.name || "Walk-in customer"}</p><p className="text-xs text-muted">{fmtDateTime(o.ordered_at)}{o.salesperson_name ? ` · ${o.salesperson_name}` : ""} · {paidWith(o)}</p></button><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${o.order_number}`} checked={bulk.selected.has(o.id)} onChange={() => bulk.toggle(o.id)} /></label></div><div className="mt-3 flex items-center justify-between gap-3"><span className="font-semibold tabular-nums">{fmt(o.total)}</span><SaleStateBadge order={o} /></div></article>)}</div>}
         {!loading && orders.length === 0 && <div className="p-3"><TableState error={ordersQ.error} onRetry={() => void ordersQ.refetch()} empty={!ordersQ.error} filtered={filtersActive} onClearFilters={clearFilters} title="No sales yet" hint="Completed sales appear here." /></div>}
         {!loading && orders.length > 0 && (
-          <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" color={SAL} />
+          <div className="border-t border-border">
+            <p className="px-4 pt-3 text-xs text-muted">{first}–{first + orders.length - 1} of {total} · the cards above cover the whole filter, not just this page</p>
+            <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="sales" />
+          </div>
         )}
-        {!statsLoading && revenueOrders.length > 0 && (
-          <div className="px-4 py-3 border-t border-border bg-surface/50 flex flex-wrap items-center gap-6">
-            <span className="text-[11px] font-semibold text-muted uppercase tracking-wider">Tax Summary (completed sales)</span>
-            <span className="text-[12px] font-bold" style={{ color: "#6366f1" }}>VAT Collected: {fmt(totalVAT)}</span>
-            <span className="text-[12px] font-bold text-foreground">Net (excl. VAT): {fmt(revenue - totalVAT)}</span>
-            <span className="text-[12px] font-bold text-foreground">Gross Revenue: {fmt(revenue)}</span>
+        {summary && summary.count > 0 && (
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border bg-surface/50 px-4 py-3 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-muted">Tax summary (completed sales)</span>
+            <span>VAT collected: <strong className="tabular-nums">{fmt(summary.tax)}</strong></span>
+            <span>Net (excl. VAT): <strong className="tabular-nums">{fmt(summary.net)}</strong></span>
+            <span>Gross revenue: <strong className="tabular-nums">{fmt(summary.sales)}</strong></span>
           </div>
         )}
       </div>
+      {panel && wide && <div className="sticky top-20">{panel}</div>}
+      </div>
+      {/* Below desktop width the selected sale opens in a drawer instead of beside the list. */}
+      {!wide && <Drawer open={!!selected} onClose={() => setSelectedId(null)} title={selected?.order_number ?? "Sale"} size="md">{panel && <div className="p-3">{panel}</div>}</Drawer>}
 
       {/* ── Add / Edit Drawer ── */}
       <ReasonDialog open={!!rejectingSale} onClose={() => setRejectingSale(null)} danger title={`Reject ${rejectingSale?.order_number ?? "sale"}?`}
@@ -685,10 +745,10 @@ export default function SalesOrdersPage() {
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </Field>
-            {!editing && !!authUser?.isSuperuser && (team.data?.length ?? 0) > 1 && (
+            {!editing && !!authUser?.isSuperuser && activeTeam.length > 1 && (
               <Field label="Salesperson" hint="Who is credited with this sale. Leave as Me if you made it.">
                 <Select value={form.salesperson_id} onChange={(e) => setForm({ ...form, salesperson_id: e.target.value })}>
-                  <option value="">Me</option>{team.data!.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  <option value="">Me</option>{activeTeam.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </Select>
               </Field>
             )}
@@ -795,7 +855,7 @@ export default function SalesOrdersPage() {
 
       {viewing && <SaleDocumentDrawer order={viewing} onClose={() => setViewingId(null)}
         onReversePayment={(id) => setReversingPayment(viewing.payments.find((p) => p.id === id) ?? null)}
-        extraActions={viewing.status === "Completed" && viewing.outstanding_balance > 0 ? <Button onClick={() => setRecordingPaymentFor(viewing)} color={SAL} className="rounded-lg">Record Payment</Button> : undefined} />}
+        extraActions={canRecordPayment && viewing.status === "Completed" && viewing.outstanding_balance > 0 ? <Button onClick={() => setRecordingPaymentFor(viewing)} color={SAL} className="rounded-lg">Record Payment</Button> : undefined} />}
 
       <RecordPaymentDrawer order={recordingPaymentFor} onClose={() => setRecordingPaymentFor(null)} color={SAL} fmt={fmt} />
       <ReversePaymentDrawer payment={reversingPayment} onClose={() => setReversingPayment(null)} fmt={fmt} />
