@@ -16,12 +16,11 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Date, case, cast, func, select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.modules.accounting.models.expense import Expense
-from app.modules.inventory.models.product import Product
 from app.modules.reporting.repository.daily import DailyRepository
 from app.modules.sales.models.deal import Deal
 from app.modules.sales.models.order import Order
@@ -38,6 +37,7 @@ DEFINITIONS = {
     "other_income": "Income recorded in Accounting that is not from sales (rent received, interest, commissions, grants). Needs access to Accounting journals.",
     "net_profit": "Gross profit minus approved expenses, plus other income. Shown only when gross profit and expenses are known; it matches the Overview dashboard's profit.",
     "returns": "Approved returns dated in the period. They are shown separately and not subtracted from profit.",
+    "stock_value": "Stock value is today's stock at cost for the branches chosen, the same figure as Inventory → Valuation. The Balance Sheet's Inventory shows only stock posted in Accounting, so stock entered without a journal (opening stock, imports, manual stock edits) is counted here but not there.",
 }
 
 _RATE = func.coalesce(Order.exchange_rate, 1)
@@ -241,11 +241,20 @@ class Report:
         return [{"stage": r[0], "deals": int(r[1]), "value": money(r[2])} for r in rows]
 
     async def stock(self) -> dict:
-        low = case((Product.stock <= Product.min_stock, 1), else_=0)
-        out = case((Product.stock <= 0, 1), else_=0)
-        r = (await self.db.execute(select(func.coalesce(func.sum(low), 0), func.coalesce(func.sum(out), 0), func.coalesce(func.sum(Product.stock * Product.cost), 0), func.count(Product.id))
-                                   .where(Product.tenant_id == self.tenant.id, Product.is_active.is_(True)))).one()
-        return {"low_stock": int(r[0]), "out_of_stock": int(r[1]), "valuation": money(r[2]), "products": int(r[3])}
+        """Today's stock at cost, exactly as Inventory → Valuation computes it (each variant at its own cost), for the branches
+        in scope (their warehouses' stock ledger), with the lines holding the most value so a wrong quantity or cost stands out."""
+        from app.modules.inventory.service import branch_stock
+        from app.modules.inventory.service.valuation import inventory_valuation
+        quantities = None
+        if self.branches is not None:
+            warehouses = await branch_stock.warehouses_for_branches(self.db, self.tenant.id, self.branches)
+            quantities = None if warehouses is None else await branch_stock.stock_in(self.db, self.tenant.id, warehouses)
+        report = await inventory_valuation(self.db, self.tenant.id, quantities)
+        summary = report.summary
+        largest = sorted((line for line in report.lines if line.cost_value), key=lambda line: line.cost_value, reverse=True)[:5]
+        return {"low_stock": summary.low_stock_count, "out_of_stock": summary.out_of_stock_count, "valuation": money(summary.cost_value),
+                "products": summary.product_count,
+                "largest": [{"name": line.name, "stock": float(line.stock), "cost": money(line.cost), "value": money(line.cost_value)} for line in largest]}
 
 
 def _label(start: date, end: date) -> str:

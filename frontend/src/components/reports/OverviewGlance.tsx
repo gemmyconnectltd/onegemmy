@@ -79,6 +79,11 @@ export function OverviewGlance({ r, filters, period, money, ops, debts, cash, le
               <Row label="Low stock" value={inv.low_stock} tone={inv.low_stock ? "warning" : undefined} />
               <Row label="Out of stock" value={inv.out_of_stock} tone={inv.out_of_stock ? "error" : undefined} />
               <Row label={`Not sold · ${period}`} value={inv.slow_moving.length >= 10 ? "10+ products" : `${inv.slow_moving.length} products`} />
+              {!!inv.largest?.length && <>
+                <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted">Most value held in</p>
+                {inv.largest.slice(0, 3).map((line) => <Row key={line.name} label={<span title={`${line.stock.toLocaleString()} × ${money(line.cost)}`}>{line.name}</span>} value={money(line.value)} />)}
+                <p className="mt-1 text-[11px] text-muted">Same figure as Inventory → Valuation. The Balance Sheet only has stock posted in Accounting.</p>
+              </>}
             </div>
           )}
         </Block>

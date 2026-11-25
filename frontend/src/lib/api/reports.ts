@@ -2,6 +2,8 @@ import { downloadFile, request, qs } from "./client";
 import type { SalespersonFilters, SalespersonReport } from "./sales";
 import type { SingleResponse } from "./types";
 
+/** A stock line by value at cost (the same lines as Inventory → Valuation). */
+export interface StockLine { name: string; stock: number; cost: number; value: number }
 export type CompareMode = "none" | "previous" | "year" | "custom";
 
 export interface PerformanceMetrics {
@@ -24,7 +26,7 @@ export interface PerformanceReport {
   by_branch: { id: string | null; name: string; sales: number; orders: number; other_income?: number | null }[];
   by_payment: { method: string; sales: number; orders: number }[];
   receivables: number | null;
-  stock: { low_stock: number; out_of_stock: number; valuation: number; products: number } | null;
+  stock: { low_stock: number; out_of_stock: number; valuation: number; products: number; largest?: StockLine[] } | null;
   /** Deals per CRM stage, business-wide; null without opportunity access. */
   pipeline?: { stage: string; deals: number; value: number }[] | null;
   can_see_expenses: boolean;
@@ -37,7 +39,7 @@ export type SalesDimension = "product" | "category" | "customer" | "branch" | "e
 export interface SalesBreakdown { from_date: string; to_date: string; currency: string; dimension: SalesDimension; rows: BreakdownRow[]; totals: PerformanceMetrics; note: string }
 export interface OperationsReport {
   from_date: string; to_date: string; currency: string;
-  inventory: null | { low_stock: number; out_of_stock: number; valuation: number; products: number; low: { name: string; stock: number; min_stock: number }[]; fast_moving: { name: string; sold: number; stock: number }[]; slow_moving: { name: string; stock: number; value: number }[]; note: string };
+  inventory: null | { low_stock: number; out_of_stock: number; valuation: number; products: number; largest?: StockLine[]; low: { name: string; stock: number; min_stock: number }[]; fast_moving: { name: string; sold: number; stock: number }[]; slow_moving: { name: string; stock: number; value: number }[]; note: string };
   purchases: null | { total: number; orders: number; by_status: { status: string; orders: number; amount: number }[]; top_suppliers: { name: string; amount: number; orders: number }[] };
   customers: null | { new_customers: number; buying_customers: number; returning: number; orders_per_customer: number | null; top: { name: string; orders: number; sales: number }[]; receivables: number | null };
 }

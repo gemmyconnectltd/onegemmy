@@ -59,7 +59,13 @@ async def visible_warehouses(db: AsyncSession, user: Any) -> set[uuid.UUID] | No
     mine = restricted_branches(user)
     if mine is None or user.tenant_id is None:
         return None
-    rows = await _warehouses(db, user.tenant_id, active_only=False)
+    return await warehouses_for_branches(db, user.tenant_id, mine)
+
+
+async def warehouses_for_branches(db: AsyncSession, tenant_id: uuid.UUID, mine: list[uuid.UUID]) -> set[uuid.UUID] | None:
+    """The warehouses holding these branches' stock (a branch without its own active warehouse sells from the one that
+    serves it); None when the business has no warehouses, meaning the business-wide figures apply."""
+    rows = await _warehouses(db, tenant_id, active_only=False)
     if not rows:
         return None
     seen = {r.id for r in rows if r.branch_id in mine}

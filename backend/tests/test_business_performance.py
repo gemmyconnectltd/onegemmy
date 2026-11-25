@@ -106,3 +106,22 @@ async def test_pipeline_is_per_business_and_needs_opportunity_access(db):
     assert r["pipeline"] == [{"stage": "Proposal", "deals": 2, "value": 1200.0}, {"stage": "Leads", "deals": 1, "value": 200.0}]
     hidden = await performance(db, person(tenant, permissions=("orders:read",)), date(2026, 3, 1), date(2026, 3, 31), None)
     assert hidden["pipeline"] is None
+
+
+async def test_stock_value_is_inventory_valuation_with_variants_at_their_own_cost(db):
+    """Stock value is the Inventory → Valuation figure: each variant at its own cost, never the product row's stock × cost
+    (which, for a product with variants, multiplied a total by one cost and inflated the figure)."""
+    from app.modules.inventory.models.product import Product
+    from app.modules.inventory.models.variant import ProductVariant
+    tenant, _, _ = await business(db)
+    plain = Product(tenant_id=tenant.id, name="QA-Paper", stock=10, cost=5, price=8, is_active=True)
+    shirt = Product(tenant_id=tenant.id, name="QA-Shirt", stock=1000, cost=999, price=20, is_active=True, has_variants=True)
+    db.add_all([plain, shirt])
+    await db.flush()
+    db.add_all([ProductVariant(product_id=shirt.id, attributes={"Size": "S"}, stock=3, cost=10, price=20, is_active=True),
+                ProductVariant(product_id=shirt.id, attributes={"Size": "L"}, stock=2, cost=12, price=22, is_active=True)])
+    await db.flush()
+    r = await performance(db, person(tenant, permissions=("orders:read", "items:read")), date(2026, 3, 1), date(2026, 3, 31), None)
+    assert r["stock"]["valuation"] == 10 * 5 + 3 * 10 + 2 * 12  # 104, not 50 + 1000 × 999
+    assert r["stock"]["largest"][0] == {"name": "QA-Paper", "stock": 10.0, "cost": 5.0, "value": 50.0}
+    assert "Balance Sheet" in r["definitions"]["stock_value"]
