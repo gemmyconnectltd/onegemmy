@@ -31,7 +31,9 @@ export function QuotationEditor({ initial, onClose, onSaved }: { initial?: ApiQu
   const [customerName, setCustomerName] = useState(initial?.customer?.name ?? "");
   const [customerSearch, setCustomerSearch] = useState("");
   const customers = useCustomers(1, 25, useDebouncedValue(customerSearch));
-  const [salesperson, setSalesperson] = useState(initial?.salesperson_id ?? user?.id ?? "");
+  const [chosenSalesperson, setSalesperson] = useState(initial?.salesperson_id ?? "");
+  // Until someone is chosen, it is whoever is writing the quotation (also when their account loads after the form opened).
+  const salesperson = chosenSalesperson || user?.id || "";
   const [issue, setIssue] = useState(initial?.issue_date ?? isoDay(new Date()));
   const [expiry, setExpiry] = useState(initial?.expiry_date ?? inDays(7));
   const [discount, setDiscount] = useState(initial ? String(initial.discount) : "0");
@@ -90,7 +92,8 @@ export function QuotationEditor({ initial, onClose, onSaved }: { initial?: ApiQu
             </Field>
             <Field label="Salesperson" required>
               <Select value={salesperson} onChange={(e) => touch(setSalesperson)(e.target.value)} required>
-                {!team.data?.some((m) => m.id === salesperson) && salesperson && <option value={salesperson}>{initial?.salesperson_name ?? "Me"}</option>}
+                {!salesperson && <option value="" disabled>Choose the salesperson</option>}
+                {!team.data?.some((m) => m.id === salesperson) && salesperson && <option value={salesperson}>{(salesperson === initial?.salesperson_id ? initial?.salesperson_name : null) ?? (salesperson === user?.id ? user?.name : null) ?? "Current salesperson"}</option>}
                 {(team.data ?? []).filter((m) => m.active !== false).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </Select>
             </Field>
