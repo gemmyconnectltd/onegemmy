@@ -203,23 +203,16 @@ def _box(rows, widths, style=()) -> Table:
     return t
 
 
-def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_label: str = "Due") -> bytes:
-    """The A4 invoice in the business's own name and logo, printed in black. Only data the business and customer have is printed;
-    an empty field leaves no line behind. It closes like the receipt: thanks in the business's name and "Powered by Pesaa"."""
-    from app.core.brand_pdf import business_name
+# ── Shared A4 document pieces (invoice and quotation): one header, party block, items table, VAT summary, totals and closing.
 
-    accent = colors.HexColor(INVOICE_INK)  # black only: the invoice uses no brand or status colours
-    base_currency = tenant.currency or "USD"
-    # The invoice is shown in its OWN currency; an order from before multi-currency has none and is in
-    # the tenant's base currency.
-    currency = order.currency_code or base_currency
-    m = lambda v: _fmt_money(v, currency)
-    issuer = business_name(tenant)
+def _ps(name, size=8.5, bold=False, color=INK, align=0, leading=None) -> ParagraphStyle:
+    return ParagraphStyle(name, fontName=FONT_BOLD if bold else FONT, fontSize=size, leading=leading or size * 1.35, textColor=color, alignment=align)
 
-    def ps(name, size=8.5, bold=False, color=INK, align=0, leading=None):
-        return ParagraphStyle(name, fontName=FONT_BOLD if bold else FONT, fontSize=size, leading=leading or size * 1.35, textColor=color, alignment=align)
 
-    s = {
+def _doc_styles(accent: colors.Color) -> dict:
+    """The type scale of the A4 sales documents (read at build time, after _register_fonts picked the font)."""
+    ps = _ps
+    return {
         "company": ps("company", 16, True, FOREGROUND, leading=20),
         "contact": ps("contact", 8, color=MUTED, leading=11.5),
         "title": ParagraphStyle("title", fontName=FONT, fontSize=24, leading=28, textColor=FOREGROUND, alignment=2),
@@ -250,85 +243,82 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
         "thanks": ps("thanks", 9, True, FOREGROUND),
         "status": ps("status", 7, True, colors.white, 1),
     }
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=16 * mm, bottomMargin=18 * mm,
-        title=f"{label} {order.order_number} — {issuer}", author=issuer,
-    )
-    flow: list = []
 
-    # ── Header: logo, name and contact on the left; document title, number and status on the right
-    left = [[_logo_flowable(tenant)], [Spacer(1, 3 * mm)], [Paragraph(esc(tenant.name or issuer), s["company"])]]
+
+def _pill(text: str, color: colors.Color, s: dict) -> Table:
+    """A small rounded status pill, as wide as its words."""
+    width = pdfmetrics.stringWidth(text, FONT_BOLD, 7) + 19  # 16 padding + room so the word never wraps away
+    chip = Table([[Paragraph(esc(text), s["status"])]], colWidths=[width])
+    chip.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), color), ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+    ]))
+    chip.hAlign = "RIGHT"
+    return chip
+
+
+def _doc_header(tenant: Tenant, s: dict, title: str, number: str, chips: list[tuple[str, colors.Color]]) -> list:
+    """Logo, name and contact lines on the left; the document title, "<title> no." and its status pills on the right."""
+    from app.core.brand_pdf import business_name
+
+    left = [[_logo_flowable(tenant)], [Spacer(1, 3 * mm)], [Paragraph(esc(tenant.name or business_name(tenant)), s["company"])]]
     left += [[Paragraph(esc(line), s["contact"])] for line in _tenant_contact_lines(tenant)]
-    def pill(text: str, color: colors.Color) -> Table:
-        """A small rounded status pill, as wide as its words."""
-        width = pdfmetrics.stringWidth(text, FONT_BOLD, 7) + 19  # 16 padding + room so the word never wraps away
-        chip = Table([[Paragraph(esc(text), s["status"])]], colWidths=[width])
-        chip.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), color), ("ROUNDEDCORNERS", [6, 6, 6, 6]),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-        ]))
-        chip.hAlign = "RIGHT"
-        return chip
-
-    status_text, _status_color = _status(order)
-    chips = [(status_text.upper(), accent)]
-    if order.status == "Completed" and getattr(order, "is_overdue", False):
-        chips.append(("OVERDUE", accent))
     cells, widths = [], []
     for n, (text, color) in enumerate(chips):
         if n:
             cells.append(Spacer(4, 1))
             widths.append(4)
-        cells.append(pill(text, color))
+        cells.append(_pill(text, color, s))
         widths.append(pdfmetrics.stringWidth(text, FONT_BOLD, 7) + 19)
     pill_row = _box([cells], widths)
     pill_row.hAlign = "RIGHT"
-    # the sale's order number is the invoice number
-    right = [[Paragraph(esc(label.upper()), s["title"])], [Paragraph(f'<font name="{FONT}" size="8" color="{MUTED.hexval().replace("0x", "#")}">{esc(label)} no.</font>&nbsp;&nbsp;{esc(order.order_number)}', s["number"])], [Spacer(1, 2 * mm)], [pill_row]]
-    flow.append(_box([[_box(left, [CONTENT_W * 0.6]), _box(right, [CONTENT_W * 0.4], [("ALIGN", (0, 0), (-1, -1), "RIGHT")])]],
-                     [CONTENT_W * 0.6, CONTENT_W * 0.4]))
-    flow.append(Spacer(1, 6 * mm))
-    flow.append(HRFlowable(width="100%", thickness=0.6, color=BORDER))
-    flow.append(Spacer(1, 5 * mm))
+    number_line = f'<font name="{FONT}" size="8" color="{MUTED.hexval().replace("0x", "#")}">{esc(title)} no.</font>&nbsp;&nbsp;{esc(number)}'
+    right = [[Paragraph(esc(title.upper()), s["title"])], [Paragraph(number_line, s["number"])], [Spacer(1, 2 * mm)], [pill_row]]
+    return [_box([[_box(left, [CONTENT_W * 0.6]), _box(right, [CONTENT_W * 0.4], [("ALIGN", (0, 0), (-1, -1), "RIGHT")])]],
+                 [CONTENT_W * 0.6, CONTENT_W * 0.4]),
+            Spacer(1, 6 * mm), HRFlowable(width="100%", thickness=0.6, color=BORDER), Spacer(1, 5 * mm)]
 
-    # ── Bill to and the invoice facts
-    bill = [[Paragraph("BILL TO", s["cap_accent"])], [Spacer(1, 1.5 * mm)]]
-    if order.customer:
-        bill.append([Paragraph(esc(order.customer.name), s["name"])])
-        for line in (order.customer.address, " · ".join(x for x in (order.customer.phone, order.customer.email) if x)):
+
+def _party_block(s: dict, caption: str, customer, nobody: str, meta: list[tuple[str, str]]) -> list:
+    """Who the document is for (only the details they have) beside a key/value list of the document's facts."""
+    bill = [[Paragraph(esc(caption.upper()), s["cap_accent"])], [Spacer(1, 1.5 * mm)]]
+    if customer:
+        bill.append([Paragraph(esc(customer.name), s["name"])])
+        for line in (customer.address, " · ".join(x for x in (customer.phone, customer.email) if x)):
             if line:
                 bill.append([Paragraph(esc(line), s["small"])])
-        if getattr(order.customer, "tin", None):
-            bill.append([Paragraph(f"TIN {esc(order.customer.tin)}", s["small"])])
+        if getattr(customer, "tin", None):
+            bill.append([Paragraph(f"TIN {esc(customer.tin)}", s["small"])])
     else:
-        bill.append([Paragraph("Walk-in customer", s["name"])])
-
-    meta: list[tuple[str, str]] = []
-    if order.ordered_at:
-        meta.append(("Issue date", order.ordered_at.strftime("%d %b %Y")))
-    if order.due_date and order.outstanding_balance > 0:
-        meta.append((f"{due_label} date", order.due_date.strftime("%d %b %Y")))
-    meta.append(("Currency", currency))
-    if order.payment_method:
-        meta.append(("Payment", _method(order.payment_method)))
-    if order.salesperson_name:
-        meta.append(("Served by", order.salesperson_name))
+        bill.append([Paragraph(esc(nobody), s["name"])])
     meta_w = 62 * mm
     meta_rows = [[Paragraph(esc(k), s["meta_k"]), Paragraph(esc(str(v)), s["meta_v"])] for k, v in meta]
     meta_table = _box(meta_rows, [meta_w * 0.42, meta_w * 0.58], [
         ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("LINEBELOW", (0, 0), (-1, -2), 0.4, colors.HexColor("#f3f4f6")),
     ])
-    flow.append(_box([[_box(bill, [CONTENT_W - meta_w - 10 * mm]), Spacer(10 * mm, 1), meta_table]],
-                     [CONTENT_W - meta_w - 10 * mm, 10 * mm, meta_w]))
-    flow.append(Spacer(1, 7 * mm))
+    return [_box([[_box(bill, [CONTENT_W - meta_w - 10 * mm]), Spacer(10 * mm, 1), meta_table]],
+                 [CONTENT_W - meta_w - 10 * mm, 10 * mm, meta_w]),
+            Spacer(1, 7 * mm)]
 
-    # ── Line items: discount and tax columns appear only when some line has them
-    show_disc = any((item.discount or 0) > 0 for item in order.items)
-    show_tax = any(item.tax_treatment in TREATMENT_LABELS for item in order.items)
-    cols = [("#", 7 * mm, "th_c"), ("DESCRIPTION", None, "th"), ("QTY", 14 * mm, "th_r"), ("UNIT PRICE", 24 * mm, "th_r")]
+
+def _variant_text(attributes: dict | None) -> str:
+    return " · ".join(f"{k}: {v}" for k, v in (attributes or {}).items() if v not in (None, ""))
+
+
+def _items_table(items, s: dict, m, tenant: Tenant, units: dict | None = None, show_variants: bool = False) -> tuple[list, bool]:
+    """The priced lines. Unit, Discount and Tax columns appear only when some line has them; the header repeats on every page.
+    Returns the flowables and whether the Tax column (and so a VAT treatment) is present."""
+    units = units or {}
+    unit_of = lambda item: units.get(getattr(item, "product_id", None), "")
+    show_unit = any(unit_of(item) for item in items)
+    show_disc = any((item.discount or 0) > 0 for item in items)
+    show_tax = any(item.tax_treatment in TREATMENT_LABELS for item in items)
+    cols = [("#", 7 * mm, "th_c"), ("DESCRIPTION", None, "th"), ("QTY", 14 * mm, "th_r")]
+    if show_unit:
+        cols.append(("UNIT", 13 * mm, "th"))
+    cols.append(("UNIT PRICE", 24 * mm, "th_r"))
     if show_disc:
         cols.append(("DISCOUNT", 20 * mm, "th_r"))
     if show_tax:
@@ -337,11 +327,17 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
     fixed = sum(w for _, w, _ in cols if w)
     widths = [w if w else CONTENT_W - fixed for _, w, _ in cols]
     rows = [[Paragraph(name, s[st]) for name, _, st in cols]]
-    for n, item in enumerate(order.items, 1):
+    for n, item in enumerate(items, 1):
         desc = [[Paragraph(esc(item.product_name), s["td"])]]
         if item.sku:
             desc.append([Paragraph(esc(item.sku), s["td_sku"])])
-        row = [Paragraph(str(n), s["td_c"]), _box(desc, [widths[1] - 8]), Paragraph(_qty(item.quantity), s["td_r"]), Paragraph(m(item.unit_price), s["td_r"])]
+        variant = _variant_text(getattr(item, "variant_attributes", None)) if show_variants else ""
+        if variant:
+            desc.append([Paragraph(esc(variant), s["td_sku"])])
+        row = [Paragraph(str(n), s["td_c"]), _box(desc, [widths[1] - 8]), Paragraph(_qty(item.quantity), s["td_r"])]
+        if show_unit:
+            row.append(Paragraph(esc(unit_of(item)), s["td"]))
+        row.append(Paragraph(m(item.unit_price), s["td_r"]))
         if show_disc:
             row.append(Paragraph(m(item.discount) if item.discount else "—", s["td_rm"]))
         if show_tax:
@@ -357,25 +353,137 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
     ]))
-    flow.append(items_table)
+    flow: list = [items_table]
     if show_tax:
-        inclusive = (getattr(tenant, "vat_pricing_mode", None) or "inclusive") == "inclusive"
         flow.append(Spacer(1, 1.5 * mm))
-        flow.append(Paragraph("Prices include VAT." if inclusive else "Prices exclude VAT; VAT is added in the totals.", s["note"]))
+        flow.append(Paragraph("Prices include VAT." if _inclusive(tenant) else "Prices exclude VAT; VAT is added in the totals.", s["note"]))
     flow.append(Spacer(1, 6 * mm))
+    return flow, show_tax
+
+
+def _inclusive(tenant: Tenant) -> bool:
+    return (getattr(tenant, "vat_pricing_mode", None) or "inclusive") == "inclusive"
+
+
+TOTALS_W = 70 * mm
+SIDE_W = CONTENT_W - TOTALS_W - 10 * mm
+
+
+def _vat_side(doc, s: dict, m) -> list:
+    """The VAT summary rows for the left column (none when there is no VAT to show)."""
+    vat_rows = _vat_summary(doc)
+    if not (vat_rows and doc.tax > 0 or len(vat_rows) > 1):
+        return []
+    vt = [[Paragraph("Tax rate", s["meta_k"]), Paragraph("Net amount", _ps("vh", 8, color=MUTED, align=2)), Paragraph("VAT", _ps("vh2", 8, color=MUTED, align=2))]]
+    vt += [[Paragraph(esc(name), s["body"]), Paragraph(m(base), s["row_v"]), Paragraph(m(tax) if name != "Exempt" else "—", s["row_v"])] for name, base, tax in vat_rows]
+    return [[Paragraph("VAT SUMMARY", s["cap"])], [Spacer(1, 1.5 * mm)],
+            [_box(vt, [SIDE_W * 0.46, SIDE_W * 0.3, SIDE_W * 0.24], [
+                ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.5, BORDER)])], [Spacer(1, 5 * mm)]]
+
+
+def _info_box(s: dict, caption: str, lines: list) -> list:
+    """A soft grey box with a caption, for the left column (payment information, terms)."""
+    box_rows = [[Paragraph(esc(caption.upper()), s["cap"])], [Spacer(1, 1.5 * mm)]] + [[p] for p in lines]
+    return [_box(box_rows, [SIDE_W - 16], [
+        ("BACKGROUND", (0, 0), (-1, -1), HEAD_BG), ("ROUNDEDCORNERS", [5, 5, 5, 5]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (0, 0), 8), ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 1), (-1, -2), 1.5)])]
+
+
+def _totals_rows(doc, s: dict, m, tenant: Tenant, show_tax: bool, total_label: str) -> tuple[list, int]:
+    """Subtotal, discount, VAT and the bold total; returns the rows and the index of the total row."""
+    trow = lambda k, v: [Paragraph(esc(k), s["row_k"]), Paragraph(v, s["row_v"])]
+    tot = [trow("Subtotal", m(doc.subtotal))]
+    if doc.discount > 0:
+        tot.append(trow("Discount", f"− {m(doc.discount)}"))
+    if doc.tax > 0 or show_tax:
+        tot.append(trow("Amount excl. VAT", m(round(doc.total - doc.tax, 2))))
+        tot.append(trow("VAT (included)" if _inclusive(tenant) else "VAT", m(doc.tax)))
+    grand_at = len(tot)
+    tot.append([Paragraph(esc(total_label), s["grand_k"]), Paragraph(esc(m(doc.total)), s["grand_v"])])
+    return tot, grand_at
+
+
+def _totals_style(grand_at: int) -> list:
+    return [("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+            ("LINEABOVE", (0, grand_at), (-1, grand_at), 1, FOREGROUND),
+            ("TOPPADDING", (0, grand_at), (-1, grand_at), 7), ("BOTTOMPADDING", (0, grand_at), (-1, grand_at), 7),
+            ("VALIGN", (0, grand_at), (-1, grand_at), "MIDDLE")]
+
+
+def _lower_section(side: list, totals: Table) -> list:
+    """Left column (VAT summary, boxes) beside the totals table on the right."""
+    return [_box([[_box(side, [SIDE_W]) if side else Spacer(1, 1), Spacer(10 * mm, 1), totals]], [SIDE_W, 10 * mm, TOTALS_W]), Spacer(1, 8 * mm)]
+
+
+def _closing(tenant: Tenant) -> list:
+    """The same closing as the receipt: thanks in the business's name, then "Powered by Pesaa" under a dashed line."""
+    from app.core.brand_pdf import POWERED_BY_MARKUP
+    return [Spacer(1, 2 * mm), HRFlowable(width="100%", thickness=0.5, color=BORDER, dash=(2, 2)), Spacer(1, 3 * mm),
+            Paragraph(esc(f"Thank you for shopping with {(tenant.name or '').strip() or 'us'}!"), _ps("thanks_c", 9.5, True, FOREGROUND, 1)),
+            Paragraph("We look forward to seeing you again.", _ps("welcome_c", 8, color=MUTED, align=1)),
+            Spacer(1, 3 * mm), HRFlowable(width="100%", thickness=0.5, color=BORDER, dash=(2, 2)), Spacer(1, 2 * mm),
+            Paragraph(POWERED_BY_MARKUP, _ps("powered_c", 7, color=MUTED, align=1))]
+
+
+def _top_rule(accent: colors.Color):
+    """On every page: only the thin rule across the top (no footer)."""
+    def draw(canvas, _doc):
+        canvas.saveState()
+        canvas.setFillColor(accent)
+        canvas.rect(0, PAGE_H - 1.4 * mm, PAGE_W, 1.4 * mm, stroke=0, fill=1)
+        canvas.restoreState()
+    return draw
+
+
+def _new_doc(buf, title: str, author: str) -> SimpleDocTemplate:
+    return SimpleDocTemplate(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=16 * mm, bottomMargin=18 * mm, title=title, author=author)
+
+
+def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_label: str = "Due") -> bytes:
+    """The A4 invoice in the business's own name and logo, printed in black. Only data the business and customer have is printed;
+    an empty field leaves no line behind. It closes like the receipt: thanks in the business's name and "Powered by Pesaa"."""
+    from app.core.brand_pdf import business_name
+
+    accent = colors.HexColor(INVOICE_INK)  # black only: the invoice uses no brand or status colours
+    base_currency = tenant.currency or "USD"
+    # The invoice is shown in its OWN currency; an order from before multi-currency has none and is in
+    # the tenant's base currency.
+    currency = order.currency_code or base_currency
+    m = lambda v: _fmt_money(v, currency)
+    issuer = business_name(tenant)
+    s = _doc_styles(accent)
+    buf = io.BytesIO()
+    doc = _new_doc(buf, f"{label} {order.order_number} — {issuer}", issuer)
+
+    # ── Header (the sale's order number is the invoice number) with one status, plus Overdue
+    status_text, _status_color = _status(order)
+    chips = [(status_text.upper(), accent)]
+    if order.status == "Completed" and getattr(order, "is_overdue", False):
+        chips.append(("OVERDUE", accent))
+    flow: list = _doc_header(tenant, s, label, order.order_number, chips)
+
+    # ── Bill to and the invoice facts
+    meta: list[tuple[str, str]] = []
+    if order.ordered_at:
+        meta.append(("Issue date", order.ordered_at.strftime("%d %b %Y")))
+    if order.due_date and order.outstanding_balance > 0:
+        meta.append((f"{due_label} date", order.due_date.strftime("%d %b %Y")))
+    meta.append(("Currency", currency))
+    if order.payment_method:
+        meta.append(("Payment", _method(order.payment_method)))
+    if order.salesperson_name:
+        meta.append(("Served by", order.salesperson_name))
+    flow += _party_block(s, "Bill to", order.customer, "Walk-in customer", meta)
+
+    # ── Line items
+    items_flow, show_tax = _items_table(order.items, s, m, tenant)
+    flow += items_flow
 
     # ── Left: VAT summary and how to pay. Right: totals.
-    side: list = []
-    vat_rows = _vat_summary(order)
-    if vat_rows and order.tax > 0 or len(vat_rows) > 1:
-        side_w = CONTENT_W - 70 * mm - 10 * mm
-        vt = [[Paragraph("Tax rate", s["meta_k"]), Paragraph("Net amount", ps("vh", 8, color=MUTED, align=2)), Paragraph("VAT", ps("vh2", 8, color=MUTED, align=2))]]
-        vt += [[Paragraph(esc(name), s["body"]), Paragraph(m(base), s["row_v"]), Paragraph(m(tax) if name != "Exempt" else "—", s["row_v"])] for name, base, tax in vat_rows]
-        side += [[Paragraph("VAT SUMMARY", s["cap"])], [Spacer(1, 1.5 * mm)],
-                 [_box(vt, [side_w * 0.46, side_w * 0.3, side_w * 0.24], [
-                     ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-                     ("LINEBELOW", (0, 0), (-1, 0), 0.5, BORDER)])], [Spacer(1, 5 * mm)]]
-
+    side = _vat_side(order, s, m)
     pay_lines: list = []
     received = [p for p in order.payments if p.status != "Reversed"]
     for p in received:
@@ -387,32 +495,14 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
     if terms:
         pay_lines += [Paragraph(esc(line), s["body"]) for line in terms.splitlines() if line.strip()]
     if pay_lines:
-        side_w = CONTENT_W - 70 * mm - 10 * mm
-        box_rows = [[Paragraph("PAYMENT INFORMATION", s["cap"])], [Spacer(1, 1.5 * mm)]] + [[p] for p in pay_lines]
-        side.append([_box(box_rows, [side_w - 16], [
-            ("BACKGROUND", (0, 0), (-1, -1), HEAD_BG), ("ROUNDEDCORNERS", [5, 5, 5, 5]),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (0, 0), 8), ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 1), (-1, -2), 1.5)])])
+        side.append(_info_box(s, "Payment information", pay_lines))
 
-    tot_w = 70 * mm
     trow = lambda k, v: [Paragraph(esc(k), s["row_k"]), Paragraph(v, s["row_v"])]
-    tot = [trow("Subtotal", m(order.subtotal))]
-    if order.discount > 0:
-        tot.append(trow("Discount", f"− {m(order.discount)}"))
-    if order.tax > 0 or show_tax:
-        inclusive = (getattr(tenant, "vat_pricing_mode", None) or "inclusive") == "inclusive"
-        tot.append(trow("Amount excl. VAT", m(round(order.total - order.tax, 2))))
-        tot.append(trow("VAT (included)" if inclusive else "VAT", m(order.tax)))
-    grand_at = len(tot)
-    tot.append([Paragraph("Grand total", s["grand_k"]), Paragraph(esc(m(order.total)), s["grand_v"])])
+    tot, grand_at = _totals_rows(order, s, m, tenant, show_tax, "Grand total")
     if currency != base_currency and order.base_total is not None and order.exchange_rate is not None:
         tot.append(trow(f"In {base_currency}", _fmt_money(order.base_total, base_currency)))
         tot.append(trow("Exchange rate", esc(f"1 {currency} = {format_money(order.exchange_rate, base_currency)}")))
-    tstyle = [("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
-              ("LINEABOVE", (0, grand_at), (-1, grand_at), 1, FOREGROUND),
-              ("TOPPADDING", (0, grand_at), (-1, grand_at), 7), ("BOTTOMPADDING", (0, grand_at), (-1, grand_at), 7),
-              ("VALIGN", (0, grand_at), (-1, grand_at), "MIDDLE")]
+    tstyle = _totals_style(grand_at)
     if order.status == "Completed":
         paid_at = len(tot)
         tot.append(trow("Amount paid", f"− {m(order.amount_paid)}" if order.amount_paid else m(0)))
@@ -421,33 +511,16 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
                    ("BACKGROUND", (0, -1), (-1, -1), HEAD_BG), ("ROUNDEDCORNERS", [0, 0, 5, 5]),
                    ("TOPPADDING", (0, -1), (-1, -1), 7), ("BOTTOMPADDING", (0, -1), (-1, -1), 7),
                    ("LEFTPADDING", (0, -1), (-1, -1), 7), ("RIGHTPADDING", (0, -1), (-1, -1), 7), ("VALIGN", (0, -1), (-1, -1), "MIDDLE")]
-    totals = _box(tot, [tot_w * 0.48, tot_w * 0.52], tstyle)
-    side_w = CONTENT_W - tot_w - 10 * mm
-    flow.append(_box([[_box(side, [side_w]) if side else Spacer(1, 1), Spacer(10 * mm, 1), totals]], [side_w, 10 * mm, tot_w]))
-    flow.append(Spacer(1, 8 * mm))
+    totals = _box(tot, [TOTALS_W * 0.48, TOTALS_W * 0.52], tstyle)
+    flow += _lower_section(side, totals)
 
-    # ── Notes and thank-you
+    # ── Notes and the receipt's closing
     note = customer_note(order.notes)
     if note:
-        flow.append(Paragraph("NOTES", s["cap"]))
-        flow.append(Spacer(1, 1.5 * mm))
-        flow.append(Paragraph(esc(note), s["body"]))
-        flow.append(Spacer(1, 5 * mm))
-    # The same closing as the receipt: thanks in the business's name, then "Powered by Pesaa" under a dashed line.
-    from app.core.brand_pdf import POWERED_BY_MARKUP
-    flow += [Spacer(1, 2 * mm), HRFlowable(width="100%", thickness=0.5, color=BORDER, dash=(2, 2)), Spacer(1, 3 * mm),
-             Paragraph(esc(f"Thank you for shopping with {(tenant.name or '').strip() or 'us'}!"), ps("thanks_c", 9.5, True, FOREGROUND, 1)),
-             Paragraph("We look forward to seeing you again.", ps("welcome_c", 8, color=MUTED, align=1)),
-             Spacer(1, 3 * mm), HRFlowable(width="100%", thickness=0.5, color=BORDER, dash=(2, 2)), Spacer(1, 2 * mm),
-             Paragraph(POWERED_BY_MARKUP, ps("powered_c", 7, color=MUTED, align=1))]
+        flow += [Paragraph("NOTES", s["cap"]), Spacer(1, 1.5 * mm), Paragraph(esc(note), s["body"]), Spacer(1, 5 * mm)]
+    flow += _closing(tenant)
 
-    def _page(canvas, _doc):
-        canvas.saveState()
-        canvas.setFillColor(accent)
-        canvas.rect(0, PAGE_H - 1.4 * mm, PAGE_W, 1.4 * mm, stroke=0, fill=1)
-        canvas.restoreState()
-
-    doc.build(flow, onFirstPage=_page, onLaterPages=_page)
+    doc.build(flow, onFirstPage=_top_rule(accent), onLaterPages=_top_rule(accent))
     return buf.getvalue()
 
 
