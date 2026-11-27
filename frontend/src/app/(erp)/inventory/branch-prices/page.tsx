@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { EyeOff, Search, Store, Tag } from "lucide-react";
 import Link from "next/link";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
@@ -12,7 +12,9 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Form";
 import { Pagination } from "@/components/ui/Pagination";
+import { StatCard } from "@/components/ui/StatCard";
 import { TableScroll } from "@/components/ui/TableScroll";
+import { useAuth } from "@/lib/auth";
 import { TableState } from "@/components/ui/TableState";
 import { Toggle } from "@/components/ui/Toggle";
 
@@ -20,7 +22,7 @@ type Cell = { is_available: boolean; price: string };
 /** An edited cell remembers what it was, so edits survive paging, search and filters until saved or discarded. */
 type Edit = Cell & { product_id: string; branch_id: string; was: { is_available: boolean; price: number | null } };
 const key = (productId: string, branchId: string) => `${productId}:${branchId}`;
-const SHOW: [BranchPriceShow, string][] = [["all", "All products"], ["differences", "Only differences"], ["hidden", "Hidden somewhere"]];
+const SHOW: [BranchPriceShow, string][] = [["all", "Show: All products"], ["differences", "Own price in a branch"], ["hidden", "Not sold in a branch"]];
 
 /** Every product × every branch on one screen: where it is sold and at what price. Only reachable for businesses with
  *  branch prices switched on (menu feature "branch_pricing"; the API refuses everyone else). */
@@ -47,7 +49,10 @@ export default function BranchPricesPage() {
   const data = q.data;
   const branches = data?.summary.branches ?? [];
   const canEdit = branches.some((b) => b.editable);
-  const editable = (branchId: string) => branches.find((b) => b.id === branchId)?.editable ?? false;
+  const { activeBranchId } = useAuth();
+  const [picked, setBranchId] = useState("");
+  const branchId = branches.some((x) => x.id === picked) ? picked
+    : branches.find((x) => x.id === activeBranchId)?.id ?? (branches.find((x) => x.editable) ?? branches[0])?.id ?? "";
 
   const cellOf = (row: ApiBranchPriceRow, branchId: string): Cell => {
     const edited = edits[key(row.id, branchId)];
@@ -90,89 +95,93 @@ export default function BranchPricesPage() {
   };
 
   if (status.isLoading || !allowed) return <TableState loading={status.isLoading} error={status.error} onRetry={() => void status.refetch()} />;
+  const b = branches.find((x) => x.id === branchId) ?? null;
+  const unsavedHere = b ? changes.filter((c) => c.branch_id === b.id).length : 0;
   return (
-    <div className="space-y-4">
-      <header>
-        <h1 className="pesaa-page-title">Branch prices</h1>
-        <p className="text-sm text-muted">Where each product is sold and at what price. A branch with no price of its own sells at the product’s default price; a hidden product disappears from that branch’s till.</p>
-      </header>
-
-      {data && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[["Same price everywhere", data.summary.products - data.summary.with_own_price, `of ${data.summary.products} products`, "all"],
-          ["Own price in a branch", data.summary.with_own_price, "products", "differences"],
-          ["Hidden in a branch", data.summary.hidden_somewhere, "products", "hidden"]].map(([label, value, note, target]) => (
-          <button key={label as string} type="button" onClick={() => { setShow(target as BranchPriceShow); setPage(1); }} className="rounded-xl border border-border bg-card p-4 text-left hover:border-accent">
-            <span className="block text-xs text-muted">{label}</span>
-            <span className="mt-1 block text-lg font-semibold tabular-nums">{value}</span>
-            <span className="block text-xs text-muted">{note}</span>
-          </button>))}
-      </div>}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Show" className="inline-flex rounded-lg border border-border bg-card p-1">
-          {SHOW.map(([value, label]) => <button key={value} type="button" aria-pressed={show === value} onClick={() => { setShow(value); setPage(1); }}
-            className={`min-h-8 rounded-md px-3 text-sm font-medium ${show === value ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{label}</button>)}
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-3 pesaa-responsive-toolbar">
+        <div>
+          <h1 className="pesaa-page-title text-foreground">Branch prices</h1>
+          <p className="mt-0.5 text-sm text-muted">Pick a branch, then set its own price or stop selling a product there. A branch with no price of its own sells at the default price.</p>
         </div>
-        <Select aria-label="Category" className="w-full sm:w-52" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}>
-          <option value="">All categories</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </Select>
-        <label className="relative min-w-[220px] flex-1">
-          <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <Input aria-label="Search products" placeholder="Product name, SKU or barcode" className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-        </label>
       </div>
 
-      {q.isLoading || q.error || !data ? <TableState loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} />
-        : !data.items.length ? <TableState empty filtered={!!term || show !== "all" || !!categoryId} onClearFilters={() => { setSearch(""); setShow("all"); setCategoryId(""); setPage(1); }} title="No products yet" hint="Add products in Inventory → Products first." />
-        : (
-        <div className="rounded-xl border border-border bg-card">
-          <TableScroll label="Branch prices">
-            <table className="w-full text-left text-sm" style={{ minWidth: 300 + branches.length * 220 }}>
-              <thead className="text-xs text-muted"><tr>
-                <th className="px-4 py-2.5 font-medium">Product</th>
-                <th className="px-4 py-2.5 text-right font-medium">Default price</th>
-                {branches.map((b) => <th key={b.id} className="border-l border-border px-4 py-2.5 font-medium">{b.name}{b.is_main && <span className="ml-1 font-normal">· Main</span>}{!b.editable && <span className="ml-1 font-normal">· view only</span>}</th>)}
-              </tr></thead>
-              <tbody className="divide-y divide-border">{data.items.map((row) => (
-                <tr key={row.id} className="align-top">
-                  <td className="px-4 py-3"><Link href={`/inventory/products/${row.id}`} className="font-medium hover:text-accent">{row.name}</Link><span className="block text-xs text-muted">{row.sku ?? "No SKU"}</span></td>
-                  <td className="px-4 py-3 text-right tabular-nums">{fmt(row.default_price)}</td>
-                  {branches.map((b) => {
-                    const c = cellOf(row, b.id);
-                    const e = edits[key(row.id, b.id)];
-                    const dirty = !!e && (e.is_available !== e.was.is_available || (e.price.trim() === "" ? null : Number(e.price)) !== e.was.price);
-                    return (
-                      <td key={b.id} className={`border-l border-border px-4 py-3 ${c.is_available ? "" : "bg-surface"}`}>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {row.has_variants ? <span className="text-xs text-muted">Variant prices</span>
-                            : <Input type="number" min={0} step="any" inputMode="decimal" aria-label={`${row.name} price in ${b.name}`}
-                                className={`h-9 w-28 text-right tabular-nums ${dirty ? "border-accent" : ""}`} placeholder={String(row.default_price)} value={c.price}
-                                disabled={!editable(b.id) || !c.is_available} onChange={(e) => edit(row, b.id, { price: e.target.value })} />}
-                          <span className="inline-flex items-center gap-1.5 text-xs text-muted">
-                            <Toggle checked={!c.is_available} onChange={(hidden) => edit(row, b.id, { is_available: !hidden })} disabled={!editable(b.id)} size="sm" label={`Hide ${row.name} in ${b.name}`} />Hidden
-                          </span>
-                        </div>
-                        {!row.has_variants && c.is_available && c.price.trim() !== "" && Number(c.price) !== row.default_price && Number.isFinite(Number(c.price)) &&
-                          <span className="mt-1 block text-xs text-muted tabular-nums">{Number(c.price) > row.default_price ? "+" : "−"}{fmt(Math.abs(Number(c.price) - row.default_price))} vs default</span>}
+      {data && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Same price everywhere" value={(data.summary.products - data.summary.with_own_price).toLocaleString()} hint={`of ${data.summary.products} products`} icon={Tag} />
+        <StatCard label="Own price in a branch" value={data.summary.with_own_price.toLocaleString()} hint="products" icon={Store} />
+        <StatCard label="Not sold in a branch" value={data.summary.hidden_somewhere.toLocaleString()} hint="products" icon={EyeOff} tone={data.summary.hidden_somewhere ? "warning" : "default"} />
+      </div>}
+
+      <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border p-3 lg:flex-nowrap">
+          <Select aria-label="Branch" className="min-w-0 flex-1 font-semibold sm:w-56 sm:flex-none" value={branchId} onChange={(e) => setBranchId(e.target.value)} disabled={!branches.length}>
+            {branches.map((x) => {
+              const n = changes.filter((c) => c.branch_id === x.id).length;
+              return <option key={x.id} value={x.id}>{x.name}{x.is_main ? " · Main" : ""}{!x.editable ? " · view only" : ""}{n ? ` · ${n} unsaved` : ""}</option>;
+            })}
+          </Select>
+          <div className="relative w-full lg:w-auto lg:min-w-[12rem] lg:flex-1">
+            <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <Input aria-label="Search products" placeholder="Product name, SKU or barcode" className="pl-9" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+          </div>
+          <Select aria-label="Show" className="min-w-0 flex-1 sm:w-auto sm:flex-none" value={show} onChange={(e) => { setShow(e.target.value as BranchPriceShow); setPage(1); }}>
+            {SHOW.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </Select>
+          <Select aria-label="Category" className="min-w-0 flex-1 sm:w-48 sm:flex-none" value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}>
+            <option value="">All categories</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </div>
+
+        {q.isLoading || q.error || !data ? <div className="p-4"><TableState loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} /></div>
+          : !data.items.length || !b ? <div className="p-4"><TableState empty filtered={!!term || show !== "all" || !!categoryId} onClearFilters={() => { setSearch(""); setShow("all"); setCategoryId(""); setPage(1); }} title="No products yet" hint="Add products in Inventory → Products first." /></div>
+          : <>
+            {!b.editable && <p className="border-b border-border bg-surface/50 px-4 py-2 text-xs text-muted">You can see {b.name}&apos;s prices but not change them.</p>}
+            <TableScroll label={`Prices in ${b.name}`} mobileLayout="cards">
+              <table className="w-full min-w-[640px]">
+                <thead><tr>
+                  <th scope="col" className="text-left">Product</th>
+                  <th scope="col" className="text-right">Default price</th>
+                  <th scope="col" className="text-right">Price in {b.name}</th>
+                  <th scope="col" className="text-center">Sold in {b.name}</th>
+                </tr></thead>
+                <tbody>{data.items.map((row) => {
+                  const c = cellOf(row, b.id);
+                  const e = edits[key(row.id, b.id)];
+                  const dirty = !!e && (e.is_available !== e.was.is_available || (e.price.trim() === "" ? null : Number(e.price)) !== e.was.price);
+                  const own = c.price.trim() !== "" && Number.isFinite(Number(c.price)) && Number(c.price) !== row.default_price;
+                  return (
+                    <tr key={row.id} className={c.is_available ? "" : "bg-surface/60"}>
+                      <td data-label="Product"><Link href={`/inventory/products/${row.id}`} className="font-semibold text-accent hover:underline">{row.name}</Link><p className="font-mono text-xs text-muted">{row.sku ?? "No SKU"}</p></td>
+                      <td data-label="Default price" className="text-right tabular-nums text-muted">{fmt(row.default_price)}</td>
+                      <td data-label={`Price in ${b.name}`} className="text-right">
+                        {row.has_variants ? <span className="text-xs text-muted">Set on each variant</span> : <div className="inline-flex flex-col items-end gap-1">
+                          <Input type="number" min={0} step="any" inputMode="decimal" aria-label={`${row.name} price in ${b.name}`}
+                            className={`w-32 text-right tabular-nums ${dirty ? "border-accent ring-1 ring-accent/30" : ""}`} placeholder={String(row.default_price)} value={c.price}
+                            disabled={!b.editable || !c.is_available} onChange={(ev) => edit(row, b.id, { price: ev.target.value })} />
+                          {c.is_available && own ? <span className="text-xs tabular-nums text-muted">{Number(c.price) > row.default_price ? "+" : "−"}{fmt(Math.abs(Number(c.price) - row.default_price))} vs default
+                            {b.editable && <button type="button" className="ml-2 text-accent hover:underline" onClick={() => edit(row, b.id, { price: "" })}>Use default</button>}</span>
+                            : <span className="text-xs text-muted">{c.is_available ? "Default price" : "Not sold here"}</span>}
+                        </div>}
                       </td>
-                    );
-                  })}
-                </tr>))}</tbody>
-            </table>
-          </TableScroll>
-          <div className="border-t border-border px-4 py-3">
+                      <td data-label={`Sold in ${b.name}`} className="text-center">
+                        <span className="inline-flex"><Toggle checked={c.is_available} onChange={(on) => edit(row, b.id, { is_available: on })} disabled={!b.editable} size="sm" label={`Sell ${row.name} in ${b.name}`} /></span>
+                      </td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            </TableScroll>
             <Pagination page={page} pageSize={pageSize} total={data.total} itemLabel="products"
               onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />
-          </div>
-        </div>
-      )}
+          </>}
+      </div>
 
       {canEdit && (changes.length > 0 || problem || saved != null) && (
         <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
           {problem ? <p role="alert" className="mr-auto text-sm text-destructive">{problem}</p>
             : invalid ? <p role="alert" className="mr-auto text-sm text-destructive">{problems[0]}</p>
-            : changes.length ? <p className="mr-auto text-sm text-muted">{changes.length} unsaved {changes.length === 1 ? "change" : "changes"}</p>
+            : changes.length ? <p className="mr-auto text-sm text-muted">{changes.length} unsaved {changes.length === 1 ? "change" : "changes"}{changes.length > unsavedHere ? ` (${unsavedHere} in ${b?.name ?? "this branch"})` : ""}</p>
             : <p role="status" className="mr-auto text-sm text-muted">{saved} {saved === 1 ? "change" : "changes"} saved.</p>}
           <Button variant="secondary" disabled={!changes.length || save.isPending} onClick={() => { setEdits({}); setProblem(null); }}>Discard</Button>
           <Button disabled={!changes.length || invalid} loading={save.isPending} onClick={() => void submit()}>Save changes</Button>

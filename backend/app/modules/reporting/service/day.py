@@ -101,6 +101,13 @@ async def day_report(db: AsyncSession, user: User, day: date | None, branch_id: 
     sold = {n: (q, a) for n, _, q, a, _ in items}
     movement = sorted({*(n for n, _ in received), *sold, *(t.replace("Stock of ", "") for t, _ in adjustments)})
     on_hand = dict((await db.execute(select(Product.name, Product.stock).where(Product.tenant_id == tenant_id, Product.name.in_(movement)))).all()) if movement else {}
+    if movement and branch_id is not None:  # one branch's day: what that branch holds now, not the business total
+        from app.modules.inventory.service import branch_stock
+        warehouses = await branch_stock.warehouses_for_branches(db, tenant_id, [branch_id])
+        if warehouses is not None:
+            held = await branch_stock.stock_in(db, tenant_id, warehouses)
+            ids = dict((await db.execute(select(Product.name, Product.id).where(Product.tenant_id == tenant_id, Product.name.in_(movement)))).all())
+            on_hand = {n: float(sum((q for (p, _v), q in held.items() if p == ids.get(n)), Decimal(0))) for n in movement}
     rec = dict(received)
     adj = {t.replace("Stock of ", ""): p.get("difference", 0) for t, p in adjustments}
     approved = [e for e in expenses if e[4] == "Approved"]

@@ -330,8 +330,9 @@ def _build_pdf(report, tenant: Tenant, styles: dict) -> bytes:
     return buf.getvalue()
 
 
-async def export_valuation_report(db: AsyncSession, tenant_id: uuid.UUID, fmt: str) -> tuple[str, bytes, str]:
-    report = await inventory_valuation(db, tenant_id)
+async def export_valuation_report(db: AsyncSession, tenant_id: uuid.UUID, fmt: str, stock_by_item: dict | None = None,
+                                  levels: dict | None = None) -> tuple[str, bytes, str]:
+    report = await inventory_valuation(db, tenant_id, stock_by_item, levels)
     tenant = await _load_tenant(db, tenant_id)
 
     period = period_label(None, datetime.now(UTC).date())

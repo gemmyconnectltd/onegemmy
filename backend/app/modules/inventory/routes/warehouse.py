@@ -4,7 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import ActiveBranchId, CurrentUser, DbSession
 from app.core.exceptions import ForbiddenError, ValidationError
 from app.core.pagination import PageQuery
 from app.core.response import paginated_response, success_response
@@ -36,8 +36,12 @@ async def _visible(db, user) -> set[uuid.UUID] | None:
     return await visible_warehouses(db, user)
 
 
-async def _require_visible(db, user, warehouse_id: uuid.UUID | None) -> set[uuid.UUID] | None:
+async def _require_visible(db, user, warehouse_id: uuid.UUID | None, branch_id: uuid.UUID | None = None) -> set[uuid.UUID] | None:
+    """Refuses a warehouse the person may not see. With a branch chosen in the branch switcher, lists show that branch's warehouses only."""
     allowed = await _visible(db, user)
+    if branch_id is not None:
+        from app.modules.inventory.service.branch_stock import viewing_warehouses
+        allowed = await viewing_warehouses(db, user, branch_id)
     if allowed is not None and warehouse_id is not None and warehouse_id not in allowed:
         raise ForbiddenError("This warehouse is not in your branches")
     return allowed
@@ -143,26 +147,26 @@ async def receive(id: uuid.UUID, data: ReceiptIn, db: DbSession, user: CurrentUs
 
 
 @router.get("/inventory/stock-by-warehouse")
-async def stock_by_warehouse(db: DbSession, user: CurrentUser, page: PageQuery, warehouse_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None,
+async def stock_by_warehouse(db: DbSession, user: CurrentUser, page: PageQuery, active_branch: ActiveBranchId, warehouse_id: uuid.UUID | None = None, branch_id: uuid.UUID | None = None,
                              search: str | None = Query(None, max_length=100), status: str | None = Query(None, pattern="^(ok|low|out)$")):
-    allowed = await _require_visible(db, user, warehouse_id)
+    allowed = await _require_visible(db, user, warehouse_id, None if warehouse_id else (branch_id or active_branch))
     rows, total = await svc.stock_rows(db, _tenant(user), warehouse_id=warehouse_id, branch_id=branch_id, search=search, status=status, offset=page.offset, limit=page.limit, allowed=allowed)
     return paginated_response(items=rows, total=total, page=page.page, page_size=page.page_size, message="Stock retrieved")
 
 
 @router.get("/inventory/stock-movements")
-async def stock_movements(db: DbSession, user: CurrentUser, page: PageQuery, warehouse_id: uuid.UUID | None = None, product_id: uuid.UUID | None = None,
+async def stock_movements(db: DbSession, user: CurrentUser, page: PageQuery, active_branch: ActiveBranchId, warehouse_id: uuid.UUID | None = None, product_id: uuid.UUID | None = None,
                           movement_type: str | None = Query(None), from_date: date | None = None, to_date: date | None = None):
     if movement_type and movement_type not in MOVEMENT_TYPES:
         raise ValidationError("Unknown movement type")
-    allowed = await _require_visible(db, user, warehouse_id)
+    allowed = await _require_visible(db, user, warehouse_id, None if warehouse_id else active_branch)
     rows, total = await svc.movements(db, _tenant(user), warehouse_id=warehouse_id, product_id=product_id, movement_type=movement_type, start=from_date, end=to_date, offset=page.offset, limit=page.limit, allowed=allowed)
     return paginated_response(items=rows, total=total, page=page.page, page_size=page.page_size, message="Movements retrieved")
 
 
 @router.get("/inventory/stock-counts")
-async def list_counts(db: DbSession, user: CurrentUser, page: PageQuery, status: str | None = Query(None, pattern="^(Submitted|Approved|Rejected)$")):
-    rows, total = await svc.list_counts(db, _tenant(user), status=status, offset=page.offset, limit=page.limit, allowed=await _visible(db, user))
+async def list_counts(db: DbSession, user: CurrentUser, page: PageQuery, active_branch: ActiveBranchId, status: str | None = Query(None, pattern="^(Submitted|Approved|Rejected)$")):
+    rows, total = await svc.list_counts(db, _tenant(user), status=status, offset=page.offset, limit=page.limit, allowed=await _require_visible(db, user, None, active_branch))
     return paginated_response(items=rows, total=total, page=page.page, page_size=page.page_size, message="Stock counts retrieved")
 
 

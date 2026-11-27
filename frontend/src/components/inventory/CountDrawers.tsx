@@ -49,7 +49,7 @@ export function NewCountDrawer({ onClose }: { onClose: () => void }) {
         <FormErrorSummary errors={error} />
         <fieldset disabled={submit.isPending} className="space-y-3">
           <div className="grid gap-3 @md:grid-cols-2 sm:grid-cols-2">
-            <Field label="Warehouse" required><Select value={warehouse} onChange={(e) => { setWarehouse(e.target.value); setLines([]); }}><option value="">Choose…</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select></Field>
+            <Field label="Warehouse" required><Select value={warehouse} onChange={(e) => { setWarehouse(e.target.value); setLines([]); }}><option value="">Choose…</option>{warehouses.map((w) => <option key={w.id} value={w.id}>{w.branch_name ?? "Shared"} · {w.name}</option>)}</Select></Field>
             <Field label="Note"><Input maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Monthly count, aisle 3…" /></Field>
           </div>
           <div className="flex flex-wrap gap-2">

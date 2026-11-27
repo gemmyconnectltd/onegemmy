@@ -1,12 +1,73 @@
 import uuid
+from dataclasses import dataclass
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.period import DatePeriod
 from app.core.repository import BaseRepository
 from app.modules.inventory.models.product import Product
 from app.modules.inventory.models.variant import ProductVariant
+
+
+@dataclass
+class ProductFilters:
+    """The Products list's narrower filters (the "More filters" panel), on top of search, status, category, VAT and date added.
+    `stock` reads the stock the person is looking at: the warehouses in `warehouses` (one branch, or the branches someone may
+    see) or, when that is None, the business total. With warehouses in use, "out" and "low" only count a product where it
+    is carried (it has had stock there), the same rule as the Inventory overview."""
+    brand_id: uuid.UUID | None = None
+    supplier_id: uuid.UUID | None = None
+    unit_id: uuid.UUID | None = None
+    kind: str | None = None            # "simple" | "variants" | "serials" | "weight"
+    stock: str | None = None           # "in" | "low" | "out" | "negative"
+    price_min: float | None = None
+    price_max: float | None = None
+    updated: DatePeriod | None = None
+    warehouses: list[uuid.UUID] | None = None
+    uses_warehouses: bool = False
+
+
+def _narrow(stmt, tenant_id: uuid.UUID, f: ProductFilters | None):
+    if f is None:
+        return stmt
+    if f.brand_id is not None:
+        stmt = stmt.where(Product.brand_id == f.brand_id)
+    if f.supplier_id is not None:
+        stmt = stmt.where(Product.supplier_id == f.supplier_id)
+    if f.unit_id is not None:
+        stmt = stmt.where(Product.unit_id == f.unit_id)
+    if f.kind == "variants":
+        stmt = stmt.where(Product.has_variants.is_(True))
+    elif f.kind == "serials":
+        stmt = stmt.where(Product.tracks_serials.is_(True))
+    elif f.kind == "weight":
+        stmt = stmt.where(Product.sale_by_weight.is_(True))
+    elif f.kind == "simple":
+        stmt = stmt.where(Product.has_variants.is_(False), Product.tracks_serials.is_(False), Product.sale_by_weight.is_(False))
+    if f.price_min is not None:
+        stmt = stmt.where(Product.price >= f.price_min)
+    if f.price_max is not None:
+        stmt = stmt.where(Product.price <= f.price_max)
+    if f.updated is not None and f.updated.active:
+        stmt = f.updated.apply(stmt, Product.updated_at)
+    if f.stock:
+        from app.modules.inventory.models.warehouse import StockMovement
+        here = [StockMovement.tenant_id == tenant_id, StockMovement.product_id == Product.id]
+        if f.warehouses is not None:
+            here.append(StockMovement.warehouse_id.in_(f.warehouses or [uuid.UUID(int=0)]))
+        qty = (select(func.coalesce(func.sum(StockMovement.quantity), 0)).where(*here).correlate(Product).scalar_subquery()
+               if f.warehouses is not None else Product.stock)
+        carried = exists().where(*here) if f.uses_warehouses else True
+        if f.stock == "in":
+            stmt = stmt.where(qty > 0)
+        elif f.stock == "negative":
+            stmt = stmt.where(qty < 0)
+        elif f.stock == "out":
+            stmt = stmt.where(and_(qty <= 0, carried))
+        elif f.stock == "low":
+            stmt = stmt.where(and_(qty > 0, qty <= Product.min_stock, carried))
+    return stmt
 
 
 def _with_relations():
@@ -75,7 +136,7 @@ class ProductRepository(BaseRepository[Product]):
     async def list_for_tenant(
         self, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20, search: str | None = None, is_active: bool | None = None,
         period: DatePeriod | None = None, category_id: uuid.UUID | None = None, vat: str | None = None,
-        available_in: uuid.UUID | None = None,
+        available_in: uuid.UUID | None = None, more: ProductFilters | None = None,
     ) -> list[Product]:
         stmt = (
             select(Product)
@@ -96,12 +157,13 @@ class ProductRepository(BaseRepository[Product]):
             stmt = stmt.where(not_hidden_at(tenant_id, available_in))
         if period:
             stmt = period.apply(stmt, Product.created_at)
+        stmt = _narrow(stmt, tenant_id, more)
         stmt = stmt.order_by(Product.name, Product.id).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def count_for_tenant(self, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
-                               vat: str | None = None, available_in: uuid.UUID | None = None) -> int:
+                               vat: str | None = None, available_in: uuid.UUID | None = None, more: ProductFilters | None = None) -> int:
         stmt = select(func.count()).select_from(Product).where(Product.tenant_id == tenant_id)
         if category_id is not None:
             stmt = stmt.where(Product.category_id == category_id)
@@ -117,6 +179,7 @@ class ProductRepository(BaseRepository[Product]):
             stmt = stmt.where(not_hidden_at(tenant_id, available_in))
         if period:
             stmt = period.apply(stmt, Product.created_at)
+        stmt = _narrow(stmt, tenant_id, more)
         result = await self.db.execute(stmt)
         return result.scalar_one()
 

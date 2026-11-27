@@ -4,12 +4,13 @@ One rule, used by the POS, by completing a sale and by the stock ledger:
 
 * A branch sells from **its own warehouse**. When it has several, it sells from the business's default warehouse if that one belongs to the
   branch, otherwise from the branch's oldest active warehouse.
-* A branch with no warehouse of its own sells from the business's **default warehouse** ("sales without a warehouse of their own are taken
-  from the default").
+* A branch with no warehouse of its own sells from a **shared** warehouse (one no branch owns), the default one first.
+* A branch **never** sells from another branch's warehouse: that is the other branch's stock. With no own or shared warehouse the sale is
+  refused (every branch gets its own warehouse when it is created, so this only happens to data from before that rule).
 * A business that has not switched warehouses on has one stock figure per product; none of this applies.
 
-People limited to some branches see the warehouses of those branches, plus the default warehouse for any of their branches that has none
-(that is where their sales come from). Owners and people with access to every branch see the whole business.
+People limited to some branches see the warehouses of those branches, plus the shared warehouse any of their branches sells from.
+Owners and people with access to every branch see the whole business.
 """
 import uuid
 from decimal import Decimal
@@ -18,6 +19,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ValidationError
 from app.modules.inventory.models.warehouse import StockMovement, Warehouse
 
 ZERO = Decimal(0)
@@ -41,17 +43,48 @@ async def _warehouses(db: AsyncSession, tenant_id: uuid.UUID, *, active_only: bo
 
 
 def _selling(rows: list[Any], branch_id: uuid.UUID | None) -> uuid.UUID | None:
+    """The branch's own warehouse, else a shared one (no branch owns it), default first; never another branch's. Without a branch
+    (an "All branches" action by an owner) the default warehouse, as before."""
     if not rows:
         return None
-    own = [r for r in rows if branch_id is not None and r.branch_id == branch_id]  # rows are default-first, then oldest first
+    if branch_id is None:
+        return next((r.id for r in rows if r.is_default), rows[0].id)
+    own = [r for r in rows if r.branch_id == branch_id]  # rows are default-first, then oldest first
     if own:
         return own[0].id
-    return next((r.id for r in rows if r.is_default), rows[0].id)
+    return next((r.id for r in rows if r.branch_id is None), None)
+
+
+class NoBranchWarehouse(ValidationError):
+    """The business uses warehouses, but this branch has neither its own nor a shared one."""
 
 
 async def selling_warehouse(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID | None) -> uuid.UUID | None:
-    """The warehouse a sale in this branch takes stock from. None when the business does not use warehouses."""
-    return _selling(await _warehouses(db, tenant_id, active_only=True), branch_id)
+    """The warehouse a sale in this branch takes stock from. None when the business does not use warehouses; raises
+    NoBranchWarehouse when it does but nothing serves this branch (never falls back to another branch's stock)."""
+    rows = await _warehouses(db, tenant_id, active_only=True)
+    if not rows:
+        return None
+    chosen = _selling(rows, branch_id)
+    if chosen is None:
+        raise NoBranchWarehouse("This branch has no warehouse of its own, so it has no stock to sell. Add a warehouse for it under "
+                                "Inventory › Settings › Warehouses, or move stock to it with a transfer.")
+    return chosen
+
+
+async def sale_warehouse(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID | None, branch_id: uuid.UUID | None) -> uuid.UUID | None:
+    """Where a sale took its stock from (its "sale" movements), so a void, correction or return puts it back there. Falls back to
+    the branch's selling warehouse for sales recorded before the ledger, or a business without warehouses."""
+    if order_id is not None:
+        found = (await db.execute(select(StockMovement.warehouse_id).where(
+            StockMovement.tenant_id == tenant_id, StockMovement.reference_type == "order", StockMovement.reference_id == order_id,
+            StockMovement.movement_type == "sale").order_by(StockMovement.created_at).limit(1))).scalar_one_or_none()
+        if found is not None:
+            return found
+    try:
+        return await selling_warehouse(db, tenant_id, branch_id)
+    except NoBranchWarehouse:
+        return None
 
 
 async def visible_warehouses(db: AsyncSession, user: Any) -> set[uuid.UUID] | None:
@@ -70,12 +103,23 @@ async def warehouses_for_branches(db: AsyncSession, tenant_id: uuid.UUID, mine: 
         return None
     seen = {r.id for r in rows if r.branch_id in mine}
     active = [r for r in rows if r.is_active]
+    owner = {r.id: r.branch_id for r in rows}
     for branch in mine:
         if not any(r.branch_id == branch for r in active):
             fallback = _selling(active, branch)
-            if fallback:
+            # Only a shared warehouse (one no branch owns) stands in for a branch without its own: another branch's
+            # warehouse is that branch's stock, and showing it here made one branch's stock appear in every other branch.
+            if fallback is not None and owner.get(fallback) is None:
                 seen.add(fallback)
     return seen
+
+
+async def viewing_warehouses(db: AsyncSession, user: Any, branch_id: uuid.UUID | None) -> set[uuid.UUID] | None:
+    """The warehouses a stock screen shows: the branch picked in the branch switcher when there is one (already checked
+    against the person's branches), otherwise every warehouse this person may see. None means business-wide figures."""
+    if branch_id is not None and getattr(user, "tenant_id", None) is not None:
+        return await warehouses_for_branches(db, user.tenant_id, [branch_id])
+    return await visible_warehouses(db, user)
 
 
 async def stock_in(db: AsyncSession, tenant_id: uuid.UUID, warehouse_ids: set[uuid.UUID] | list[uuid.UUID]) -> dict[tuple[uuid.UUID, uuid.UUID | None], Decimal]:
@@ -96,3 +140,16 @@ def apply_stock(products: list[Any], stock: dict[tuple[uuid.UUID, uuid.UUID | No
             v.stock = float(stock.get((p.id, v.id), ZERO))
         own = stock.get((p.id, None), ZERO)
         p.stock = float(own + sum((stock.get((p.id, v.id), ZERO) for v in variants), ZERO)) if variants else float(own)
+
+
+async def product_quantities(db: AsyncSession, user: Any, branch_id: uuid.UUID | None) -> dict[uuid.UUID, Decimal] | None:
+    """{product: quantity} in the branch chosen (or the warehouses this person may see), variants summed into their product.
+    None means the business-wide figures apply (owners on "All branches", or a business without warehouses), so callers keep
+    reading Product.stock. Every report, AI answer and card that shows stock goes through this or `viewing_warehouses`."""
+    warehouses = await viewing_warehouses(db, user, branch_id)
+    if warehouses is None:
+        return None
+    out: dict[uuid.UUID, Decimal] = {}
+    for (product_id, _variant), qty in (await stock_in(db, user.tenant_id, warehouses)).items():
+        out[product_id] = out.get(product_id, ZERO) + qty
+    return out

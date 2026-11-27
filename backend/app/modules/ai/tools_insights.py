@@ -3,6 +3,7 @@ suppliers, unpaid invoices/bills and a whole-business check-up. Same rules as to
 `ToolContext`, money is in the business's base currency, every figure is computed here — never by the model."""
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from pydantic import Field
@@ -80,6 +81,12 @@ class CountArgs(_Args):
     what: Literal["products", "customers", "suppliers", "employees"] = "products"
 
 
+async def _scoped(ctx: ToolContext) -> dict | None:
+    """{product: quantity} in the person's branch (or the branches they may see); None = the business total applies."""
+    from app.modules.inventory.service.branch_stock import product_quantities
+    return await product_quantities(ctx.db, ctx.user, ctx.branch_id)
+
+
 @tool("how_many", "Count records the business has: products (with how many are in stock / out of stock), customers, suppliers or employees. "
       "Use for 'how many products/customers/suppliers/staff do we have'.", module=None, permission=None, args=CountArgs)
 async def how_many(ctx: ToolContext, a: CountArgs) -> dict[str, Any]:
@@ -98,6 +105,10 @@ async def how_many(ctx: ToolContext, a: CountArgs) -> dict[str, Any]:
             func.count(), func.count().filter(Product.is_active.is_(True)), func.count().filter(Product.is_active.is_(True), Product.stock > 0),
         ).where(Product.tenant_id == ctx.tenant_id))).one()
         total, active, in_stock = row
+        scoped = await _scoped(ctx)
+        if scoped is not None:  # in stock in this branch, not anywhere in the business
+            ids = (await ctx.db.execute(select(Product.id).where(Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True)))).scalars().all()
+            in_stock = sum(1 for i in ids if scoped.get(i, 0) > 0)
         out = active - in_stock
         return _result("how_many", f"You have {total} product{'' if total == 1 else 's'}: {active} active, of which {in_stock} "
                        f"{'is' if in_stock == 1 else 'are'} in stock and {out} {'is' if out == 1 else 'are'} out of stock.", ctx,
@@ -137,7 +148,15 @@ async def find_products(ctx: ToolContext, a: FindProductsArgs) -> dict[str, Any]
     if term:
         conds.append(Product.name.ilike(f"%{term}%") | Product.sku.ilike(f"%{term}%"))
     total = (await ctx.db.execute(select(func.count()).where(*conds))).scalar_one()
-    rows = (await ctx.db.execute(select(Product.name, Product.sku, Product.price, Product.cost, Product.stock).where(*conds).order_by(order).limit(a.limit))).all()
+    scoped = await _scoped(ctx)
+    if scoped is None:
+        rows = (await ctx.db.execute(select(Product.name, Product.sku, Product.price, Product.cost, Product.stock).where(*conds).order_by(order).limit(a.limit))).all()
+    else:  # this branch's stock: rank in Python over the branch's quantities
+        found = (await ctx.db.execute(select(Product.id, Product.name, Product.sku, Product.price, Product.cost).where(*conds).limit(2000))).all()
+        rows = [SimpleNamespace(name=r.name, sku=r.sku, price=r.price, cost=r.cost, stock=scoped.get(r.id, 0)) for r in found]
+        key = {"name": lambda r: r.name.lower(), "most_stock": lambda r: -float(r.stock), "least_stock": lambda r: float(r.stock),
+               "highest_price": lambda r: -float(r.price), "lowest_price": lambda r: float(r.price)}[a.sort]
+        rows = sorted(rows, key=key)[: a.limit]
     cur = ctx.base_currency
     if not rows:
         return _result("find_products", f"I couldn't find a product matching \"{term}\"." if term else "You have no active products yet.", ctx,
@@ -344,16 +363,25 @@ async def inventory_value(ctx: ToolContext, a: LimitArgs) -> dict[str, Any]:
     from app.modules.inventory.models.product import Product
 
     base = [Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True), Product.stock > 0]
-    tot = (await ctx.db.execute(select(
-        func.coalesce(func.sum(Product.stock * Product.cost), 0), func.coalesce(func.sum(Product.stock * Product.price), 0),
-        func.count(), func.count().filter(Product.cost <= 0),
-    ).where(*base))).one()
+    scoped = await _scoped(ctx)
+    if scoped is None:
+        tot = (await ctx.db.execute(select(
+            func.coalesce(func.sum(Product.stock * Product.cost), 0), func.coalesce(func.sum(Product.stock * Product.price), 0),
+            func.count(), func.count().filter(Product.cost <= 0),
+        ).where(*base))).one()
+        top = (await ctx.db.execute(
+            select(Product.name, Product.stock, (Product.stock * Product.cost).label("v")).where(*base).order_by((Product.stock * Product.cost).desc()).limit(a.limit)
+        )).all()
+    else:  # this branch's shelf only
+        held = [SimpleNamespace(name=r.name, stock=scoped[r.id], cost=r.cost, price=r.price, v=scoped[r.id] * to_decimal(r.cost))
+                for r in (await ctx.db.execute(select(Product.id, Product.name, Product.cost, Product.price).where(
+                    Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True)))).all() if scoped.get(r.id, 0) > 0]
+        tot = (sum((h.v for h in held), to_decimal(0)), sum((h.stock * to_decimal(h.price) for h in held), to_decimal(0)), len(held),
+               sum(1 for h in held if to_decimal(h.cost) <= 0))
+        top = sorted(held, key=lambda h: h.v, reverse=True)[: a.limit]
     cur = ctx.base_currency
     if tot[2] == 0:
         return _result("inventory_value", "You have no products in stock right now.", ctx, how="Adds up stock on hand for active products.", links=[])
-    top = (await ctx.db.execute(
-        select(Product.name, Product.stock, (Product.stock * Product.cost).label("v")).where(*base).order_by((Product.stock * Product.cost).desc()).limit(a.limit)
-    )).all()
     cost_v, sell_v = to_decimal(tot[0]), to_decimal(tot[1])
     note = f"{tot[3]} product{'' if tot[3] == 1 else 's'} in stock have no purchase cost saved, so they add nothing to the cost value." if tot[3] else None
     return _result("inventory_value", f"Your stock is worth {format_money(cost_v, cur)} at cost, or {format_money(sell_v, cur)} if it all sold at your current prices ({tot[2]} products in stock).",
@@ -377,12 +405,19 @@ async def slow_moving_products(ctx: ToolContext, a: DaysArgs) -> dict[str, Any]:
         .group_by(OrderItem.product_id).subquery()
     )
     qty = func.coalesce(sold.c.qty, 0)
-    rows = (await ctx.db.execute(
-        select(Product.name, Product.stock, qty.label("qty"), (Product.stock * Product.cost).label("tied"))
-        .outerjoin(sold, sold.c.pid == Product.id)
-        .where(Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True), Product.stock > 0)
-        .order_by(qty.asc(), (Product.stock * Product.cost).desc()).limit(a.limit)
-    )).all()
+    scoped = await _scoped(ctx)
+    if scoped is None:
+        rows = (await ctx.db.execute(
+            select(Product.name, Product.stock, qty.label("qty"), (Product.stock * Product.cost).label("tied"))
+            .outerjoin(sold, sold.c.pid == Product.id)
+            .where(Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True), Product.stock > 0)
+            .order_by(qty.asc(), (Product.stock * Product.cost).desc()).limit(a.limit)
+        )).all()
+    else:  # what this branch holds and how it sells
+        found = (await ctx.db.execute(select(Product.id, Product.name, Product.cost, qty.label("qty")).outerjoin(sold, sold.c.pid == Product.id)
+                                      .where(Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True)))).all()
+        rows = [SimpleNamespace(name=r.name, stock=scoped[r.id], qty=r.qty, tied=scoped[r.id] * to_decimal(r.cost)) for r in found if scoped.get(r.id, 0) > 0]
+        rows = sorted(rows, key=lambda r: (float(r.qty), -float(r.tied)))[: a.limit]
     cur = ctx.base_currency
     if not rows:
         return _result("slow_moving_products", "You have no products in stock to review.", ctx, how="Looks at products currently in stock.", links=[])

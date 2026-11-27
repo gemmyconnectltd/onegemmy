@@ -43,18 +43,21 @@ const newItem = (): ItemRow => ({
   available_stock: 0,
 });
 
-function TransfersContent({initialProduct, create = false, initialStatus = ""}: {initialProduct?: ApiProduct; create?: boolean; initialStatus?: string}) {
+/** "Request from <branch>" and "Move between branches" open the form already filled: the product, both branches and a quantity. */
+interface TransferPrefill { fromBranch?: string; toBranch?: string; quantity?: number }
+
+function TransfersContent({initialProduct, create = false, initialStatus = "", prefill}: {initialProduct?: ApiProduct; create?: boolean; initialStatus?: string; prefill?: TransferPrefill}) {
   const [status, setStatus] = useState<string>(initialStatus);
   const [period, setPeriod] = useState<PeriodValue>(ALL_TIME);
   const range = periodRange(period);
   const [adding, setAdding] = useState(create);
   const [search, setSearch] = useState("");
-  const [fromBranch, setFromBranch] = useState("");
-  const [toBranch, setToBranch] = useState("");
-  const [fromWarehouse, setFromWarehouse] = useState("");
-  const [toWarehouse, setToWarehouse] = useState("");
+  const [fromBranch, setFromBranch] = useState(prefill?.fromBranch ?? "");
+  const [toBranch, setToBranch] = useState(prefill?.toBranch ?? "");
+  const [fromWarehouseChosen, setFromWarehouse] = useState("");
+  const [toWarehouseChosen, setToWarehouse] = useState("");
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<ItemRow[]>(() => initialProduct ? [{...newItem(),product_id:initialProduct.id,product_name:initialProduct.name,sku:initialProduct.sku||"",available_stock:Number(initialProduct.stock)}] : [newItem()]);
+  const [items, setItems] = useState<ItemRow[]>(() => initialProduct ? [{...newItem(),product_id:initialProduct.id,product_name:initialProduct.name,sku:initialProduct.sku||"",available_stock:Number(initialProduct.stock),quantity:prefill?.quantity && prefill.quantity > 0 ? prefill.quantity : 1}] : [newItem()]);
   const [createError, setCreateError] = useState("");
 
   const { data, isLoading, isError, error: loadError, refetch } = useTransfers(1, 100, status || undefined, undefined, range);
@@ -63,6 +66,10 @@ function TransfersContent({initialProduct, create = false, initialStatus = ""}: 
   const warehouseList = useWarehouses().data;
   const byWarehouse = !!warehouseList?.enabled;
   const activeWarehouses = (warehouseList?.items ?? []).filter((w) => w.is_active);
+  // With warehouses on, the branches asked for become each branch's own warehouse until someone picks another.
+  const ownWarehouse = (branch?: string) => (branch ? activeWarehouses.find((w) => w.branch_id === branch)?.id ?? "" : "");
+  const fromWarehouse = fromWarehouseChosen || ownWarehouse(prefill?.fromBranch);
+  const toWarehouse = toWarehouseChosen || ownWarehouse(prefill?.toBranch);
   const { data: branchesData } = useMyBranches();
   const { data: productsData } = useProducts(1, 500);
   const createTransfer = useCreateTransfer();
@@ -371,6 +378,7 @@ function TransferFromProduct() {
   if (id && (product.error || !product.data)) return <div role="alert" className="space-y-3"><p>The selected product is unavailable.</p><Button variant="secondary" onClick={()=>void product.refetch()}>Try again</Button></div>;
   const statusParam = params.get("status") || "";
   const initialStatus = ["pending", "in_transit", "completed", "cancelled"].includes(statusParam) ? statusParam : "";
-  return <TransfersContent key={`${id||"all"}:${initialStatus}`} initialProduct={product.data} create={params.get("create")==="1"} initialStatus={initialStatus}/>;
+  const prefill = { fromBranch: params.get("from_branch") || undefined, toBranch: params.get("to_branch") || undefined, quantity: Number(params.get("qty")) || undefined };
+  return <TransfersContent key={`${id||"all"}:${initialStatus}`} initialProduct={product.data} create={params.get("create")==="1"} initialStatus={initialStatus} prefill={prefill}/>;
 }
 export default function TransfersPage() { return <Suspense fallback={<PageLoader variant="page" />}><TransferFromProduct/></Suspense>; }

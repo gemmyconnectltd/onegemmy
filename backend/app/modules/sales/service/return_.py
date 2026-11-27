@@ -35,9 +35,22 @@ async def _stamp_return_currency(db: AsyncSession, tenant_id: uuid.UUID, ret: Re
     return float(ret.base_refund_amount)
 
 
-async def _restock(db: AsyncSession, product_id: uuid.UUID | None, variant_id: uuid.UUID | None, quantity: float) -> None:
-    """Puts a returned quantity back into sellable stock."""
-    set_reason("customer_return", reference_type="return")
+async def _return_warehouse(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.UUID | None) -> uuid.UUID | None:
+    """The warehouse the returned sale took its stock from, so the goods go back to that branch (never to the branch the approver
+    happens to be looking at). None without an order or without warehouses: the ledger then uses its usual place."""
+    if order_id is None:
+        return None
+    order = await db.get(Order, order_id)
+    if order is None or order.tenant_id != tenant_id:
+        return None
+    from app.modules.inventory.service.branch_stock import sale_warehouse
+    return await sale_warehouse(db, tenant_id, order.id, order.branch_id)
+
+
+async def _restock(db: AsyncSession, product_id: uuid.UUID | None, variant_id: uuid.UUID | None, quantity: float,
+                   warehouse_id: uuid.UUID | None = None) -> None:
+    """Puts a returned quantity back into sellable stock, in the warehouse the sale took it from."""
+    set_reason("customer_return", reference_type="return", warehouse_id=warehouse_id)
     if variant_id:
         variant = await db.get(ProductVariant, variant_id)
         if variant is not None:
@@ -48,11 +61,11 @@ async def _restock(db: AsyncSession, product_id: uuid.UUID | None, variant_id: u
             product.stock = float(product.stock) + quantity
 
 
-async def _restock_return_item(db: AsyncSession, item: ReturnItem) -> None:
+async def _restock_return_item(db: AsyncSession, item: ReturnItem, warehouse_id: uuid.UUID | None = None) -> None:
     """Resolves a persisted return line's product/variant and restocks it."""
     variant_id = item.order_item.variant_id if item.order_item else None
     product_id = item.product_id or (item.order_item.product_id if item.order_item else None)
-    await _restock(db, product_id, variant_id, item.quantity)
+    await _restock(db, product_id, variant_id, item.quantity, warehouse_id)
 
 
 async def list_returns(db: AsyncSession, tenant_id: uuid.UUID, status: str | None = None, offset: int = 0, limit: int = 50, period=None,
@@ -165,6 +178,7 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
     )
     ret = await repo.save(ret)
     base_refund = await _stamp_return_currency(db, tenant_id, ret)
+    back_to = await _return_warehouse(db, tenant_id, data.order_id) if data.status == "Approved" else None
 
     for item_data in data.items:
         item = ReturnItem(
@@ -189,7 +203,7 @@ async def create_return(db: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UU
                 if order_item is not None:
                     variant_id = order_item.variant_id
                     product_id = product_id or order_item.product_id
-            await _restock(db, product_id, variant_id, item_data.quantity)
+            await _restock(db, product_id, variant_id, item_data.quantity, back_to)
 
     if data.status == "Approved":
         await create_return_transaction(db, tenant_id, user_id, ret.id, base_refund, return_number)
@@ -215,8 +229,9 @@ async def update_return(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
     await ReturnRepository(db).save(obj)
     # auto-create accounting transaction + restock inventory when status flips to Approved
     if not was_approved and obj.status == "Approved":
+        back_to = await _return_warehouse(db, tenant_id, obj.order_id)
         for item in obj.items:
-            await _restock_return_item(db, item)
+            await _restock_return_item(db, item, back_to)
         base_refund = await _stamp_return_currency(db, tenant_id, obj)
         await create_return_transaction(
             db, tenant_id, user_id, obj.id, base_refund, obj.return_number

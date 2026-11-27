@@ -87,7 +87,9 @@ async def test_setup_receive_sale_and_transfer_keep_every_warehouse_and_the_tota
             await db.refresh(product)
             assert float(product.stock) == 137 and await total_in_ledger(db, tenant.id, product.id) == 137
             # history is complete and cannot be rewritten
-            types = {m["movement_type"] for m in (await c.get(f"{INV}/stock-movements", params={"product_id": str(product.id)})).json()["data"]["items"]}
+            # (the client acts in Main, which sees only Main's own warehouse; the depot belongs to no branch, so ask for it by name)
+            types = {m["movement_type"] for w in (main["id"], second["id"]) for m in (await c.get(f"{INV}/stock-movements", params={
+                "product_id": str(product.id), "warehouse_id": w})).json()["data"]["items"]}
             assert {"opening", "receipt", "sale", "transfer_out", "transfer_in"} <= types
             with pytest.raises(Exception, match="append-only"):
                 async with db.begin_nested():

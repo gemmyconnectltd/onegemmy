@@ -9,12 +9,13 @@ import { TableScroll } from "@/components/ui/TableScroll";
 
 import { fmtMoney } from "@/lib/config";
 import { fmtDateTime } from "@/lib/date";
-import { Plus, Search, AlertCircle, ChevronDown, Upload, XCircle, ShoppingCart, Wallet, Clock, TrendingUp, SlidersHorizontal, X } from "lucide-react";
+import { Plus, Search, AlertCircle, ChevronDown, Upload, XCircle, ShoppingCart, Wallet, Clock, TrendingUp } from "lucide-react";
 import { StatCard } from "@/components/ui/StatCard";
+import { FilterChips, MoreFilters, useWideScreen } from "@/components/ui/ListFilters";
 import { TableState } from "@/components/ui/TableState";
 import { ReasonDialog } from "@/components/ui/ReasonDialog";
 import { ChangeSalespersonDialog } from "@/components/sales/ChangeSalespersonDialog";
-import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppConfig } from "@/lib/appConfig";
 import { Drawer } from "@/components/ui/Drawer";
 import { Field, Input, Select, FormFooter, Textarea } from "@/components/ui/Form";
@@ -286,41 +287,7 @@ const TABS: { key: TabKey; label: string; status?: string; payment?: string; cou
 const CARD_PLACEHOLDERS = [["Sales", ShoppingCart], ["Collected", Wallet], ["Outstanding", Clock], ["Average sale", TrendingUp]].map(([label, icon]) => ({ label: label as string, value: "", sub: undefined as string | undefined, icon: icon as typeof ShoppingCart, warn: false }));
 const METHODS = [["", "Payment method: All"], ["cash", "Cash"], ["mobile", "Mobile money"], ["card", "Card"], ["bank", "Bank transfer"], ["credit", "On credit"]] as const;
 
-/** "More filters": the less-used filters in a small panel, with how many are active on the button. Closes on outside click / Escape. */
-function MoreFilters({ active, children }: { active: number; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <Button variant="outline" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((v) => !v)}>
-        <SlidersHorizontal size={14} /> More filters{active > 0 && <span className="ml-1 rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">{active}</span>}
-      </Button>
-      {open && (
-        <div role="dialog" aria-label="More filters" className="absolute right-0 top-full z-30 mt-1 w-72 space-y-3 rounded-xl border border-border bg-card p-4 shadow-lg">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
 
-/** Desktop (≥1280px): the selected sale sits beside the list; smaller screens open it in a drawer. */
-const WIDE = "(min-width: 1280px)";
-function useWideScreen() {
-  return useSyncExternalStore(
-    (change) => { const m = window.matchMedia(WIDE); m.addEventListener("change", change); return () => m.removeEventListener("change", change); },
-    () => window.matchMedia(WIDE).matches,
-    () => false,
-  );
-}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SalesOrdersPage() {
@@ -639,18 +606,7 @@ export default function SalesOrdersPage() {
           </MoreFilters>
         </div>
         {/* What is applied, each removable on its own; "Clear all" resets everything. */}
-        {chips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-            {chips.map((c) => (
-              <span key={c.key} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface py-0.5 pl-2.5 pr-1 text-xs">
-                <span className="text-muted">{c.label}:</span><span className="font-semibold text-foreground">{c.value}</span>
-                <button type="button" onClick={c.clear} aria-label={`Remove filter ${c.label}`} className="flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-card hover:text-foreground focus-visible:outline-2 focus-visible:outline-accent"><X size={12} /></button>
-              </span>
-            ))}
-            <button type="button" onClick={clearFilters} className="ml-1 text-xs font-semibold text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">Clear all</button>
-            <span className="ml-auto text-xs text-muted">{total} sale{total === 1 ? "" : "s"} match</span>
-          </div>
-        )}
+        <FilterChips chips={chips} onClearAll={clearFilters} count={`${total} sale${total === 1 ? "" : "s"} match`} />
 
         {bulk.count > 0 && isOwner && (
           <div className="border-b border-border p-3">

@@ -33,12 +33,15 @@ async def _setup(db, monkeypatch):
     main_branch = (await db.execute(select(Branch).where(Branch.tenant_id == tenant.id, Branch.is_main.is_(True)))).scalar_one()
 
     async with client(owner) as c:
-        main = (await c.post(f"{INV}/warehouses/setup")).json()["data"]["items"][0]
-        wh = {}
-        for name, branch in (("Kigali Store", main_branch), ("Musanze Warehouse", musanze), ("Remera Warehouse", remera)):
-            made = await c.post(f"{INV}/warehouses", json={"name": name, "branch_id": str(branch.id)})
-            assert made.status_code == 201, made.text
-            wh[name] = made.json()["data"]["id"]
+        listed = (await c.post(f"{INV}/warehouses/setup")).json()["data"]["items"]
+        main = listed[0]
+        # switching warehouses on gives every branch a warehouse of its own; the main branch adds a second store
+        own = {w["branch_id"]: w for w in listed if w["code"] != "MAIN"}
+        assert {own[str(b.id)]["name"] for b in (musanze, remera, huye)} == {"Musanze warehouse", "Remera warehouse", "Huye warehouse"}
+        made = await c.post(f"{INV}/warehouses", json={"name": "Kigali Store", "branch_id": str(main_branch.id)})
+        assert made.status_code == 201, made.text
+        wh = {"Kigali Store": made.json()["data"]["id"], "Musanze Warehouse": own[str(musanze.id)]["id"], "Remera Warehouse": own[str(remera.id)]["id"],
+              "Huye": own[str(huye.id)]["id"]}
         transfers = {}
         for name, qty in (("Kigali Store", 20), ("Musanze Warehouse", 30), ("Remera Warehouse", 25)):
             t = await c.post(f"{INV}/transfers", json={"from_warehouse_id": main["id"], "to_warehouse_id": wh[name],
@@ -82,9 +85,13 @@ async def test_branch_pos_sells_only_from_its_own_warehouse(db, monkeypatch):
         async with s["client"](s["owner"]) as c:
             assert await _on_hand(c, s["main"], s["widget"].id) == 25  # Main untouched
 
-        async with s["client"](s["huye"]) as c:  # a branch with no warehouse of its own sells from the default (Main)
+        async with s["client"](s["huye"]) as c:  # Huye has its own (empty) warehouse: it never sells Main's stock
             till = (await c.get(f"{INV}/products", params={"for_sale": True, "page_size": 100})).json()["data"]["items"]
-            assert _stock(till, s["widget"]) == 25 and _stock(till, s["hammer"]) == 2880
+            assert _stock(till, s["widget"]) == 0 and _stock(till, s["hammer"]) == 0
+            refused = await c.post(f"{API}/sales/orders", json=s["sale"](1))
+            assert refused.status_code == 422 and "Not enough" in refused.text
+        async with s["client"](s["owner"]) as c:
+            assert await _on_hand(c, s["main"], s["widget"].id) == 25
     finally:
         app.dependency_overrides.clear()
 
@@ -154,8 +161,11 @@ async def test_inventory_views_are_scoped_to_the_branch(db, monkeypatch):
             assert float(valuation["summary"]["total_units"]) == 30
             products = (await c.get(f"{INV}/products", params={"page_size": 100})).json()["data"]["items"]
             assert _stock(products, s["widget"]) == 30
-        async with s["client"](s["owner"]) as c:  # the owner still sees the whole business
-            assert len((await c.get(f"{INV}/warehouses")).json()["data"]["items"]) == 4
+        async with s["client"](s["owner"]) as c:
+            assert len((await c.get(f"{INV}/warehouses")).json()["data"]["items"]) == 5  # Main, Kigali Store and one per other branch
+            products = (await c.get(f"{INV}/products", params={"page_size": 100})).json()["data"]["items"]
+            assert _stock(products, s["widget"]) == 45  # acting in Main: Main 25 + Kigali Store 20, never Musanze's 30
+            c.headers.pop("X-Branch-Id")  # "All branches": the whole business
             products = (await c.get(f"{INV}/products", params={"page_size": 100})).json()["data"]["items"]
             assert _stock(products, s["widget"]) == 100
             assert float((await c.get(f"{INV}/reports/valuation")).json()["data"]["summary"]["total_units"]) == 100 + 2880

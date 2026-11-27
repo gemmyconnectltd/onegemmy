@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { TableWrap } from "@/components/ui/Table";
 import { dailyLabels, dailyMetrics, type DailyReport } from "@/lib/api/dailyReports";
 import { formatMoney } from "@/lib/money";
@@ -30,7 +31,7 @@ export function DailySheet({ data, showDate, stockNote }: { data: DailyReport; s
               {showDate && <td>{row.day}</td>}
               <td className="font-semibold text-foreground">
                 {row.branch_id
-                  ? <Link href={`/reports/branches/${row.branch_id}?${new URLSearchParams({ from: data.from_date, to: data.to_date }).toString()}`} className="hover:text-accent hover:underline">{row.branch}</Link>
+                  ? <Link href={`/reports/branches/${row.branch_id}?${new URLSearchParams({ from: data.from_date, to: data.to_date }).toString()}`} aria-label={`Open ${row.branch} report`} className="inline-flex items-center gap-1 text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent">{row.branch}<ChevronRight size={14} aria-hidden /></Link>
                   : row.branch}
               </td>
               {dailyMetrics.map((m) => (

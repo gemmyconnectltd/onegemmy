@@ -77,9 +77,9 @@ def _apply_vat_classification(obj: Product, payload: dict, actor: User | None) -
 
 async def list_products(db: AsyncSession, tenant_id: uuid.UUID, offset: int = 0, limit: int = 20,
                         search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
-                        vat: str | None = None, available_in: uuid.UUID | None = None) -> list[ProductRead]:
+                        vat: str | None = None, available_in: uuid.UUID | None = None, more=None) -> list[ProductRead]:
     items = await ProductRepository(db).list_for_tenant(tenant_id, offset, limit, search, is_active, period, category_id, vat,
-                                                        available_in)
+                                                        available_in, more)
     return [ProductRead.model_validate(i) for i in items]
 
 
@@ -98,8 +98,8 @@ async def get_product_by_barcode(db: AsyncSession, tenant_id: uuid.UUID, barcode
 
 
 async def count_products(db: AsyncSession, tenant_id: uuid.UUID, search: str | None = None, is_active: bool | None = None, period: DatePeriod | None = None, category_id: uuid.UUID | None = None,
-                         vat: str | None = None, available_in: uuid.UUID | None = None) -> int:
-    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id, vat, available_in)
+                         vat: str | None = None, available_in: uuid.UUID | None = None, more=None) -> int:
+    return await ProductRepository(db).count_for_tenant(tenant_id, search, is_active, period, category_id, vat, available_in, more)
 
 
 async def _last_sku_number(db: AsyncSession, tenant_id: uuid.UUID) -> int:
@@ -285,11 +285,11 @@ def _suggested(min_stock: float, stock: float) -> float:
     return round(min_stock - stock, 3)
 
 
-async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item: dict | None = None) -> LowStockReport:
+async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item: dict | None = None, levels: dict | None = None) -> LowStockReport:
     """Products and variants at/below their reorder point, with suggested order qty. `stock_by_item` ({(product, variant): qty}) judges
     them by the warehouses one person sees instead of the business total."""
     if stock_by_item is not None:
-        return _low_stock_from(await ProductRepository(db).valuation_products(tenant_id), stock_by_item)
+        return _low_stock_from(await ProductRepository(db).valuation_products(tenant_id), stock_by_item, levels)
     product_repo = ProductRepository(db)
     variant_repo = VariantRepository(db)
     products = await product_repo.list_low_stock(tenant_id, 0, 500)
@@ -319,12 +319,14 @@ async def low_stock_report(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item
     return LowStockReport(items=lines[:500], total=total)
 
 
-def _low_stock_from(products, stock_by_item: dict) -> LowStockReport:
+def _low_stock_from(products, stock_by_item: dict, levels: dict | None = None) -> LowStockReport:
+    """`levels` ({(product, variant): level}) is one branch's own reorder levels; without one the product's applies."""
     lines: list[LowStockLine] = []
     for p in products:
         rows = [(v, v.id, v.min_stock, v.sku or p.sku, v.barcode) for v in p.variants if v.is_active] if p.has_variants else [(None, None, p.min_stock, p.sku, p.barcode)]
         for v, vid, minimum, sku, barcode in rows:
-            have, floor = float(stock_by_item.get((p.id, vid), 0)), float(minimum or 0)
+            own = (levels or {}).get((p.id, vid))
+            have, floor = float(stock_by_item.get((p.id, vid), 0)), float(own if own is not None else (minimum or 0))
             if have > floor:
                 continue
             name = f"{p.name} · {', '.join(f'{k}: {val}' for k, val in (v.attributes or {}).items())}" if v is not None else p.name

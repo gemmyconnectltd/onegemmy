@@ -457,8 +457,8 @@ async def correct_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, d
     method = {"1000": "cash", "1010": "bank", "1020": "mobile"}.get(method_code)
 
     # Old lines out: stock back (serial-tracked items are not corrected this way), into the warehouse the sale came from.
-    from app.modules.inventory.service.branch_stock import selling_warehouse
-    sale_warehouse = await selling_warehouse(db, tenant_id, obj.branch_id)
+    from app.modules.inventory.service.branch_stock import sale_warehouse as source_warehouse
+    sale_warehouse = await source_warehouse(db, tenant_id, obj.id, obj.branch_id)
     old_items = list(obj.items)
     for old in old_items:
         product = await db.get(Product, old.product_id) if old.product_id else None
@@ -582,8 +582,8 @@ async def void_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, user
     references = []
     for journal in live:
         references.append((await reverse_journal(db, tenant_id, user_id, journal, f"sale voided: {reason}", posting_date=day)).reference)
-    from app.modules.inventory.service.branch_stock import selling_warehouse
-    sale_warehouse = await selling_warehouse(db, tenant_id, obj.branch_id)  # the stock goes back where the sale took it from
+    from app.modules.inventory.service.branch_stock import sale_warehouse as source_warehouse
+    sale_warehouse = await source_warehouse(db, tenant_id, obj.id, obj.branch_id)  # the stock goes back where the sale took it from
     for item in items:
         target = await db.get(ProductVariant, item.variant_id) if item.variant_id else (await db.get(Product, item.product_id) if item.product_id else None)
         if target is not None:

@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { TableState } from "@/components/ui/TableState";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { WarehousePlace, useWarehousePlaces } from "@/components/inventory/WarehousePlace";
 
 const STATE: Record<StockRow["status"], { label: string; cls: string }> = {
   ok: { label: "In stock", cls: "bg-emerald-100 text-emerald-700" }, low: { label: "Low", cls: "bg-amber-100 text-amber-700" }, out: { label: "Out of stock", cls: "bg-red-100 text-red-700" },
@@ -16,6 +17,7 @@ const STATE: Record<StockRow["status"], { label: string; cls: string }> = {
 
 export default function StockByWarehousePage() {
   const warehouses = useWarehouses();
+  const places = useWarehousePlaces();
   const [warehouse, setWarehouse] = useState("");
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
@@ -29,7 +31,7 @@ export default function StockByWarehousePage() {
       <header><h1 className="pesaa-page-title">Stock by warehouse</h1><p className="text-sm text-muted">What each warehouse holds right now. Choose one, or see the whole business.</p></header>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[12rem] flex-1 sm:max-w-xs"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden /><Input aria-label="Search products" className="pl-8" placeholder="Search name, SKU or barcode" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} /></div>
-        <Select aria-label="Warehouse" className="w-auto" value={warehouse} onChange={(e) => { setWarehouse(e.target.value); setPage(1); }}><option value="">All warehouses</option>{(warehouses.data?.items ?? []).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</Select>
+        <Select aria-label="Warehouse" className="w-auto" value={warehouse} onChange={(e) => { setWarehouse(e.target.value); setPage(1); }}><option value="">All branches and warehouses</option>{places.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</Select>
         <Select aria-label="Stock status" className="w-auto" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">Any status</option><option value="ok">In stock</option><option value="low">Low</option><option value="out">Out of stock</option></Select>
       </div>
       {warehouses.data && !warehouses.data.enabled ? <TableState empty title="Warehouses are not switched on" hint="Switch them on under Warehouses to see stock by place." />
@@ -38,11 +40,11 @@ export default function StockByWarehousePage() {
           <div className="rounded-xl border border-border bg-card">
             <TableScroll mobileLayout="cards" label="Stock by warehouse">
               <table className="w-full min-w-[820px] text-left text-sm">
-                <thead className="text-xs text-muted"><tr><th className="px-4 py-2.5 font-medium">Product</th><th className="px-4 py-2.5 font-medium">Warehouse</th><th className="px-4 py-2.5 text-right font-medium">On hand</th><th className="px-4 py-2.5 text-right font-medium">Reserved</th><th className="px-4 py-2.5 text-right font-medium">Available</th><th className="px-4 py-2.5 text-right font-medium" title="Dispatched to this warehouse and not received yet">In transit</th><th className="px-4 py-2.5 font-medium">Unit</th><th className="px-4 py-2.5 font-medium">Last movement</th><th className="px-4 py-2.5 font-medium">Status</th></tr></thead>
+                <thead className="text-xs text-muted"><tr><th className="px-4 py-2.5 font-medium">Product</th><th className="px-4 py-2.5 font-medium">Branch · warehouse</th><th className="px-4 py-2.5 text-right font-medium">On hand</th><th className="px-4 py-2.5 text-right font-medium">Reserved</th><th className="px-4 py-2.5 text-right font-medium">Available</th><th className="px-4 py-2.5 text-right font-medium" title="Dispatched to this warehouse and not received yet">In transit</th><th className="px-4 py-2.5 font-medium">Unit</th><th className="px-4 py-2.5 font-medium">Last movement</th><th className="px-4 py-2.5 font-medium">Status</th></tr></thead>
                 <tbody className="divide-y divide-border">{rows.map((r) => (
                   <tr key={`${r.warehouse_id}${r.product_id}${r.variant_id}`}>
                     <td className="px-4 py-3 font-medium">{r.name}{r.sku && <span className="block text-xs font-normal text-muted">{r.sku}</span>}</td>
-                    <td className="px-4 py-3">{r.warehouse}</td>
+                    <td className="px-4 py-3"><WarehousePlace place={places.place(r.warehouse_id, r.warehouse)} /></td>
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">{r.on_hand.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-muted">{r.reserved.toLocaleString()}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{r.available.toLocaleString()}</td>

@@ -27,10 +27,16 @@ def _margin_pct(margin: float, retail_value: float) -> float | None:
     return round(margin / retail_value * 100, 1)
 
 
-async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item: dict | None = None) -> InventoryValuationReport:
+async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID, stock_by_item: dict | None = None,
+                              levels: dict | None = None) -> InventoryValuationReport:
     """Stock value per product. `stock_by_item` ({(product, variant): qty}) replaces the business-wide quantities, for someone who only
     sees some warehouses; the products themselves are never changed."""
     products = await ProductRepository(db).valuation_products(tenant_id)
+
+    def floor(product_id, variant_id, fallback) -> Decimal:
+        """One branch's own reorder level when it has one (`levels`), else the product's or variant's."""
+        own = (levels or {}).get((product_id, variant_id))
+        return Decimal(str(own if own is not None else (fallback or 0)))
 
     def qty(product_id, variant_id, fallback) -> Decimal:
         return stock_by_item.get((product_id, variant_id), Decimal(0)) if stock_by_item is not None else Decimal(str(fallback or 0))
@@ -62,14 +68,14 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID, stock_by_i
                     brand=product.brand.name if product.brand else None,
                     unit=product.unit.abbreviation if product.unit else None,
                     stock=stock,
-                    min_stock=v.min_stock or 0,
+                    min_stock=floor(product.id, v.id, v.min_stock),
                     cost=cost,
                     price=price,
                     cost_value=cost_value,
                     retail_value=retail_value,
                     margin=margin,
                     margin_pct=_margin_pct(margin, retail_value),
-                    status=_status(stock, v.min_stock or 0),
+                    status=_status(stock, floor(product.id, v.id, v.min_stock)),
                 ))
         else:
             cost = Decimal(str(product.cost or 0))
@@ -88,14 +94,14 @@ async def inventory_valuation(db: AsyncSession, tenant_id: uuid.UUID, stock_by_i
                 brand=product.brand.name if product.brand else None,
                 unit=product.unit.abbreviation if product.unit else None,
                 stock=stock,
-                min_stock=product.min_stock or 0,
+                min_stock=floor(product.id, None, product.min_stock),
                 cost=cost,
                 price=price,
                 cost_value=cost_value,
                 retail_value=retail_value,
                 margin=margin,
                 margin_pct=_margin_pct(margin, retail_value),
-                status=_status(stock, product.min_stock or 0),
+                status=_status(stock, floor(product.id, None, product.min_stock)),
             ))
 
     # Aggregate every emitted line, including every active variant, exactly once.

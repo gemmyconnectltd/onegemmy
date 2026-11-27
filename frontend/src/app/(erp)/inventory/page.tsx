@@ -1,206 +1,158 @@
 "use client";
 
-import { StatCard } from "@/components/ui/StatCard";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRightLeft, Package, PackageX, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Package, PackageX, Plus, Truck, Wallet } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
+import { useAuth } from "@/lib/auth";
 import { useCan } from "@/lib/can";
-import { useLowStockReport, useTransfers, useValuationReport } from "@/lib/api/hooks";
-import { Button } from "@/components/ui/Button";
-import { TableWrap } from "@/components/ui/Table";
+import { useBranchStockSummary, useStockCounts, useTransfers, useUpdateTransfer, useValuationReport, useWarehouses } from "@/lib/api/hooks";
+import type { ApiStockTransfer } from "@/lib/api";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { fmtDate } from "@/lib/date";
-import { LoadError } from "@/components/ui/LoadState";
+import { type BranchStockRow } from "@/lib/api/branchStock";
+import { Button } from "@/components/ui/Button";
+import { PageLoader } from "@/components/ui/PageLoader";
+import { StatCard } from "@/components/ui/StatCard";
+import { TableScroll } from "@/components/ui/TableScroll";
 import { TableState } from "@/components/ui/TableState";
+import { LoadError } from "@/components/ui/LoadState";
+import { BranchesTable, ReceiveStock } from "@/components/inventory/BranchStock";
 
+const CARD = "min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm";
 
-export default function InventoryOverviewPage() {
-  const { currencySymbol, t } = useAppConfig();
+/** Inventory overview: the stock at a glance for the branch chosen in the top bar (or every branch the person may see); it never
+ *  switches branches itself. Title and actions, four summary cards (Units, Low and Out open Products with that stock filter),
+ *  what needs attention (counts to approve, transfers on their way), "Stock by branch" with several branches, and transfers.
+ *  The products themselves are listed on Products. */
+function Overview() {
+  const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const can = useCan();
-  const valuation = useValuationReport(1, "all");
-  const lowStock = useLowStockReport();
-  const pendingTransfers = useTransfers(1, 5, "pending");
-  const recentTransfers = useTransfers(1, 5);
+  const { activeBranchId } = useAuth();
+  const router = useRouter();
+  const warehouses = useWarehouses();
+  const usesWarehouses = !!warehouses.data?.enabled;
+  const summary = useBranchStockSummary(1, "name", false, { enabled: usesWarehouses }, 500);
+  const allRows = useMemo(() => summary.data?.items ?? [], [summary.data]);
+  const branchRows = useMemo(() => allRows.filter((r): r is BranchStockRow & { branch_id: string } => !!r.branch_id), [allRows]);
+  const several = branchRows.length > 1;
+  const open = activeBranchId ? branchRows.find((r) => r.branch_id === activeBranchId) ?? null : !several ? branchRows[0] ?? null : null;
+  const branchFailed = usesWarehouses && !!summary.error && !summary.data;
+  const view: "simple" | "all" | "branch" = !usesWarehouses || branchFailed ? "simple" : open ? "branch" : "all";
 
-  const summary = valuation.data?.summary;
-  const canAdd = can("items", "create");
-  const canTransfer = can("stock", "create");
+  // The Low / Out / Units cards open Products with that stock filter (it lists every product with its stock).
+  const stockHref = (v: "in" | "low" | "out") => `/inventory/products?stock=${v}`;
+  const valuation = useValuationReport(1, "all", { enabled: warehouses.isSuccess && view === "simple" }, undefined, 1);
+  const transfers = useTransfers(1, 50, undefined, { enabled: usesWarehouses });
+  const counts = useStockCounts(1, "Submitted");
 
-  const summaryLoading = valuation.isLoading && !valuation.data;  // the header and actions show at once; the figures follow
+  if (warehouses.isLoading || (usesWarehouses && summary.isLoading)) return <PageLoader variant="page" />;
+  if (warehouses.error) return <LoadError title="Could not load inventory" error={warehouses.error} onRetry={() => void warehouses.refetch()} />;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3 pesaa-responsive-toolbar">
-        <div>
-          <h1 className="pesaa-page-title">{t("inventoryOverview")}</h1>
-          <p className="mt-0.5 text-sm text-muted">{t("inventoryOverviewSub")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/inventory/products">
-            <Button variant="secondary">View products</Button>
-          </Link>
-          {canTransfer && (
-            <Link href="/inventory/transfers?create=1">
-              <Button variant="secondary">
-                <ArrowRightLeft size={15} /> New transfer
-              </Button>
-            </Link>
-          )}
-          {canAdd && (
-            <Link href="/inventory/products?create=1">
-              <Button>
-                <Package size={15} /> Add product
-              </Button>
-            </Link>
-          )}
-        </div>
+  const totals = summary.data?.summary.totals;
+  const vs = valuation.data?.summary;
+  const named = view === "branch" && several ? open!.name : null;  // "in Kayonza" only says something when there are several
+  const row = view === "branch" ? open! : null;
+  const n = view === "simple"
+    ? { value: vs?.cost_value ?? 0, retail: vs?.retail_value ?? 0, units: Number(vs?.total_units ?? 0), products: vs?.product_count ?? 0, low: vs?.low_stock_count ?? 0, out: vs?.out_of_stock_count ?? 0 }
+    : { value: row?.value_cost ?? totals?.value_cost ?? 0, retail: row?.value_retail ?? totals?.value_retail ?? 0, units: row?.units ?? totals?.units ?? 0,
+        products: row?.products ?? totals?.products ?? 0, low: row?.low ?? totals?.low ?? 0, out: row?.out ?? totals?.out ?? 0 };
+  const statsLoading = view === "simple" && valuation.isLoading && !vs;
+  const moving = (transfers.data?.items ?? []).filter((t) => view !== "branch" || t.from_branch_id === open!.branch_id || t.to_branch_id === open!.branch_id);
+  const arriving = moving.filter((t) => t.status === "in_transit" && (view !== "branch" || t.to_branch_id === row?.branch_id));
+  const waitingCounts = can("stock", "approve") ? counts.data?.total ?? 0 : 0;
+  const canMove = can("stock", "create");
+  const where = named ? `in ${named}` : view === "all" ? "in all your branches" : "";
+
+  return <div className="space-y-5">
+    <div className="flex items-start justify-between gap-3 pesaa-responsive-toolbar">
+      <div className="min-w-0">
+        <h1 className="pesaa-page-title text-foreground">{named ? `Inventory · ${named}` : "Inventory"}</h1>
+        <p className="mt-0.5 text-sm text-muted">What is in stock {where ? `${where} ` : ""}right now, and what is running short.{several ? " The branch follows the selector in the top bar." : ""}</p>
       </div>
-
-      {valuation.error && !valuation.data ? (
-        <LoadError title="Could not load the inventory summary" error={valuation.error} onRetry={() => void valuation.refetch()} />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
-          <StatCard
-            loading={summaryLoading}
-            href="/inventory/products"
-            label={t("totalProducts")}
-            value={summary?.product_count ?? 0}
-            hint={t("skusTracked")}
-            icon={Package}
-          />
-          <StatCard
-            loading={summaryLoading}
-            href="/inventory/stock"
-            label={t("stockValue")}
-            value={fmt(summary?.cost_value ?? 0)}
-            hint={t("atCostPrice")}
-            icon={Wallet}
-          />
-          <StatCard
-            loading={summaryLoading}
-            href="/inventory/stock?status=low"
-            label={t("lowStock")}
-            value={summary?.low_stock_count ?? 0}
-            hint={t("needReorder")}
-            tone={(summary?.low_stock_count ?? 0) > 0 ? "warning" : "default"}
-            icon={AlertTriangle}
-          />
-          <StatCard
-            loading={summaryLoading}
-            href="/inventory/stock?status=out"
-            label={t("outOfStock")}
-            value={summary?.out_of_stock_count ?? 0}
-            hint={t("immediateAction")}
-            tone={(summary?.out_of_stock_count ?? 0) > 0 ? "danger" : "default"}
-            icon={PackageX}
-          />
-          <StatCard
-            loading={summaryLoading}
-            href="/inventory/transfers?status=pending"
-            label="Pending transfers"
-            value={pendingTransfers.data?.total ?? 0}
-            hint="Awaiting dispatch or receipt"
-            tone={(pendingTransfers.data?.total ?? 0) > 0 ? "warning" : "default"}
-            icon={ArrowRightLeft}
-          />
-        </div>
-      )}
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="pesaa-card-title">Inventory alerts</h2>
-            {/* The alerts list low AND out-of-stock items, so the link opens every status rather than low only. */}
-            <Link href="/inventory/stock" className="text-sm font-semibold text-accent hover:underline">
-              View stock
-            </Link>
-          </div>
-          {lowStock.isLoading ? (
-            <TableState loading />
-          ) : lowStock.error ? (
-            <p className="text-sm text-muted">Alerts unavailable right now.</p>
-          ) : !(lowStock.data?.items.length) ? (
-            <p className="text-sm text-muted">No low-stock products right now.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {lowStock.data.items.slice(0, 8).map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-                  <Link href={`/inventory/products/${item.id}`} className="min-w-0 font-semibold text-accent hover:underline">
-                    <span className="break-words">{item.name}</span>
-                  </Link>
-                  <span className={`shrink-0 tabular-nums ${item.stock <= 0 ? "font-semibold text-red-600" : "text-amber-700"}`}>
-                    {item.stock} / min {item.min_stock}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {(lowStock.data?.total ?? 0) > 8 && (
-            <p className="text-xs text-muted">{lowStock.data!.total - 8} more products need attention.</p>
-          )}
-        </section>
-
-        <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="pesaa-card-title">Recent transfers</h2>
-            <Link href="/inventory/transfers" className="text-sm font-semibold text-accent hover:underline">
-              View all
-            </Link>
-          </div>
-          {recentTransfers.isLoading ? (
-            <TableState loading />
-          ) : recentTransfers.error ? (
-            <p className="text-sm text-muted">Transfers unavailable right now.</p>
-          ) : !(recentTransfers.data?.items.length) ? (
-            <p className="text-sm text-muted">No stock transfers yet.</p>
-          ) : (
-            <TableWrap>
-              <table className="w-full min-w-[480px] text-left text-sm">
-                <thead>
-                  <tr>
-                    {["Transfer", "Status", "Date"].map((label) => (
-                      <th key={label} className="p-3 text-xs font-semibold text-muted">
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {recentTransfers.data.items.map((transfer) => (
-                    <tr key={transfer.id}>
-                      <td className="p-3">
-                        <Link href={`/inventory/transfers/${transfer.id}`} className="font-semibold text-accent hover:underline">
-                          {transfer.transfer_number || transfer.id.slice(0, 8)}
-                        </Link>
-                      </td>
-                      <td className="p-3 capitalize text-muted">{transfer.status.replaceAll("_", " ")}</td>
-                      <td className="p-3 text-muted">{fmtDate(transfer.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableWrap>
-          )}
-        </section>
+      <div className="flex flex-wrap items-center gap-2">
+        {can("items", "create") && <Link href="/inventory/products?create=1"><Button variant={usesWarehouses && canMove ? "secondary" : "default"}><Plus size={15} /> Add product</Button></Link>}
+        {usesWarehouses && canMove && <ReceiveStock warehouses={warehouses.data?.items ?? []} branchId={open?.branch_id ?? null} />}
       </div>
-
-      {summary && (
-        <section className="rounded-xl border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="pesaa-card-title">Stock health</h2>
-              <p className="mt-1 text-sm text-muted">
-                {summary.total_units} units on hand · retail value {fmt(summary.retail_value)}
-                {summary.margin_pct != null ? ` · margin ${summary.margin_pct.toFixed(1)}%` : ""}
-              </p>
-            </div>
-            <Link href="/inventory/stock">
-              <Button variant="secondary">Open stock workspace</Button>
-            </Link>
-          </div>
-        </section>
-      )}
     </div>
-  );
+
+    {branchFailed && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+      <span>Stock by branch could not load, so these are the figures you may see across your branches.</span>
+      <Button variant="outline" size="sm" onClick={() => void summary.refetch()}>Try again</Button>
+    </div>}
+
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatCard label="Stock value at cost" value={fmt(n.value)} hint={`Retail ${fmt(n.retail)}`} icon={Wallet} loading={statsLoading} />
+      <StatCard label="Units on hand" value={n.units.toLocaleString()} hint={view === "simple" ? `${n.products} products` : `${n.products.toLocaleString()} of ${(totals?.catalogue ?? n.products).toLocaleString()} products in stock`} icon={Package} href={stockHref("in")} loading={statsLoading} />
+      <StatCard label="Low stock" value={String(n.low)} hint={named ? `Below ${named}'s reorder level` : "Below the reorder level"} icon={AlertTriangle} tone={n.low ? "warning" : "default"} href={stockHref("low")} loading={statsLoading} />
+      <StatCard label="Out of stock" value={String(n.out)} hint="Had stock, none left now" icon={PackageX} tone={n.out ? "danger" : "default"} href={stockHref("out")} loading={statsLoading} />
+    </div>
+
+    {waitingCounts > 0 && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+      <span>{waitingCounts} stock count{waitingCounts === 1 ? " is" : "s are"} waiting for your approval.</span>
+      <Link href="/inventory/counts"><Button variant="secondary" size="sm">Review</Button></Link>
+    </div>}
+    {arriving.length > 0 && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
+      <span className="inline-flex items-center gap-2"><Truck size={16} aria-hidden />
+        {arriving.length === 1 ? <>{arriving[0].transfer_number} is on the way to {arriving[0].to_branch_name ?? "a branch"} from {arriving[0].from_branch_name ?? "another branch"}: {arriving[0].items.reduce((s, it) => s + Number(it.quantity), 0).toLocaleString()} units.</>
+          : <>{arriving.length} transfers are on the way.</>} {arriving.length === 1 ? "Receive it" : "Receive each one"} when it arrives so the stock counts.</span>
+      <a href="#transfers-title"><Button variant="secondary" size="sm">See transfers</Button></a>
+    </div>}
+
+    {/* A branch opens Products showing that branch's products and stock. */}
+    {view === "all" && allRows.length > 1 && <BranchesTable rows={allRows} fmt={fmt} onOpen={(id) => router.push(`/inventory/products?branch=${id}`)} openLabel="View products" />}
+    {usesWarehouses && <TransfersCard rows={moving.slice(0, 5)} named={named} branchId={row?.branch_id ?? null} loading={transfers.isLoading} error={transfers.error}
+      onRetry={() => void transfers.refetch()} canReceive={canMove} />}
+  </div>;
+}
+
+const TRANSFER_STATUS: Record<string, { label: string; cls: string }> = {
+  pending: { label: "Waiting", cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" },
+  in_transit: { label: "On the way", cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" },
+  completed: { label: "Received", cls: "bg-accent/10 text-accent" },
+  cancelled: { label: "Cancelled", cls: "bg-surface text-muted ring-1 ring-border" },
+};
+
+/** "Transfers in and out of <branch>": the latest five, with "Receive" on the ones on their way to it. */
+function TransfersCard({ rows, named, branchId, loading, error, onRetry, canReceive }: {
+  rows: ApiStockTransfer[]; named: string | null; branchId: string | null; loading: boolean; error: unknown; onRetry: () => void; canReceive: boolean;
+}) {
+  const update = useUpdateTransfer();
+  const { confirm, dialog } = useConfirmDialog();
+  const [failed, setFailed] = useState("");
+  const receive = (t: ApiStockTransfer) => confirm({
+    title: `Receive ${t.transfer_number}?`, confirmLabel: "Receive",
+    message: `${t.items.map((it) => `${Number(it.quantity).toLocaleString()} × ${it.product_name}`).join(", ")} arrive in ${t.to_warehouse_name ?? t.to_branch_name ?? "the branch"}.`,
+    onConfirm: async () => { setFailed(""); try { await update.mutateAsync({ id: t.id, data: { status: "completed" } }); } catch (e) { setFailed((e as { detail?: string })?.detail ?? "Couldn't receive the transfer."); } },
+  });
+  return <section aria-labelledby="transfers-title" className={CARD}>
+    {dialog}
+    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3"><h2 id="transfers-title" className="pesaa-card-title">{named ? `Transfers in and out of ${named}` : "Latest transfers"}</h2><Link href="/inventory/transfers" className="text-sm font-medium text-accent hover:underline">View all</Link></div>
+    {failed && <p role="alert" className="px-4 pb-2 text-sm text-red-600">{failed}</p>}
+    {loading || error || !rows.length ? <div className="p-4"><TableState loading={loading} error={error ?? undefined} onRetry={onRetry} empty={!rows.length} title="No transfers yet" hint="Stock moved between branches shows here." /></div> :
+      <TableScroll label="Transfers" mobileLayout="cards"><table className="min-w-[680px]">
+        <thead><tr><th scope="col" className="text-left">Transfer</th><th scope="col" className="text-left">From</th><th scope="col" className="text-left">To</th><th scope="col" className="text-left">Items</th><th scope="col" className="text-left">Status</th><th scope="col" className="text-left">Date</th><th scope="col"><span className="sr-only">Action</span></th></tr></thead>
+        <tbody>{rows.map((t) => {
+          const units = t.items.reduce((n, it) => n + Number(it.quantity), 0);
+          const st = TRANSFER_STATUS[t.status] ?? { label: t.status, cls: "bg-surface text-muted" };
+          const mine = !branchId || t.to_branch_id === branchId;
+          return <tr key={t.id}>
+            <td data-label="Transfer"><Link href={`/inventory/transfers/${t.id}`} className="font-semibold text-accent hover:underline">{t.transfer_number}</Link></td>
+            <td data-label="From">{t.from_branch_name ?? t.from_warehouse_name ?? "—"}</td>
+            <td data-label="To">{t.to_branch_name ?? t.to_warehouse_name ?? "—"}</td>
+            <td data-label="Items" className="text-muted">{units.toLocaleString()} unit{units === 1 ? "" : "s"} · {t.items.length} product{t.items.length === 1 ? "" : "s"}</td>
+            <td data-label="Status"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span></td>
+            <td data-label="Date" className="text-muted">{fmtDate(t.dispatched_at ?? t.created_at)}</td>
+            <td data-label="" className="text-right">{canReceive && mine && t.status === "in_transit" && <Button size="sm" disabled={update.isPending} onClick={() => receive(t)}>Receive</Button>}</td>
+          </tr>;
+        })}</tbody>
+      </table></TableScroll>}
+  </section>;
+}
+
+export default function InventoryOverviewPage() {
+  return <Suspense fallback={<PageLoader variant="page" />}><Overview /></Suspense>;
 }

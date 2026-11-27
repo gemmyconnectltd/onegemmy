@@ -116,6 +116,15 @@ async def operations(db: AsyncSession, user: User, start: date | None, end: date
         fast = (await db.execute(select(Product.name, sold.c.qty, Product.stock).join(sold, sold.c.product_id == Product.id).where(*active).order_by(sold.c.qty.desc()).limit(10))).all()
         slow = (await db.execute(select(Product.name, Product.stock, Product.stock * Product.cost).outerjoin(sold, sold.c.product_id == Product.id)
                                  .where(*active, Product.stock > 0, sold.c.qty.is_(None)).order_by((Product.stock * Product.cost).desc()).limit(10))).all()
+        scoped = await _branch_quantities(db, tenant.id, branches)
+        if scoped is not None:  # the branches in scope hold their own stock: judge low, fast and slow on it, not on the business total
+            catalogue = (await db.execute(select(Product.id, Product.name, Product.min_stock, Product.cost).where(*active))).all()
+            sold_qty = dict((await db.execute(select(sold.c.product_id, sold.c.qty))).all())
+            held = {r.id: scoped.get(r.id, 0) for r in catalogue}
+            low = sorted([(r.name, held[r.id], r.min_stock) for r in catalogue if held[r.id] <= (r.min_stock or 0)], key=lambda x: x[1])[:15]
+            fast = sorted([(r.name, sold_qty[r.id], held[r.id]) for r in catalogue if r.id in sold_qty], key=lambda x: -float(x[1]))[:10]
+            slow = sorted([(r.name, held[r.id], held[r.id] * (r.cost or 0)) for r in catalogue if held[r.id] > 0 and r.id not in sold_qty],
+                          key=lambda x: -float(x[2]))[:10]
         out["inventory"] = {**stock, "low": [{"name": r[0], "stock": float(r[1]), "min_stock": float(r[2])} for r in low],
                             "fast_moving": [{"name": r[0], "sold": float(r[1]), "stock": float(r[2])} for r in fast],
                             "slow_moving": [{"name": r[0], "stock": float(r[1]), "value": money(r[2])} for r in slow],
@@ -168,3 +177,19 @@ async def financial(db: AsyncSession, user: User, start: date | None, end: date 
             "largest": [{"title": r[0], "category": r[1], "date": r[2].isoformat(), "amount": money(r[3])} for r in largest],
             "receivables": money(await DailyRepository(db).outstanding_debt(tenant.id, branches)) if can(user, "accounts_receivable:read") else None,
             "metrics": await report.metrics(start, end)}
+
+
+async def _branch_quantities(db: AsyncSession, tenant_id: uuid.UUID, branches: list[uuid.UUID] | None) -> dict | None:
+    """{product: quantity} held by these branches (their own warehouses), or None for the business total."""
+    if branches is None:
+        return None
+    from decimal import Decimal
+
+    from app.modules.inventory.service import branch_stock
+    warehouses = await branch_stock.warehouses_for_branches(db, tenant_id, branches)
+    if warehouses is None:
+        return None
+    out: dict = {}
+    for (product_id, _variant), qty in (await branch_stock.stock_in(db, tenant_id, warehouses)).items():
+        out[product_id] = out.get(product_id, Decimal(0)) + qty
+    return out

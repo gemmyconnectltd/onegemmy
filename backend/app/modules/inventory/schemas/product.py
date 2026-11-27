@@ -231,6 +231,12 @@ class ProductRead(BaseModel):
     # Set only on the till's list for a business with branch prices: price is then this branch's price.
     default_price: float | None = None
     branch_price: bool = False
+    # Set only with ?per_branch=true: quantity and status per branch ({branch_id, quantity, status}), how many branches hold it,
+    # the branches where it is out, and whether it is low or out anywhere.
+    branch_stock: list[dict] | None = None
+    held_in: int | None = None
+    out_in: list[str] | None = None
+    low_in_any: bool | None = None
 
 
 class VatClassification(BaseModel):

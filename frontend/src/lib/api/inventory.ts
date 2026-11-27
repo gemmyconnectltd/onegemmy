@@ -72,6 +72,11 @@ export interface ApiProduct {
   /** Branch prices (the till's list only): `price` is then this branch's price and `default_price` the product's own. */
   default_price?: number | null;
   branch_price?: boolean;
+  /** Only with per_branch: see lib/api/branchStock.ts. */
+  branch_stock?: { branch_id: string | null; quantity: number | null; status: "ok" | "low" | "out" | "none" | "not_sold"; reorder_level?: number }[] | null;
+  held_in?: number | null;
+  out_in?: string[] | null;
+  low_in_any?: boolean | null;
 }
 
 /** How one branch sells a product (businesses with branch prices switched on by Pesaa). `price` null = the default. */
@@ -100,6 +105,13 @@ export interface ApiBranchPriceList {
   summary: { products: number; with_own_price: number; hidden_somewhere: number; currency: string; branches: { id: string; name: string; is_main: boolean; editable: boolean }[] };
 }
 export type BranchPriceShow = "all" | "differences" | "hidden";
+/** The Products list's narrower filters. Stock reads the branch being viewed (or the business). */
+export interface ProductMoreFilters {
+  brandId?: string; supplierId?: string; unitId?: string; kind?: "simple" | "variants" | "serials" | "weight"; stock?: "in" | "low" | "out" | "negative";
+  priceMin?: number; priceMax?: number; updated?: PeriodRange;
+  /** Read the stock filter in this branch rather than the one in the top bar (the page's own "View stock in"). */
+  stockBranch?: string;
+}
 
 export interface ApiCategory { id: string; name: string; description: string | null; }
 
@@ -173,8 +185,11 @@ export const inventoryApi = {
   /** Server-side low-stock report (every product at/below its own minimum) — the same rule Pesaa AI uses. */
   lowStockReport: () => request<SingleResponse<{ items: { id: string; name: string; stock: number; min_stock: number }[]; total: number }>>("/tenants/inventory/products/low-stock"),
   /** `forSale`: stock as the till sees it (what the active branch's selling warehouse holds) instead of the business total. */
-  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string, vat?: string, forSale?: boolean) =>
-    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, vat, is_active: isActive === undefined ? undefined : String(isActive), for_sale: forSale ? "true" : undefined, ...periodParams(period) })}`),
+  /** `perBranch`: also each product's quantity and status in every branch the person may see (summary.branches lists the columns). */
+  listProducts: (page = 1, pageSize = 100, search?: string, isActive?: boolean, period?: PeriodRange, categoryId?: string, vat?: string, forSale?: boolean, perBranch?: boolean, more?: ProductMoreFilters) =>
+    request<PaginatedResponse<ApiProduct>>(`${BASE}/products${qs({ page, page_size: pageSize, search, category_id: categoryId, vat, is_active: isActive === undefined ? undefined : String(isActive), for_sale: forSale ? "true" : undefined, per_branch: perBranch ? "true" : undefined, ...periodParams(period),
+      brand_id: more?.brandId, supplier_id: more?.supplierId, unit_id: more?.unitId, kind: more?.kind, stock: more?.stock,
+      price_min: more?.priceMin, price_max: more?.priceMax, updated_from: more?.updated?.from, updated_to: more?.updated?.to, stock_branch: more?.stockBranch })}`),
   /** Products per VAT treatment ("not_reviewed" for those nobody has classified) and whether this person may classify. */
   vatSummary: () => request<SingleResponse<{ counts: Record<string, number>; can_classify: boolean }>>(`${BASE}/products/vat-summary`),
   classifyVat: (data: VatClassificationInput) =>
@@ -292,8 +307,8 @@ export const inventoryApi = {
     request<SingleResponse<null>>(`${BASE}/suppliers/${id}`, { method: "DELETE" }),
 
   // Reports
-  valuationReport: (page = 1, status = "all") =>
-    request<SingleResponse<InventoryValuationReport>>(`${BASE}/reports/valuation${qs({ page, page_size: 50, status })}`),
+  valuationReport: (page = 1, status = "all", search?: string, pageSize = 50) =>
+    request<SingleResponse<InventoryValuationReport>>(`${BASE}/reports/valuation${qs({ page, page_size: pageSize, status, search: search || undefined })}`),
   // The server names the file after the business and date; downloadFile adds the file timeout, session refresh and errors.
   exportValuationReport: (format: "csv" | "pdf") => downloadFile(`${BASE}/reports/valuation/export?format=${format}`, `inventory-valuation.${format}`),
 };

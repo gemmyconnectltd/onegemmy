@@ -78,7 +78,37 @@ async def ensure_default_warehouse(db: AsyncSession, tenant_id: uuid.UUID) -> Wa
         opening.append(_movement(tenant_id, warehouse.id, product_id, variant_id, _dec(stock), "opening", note="Stock on hand when warehouses were switched on"))
     db.add_all(opening)
     await db.flush()
+    await ensure_branch_warehouses(db, tenant_id)
     return warehouse
+
+
+async def ensure_branch_warehouses(db: AsyncSession, tenant_id: uuid.UUID, branch_ids: list[uuid.UUID] | None = None) -> list[Warehouse]:
+    """Every active branch keeps its stock in a warehouse of its own: give "<Branch> warehouse" to each one (or each of `branch_ids`)
+    that has none. Only for a business that uses warehouses. The new warehouses start empty; no stock is moved."""
+    import re
+
+    from app.modules.tenants.models import Branch
+    if not await has_warehouses(db, tenant_id):
+        return []
+    stmt = select(Branch).where(Branch.tenant_id == tenant_id, Branch.status == "active",
+                                ~select(Warehouse.id).where(Warehouse.tenant_id == tenant_id, Warehouse.branch_id == Branch.id).exists())
+    if branch_ids is not None:
+        stmt = stmt.where(Branch.id.in_(branch_ids))
+    missing = list((await db.execute(stmt.order_by(Branch.is_main.desc(), Branch.name))).scalars().all())
+    if not missing:
+        return []
+    codes = set((await db.execute(select(Warehouse.code).where(Warehouse.tenant_id == tenant_id))).scalars().all())
+    top = max((int(m.group(1)) for c in codes if (m := re.fullmatch(r"WH-(\d+)", c))), default=0)
+    created = []
+    for branch in missing:
+        top += 1
+        while f"WH-{top:03d}" in codes:
+            top += 1
+        created.append(Warehouse(tenant_id=tenant_id, code=f"WH-{top:03d}", name=f"{branch.name} warehouse"[:150], branch_id=branch.id,
+                                 is_active=True, is_default=False))
+    db.add_all(created)
+    await db.flush()
+    return created
 
 
 def _movement(tenant_id, warehouse_id, product_id, variant_id, quantity: Decimal, movement_type: str, *, reference_type=None, reference_id=None,
@@ -120,7 +150,11 @@ def _pending_changes(session: Session) -> list[tuple[Key, uuid.UUID, Decimal]]:
 
 
 def _pick_warehouse(session: Session, tenant_id: uuid.UUID, reason: stock_context.StockReason | None) -> tuple[uuid.UUID | None, list[uuid.UUID]]:
-    """(the warehouse to use first, the others to fall back on). None when the business has no warehouse."""
+    """(the warehouse to use first, the others to fall back on). None when the business has no warehouse.
+
+    The place is the one the reason names, else the acting branch's own warehouse, else a shared one (no branch owns it), else the
+    default. The fall-backs are only places holding the same branch's stock (its other warehouses, or shared ones): taking a
+    shortfall from another branch's warehouse would sell that branch's stock."""
     rows = session.execute(select(Warehouse.id, Warehouse.branch_id, Warehouse.is_default).where(Warehouse.tenant_id == tenant_id, Warehouse.is_active.is_(True))
                            .order_by(Warehouse.is_default.desc(), Warehouse.created_at)).all()
     if not rows:
@@ -131,8 +165,10 @@ def _pick_warehouse(session: Session, tenant_id: uuid.UUID, reason: stock_contex
         chosen = reason.warehouse_id
     if chosen is None:
         branch = stock_context.current_branch_id.get()
-        chosen = next((r[0] for r in rows if branch and r[1] == branch), None) or next((r[0] for r in rows if r[2]), ids[0])
-    return chosen, [i for i in ids if i != chosen]
+        chosen = (next((r[0] for r in rows if branch and r[1] == branch), None) or next((r[0] for r in rows if branch and r[1] is None), None)
+                  or next((r[0] for r in rows if r[2]), ids[0]))
+    owner = next(r[1] for r in rows if r[0] == chosen)
+    return chosen, [r[0] for r in rows if r[0] != chosen and (r[1] is None or r[1] == owner)]
 
 
 def record_changes(session: Session, flush_context, instances) -> None:

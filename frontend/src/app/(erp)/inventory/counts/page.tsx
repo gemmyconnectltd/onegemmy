@@ -1,4 +1,5 @@
 "use client";
+import { useWarehousePlaces } from "@/components/inventory/WarehousePlace";
 import { useState } from "react";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +27,7 @@ export default function StockCountsPage() {
   const [problem, setProblem] = useState<string | null>(null);
   const q = useStockCounts(page, tab === "All" ? undefined : tab);
   const decide = useDecideCount();
+  const places = useWarehousePlaces();
   const { confirm, dialog } = useConfirmDialog();
   const rows = q.data?.items ?? [];
   const canApprove = hasPermission("stock:approve");
@@ -44,11 +46,11 @@ export default function StockCountsPage() {
             <section key={c.id} className="rounded-xl border border-border bg-card">
               <div className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <ClipboardCheck size={16} className="text-muted" aria-hidden />
-                <div className="min-w-0 flex-1"><p className="font-semibold">{c.count_number} <span className="font-normal text-muted">· {c.warehouse}</span></p><p className="text-xs text-muted">{fmtDateTime(c.created_at)} · {c.lines.length} products · {c.variance_lines} with a difference{c.note ? ` · ${c.note}` : ""}</p></div>
+                <div className="min-w-0 flex-1"><p className="font-semibold">{c.count_number} <span className="font-normal text-muted">· {places.label(c.warehouse_id, c.warehouse)}</span></p><p className="text-xs text-muted">{fmtDateTime(c.created_at)} · {c.lines.length} products · {c.variance_lines} with a difference{c.note ? ` · ${c.note}` : ""}</p></div>
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE[c.status]}`}>{c.status}</span>
                 <Button size="sm" variant="outline" onClick={() => setOpen(open === c.id ? null : c.id)}>{open === c.id ? "Hide" : "Review"}</Button>
                 {c.status === "Submitted" && canApprove && <>
-                  <Button size="sm" disabled={decide.isPending} onClick={() => confirm({ title: `Approve ${c.count_number}?`, message: `Stock in ${c.warehouse} will be changed to the counted quantities for ${c.variance_lines} product${c.variance_lines === 1 ? "" : "s"}. This is recorded in the stock history.`, confirmLabel: "Approve and apply", onConfirm: () => decide.mutateAsync({ id: c.id, approve: true }, { onError: (e) => setProblem((e as { detail?: string })?.detail ?? e.message) }) })}>Approve</Button>
+                  <Button size="sm" disabled={decide.isPending} onClick={() => confirm({ title: `Approve ${c.count_number}?`, message: `Stock in ${places.label(c.warehouse_id, c.warehouse)} will be changed to the counted quantities for ${c.variance_lines} product${c.variance_lines === 1 ? "" : "s"}. This is recorded in the stock history.`, confirmLabel: "Approve and apply", onConfirm: () => decide.mutateAsync({ id: c.id, approve: true }, { onError: (e) => setProblem((e as { detail?: string })?.detail ?? e.message) }) })}>Approve</Button>
                   <Button size="sm" variant="outline" onClick={() => setRejecting(c)}>Reject</Button>
                 </>}
               </div>

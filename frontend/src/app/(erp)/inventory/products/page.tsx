@@ -1,15 +1,18 @@
 "use client";
-import { Input, Select } from "@/components/ui/Form";
+import { Field, Input, Select } from "@/components/ui/Form";
 import { VatClassifyDrawer } from "@/components/inventory/VatClassifyDrawer";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Fragment, Suspense, useEffect } from "react";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { fetchEvery } from "@/lib/exportTable";
 import { inventoryApi } from "@/lib/api/inventory";
 import { useQueryClient } from "@tanstack/react-query";
 import { PeriodFilter } from "@/components/ui/PeriodFilter";
-import { ALL_TIME, periodRange, type PeriodValue } from "@/lib/period";
+import { ALL_TIME, periodLabel, periodRange, type PeriodValue } from "@/lib/period";
+import { StatCard } from "@/components/ui/StatCard";
+import { FilterChips, MoreFilters, useWideScreen, type FilterChip } from "@/components/ui/ListFilters";
+import { ProductQuickPanel } from "@/components/inventory/ProductQuickPanel";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { useAppConfig } from "@/lib/appConfig";
 
@@ -27,12 +30,15 @@ import { RestockDrawer, type RestockValues } from "@/components/inventory/Restoc
 import { ProductActionsMenu } from "@/components/inventory/ProductActionsMenu";
 import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 import { VariantsDrawer } from "@/components/inventory/VariantsDrawer";
-import { type ApiProduct } from "@/lib/api";
+import { type ApiProduct, type ProductMoreFilters } from "@/lib/api";
 import type { ImportOutcome, ImportRowMeta } from "@/components/ui/CsvImportDrawer";
 import { importsApi } from "@/lib/api/imports";
 import { ImportPicturesDrawer } from "@/components/inventory/ImportPicturesDrawer";
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate, useBranchPricingStatus, useMyEntitlements } from "@/lib/api/hooks";
+import { useBranchStockSummary, useBrands, useCategories, useSuppliers, useUnits, useWarehouses, useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useRestockProduct, useBulkCreateProducts, useUploadProductImage, useValuationReport, useProductVatSummary, useVatRate, useBranchPricingStatus, useMyEntitlements } from "@/lib/api/hooks";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
+import { BranchPicker } from "@/components/inventory/BranchPicker";
+import { StockPill } from "@/components/inventory/BranchStock";
+import { MAX_BRANCH_COLUMNS, type BranchStockRow } from "@/lib/api/branchStock";
 import { BranchVisibilityDrawer } from "@/components/inventory/BranchVisibilityDrawer";
 import { useBulkSelection } from "@/lib/useBulkSelection";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -71,6 +77,10 @@ function toFormValues(p: ApiProduct): ProductFormValues {
   };
 }
 
+type StockStatus = NonNullable<ProductMoreFilters["stock"]>;
+type ProductKind = NonNullable<ProductMoreFilters["kind"]>;
+const STOCK_FILTERS: [StockStatus | "", string][] = [["", "Stock: All"], ["in", "In stock"], ["low", "Low stock"], ["out", "Out of stock"], ["negative", "Below zero"]];
+const KINDS: [ProductKind | "", string][] = [["", "Any type"], ["simple", "Simple"], ["variants", "With variants"], ["serials", "Serial numbers"], ["weight", "Sold by weight"]];
 const VAT_FILTERS = [["", "All VAT"], ["not_reviewed", "Not reviewed"], ["standard", "Standard-rated"], ["zero_rated", "Zero-rated"], ["exempt", "Exempt"], ["out_of_scope", "Out of scope"]] as const;
 
 /** The product's VAT treatment as a compact badge; the standard rate shows its percentage. */
@@ -96,8 +106,27 @@ function ProductsContent() {
   const onSearchChange = (v: string) => { setSearch(v); setPage(1); };
   const onStatusFilterChange = (f: "all" | "active" | "inactive") => { setStatusFilter(f); setPage(1); };
   const [period, setPeriod] = useState<PeriodValue>(params.get("from") || params.get("to") ? {key:"custom",from:params.get("from")||"",to:params.get("to")||""} : ALL_TIME);
-  const [moreFilters, setMoreFilters] = useState(false);
   const [vatFilter, setVatFilter] = useState<string>(params.get("vat") ?? "");
+  // Filters like Sales History: the everyday ones in the bar, the rest under "More filters", every applied one as a chip.
+  const [categoryId, setCategoryId] = useState(params.get("category") ?? "");
+  const [stockFilter, setStockFilter] = useState<StockStatus | "">(STOCK_FILTERS.some(([v]) => v === params.get("stock")) ? params.get("stock") as StockStatus : "");
+  const [brandId, setBrandId] = useState(""), [supplierId, setSupplierId] = useState(""), [unitId, setUnitId] = useState("");
+  const [kind, setKind] = useState<ProductKind | "">("");
+  const [priceMin, setPriceMin] = useState(""), [priceMax, setPriceMax] = useState("");
+  const [updated, setUpdated] = useState<PeriodValue>(ALL_TIME);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // "View stock in": this page's own branch (?branch=), so one branch's shelf can be seen without switching the top bar.
+  const [viewBranch, setViewBranchState] = useState<string | null>(params.get("branch"));
+  const setViewBranch = (id: string | null) => { setViewBranchState(id); setPage(1); setSelectedId(null); };
+  const wide = useWideScreen();
+  const categoriesQ = useCategories(), brandsQ = useBrands(), unitsQ = useUnits(), suppliersQ = useSuppliers(1, 200);
+  const upd = periodRange(updated);
+  const more: ProductMoreFilters | undefined = (brandId || supplierId || unitId || kind || stockFilter || priceMin || priceMax || upd.from || upd.to) ? {
+    stockBranch: stockFilter && viewBranch ? viewBranch : undefined,
+    brandId: brandId || undefined, supplierId: supplierId || undefined, unitId: unitId || undefined, kind: kind || undefined, stock: stockFilter || undefined,
+    priceMin: priceMin === "" ? undefined : Number(priceMin), priceMax: priceMax === "" ? undefined : Number(priceMax), updated: upd.from || upd.to ? upd : undefined,
+  } : undefined;
+  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(1); };
   const onVatFilterChange = (v: string) => { setVatFilter(v); setPage(1); };
   const [classifyOpen, setClassifyOpen] = useState(false);
   const vatSummary = useProductVatSummary();
@@ -116,9 +145,12 @@ function ProductsContent() {
     if(range.from) next.set("from",range.from);
     if(range.to) next.set("to",range.to);
     if(vatFilter) next.set("vat",vatFilter);
+    if(categoryId) next.set("category",categoryId);
+    if(stockFilter) next.set("stock",stockFilter);
+    if(viewBranch) next.set("branch",viewBranch);
     const query = next.toString();
     window.history.replaceState(null,"",`/inventory/products${query?`?${query}`:""}`);
-  }, [search,statusFilter,page,pageSize,range.from,range.to,vatFilter]);
+  }, [search,statusFilter,page,pageSize,range.from,range.to,vatFilter,categoryId,stockFilter,viewBranch]);
   const onPeriodChange = (v: PeriodValue) => { setPeriod(v); setPage(1); };
   const [stockMode, setStockMode] = useState<"restock" | "adjust">("restock");
   // Branch prices: bulk hide/show in a branch, offered while the business has them on and this person may change a branch.
@@ -133,7 +165,7 @@ function ProductsContent() {
   const [restockTarget, setRestockTarget] = useState<ApiProduct | null>(null);
   const [requestTarget, setRequestTarget] = useState<ApiProduct | null>(null);
   const can = useCan();
-  const {user} = useAuth();
+  const {user, activeBranchId} = useAuth();
   const restricted = user?.branchIds != null || user?.branchId != null;
   const [statusError, setStatusError] = useState("");
   const [statusPending, setStatusPending] = useState(false);
@@ -143,7 +175,21 @@ function ProductsContent() {
   const [variantsTarget, setVariantsTarget] = useState<ApiProduct | null>(null);
 
   const isActive = statusFilter === "all" ? undefined : statusFilter === "active";
-  const productsQ = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range, undefined, vatFilter || undefined);
+  // Stock by branch: one catalogue, every branch keeps its own stock. Up to five branches show side by side; more become a
+  // total, "N of M branches" and an expandable row; with one branch picked, a single "In <branch>" column.
+  const warehousesQ = useWarehouses();
+  const usesWarehouses = !!warehousesQ.data?.enabled;
+  const branchSummary = useBranchStockSummary(1, "name", false, { enabled: usesWarehouses }, 500);
+  const branchRows = (branchSummary.data?.items ?? []).filter((r): r is BranchStockRow & { branch_id: string } => !!r.branch_id);
+  const severalBranches = usesWarehouses && branchRows.length > 1;
+  // The page's own pick wins; otherwise the branch in the top bar.
+  const shownBranch = viewBranch ?? activeBranchId;
+  const openBranch = shownBranch ? branchRows.find((r) => r.branch_id === shownBranch) ?? null : null;
+  const stockLayout: "plain" | "columns" | "compact" | "one" = !severalBranches ? "plain" : openBranch ? "one" : branchRows.length <= MAX_BRANCH_COLUMNS ? "columns" : "compact";
+  const perBranch = stockLayout !== "plain";
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const openBranchPage = (id: string) => setViewBranch(id);
+  const productsQ = useProducts(page, pageSize, debouncedSearch || undefined, isActive, undefined, range, categoryId || undefined, vatFilter || undefined, undefined, perBranch, more);
   const { data, isLoading } = productsQ;
   const listFailed = productsQ.isError && !data;
   const createProduct = useCreateProduct();
@@ -284,6 +330,63 @@ function ProductsContent() {
                     />);
 
 
+  const cellOf = (p: ApiProduct, branchId: string) => p.branch_stock?.find((c) => c.branch_id === branchId);
+  const qty = (n: number | null | undefined) => (n == null ? "—" : Number(n).toLocaleString());
+  const stockHeads: { label: string; right: boolean; branchId?: string }[] =
+    stockLayout === "columns" ? [...branchRows.map((r) => ({ label: r.name, right: true, branchId: r.branch_id })), { label: "Total", right: true }]
+    : stockLayout === "compact" ? [{ label: "Total", right: true }, { label: "Branches", right: false }]
+    : stockLayout === "one" ? [{ label: `In ${openBranch!.name}`, right: true }, { label: "Reorder level", right: true }]
+    : [{ label: "Stock", right: true }];
+  const heads: { label: string; right: boolean; branchId?: string }[] = [...["Product", "Cost", "Price", "VAT", "Margin"].map((label) => ({ label, right: ["Cost", "Price", "Margin"].includes(label) })),
+    ...stockHeads, { label: "Status", right: false }, { label: "", right: false }];
+  const columnCount = heads.length + 1;
+  const total_ = (p: ApiProduct) => (p.branch_stock ? p.branch_stock.reduce((n, c) => n + (c.quantity ?? 0), 0) : variantStock(p));
+  const stockCells = (p: ApiProduct) => {
+    if (stockLayout === "columns") return <>{branchRows.map((r) => { const c = cellOf(p, r.branch_id); return <td key={r.branch_id} className="px-5 py-3.5 text-right text-sm tabular-nums">
+      <span className="inline-flex items-center gap-2"><StockPill status={c?.status ?? "none"} /><span className={c?.quantity ? "font-semibold" : "text-muted"}>{qty(c?.quantity)}</span></span></td>; })}
+      <td className="px-5 py-3.5 text-right text-sm font-bold tabular-nums">{qty(total_(p))}</td></>;
+    if (stockLayout === "compact") return <>
+      <td className="px-5 py-3.5 text-right text-sm font-bold tabular-nums">{qty(total_(p))}</td>
+      <td className="px-5 py-3.5 text-sm"><button type="button" aria-expanded={expanded === p.id} onClick={(e) => { e.stopPropagation(); setExpanded((x) => (x === p.id ? null : p.id)); }} className="text-left hover:underline">
+        <span className="block font-medium">{p.held_in ?? 0} of {branchRows.length} branches</span>
+        {!!p.out_in?.length && <span className="block text-xs text-red-700 dark:text-red-300">Out in {p.out_in.slice(0, 2).join(", ")}{p.out_in.length > 2 ? ` +${p.out_in.length - 2}` : ""}</span>}
+      </button></td></>;
+    if (stockLayout === "one") { const c = cellOf(p, openBranch!.branch_id); return <>
+      <td className="px-5 py-3.5 text-right text-sm tabular-nums"><span className="inline-flex items-center gap-2"><StockPill status={c?.status ?? "none"} /><span className="font-semibold">{qty(c?.quantity ?? variantStock(p))}</span></span></td>
+      <td className="px-5 py-3.5 text-right text-sm tabular-nums text-muted">{qty(c?.reorder_level ?? p.min_stock)}</td></>; }
+    return <td className="px-5 py-3.5 text-right text-sm font-bold text-foreground tabular-nums">{variantStock(p)}</td>;
+  };
+  const expandedRow = (p: ApiProduct) => stockLayout === "compact" && expanded === p.id ? <tr><td colSpan={columnCount} className="bg-surface/40 px-5 py-3">
+    <ul className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">{branchRows.map((r) => { const c = cellOf(p, r.branch_id); return <li key={r.branch_id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+      <button type="button" className="min-w-0 truncate text-left text-accent hover:underline" onClick={() => openBranchPage(r.branch_id)}>{r.name}</button>
+      <span className="inline-flex shrink-0 items-center gap-2"><StockPill status={c?.status ?? "none"} /><span className="font-semibold tabular-nums">{qty(c?.quantity)}</span></span></li>; })}</ul>
+  </td></tr> : null;
+  const mobileStock = (p: ApiProduct) => stockLayout === "plain" || !p.branch_stock ? variantStock(p)
+    : stockLayout === "one" ? qty(cellOf(p, openBranch!.branch_id)?.quantity ?? variantStock(p))
+    : <span className="block space-y-0.5 font-normal">{branchRows.map((r) => { const c = cellOf(p, r.branch_id); return <span key={r.branch_id} className="flex items-center justify-between gap-2"><span className="text-muted">{r.name}</span><span className="inline-flex items-center gap-1.5"><StockPill status={c?.status ?? "none"} /><span className="font-semibold tabular-nums">{qty(c?.quantity)}</span></span></span>; })}</span>;
+  const totals = branchSummary.data?.summary.totals;
+  const nameOf = (list: { id: string; name: string }[] | undefined, id: string) => list?.find((x) => x.id === id)?.name ?? "Selected";
+  const money = (v: string) => fmt(Number(v));
+  const chips: FilterChip[] = [
+    ...(search.trim() ? [{ key: "q", label: "Search", value: `"${search.trim()}"`, clear: () => onSearchChange("") }] : []),
+    ...(period.key !== "all" ? [{ key: "added", label: "Added", value: periodLabel(period), clear: () => onPeriodChange(ALL_TIME) }] : []),
+    ...(stockFilter ? [{ key: "stock", label: "Stock", value: STOCK_FILTERS.find(([v]) => v === stockFilter)?.[1] ?? stockFilter, clear: () => reset(setStockFilter)("") }] : []),
+    ...(categoryId ? [{ key: "category", label: "Category", value: nameOf(categoriesQ.data?.items, categoryId), clear: () => reset(setCategoryId)("") }] : []),
+    ...(statusFilter !== "all" ? [{ key: "status", label: "Status", value: statusFilter === "active" ? "Active" : "Inactive", clear: () => onStatusFilterChange("all") }] : []),
+    ...(brandId ? [{ key: "brand", label: "Brand", value: nameOf(brandsQ.data?.items, brandId), clear: () => reset(setBrandId)("") }] : []),
+    ...(supplierId ? [{ key: "supplier", label: "Supplier", value: nameOf(suppliersQ.data?.items, supplierId), clear: () => reset(setSupplierId)("") }] : []),
+    ...(kind ? [{ key: "kind", label: "Type", value: KINDS.find(([v]) => v === kind)?.[1] ?? kind, clear: () => reset(setKind)("") }] : []),
+    ...(unitId ? [{ key: "unit", label: "Unit", value: nameOf(unitsQ.data?.items, unitId), clear: () => reset(setUnitId)("") }] : []),
+    ...(vatFilter ? [{ key: "vat", label: "VAT", value: VAT_FILTERS.find(([v]) => v === vatFilter)?.[1] ?? vatFilter, clear: () => onVatFilterChange("") }] : []),
+    ...(priceMin || priceMax ? [{ key: "price", label: "Price", value: priceMin && priceMax ? `${money(priceMin)} – ${money(priceMax)}` : priceMin ? `from ${money(priceMin)}` : `up to ${money(priceMax)}`, clear: () => { setPriceMin(""); setPriceMax(""); setPage(1); } }] : []),
+    ...(updated.key !== "all" ? [{ key: "updated", label: "Changed", value: periodLabel(updated), clear: () => reset(setUpdated)(ALL_TIME) }] : []),
+  ];
+  const clearAll = () => { setSearch(""); setStatusFilter("all"); setPeriod(ALL_TIME); setVatFilter(""); setCategoryId(""); setStockFilter(""); setBrandId(""); setSupplierId(""); setUnitId(""); setKind(""); setPriceMin(""); setPriceMax(""); setUpdated(ALL_TIME); setPage(1); };
+  const selected = products.find((p) => p.id === selectedId) ?? null;
+  const stockLabelFor = stockLayout === "one" || (openBranch && !severalBranches) ? `In ${openBranch?.name ?? "this branch"}` : severalBranches ? "In all branches" : "In stock";
+  const panel = selected && <ProductQuickPanel key={selected.id} product={selected} fmt={fmt} canEdit={canEdit} stockLabel={stockLabelFor} onClose={() => setSelectedId(null)}
+    onEditAll={() => { setEditing(selected); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }} actions={hasRowActions ? productActions(selected) : null} />;
+
   return (
     <div className="space-y-6">
       {confirmDialog}
@@ -291,9 +394,9 @@ function ProductsContent() {
       {classifyOpen && <VatClassifyDrawer productIds={Array.from(bulk.selected)} onClose={() => setClassifyOpen(false)} onDone={() => { setClassifyOpen(false); bulk.clear(); }} />}
       {statusError && <p role="alert" className="rounded-xl border border-border bg-card p-4 text-sm text-red-600">{statusError}</p>}
       <div className="flex items-center justify-between pesaa-responsive-toolbar">
-        <div>
-          <h1 className="pesaa-page-title">Products</h1>
-          <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"} in your catalog</p>
+        <div className="min-w-0">
+          <h1 className="pesaa-page-title text-foreground">{stockLayout === "one" ? `Products · ${openBranch!.name}` : "Products"}</h1>
+          <p className="text-sm text-muted mt-0.5">{total} product{total === 1 ? "" : "s"}{stockLayout === "one" ? ` · stock in ${openBranch!.name} only` : severalBranches ? " · stock in each branch side by side. Pick a branch to see only its shelf." : " in your catalog"}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/inventory/products/settings">
@@ -316,28 +419,22 @@ function ProductsContent() {
         </div>
       </div>
 
-      {summary && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            { label: "Catalog value", value: fmt(summary.cost_value), hint: "At cost", href: "/inventory/stock", icon: Wallet },
-            { label: "Low stock", value: String(summary.low_stock_count), hint: "Need reorder", href: "/inventory/stock?status=low", icon: AlertTriangle },
-            { label: "Out of stock", value: String(summary.out_of_stock_count), hint: "Immediate action", href: "/inventory/stock?status=out", icon: PackageX },
-            { label: "Units on hand", value: Number(summary.total_units).toLocaleString(), hint: "On hand", href: "/inventory/stock", icon: Package },
-          ].map((card) => (
-            <Link key={card.label} href={card.href} className="rounded-xl border border-border bg-card p-4 transition-colors hover:border-accent/40">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted">{card.label}</p>
-                  {/* Large amounts shrink or truncate as a whole number instead of wrapping between digits. */}
-                  <p title={card.value} className="mt-2 truncate whitespace-nowrap text-lg font-semibold tabular-nums sm:text-xl">{card.value}</p>
-                  <p className="mt-1 text-xs text-muted">{card.hint}</p>
-                </div>
-                <span className="rounded-lg bg-accent/10 p-2.5 text-accent"><card.icon size={16} /></span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      {summary && (() => {
+        // With branches, the numbers are the branch being shown (or every branch), the same as the Inventory overview.
+        const r = usesWarehouses && branchRows.length ? openBranch ?? (branchRows.length === 1 ? branchRows[0] : null) : null;
+        const t = usesWarehouses && !r ? totals : null;
+        const value = r ? r.value_cost : t ? t.value_cost : Number(summary.cost_value);
+        const low = r ? r.low : t ? t.low : summary.low_stock_count;
+        const out = r ? r.out : t ? t.out : summary.out_of_stock_count;
+        const units = r ? r.units : t ? t.units : Number(summary.total_units);
+        const stockHref = (q = "") => `/inventory${q || openBranch ? "?" : ""}${new URLSearchParams({ ...(openBranch ? { branch: openBranch.branch_id } : {}), ...(q ? { status: q } : {}) })}`;
+        return <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Stock value at cost" value={fmt(value)} hint={r && severalBranches ? `In ${r.name}` : "At cost"} icon={Wallet} href={stockHref()} />
+          <StatCard label="Low stock" value={String(low)} hint="Below the reorder level" icon={AlertTriangle} tone={low ? "warning" : "default"} href={stockHref("low")} />
+          <StatCard label="Out of stock" value={String(out)} hint={r || t ? "In stock before, none left now" : "None left"} icon={PackageX} tone={out ? "danger" : "default"} href={stockHref("out")} />
+          <StatCard label="Units on hand" value={units.toLocaleString()} hint={r && severalBranches ? `In ${r.name}` : "On hand"} icon={Package} href={stockHref()} />
+        </div>;
+      })()}
 
       {notReviewed > 0 && vatFilter !== "not_reviewed" && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
@@ -345,34 +442,44 @@ function ProductsContent() {
           <Button variant="outline" size="sm" onClick={() => onVatFilterChange("not_reviewed")}>Review VAT</Button>
         </div>
       )}
-      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border flex items-center gap-3 pesaa-responsive-toolbar">
-          <div className="relative flex-1 max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <Input type="text" placeholder="Search products..." value={search} onChange={(e) => onSearchChange(e.target.value)} aria-label="Search products" className="w-full pl-9" />
+      <div className={`grid items-start gap-4 ${selected && wide ? "grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
+      <div className="min-w-0 bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className={`flex flex-wrap items-center gap-2 border-b border-border p-3 ${selected && wide ? "" : "xl:flex-nowrap"}`}>
+          <div className="relative w-full lg:w-auto lg:min-w-[12rem] lg:flex-1">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+            <Input className="pl-9" value={search} onChange={(e) => onSearchChange(e.target.value)} placeholder="Name, SKU or barcode" aria-label="Search products" />
           </div>
-          <div className="flex items-center gap-1 bg-surface rounded-lg p-1">
-            {(["all", "active", "inactive"] as const).map((f) => (
-              <button key={f} onClick={() => onStatusFilterChange(f)}
-                style={statusFilter === f ? { backgroundColor: INV_COLOR } : {}}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${statusFilter === f ? "text-white" : "text-muted hover:text-foreground"}`}>
-                {f}
-              </button>
-            ))}
-          </div>
-          <Select value={vatFilter} onChange={(e) => onVatFilterChange(e.target.value)} aria-label="Filter by VAT treatment" className="w-auto">
-            {VAT_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}{value && vatSummary.data ? ` (${vatSummary.data.counts[value] ?? 0})` : ""}</option>)}
+          <PeriodFilter value={period} onChange={onPeriodChange} label="Added" className="min-w-0 flex-1 sm:flex-none lg:shrink-0" />
+          {severalBranches && <BranchPicker branches={branchRows.map((r) => ({ id: r.branch_id, name: r.name, units: r.units }))} totalUnits={totals?.units}
+            value={openBranch?.branch_id ?? null} onChange={setViewBranch} label="View stock in" allLabel={activeBranchId ? "Top bar branch" : "All branches"} className="min-w-0 flex-1 sm:w-48 sm:flex-none lg:shrink-0" />}
+          <Select aria-label="Stock" value={stockFilter} onChange={(e) => reset(setStockFilter)(e.target.value as StockStatus | "")} className="min-w-0 flex-1 sm:w-auto sm:flex-none lg:shrink-0">
+            {STOCK_FILTERS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
-          <Button variant="secondary" size="sm" onClick={() => setMoreFilters((v) => !v)} aria-expanded={moreFilters}>
-            {moreFilters ? "Hide filters" : "More filters"}
-          </Button>
-          <span className="text-xs text-muted ml-auto">{total} result{total === 1 ? "" : "s"}</span>
+          <Select aria-label="Category" value={categoryId} onChange={(e) => reset(setCategoryId)(e.target.value)} className="min-w-0 flex-1 sm:w-44 sm:flex-none lg:shrink-0">
+            <option value="">Category: All</option>
+            {(categoriesQ.data?.items ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+          <Select aria-label="Status" value={statusFilter} onChange={(e) => onStatusFilterChange(e.target.value as "all" | "active" | "inactive")} className="min-w-0 flex-1 sm:w-auto sm:flex-none lg:shrink-0">
+            <option value="all">Status: All</option><option value="active">Active</option><option value="inactive">Inactive</option>
+          </Select>
+          <MoreFilters active={[brandId, supplierId, unitId, kind, vatFilter, priceMin || priceMax, upd.from || upd.to].filter(Boolean).length} width="w-80">
+            <Field label="Brand"><Select value={brandId} onChange={(e) => reset(setBrandId)(e.target.value)}><option value="">Any brand</option>{(brandsQ.data?.items ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
+            <Field label="Supplier"><Select value={supplierId} onChange={(e) => reset(setSupplierId)(e.target.value)}><option value="">Any supplier</option>{(suppliersQ.data?.items ?? []).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Type"><Select value={kind} onChange={(e) => reset(setKind)(e.target.value as ProductKind | "")}>{KINDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
+              <Field label="Unit"><Select value={unitId} onChange={(e) => reset(setUnitId)(e.target.value)}><option value="">Any unit</option>{(unitsQ.data?.items ?? []).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</Select></Field>
+            </div>
+            <Field label="VAT treatment"><Select value={vatFilter} onChange={(e) => onVatFilterChange(e.target.value)}>
+              {VAT_FILTERS.map(([value, label]) => <option key={value} value={value}>{value ? label : "Any VAT treatment"}{value && vatSummary.data ? ` (${vatSummary.data.counts[value] ?? 0})` : ""}</option>)}
+            </Select></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Price from"><Input type="number" min={0} step="any" inputMode="decimal" value={priceMin} onChange={(e) => reset(setPriceMin)(e.target.value)} /></Field>
+              <Field label="Price to"><Input type="number" min={0} step="any" inputMode="decimal" value={priceMax} onChange={(e) => reset(setPriceMax)(e.target.value)} /></Field>
+            </div>
+            <div className="text-xs text-muted"><span className="mb-1 block font-medium">Last changed</span><PeriodFilter value={updated} onChange={reset(setUpdated)} label="Changed" /></div>
+          </MoreFilters>
         </div>
-        {moreFilters && (
-          <div className="border-b border-border bg-surface/40 px-5 py-4">
-            <PeriodFilter value={period} onChange={onPeriodChange} label="Date added" />
-          </div>
-        )}
+        <FilterChips chips={chips} onClearAll={clearAll} count={`${total} product${total === 1 ? "" : "s"} match`} />
 
         {bulk.count > 0 && (
           <div className="px-5 py-3 border-b border-border">
@@ -393,9 +500,9 @@ function ProductsContent() {
           <label className="flex min-h-11 items-center gap-3 border-b border-border px-4 text-sm"><input type="checkbox" aria-label="Select all products" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} disabled={!products.length} />Select this page</label>
           <div className="grid gap-3 p-3 sm:grid-cols-2">
             {products.map((p) => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4">
-              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold"><Link className="hover:underline text-accent" href={`/inventory/products/${p.id}`}>{p.name}</Link></h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p><div className="mt-1.5"><VatBadge treatment={p.vat_treatment} rate={vatRate.data?.rate} /></div></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
+              <div className="flex items-start gap-3"><ProductAvatar name={p.name} imageUrl={p.image_url} size={48} className="rounded-lg" /><div className="min-w-0 flex-1"><h2 className="break-words text-sm font-semibold"><button type="button" className="text-left text-accent hover:underline" onClick={() => setSelectedId(p.id)}>{p.name}</button></h2><p className="break-all text-xs text-muted">{p.sku || "No SKU"}</p><p className="mt-1 text-xs text-muted">{p.category?.name || "Uncategorized"} · {p.is_active ? "Active" : "Inactive"}</p><div className="mt-1.5"><VatBadge treatment={p.vat_treatment} rate={vatRate.data?.rate} /></div></div><label className="flex h-11 w-11 shrink-0 items-center justify-center"><input type="checkbox" aria-label={`Select ${p.name}`} checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} /></label></div>
               <div className="mt-3 flex justify-end">{productActions(p)}</div>
-              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Selling price</dt><dd className="font-semibold">{fmt(p.price)}</dd></div><div><dt className="text-xs text-muted">Stock</dt><dd className="font-semibold">{variantStock(p)}</dd></div><div><dt className="text-xs text-muted">Cost</dt><dd>{fmt(p.cost)}</dd></div><div><dt className="text-xs text-muted">Margin</dt><dd>{margin(p)}%</dd></div></dl>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">Selling price</dt><dd className="font-semibold">{fmt(p.price)}</dd></div><div className={stockLayout === "columns" || stockLayout === "compact" ? "col-span-2" : ""}><dt className="text-xs text-muted">{stockLayout === "one" ? `In ${openBranch!.name}` : "Stock"}</dt><dd className="font-semibold">{mobileStock(p)}</dd></div><div><dt className="text-xs text-muted">Cost</dt><dd>{fmt(p.cost)}</dd></div><div><dt className="text-xs text-muted">Margin</dt><dd>{margin(p)}%</dd></div></dl>
               {hasRowActions && <details className="mt-3 border-t border-border"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-accent">Product actions</summary><div className="flex flex-wrap gap-2">
                 {canEdit && <Button variant="outline" onClick={() => { setEditing(p); setFormMode("single"); setFormKey((k) => k + 1); setShowForm(true); }}>Edit</Button>}
                 {(canAskPrice || canAskStock) && <Button variant="outline" onClick={() => setRequestTarget(p)}>Request change</Button>}
@@ -411,29 +518,37 @@ function ProductsContent() {
         <Refreshing busy={isRefreshing(productsQ)} className="hidden md:block overflow-x-auto">
           <TableScroll><table className="w-full min-w-160">
             <thead>
+              {stockLayout === "columns" && <tr>
+                <th colSpan={6} aria-hidden />
+                <th colSpan={branchRows.length + 1} scope="colgroup" className="p-2 text-center text-xs font-semibold text-muted">Units on hand</th>
+                <th colSpan={2} aria-hidden />
+              </tr>}
               <tr className="border-b border-border bg-surface/50 text-left">
                 <th className="px-5 py-3 w-10">
                   <input type="checkbox" checked={bulk.allSelected} ref={(el) => { if (el) el.indeterminate = bulk.someSelected; }} onChange={bulk.toggleAll} className="w-4 h-4 rounded" disabled={products.length === 0} />
                 </th>
-                {["Product", "Category", "Brand", "Cost", "Price", "VAT", "Margin", "Stock", "Status", ""].map((h, i) => (
-                  <th key={i} className={`p-4 text-xs font-semibold text-muted ${["Cost","Price","Margin","Stock"].includes(h) ? "text-right" : h === "Status" ? "text-center" : ""}`}>{h}</th>
+                {heads.map((h, i) => (
+                  <th key={i} className={`p-4 text-xs font-semibold text-muted ${h.right ? "text-right" : h.label === "Status" ? "text-center" : ""}`}>
+                    {h.branchId ? <button type="button" className="font-semibold hover:text-accent hover:underline" title={`Show only ${h.label}`} onClick={() => openBranchPage(h.branchId!)}>{h.label}</button> : h.label}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {products.map((p) => (
-                <tr key={p.id} className="hover:bg-surface/40 transition-colors group">
-                  <td className="px-5 py-3.5">
+              {products.map((p) => (<Fragment key={p.id}>
+                <tr onClick={() => setSelectedId(selectedId === p.id ? null : p.id)} aria-selected={selectedId === p.id}
+                  className={`cursor-pointer transition-colors group ${selectedId === p.id ? "bg-accent/5" : "hover:bg-surface/40"}`}>
+                  <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={bulk.selected.has(p.id)} onChange={() => bulk.toggle(p.id)} className="w-4 h-4 rounded" />
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <ProductAvatar name={p.name} imageUrl={p.image_url ?? undefined} size={32} className="rounded-lg" />
                       <div>
-                        <Link className="text-sm font-semibold text-foreground hover:underline" href={`/inventory/products/${p.id}`}>{p.name}</Link>
+                        <button type="button" className="text-left text-sm font-semibold text-foreground hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-accent" onClick={(e) => { e.stopPropagation(); setSelectedId(p.id); }}>{p.name}</button>
                         <p className="text-xs text-muted font-mono">{p.sku}</p>
                         {p.has_variants && (p.variants?.length ?? 0) > 0 && (
-                          <button onClick={() => setVariantsTarget(p)}
+                          <button onClick={(e) => { e.stopPropagation(); setVariantsTarget(p); }}
                             className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold hover:underline" style={{ color: INV_COLOR }}>
                             <Layers size={11} /> {p.variants.length} variant{p.variants.length !== 1 ? "s" : ""}
                           </button>
@@ -441,33 +556,28 @@ function ProductsContent() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface text-muted">
-                      {p.category?.name ?? "—"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-muted">{p.brand?.name ?? "—"}</td>
                   <td className="px-5 py-3.5 text-right text-sm text-muted tabular-nums">{fmt(p.cost)}</td>
                   <td className="px-5 py-3.5 text-right text-sm font-semibold text-foreground tabular-nums">{fmt(p.price)}</td>
                   <td className="px-5 py-3.5"><VatBadge treatment={p.vat_treatment} rate={vatRate.data?.rate} /></td>
                   <td className="px-5 py-3.5 text-right">
                     <span className="text-sm font-bold text-emerald-600 tabular-nums">{margin(p)}%</span>
                   </td>
-                  <td className="px-5 py-3.5 text-right text-sm font-bold text-foreground tabular-nums">{variantStock(p)}</td>
+                  {stockCells(p)}
                   <td className="px-5 py-3.5 text-center">
                     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${p.is_active ? "bg-emerald-50 text-emerald-700" : "bg-surface text-muted"}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${p.is_active ? "bg-emerald-500" : "bg-muted"}`} />
                       {p.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 relative">
+                  <td className="px-5 py-3.5 relative" onClick={(e) => e.stopPropagation()}>
                     {hasRowActions && productActions(p)}
                   </td>
                 </tr>
-              ))}
+                {expandedRow(p)}
+              </Fragment>))}
               {products.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="py-16 text-center">
+                  <td colSpan={columnCount} className="py-16 text-center">
                     <Package size={36} className="text-border mx-auto mb-3" />
                     <p className="text-sm font-semibold text-muted">No products found</p>
                     <p className="text-xs text-muted/70 mt-1">Try adjusting your search or filters</p>
@@ -475,10 +585,22 @@ function ProductsContent() {
                 </tr>
               )}
             </tbody>
+            {stockLayout === "columns" && totals && products.length > 0 && <tfoot>
+              <tr className="border-t border-border bg-surface/50">
+                <td colSpan={6} className="px-5 py-3 text-sm font-semibold">Stock value at cost</td>
+                {branchRows.map((r) => <td key={r.branch_id} className="px-5 py-3 text-right text-sm font-semibold tabular-nums">{fmt(r.value_cost)}</td>)}
+                <td className="px-5 py-3 text-right text-sm font-bold tabular-nums">{fmt(branchRows.reduce((n, r) => n + r.value_cost, 0))}</td>
+                <td colSpan={2} />
+              </tr>
+            </tfoot>}
           </table></TableScroll>
         </Refreshing>)}
         <Pagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} itemLabel="products" color={INV_COLOR} />
       </div>
+      {selected && wide && <div className="sticky top-20">{panel}</div>}
+      </div>
+      {/* Below desktop width the picked product opens in a drawer instead of beside the list. */}
+      {!wide && <Drawer open={!!selected} onClose={() => setSelectedId(null)} title={selected?.name ?? "Product"} size="md">{panel && <div className="p-3">{panel}</div>}</Drawer>}
 
       {picturesOpen && <ImportPicturesDrawer onClose={() => setPicturesOpen(false)} />}
       <ProductFormDrawer

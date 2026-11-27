@@ -261,11 +261,12 @@ async def top_products(ctx: ToolContext, a: TopProductsArgs) -> dict[str, Any]:
       module="inventory", permission="stock:read", args=LimitArgs)
 async def low_stock(ctx: ToolContext, a: LimitArgs) -> dict[str, Any]:
     from app.modules.inventory.models.product import Product
+    from app.modules.inventory.routes.valuation import branch_levels, scoped_stock
     from app.modules.inventory.service.product import (
         low_stock_report,  # lazy: module packages import eagerly
     )
-
-    report = await low_stock_report(ctx.db, ctx.tenant_id)
+    report = await low_stock_report(ctx.db, ctx.tenant_id, await scoped_stock(ctx.db, ctx.user, ctx.branch_id),
+                                    await branch_levels(ctx.db, ctx.user, ctx.branch_id))  # the branch's own stock and reorder levels
     total_active, with_min = (await ctx.db.execute(
         select(func.count(), func.count().filter(Product.min_stock > 0)).where(Product.tenant_id == ctx.tenant_id, Product.is_active.is_(True))
     )).one()
@@ -459,6 +460,8 @@ async def reorder_candidates(ctx: ToolContext, cover_days: int, limit: int) -> l
         .where(*_order_scope(ctx), Order.status == "Completed", Order.ordered_at >= since, OrderItem.product_id.isnot(None)).group_by(OrderItem.product_id)
     )).all()
     velocity = {pid: float(q) / 30 for pid, q in sold}
+    from app.modules.inventory.service.branch_stock import product_quantities
+    scoped = await product_quantities(ctx.db, ctx.user, ctx.branch_id)  # a branch reorders for its own shelf
     prods = (await ctx.db.execute(
         select(Product.id, Product.name, Product.sku, Product.stock, Product.min_stock, Product.cost, Supplier.lead_time_days)
         .outerjoin(Supplier, Supplier.id == Product.supplier_id)
@@ -466,7 +469,8 @@ async def reorder_candidates(ctx: ToolContext, cover_days: int, limit: int) -> l
     )).all()
     recs = []
     for p in prods:
-        stock, minimum, v = float(p.stock), float(p.min_stock), velocity.get(p.id, 0.0)
+        stock = float(scoped.get(p.id, 0)) if scoped is not None else float(p.stock)
+        minimum, v = float(p.min_stock), velocity.get(p.id, 0.0)
         cover = stock / v if v > 0 else None
         target_days = max(cover_days, p.lead_time_days or 0)   # never plan to cover less than the supplier takes to deliver
         need = max(minimum, v * target_days) - stock           # restore the minimum, or cover the target days of sales — whichever is more

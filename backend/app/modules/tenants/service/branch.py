@@ -41,6 +41,8 @@ async def create_branch(db: AsyncSession, tenant_id: uuid.UUID, data: BranchCrea
     # no meaningful "not main" state when it's the only one.
     branch = Branch(tenant_id=tenant_id, is_main=existing == 0, **data.model_dump())
     branch = await BranchRepository(db).save(branch)
+    from app.modules.inventory.service.stock_ledger import ensure_branch_warehouses
+    await ensure_branch_warehouses(db, tenant_id, [branch.id])  # a business with warehouses keeps each branch's stock apart
     from app.modules.billing.worker import sync_usage
     await sync_usage(db, tenant_id)
     await db.commit()
@@ -54,6 +56,7 @@ async def update_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.
     if branch is None:
         raise NotFoundError("Branch not found")
     if data.status and data.status != "active" and branch.status == "active":
+        await _refuse_if_holding_stock(db, tenant_id, branch)
         if branch.is_main:
             raise ValidationError("The main branch can't be deactivated. Make another branch the main one first.")
         others = (await db.execute(select(func.count()).select_from(Branch).where(
@@ -63,13 +66,42 @@ async def update_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.
     if data.status == "active" and branch.status != "active":
         from app.modules.tenants import service
         await service.enforce_limit(db, tenant_id, "max_branches", await count_branches(db, tenant_id), noun="branch")
+    reactivating = data.status == "active" and branch.status != "active"
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(branch, field, value)
     branch = await BranchRepository(db).save(branch)
+    if reactivating:
+        from app.modules.inventory.service.stock_ledger import ensure_branch_warehouses
+        await ensure_branch_warehouses(db, tenant_id, [branch.id])
     from app.modules.billing.worker import sync_usage
     await sync_usage(db, tenant_id)
     await db.commit()
     return _to_read(branch)
+
+
+async def _refuse_if_holding_stock(db: AsyncSession, tenant_id: uuid.UUID, branch: Branch) -> None:
+    """A branch whose warehouses still hold stock (or have stock on the way) can't be deactivated: that stock would be
+    stranded. The message says what is left so it can be transferred out first."""
+    from app.modules.inventory.models.product import Product
+    from app.modules.inventory.models.transfer import StockTransfer
+    from app.modules.inventory.models.warehouse import StockMovement, Warehouse
+    held = (await db.execute(
+        select(Product.name, func.sum(StockMovement.quantity))
+        .join(Warehouse, Warehouse.id == StockMovement.warehouse_id).join(Product, Product.id == StockMovement.product_id)
+        .where(StockMovement.tenant_id == tenant_id, Warehouse.branch_id == branch.id)
+        .group_by(Product.name).having(func.sum(StockMovement.quantity) != 0).order_by(func.sum(StockMovement.quantity).desc())
+    )).all()
+    if held:
+        units = sum(float(q) for _, q in held)
+        shown = ", ".join(f"{name} {float(q):g}" for name, q in held[:5]) + (f" and {len(held) - 5} more" if len(held) > 5 else "")
+        raise ValidationError(f"{branch.name} still holds {units:g} units of {len(held)} product{'s' if len(held) != 1 else ''} ({shown}). "
+                              "Transfer them to another branch first, then deactivate it.")
+    moving = (await db.execute(select(func.count()).select_from(StockTransfer).where(
+        StockTransfer.tenant_id == tenant_id, StockTransfer.status.in_(["pending", "in_transit"]),
+        (StockTransfer.from_branch_id == branch.id) | (StockTransfer.to_branch_id == branch.id)))).scalar_one()
+    if moving:
+        raise ValidationError(f"{branch.name} has {moving} transfer{'s' if moving != 1 else ''} not finished. Receive or cancel "
+                              f"{'them' if moving != 1 else 'it'} first, then deactivate the branch.")
 
 
 async def delete_branch(db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID) -> None:

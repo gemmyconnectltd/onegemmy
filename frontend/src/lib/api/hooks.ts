@@ -1,4 +1,5 @@
 import type { DiscountRuleFilters } from "./discounts";
+import { branchStockApi, type BranchSort, type BranchStockSettingsInput } from "./branchStock";
 import { taxApi } from "./tax";
 import { productHistoryApi, type ProductHistoryFilters } from "./productHistory";
 import { accessApi, type AccessFilters } from "./access";
@@ -31,7 +32,7 @@ import {
   usersApi,
   serviceCategoriesApi, servicesApi, employeeServicesApi, appointmentsApi, queueApi,
   type ApiSerial, type ApiStockTransfer, type ApiWarrantyClaim, type ApiProductionOrder,
-  type ApiProduct, type ApiVariant, type ApiVariantListItem, type BranchSettingInput, type BranchPriceShow,
+  type ApiProduct, type ApiVariant, type ApiVariantListItem, type BranchSettingInput, type BranchPriceShow, type ProductMoreFilters,
   type ApiCategory, type ApiBrand, type ApiUnit, type ApiSupplier,
   type InventoryValuationReport,
   type ApiCustomer, type ApiDeal, type ApiOrder, type ApiOrderPayment, type ApiReturn, type ApiTarget,
@@ -109,8 +110,8 @@ const BRANDS = ["inventory", "brands"] as const;
 const UNITS = ["inventory", "units"] as const;
 const SUPPLIERS = ["inventory", "suppliers"] as const;
 
-export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string, vat?: string, forSale?: boolean) =>
-  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId, vat ?? "", forSale ? "for-sale" : ""], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId, vat, forSale), (r) => r.data, opts);
+export const useProducts = (page = 1, pageSize = 100, search?: string, isActive?: boolean, opts?: QueryOpts, period?: PeriodRange, categoryId?: string, vat?: string, forSale?: boolean, perBranch?: boolean, more?: ProductMoreFilters) =>
+  useQ([...PRODUCTS, page, pageSize, search ?? "", isActive ?? "any", periodKey(period), categoryId, vat ?? "", forSale ? "for-sale" : "", perBranch ? "per-branch" : "", more ? JSON.stringify(more) : ""], () => inventoryApi.listProducts(page, pageSize, search, isActive, period, categoryId, vat, forSale, perBranch, more), (r) => r.data, opts);
 export const useProductVatSummary = () => useQ([...PRODUCTS, "vat-summary"], () => inventoryApi.vatSummary(), (r) => r.data);
 export const useClassifyProductVat = mutation(inventoryApi.classifyVat, [[...PRODUCTS]]);
 
@@ -143,8 +144,20 @@ export const useUnitSuggestions = (opts?: QueryOpts) =>
 export const useSuppliers = (page = 1, pageSize = 200, search?: string, opts?: QueryOpts) =>
   useQ([...SUPPLIERS, page, pageSize, search ?? ""], () => inventoryApi.listSuppliers(page, pageSize, search), (r) => r.data, opts);
 
-export const useValuationReport = (page = 1, status = "all", opts?: QueryOpts) =>
-  useQ([...VALUATION, page, status], () => inventoryApi.valuationReport(page, status), (r) => r.data, opts);
+export const useValuationReport = (page = 1, status = "all", opts?: QueryOpts, search?: string, pageSize = 50) =>
+  useQ([...VALUATION, page, status, search ?? "", pageSize], () => inventoryApi.valuationReport(page, status, search, pageSize), (r) => r.data, opts);
+
+// Stock by branch (see lib/api/branchStock.ts). Keyed under "inventory" so stock changes and branch switches reset them.
+export const useBranchStockSummary = (page = 1, sort: BranchSort = "name", descending = false, opts?: QueryOpts, pageSize = 50) =>
+  useQ(["inventory", "branch-summary", page, sort, descending, pageSize], () => branchStockApi.summary(page, sort, descending, pageSize), (r) => r.data, opts);
+export const useProductsPerBranch = (page = 1, pageSize = 25, search?: string, opts?: QueryOpts) =>
+  useQ([...PRODUCTS, "per-branch", page, pageSize, search ?? ""], () => branchStockApi.products(page, pageSize, search), (r) => r.data, opts);
+export const useNeedsStock = (limit = 50, opts?: QueryOpts) =>
+  useQ(["inventory", "needs-stock", limit], () => branchStockApi.needsStock(limit), (r) => r.data, opts);
+export const useProductStockByBranch = (id: string | undefined, opts?: QueryOpts) =>
+  useQ([...PRODUCTS, "stock-by-branch", id], () => branchStockApi.product(id!), (r) => r.data, { ...opts, enabled: !!id && (opts?.enabled ?? true) });
+export const useSetProductBranchStock = mutation(({ id, branchId, data }: { id: string; branchId: string; data: BranchStockSettingsInput }) =>
+  branchStockApi.setProductBranch(id, branchId, data), [[...PRODUCTS], [...VALUATION], ["inventory", "branch-summary"]]);
 
 export const useCreateProduct = mutation((d: object) => inventoryApi.createProduct(d), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"], ["accounting", "transactions"]]);
 export const useBulkCreateProducts = mutation((items: object[]) => inventoryApi.bulkCreateProducts(items), [[...PRODUCTS], [...VALUATION], ["accounting", "reports"]]);

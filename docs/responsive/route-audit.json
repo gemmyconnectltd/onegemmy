@@ -530,6 +530,18 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/app/(erp)/inventory/branch-prices/page.tsx",
+      "route": "/inventory/branch-prices",
+      "tables": 1,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": true,
+      "sharedTable": true,
+      "sharedOverlay": false,
+      "toolbar": true
+    },
+    {
       "file": "frontend/src/app/(erp)/inventory/brands/page.tsx",
       "route": "/inventory/brands",
       "tables": 0,
@@ -584,9 +596,9 @@
       "uncontainedTables": 0,
       "forms": 0,
       "redirect": false,
-      "explicitCards": false,
+      "explicitCards": true,
       "sharedTable": true,
-      "sharedOverlay": false,
+      "sharedOverlay": true,
       "toolbar": true
     },
     {
@@ -1010,6 +1022,18 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/app/(erp)/reports/branches/[id]/page.tsx",
+      "route": "/reports/branches/[id]",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/app/(erp)/reports/crm-overview/page.tsx",
       "route": "/reports/crm-overview",
       "tables": 0,
@@ -1382,6 +1406,18 @@
       "toolbar": true
     },
     {
+      "file": "frontend/src/app/(erp)/sales/team-performance/page.tsx",
+      "route": "/sales/team-performance",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/app/(erp)/services/appointments/page.tsx",
       "route": "/services/appointments",
       "tables": 1,
@@ -1559,6 +1595,18 @@
       "explicitCards": false,
       "sharedTable": false,
       "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/app/(erp)/settings/sales-pricing/page.tsx",
+      "route": "/settings/sales-pricing",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": true,
       "toolbar": false
     },
     {
@@ -1749,29 +1797,7 @@
       "toolbar": false
     },
     {
-      "file": "frontend/src/app/(erp)/debts/loading.tsx",
-      "tables": 0,
-      "uncontainedTables": 0,
-      "forms": 0,
-      "redirect": false,
-      "explicitCards": false,
-      "sharedTable": false,
-      "sharedOverlay": false,
-      "toolbar": false
-    },
-    {
       "file": "frontend/src/app/(erp)/expenses/layout.tsx",
-      "tables": 0,
-      "uncontainedTables": 0,
-      "forms": 0,
-      "redirect": false,
-      "explicitCards": false,
-      "sharedTable": false,
-      "sharedOverlay": false,
-      "toolbar": false
-    },
-    {
-      "file": "frontend/src/app/(erp)/expenses/loading.tsx",
       "tables": 0,
       "uncontainedTables": 0,
       "forms": 0,
@@ -1849,17 +1875,6 @@
     },
     {
       "file": "frontend/src/app/(erp)/procurement/layout.tsx",
-      "tables": 0,
-      "uncontainedTables": 0,
-      "forms": 0,
-      "redirect": false,
-      "explicitCards": false,
-      "sharedTable": false,
-      "sharedOverlay": false,
-      "toolbar": false
-    },
-    {
-      "file": "frontend/src/app/(erp)/procurement/loading.tsx",
       "tables": 0,
       "uncontainedTables": 0,
       "forms": 0,
@@ -2014,8 +2029,8 @@
     },
     {
       "file": "frontend/src/components/accounting/InvoiceDocument.tsx",
-      "tables": 1,
-      "uncontainedTables": 0,
+      "tables": 2,
+      "uncontainedTables": 1,
       "forms": 0,
       "redirect": false,
       "explicitCards": false,
@@ -2761,6 +2776,39 @@
       "toolbar": true
     },
     {
+      "file": "frontend/src/components/inventory/BranchPicker.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/inventory/BranchStock.tsx",
+      "tables": 1,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": true,
+      "sharedTable": true,
+      "sharedOverlay": true,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/inventory/BranchVisibilityDrawer.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": true,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/components/inventory/BrandsManager.tsx",
       "tables": 0,
       "uncontainedTables": 0,
@@ -2860,6 +2908,17 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/components/inventory/ProductBranchPrices.tsx",
+      "tables": 1,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": true,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/components/inventory/ProductDetailsView.tsx",
       "tables": 0,
       "uncontainedTables": 0,
@@ -2890,6 +2949,28 @@
       "explicitCards": false,
       "sharedTable": false,
       "sharedOverlay": true,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/inventory/ProductQuickPanel.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 1,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/inventory/ProductStockByBranch.tsx",
+      "tables": 1,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": true,
+      "sharedTable": true,
+      "sharedOverlay": false,
       "toolbar": false
     },
     {
@@ -2978,6 +3059,17 @@
       "explicitCards": false,
       "sharedTable": false,
       "sharedOverlay": true,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/inventory/WarehousePlace.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
       "toolbar": false
     },
     {
@@ -3272,7 +3364,7 @@
       "uncontainedTables": 0,
       "forms": 0,
       "redirect": false,
-      "explicitCards": true,
+      "explicitCards": false,
       "sharedTable": true,
       "sharedOverlay": false,
       "toolbar": false
@@ -3421,6 +3513,17 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/components/sales/SaleDetailPanel.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/components/sales/SaleDocumentDrawer.tsx",
       "tables": 0,
       "uncontainedTables": 0,
@@ -3520,7 +3623,29 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/components/ui/BrandLogo.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/components/ui/BulkActionBar.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/ui/BusyIcon.tsx",
       "tables": 0,
       "uncontainedTables": 0,
       "forms": 0,
@@ -3608,6 +3733,28 @@
       "toolbar": false
     },
     {
+      "file": "frontend/src/components/ui/ListFilters.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
+      "file": "frontend/src/components/ui/LoadState.tsx",
+      "tables": 0,
+      "uncontainedTables": 0,
+      "forms": 0,
+      "redirect": false,
+      "explicitCards": false,
+      "sharedTable": false,
+      "sharedOverlay": false,
+      "toolbar": false
+    },
+    {
       "file": "frontend/src/components/ui/Logo.tsx",
       "tables": 0,
       "uncontainedTables": 0,
@@ -3620,17 +3767,6 @@
     },
     {
       "file": "frontend/src/components/ui/LogoMark.tsx",
-      "tables": 0,
-      "uncontainedTables": 0,
-      "forms": 0,
-      "redirect": false,
-      "explicitCards": false,
-      "sharedTable": false,
-      "sharedOverlay": false,
-      "toolbar": false
-    },
-    {
-      "file": "frontend/src/components/ui/OfflineIndicator.tsx",
       "tables": 0,
       "uncontainedTables": 0,
       "forms": 0,

@@ -19,7 +19,7 @@ export type { ApiTokenUserInfo, ApiTokenResponse, ApiRegisterRequest } from "./a
 export { authApi } from "./auth";
 
 // Inventory
-export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCategoryTemplate, ApiCategoryTemplateGroup, ApiCategoryTemplates, ApiCategoryImportResult, ApiBrand, ApiUnit, ApiUnitSuggestion, ApiUnitSuggestions, ApiUnitImportResult, ApiSupplier, InventoryValuationReport, ProductGallery, PictureImportResult, ApiBranchSetting, ApiProductBranches, BranchSettingInput, ApiBranchPriceRow, ApiBranchPriceList, BranchPriceShow, BranchPricingStatus } from "./inventory";
+export type { ApiProduct, ApiVariant, ApiVariantListItem, ApiCategory, ApiCategoryTemplate, ApiCategoryTemplateGroup, ApiCategoryTemplates, ApiCategoryImportResult, ApiBrand, ApiUnit, ApiUnitSuggestion, ApiUnitSuggestions, ApiUnitImportResult, ApiSupplier, InventoryValuationReport, ProductGallery, PictureImportResult, ApiBranchSetting, ApiProductBranches, BranchSettingInput, ApiBranchPriceRow, ApiBranchPriceList, BranchPriceShow, BranchPricingStatus, ProductMoreFilters } from "./inventory";
 export { inventoryApi } from "./inventory";
 
 // Sales
