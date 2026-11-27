@@ -137,7 +137,7 @@ function SetupBranchStock({ branches }: { branches: number }) {
 }
 
 /** What needs doing first: up to five products out of stock and five running low (in the branch shown), each opening the
- *  product, with links to the full filtered list on Products. */
+ *  product, with links to the full filtered list on Products. Hidden when nothing is short. */
 function NeedsAttention({ named }: { named: string | null }) {
   const out = useProducts(1, 5, undefined, true, undefined, undefined, undefined, undefined, undefined, false, { stock: "out" });
   const low = useProducts(1, 5, undefined, true, undefined, undefined, undefined, undefined, undefined, false, { stock: "low" });
@@ -145,6 +145,8 @@ function NeedsAttention({ named }: { named: string | null }) {
   const loading = out.isLoading || low.isLoading;
   const rows: [ApiProduct, "out" | "low"][] = [...(out.data?.items ?? []).map((p) => [p, "out"] as [ApiProduct, "out"]), ...(low.data?.items ?? []).map((p) => [p, "low"] as [ApiProduct, "low"])];
   const qty = (p: ApiProduct) => (p.has_variants && p.variants?.length ? p.variants.reduce((n, v) => n + v.stock, 0) : p.stock);
+  const failed = out.error ?? low.error;
+  if (!failed && (loading || !rows.length)) return null;  // nothing short (or not known yet): no empty card
   return <section aria-labelledby="attention-title" className={CARD}>
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
       <h2 id="attention-title" className="pesaa-card-title">Needs attention{named ? ` in ${named}` : ""}</h2>
@@ -153,8 +155,7 @@ function NeedsAttention({ named }: { named: string | null }) {
         {lowN > 0 && <Link href="/inventory/products?stock=low" className="font-medium text-accent hover:underline">All {lowN} running low</Link>}
       </div>
     </div>
-    {loading || out.error || low.error || !rows.length ? <div className="p-4"><TableState loading={loading} error={out.error ?? low.error ?? undefined} onRetry={() => { void out.refetch(); void low.refetch(); }}
-      empty={!rows.length} title="Nothing needs attention" hint="No product is out of stock or below its reorder level." /></div> :
+    {failed ? <div className="p-4"><TableState error={failed} onRetry={() => { void out.refetch(); void low.refetch(); }} /></div> :
       <ul className="divide-y divide-border">{rows.map(([p, st]) => <li key={`${st}:${p.id}`}>
         <Link href={`/inventory/products/${p.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-accent">
           <ProductAvatar name={p.name} imageUrl={p.image_url} size={32} className="shrink-0 rounded-lg" />
