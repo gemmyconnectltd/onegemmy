@@ -3,13 +3,13 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Package, PackageX, Plus, Truck, Wallet } from "lucide-react";
+import { AlertTriangle, ChevronRight, Package, PackageX, Plus, Truck, Wallet, Warehouse as WarehouseIcon } from "lucide-react";
 import { useAppConfig } from "@/lib/appConfig";
 import { fmtMoney } from "@/lib/config";
 import { useAuth } from "@/lib/auth";
 import { useCan } from "@/lib/can";
-import { useBranchStockSummary, useStockCounts, useTransfers, useUpdateTransfer, useValuationReport, useWarehouses } from "@/lib/api/hooks";
-import type { ApiStockTransfer } from "@/lib/api";
+import { useBranchStockSummary, useMyBranches, useProducts, useSetupWarehouses, useStockCounts, useTransfers, useUpdateTransfer, useValuationReport, useWarehouses } from "@/lib/api/hooks";
+import type { ApiProduct, ApiStockTransfer } from "@/lib/api";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { fmtDate } from "@/lib/date";
 import { type BranchStockRow } from "@/lib/api/branchStock";
@@ -19,7 +19,8 @@ import { StatCard } from "@/components/ui/StatCard";
 import { TableScroll } from "@/components/ui/TableScroll";
 import { TableState } from "@/components/ui/TableState";
 import { LoadError } from "@/components/ui/LoadState";
-import { BranchesTable, ReceiveStock } from "@/components/inventory/BranchStock";
+import { BranchesTable, ReceiveStock, StockPill } from "@/components/inventory/BranchStock";
+import { ProductAvatar } from "@/components/inventory/ProductAvatar";
 
 const CARD = "min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm";
 
@@ -31,7 +32,7 @@ function Overview() {
   const { currencySymbol } = useAppConfig();
   const fmt = (v: number) => fmtMoney(v, currencySymbol);
   const can = useCan();
-  const { activeBranchId } = useAuth();
+  const { activeBranchId, hasPermission } = useAuth();
   const router = useRouter();
   const warehouses = useWarehouses();
   const usesWarehouses = !!warehouses.data?.enabled;
@@ -46,7 +47,8 @@ function Overview() {
   // The Low / Out / Units cards open Products with that stock filter (it lists every product with its stock).
   const stockHref = (v: "in" | "low" | "out") => `/inventory/products?stock=${v}`;
   const valuation = useValuationReport(1, "all", { enabled: warehouses.isSuccess && view === "simple" }, undefined, 1);
-  const transfers = useTransfers(1, 50, undefined, { enabled: usesWarehouses });
+  const transfers = useTransfers(1, 50, undefined, { enabled: warehouses.isSuccess });
+  const myBranches = useMyBranches({ enabled: warehouses.isSuccess && !usesWarehouses });
   const counts = useStockCounts(1, "Submitted");
 
   if (warehouses.isLoading || (usesWarehouses && summary.isLoading)) return <PageLoader variant="page" />;
@@ -103,10 +105,65 @@ function Overview() {
     </div>}
 
     {/* A branch opens Products showing that branch's products and stock. */}
+    {!usesWarehouses && (myBranches.data?.items.length ?? 0) > 1 && hasPermission("warehouses:create") && <SetupBranchStock branches={myBranches.data!.items.length} />}
+
+    <NeedsAttention named={named} />
+
     {view === "all" && allRows.length > 1 && <BranchesTable rows={allRows} fmt={fmt} onOpen={(id) => router.push(`/inventory/products?branch=${id}`)} openLabel="View products" />}
-    {usesWarehouses && <TransfersCard rows={moving.slice(0, 5)} named={named} branchId={row?.branch_id ?? null} loading={transfers.isLoading} error={transfers.error}
+    {(usesWarehouses || moving.length > 0) && <TransfersCard rows={moving.slice(0, 5)} named={named} branchId={row?.branch_id ?? null} loading={transfers.isLoading} error={transfers.error}
       onRetry={() => void transfers.refetch()} canReceive={canMove} />}
   </div>;
+}
+
+/** A business with several branches but one stock figure: what switching on stock by branch does, and the switch. */
+function SetupBranchStock({ branches }: { branches: number }) {
+  const setup = useSetupWarehouses();
+  const { confirm, dialog } = useConfirmDialog();
+  const [problem, setProblem] = useState("");
+  return <section aria-labelledby="setup-title" className={`${CARD} flex flex-col gap-4 p-4 sm:flex-row sm:items-center`}>
+    {dialog}
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent"><WarehouseIcon size={20} aria-hidden /></span>
+    <div className="min-w-0 flex-1">
+      <h2 id="setup-title" className="pesaa-card-title">Keep stock per branch</h2>
+      <p className="mt-0.5 text-sm text-muted">Your {branches} branches share one stock figure today. With stock by branch, each branch has its own stock and sells only what it holds.</p>
+      {problem && <p role="alert" className="mt-1 text-sm text-red-600">{problem}</p>}
+    </div>
+    <Button className="shrink-0" loading={setup.isPending} onClick={() => confirm({
+      title: "Set up stock by branch?", confirmLabel: "Set up",
+      message: "Everything in stock now goes into your main branch's warehouse, and every other branch gets an empty warehouse of its own. Until you move stock to a branch with a transfer, that branch has nothing to sell. You can't switch this back off.",
+      onConfirm: async () => { setProblem(""); try { await setup.mutateAsync(undefined); } catch (e) { setProblem((e as { detail?: string })?.detail ?? "Stock by branch could not be set up."); } },
+    })}>Set up stock by branch</Button>
+  </section>;
+}
+
+/** What needs doing first: up to five products out of stock and five running low (in the branch shown), each opening the
+ *  product, with links to the full filtered list on Products. */
+function NeedsAttention({ named }: { named: string | null }) {
+  const out = useProducts(1, 5, undefined, true, undefined, undefined, undefined, undefined, undefined, false, { stock: "out" });
+  const low = useProducts(1, 5, undefined, true, undefined, undefined, undefined, undefined, undefined, false, { stock: "low" });
+  const outN = out.data?.total ?? 0, lowN = low.data?.total ?? 0;
+  const loading = out.isLoading || low.isLoading;
+  const rows: [ApiProduct, "out" | "low"][] = [...(out.data?.items ?? []).map((p) => [p, "out"] as [ApiProduct, "out"]), ...(low.data?.items ?? []).map((p) => [p, "low"] as [ApiProduct, "low"])];
+  const qty = (p: ApiProduct) => (p.has_variants && p.variants?.length ? p.variants.reduce((n, v) => n + v.stock, 0) : p.stock);
+  return <section aria-labelledby="attention-title" className={CARD}>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+      <h2 id="attention-title" className="pesaa-card-title">Needs attention{named ? ` in ${named}` : ""}</h2>
+      <div className="flex flex-wrap gap-3 text-sm">
+        {outN > 0 && <Link href="/inventory/products?stock=out" className="font-medium text-accent hover:underline">All {outN} out of stock</Link>}
+        {lowN > 0 && <Link href="/inventory/products?stock=low" className="font-medium text-accent hover:underline">All {lowN} running low</Link>}
+      </div>
+    </div>
+    {loading || out.error || low.error || !rows.length ? <div className="p-4"><TableState loading={loading} error={out.error ?? low.error ?? undefined} onRetry={() => { void out.refetch(); void low.refetch(); }}
+      empty={!rows.length} title="Nothing needs attention" hint="No product is out of stock or below its reorder level." /></div> :
+      <ul className="divide-y divide-border">{rows.map(([p, st]) => <li key={`${st}:${p.id}`}>
+        <Link href={`/inventory/products/${p.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2 hover:bg-surface/60 focus-visible:outline-2 focus-visible:outline-accent">
+          <ProductAvatar name={p.name} imageUrl={p.image_url} size={32} className="shrink-0 rounded-lg" />
+          <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{p.name}</span><span className="block font-mono text-xs text-muted">{p.sku || "No SKU"}</span></span>
+          <span className="hidden text-xs text-muted sm:block">Reorder at {Number(p.min_stock ?? 0).toLocaleString()}</span>
+          <span className="inline-flex w-24 shrink-0 items-center justify-end gap-2"><StockPill status={st} /><span className="font-semibold tabular-nums">{qty(p).toLocaleString()}</span></span>
+          <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
+        </Link></li>)}</ul>}
+  </section>;
 }
 
 const TRANSFER_STATUS: Record<string, { label: string; cls: string }> = {
