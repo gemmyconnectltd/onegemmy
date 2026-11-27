@@ -592,12 +592,12 @@
     {
       "file": "frontend/src/app/(erp)/inventory/page.tsx",
       "route": "/inventory",
-      "tables": 1,
+      "tables": 0,
       "uncontainedTables": 0,
       "forms": 0,
       "redirect": false,
-      "explicitCards": true,
-      "sharedTable": true,
+      "explicitCards": false,
+      "sharedTable": false,
       "sharedOverlay": true,
       "toolbar": true
     },
