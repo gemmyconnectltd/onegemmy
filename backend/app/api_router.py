@@ -5,6 +5,7 @@ from app.core.deps import require_feature
 from app.modules.accounting.routes import accounting_router
 from app.modules.admin.analytics import router as admin_analytics_router
 from app.modules.admin.data_management.routes import router as admin_data_management_router
+from app.modules.admin.email_problems_routes import router as email_problems_router
 from app.modules.admin.features import router as admin_features_router
 from app.modules.admin.lifecycle import router as admin_lifecycle_router
 from app.modules.admin.routes import router as admin_router
@@ -44,6 +45,7 @@ api_router.include_router(approvals_router)
 api_router.include_router(billing_public_router)
 api_router.include_router(billing_tenant_router)
 api_router.include_router(billing_callback_router)
+api_router.include_router(email_problems_router)
 api_router.include_router(admin_router)
 api_router.include_router(admin_analytics_router)
 api_router.include_router(admin_usage_router)

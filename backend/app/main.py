@@ -73,9 +73,13 @@ def create_app() -> FastAPI:
 
         app.state.marketing_task = marketing_background.start()
 
+        from app.modules.admin import email_problems
+
+        app.state.email_problems_task = email_problems.start()
+
     @app.on_event("shutdown")
     async def on_shutdown():
-        for name in ("marketing_task",):
+        for name in ("marketing_task", "email_problems_task"):
             if t := getattr(app.state, name, None):
                 t.cancel()
         task = getattr(app.state, "support_task", None)

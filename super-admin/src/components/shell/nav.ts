@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Database, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Megaphone, Mail, Send, FileText, Workflow, LineChart, Newspaper, Gauge, MousePointerClick, Share2, LayoutGrid, Smartphone, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users } from "lucide-react";
+import { BarChart3, Database, Activity, Building2, CreditCard, Crown, Headset, Receipt, RefreshCw, TicketPercent, Wallet, Megaphone, Mail, Send, FileText, Workflow, LineChart, Newspaper, Gauge, MousePointerClick, Share2, LayoutGrid, Smartphone, Inbox, LayoutDashboard, Settings, Ticket, SlidersHorizontal, Users, MailWarning } from "lucide-react";
 
 export interface NavItem { name: string; href: string; icon: LucideIcon }
 export interface NavGroup { id: string; label: string; items: NavItem[] }
@@ -40,6 +40,8 @@ export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 export const SUPPORT_NAV = [
   { name: "Inbox", href: "/support", icon: Inbox },
   { name: "Tickets", href: "/support/tickets", icon: Ticket },
+  // Emails Pesaa sent that never arrived (wrong address, full mailbox…), to follow up with the person. Platform admins only.
+  { name: "Email problems", href: "/support/email-problems", icon: MailWarning },
   { name: "Team", href: "/support/team", icon: Users },
   { name: "Settings", href: "/support/settings", icon: SlidersHorizontal },
 ] as const;

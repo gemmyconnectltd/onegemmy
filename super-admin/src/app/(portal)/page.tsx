@@ -3,10 +3,10 @@ import { useState } from "react";
 import {
   Building2, Users, ShoppingCart, TrendingUp, Activity,
   XCircle, Package, ArrowUpRight, ArrowRight, Crown, UserPlus,
-  AlertTriangle, Server, Clock, Globe2, Factory, Megaphone,
+  AlertTriangle, Server, Clock, Globe2, Factory, Megaphone, MailWarning,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/PageLoader";
-import { useAdminStats, useTenants, useAdminTenantAnalytics } from "@/lib/api/hooks";
+import { useAdminStats, useTenants, useAdminTenantAnalytics, useEmailProblemSummary } from "@/lib/api/hooks";
 import { tenantStatusLabel } from "@/lib/api/admin";
 import { formatMoney } from "@/lib/money";
 import { chartPalette } from "@/lib/chartColors";
@@ -97,6 +97,7 @@ export default function AdminOverviewPage() {
   const { data: stats, isLoading, isError } = useAdminStats();
   const { data: analytics } = useAdminTenantAnalytics();
   const { data: tenantsData } = useTenants(1, 20);
+  const { data: emailProblems } = useEmailProblemSummary();
   const allTenants = tenantsData?.items ?? [];
 
   if (isLoading) return <PageLoader />;
@@ -165,6 +166,19 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* Pending signups + suspended warnings */}
+      {(emailProblems?.open ?? 0) > 0 && (() => {
+        const open = emailProblems?.open ?? 0;
+        const wrong = (emailProblems?.by_reason.no_such_address ?? 0) + (emailProblems?.by_reason.domain_not_found ?? 0);
+        return (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-700 dark:text-red-400 text-sm font-medium">
+            <MailWarning size={15} />
+            <span>{open} email{open > 1 ? "s" : ""} didn&apos;t reach {open > 1 ? "the people they were sent to" : "the person it was sent to"}{wrong ? ` (${wrong} to a wrong address)` : ""}.</span>
+            <Link href="/support/email-problems" className="ml-auto flex items-center gap-1 text-[12px] font-semibold hover:underline">
+              Follow up <ArrowRight size={12} />
+            </Link>
+          </div>
+        );
+      })()}
       {(pendingCount ?? 0) > 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-accent/10 border border-accent/20 rounded-xl text-accent text-sm font-medium">
           <UserPlus size={15} />

@@ -2,8 +2,8 @@
 // these hooks (no hand-rolled useEffect + fetch), keyed per resource so mutations invalidate only what they touch.
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData, type UseMutationOptions } from "@tanstack/react-query";
-import { adminApi, currencyApi, aiApi, dmApi } from "@/lib/api";
-import type { DmBusinessQuery, DmFilters, DmHistoryFilters, DmOperation, DmRequestQuery, DmSelection } from "@/lib/api";
+import { adminApi, currencyApi, aiApi, dmApi, emailProblemsApi } from "@/lib/api";
+import type { DmBusinessQuery, DmFilters, DmHistoryFilters, DmOperation, DmRequestQuery, DmSelection, EmailProblemFilters } from "@/lib/api";
 import type {
   AdminUserFilters, EngagementCategory, EngagementQuery, TenantRecordFilters, TenantRecordSection, UsagePeriod,
 } from "@/lib/api";
@@ -377,3 +377,20 @@ export const useDmSaveSettings = mutation((v: boolean) => dmApi.saveSettings(v),
 export const useDmCancel = mutation((id: string) => dmApi.cancel(id), [[...DM]]);
 export const useDmSaveFilter = mutation((v: { module: string; name: string; tenant_id?: string; filters: DmFilters }) => dmApi.saveFilter(v), [[...DM, "saved"]]);
 export const useDmDeleteFilter = mutation((id: string) => dmApi.deleteFilter(id), [[...DM, "saved"]]);
+
+// ── Email problems (emails that were refused or bounced) ─────────────────────
+
+const EMAIL_PROBLEMS = ["admin", "email-problems"] as const;
+
+export const useEmailProblems = (page: number, pageSize: number, filters: EmailProblemFilters, opts?: QueryOpts) =>
+  useQ([...EMAIL_PROBLEMS, "list", page, pageSize, filters], () => emailProblemsApi.list(page, pageSize, filters), (r) => r.data, opts);
+export const useEmailProblemSummary = (opts?: QueryOpts) =>
+  useQ([...EMAIL_PROBLEMS, "summary"], () => emailProblemsApi.summary(), (r) => r.data, { refetchInterval: 120_000, ...opts });
+export const useCheckEmailProblems = mutation(() => emailProblemsApi.check(), [[...EMAIL_PROBLEMS]]);
+export const useResolveEmailProblem = mutation(({ id, note }: { id: string; note: string }) => emailProblemsApi.resolve(id, note), [[...EMAIL_PROBLEMS]]);
+export const useReopenEmailProblem = mutation(({ id }: { id: string }) => emailProblemsApi.reopen(id), [[...EMAIL_PROBLEMS]]);
+export const useResendEmailProblem = mutation(({ id }: { id: string }) => emailProblemsApi.resend(id), [[...EMAIL_PROBLEMS]]);
+export const useCorrectEmailProblem = mutation(
+  ({ id, body }: { id: string; body: Parameters<typeof emailProblemsApi.correctEmail>[1] }) => emailProblemsApi.correctEmail(id, body),
+  [[...EMAIL_PROBLEMS], [...TENANTS], ["admin", "users"]],
+);

@@ -7,3 +7,4 @@ export * from "./currency";
 export * from "./support";
 export * from "./marketing";
 export * from "./dataManagement";
+export * from "./emailProblems";

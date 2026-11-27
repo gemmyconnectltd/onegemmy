@@ -115,6 +115,14 @@ class Settings(BaseSettings):
     SUPPORT_IMAP_PASSWORD: str = ""
     SUPPORT_IMAP_FOLDER: str = "INBOX"
     SUPPORT_IMAP_SYNC_ENABLED: bool = False
+    # Bounce notices ("Mail Delivery Subsystem: Address not found") are read from the mailboxes Pesaa sends from, over IMAP,
+    # read-only, and listed for platform admins under Email problems. The host defaults to SMTP_HOST with smtp. → imap.
+    # (smtp.gmail.com → imap.gmail.com); the SMTP user and password sign in, so a Gmail App Password covers both.
+    EMAIL_BOUNCE_SYNC: bool = True
+    EMAIL_BOUNCE_IMAP_HOST: str = ""
+    EMAIL_BOUNCE_IMAP_PORT: int = 993
+    EMAIL_BOUNCE_LOOKBACK_DAYS: int = 14
+    EMAIL_BOUNCE_INTERVAL_SECONDS: int = 300
     GRAPH_TENANT_ID: str = ""
     GRAPH_CLIENT_ID: str = ""
     GRAPH_CLIENT_SECRET: str = ""

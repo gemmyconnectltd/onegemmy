@@ -91,3 +91,14 @@ async def db(db_conn):
         yield session
     finally:
         await session.close()
+
+
+@pytest.fixture(autouse=True)
+def _no_email_problem_rows(monkeypatch):
+    """A test that makes sending fail must not write to the real email_problems table (that path opens its own session)."""
+    from app.modules.admin import email_problems
+
+    async def skip(**_kw):
+        return None
+
+    monkeypatch.setattr(email_problems, "record_send_failure", skip)

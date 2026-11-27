@@ -17,10 +17,13 @@ log = get_logger("email")
 class EmailDeliveryError(Exception):
     """Safe transport outcome; an uncertain SMTP DATA result must not be auto-retried."""
 
-    def __init__(self, *, retryable: bool = False, uncertain: bool = False, rejected: bool = False):
+    def __init__(self, *, retryable: bool = False, uncertain: bool = False, rejected: bool = False,
+                 smtp_code: int | None = None, detail: str | None = None):
         self.retryable = retryable
         self.uncertain = uncertain
         self.rejected = rejected  # the server permanently refused the recipient (5xx) — a hard bounce
+        self.smtp_code = smtp_code  # the mail server's reply code and words, kept for the admin "Email problems" list
+        self.detail = detail
         super().__init__("SMTP acceptance is uncertain; check Sent Items before retrying." if uncertain
                          else "The mail server did not accept the message.")
 
@@ -162,7 +165,7 @@ async def send_email_message(
     sender: str = "accounts", headers: dict[str, str] | None = None,
     attachments: list[tuple[str, str, bytes]] | None = None,
     *, message_id: str | None = None, from_header: str | None = None,
-    raise_errors: bool = False,
+    raise_errors: bool = False, kind: str | None = None,
 ) -> str | None:
     """Send an email via SMTP and return its Message-ID (None when it could not be sent) — the id is what lets a
     customer's reply be threaded back onto the conversation. `headers` adds extra headers (In-Reply-To,
@@ -217,10 +220,13 @@ async def send_email_message(
                     raise smtplib.SMTPRecipientsRefused(refused)
         except smtplib.SMTPRecipientsRefused as error:
             codes = [value[0] for value in error.recipients.values()]
+            first = next(iter(error.recipients.values()), (None, b""))
             raise EmailDeliveryError(retryable=bool(codes) and all(400 <= code < 500 for code in codes),
-                                     rejected=bool(codes) and all(500 <= code < 600 for code in codes)) from None
+                                     rejected=bool(codes) and all(500 <= code < 600 for code in codes),
+                                     smtp_code=first[0], detail=_server_words(first[1])) from None
         except smtplib.SMTPResponseException as error:
-            raise EmailDeliveryError(retryable=400 <= error.smtp_code < 500) from None
+            raise EmailDeliveryError(retryable=400 <= error.smtp_code < 500, smtp_code=error.smtp_code,
+                                     detail=_server_words(error.smtp_error)) from None
         except (OSError, smtplib.SMTPServerDisconnected):
             raise EmailDeliveryError(retryable=not data_started, uncertain=data_started) from None
         except smtplib.SMTPException:
@@ -233,6 +239,8 @@ async def send_email_message(
         return message_id
     except Exception as error:
         log.warning("email.send_error", extra={"_extra_fields": {"sender": sender}})
+        if not raise_errors and sender != "marketing":  # marketing and callers that handle errors keep their own records
+            await _note_problem(to, subject, kind, error)
         if raise_errors:
             if isinstance(error, EmailDeliveryError):
                 raise
@@ -240,9 +248,24 @@ async def send_email_message(
         return None
 
 
+async def _note_problem(to: str, subject: str, kind: str | None, error: Exception) -> None:
+    """Puts a mail that could not be sent on the admin "Email problems" list. Never raises: email must not break a request."""
+    try:
+        from app.modules.admin import email_problems
+
+        await email_problems.record_send_failure(to=to, subject=subject, kind=kind, error=error)
+    except Exception:  # noqa: BLE001 - recording a failure must never fail the caller
+        log.warning("email.problem_not_recorded")
+
+
+def _server_words(raw: bytes | str | None) -> str | None:
+    text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
+    return re.sub(r"\s+", " ", text).strip()[:500] if text else None
+
+
 async def send_email(
     to: str, subject: str, html_body: str, text_body: str | None = None, reply_to: str | None = None,
-    sender: str = "accounts",
+    sender: str = "accounts", kind: str | None = None,
 ) -> bool:
     """Send an email via SMTP, from the mailbox configured for `sender`:
     "accounts" (default) for account-lifecycle mail (welcome, verification,
@@ -250,7 +273,7 @@ async def send_email(
     mail, or "support" for customer-support replies — see
     _resolve_smtp_credentials. Fails soft — email must never break a
     request. Never logs the password, only to/subject/sender."""
-    return await send_email_message(to, subject, html_body, text_body, reply_to, sender) is not None
+    return await send_email_message(to, subject, html_body, text_body, reply_to, sender, kind=kind) is not None
 
 
 def _welcome_body(full_name: str, tenant_name: str, tenant_slug: str, dashboard_url: str) -> str:
@@ -283,7 +306,7 @@ async def send_welcome_email(
     subject = "Welcome to Pesaa — your account is ready"
     body = _welcome_body(full_name, tenant_name, tenant_slug, dashboard_url or f"{settings.FRONTEND_URL}/login")
     preheader = f"{tenant_name} is set up on Pesaa. Open your dashboard to get started."
-    return await send_email(to, subject, _branded_html("Welcome to Pesaa 🎉", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html("Welcome to Pesaa 🎉", body, preheader), text_body=None, sender=sender, kind="welcome")
 
 
 def _registration_received_body(full_name: str, tenant_name: str) -> str:
@@ -301,7 +324,7 @@ async def send_registration_received_email(to: str, full_name: str, tenant_name:
     subject = "We've received your Pesaa registration"
     body = _registration_received_body(full_name, tenant_name)
     preheader = f"{tenant_name} is pending a quick review before you can sign in."
-    return await send_email(to, subject, _branded_html("Registration received", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html("Registration received", body, preheader), text_body=None, sender=sender, kind="registration_received")
 
 
 def _reset_body(full_name: str, reset_link: str) -> str:
@@ -327,12 +350,12 @@ async def send_password_reset_email(
     subject = "Reset your Pesaa password"
     body = _reset_body(full_name, reset_link)
     preheader = "This password reset link expires in 30 minutes."
-    return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html("Reset your password", body, preheader), text_body=None, sender=sender, kind="password_reset")
 
 
 async def send_notice_email(to: str, subject: str, title: str, body_html: str, preheader: str = "", sender: str = "admin") -> bool:
     """A branded one-off notice (suspension, platform announcement). `body_html` must already be escaped."""
-    return await send_email(to, subject, _branded_html(title, body_html, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html(title, body_html, preheader), text_body=None, sender=sender, kind="notice")
 
 
 def _pending_signup_body(
@@ -376,7 +399,7 @@ async def send_pending_signup_email(
     subject = f"New signup pending approval: {tenant_name}"
     body = _pending_signup_body(tenant_name, tenant_slug, review_url, owner_name, owner_email, phone, preferred_contact)
     preheader = f"{tenant_name} is waiting for approval."
-    return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html("New signup pending approval", body, preheader), text_body=None, sender=sender, kind="pending_signup")
 
 
 def _account_approved_body(full_name: str, tenant_name: str, login_email: str, dashboard_url: str) -> str:
@@ -398,7 +421,7 @@ async def send_account_approved_email(to: str, full_name: str, tenant_name: str,
     subject = "Your Pesaa account is approved"
     body = _account_approved_body(full_name, tenant_name, to, dashboard_url)
     preheader = f"{tenant_name} is approved and ready on Pesaa."
-    return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html("You're approved!", body, preheader), text_body=None, sender=sender, kind="account_approved")
 
 
 def _invite_body(full_name: str, tenant_name: str, temp_password: str, login_url: str) -> str:
@@ -432,7 +455,7 @@ async def send_invite_email(
     subject = f"You've been invited to {tenant_name} on Pesaa"
     body = _invite_body(full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login")
     preheader = f"Join {tenant_name} on Pesaa — your temporary password is inside."
-    return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html(f"You're invited to {tenant_name} 🎉", body, preheader), text_body=None, sender=sender, kind="invite")
 
 
 def _temp_password_body(
@@ -475,7 +498,7 @@ async def send_temp_password_email(
         full_name, tenant_name, temp_password, login_url or f"{settings.FRONTEND_URL}/login", reset_by
     )
     preheader = f"Use this temporary password to sign in to {tenant_name}."
-    return await send_email(to, subject, _branded_html("Your password was reset", body, preheader), text_body=None, sender=sender)
+    return await send_email(to, subject, _branded_html("Your password was reset", body, preheader), text_body=None, sender=sender, kind="temp_password")
 
 
 def _contact_field_row(label: str, value: str) -> str:
