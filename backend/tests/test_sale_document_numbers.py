@@ -99,3 +99,16 @@ async def test_a_pos_sale_is_an_order_on_the_invoice_counter(db):
         items=[OrderItemCreate(product_id=p.id, product_name=p.name, unit_price=1000, quantity=1)]))
     after = await sell(db, t, u, p, c, 1000, paid=1000)
     assert (invoice.order_number, till.order_number, after.order_number) == ("INV-0001", "ORD-0002", "INV-0003")
+
+
+def test_status_stamp_colours():
+    from reportlab.lib import colors
+
+    from app.modules.sales.service.invoice_pdf import STAMP_AMBER, STAMP_RED, _stamp_color
+
+    ink = colors.HexColor("#111111")
+    stamp = lambda **kw: _stamp_color(N(**{"status": "Completed", "payment_status": "Paid", **kw}), ink)
+    assert stamp() == ink                                   # paid stays black
+    assert stamp(payment_status="Unpaid") == STAMP_RED
+    assert stamp(payment_status="PartiallyPaid") == STAMP_AMBER
+    assert stamp(status="Cancelled") == STAMP_RED           # void

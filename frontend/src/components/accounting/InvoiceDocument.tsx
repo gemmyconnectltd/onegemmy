@@ -55,7 +55,7 @@ export function PaymentStatusBadge({ paymentStatus, isOverdue }: { paymentStatus
 }
 
 // ── The A4 invoice ("D4" layout): the same document as the server PDF (sales/service/invoice_pdf.py), so print, download and
-// share all match. Issued by the business: its logo, name and details, printed in black only, closing like the receipt.
+// share all match. Issued by the business: its logo, name and details, printed in black (only the status stamp is coloured), closing like the receipt.
 // Empty fields leave no line.
 
 const TREATMENT: Record<string, string> = { standard: "Standard", zero_rated: "Zero-rated", exempt: "Exempt", out_of_scope: "Out of scope" };
@@ -79,7 +79,10 @@ function contactLines(t?: Tenant): string[] {
 }
 
 /** One status: void, not yet a sale, or how far it is paid (plus Overdue). */
-function statusPills(o: ApiOrder): { label: string; tone: "success" | "warning" | "error" | "neutral" }[] {  // tone kept for meaning; the invoice shows every pill in black
+// The status stamp: Paid in black, Partially paid in the warning amber, Unpaid / Overdue / Void in the error red (design tokens).
+const STAMP = { success: "bg-foreground text-card", neutral: "bg-foreground text-card", warning: "bg-[var(--warning)] text-white", error: "bg-[var(--error)] text-white" } as const;
+
+function statusPills(o: ApiOrder): { label: string; tone: "success" | "warning" | "error" | "neutral" }[] {
   if (o.status === "Cancelled") return [{ label: "Void", tone: "error" }];
   if (o.status !== "Completed") return [{ label: o.status, tone: "neutral" }];
   const paid = o.payment_status === "Paid" ? { label: "Paid", tone: "success" as const } : o.payment_status === "PartiallyPaid" ? { label: "Partially paid", tone: "warning" as const } : { label: "Unpaid", tone: "error" as const };
@@ -164,7 +167,7 @@ export function InvoiceDocument({ order, tenant, onReversePayment }: {
             <p className="text-3xl font-light uppercase tracking-[0.18em] text-foreground">{doc.title}</p>
             <p className="mt-1 text-sm"><span className="text-xs text-muted">{doc.title} no.</span>{" "}<span className="font-mono font-semibold text-foreground">{order.order_number}</span></p>
             <div className="mt-2 flex flex-wrap gap-1.5 sm:justify-end">
-              {statusPills(order).map((p) => <span key={p.label} className="pesaa-badge bg-foreground uppercase text-card">{p.label}</span>)}
+              {statusPills(order).map((p) => <span key={p.label} className={`pesaa-badge uppercase ${STAMP[p.tone]}`}>{p.label}</span>)}
             </div>
           </div>
         </header>

@@ -125,7 +125,7 @@ def _styles(accent: colors.Color) -> dict:
     }
 
 
-INVOICE_INK = "#111111"  # the invoice is printed in black only (no brand or status colours)
+INVOICE_INK = "#111111"  # the invoice is printed in black; only the status stamp is coloured (see _stamp_color)
 
 
 def _logo_flowable(tenant: Tenant):
@@ -163,6 +163,20 @@ def _status(order: OrderRead) -> tuple[str, colors.Color]:
     if order.status != "Completed":
         return order.status, MUTED
     return PAYMENT_STATUS_LABELS.get(order.payment_status, order.payment_status), PAYMENT_STATUS_COLORS.get(order.payment_status, MUTED)
+
+
+# The status stamp is the one coloured mark on the invoice: Paid in black, Partially paid amber, Unpaid / Overdue / Void red
+# (the design system's warning and error colours).
+STAMP_RED = colors.HexColor("#B91C1C")
+STAMP_AMBER = colors.HexColor("#B45309")
+
+
+def _stamp_color(order: OrderRead, ink: colors.Color) -> colors.Color:
+    if order.status == "Cancelled":
+        return STAMP_RED
+    if order.status != "Completed":
+        return ink
+    return {"Unpaid": STAMP_RED, "PartiallyPaid": STAMP_AMBER}.get(order.payment_status, ink)
 
 
 def _tax_label(item) -> str:
@@ -447,7 +461,7 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str | None = None, due_l
     from app.core.brand_pdf import business_name
     from app.modules.sales.service.document_words import sale_document
 
-    accent = colors.HexColor(INVOICE_INK)  # black only: the invoice uses no brand or status colours
+    accent = colors.HexColor(INVOICE_INK)  # black; the status stamp alone takes a colour
     # The title follows the number: INV-/ORD- is an INVOICE, SO- (saved before it was completed) a SALES ORDER.
     title, date_label = sale_document(order.order_number)
     label = label or title
@@ -463,9 +477,9 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str | None = None, due_l
 
     # ── Header (the sale's order number is the invoice number) with one status, plus Overdue
     status_text, _status_color = _status(order)
-    chips = [(status_text.upper(), accent)]
+    chips = [(status_text.upper(), _stamp_color(order, accent))]
     if order.status == "Completed" and getattr(order, "is_overdue", False):
-        chips.append(("OVERDUE", accent))
+        chips.append(("OVERDUE", STAMP_RED))
     flow: list = _doc_header(tenant, s, label, order.order_number, chips)
 
     # ── Bill to and the invoice facts
