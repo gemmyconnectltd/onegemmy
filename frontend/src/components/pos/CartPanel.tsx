@@ -131,10 +131,10 @@ export function CartPanel({
       {/* Header: compact, one row */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
         <ShoppingCart size={15} className="text-accent" aria-hidden />
-        <span className="text-[14px] font-bold text-foreground">Cart</span>
+        <span className="text-[14px] font-bold text-foreground">Current sale</span>
         {totalItems > 0 && <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-bold tabular-nums text-white">{totalItems}</span>}
         <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={onHold} disabled={cart.length === 0} title="Park this sale and serve someone else" className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"><Pause size={12} aria-hidden /> Hold</button>
+          <button type="button" onClick={onHold} disabled={cart.length === 0} aria-keyshortcuts="F8" title="Park this sale and serve someone else (F8)" className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"><Pause size={12} aria-hidden /> Hold<kbd className="hidden rounded border border-border px-1 font-mono text-[10px] font-normal xl:inline">F8</kbd></button>
           {onQuote && <button type="button" onClick={onQuote} disabled={cart.length === 0 || quoting} title="Save these products as a quotation to share with the customer" className="flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-surface hover:text-foreground disabled:opacity-40"><FileText size={12} aria-hidden /> {quoting ? "Saving…" : "Quote"}</button>}
           <button type="button" onClick={onClear} disabled={cart.length === 0} className="rounded-md px-2 py-1 text-[12px] font-semibold text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:opacity-40">Clear</button>
         </div>
@@ -144,13 +144,14 @@ export function CartPanel({
       <div className="shrink-0 space-y-2 border-b border-border px-3 py-2.5">
         <div ref={custRef} className="relative">
           <div className="flex items-stretch gap-2">
-            <button type="button" aria-haspopup="listbox" aria-expanded={custOpen} onClick={() => { setAdding(false); setCustOpen((v) => !v); }}
+            <button id="pos-customer" type="button" aria-haspopup="listbox" aria-expanded={custOpen} aria-keyshortcuts="F4" onClick={() => { setAdding(false); setCustOpen((v) => !v); }}
               className="flex h-10 lg:h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border bg-surface px-3 text-left transition-colors hover:border-accent/60 focus-visible:outline-2 focus-visible:outline-accent">
               <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${customerName ? "bg-accent/15 text-accent" : "bg-card text-muted"}`}><UserRound size={14} aria-hidden /></span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[10px] font-semibold uppercase leading-none tracking-wider text-muted">Customer</span>
                 <span className={`mt-0.5 block truncate text-[13px] font-semibold leading-tight ${customerName ? "text-foreground" : "text-foreground/80"}`}>{customerName || "Walk-in customer"}{owes > 0 && <span className="ml-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">Owes {currencySymbol} {fmt(owes)}</span>}</span>
               </span>
+              <kbd className="hidden shrink-0 rounded border border-border px-1 font-mono text-[10px] text-muted xl:inline">F4</kbd>
               <ChevronDown size={14} className="shrink-0 text-muted" aria-hidden />
             </button>
             {can("contacts", "create") && <button type="button" onClick={() => { setEditingId(null); setNewCust({ type: "individual", name: "", phone: "", email: "", address: "", tin: "" }); setCustError(null); setAdding(true); setCustOpen(false); }} className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-accent"><Plus size={15} aria-hidden />New</button>}

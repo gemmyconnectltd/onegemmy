@@ -341,8 +341,8 @@ export function PaymentPanel({
       {saleError && (
         <div className="flex items-start gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-2 text-[11px] font-medium text-red-600"><AlertCircle size={12} className="mt-0.5 flex-shrink-0" /><span>{saleError}</span></div>
       )}
-      <Button disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving || pricingPending} aria-describedby={blocked && why ? "pos-charge-why" : undefined}>
-        {saving ? "Saving sale…" : pricingPending ? "Checking price…" : approvalPending ? "Approval required" : <>{label}{cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(amountShown)}</span>}</>}
+      <Button id="pos-charge" aria-keyshortcuts="F9" disabled={blocked} onClick={submit} className="min-h-10 lg:min-h-12 w-full gap-2 rounded-xl text-[14px] lg:text-[15px] font-bold" aria-busy={saving || pricingPending} aria-describedby={blocked && why ? "pos-charge-why" : undefined}>
+        {saving ? "Saving sale…" : pricingPending ? "Checking price…" : approvalPending ? "Approval required" : <>{label}{cartCount > 0 && <span className="font-mono tabular-nums">{currencySymbol} {fmt(amountShown)}</span>}<kbd className="ml-1 hidden rounded border border-white/40 px-1 font-mono text-[10px] font-normal text-white/80 xl:inline">F9</kbd></>}
       </Button>
       {blocked && why && (
         <p id="pos-charge-why" role="status" className="flex items-start gap-1.5 text-[11.5px] font-medium text-amber-700 dark:text-amber-400">

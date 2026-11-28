@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useWideScreen } from "@/components/ui/ListFilters";
 import { useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, X } from "lucide-react";
 
@@ -145,18 +146,31 @@ export default function POSPage() {
   const queryClient = useQueryClient();
   const [review, setReview] = useState<Checkout | null>(null);
 
-  // ── keyboard shortcut: / → focus search ─────────────────────────────────
+  // ── keyboard shortcuts: / or F2 search · F4 customer · F8 hold · F9 complete the sale ─────────────────
+  // F4 and F9 press the real buttons, so a disabled Complete button (missing customer, pricing pending…) stays disabled.
+  const holdRef = useRef<() => void>(() => {});
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+      if ((e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") || e.key === "F2") {
         e.preventDefault();
         searchRef.current?.focus();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        document.getElementById("pos-customer")?.click();
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        holdRef.current();
+      } else if (e.key === "F9") {
+        e.preventDefault();
+        document.getElementById("pos-charge")?.click();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+  // Desktop (≥1280px): the current sale and the payment each get a full-height column; smaller screens stack them.
+  const wide = useWideScreen();
 
   // ── filtered products ────────────────────────────────────────────────────
   const filtered = useMemo(
@@ -480,10 +494,8 @@ export default function POSPage() {
     setPayment("cash");
   };
 
-  const checkoutPanel = (
-    <fieldset disabled={saving} className="flex h-full min-h-0 min-w-0 flex-1 flex-col [min-inline-size:0]">
-          {/* Cart items: take all the space the header and the checkout footer leave, never less than a usable floor, scrolling on their own */}
-          <div className="min-h-[11rem] flex-1 overflow-hidden">
+  useEffect(() => { holdRef.current = holdSale; });  // F8 always holds the sale as it is now
+  const cartPanel = (
             <CartPanel
               cart={cart.map(item => {
                 const product = products.find(product => product.id === item.product_id);
@@ -514,9 +526,8 @@ export default function POSPage() {
               showCashReceived={payment === "cash"}
               onUpdateCashReceived={updateItemCashReceived}
             />
-          </div>
-          {/* Checkout footer: natural height; on a short screen it scrolls itself instead of crushing the cart */}
-          <div className="max-h-[58%] shrink-0 overflow-y-auto overscroll-contain border-t border-border bg-card p-3 shadow-[0_-6px_12px_-8px_rgba(0,0,0,0.12)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+  );
+  const paymentPanel = (<>
               {discountSettings.data && <PosDiscounts settings={discountSettings.data} canApply={hasPermission("discounts:apply")} cart={cart} pricing={livePricing}
                 error={discountPricing.error?.message} coupon={pricingInput.coupon_codes[0] ?? ""} onCoupon={code => { setCouponCode(code); setApprovalId(undefined); setCashGiven(""); }}
                 onManual={(request: ManualRequest) => {
@@ -563,7 +574,14 @@ export default function POSPage() {
                 vatMode={vatMode}
                 vatBreakdown={vatLines?.breakdown}
               />
-          </div>
+  </>);
+  // Narrow screens and the cart drawer: the cart on top, the checkout under it.
+  const checkoutPanel = (
+    <fieldset disabled={saving} className="flex h-full min-h-0 min-w-0 flex-1 flex-col [min-inline-size:0]">
+          {/* Cart items: take all the space the header and the checkout footer leave, never less than a usable floor, scrolling on their own */}
+          <div className="min-h-[11rem] flex-1 overflow-hidden">{cartPanel}</div>
+          {/* Checkout footer: natural height; on a short screen it scrolls itself instead of crushing the cart */}
+          <div className="max-h-[58%] shrink-0 overflow-y-auto overscroll-contain border-t border-border bg-card p-3 shadow-[0_-6px_12px_-8px_rgba(0,0,0,0.12)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">{paymentPanel}</div>
     </fieldset>
   );
 
@@ -646,6 +664,7 @@ export default function POSPage() {
                 placeholder="Search products or scan a barcode"
                 className="min-w-0 flex-1 text-[13px] outline-none bg-transparent text-foreground placeholder:text-muted"
               />
+              <kbd className="hidden shrink-0 rounded border border-border px-1.5 font-mono text-[10px] text-muted xl:inline">F2</kbd>
               {search && (
                 <button onClick={() => setSearch("")} className="text-muted hover:text-foreground transition-colors">
                   <X size={13} />
@@ -687,7 +706,7 @@ export default function POSPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
                 {filtered.map((p) => {
                   const inCartQty = cart.filter(item => (item.product_id ?? item.id) === p.id).reduce((sum, item) => sum + item.qty, 0);
                   return (
@@ -712,7 +731,14 @@ export default function POSPage() {
           </div>
         </div>
 
-        {!cartOpen && <aside className="hidden min-w-0 w-[clamp(320px,27vw,400px)] shrink-0 flex-col overflow-hidden border-l border-border bg-card lg:flex">{checkoutPanel}</aside>}
+        {!cartOpen && (wide
+          ? <fieldset disabled={saving} className="flex min-h-0 min-w-0 shrink-0 [min-inline-size:0]">
+              {/* Current sale: its own full-height column */}
+              <section aria-label="Current sale" className="flex w-[clamp(300px,24vw,380px)] min-w-0 flex-col overflow-hidden border-l border-border bg-card">{cartPanel}</section>
+              {/* Payment: its own column; Complete sale stays pinned at the bottom */}
+              <section aria-label="Payment" className="flex w-[clamp(320px,24vw,380px)] min-w-0 flex-col overflow-y-auto overscroll-contain border-l border-border bg-card p-3">{paymentPanel}</section>
+            </fieldset>
+          : <aside className="hidden min-w-0 w-[clamp(320px,27vw,400px)] shrink-0 flex-col overflow-hidden border-l border-border bg-card lg:flex">{checkoutPanel}</aside>)}
 
       </div>
       {/* Phone: who the sale is for and when it happened stay in view here; tap to change them in the cart. */}
