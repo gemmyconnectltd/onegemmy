@@ -6,6 +6,7 @@ import { resolveUploadUrl } from "@/lib/api/client";
 import { formatMoney } from "@/lib/money";
 import { customerNote } from "@/lib/orders";
 import type { ApiOrder, Tenant } from "@/lib/api";
+import { saleDocument } from "@/lib/documentWords";
 
 // The backend's Order.status is stored Title Case ("Pending"/"Completed"/
 // "Cancelled") — these keys must match exactly, not just read as labels.
@@ -130,9 +131,13 @@ export function InvoiceDocument({ order, tenant, onReversePayment }: {
   const terms = (tenant?.quotation_terms ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
   const showPayment = order.payments.length > 0 || owing || terms.length > 0;
   const note = customerNote(order.notes);
+  // The title follows the number: INV-/ORD- is an INVOICE, SO- (saved before it was completed) a SALES ORDER.
+  const doc = saleDocument(order.order_number);
   const meta = [
-    ["Issue date", day(order.ordered_at)],
+    [doc.dateLabel, day(order.ordered_at)],
     ["Due date", owing && order.due_date ? day(order.due_date) : ""],
+    ["Order ref.", order.sales_order_number ?? ""],
+    ["Quotation ref.", order.quotation_number ?? ""],
     ["Currency", currency],
     ["Payment", method(order.payment_method)],
     ["Served by", order.salesperson_name ?? ""],
@@ -156,8 +161,8 @@ export function InvoiceDocument({ order, tenant, onReversePayment }: {
             <div className="mt-1 space-y-0.5 text-xs text-muted">{contactLines(tenant).map((l) => <p key={l}>{l}</p>)}</div>
           </div>
           <div className="sm:text-right">
-            <p className="text-3xl font-light uppercase tracking-[0.18em] text-foreground">Invoice</p>
-            <p className="mt-1 text-sm"><span className="text-xs text-muted">Invoice no.</span>{" "}<span className="font-mono font-semibold text-foreground">{order.order_number}</span></p>
+            <p className="text-3xl font-light uppercase tracking-[0.18em] text-foreground">{doc.title}</p>
+            <p className="mt-1 text-sm"><span className="text-xs text-muted">{doc.title} no.</span>{" "}<span className="font-mono font-semibold text-foreground">{order.order_number}</span></p>
             <div className="mt-2 flex flex-wrap gap-1.5 sm:justify-end">
               {statusPills(order).map((p) => <span key={p.label} className="pesaa-badge bg-foreground uppercase text-card">{p.label}</span>)}
             </div>

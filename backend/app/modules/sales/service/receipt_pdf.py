@@ -29,7 +29,6 @@ from app.core.brand_pdf import (
     logo_flowable,
 )
 from app.core.currency import format_money
-from app.core.filenames import document_filename
 
 PAPERS = {"80mm": 80 * mm, "58mm": 58 * mm, "A4": A4[0]}
 A4_COLUMN = 120 * mm  # on A4 the receipt keeps a readable column, centred, instead of stretching across the sheet
@@ -83,7 +82,9 @@ def build_receipt(order, tenant, paper: str = "80mm", cashier: str | None = None
             flow += [logo, Spacer(1, 1.5 * mm)]
     flow.append(Paragraph(escape(business_name(tenant)), st["biz"]))
     flow += [Paragraph(escape(line), st["center"]) for line in business_contact_lines(tenant)]
-    flow += [Spacer(1, 2 * mm), Paragraph("RECEIPT", st["title"]), Spacer(1, 1.5 * mm)]
+    from app.modules.sales.service.document_words import receipt_for
+
+    flow += [Spacer(1, 2 * mm), Paragraph("RECEIPT", st["title"]), Paragraph(escape(receipt_for(order.order_number)), st["center"]), Spacer(1, 1.5 * mm)]
 
     when = ""
     if order.ordered_at:
@@ -93,7 +94,7 @@ def build_receipt(order, tenant, paper: str = "80mm", cashier: str | None = None
             zone = ZoneInfo("UTC")
         at = order.ordered_at if order.ordered_at.tzinfo else order.ordered_at.replace(tzinfo=UTC)
         when = at.astimezone(zone).strftime("%d %b %Y, %H:%M")  # the business's local time, as on the till
-    meta = [("Receipt", order.order_number), ("Date", when)]
+    meta = [("Date", when)]
     if cashier:
         meta.append(("Served by", cashier))
     if order.customer:
@@ -171,4 +172,6 @@ async def generate_order_receipt_pdf(db: AsyncSession, tenant_id: uuid.UUID, ord
         cashier = user.full_name if user and user.tenant_id == tenant_id else None
     # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
     pdf = await asyncio.to_thread(build_receipt, order, tenant, paper, cashier)
-    return document_filename(tenant.name if tenant else None, "Receipt", "pdf", reference=order.order_number), pdf
+    from app.modules.sales.service.document_words import file_name
+
+    return file_name("Receipt", order.order_number), pdf

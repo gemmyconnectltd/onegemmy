@@ -15,6 +15,7 @@ import { ShareInvoice } from "@/components/sales/ShareInvoice";
 import { Drawer } from "@/components/ui/Drawer";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { InvoiceDocument } from "@/components/accounting/InvoiceDocument";
+import { saleDocument } from "@/lib/documentWords";
 import { ReceiptDocument } from "@/components/pos/ReceiptDocument";
 
 export type SaleLayout = "invoice" | "receipt";
@@ -62,12 +63,12 @@ export function SaleDocumentDrawer({ order, onClose, initialLayout = "invoice", 
   const invoiceDocument = (interactive: boolean) => <InvoiceDocument order={order} tenant={tenant} brandColor={brandColor} fmt={fmt} onReversePayment={interactive ? onReversePayment : undefined} />;
 
   return <>
-    <Drawer open onClose={onClose} title={layout === "invoice" ? "Invoice" : "Receipt"} description={order.order_number} side={layout === "invoice" ? "center" : "right"} size={layout === "invoice" ? "document" : "lg"}
+    <Drawer open onClose={onClose} title={layout === "invoice" ? saleDocument(order.order_number).title : "Receipt"} description={order.order_number} side={layout === "invoice" ? "center" : "right"} size={layout === "invoice" ? "document" : "lg"}
       footer={<div className="space-y-2">
         {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <div role="group" aria-label="Document layout" className="flex rounded-lg border border-border p-0.5 text-xs font-semibold">
-            {(["invoice", "receipt"] as const).map(value => <button key={value} type="button" aria-pressed={layout === value} onClick={() => setLayout(value)} className={`rounded-md px-3 py-1.5 ${layout === value ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{value === "invoice" ? "Invoice (A4)" : "Receipt"}</button>)}
+            {(["invoice", "receipt"] as const).map(value => <button key={value} type="button" aria-pressed={layout === value} onClick={() => setLayout(value)} className={`rounded-md px-3 py-1.5 ${layout === value ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}>{value === "invoice" ? `${saleDocument(order.order_number).title} (A4)` : "Receipt"}</button>)}
           </div>
           {layout === "receipt" && <label className="flex items-center gap-1.5 text-xs text-muted">Paper<select aria-label="Print paper" value={paper} onChange={e => setPaper(e.target.value as ReceiptPaper)} className="rounded-md border border-border bg-card px-2 py-1.5 text-foreground"><option value="58mm">58 mm</option><option value="80mm">80 mm</option><option value="A4">A4</option></select></label>}
         </div>

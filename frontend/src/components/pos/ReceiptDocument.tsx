@@ -1,5 +1,6 @@
 /* Receipt logos are cloned into an isolated print document and must remain native images. */
 /* eslint-disable @next/next/no-img-element */
+import { receiptFor } from "@/lib/documentWords";
 import { resolveUploadUrl } from "@/lib/api/client";
 import { fmtDateTime } from "@/lib/date";
 import type { Tenant } from "@/lib/api";
@@ -22,7 +23,7 @@ export function ReceiptDocument({ sale, tenant, currencySymbol, fmt, vatEnabled 
       {tenant?.phone && <p>{tenant.phone}</p>}{tenant?.email && <p>{tenant.email}</p>}{tenant?.website && <p>{tenant.website}</p>}
       {tenant?.tin && <p className="font-semibold">TIN: {tenant.tin}</p>}
       {vatEnabled && tenant?.vat_number && <p className="font-semibold">VAT No: {tenant.vat_number}</p>}
-      <p className="mt-2 font-semibold">Receipt {sale.orderId}</p><p>{fmtDateTime(sale.timestamp)}</p>
+      <p className="mt-2 font-bold tracking-wide">RECEIPT</p><p className="font-semibold">{receiptFor(sale.orderId)}</p><p>{fmtDateTime(sale.timestamp)}</p>
       {sale.cashierName && <p>Cashier: {sale.cashierName}</p>}{sale.customerName && <p>Customer: {sale.customerName}</p>}{sale.customerTin && <p>Customer TIN: {sale.customerTin}</p>}
     </header>
     <table className="w-full table-fixed text-left"><thead><tr><th className="border-b border-border pb-2">Item / quantity × price</th><th className="w-[31%] border-b border-border pb-2 text-right">Amount</th></tr></thead><tbody>{sale.items.map(item => <tr key={item.id}><td className="py-2 pr-2 align-top"><p className="receipt-item-name break-words font-medium">{item.name}</p>{item.variant_attributes && <small className="receipt-meta block text-muted">{Object.entries(item.variant_attributes).map(([key,value]) => `${key}: ${value}`).join(" · ")}</small>}<small className="receipt-meta block text-muted">{item.qty} × {item.discount > 0 ? <s>{money(item.price)}</s> : money(item.price)}</small>{item.discount > 0 && <small className="receipt-meta block text-muted">Discount: {money(item.discount)}</small>}</td><td className="py-2 text-right align-top font-medium tabular-nums">{money(item.price * item.qty - item.discount)}</td></tr>)}</tbody></table>

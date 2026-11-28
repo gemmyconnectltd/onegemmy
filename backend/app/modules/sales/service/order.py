@@ -623,10 +623,16 @@ async def archive_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID, u
 
 
 async def get_order(db: AsyncSession, tenant_id: uuid.UUID, id: uuid.UUID) -> OrderRead:
+    from app.modules.sales.models.quotation import Quotation
+
     obj = await OrderRepository(db).get_by_id_for_tenant(tenant_id, id)
     if obj is None:
         raise NotFoundError("Order not found")
-    return _to_order_read(obj)
+    read = _to_order_read(obj)
+    # The quotation this sale was converted from, printed on the invoice as "Quotation ref.".
+    read.quotation_number = (await db.execute(select(Quotation.quote_number).where(
+        Quotation.tenant_id == tenant_id, Quotation.converted_order_id == obj.id))).scalar_one_or_none()
+    return read
 
 
 async def _resolve_order_branch_id(
@@ -807,7 +813,6 @@ async def create_order(
     if data.customer_id and await CustomerRepository(db).get_by_id_for_tenant(tenant_id, data.customer_id) is None:
         raise ValidationError("Choose a customer belonging to this business")
     salesperson_id = await resolve_salesperson(db, tenant_id, data.salesperson_id, user_id)
-    order_number = await repo.next_order_number(tenant_id)
 
     # Currency context, settled before any amount is stored: the order's own currency, the rate that
     # converts it to the tenant's base currency (frozen on the order), and the base currency itself.
@@ -912,6 +917,10 @@ async def create_order(
     if hold_for_approval and extra_payments:
         raise ValidationError("This credit sale needs approval and can't be held with several payments. Take it as one payment, or ask a manager to approve the credit.")
     completing = data.status == "Completed" and not hold_for_approval
+    # Completed now: an invoice number. Saved before completion (open, or held for approval): a sales order number,
+    # exchanged for an invoice number when it is completed (_finalize_completed_sale).
+    # A sale completed at the till (POS) is an order, ORD-…, on the same counter as invoices.
+    order_number = await repo.next_order_number(tenant_id, ("ORD" if data.pricing_channel == "pos" else "INV") if completing else "SO")
 
     resolved_branch_id = await _resolve_order_branch_id(db, tenant_id, active_branch_id, data.branch_id)
 
@@ -1135,6 +1144,9 @@ async def _finalize_completed_sale(
     """Everything that makes an open order a real sale — stock out, COGS, targets, the sale ledger entry, VAT
     and the checkout payment row. Shared by "status flipped to Completed" (update_order) and by approving a
     held credit sale, so there is exactly one place that posts a sale."""
+    if obj.order_number.startswith("SO-"):  # the sales order becomes an invoice; its SO- number is kept as the order ref.
+        obj.sales_order_number = obj.order_number
+        obj.order_number = await OrderRepository(db).next_order_number(tenant_id)
     await _refuse_hidden_products(db, tenant_id, obj.branch_id, obj.items)  # completing a held or open sale
     await ProductRepository(db).lock_stock(tenant_id,
         {item.product_id for item in obj.items if item.product_id},

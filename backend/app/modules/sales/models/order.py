@@ -69,6 +69,9 @@ class Order(UUIDPKMixin, TenantScopedMixin, TimestampMixin, DocumentCurrencyMixi
     approval_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Why the sale is waiting: "credit" (over the customer's limit) or "policy" (the business approves every sale first).
     held_reason: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # A sale saved before it is completed (open, or held for approval) is a sales order numbered SO-0001…; when it is completed
+    # it takes the next INV- number and keeps its SO- number here, printed on the invoice as "Order ref.".
+    sales_order_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sales_customers.id", ondelete="SET NULL"), nullable=True

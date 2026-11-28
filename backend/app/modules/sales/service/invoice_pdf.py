@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.brand_pdf import business_contact_lines
 from app.core.currency import format_money
-from app.core.filenames import document_filename
 from app.core.logging import get_logger
 from app.modules.sales.schemas.order import OrderRead
 from app.modules.sales.service.order import get_order
@@ -442,12 +441,16 @@ def _new_doc(buf, title: str, author: str) -> SimpleDocTemplate:
     return SimpleDocTemplate(buf, pagesize=A4, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=16 * mm, bottomMargin=18 * mm, title=title, author=author)
 
 
-def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_label: str = "Due") -> bytes:
+def _build_pdf(order: OrderRead, tenant: Tenant, label: str | None = None, due_label: str = "Due") -> bytes:
     """The A4 invoice in the business's own name and logo, printed in black. Only data the business and customer have is printed;
     an empty field leaves no line behind. It closes like the receipt: thanks in the business's name and "Powered by Pesaa"."""
     from app.core.brand_pdf import business_name
+    from app.modules.sales.service.document_words import sale_document
 
     accent = colors.HexColor(INVOICE_INK)  # black only: the invoice uses no brand or status colours
+    # The title follows the number: INV-/ORD- is an INVOICE, SO- (saved before it was completed) a SALES ORDER.
+    title, date_label = sale_document(order.order_number)
+    label = label or title
     base_currency = tenant.currency or "USD"
     # The invoice is shown in its OWN currency; an order from before multi-currency has none and is in
     # the tenant's base currency.
@@ -468,9 +471,13 @@ def _build_pdf(order: OrderRead, tenant: Tenant, label: str = "Invoice", due_lab
     # ── Bill to and the invoice facts
     meta: list[tuple[str, str]] = []
     if order.ordered_at:
-        meta.append(("Issue date", order.ordered_at.strftime("%d %b %Y")))
+        meta.append((date_label, order.ordered_at.strftime("%d %b %Y")))
     if order.due_date and order.outstanding_balance > 0:
         meta.append((f"{due_label} date", order.due_date.strftime("%d %b %Y")))
+    if getattr(order, "sales_order_number", None):
+        meta.append(("Order ref.", order.sales_order_number))
+    if getattr(order, "quotation_number", None):
+        meta.append(("Quotation ref.", order.quotation_number))
     meta.append(("Currency", currency))
     if order.payment_method:
         meta.append(("Payment", _method(order.payment_method)))
@@ -538,5 +545,6 @@ async def generate_order_invoice_pdf(db: AsyncSession, tenant_id: uuid.UUID, ord
     _register_fonts()
     # built in a worker thread: generating the file is CPU work and must not hold up other people's requests
     pdf_bytes = await asyncio.to_thread(_build_pdf, order, tenant)
-    filename = document_filename(tenant.name, "Invoice", "pdf", reference=order.order_number)
-    return filename, pdf_bytes
+    from app.modules.sales.service.document_words import file_name, sale_document
+
+    return file_name(sale_document(order.order_number)[0], order.order_number), pdf_bytes

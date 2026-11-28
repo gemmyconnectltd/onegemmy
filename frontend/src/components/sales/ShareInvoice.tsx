@@ -1,5 +1,6 @@
 "use client";
 
+import { receiptFor, saleDocument } from "@/lib/documentWords";
 import { useEffect, useRef, useState } from "react";
 import { Download, Loader2, Mail, MessageCircle, Share2, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,15 +14,16 @@ type Busy = "whatsapp" | "email" | "device" | "pdf" | null;
 
 /** One Share button for an invoice or receipt. It always shares the PDF document itself: attached to an email, handed to the phone's
  *  share menu (WhatsApp and others), or downloaded. There are no public links. */
-export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail, customerPhone, label, variant = "secondary", iconOnly = false, document = "invoice", paper = "80mm" }: {
+export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail, customerPhone, label, variant = "secondary", iconOnly = false, document = "invoice", paper = "80mm", className }: {
   orderId: string; orderNumber: string; customerName?: string | null; customerEmail?: string | null; customerPhone?: string | null;
-  label?: string; variant?: "secondary" | "outline" | "ghost"; iconOnly?: boolean; document?: "invoice" | "receipt"; paper?: "58mm" | "80mm" | "A4";
+  label?: string; variant?: "secondary" | "outline" | "ghost"; iconOnly?: boolean; document?: "invoice" | "receipt"; paper?: "58mm" | "80mm" | "A4"; className?: string;
 }) {
-  const noun = document === "receipt" ? "receipt" : "invoice";
+  // Named after the number: "Invoice INV-0017", "Sales order SO-0012", "Receipt for invoice INV-0017".
+  const docTitle = document === "receipt" ? receiptFor(orderNumber) : `${saleDocument(orderNumber).title} ${orderNumber}`;
+  const noun = document === "receipt" ? "receipt" : saleDocument(orderNumber).title.toLowerCase();
   // The document that is selected is the one shared: a receipt at its chosen paper size, otherwise the invoice.
   const receipt = document === "receipt";
   const documentFile = () => receipt ? salesApi.receiptFile(orderId, orderNumber, paper) : salesApi.invoiceFile(orderId, orderNumber);
-  const Noun = `${noun[0].toUpperCase()}${noun.slice(1)}`;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState("");
@@ -76,22 +78,22 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
       throw cause;
     }
   }
-  const deviceShare = () => run("device", async () => { await shareFile(`${Noun} ${orderNumber}`, `${Noun} ${orderNumber}`); });
+  const deviceShare = () => run("device", async () => { await shareFile(docTitle, docTitle); });
   const whatsapp = () => run("whatsapp", async () => {
     const ready = prepared ?? await prepare();
-    if (ready.supported) { if (await shareFile(`${Noun} ${orderNumber}`)) setNote("Choose WhatsApp in the menu that opened."); return; }
+    if (ready.supported) { if (await shareFile(docTitle)) setNote("Choose WhatsApp in the menu that opened."); return; }
     const { blob, filename } = ready;
     // No file sharing here (usually a computer): download the PDF and open WhatsApp with a short message to attach it to.
     saveFile(blob, filename);
     const digits = (customerPhone ?? "").replace(/\D/g, "");
-    const text = `Hello${customerName ? ` ${customerName}` : ""}, please find your ${noun} ${orderNumber} attached.`;
+    const text = `Hello${customerName ? ` ${customerName}` : ""}, please find your ${docTitle[0].toLowerCase()}${docTitle.slice(1)} attached.`;
     window.open(`https://wa.me/${digits.length >= 11 ? digits : ""}?text=${encodeURIComponent(text)}`, "_blank");
     setNote("The PDF was downloaded. Attach it in the WhatsApp chat that opened.");
   });
   const pdf = () => run("pdf", () => receipt ? salesApi.downloadReceiptPdf(orderId, orderNumber, paper) : salesApi.downloadInvoicePdf(orderId, orderNumber));
   const sendEmail = () => run("email", async () => {
     const result = await salesApi.emailInvoice(orderId, (to || customerEmail || "").trim() || null, message.trim() || null, receipt ? "receipt" : "invoice", paper);
-    setNote(`${Noun} emailed to ${result.data.sent_to} as a PDF attachment.`); setEmailing(false); setMessage("");
+    setNote(`${docTitle} emailed to ${result.data.sent_to} as a PDF attachment.`); setEmailing(false); setMessage("");
   });
 
   const row = "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium hover:bg-surface disabled:opacity-50";
@@ -99,7 +101,7 @@ export function ShareInvoice({ orderId, orderNumber, customerName, customerEmail
   return <>
     {iconOnly
       ? <button type="button" onClick={() => setOpen(true)} aria-label={`Share ${noun} ${orderNumber}`} title="Share" className="flex h-7 w-7 items-center justify-center rounded-md bg-surface text-muted transition-colors hover:bg-accent/10 hover:text-accent"><Share2 size={13} /></button>
-      : <Button variant={variant} onClick={() => setOpen(true)}><Share2 size={15} />{label ?? "Share"}</Button>}
+      : <Button variant={variant} className={className} onClick={() => setOpen(true)}><Share2 size={15} />{label ?? "Share"}</Button>}
     {open && <Drawer open onClose={close} side="bottom" title={`Share ${noun}`} description={`${orderNumber} · shared as a PDF document`}>
       <div className="space-y-1 p-3">
         <button type="button" className={row} disabled={!!busy} onClick={() => void whatsapp()}>{busy === "whatsapp" ? <Loader2 size={16} className="animate-spin" /> : <MessageCircle size={16} className="text-emerald-600" />}WhatsApp<span className="ml-auto text-xs font-normal text-muted">Send the PDF</span></button>

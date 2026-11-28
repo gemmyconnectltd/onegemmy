@@ -123,6 +123,9 @@ class OrderRead(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
     order_number: str
+    # The SO- number it had while it was a sales order (before it was completed), and the quotation it was converted from.
+    sales_order_number: str | None = None
+    quotation_number: str | None = None
     customer_id: uuid.UUID | None
     deal_id: uuid.UUID | None
     branch_id: uuid.UUID | None

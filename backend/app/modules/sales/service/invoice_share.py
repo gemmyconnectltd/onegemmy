@@ -22,10 +22,14 @@ async def email_invoice(db: AsyncSession, tenant_id: uuid.UUID, order_id: uuid.U
         filename, pdf = await generate_order_receipt_pdf(db, tenant_id, order_id, paper)
     else:
         filename, pdf = await generate_order_invoice_pdf(db, tenant_id, order_id)
+    from app.modules.sales.service.document_words import receipt_for, sale_document
+
+    # Named like the document itself: "Invoice INV-0017", "Sales order SO-0012", "Receipt for invoice INV-0017".
+    what = receipt_for(order.order_number) if kind == "receipt" else f"{sale_document(order.order_number)[0]} {order.order_number}"
     note = f"<p>{html.escape(message)}</p>" if message else ""
     greeting = f"Dear {html.escape(order.customer.name)}," if order.customer else "Hello,"
-    body = f"<p>{greeting}</p><p>Please find your {kind} {html.escape(order.order_number)} from {html.escape(tenant.name)} attached.</p>{note}<p>Thank you.</p>"
-    sent = await send_email_message(recipient, f"{kind.title()} {order.order_number} from {tenant.name}", body, attachments=[(filename, "application/pdf", pdf)])
+    body = f"<p>{greeting}</p><p>Please find your {html.escape(what[0].lower() + what[1:])} from {html.escape(tenant.name)} attached.</p>{note}<p>Thank you.</p>"
+    sent = await send_email_message(recipient, f"{what} from {tenant.name}", body, attachments=[(filename, "application/pdf", pdf)])
     if not sent:
         raise ValidationError("The email could not be sent. Check the address and try again, or share a link instead.")
     await record_audit(db, tenant_id=tenant_id, actor_user_id=user.id, actor_name=user.full_name, action="invoice.email", entity_type="order",

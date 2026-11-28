@@ -1,3 +1,4 @@
+import { documentFileName, saleDocument } from "@/lib/documentWords";
 import { request, qs, downloadFile, fetchFile } from "./client";
 import type { PaginatedResponse, SingleResponse } from "./types";
 import { periodParams, type PeriodRange } from "@/lib/period";
@@ -133,6 +134,9 @@ export interface ApiOrder {
   original_subtotal?: number;
   total_discount?: number;
   id: string;
+  /** The SO- number it had as a sales order before it was completed ("Order ref."), and the quotation it came from. */
+  sales_order_number?: string | null;
+  quotation_number?: string | null;
   order_number: string;
   customer_id: string | null;
   deal_id: string | null;
@@ -303,16 +307,16 @@ export const salesApi = {
   deleteOrder: (id: string) =>
     request<SingleResponse<null>>(`${BASE}/orders/${id}`, { method: "DELETE" }),
   invoiceFile: (id: string, orderNumber: string) =>
-    fetchFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
+    fetchFile(`${BASE}/orders/${id}/invoice.pdf`, documentFileName(saleDocument(orderNumber).title, orderNumber)),
   emailInvoice: (id: string, to: string | null, message: string | null, kind: "invoice" | "receipt" = "invoice", paper: "58mm" | "80mm" | "A4" = "80mm") =>
     request<SingleResponse<{ sent_to: string }>>(`${BASE}/orders/${id}/invoice/email`, { method: "POST", body: JSON.stringify({ kind, paper, to: to || null, message: message || null }) }),
   downloadInvoicePdf: (id: string, orderNumber: string) =>
-    downloadFile(`${BASE}/orders/${id}/invoice.pdf`, `invoice-${orderNumber}.pdf`),
+    downloadFile(`${BASE}/orders/${id}/invoice.pdf`, documentFileName(saleDocument(orderNumber).title, orderNumber)),
   /** The receipt at the chosen paper (80 mm / 58 mm till roll or A4): black text only, with the business's branding. */
   receiptFile: (id: string, orderNumber: string, paper: "58mm" | "80mm" | "A4" = "80mm") =>
-    fetchFile(`${BASE}/orders/${id}/receipt.pdf?paper=${paper}`, `receipt-${orderNumber}.pdf`),
+    fetchFile(`${BASE}/orders/${id}/receipt.pdf?paper=${paper}`, documentFileName("Receipt", orderNumber)),
   downloadReceiptPdf: (id: string, orderNumber: string, paper: "58mm" | "80mm" | "A4" = "80mm") =>
-    downloadFile(`${BASE}/orders/${id}/receipt.pdf?paper=${paper}`, `receipt-${orderNumber}.pdf`),
+    downloadFile(`${BASE}/orders/${id}/receipt.pdf?paper=${paper}`, documentFileName("Receipt", orderNumber)),
 
   // Salespeople, quotations
   team: () => request<SingleResponse<TeamMember[]>>(`${BASE}/team`),

@@ -134,18 +134,21 @@ class OrderRepository(BaseRepository[Order]):
         )
         return result.scalar_one_or_none()
 
-    async def next_order_number(self, tenant_id: uuid.UUID) -> str:
-        # A sale's number is its invoice number: INV-0001, INV-0002… (quotations have their own QUO- numbers). Older sales
-        # keep the ORD- number they were issued with; both prefixes are 4 characters, so the counter carries on from either.
+    async def next_order_number(self, tenant_id: uuid.UUID, series: str = "INV") -> str:
+        # A completed sale's number is its invoice number: INV-0001, INV-0002… Older sales keep the ORD- number they were
+        # issued with; both prefixes are 4 characters, so the invoice counter carries on from either. A sale saved before it
+        # is completed is a sales order with its own series, SO-0001… (quotations have their own QUO- numbers).
         # MAX of the existing numeric suffix, not COUNT(*) — COUNT undercounts
         # (and collides with a still-existing higher number) as soon as any
         # order has ever been deleted for this tenant.
+        # INV- and ORD- (POS sales) share one counter, so a number is never used twice across them.
+        pattern, start = (r"^SO-[0-9]+$", 4) if series == "SO" else (r"^(INV|ORD)-[0-9]+$", 5)
         result = await self.db.execute(
-            select(func.max(cast(func.substring(Order.order_number, 5), Integer)))
-            .where(Order.tenant_id == tenant_id)
+            select(func.max(cast(func.substring(Order.order_number, start), Integer)))
+            .where(Order.tenant_id == tenant_id, Order.order_number.op("~")(pattern))
         )
         current_max = result.scalar_one() or 0
-        return f"INV-{str(current_max + 1).zfill(4)}"
+        return f"{series if series in ('SO', 'ORD') else 'INV'}-{str(current_max + 1).zfill(4)}"
 
     async def lock_financial_writes(self, tenant_id: uuid.UUID) -> None:
         # One transaction lock orders idempotency, numbering, policy checks and decisions.
