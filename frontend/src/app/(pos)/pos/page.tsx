@@ -539,6 +539,8 @@ export default function POSPage() {
                 hasCustomer={!!customerId}
                 customerName={customerName}
                 customerId={customerId}
+                customers={customers}
+                onCustomerChange={(id, name) => { setCustomerId(id || null); setCustomerName(name); }}
                 dueDate={dueDate}
                 currencySymbol={currencySymbol}
                 fmt={fmt}

@@ -2,11 +2,13 @@
 
 import { VAT_LABELS } from "@/lib/api/sales";
 import { useRef, useState } from "react";
-import { AlertCircle, Banknote, Calendar, CreditCard, Plus, Smartphone, SplitSquareHorizontal, Trash2, UserRound } from "lucide-react";
+import { AlertCircle, Banknote, Calendar, CreditCard, Plus, Smartphone, SplitSquareHorizontal, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import type { PaymentMethod } from "./types";
+import type { ApiCustomer } from "@/lib/api";
+import { DebtCustomer } from "./DebtCustomer";
 import { useCustomerDebtSnapshot } from "@/lib/api/hooks";
 import { useCan } from "@/lib/can";
 import { useDisabledPayMethods } from "@/lib/useFeatureActions";
@@ -48,6 +50,9 @@ interface PaymentPanelProps {
   hasCustomer: boolean;
   customerName?: string;
   customerId?: string | null;
+  /** For picking (or adding) who owes the balance of a partial or credit sale, right in the checkout. */
+  customers?: ApiCustomer[];
+  onCustomerChange?: (id: string, name: string) => void;
   dueDate: string;
   vatEnabled: boolean;
   vatRate?: number;
@@ -76,7 +81,7 @@ interface PaymentPanelProps {
 }
 
 export function PaymentPanel({
-  payment, cashGiven, subtotal, discount, discountBreakdown, tax, total, cartCount, hasCustomer, customerName, customerId, dueDate, vatEnabled, vatRate, vatMode = "inclusive", vatBreakdown, currencySymbol, fmt,
+  payment, cashGiven, subtotal, discount, discountBreakdown, tax, total, cartCount, hasCustomer, customerName, customerId, customers = [], onCustomerChange, dueDate, vatEnabled, vatRate, vatMode = "inclusive", vatBreakdown, currencySymbol, fmt,
   saving, pricingPending, checkoutBlocked, blockedReason, onRetryPricing, approvalPending, saleError, itemsCashReceivedSum, notes, onNotesChange, onPaymentChange, onCashChange, onDueDateChange, onCharge,
 }: PaymentPanelProps) {
   const can = useCan();
@@ -88,7 +93,8 @@ export function PaymentPanel({
   const tab: Tab = arr === "credit" ? "credit" : method;
   const [reference, setReference] = useState("");
   const [splits, setSplits] = useState<SplitEntry[]>([]);
-  const [dialog, setDialog] = useState<"split" | "debt" | null>(null);
+  const [dialog, setDialog] = useState<"split" | null>(null);
+  const amountInput = useRef<HTMLInputElement>(null);
   const nextId = useRef(1);
   // A finished or cleared sale starts the next one clean (adjusted during render, so there is no stale flash).
   const [seenCount, setSeenCount] = useState(cartCount);
@@ -101,7 +107,8 @@ export function PaymentPanel({
   const entered = Number(cashGiven || 0);
   // ── what is being paid now ──
   const splitPayments = splits.map((s) => ({ method: s.method, amount: Math.max(0, Number(s.amount || 0)), reference: s.reference.trim() })).filter((s) => s.amount > 0);
-  const paid = tab === "credit" ? 0 : tab === "split" ? splitPayments.reduce((n, s) => n + s.amount, 0) : cashGiven === "" ? total : Math.min(Math.max(0, entered), total);
+  // An empty amount means "the full total" for a normal sale, and "nothing typed yet" for a partial payment.
+  const paid = tab === "credit" ? 0 : tab === "split" ? splitPayments.reduce((n, s) => n + s.amount, 0) : cashGiven === "" ? (arr === "partial" ? 0 : total) : Math.min(Math.max(0, entered), total);
   const change = tab === "cash" && cashGiven !== "" ? Math.max(0, entered - total) : 0;
   const remaining = Math.max(0, Math.round((total - paid) * 100) / 100);
   const over = tab === "split" && paid > total + 0.005;
@@ -115,12 +122,15 @@ export function PaymentPanel({
   const missingDebtFields = debt && (!hasCustomer || !dueDate || !canCredit);
   const why = cartCount === 0 || saving ? null
     : checkoutBlocked && !pricingPending ? blockedReason ?? "Please wait while the price is confirmed."
+    : debtAccepted && !canCredit ? "You don't have permission to sell on credit. Ask the owner, or take full payment."
+    : debtAccepted && !hasCustomer ? "Choose who will owe the balance."
+    : arr === "partial" && paid <= 0 ? "Enter how much they pay now."
+    : arr === "partial" && !debt ? "That covers the whole sale. Choose Paid in full, or lower the amount."
     : over ? "The payments add up to more than the total."
     : overNonCash ? "Mobile money or card can't be more than the total."
     : refMissing ? "Enter the reference for the card or bank payment."
-    : missingDebtFields ? (!canCredit ? "You don't have permission to sell on credit. Ask the owner, or take full payment." : !hasCustomer ? "Choose the customer who will owe the balance." : "Choose when the balance is due.")
+    : missingDebtFields ? "Choose when the balance is due."
     : debt && !debtAccepted ? "The amount is less than the total. Choose Partial payment or On credit, or take the full amount."
-    : arr === "partial" && (!debt || paid <= 0) ? "Enter an amount between zero and the total for a partial payment."
     : tab === "split" && splitPayments.length === 0 && !debt ? "Add the split payments."
     : null;
   const blocked = cartCount === 0 || saving || checkoutBlocked || pricingPending || over || overNonCash || refMissing || (debt && !debtAccepted) || (arr === "partial" && (!debt || paid <= 0)) || missingDebtFields || (tab === "split" && splitPayments.length === 0 && !debt) || (tab === "cash" && cashGiven !== "" && entered < 0);
@@ -141,26 +151,27 @@ export function PaymentPanel({
   };
   const startSplit = () => setSplits((all) => (all.length ? all : [{ id: nextId.current++, method: "cash", amount: "", reference: "" }, { id: nextId.current++, method: "mobile", amount: "", reference: "" }]));
   const defaultDue = () => { if (!dueDate) onDueDateChange(DUE_CHOICES[1].date()); };
+  // Partial and credit open their details right here (who owes, how much now, when it's due): no dialog to fill and close.
   const chooseArr = (a: "full" | "partial" | "credit") => {
     setArr(a); setReference(""); setDialog(null);
     if (a === "full") { onCashChange(""); return; }
     defaultDue();
-    if (a === "credit") { onCashChange("0"); setDialog("debt"); return; }
+    if (a === "credit") { onCashChange("0"); return; }
     if (method === "split") { startSplit(); setDialog("split"); return; }
-    onCashChange(String(Math.floor(total / 2)));
-    setDialog("debt");
+    onCashChange("");
+    if (hasCustomer) setTimeout(() => amountInput.current?.focus(), 0);
   };
   const payOff = useDisabledPayMethods();
   const chooseMethod = (m: "cash" | "mobile" | "card" | "split") => {
     setMethod(m); setReference(""); setDialog(null);
     if (m === "split") { startSplit(); setDialog("split"); onCashChange(""); return; }
     onPaymentChange(m);
-    if (arr === "full") onCashChange("");
-    else if (cashGiven === "" || Number(cashGiven) >= total) onCashChange(String(Math.floor(total / 2)));
+    if (arr === "full" || Number(cashGiven) >= total) onCashChange("");
   };
   const setSplit = (id: number, patch: Partial<SplitEntry>) => setSplits((all) => all.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  const label = arr === "credit" ? "Confirm Credit Sale" : arr === "partial" ? "Complete Partial Sale" : "Complete Sale";
+  const label = arr === "credit" ? "Sell on credit" : arr === "partial" ? "Complete · pay now" : "Complete Sale";
   const amountShown = tab === "credit" ? remaining : paid;
+  const money = (v: number) => `${currencySymbol} ${fmt(v)}`;
 
   const submit = () => {
     if (blocked) return;
@@ -169,9 +180,7 @@ export function PaymentPanel({
     onCharge({ kind: tab === "credit" ? "credit" : tab === "split" ? "split" : "single", payments, paid, outstanding: remaining, dueDate: debt ? dueDate : null, change });
   };
 
-  const debtSummary = debt && !over;
   const dueLabel = dueDate ? new Date(`${dueDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
-  const debtReady = debtAccepted && !!dueDate && hasCustomer && canCredit;
 
   const splitEditor = (
     <div className="space-y-2">
@@ -201,29 +210,23 @@ export function PaymentPanel({
     </div>
   );
 
-  const debtEditor = (
-    <div className="space-y-3">
-      <dl className="space-y-1.5 rounded-lg bg-surface p-3 text-[13px]">
-        <div className="flex justify-between"><dt className="text-muted">Sale total</dt><dd className="font-mono tabular-nums">{currencySymbol} {fmt(total)}</dd></div>
-        <div className="flex justify-between"><dt className="text-muted">Paid now</dt><dd className="font-mono tabular-nums">{currencySymbol} {fmt(paid)}</dd></div>
-        <div className="flex justify-between border-t border-border pt-1.5 font-bold text-amber-700 dark:text-amber-300"><dt>{tab === "credit" ? "On credit" : "Still unpaid"}</dt><dd className="font-mono tabular-nums">{currencySymbol} {fmt(remaining)}</dd></div>
-      </dl>
-      <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[12.5px] font-semibold ${hasCustomer ? "bg-card text-foreground ring-1 ring-border" : "bg-red-500/10 text-red-700 dark:text-red-400"}`}>
-        <UserRound size={14} className="shrink-0" aria-hidden />
-        {hasCustomer ? <span className="min-w-0 truncate">Owed by {customerName || "the selected customer"}</span> : <span>Choose a customer first: close this and tap Customer to pick or add one.</span>}
-      </div>
-      {hasCustomer && (owedNow !== null || dailyLimit !== null) && (
-        <p className="text-[12px] leading-snug text-muted">{owedNow !== null && <>Already owes <strong className="text-foreground">{currencySymbol} {fmt(owedNow)}</strong>. After this sale: <strong className="text-foreground">{currencySymbol} {fmt(owedNow + remaining)}</strong>.</>}{dailyLimit !== null && <> Daily credit limit {currencySymbol} {fmt(dailyLimit)}.</>}</p>
-      )}
+  // Due date, what they'll owe and an optional note: shown inline under the amount for a partial or credit sale.
+  const debtTerms = (
+    <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-2.5">
       <div>
-        <label htmlFor="pos-due-date" className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-foreground"><Calendar size={12} className="text-accent" /> Pay by{dueLabel ? <span className="font-semibold normal-case tracking-normal text-muted">· {dueLabel}</span> : <span className="font-semibold normal-case tracking-normal text-red-600">· choose a date</span>}</label>
+        <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-foreground"><Calendar size={12} className="text-accent" aria-hidden /> Pay by{dueLabel ? <span className="font-semibold normal-case tracking-normal text-muted">· {dueLabel}</span> : <span className="font-semibold normal-case tracking-normal text-red-600">· choose a date</span>}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {DUE_CHOICES.map((c) => { const d = c.date(); return <button key={c.label} type="button" aria-pressed={dueDate === d} onClick={() => onDueDateChange(d)} className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${dueDate === d ? "border-accent bg-accent/10 text-accent" : "border-border bg-card text-muted hover:text-foreground"}`}>{c.label}</button>; })}
-          <input id="pos-due-date" type="date" aria-label="Pay by date" min={isoToday()} value={dueDate} onChange={(e) => onDueDateChange(e.target.value)} className={`min-w-[8.5rem] flex-1 rounded-lg border-2 bg-card px-2.5 py-1 text-[12px] font-medium outline-none ${!dueDate ? "border-red-300 focus:border-red-400" : "border-border focus:border-accent"}`} />
+          <input type="date" aria-label="Pay by date" min={isoToday()} value={dueDate} onChange={(e) => onDueDateChange(e.target.value)} className={`min-w-[8.5rem] flex-1 rounded-lg border bg-card px-2 py-1 text-[12px] outline-none ${!dueDate ? "border-red-300" : "border-border focus:border-accent"}`} />
         </div>
       </div>
-      {onNotesChange && <label className="block text-[11px] font-bold uppercase tracking-wide text-foreground">Note or reference (optional)<input value={notes ?? ""} onChange={(e) => onNotesChange(e.target.value)} placeholder="e.g. agreed with the owner" className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13px] font-normal normal-case tracking-normal outline-none focus:border-accent" /></label>}
-      {!canCredit && <p role="alert" className="text-[12px] font-semibold text-red-700 dark:text-red-400">You don&apos;t have permission to sell on credit. Take the full payment or ask a manager.</p>}
+      <dl className="space-y-0.5 border-t border-amber-500/30 pt-2 text-[12.5px]">
+        <div className="flex justify-between"><dt className="text-muted">Paid now</dt><dd className="font-mono tabular-nums">{money(paid)}</dd></div>
+        <div className="flex justify-between font-bold text-amber-700 dark:text-amber-300"><dt>{customerName ? `${customerName} owes` : "Left to pay"}</dt><dd className="font-mono tabular-nums">{money(remaining)}</dd></div>
+        {hasCustomer && owedNow !== null && owedNow > 0 && <div className="flex justify-between text-[11.5px] text-muted"><dt>Total debt after this sale</dt><dd className="font-mono tabular-nums">{money(owedNow + remaining)}</dd></div>}
+        {hasCustomer && dailyLimit !== null && <p className="text-[11px] text-muted">Daily credit limit {money(dailyLimit)}. Above it, a manager approves the sale.</p>}
+      </dl>
+      {onNotesChange && <input value={notes ?? ""} onChange={(e) => onNotesChange(e.target.value)} aria-label="Note for this debt (optional)" placeholder="Note (optional), e.g. agreed with the owner" className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12px] outline-none focus:border-accent" />}
     </div>
   );
 
@@ -260,6 +263,15 @@ export function PaymentPanel({
       </div>
       {!canCredit && <p className="-mt-1 text-[11px] text-muted">Partial payment and credit sales are turned off for your account. Ask the owner to turn them on.</p>}
 
+      {/* Partial or credit: first who owes the balance — picked or added right here */}
+      {debtAccepted && canCredit && cartCount > 0 && (
+        onCustomerChange
+          ? <div><p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-foreground">Who owes the balance</p>
+              <DebtCustomer customers={customers} customerId={customerId} customerName={customerName} owes={owedNow} money={money}
+                onChange={(id, name) => { onCustomerChange(id, name); if (id && arr === "partial") setTimeout(() => amountInput.current?.focus(), 0); }} /></div>
+          : !hasCustomer && <p role="alert" className="rounded-lg bg-red-500/10 px-2.5 py-2 text-[12px] font-semibold text-red-700 dark:text-red-400">Choose the customer who will owe the balance (Customer, above the cart).</p>
+      )}
+
       {/* What is it paid with? (the method). Not needed when the whole sale is on credit. */}
       {arr !== "credit" && (
         <div role="group" aria-label="Payment method" className="grid grid-cols-4 gap-1">
@@ -278,18 +290,18 @@ export function PaymentPanel({
           {single && (
             <>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <label htmlFor="pos-paid-now" className="sr-only">{tab === "cash" ? "Amount received" : "Amount paid"}</label>
+                <label htmlFor="pos-paid-now" className={arr === "partial" ? "w-full text-[11px] font-bold uppercase tracking-wide text-foreground" : "sr-only"}>{arr === "partial" ? "Paid now" : tab === "cash" ? "Amount received" : "Amount paid"}</label>
                 <div className="relative min-w-[10rem] flex-1">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-mono text-muted">{currencySymbol}</span>
-                  <input id="pos-paid-now" type="number" inputMode="decimal" min={0} max={total} value={cashGiven} onChange={(e) => onCashChange(limitSingle(e.target.value))} placeholder={`${tab === "cash" ? "Received" : "Paid"} ${fmt(total)}`}
+                  <input ref={amountInput} id="pos-paid-now" type="number" inputMode="decimal" min={0} max={total} value={cashGiven} onChange={(e) => onCashChange(limitSingle(e.target.value))} placeholder={arr === "partial" ? "How much do they pay now?" : `${tab === "cash" ? "Received" : "Paid"} ${fmt(total)}`}
                     className={`w-full rounded-xl border-2 bg-card py-1.5 lg:py-2.5 pl-10 pr-3 font-mono text-base font-bold tabular-nums outline-none transition-colors ${debt ? "border-amber-400 focus:border-amber-500" : "border-border focus:border-accent"}`} />
                 </div>
                 
-                {tab === "cash" && cashGiven === "" && <span className="shrink-0 text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">Paid in full</span>}
+                {tab === "cash" && cashGiven === "" && arr === "full" && <span className="shrink-0 text-[12px] font-semibold text-emerald-700 dark:text-emerald-400">Paid in full</span>}
               </div>
-              {tab === "cash" && (
+              {(tab === "cash" || arr === "partial") && (
                 <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto">
-                  {[...(arr === "partial" ? [Math.floor(total / 2)] : []), total].filter((amt, i, all) => amt > 0 && all.indexOf(amt) === i).map((amt) => <button key={amt} type="button" onClick={() => onCashChange(String(amt))} className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground/70 transition-colors hover:border-accent/50 hover:text-accent">{amt === total ? "Full " : "Half "}{currencySymbol} {fmt(amt)}</button>)}
+                  {(arr === "partial" ? [25, 50, 75].map((pct) => [`${pct}%`, Math.floor(total * pct / 100)] as const) : tab === "cash" ? [["Full", total] as const] : []).filter(([, amt]) => amt > 0).map(([name, amt]) => <button key={name} type="button" aria-pressed={paid === amt && cashGiven !== ""} onClick={() => onCashChange(String(amt))} className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors hover:border-accent/50 hover:text-accent ${paid === amt && cashGiven !== "" ? "border-accent bg-accent/10 text-accent" : "border-border bg-card text-foreground/70"}`}>{name} · {currencySymbol} {fmt(amt)}</button>)}
                   {!!itemsCashReceivedSum && itemsCashReceivedSum > 0 && String(itemsCashReceivedSum) !== cashGiven && <button type="button" onClick={() => onCashChange(String(itemsCashReceivedSum))} className="shrink-0 whitespace-nowrap px-1 text-[10.5px] font-semibold text-accent hover:underline">Itemized {currencySymbol} {fmt(itemsCashReceivedSum)}</button>}
                 </div>
               )}
@@ -308,7 +320,7 @@ export function PaymentPanel({
             <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2 text-[12px] font-semibold text-red-700 dark:text-red-400">{currencySymbol} {fmt(remaining)} is still unpaid. Take the full amount, or choose <strong>Partial payment</strong> to keep it as a debt.</p>
           )}
           {arr === "partial" && !debt && paid > 0 && (
-            <p role="status" className="rounded-lg bg-surface px-2.5 py-2 text-[12px] font-medium text-muted">This payment covers the whole sale. Choose <strong>Paid in full</strong>, or lower the amount paid now.</p>
+            <p role="status" className="rounded-lg bg-surface px-2.5 py-2 text-[12px] font-medium text-muted">That covers the whole sale. Choose <strong>Paid in full</strong>, or lower the amount paid now.</p>
           )}
 
           {/* Split: summary here, the entries in a focused dialog */}
@@ -319,13 +331,8 @@ export function PaymentPanel({
             </button>
           )}
 
-          {/* Credit / part payment: summary here, the terms in a focused dialog */}
-          {(debtSummary || tab === "credit") && remaining > 0 && (
-            <button type="button" onClick={() => setDialog("debt")} className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-[12.5px] font-semibold focus-visible:outline-2 focus-visible:outline-accent ${debtReady ? "border-amber-500/50 bg-amber-500/10" : "border-red-300 bg-red-500/5"}`}>
-              <span className="min-w-0 truncate">{debtReady ? <>Owes <span className="font-mono tabular-nums">{currencySymbol} {fmt(remaining)}</span> · by {dueLabel}</> : <>Unpaid <span className="font-mono tabular-nums">{currencySymbol} {fmt(remaining)}</span> · set credit terms</>}</span>
-              <span className="shrink-0 text-accent">{debtReady ? "Edit" : "Set"}</span>
-            </button>
-          )}
+          {/* Partial / credit: when it's due and what they'll owe, right here */}
+          {debtAccepted && canCredit && remaining > 0 && !over && debtTerms}
         </div>
       )}
 
@@ -347,9 +354,6 @@ export function PaymentPanel({
 
       <Drawer open={dialog === "split"} onClose={() => setDialog(null)} side="center" size="md" title="Split payment">
         <div className="space-y-3 p-4">{splitEditor}<Button className="w-full" onClick={() => setDialog(null)}>Done</Button></div>
-      </Drawer>
-      <Drawer open={dialog === "debt"} onClose={() => setDialog(null)} side="center" size="md" title={arr === "credit" ? "Credit terms" : "Partial payment details"}>
-        <div className="space-y-3 p-4">{debtEditor}<Button className="w-full" disabled={!debtReady} onClick={() => setDialog(null)}>{debtReady ? "Done" : "Fill in the details above"}</Button></div>
       </Drawer>
     </div>
   );
